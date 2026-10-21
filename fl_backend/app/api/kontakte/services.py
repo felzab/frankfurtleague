@@ -11,10 +11,10 @@ from app.shared.folding import person_name_key, sign_in_identifier, trimmed_patt
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
-    """A pre-filter; the sign-in fold decides.
+    """A case-blind pre-filter, the sign-in fold deciding.
 
-    A `strength: 2` collation with an index per slot is the indexed answer, refused for what it
-    would index: rows a league counts in hundreds, and log images nothing indexes inside.
+    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant pasted through the
+    Playground keeps its typed spelling; every other record stores the fold.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -22,7 +22,7 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     folded = sign_in_identifier(identifier)
     local, at, _ = folded.rpartition("@")
     # No `@`, so no local part: the fold equates the identifier whole, and a start alone, anchoring an empty
-    # prefix, reads every stored string. The account sweep hands on identifiers no address rule has held.
+    # prefix, reads every stored string.
     if not at:
         return {"$regex": trimmed_pattern(literal_pattern(folded)), "$options": "i"}
 
@@ -31,14 +31,18 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     return {"$regex": trimmed_prefix_pattern(literal_pattern(local + at)), "$options": "i"}
 
 
-def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
+def rows_seating(*identifiers: str) -> Mapping[str, Any]:
     """Every reader of a person's seats selects through this one stage, season rows and applications alike.
 
     Where two selections part, an erasure's reveal names people its clearing leaves standing, and a
     sign-in counts rows the account page never serves.
     """
 
-    return {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN]}
+    # One clause per slot, each its own index's (`app/core/constraints.py :: SUPPORT_INDEXES`): an `$or` with an
+    # unindexed clause scans the collection. Folded here, the form every seat stores.
+    folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
+
+    return {"$or": [{f"kontakte.{slot}.email": {"$in": folded}} for slot in KONTAKT_ROLLEN]}
 
 
 # The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
@@ -58,8 +62,12 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
     ]
 
 
+# The collections whose log images seat a contact person.
+SEAT_IMAGE_COLLECTIONS: tuple[Collection, ...] = (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+
+
 def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
-    """Log rows whose images may seat this person; `seat_image_edits` decides.
+    """Log rows whose images seat this person; `seat_image_edits` decides which slot.
 
     By what an image holds, never by row id: a swap orphans an image carrying the address out, and
     the log keeps it its whole retention (`app/core/constraints.py :: TTL_INDEXES`).
@@ -68,8 +76,8 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     return {
         # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
         # match here, and nothing indexes inside `before`.
-        "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
-        "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
+        "collection": {"$in": [str(collection) for collection in SEAT_IMAGE_COLLECTIONS]},
+        "$or": [{f"before.kontakte.{slot}.email": sign_in_identifier(identifier)} for slot in KONTAKT_ROLLEN],
     }
 
 
@@ -91,13 +99,13 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
 
-def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
-    """The rows the pre-filter reached that the fold confirms, so no row counts, clears or redacts on the pattern alone.
+def seat_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, staying: Set[tuple[Any, str]]) -> dict[str, str]:
+    """Each seat of one log image at the replaced address carried to the new one, but one `staying` names.
 
-    The pattern reads every mailbox sharing the local part, and its `i` ignores case beyond ASCII (ſ for s).
+    A seat still standing there is nobody's proven own, and that address's erasure reaches its images.
     """
 
-    return [row for row in rows if find_matching_slots(row, identifier)]
+    return {f"kontakte.{slot}.email": neue for slot in find_matching_slots(image, alt) if (image.get("_id"), slot) not in staying}
 
 
 def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:

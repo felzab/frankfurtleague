@@ -251,7 +251,7 @@ def check_stamp(job: str, row: Row) -> list[str]:
         problems.append(f"counts {runs}, and a stamp counts at least {MIN_STAMP_RUNS} runs")
     elif runs < MIN_FLOOR_SPANS and (row.seconds is not None or row.floor is not None):
         problems.append(f"counts {runs}, and a reference and its floor are cut from at least {MIN_FLOOR_SPANS} runs")
-    if row.stamp_pull_request is not None and job in TREE_KEYED:
+    if row.stamp_pull_request is not None and tree_keyed(job):
         problems.append("names a pull-request run, and this job's cache is keyed on the tree, so only main's first attempts time it")
     return [f"`{job}`'s new stamp {row.measured} {problem}" for problem in problems]
 
@@ -309,6 +309,41 @@ def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
     ]
 
 
+def split_from(base: dict[str, Row] | None, head: dict[str, Row], job: str) -> Row | None:
+    """The base's row `X` that a new `X (i)` carrying `X`'s stamp replaces.
+
+    An instance runs part of its parent's tests over the same setup, so each span the parent's
+    stamp counts bounds it from above.
+    """
+    instance = INSTANCE.match(job)
+    if base is None or job in base or instance is None:
+        return None
+    parent = base.get(instance.group(1))
+    row = head[job]
+    if parent is None or instance.group(1) in head or row.measured is None or row.measured != parent.measured:
+        return None
+    return parent
+
+
+def above_parent(job: str, row: Row, parent: Row) -> list[str]:
+    """Each figure an instance carries past the parent row whose population it inherits."""
+    rose: list[str] = []
+    if parent.budget is not None and (row.budget is None or row.budget > parent.budget):
+        rose.append(f"budget {NONE if row.budget is None else f'{row.budget} s'} against {parent.budget} s")
+    if row.seconds is not None and (parent.seconds is None or row.seconds > parent.seconds):
+        rose.append(f"reference {row.seconds} s against {NONE if parent.seconds is None else f'{parent.seconds} s'}")
+    if row.floor is not None and (parent.floor is None or row.floor > parent.floor):
+        rose.append(f"floor {row.floor}% against {NONE if parent.floor is None else f'{parent.floor}%'}")
+    return (
+        [
+            f"`{job}` carries `{parent.job}`'s stamp {row.measured}, so it inherits that row's population and no figure "
+            f"above it, and its {', '.join(rose)} is one"
+        ]
+        if rose
+        else []
+    )
+
+
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
     """The file against its base: a rise carries a fresh stamp of enough runs, and no ceiling or comparison vanishes.
 
@@ -337,6 +372,10 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
             findings.append(
                 Finding("fail", f"`{job}`'s stamp {row.measured} is dated after today ({today.isoformat()}), and a measurement cannot be")
             )
+            continue
+        parent = split_from(base, head, job)
+        if parent is not None:
+            findings += [Finding("fail", problem) for problem in above_parent(job, row, parent)]
             continue
         # Only a stamp this branch wrote: one the base already carries was judged when it landed.
         if before is None or row.measured != before.measured:
@@ -583,9 +622,10 @@ RESAMPLES: Final = 20_000
 PERCENTILE: Final = 95
 SEED: Final = "gate-wall-clock"
 
-# Jobs whose own cache is keyed on the tree: a re-run restores everything its first attempt wrote,
-# a push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
-TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
+# Jobs a cache keyed on the tree speeds: a re-run restores everything its first attempt wrote, a
+# push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
+# Named by workflow job key (`tree_keyed`).
+TREE_KEYED: Final[frozenset[str]] = frozenset({"db", "format", "frontend", "frontend-units", "images"})
 
 # The header's `format` and `frontend` paragraphs: each budget is the cold job's, and a population
 # that happened to restore the cache never lowers it.
@@ -593,6 +633,13 @@ COLD_BUDGET: Final[frozenset[str]] = frozenset({"format", "frontend"})
 
 # A matrix job's instance, as its `name:` template spells it in `.github/workflows/verify.yml`.
 INSTANCE: Final = re.compile(r"^(.+) \(([^()]+)\)$")
+
+
+def tree_keyed(job: str) -> bool:
+    """Whether a row's job, or the matrix job it is an instance of, is in `TREE_KEYED`."""
+    instance = INSTANCE.match(job)
+    return job in TREE_KEYED or (instance is not None and instance.group(1) in TREE_KEYED)
+
 
 # What the coordinator saves per attempt: `gh api .../runs/<id>/attempts/<n>`, the same attempt's
 # `/jobs?per_page=100`, and `gh run view <id> --attempt <n> --log`.
@@ -726,7 +773,7 @@ def counted(attempts: list[Attempt], job: str) -> Counted:
             reason = (
                 {"dropped": "did not succeed", "skipped": "skipped", "unmeasured": "untimed"}.get(span.state)
                 or ("slowed by GitHub's own retry" if job in attempt.retried else None)
-                or ("a re-run of a tree it cached" if job in TREE_KEYED and attempt.number > 1 else None)
+                or ("a re-run of a tree it cached" if tree_keyed(job) and attempt.number > 1 else None)
             )
             if reason is None:
                 spans.append((span.seconds, attempt.day))
@@ -774,7 +821,7 @@ class Proposal:
 
 
 def propose(job: str, current: Row | None, attempts: list[Attempt], pull_request: int | None) -> Proposal:
-    if pull_request is not None and job in TREE_KEYED:
+    if pull_request is not None and tree_keyed(job):
         return Proposal(None, None, f"{job}: not stamped -- its cache is keyed on the tree, so only main's first attempts time it")
     population = counted(attempts, job)
     left = "".join(f", {count} {reason}" for reason, count in sorted(population.left.items()))

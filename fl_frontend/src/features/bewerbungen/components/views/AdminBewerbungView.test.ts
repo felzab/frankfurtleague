@@ -45,7 +45,6 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
@@ -71,7 +70,7 @@ const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
     trainer: person("Clara", "2026-09-03"),
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
@@ -85,6 +84,7 @@ function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME)
     underNext(
       h(AdminBewerbungView, {
         neubesetzung: laufendeNeubesetzung(),
+        medienFragen: {},
         bewerbung,
         fristAbgelaufen: false,
         teamName,

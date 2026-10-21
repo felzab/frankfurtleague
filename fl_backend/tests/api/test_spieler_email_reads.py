@@ -1,3 +1,4 @@
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -8,6 +9,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
+from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.person_router import get_erasure_ansicht
 from app.api.konto.router import get_einwilligungen
@@ -19,12 +22,12 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungAnsichtPayload,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spieler.admin_router import post_adresswechsel
-from app.api.spieler.schemas import FLSpielerAdresswechselPayload, FLSpielerSelbstEinwilligungPayload
+from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung_nachweis import nachweis_stand_of
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -117,7 +120,12 @@ async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient,
         {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
     )
 
-    return await unreferenced_of([FOLDED_EMAIL], record_collections(database), berechtigungen_collection=database[Collection.BERECHTIGUNGEN])
+    return await unreferenced_of(
+        [FOLDED_EMAIL],
+        record_collections(database),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+    )
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -190,7 +198,8 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
                 "umfang": "intern",
                 "medien": False,
                 "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
-                "nachweis_stand": {"umfang": None, "medien": None},
+                # The stand the account page served for the record as the corpus seeds it.
+                "nachweis_stand": nachweis_stand_of(bloecke=[documents.EINWILLIGUNG]),
             }
         ),
         identifier=FOLDED_EMAIL,
@@ -227,18 +236,22 @@ async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registr
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
-    holder = await database[Collection.SPIELER].find_one({"vorname": "Thessaly"}, projection={"_id": 1})
-    assert holder is not None
-
-    return await post_adresswechsel(
-        spieler_id=holder["_id"],
-        adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de"}),
+    return await post_adresswechsel_verwaltung(
+        adresswechsel_data=FLAdresswechselVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
-        today=TODAY,
+        operator=ANNA,
+        auth_time=int(time.time()),
         germany_now=NOW,
     )
 

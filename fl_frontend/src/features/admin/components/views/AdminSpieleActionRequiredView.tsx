@@ -5,21 +5,31 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
+import { berichtChip } from "@/features/spielberichte/utils";
+import { ANTWORT_LABELS } from "@/features/spielbestaetigungen/constants";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
 import { COUNT_BADGE_CLASSES, trackCountBadge } from "@/shared/components/ui/badges";
+import { Callout } from "@/shared/components/ui/Callout";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
-import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
+import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
+import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
+import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
 import type { FLActionUrgency } from "../../utils";
+
+// Module scope, so a failed read keeps one identity across renders and the memos below hold.
+const KEINE_BESTAETIGUNGEN: readonly FLSpielbestaetigung[] = [];
 
 /**
  * In the URL and not `useState`: the App Router keeps an admin tree alive between navigations, so a
@@ -49,27 +59,63 @@ const SELECTED_BADGE_CLASSES = `${COUNT_BADGE_CLASSES} bg-brand-solid-foreground
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
+  bestaetigungen,
+  bestaetigungenVollstaendig,
+  spielberichte,
   today,
   isFinishedSaison,
 }: {
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
+  /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
+  bestaetigungen: readonly FLSpielbestaetigung[] | null;
+  bestaetigungenVollstaendig: boolean;
+  /** The season's reports and their states, served with the list whatever `SPIELBERICHT_EINGABE` reads. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // Grouped once for the categories, the notes and the cards alike.
+  const saison = useMemo(() => saisonBestaetigungen(bestaetigungen ?? KEINE_BESTAETIGUNGEN, bracketFaults), [bestaetigungen, bracketFaults]);
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults }),
-    [overviewSpiele, today, bracketFaults],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: saison, spielberichte }),
+    [overviewSpiele, today, bracketFaults, saison, spielberichte],
+  );
+
+  // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
+  const berichtChipsBySpielId = useMemo(
+    () =>
+      new Map(
+        spielberichte.flatMap((eintrag) => {
+          const chip = berichtChip(eintrag);
+          return chip === null ? [] : [[eintrag.spiel_id, chip] as const];
+        }),
+      ),
+    [spielberichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
   // matching match numbers to cards by eye.
-  const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
+  const notes = useMemo(
+    (): Partial<Record<ActionRequiredCategory, SpielCardNotes>> => ({
+      bracket_fault: { tone: "danger", bySpielId: groupBracketFaultsBySpielId(bracketFaults) },
+      // The tone of the chip naming the same club's state on the card below.
+      vorschlag_offen: {
+        tone: ANTWORT_LABELS.abgelehnt.tone,
+        bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, saison, today),
+      },
+      bestaetigung_ueberfaellig: {
+        tone: ANTWORT_LABELS.ueberfaellig.tone,
+        bySpielId: bestaetigungNotizen("bestaetigung_ueberfaellig", overviewSpiele, saison, today),
+      },
+    }),
+    [bracketFaults, overviewSpiele, saison, today],
+  );
 
   const activeSection =
     sections.find((section) => section.category === searchParams.get(SECTION_PARAM)) ??
@@ -156,6 +202,23 @@ export function AdminSpieleActionRequiredView({
         </div>
       </div>
 
+      {/* Standing, never dismissible: a tab reads zero or short for as long as the rows are. The read serves every open
+          row whole, so a cut reaches the closed ones alone, and of those the categories read a referee's decline. */}
+      {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+        <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
+          <Callout
+            severity="warning"
+            title={
+              bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+            }>
+            {bestaetigungen === null
+              ? // Every category the rows fill, the referee's decline among them: its tab would read a cleared zero.
+                `Die Kategorien zu Terminvorschlägen, Bestätigungen und „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu.`
+              : `Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ kann deshalb Spiele auslassen.`}
+          </Callout>
+        </div>
+      )}
+
       {sections.map((section) => (
         <Tabs.Panel
           key={section.category}
@@ -168,8 +231,8 @@ export function AdminSpieleActionRequiredView({
                 title="In dieser Kategorie braucht kein Spiel etwas."
               />
             ) : (
-              // Faults reach the `bracket_fault` section alone: the one list already filtered by that
-              // diagnosis, and the only category whose tab cannot state the reason itself.
+              // Notes reach their own section alone: the one list already filtered by that diagnosis,
+              // whose tab cannot name the fault, the club or the date itself.
               <SpielCardGrid
                 role="list"
                 className={CARDS_CASCADE_CLASSES}>
@@ -178,7 +241,9 @@ export function AdminSpieleActionRequiredView({
                   today={today}
                   isFinishedSaison={isFinishedSaison}
                   isAdmin
-                  faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
+                  notes={notes[section.category]}
+                  bestaetigungen={saison}
+                  berichtChipsBySpielId={berichtChipsBySpielId}
                 />
               </SpielCardGrid>
             )}

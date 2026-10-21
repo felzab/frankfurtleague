@@ -17,7 +17,6 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     BESTAETIGUNG_ANSICHT_FIELDS,
     BESTAETIGUNG_ANTWORT_FIELDS,
-    SEITE_WIEDERKEHREND,
     build_bestaetigung_filter,
     compose_confirmation_update,
     find_already_confirmed_refusal,
@@ -25,8 +24,10 @@ from app.api.registrierungen.services import (
     find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
+    find_ohne_geburtsdatum_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
+    gespeichertes_geburtsdatum,
     seite_of,
     zustand_of,
 )
@@ -45,7 +46,6 @@ from app.core.exception_handlers import stores_nothing
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
@@ -79,10 +79,10 @@ async def get_bestaetigung_ansicht(
     an address nobody has confirmed, which behind a typo is a stranger's.
 
     `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
-    address under its folded name who confirmed their own record. That page asks no choice, so beside it the view
-    serves the person's stored birthdate, publication scope and media switch, the birthdate null where none is
-    stored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on
-    `bestaetigung_spieler`, the new pupil's page, all three are null.
+    address under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking
+    the person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known
+    to be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's
+    page, so the name narrows the match.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -107,9 +107,6 @@ async def get_bestaetigung_ansicht(
 
     person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
     seite = seite_of(registrierung_raw=raw, person_raw=person)
-    # Nothing of the person past this line unless it is the one the returning page names.
-    shown_back = person if person is not None and seite == SEITE_WIEDERKEHREND else {}
-    einwilligung = shown_back.get("einwilligung") or {}
 
     gesperrt = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")])
 
@@ -121,10 +118,6 @@ async def get_bestaetigung_ansicht(
         seite=seite,
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
-        geburtsdatum=shown_back.get("geburtsdatum"),
-        umfang=einwilligung.get("umfang"),
-        # A confirmed record stored before the media question carries no `medien`, which reads as off.
-        medien=ist_erteilt("medien", einwilligung.get("medien")) if shown_back else None,
     )
 
 
@@ -149,11 +142,14 @@ async def post_bestaetigung(
     carries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.
     On the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices
     standing on the person's own record are theirs to change on the account page, and nothing here re-grants one.
+    Its body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes
+    null rather than the stored date.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
     passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
-    the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page
-    asks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an
+    the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page
+    asks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's
+    (`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an
     address the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor
     (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is
     judged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the
@@ -182,29 +178,40 @@ async def post_bestaetigung(
 
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
-        # In-session, so a person confirmed or erased since the view was read moves the page this press
-        # is judged against, and the page it showed is told to reload rather than stored under the other.
-        seite = seite_of(
-            registrierung_raw=raw,
-            person_raw=await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session),
-        )
+        # In-session, so a person confirmed, erased or re-dated since the view was read moves the page and
+        # the date this press is judged against, and the page it showed is told to reload rather than
+        # stored under the other.
+        person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session)
+        seite = seite_of(registrierung_raw=raw, person_raw=person)
+        gespeichert = gespeichertes_geburtsdatum(seite=seite, person_raw=person)
         # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
         refuse(find_fassung_refusal(seite=seite, genannt={"einwilligung": antwort_data.text_version}))
-        refuse(find_wahlen_refusal(seite=seite, umfang=antwort_data.umfang, medien=antwort_data.medien))
+        refuse(
+            find_wahlen_refusal(
+                seite=seite,
+                umfang=antwort_data.umfang,
+                medien=antwort_data.medien,
+                geburtsdatum=antwort_data.geburtsdatum,
+            )
+        )
+        refuse(find_ohne_geburtsdatum_refusal(seite=seite, gespeichert=gespeichert))
+        # Exactly one of the two is set once the refusals above have passed.
+        geburtsdatum = antwort_data.geburtsdatum or gespeichert
+        assert geburtsdatum is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(
             sperrliste, [str(raw.get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
         )
         refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
-        refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
-        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien is True, today=today))
+        refuse(find_alter_refusal(geburtsdatum=geburtsdatum, today=today))
+        refuse(find_medien_refusal(geburtsdatum=geburtsdatum, medien=antwort_data.medien is True, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
-                geburtsdatum=antwort_data.geburtsdatum,
+                geburtsdatum=geburtsdatum,
                 umfang=antwort_data.umfang,
                 medien=antwort_data.medien,
                 text_version=antwort_data.text_version,

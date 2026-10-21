@@ -102,7 +102,6 @@ const kontakt = (vorname: string, email: string) => ({
   telefon: "069 1234567",
   geburtsdatum: null,
   einwilligung: kenntnisnahme({
-    erfasst_von: "administrativ" as const,
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: null,
@@ -293,6 +292,8 @@ const OTHER_FORMS = [
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
   "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
+  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
+  "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
   "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
   "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
   "shared/components/ui/EntityForm.tsx",

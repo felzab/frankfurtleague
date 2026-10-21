@@ -9,7 +9,6 @@ const einwilligungsTeil = (umfang: string, textVersion: string) => ({
   inactive_since: null,
   einwilligung: {
     umfang: umfang,
-    erteilt_von: "volljaehrig",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: textVersion,
@@ -36,8 +35,8 @@ export const spielerSelbst = () => ({
 /** The same pupil on the account page, the registration's team, school and season served. */
 export const spielerKonto = () => ({
   ...spielerSelbst(),
-  ...einwilligungsTeil("kader_oeffentlich", "2026-09-spielerseite-3"),
-  kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
+  ...einwilligungsTeil("kader_oeffentlich", "2026-10-spielerseite-5"),
+  kontext: { team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
 });
 
 /** A referee's stored data as their own page reads it, their fee stored. */
@@ -53,6 +52,5 @@ export const schiedsrichterSelbst = () => ({
 /** The same referee on the account page. */
 export const schiedsrichterKonto = () => ({
   ...schiedsrichterSelbst(),
-  ...einwilligungsTeil("intern", "2026-09-schiedsrichterseite-3"),
-  kontext: { vorname: "Mara" },
+  ...einwilligungsTeil("intern", "2026-10-schiedsrichterseite-4"),
 });

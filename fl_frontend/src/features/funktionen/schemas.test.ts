@@ -14,11 +14,11 @@ const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
-// Read rather than retyped: the API's two validators answer the same rows in their own suite, the only
-// comparison the two predicates get, since the API's sentence reaches its log line and never this box.
+// Read rather than retyped: the API's validator answers the same rows in its own suite, the only
+// comparison the predicate gets, since the API's sentence reaches its log line and never this box.
 const PROBE = z.array(z.object({ value: z.string(), refused: z.boolean() }));
 const REFUSALS = z
-  .object({ email: PROBE, anlass: PROBE })
+  .object({ anlass: PROBE })
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
 
 /** The three payloads keyed on an address, each judged on the address alone. */
@@ -55,18 +55,6 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
   });
 });
 
-describe("the placeholder every address-less referee row shares", () => {
-  /* One lookup there would reach every such row at once; the API refuses it on the fold, capitals and a bare
-     `invalid` domain included, and a domain merely ending in the letters stays a mailbox. */
-  it("is refused by all three lookups where the API's table refuses it, in the box's own words", () => {
-    const satz = (email: string) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).error?.issues[0]?.message;
-    for (const { value, refused } of REFUSALS.email) {
-      for (const [payload, takes] of LOOKUPS) assert.equal(takes(value), !refused, `${payload} judged "${value}" otherwise`);
-      assert.equal(satz(value), refused ? "Diese Adresse ist ein Platzhalter und gehört niemandem." : undefined, `"${value}"`);
-    }
-  });
-});
-
 /**
  * The mirror table both folds are held to, the frontend's own fold recorded where the two runtimes' tables part;
  * `fl_backend/tests/shared/test_email_address.py` holds the API's lookup to it too.
@@ -77,11 +65,10 @@ const ADDRESSES = z
 
 describe("the mailbox each lookup asks for", () => {
   /* The action ends the sign-in account of what the box trimmed, so a box trimming otherwise than the API's erases one
-     mailbox's records and leaves another's account. The placeholder's rows are the box's own refusal, above. */
+     mailbox's records and leaves another's account. */
   it("is the one the mirror table folds each row to on this side, the API's lookup answering its own", () => {
-    const rows = ADDRESSES.filter(({ folded }) => folded.split(".").at(-1) !== "invalid");
     assert.ok(
-      rows.some(({ typed }) => typed.trim() !== typed),
+      ADDRESSES.some(({ typed }) => typed.trim() !== typed),
       "no row is trimmed, so the case compares nothing",
     );
     const parsed = [
@@ -90,7 +77,7 @@ describe("the mailbox each lookup asks for", () => {
       ["the sign-out", (email: string) => FLAbmeldungPayloadSchema.parse({ email: email }).email],
     ] as const;
     for (const [payload, asked] of parsed) {
-      for (const row of rows) {
+      for (const row of ADDRESSES) {
         assert.equal(asSignInIdentifier(asked(row.typed)), (row.frontend ?? row).folded, `${payload}: ${row.case}`);
       }
     }

@@ -6,7 +6,10 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.adresswechsel.crud import others_naming
+from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import (
@@ -20,12 +23,14 @@ from app.api.identitaet.schemas import (
 from app.api.identitaet.services import (
     JEDE_VERWALTUNG,
     NUR_INHABER,
+    adresswechsel_einsehbar_verwehrt,
     build_erasure_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
     eigene_namen,
     find_eigene_adresse_refusal,
+    find_fremder_adresswechsel_refusal,
     find_name_im_anlass_refusal,
     find_verwaltung_adresse_refusal,
 )
@@ -35,8 +40,11 @@ from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
+    BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
@@ -47,6 +55,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SperrlisteCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
@@ -89,22 +98,31 @@ async def get_erasure_ansicht_auf_anfrage(
     spiele_collection: SpieleCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureAnsichtResponse:
     """
     Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
-    and no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the
-    change going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,
-    and a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges
-    one. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in
-    each of those fixtures' log images, which goes; the confirmations a referee row was asked for, which go, and its id
+    and no other. Another address's pending change to this address is named by its id, the change going and that address's
+    records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
+    of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
+    withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
+    named by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or
+    made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
+    left out, though the erasure removes its row too. A squad
+    row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
+    fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures
+    booking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which
+    goes; the match reports a referee row sent, which stand naming the ghost, in
+    their log images too; the confirmations a referee row was asked for, which go, and its id
     and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
     confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
     which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
@@ -117,8 +135,7 @@ async def get_erasure_ansicht_auf_anfrage(
     address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
-    the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved
-    `invalid` domain, where every referee row stored without an address shares one placeholder.
+    the administrator holds an owner's power (`REQ-PURGE-005`).
     """
 
     identifier = sign_in_identifier(ansicht_data.email)
@@ -174,7 +191,23 @@ async def get_erasure_ansicht_auf_anfrage(
         # The stored-address judgement, as `POST /identitaet/gesperrt`'s: an address no rule keys a ban under answers
         # false, where keying the payload's spelling would raise.
         gesperrt = await adressen_gesperrt(sperrliste, [ansicht_data.email], session=session)
+        antrag_rows = await read_the_antraege_of(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, now=germany_now, session=session
+        )
 
+    verwehrt: dict[str, FLAdresswechselEinsehbarVerwehrt] = {
+        str(row["adresse"]): grund
+        for row in others_naming(subject.adresswechsel, identifier)
+        if (
+            grund := adresswechsel_einsehbar_verwehrt(
+                str(row["adresse"]), akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+            )
+        )
+        is not None
+    }
+    # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
+    # here, a typed address would answer whether it is that change's new one (`docs/backend/spec.md :: I871`).
+    naming = [row for row in others_naming(subject.adresswechsel, identifier) if verwehrt.get(str(row["adresse"])) != "verwaltung"]
     ansicht = compose_erasure_ansicht_auf_anfrage(
         identifier,
         saison_team_rows=subject.saison_teams,
@@ -182,8 +215,10 @@ async def get_erasure_ansicht_auf_anfrage(
         referee_rows=subject.schiedsrichter,
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
-        adresswechsel_rows=subject.adresswechsel,
-        spieler_adresswechsel_rows=subject.spieler_adresswechsel,
+        adresswechsel_rows=naming,
+        verwehrt=verwehrt,
+        eigener_adresswechsel=next((row for row in subject.adresswechsel if row.get("adresse") == identifier), None),
+        antrag_rows=antrag_rows,
         kader_rows=kader_rows,
         team_rows=team_rows,
         unplayed_rows=unplayed_rows,
@@ -210,6 +245,7 @@ async def erase_auf_anfrage(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
@@ -219,6 +255,9 @@ async def erase_auf_anfrage(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adressanker_collection: AdressankerCollection,
+    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     refuse_unconfirmed: Annotated[Callable[[], None], Depends(get_recent_confirmation_check)],
     db: DBClient,
@@ -232,13 +271,14 @@ async def erase_auf_anfrage(
 
     ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
-    Two refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page
+    Three refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
     signed in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
     other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An
-    address under the reserved `invalid` domain is refused 422 before any read: every referee row stored without an
-    address shares one placeholder there.
+    address another address's pending change would move to is refused, judged inside the write, where that address holds a
+    live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
+    owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
     redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
@@ -289,6 +329,16 @@ async def erase_auf_anfrage(
             pupil_rows=subject.spieler,
             registrierung_rows=subject.registrierungen,
         )
+        # Ending a grant holder's change is a discard, which only an owner makes (`docs/backend/spec.md :: I871`).
+        refuse(
+            find_fremder_adresswechsel_refusal(
+                adressen=[str(row["adresse"]) for row in others_naming(subject.adresswechsel, identifier)],
+                akteur=akteur,
+                auth_time=auth_time,
+                grants=grants,
+                announced=announced,
+            )
+        )
         refuse(find_name_im_anlass_refusal(anlass=erasure_data.anlass, names=names))
 
         erased = await erase_everything(
@@ -301,6 +351,7 @@ async def erase_auf_anfrage(
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
@@ -310,6 +361,9 @@ async def erase_auf_anfrage(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adressanker_collection=adressanker_collection,
+            adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             geaendert_von=operator,
             schluessel=config.sperrliste_schluessel,
@@ -362,7 +416,7 @@ async def post_abmeldung(
 
     Refused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the
     administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an
-    owner's power (`REQ-PURGE-005`), and with a 422 an address under the reserved `invalid` domain. Unlike the erasure, it
+    owner's power (`REQ-PURGE-005`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
 

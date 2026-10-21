@@ -10,6 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE } from "@/features/schiedsrichter/constants.ts";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -46,8 +47,6 @@ const staleWindow = (tree: ReactNode): ReactNode =>
     tree,
   );
 
-const PLATZHALTER = "adresse-fehlt@frankfurtleague.invalid";
-
 const RECORD = {
   id: "6890a1b2c3d4e5f607800001",
   name: "Anna Körner",
@@ -56,8 +55,9 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
+  abgelaufen: { bestaetigung: false },
 };
 
 const editor = (email: string | null) =>
@@ -76,11 +76,10 @@ afterEach(() => {
   toasts.length = 0;
 });
 
-/* The panel is handed the STORED address's standing, never the draft's, and the placeholder a row without one is
-   given is nowhere a link can go. */
+/* The panel is handed the STORED address's standing, never the draft's. */
 describe("the confirmation panel inside the referee's editor", () => {
-  it("closes the send on a row holding only the placeholder address, naming what to repair", () => {
-    render(editor(PLATZHALTER));
+  it("closes the send on a row holding no address, naming what to repair", () => {
+    render(editor(null));
 
     closedControl("Bestätigungslink senden", SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE);
   });
@@ -94,11 +93,57 @@ describe("the confirmation panel inside the referee's editor", () => {
   });
 });
 
-/* The undo replays the STORED record, and a placeholder written back is an address the payload refuses: the offer
-   names that before any round trip rather than dispatching a restore the action can only turn away. */
+/* A confirmed referee's address moves only by an address change, and the save refuses one typed here
+   (`REQ-SCHIEDSRICHTER-011`): a box for it offers the administrator a press that can only be turned away. */
+describe("a confirmed referee's address inside the editor", () => {
+  const confirmedEditor = (adresswechselId: string | null) =>
+    underNext(
+      h(AdminSchiedsrichterEditForm, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...RECORD,
+          kontakt: { telefon: null, email: "anna.koerner@schule.de" },
+          einwilligung: {
+            umfang: "intern",
+            datum: "2026-09-22",
+            bestaetigt_am: "2026-09-22",
+            text_version: "2026-09-schiedsrichterseite",
+            medien: false,
+            nachweis: { umfang: null, medien: null },
+          },
+          adresswechsel_id: adresswechselId,
+        },
+        isRetired: false,
+        pageHeader: { title: RECORD.name },
+      }),
+      { router: nextRouter(), search: "saison_id=2526" },
+    );
+
+  it("is read out, with no box to type another into", () => {
+    render(confirmedEditor(null));
+
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail" }).length, 0, "a confirmed referee's address is offered for typing");
+    assert.ok(screen.getByText("anna.koerner@schule.de"), "the stored address is not read out");
+  });
+
+  /* The pupil editor's layout (`FormAdresseSection.tsx`): the readout's own field pair, and the pending change's
+     line under it at the panel's width rather than squeezed into the cell beside the telephone. */
+  it("stands in a row of its own, the pending change's line at full width", () => {
+    render(confirmedEditor("68c1f0a2b3c4d5e6f7a8b9e0"));
+
+    const readout = screen.getByText("anna.koerner@schule.de").closest("dl");
+    assert.equal(readout?.className, FIELD_PAIR_CLASSES, "the readout has no field pair of its own");
+    assert.equal(readout?.contains(screen.getByRole("textbox", { name: "Telefon" })), false, "the telephone shares the readout's row");
+    const hinweis = screen.getByText(/Für diese Adresse läuft eine Änderung/);
+    assert.ok(hinweis.closest('[class~="sm:grid-cols-2"]') === null, "the pending change's line sits in a half-width grid cell");
+  });
+});
+
+/* The undo replays the STORED record, and no address written back is one the payload refuses: the offer names that
+   before any round trip rather than dispatching a restore the action can only turn away. */
 describe("the undo a referee's save offers", () => {
   async function saveAddressOver(
-    stored: string,
+    stored: string | null,
     around: (tree: ReactNode) => ReactNode = (tree) => tree,
     answer: Record<string, unknown> = { success: true, message: "Gespeichert." },
   ): Promise<void> {
@@ -129,13 +174,14 @@ describe("the undo a referee's save offers", () => {
     (press ?? assert.fail("the offer carries no undo control"))();
   };
 
-  it("refuses to write the placeholder back, naming the address it lacked", async () => {
-    await saveAddressOver(PLATZHALTER);
+  it("refuses to write the missing address back, naming the address it lacked", async () => {
+    await saveAddressOver(null);
     pressUndo();
 
     const refusal = toasts.at(-1);
     assert.equal(refusal?.title, "Änderung nicht zurückgenommen", "the undo was dispatched rather than refused");
-    assert.match(String(refusal?.description), /keine echte E-Mail-Adresse hinterlegt/);
+    // No „echte“: a referee's record holds no placeholder address for the word to tell a real one from.
+    assert.match(String(refusal?.description), /^Vor dem Speichern war zu diesem Eintrag keine E-Mail-Adresse hinterlegt,/);
   });
 
   // Without it an offer refusing every undo passes the case above.
@@ -147,23 +193,6 @@ describe("the undo a referee's save offers", () => {
     assert.equal(toasts.at(-1)?.title, "Nimmt Änderung zurück...", "an undo with an address to restore was not dispatched");
     await act(answered);
   });
-
-  /* The undo says the new address still waits only for the save that left it, which no read after
-     the replay can tell from a save that moved only the fee. */
-  for (const gespeichert of [true, false]) {
-    it(`tells the undo whether the save left a new address waiting (${String(gespeichert)})`, async () => {
-      await saveAddressOver("anna.alt@schule.de", undefined, { success: true, message: "Gespeichert.", adresswechselGespeichert: gespeichert });
-      pressUndo();
-      await act(answered);
-
-      assert.deepEqual(
-        calls
-          .filter(({ action }) => action === "undoAdminSchiedsrichterEditAction")
-          .map(({ payload }) => (payload as { adresswechsel_gespeichert?: unknown }).adresswechsel_gespeichert),
-        [gespeichert],
-      );
-    });
-  }
 
   /* The undo moves an unanswered referee's address back, which mints as the save did: past the window
      the action refuses it, so the press asks first rather than dispatching a refusal. */

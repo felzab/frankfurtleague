@@ -1,8 +1,10 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { FLAdresswechselWartetAufSchema, FLAdresswechselWegSchema } from "@/features/adresswechsel/schemas";
+import { FLVerwaltungSchema } from "@/features/berechtigungen/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
-import { FLSchiedsrichterKontextSchema, FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
+import { FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
 import {
   FLEinwilligungSchema,
   FLEinwilligungStandSchema,
@@ -12,7 +14,7 @@ import {
   FLSpielerStufeSchema,
 } from "@/features/spieler/schemas";
 import { FLKontaktKenntnisnahmeSchema } from "@/features/teams/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 import { MedienMindestalterSchema } from "./einwilligung";
 
@@ -36,7 +38,7 @@ export const FLSitzBestaetigtSchema = z.object({
   rollen: z.array(FLKontaktRolleSchema).nonempty(),
   // The label whose words the account page shows: the backend names it, so the page never decides it
   // from the record's shape.
-  text_version: z.string().nullable(),
+  text_version: z.string(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
   // The floor that confirmation page named, served so the two tiers cannot name different ages.
   mindestalter: z.number().int(),
@@ -97,7 +99,7 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   team_name: z.string().nullable(),
   saison_id: z.string(),
   // For `FLKontoSpielerEinwilligungSchema`'s reason.
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   medien: z.boolean().nullable(),
   nachweis_stand: FLEinwilligungStandSchema,
@@ -124,7 +126,7 @@ export const FLKontoSpielerEinwilligungSchema = FLSpielerSelbstSchema.extend({
   einwilligung: FLEinwilligungSchema,
   // The label whose words the page shows beside the control: the backend names which stored label the
   // person confirmed, so the page never decides it from the record's shape.
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   // What the consent press sends back as its precondition, so a press from a page another tab has since
   // moved is refused rather than undoing that tab's choice.
   nachweis_stand: FLEinwilligungStandSchema,
@@ -144,13 +146,12 @@ export type FLKontoSpielerEinwilligung = z.infer<typeof FLKontoSpielerEinwilligu
 export const FLKontoSchiedsrichterEinwilligungSchema = FLSchiedsrichterSelbstSchema.extend({
   inactive_since: CustomDateStringSchema.nullable(),
   einwilligung: FLEinwilligungSchema,
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   nachweis_stand: FLEinwilligungStandSchema,
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
   mindestalter: z.number().int(),
   medien_mindestalter: MedienMindestalterSchema,
-  kontext: FLSchiedsrichterKontextSchema,
 });
 export type FLKontoSchiedsrichterEinwilligung = z.infer<typeof FLKontoSchiedsrichterEinwilligungSchema>;
 
@@ -166,3 +167,76 @@ export const FLKontoEinwilligungenResponseSchema = BaseAPIResponseSchema.extend(
   registrierungen: z.array(FLKontoRegistrierungEinwilligungSchema),
 });
 export type FLKontoEinwilligungenResponse = z.infer<typeof FLKontoEinwilligungenResponseSchema>;
+
+/** Mirrors `FLAdresswechselGenehmigungStand`: the approval an administrator's change waits for besides its link. */
+export const FLAdresswechselGenehmigungStandSchema = z.object({
+  // The tier the moved grant holds: an owner's change is approved by another owner alone.
+  verwaltung: FLVerwaltungSchema,
+  genehmigt: z.boolean(),
+  bis: z.string(),
+});
+export type FLAdresswechselGenehmigungStand = z.infer<typeof FLAdresswechselGenehmigungStandSchema>;
+
+/**
+ * Mirrors `FLKontoAdresswechselOffen`: the change pending at the signed-in address. `email` is composed by the
+ * backend, whole where the person typed it and masked where the league did, and rendered as it comes.
+ */
+export const FLKontoAdresswechselOffenSchema = z.object({
+  // What the approval names, so a tab drawn before a later start approves nothing it never showed.
+  id: CustomObjectIdStringSchema,
+  email: z.string(),
+  weg: FLAdresswechselWegSchema,
+  wartet_auf: FLAdresswechselWartetAufSchema,
+  gueltig_bis: z.string().nullable(),
+  wirksam_ab: z.string().nullable(),
+  genehmigung: FLAdresswechselGenehmigungStandSchema.nullable(),
+  // Judged as the hourly pass ends a change, so the page closes a lapsed step's press without a clock of its own.
+  abgelaufen: z.boolean(),
+});
+export type FLKontoAdresswechselOffen = z.infer<typeof FLKontoAdresswechselOffenSchema>;
+
+/** Mirrors `FLKontoAdresswechselResponse`, the account page's read of its address control and the stop's answer. */
+export const FLKontoAdresswechselResponseSchema = BaseAPIResponseSchema.extend({
+  // Whether the address holds anything a change moves, a grant included: none holds no control.
+  moeglich: z.boolean(),
+  offen: FLKontoAdresswechselOffenSchema.nullable(),
+});
+export type FLKontoAdresswechselResponse = z.infer<typeof FLKontoAdresswechselResponseSchema>;
+
+/** Mirrors `FLKontoAdresswechselPayload`: the new address alone; the signed-in address names the change. */
+export const FLKontoAdresswechselPayloadSchema = z.object({
+  email: KontaktEmailSchema,
+});
+export type FLKontoAdresswechselPayload = z.infer<typeof FLKontoAdresswechselPayloadSchema>;
+
+/**
+ * Mirrors `FLKontoAdresswechselMintResponse`: answered ONCE, its tokens for the two mails alone, so the
+ * action's own answer to the browser carries neither a token nor an address.
+ */
+export const FLKontoAdresswechselMintResponseSchema = BaseAPIResponseSchema.extend({
+  id: CustomObjectIdStringSchema,
+  token: z.string(),
+  stopp_token: z.string(),
+  gueltig_bis: z.string(),
+  email: z.string().nonempty(),
+  bisherige_email: z.string().nonempty(),
+  vorname: z.string(),
+  // How many are told an approval waits, 0 where the address holds no grant.
+  genehmiger_anzahl: z.int().nonnegative(),
+});
+export type FLKontoAdresswechselMintResponse = z.infer<typeof FLKontoAdresswechselMintResponseSchema>;
+
+/** Mirrors `FLKontoAdresswechselFreigabePayload`: the change the page showed, which a later start replaces. */
+export const FLKontoAdresswechselFreigabePayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLKontoAdresswechselFreigabePayload = z.infer<typeof FLKontoAdresswechselFreigabePayloadSchema>;
+
+/** Mirrors `FLKontoAdresswechselFreigabeResponse`: the approval mints the new mailbox's link, for its mail alone. */
+export const FLKontoAdresswechselFreigabeResponseSchema = BaseAPIResponseSchema.extend({
+  id: CustomObjectIdStringSchema,
+  token: z.string(),
+  gueltig_bis: z.string(),
+  email: z.string().nonempty(),
+});
+export type FLKontoAdresswechselFreigabeResponse = z.infer<typeof FLKontoAdresswechselFreigabeResponseSchema>;

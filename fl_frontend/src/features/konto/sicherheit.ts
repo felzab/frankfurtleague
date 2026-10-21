@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, liveSessionsOf, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
@@ -11,7 +13,9 @@ import type { PasskeyRow } from "@/features/passkeys/bestand";
 import type { KontoSession } from "@/shared/utils/kontoMutation";
 import type { Anmeldung, AnmeldungFaktor, Sicherheit } from "./types";
 
-export async function readSicherheit(served: KontoSession): Promise<Sicherheit> {
+// One read per request, the address control in the panel above sharing it: keyed on `served`, which
+// `fl_frontend/src/core/auth.ts :: getKontoSession` hands every caller as the same object.
+export const readSicherheit = cache(async (served: KontoSession): Promise<Sicherheit> => {
   const [held, rows] = await Promise.all([passkeysOf(served.user.id), liveSessionsOf(served.user.id)]);
 
   const { karten, kannHinzufuegen } = passkeyBestandOf(held, served);
@@ -25,7 +29,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     inhaberAdresse: served.user.email,
     ...confirmedUntil(served),
   };
-}
+});
 
 function anmeldungenOf(rows: readonly LiveSessionRow[], held: readonly PasskeyRow[], served: KontoSession): Anmeldung[] {
   return (

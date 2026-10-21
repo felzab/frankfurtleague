@@ -18,6 +18,7 @@ from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenNames,
     FLGruppenTeam,
+    FLKontaktAbgang,
     FLKontaktMint,
     FLKontaktRolle,
     FLKontaktZeile,
@@ -32,7 +33,6 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -898,13 +898,63 @@ def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> lis
     return [{**team, "memberships": [{**row, "bestaetigungen": judged(row)} for row in team.get("memberships", [])]} for team in teams_raw]
 
 
+def _seat_identifier(row: Mapping[str, Any], seat: str) -> str | None:
+    person = (row.get("kontakte") or {}).get(seat)
+    email = person.get("email") if isinstance(person, Mapping) else None
+
+    return sign_in_identifier(email) if isinstance(email, str) else None
+
+
+def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Every seat's address on the memberships read, folded as an address change is keyed."""
+
+    return sorted(
+        {
+            identifier
+            for team in teams
+            for row in team.get("memberships", [])
+            for seat in KONTAKT_ROLLEN
+            if (identifier := _seat_identifier(row, seat)) is not None
+        }
+    )
+
+
+def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], verwehrt: Mapping[str, str]) -> list[dict[str, Any]]:
+    """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
+
+    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identitaet/services.py ::
+    eigene_sitze`).
+    """
+
+    def gesehen(row: Mapping[str, Any], seat: str) -> Any:
+        person = row["kontakte"].get(seat)
+        identifier = _seat_identifier(row, seat)
+        if identifier is None or not isinstance(person, Mapping) or not is_confirmed(person.get("einwilligung")):
+            return None
+        return live.get(identifier)
+
+    def je_sitz(row: Mapping[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(row.get("kontakte"), Mapping):
+            return None
+        ids = {seat: gesehen(row, seat) for seat in KONTAKT_ROLLEN}
+
+        return {
+            **ids,
+            "einsehbar_verwehrt": {
+                seat: None if ids[seat] is None else verwehrt.get(str(_seat_identifier(row, seat))) for seat in KONTAKT_ROLLEN
+            },
+        }
+
+    return [{**team, "memberships": [{**row, "adresswechsel": je_sitz(row)} for row in team.get("memberships", [])]} for team in teams]
+
+
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
 
-    The stamp nulled and any stored speaker dropped: a blank stamp is no answer, and no write sets a speaker.
+    The stamp nulled: a blank stamp is no answer.
     """
 
-    return {**ohne_sprecher(einwilligung), "bestaetigt_am": None}
+    return {**einwilligung, "bestaetigt_am": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -922,12 +972,6 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
         sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
         for field in SEAT_IDENTITY_FIELDS
     )
-
-
-def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """This seat's consent record, or `None` where a stored row carries none."""
-
-    return einwilligung if isinstance(einwilligung := seat.get("einwilligung"), Mapping) else None
 
 
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
@@ -959,12 +1003,12 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     """
 
     held = _seat_held_by(stored_slot, seat=seat)
-    einwilligung = None if held is None else _kenntnisnahme_of(held)
-    if held is None or einwilligung is None:
+    if held is None:
         return None
 
-    # The provenance stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
-    # makes it `person`, and a stored blank stamp is none.
+    # The record stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
+    # confirms it, and a stored blank stamp is none.
+    einwilligung = held["einwilligung"]
     return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
 
 
@@ -1031,42 +1075,6 @@ def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: A
             gehalten[slot] = held.get("text_version")
 
     return gehalten
-
-
-def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
-    """The application's contact block as the junction row takes it, every seat held to its own stamp.
-
-    A pre-flow application carries a birthdate its applicant gave about somebody else, and acceptance
-    refuses nothing over it (`docs/backend/spec.md :: I143`).
-    """
-
-    if not isinstance(kontakte, Mapping):
-        return kontakte
-
-    composed = dict(kontakte)
-
-    for slot in KONTAKT_ROLLEN:
-        seat = composed.get(slot)
-        if not isinstance(seat, Mapping):
-            continue
-
-        # A confirmed seat moves whole but for a speaker its application stored: the row is a new
-        # document, and no write sets one there.
-        if _seat_is_stamped(seat):
-            composed[slot] = {**seat, "einwilligung": ohne_sprecher(seat["einwilligung"])}
-            continue
-
-        # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
-        # a decided application mints no confirmation link, so the person has no route to enter theirs.
-        stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
-        # Left as it stands where a stored row carries no record at all: a stamp alone would be a
-        # consent record short of the fields every reader of one requires.
-        if (einwilligung := _kenntnisnahme_of(seat)) is not None:
-            stripped["einwilligung"] = als_unbestaetigt(einwilligung)
-
-        composed[slot] = stripped
-
-    return composed
 
 
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
@@ -1188,6 +1196,34 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
         if isinstance(held := stored_block.get(slot), Mapping)
         and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
     )
+
+
+def departing_holders(*, stored: Any, kontakte: Any, owed: Iterable[Sequence[FLKontaktRolle]], schule: str) -> list[FLKontaktAbgang]:
+    """Per seat on the sign-in fold: a Trainer losing the paired seat alone still holds the row, and is told of both.
+
+    A mailbox `owed` links is told nothing: its link mail names the seats it holds now.
+    """
+
+    stored_block = stored if isinstance(stored, Mapping) else {}
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    linked = {sign_in_identifier(str(block[seat]["email"])) for seats in owed for seat in seats}
+    kept: dict[str, list[FLKontaktRolle]] = {}
+    for slot in KONTAKT_ROLLEN:
+        if isinstance(seat := block.get(slot), Mapping):
+            kept.setdefault(sign_in_identifier(str(seat["email"])), []).append(slot)
+    leaving: dict[str, FLKontaktAbgang] = {}
+
+    for slot in KONTAKT_ROLLEN:
+        held, seat = stored_block.get(slot), block.get(slot)
+        if not isinstance(held, Mapping) or (folded := sign_in_identifier(str(held["email"]))) in linked:
+            continue
+        if isinstance(seat, Mapping) and sign_in_identifier(str(seat["email"])) == folded:
+            continue
+        # One notice per mailbox, every seat it lost beside the first.
+        abgang = FLKontaktAbgang(rollen=[], email=str(held["email"]), schule=schule, bleibt_als=kept.get(folded, []))
+        leaving.setdefault(folded, abgang).rollen.append(slot)
+
+    return list(leaving.values())
 
 
 def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:

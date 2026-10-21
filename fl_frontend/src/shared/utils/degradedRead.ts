@@ -24,7 +24,9 @@ export function explainsItself(error: unknown): boolean {
   return error instanceof APINetworkError || error instanceof ApiUnsentError || error instanceof UnreadGrantError || isRuleRefusal(error);
 }
 
-export function logCodedFailure(message: string, error: unknown, untypedCode: "FE-ACT-001" | "FE-RSC-001"): void {
+// Private to the page reads below, the one exemption the error ban grants a spine: an action's or a route's failure is
+// `fl_frontend/src/shared/utils/actionFailure.ts :: logActionFailure`'s, which hands the log no error.
+function logReadFailure(message: string, error: unknown): void {
   const typed =
     error instanceof APIBadStatusError ||
     error instanceof APINetworkError ||
@@ -34,7 +36,7 @@ export function logCodedFailure(message: string, error: unknown, untypedCode: "F
   // a production build writes of the original (`docs/frontend/spec.md` §1.2).
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
-    error_code: typed ? error.code : untypedCode,
+    error_code: typed ? error.code : "FE-RSC-001",
     // The failed call's own trace, which the backend's line carries; the logger falls back to the request's scope.
     ...requestOf(error),
     digest: typeof digest === "string" ? digest : undefined,
@@ -50,7 +52,7 @@ export function nullUnlessContractBreak(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
   if (isContractBreak(error)) throw error;
-  if (!explainsItself(error)) logCodedFailure("A page's read failed and its panel stands", error, "FE-RSC-001");
+  if (!explainsItself(error)) logReadFailure("A page's read failed and its panel stands", error);
 
   return null;
 }
@@ -64,7 +66,7 @@ export function nullAfterLoggingUnexplained(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
   if (isContractBreak(error)) logger.error("Contract break absorbed by an admin readout", error, { error_code: "FE-RSC-001" });
-  else if (!explainsItself(error)) logCodedFailure("An admin readout's read failed and its editor stands", error, "FE-RSC-001");
+  else if (!explainsItself(error)) logReadFailure("An admin readout's read failed and its editor stands", error);
 
   return null;
 }

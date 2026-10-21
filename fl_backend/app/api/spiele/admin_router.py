@@ -1,5 +1,6 @@
 from collections.abc import Sequence
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, NamedTuple
 
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo import AsyncMongoClient, ReturnDocument
@@ -8,6 +9,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielberichte.crud import pull_zustaende, restore_the_adoption, stamp_the_adoption
+from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
+from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
+from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
     advance_bracket_winners,
     anchor_a_booked_referee,
@@ -24,6 +29,7 @@ from app.api.spiele.crud import (
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
+    SPIEL_PATCH_WRITTEN_FIELDS,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
     FLPatchSpielePaarungenPayload,
@@ -31,13 +37,13 @@ from app.api.spiele.schemas import (
     FLPatchSpielPaarungPayload,
     FLSpiel,
     FLSpielAdvancement,
-    FLSpieleActionRequiredResponse,
     FLSpieleAdminListResponse,
     FLSpieleAdminSingleResponse,
     FLSpieleFilterParams,
     FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
     FLSpielListAdapter,
+    FLSpielPriorBericht,
     FLSpielReleasedSide,
 )
 from app.api.spiele.services import (
@@ -53,6 +59,7 @@ from app.api.spiele.services import (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_references_to_anchor,
     find_result_removal_refusal,
     find_state_refusal,
@@ -67,11 +74,14 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SpielberichteCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
@@ -140,14 +150,23 @@ async def get_spiele_action_required(
     saisons_collection: SaisonsCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleActionRequiredResponse:
     """List Spiele needing attention, and the bracket faults among them.
 
-    Qualifying: cancelled, missing a date, time, venue or referee, past with no result, or a
-    knockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none
+    Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
+    knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
+    not adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none
     is named, which answers 404 while no season is active.
+
+    Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
+    administrator: a decline proposing another date, a deadline passed unanswered, or a deadline of
+    today on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`
+    for the same season serves them, read separately, so a row reaching one of those states between
+    the two reads shows its fixture on the next.
 
     The faults include a fixture still to be played that is booked onto a retired venue or referee,
     and one whose venue or referee another fixture of any season claims less than four hours away.
@@ -200,7 +219,37 @@ async def get_spiele_action_required(
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
 
-    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults)
+    # A fixture a confirmation names may lack nothing above: rows are minted only for one with its day, time,
+    # ground and both sides. Grouped per fixture, so the read is bounded by the season's fixtures, never its rows.
+    angefragt = await aggregate_many_from_db(
+        collection=spielbestaetigungen_collection,
+        pipeline=[
+            {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
+            {"$group": {"_id": "$spiel_id", "staende": {"$addToSet": "$ansetzung.stand"}}},
+        ],
+    )
+    staende = {row["_id"]: set(row["staende"]) for row in angefragt if row["_id"] not in by_id}
+    if staende:
+        for spiel_raw in await aggregate_many_from_db(
+            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": list(staende)}})
+        ):
+            # A row about an Ansetzung the fixture has left asks the administrator nothing: the next pass closes it.
+            if ansetzung_stand_of(spiel_raw) in staende[spiel_raw["_id"]]:
+                spiel = FLSpielJoinedAdmin.model_validate(spiel_raw)
+                by_id.setdefault(spiel.id, spiel)
+
+    # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
+    # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
+    berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
+    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
+    if offen:
+        berichtet_raw = await aggregate_many_from_db(
+            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
+        )
+        for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
+            by_id.setdefault(spiel.id, spiel)
+
+    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults, spielberichte=berichte)
 
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
@@ -230,6 +279,14 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
+class Adoption(NamedTuple):
+    """The report version the editor seeded one fixture's save from, to be stamped adopted where the report still stands at it."""
+
+    spiel_id: CustomObjectId
+    version: int
+    now: datetime
+
+
 async def _write_spiel_data(
     entries: Sequence[tuple[CustomObjectId, FLPatchSpielDataPayload | FLPatchSpielPaarungPayload]],
     db: AsyncMongoClient,
@@ -240,7 +297,11 @@ async def _write_spiel_data(
     spieltage_collection: AsyncCollection,
     spielorte_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     dry_run: bool,
+    adoption: Adoption | None,
+    # An undo's: the adoption the save it undoes stamped over.
+    restore: FLSpielPriorBericht | None,
 ) -> list[FLPatchSpielDataResponse]:
     """One implementation behind every write route, so a narrowed restore meets every rule a wholesale save does.
 
@@ -343,6 +404,10 @@ async def _write_spiel_data(
         # Before the clash: whether a ground exists at all is more basic than who else is on it.
         refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules))
 
+        # Off the slice this transaction judges, so a save retried after a referee's decline conflicted with it meets the
+        # slot the decline left; after the booking refusal, which names an erased referee as its own case.
+        refuse(find_referee_stand_refusal(stored, spiel_data))
+
         # Read after every refusal but the one it feeds: it validates fixtures of every season, and a
         # hand-edited one raises, which would answer 500 for a save an earlier rule refuses.
         booked = await pull_booked_slots(
@@ -355,7 +420,7 @@ async def _write_spiel_data(
             verdict.releases,
             apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
             # Returned rather than left to the caller to derive, so every transaction judging here
-            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1l).
+            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1m).
             find_references_to_anchor(stored, spiel_data, saison_rules),
         )
 
@@ -396,7 +461,7 @@ async def _write_spiel_data(
 
             # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
             # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-            document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
+            document = patched.model_dump(context={"keep_oid": True}, include={*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"})
 
             await patch_one_in_db(
                 collection=spiele_collection,
@@ -445,6 +510,30 @@ async def _write_spiel_data(
                 )
             )
 
+        # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
+        if adoption is not None:
+            # After every entry's resolution, which can re-field the adopted fixture's sides too.
+            gespeichert = await pull_one_from_db(
+                collection=spiele_collection,
+                db_filter={"_id": adoption.spiel_id},
+                projection={"team1.team_id": 1, "team2.team_id": 1},
+                session=session,
+            )
+            prior_bericht = await stamp_the_adoption(
+                spielberichte_collection=spielberichte_collection,
+                spiel_id=adoption.spiel_id,
+                version=adoption.version,
+                seiten=seiten_of(gespeichert),
+                now=adoption.now,
+                session=session,
+            )
+            # The adopted fixture is the one the save names, whose report leads.
+            reports[0] = reports[0].model_copy(update={"prior_bericht": prior_bericht})
+
+        # In the replay's transaction: the report reads adopted exactly while the result the undo takes back stands.
+        if restore is not None:
+            await restore_the_adoption(spielberichte_collection=spielberichte_collection, prior=restore, session=session)
+
         return reports
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
@@ -478,6 +567,12 @@ async def patch_spiel_data(
     spieltage_collection: SpieltageCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
+    uebernimmt_bericht: Annotated[
+        int | None,
+        Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
+    ] = None,
+    now: datetime = Depends(get_germany_now),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -487,6 +582,12 @@ async def patch_spiel_data(
     composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
     and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
     leading the list, and carrying the fields beyond its Paarung that this payload replaced.
+
+    With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
+    transaction. A report corrected since that version, or written about other clubs than the save leaves on the
+    fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the
+    adoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`
+    stamps nothing.
     """
 
     written = await _write_spiel_data(
@@ -499,7 +600,10 @@ async def patch_spiel_data(
         spieltage_collection=spieltage_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
+        spielberichte_collection=spielberichte_collection,
         dry_run=dry_run,
+        adoption=None if uebernimmt_bericht is None else Adoption(spiel_id=spiel_id, version=uebernimmt_bericht, now=now),
+        restore=None,
     )
 
     return written[0]
@@ -523,6 +627,7 @@ async def patch_spiele_paarungen(
     spieltage_collection: SpieltageCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
 ) -> FLPatchSpielePaarungenResponse:
     """
     Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.
@@ -541,6 +646,10 @@ async def patch_spiele_paarungen(
     somebody moved since that save survives. Every refusal, and the resolution itself, are
     `PATCH /spiele/{spiel_id}`'s.
 
+    `bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in
+    the same transaction, while the report still stands at the version stamped, so a report adopted by the save reads
+    as it did before it. A report corrected since keeps the stamp, its raised version reading past it already.
+
     `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
     restore; one it puts back afterwards is the order doing its work rather than a loss. No
     `dry_run`: what these bodies would move is what the save they undo already reported.
@@ -556,7 +665,11 @@ async def patch_spiele_paarungen(
         spieltage_collection=spieltage_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
+        spielberichte_collection=spielberichte_collection,
         dry_run=False,
+        # An undo stamps no report: it puts back the adoption the save it undoes stamped over.
+        adoption=None,
+        restore=payload.bericht,
     )
 
     # Where each fixture sits in the replay, which is what tells a rewrite this list repairs further

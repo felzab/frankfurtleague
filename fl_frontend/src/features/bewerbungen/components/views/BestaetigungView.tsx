@@ -243,11 +243,15 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             </p>
           ) : (
             <>
+              {/* An unknown link names no source, and a team seat's voided link reads unknown: the wording holds for both. */}
               <p className={ABSATZ_CLASSES}>
-                Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die
-                bis dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
+                Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Kam er mit einer
+                Bewerbung, löschen wir sie mit allen Angaben, wenn sie bis dahin nicht alle Bestätigungen hat.
               </p>
-              <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+              <p className={ABSATZ_CLASSES}>
+                Einen neuen Link bekommst Du, wenn Deine Schule Dich in einer Bewerbung neu einträgt. Für einen Platz in einem Team schickt ihn
+                Dir die Verwaltung der Liga auf Wunsch.
+              </p>
             </>
           )}
           <FrageStellen />

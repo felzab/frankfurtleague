@@ -1,6 +1,7 @@
 import ast
 import functools
 import importlib
+import re
 from collections.abc import Iterator, Mapping
 from importlib.util import resolve_name
 from itertools import combinations
@@ -11,14 +12,13 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
+from app.api.adresswechsel.crud import end_the_address_changes_in_session
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, Personengruppe, _runs, erase_everything
 from app.api.saisons.schemas import FLSaison
-from app.api.schiedsrichter.crud import remove_pending_addresses_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLSpiel
-from app.api.spieler.crud import remove_pending_pupil_addresses_in_session
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -327,6 +327,37 @@ def test_every_collection_is_declared_once():
     )
 
 
+DOMAIN_PAGE = BACKEND_ROOT.parent / "docs" / "domain.md"
+ENTITY_SECTION = "## The entities, and what holds them together"
+
+
+def _entity_list_names() -> set[str]:
+    """The list's lines alone, up to the next heading: the prose and the subsection beside it cite symbols that are no collection."""
+
+    lines = DOMAIN_PAGE.read_text(encoding="utf-8").splitlines()
+    names: set[str] = set()
+    for line in lines[lines.index(ENTITY_SECTION) + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith(("- ", "  ")):
+            names.update(re.findall(r"`([^`]+)`", line))
+    return names
+
+
+def test_the_domain_pages_entity_list_places_every_collection_and_names_nothing_else():
+    """Hand-kept: the page places each collection by whether it outlives a season.
+
+    One left out is placed nowhere, and a name the list backticks is a collection's.
+    """
+
+    named = _entity_list_names()
+    declared = {collection.value for collection in Collection}
+
+    assert named, f"no list item under `{ENTITY_SECTION}`, so the comparison holds of nothing"
+    assert sorted(declared - named) == [], f"`{DOMAIN_PAGE.name}`'s entity list leaves these collections out"
+    assert sorted(named - declared) == [], f"`{DOMAIN_PAGE.name}`'s entity list names what no `Collection` member holds"
+
+
 def test_every_declared_value_is_used():
     """`UNUSED_ACTIONS` is asserted exact rather than as a floor: an unused new member and a used listed one both fail."""
 
@@ -595,7 +626,8 @@ def _steps_reaching(collection: Collection, scope: frozenset[Personengruppe] = J
 def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
     """A reference to a person no step reaches outlives their erasure, naming a document that is gone.
 
-    Programme 3's lineups, scorers and cards each add a row here, and fail until a step reaches them.
+    A match report's scorer and card ids declare no row, so this passes over them
+    (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
     """
 
     assert REFERENCES_TO_A_PERSON, "no reference targets a person, so the comparison below holds of nothing"
@@ -639,11 +671,7 @@ def test_the_registry_runs_every_step_by_name_in_its_declared_order():
 
 
 # The steps whose writes leave the address in images no step of theirs redacts: another record the person made or names.
-_LEAVING_THE_ADDRESS_IN_IMAGES = (
-    erase_grants_and_authorship_in_session,
-    remove_pending_addresses_in_session,
-    remove_pending_pupil_addresses_in_session,
-)
+_LEAVING_THE_ADDRESS_IN_IMAGES = (erase_grants_and_authorship_in_session, end_the_address_changes_in_session)
 
 
 def test_no_scope_runs_a_step_leaving_the_address_in_an_image_without_the_address_pass():

@@ -30,19 +30,29 @@ from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
-from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, get_drossel
+from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DrosselungException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.core.security import akteur_pseudonym
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
+from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, spieler_document, team_document
+from tests.documents import (
+    eigene_einwilligung_document,
+    kontaktperson_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spieler_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -73,6 +83,8 @@ REFEREE = ObjectId("6890a1b2c3d4e5f607930021")
 # No squad row holds it, so an admitted squad edit meets the handler's own 404 and writes nothing.
 NOT_IN_THE_SQUAD = ObjectId("6890a1b2c3d4e5f607930099")
 ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
+ANY_SPIELBESTAETIGUNG = ObjectId("6890a1b2c3d4e5f607930097")
+ANY_SPIEL = ObjectId("6890a1b2c3d4e5f607930096")
 
 # One mailbox writing as all three kinds of person, so a count is seen to be the kind's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
@@ -88,54 +100,59 @@ YOUNG_BIRTHDATE = "2110-05-09"
 API = f"/api/v{API_VERSION}"
 KADER_ROW = f"{API}/spieler/kader/{TEAM_A}/{ACTIVE_SAISON}/{NOT_IN_THE_SQUAD}"
 KADER_EDIT = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None}
+SPIELBERICHT = {
+    "bericht": {
+        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [],
+        "karten": [],
+        "bemerkungen": None,
+    },
+    "bericht_stand": None,
+}
 
 CEILING_LINE = "A person reached their daily write ceiling"
 
 
-def _consent(**fields: Any) -> dict[str, Any]:
-    """A record its own person confirmed, every choice granted, so a withdrawal moves something on each."""
+CONFIRMED_LABEL = "2026-01-bestaetigungsseite-1"
 
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-02-01",
-        "bestaetigt_am": "2026-02-02",
-        "text_version": "2026-01-bestaetigungsseite-1",
-        "medien": True,
-        **fields,
-    }
+
+def _consent(*, medien: bool = True) -> dict[str, Any]:
+    """A record its own person confirmed, every choice `PERSON`'s is granted, so a withdrawal moves something on each."""
+
+    return eigene_einwilligung_document(text_version=CONFIRMED_LABEL, bestaetigt_am="2026-02-02", medien=medien)
 
 
 def _seat(email: str, *, geburtsdatum: str = ADULT_BIRTHDATE, medien: bool = True) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Drossel",
-        "email": email,
-        "telefon": "+49 69 5550111",
-        "geburtsdatum": geburtsdatum,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "2026-01-bestaetigungsseite-1",
-            "datum": "2026-02-01",
-            "bestaetigt_am": "2026-02-02",
-            "medien": medien,
-        },
-    }
+    return kontaktperson_document(
+        "Anna",
+        bestaetigt_am="2026-02-02",
+        einwilligung={"text_version": CONFIRMED_LABEL, "medien": medien},
+        nachname="Drossel",
+        email=email,
+        telefon="+49 69 5550111",
+        geburtsdatum=geburtsdatum,
+    )
 
 
-def _referee(referee_id: ObjectId, name: str, email: str, geburtsdatum: str, **einwilligung: Any) -> dict[str, Any]:
+def _referee(referee_id: ObjectId, name: str, email: str, geburtsdatum: str, *, medien: bool = True) -> dict[str, Any]:
     # A name per referee: `uniq_schiedsrichter_name` indexes it.
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": "Adler-Schule",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550222", "email": email},
-        "inactive_since": None,
-        "geburtsdatum": geburtsdatum,
-        "einwilligung": _consent(**einwilligung),
-    }
+    return schiedsrichter_document(
+        referee_id,
+        email=email,
+        name=name,
+        default_payment=20,
+        einwilligung=_consent(medien=medien),
+        schule="Adler-Schule",
+        kontakt={"telefon": "+49 69 5550222", "email": email},
+        geburtsdatum=geburtsdatum,
+    )
+
+
+# The stand a page served each seeded record echoes: `PERSON`'s granting media, `YOUNG`'s withholding it.
+PERSON_STAND = nachweis_stand_of(bloecke=[_consent()])
+YOUNG_STAND = nachweis_stand_of(bloecke=[_consent(medien=False)])
+PERSON_SEAT_STAND = nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]])
+YOUNG_SEAT_STAND = nachweis_stand_of(bloecke=[_seat(YOUNG, geburtsdatum=YOUNG_BIRTHDATE, medien=False)["einwilligung"]])
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -213,22 +230,22 @@ def answered(response: Response) -> tuple[int, str | None]:
     return response.status_code, response.json().get("error_code")
 
 
-def count_id(funktion: AktorFunktion, email: str, day: str = TODAY) -> str:
+def count_id(funktion: Zaehler, email: str, day: str = TODAY) -> str:
     """The count's key, spelled here from its parts rather than read off the module, so a key that moved fails these cases."""
 
     return f"{funktion}:{akteur_pseudonym(sign_in_identifier(email), schluessel=CONFIG.sperrliste_schluessel)}:{day}"
 
 
-async def spend(database: AsyncDatabase, funktion: AktorFunktion, email: str, units: int) -> None:
+async def spend(database: AsyncDatabase, funktion: Zaehler, email: str, units: int) -> None:
     """The person's count for `TODAY` at `units` spent."""
 
     await database[Collection.DROSSELUNG].insert_one({"_id": count_id(funktion, email), "n": units, "ablauf": MIDNIGHT_UTC})
 
 
-async def exhaust(database: AsyncDatabase, funktion: AktorFunktion, email: str) -> None:
+async def exhaust(database: AsyncDatabase, funktion: Zaehler, email: str) -> None:
     """The person's count for `TODAY` at its ceiling, every unit spent."""
 
-    await spend(database, funktion, email, TAGESBUDGETS[funktion])
+    await spend(database, funktion, email, ZAEHLER_BUDGETS[funktion])
 
 
 async def counts(database: AsyncDatabase) -> dict[str, int]:
@@ -307,20 +324,39 @@ class TestTheCeilingUnderConcurrency:
         assert row["ablauf"] == MIDNIGHT_UTC
 
 
-# Every route counting each call, each refused at an exhausted count before its handler reads the body.
+# Every route counting each call, each refused at an exhausted count of its Funktion before its handler reads the body.
 COUNTED_ON_EVERY_CALL = [
-    pytest.param("PATCH", KADER_ROW, KADER_EDIT, id="a squad row's edit"),
-    pytest.param("DELETE", KADER_ROW, None, id="a squad row's austragen"),
-    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, id="an admission"),
-    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, id="a decline"),
+    pytest.param("PATCH", KADER_ROW, KADER_EDIT, "kontakt", id="a squad row's edit"),
+    pytest.param("DELETE", KADER_ROW, None, "kontakt", id="a squad row's austragen"),
+    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, "kontakt", id="an admission"),
+    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, "kontakt", id="a decline"),
+    pytest.param(
+        "POST",
+        f"{API}/spielbestaetigungen/{ANY_SPIELBESTAETIGUNG}/antwort",
+        {"antwort": "zugesagt", "begruendung": None},
+        "schiedsrichter",
+        id="a referee's answer",
+    ),
+    pytest.param("PUT", f"{API}/spielberichte/{ANY_SPIEL}/bericht", SPIELBERICHT, "schiedsrichter", id="a referee's report"),
 ]
 
 
-class TestAnExhaustedCount:
-    @pytest.mark.parametrize(("method", "path", "body"), COUNTED_ON_EVERY_CALL)
-    def test_each_route_counting_every_call_refuses_until_midnight(self, mongo_replica_set_url: str, method: str, path: str, body: Any):
+# The address change's two counted presses, on a count of their own: each mails a mailbox the person typed.
+ADDRESS_CHANGE_COUNTED = [
+    pytest.param("POST", f"{API}/konto/adresswechsel", {"email": "neu.postfach@anderswo.example"}, id="a start"),
+    pytest.param("POST", f"{API}/konto/adresswechsel/freigabe", None, id="an approval"),
+]
+
+
+class TestTheAddressChangesOwnCount:
+    @pytest.mark.parametrize(("method", "path", "body"), ADDRESS_CHANGE_COUNTED)
+    def test_its_exhausted_count_refuses_until_midnight_and_the_funktion_s_count_moves_not(
+        self, mongo_replica_set_url: str, method: str, path: str, body: Any
+    ):
+        """Count it on the binder's `kontakt` instead and the first case is a 404 or a start, the second count never reached."""
+
         async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
-            await exhaust(database, "kontakt", PERSON)
+            await exhaust(database, "adresswechsel", PERSON)
             async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
                 response = await http.request(method, path, json=body, headers=as_person(PERSON))
             return response, await counts(database)
@@ -328,7 +364,40 @@ class TestAnExhaustedCount:
         response, stored = seeded(mongo_replica_set_url, steps)
 
         assert refused_until_midnight(response), response.text
-        assert stored == {count_id("kontakt", PERSON): TAGESBUDGETS["kontakt"] + 1}
+        assert stored == {count_id("adresswechsel", PERSON): ZAEHLER_BUDGETS["adresswechsel"] + 1}
+
+    def test_an_exhausted_funktion_count_refuses_no_start(self, mongo_replica_set_url: str):
+        """The control: the seat holder's day of panel work spends nothing a start counts on."""
+
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            await exhaust(database, "kontakt", PERSON)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                response = await http.post(
+                    f"{API}/konto/adresswechsel", json={"email": "neu.postfach@anderswo.example"}, headers=as_person(PERSON)
+                )
+            return response, await counts(database)
+
+        response, stored = seeded(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert stored == {count_id("kontakt", PERSON): TAGESBUDGETS["kontakt"], count_id("adresswechsel", PERSON): 1}
+
+
+class TestAnExhaustedCount:
+    @pytest.mark.parametrize(("method", "path", "body", "funktion"), COUNTED_ON_EVERY_CALL)
+    def test_each_route_counting_every_call_refuses_until_midnight(
+        self, mongo_replica_set_url: str, method: str, path: str, body: Any, funktion: AktorFunktion
+    ):
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            await exhaust(database, funktion, PERSON)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                response = await http.request(method, path, json=body, headers=as_person(PERSON))
+            return response, await counts(database)
+
+        response, stored = seeded(mongo_replica_set_url, steps)
+
+        assert refused_until_midnight(response), response.text
+        assert stored == {count_id(funktion, PERSON): TAGESBUDGETS[funktion] + 1}
 
     def test_another_person_and_the_same_person_s_other_funktion_keep_their_own_count(self, mongo_replica_set_url: str):
         """The control and the two keys at once: every answer below but the first would be a 429 were the count shared."""
@@ -380,9 +449,10 @@ class Consent:
     funktion: AktorFunktion
     path: str
     seite: Seite
-    # The choices a press names beside `medien`, unmoved, and the evidence a page served the seeded record echoes.
+    # The choices a press names beside `medien`, unmoved, and the evidence a page served each seeded record echoes.
     beside: Mapping[str, Any]
     stand: Mapping[str, Any]
+    young_stand: Mapping[str, Any]
     # The dependency handing the handler the collection its press writes.
     collection: Callable[..., Awaitable[AsyncCollection]]
     # The same operation naming `YOUNG`'s own record.
@@ -402,7 +472,8 @@ SPIELER = Consent(
     f"{API}/spieler/selbst/einwilligung",
     KONTO_SEITE_SPIELER,
     {"umfang": "kader_oeffentlich"},
-    {"umfang": None, "medien": None},
+    PERSON_STAND,
+    YOUNG_STAND,
     get_spieler_collection,
     f"{API}/spieler/selbst/einwilligung",
 )
@@ -414,7 +485,8 @@ CONSENTS = [
             f"{API}/schiedsrichter/selbst/{REFEREE}/einwilligung",
             KONTO_SEITE_SCHIEDSRICHTER,
             {"umfang": "kader_oeffentlich"},
-            {"umfang": None, "medien": None},
+            PERSON_STAND,
+            YOUNG_STAND,
             get_schiedsrichter_collection,
             f"{API}/schiedsrichter/selbst/{YOUNG_REFEREE}/einwilligung",
         ),
@@ -426,7 +498,8 @@ CONSENTS = [
             f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
             KONTO_SEITE_KONTAKT,
             {"umfang": "kontaktdaten"},
-            {"umfang": None, "medien": None},
+            PERSON_SEAT_STAND,
+            YOUNG_SEAT_STAND,
             get_saison_teams_collection,
             f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
         ),
@@ -532,14 +605,16 @@ class TestAConsentPress:
 # Each a grant `YOUNG` presses that another rule refuses, and the code that rule answers.
 REFUSED_GRANTS = [
     pytest.param(
-        lambda consent: {**consent.press(True), "nachweis_stand": {**consent.stand, "medien": "2026-03-01T10:00:00+00:00"}},
+        lambda consent: {**consent.press(True), "nachweis_stand": {**consent.young_stand, "medien": "2026-03-01T10:00:00+00:00"}},
         (409, EINWILLIGUNG_STAND_VERALTET),
         id="a stale page",
     ),
     pytest.param(
-        lambda consent: {**consent.press(True), "text_version": "2000-01-unbekannt"}, (409, FASSUNG_UNZULAESSIG), id="an unknown label"
+        lambda consent: {**consent.press(True, consent.young_stand), "text_version": "2000-01-unbekannt"},
+        (409, FASSUNG_UNZULAESSIG),
+        id="an unknown label",
     ),
-    pytest.param(lambda consent: consent.press(True), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
+    pytest.param(lambda consent: consent.press(True, consent.young_stand), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
 ]
 
 

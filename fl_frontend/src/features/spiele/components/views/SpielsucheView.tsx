@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
+import { Callout } from "@/shared/components/ui/Callout";
 import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
@@ -15,11 +17,15 @@ import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
 import { SpielCardGrid } from "../ui/SpielCardGrid";
 
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../schemas";
 
 // Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_team1_quelle` and
 // `searchable_team2_quelle` keys exist because a `quelle` holds no text, while the label derived from
 // it is what a reader sees.
+const KEINE_AUSTRITTE: Readonly<Record<string, string>> = {};
+
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",
@@ -46,6 +52,9 @@ export function SpielsucheView({
   teams,
   spielorte,
   schiedsrichter,
+  bestaetigungen,
+  bestaetigungenVollstaendig = true,
+  austritte = KEINE_AUSTRITTE,
 }: {
   spiele: FLSpiel[];
   today: string;
@@ -60,6 +69,14 @@ export function SpielsucheView({
   teams?: readonly { id: string; name: string }[];
   spielorte?: readonly { id: string; name: string }[];
   schiedsrichter?: readonly { id: string; name: string | null }[];
+  /**
+   * The season's confirmation rows, an administrator's read: absent on the public route, `null` where the read failed,
+   * which the page says rather than showing cards that read as asked nothing.
+   */
+  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
+  bestaetigungenVollstaendig?: boolean;
+  /** The day each club left this season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
+  austritte?: Readonly<Record<string, string>>;
 }) {
   // Held here, the one ancestor of both the bar and the list, and never in the URL: the search
   // reaches a referee's name (`docs/frontend/spec.md :: I680`).
@@ -96,6 +113,14 @@ export function SpielsucheView({
     emptyQuery: "all",
   });
 
+  const saisonBestaetigungen = useMemo(
+    (): SaisonBestaetigungen | undefined =>
+      bestaetigungen === undefined || bestaetigungen === null
+        ? undefined
+        : { bySpielId: groupBestaetigungenBySpielId(bestaetigungen), austritte: new Map(Object.entries(austritte)) },
+    [bestaetigungen, austritte],
+  );
+
   const hasAsked = spielQuery !== "" || countActiveFacets(selection) > 0;
   // Rather than `filteredResults`, which answers "everything" for a page nobody has asked yet.
   const shown = hasAsked ? filteredResults : [];
@@ -131,6 +156,22 @@ export function SpielsucheView({
       </div>
 
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
+        {/* Standing, never dismissible: a card short of its chips reads as a fixture nobody asked. A cut reaches the
+            closed rows alone, and of those a card chips a referee's decline. */}
+        {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+          <div className="flex w-full max-w-toolbar flex-col">
+            <Callout
+              severity="warning"
+              title={
+                bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+              }>
+              {bestaetigungen === null
+                ? "Die Karten zeigen deshalb keine Antworten, weder der Teams noch ihrer Schiedsrichterin oder ihres Schiedsrichters. Lade die Seite neu."
+                : "Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. Einer Karte kann deshalb die Absage ihrer Schiedsrichterin oder ihres Schiedsrichters fehlen."}
+            </Callout>
+          </div>
+        )}
+
         {message !== null && <p className="mt-10 fluid-sm font-bold tracking-wide text-foreground-muted italic">{message}</p>}
 
         {/* ALWAYS mounted, an empty grid being a zero-height box. A third branch beside the two
@@ -144,6 +185,7 @@ export function SpielsucheView({
             today={today}
             isAdmin={isAdmin}
             isFinishedSaison={isFinishedSaison}
+            bestaetigungen={saisonBestaetigungen}
           />
         </SpielCardGrid>
       </div>

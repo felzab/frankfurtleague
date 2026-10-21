@@ -243,8 +243,8 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
-            # Collected rather than carried over, so the default corpus is the case the rule is for.
-            "einwilligung": {**EINWILLIGUNG, "erteilt_von": "erziehungsberechtigt"},
+            "geburtsdatum": "2009-05-04",
+            "einwilligung": dict(EINWILLIGUNG),
         }
     )
 
@@ -276,6 +276,8 @@ def saison() -> PayloadFactory:
             # The points the model suites read back, and the shape the schedule below follows from, passed
             # rather than left to the builder's default.
             "rules": rules_document(win_points=3, number_of_groups=4, teams_per_group=4, qualifiers_per_group=2),
+            "bewerbung": None,
+            "registrierung": None,
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
@@ -303,8 +305,8 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
 
-# In both `_standalone_mongod`'s and `_replica_set_mongod`'s url: a streaming monitor's close leaves
-# no TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
+# In the urls `_standalone_mongod` and `_elected` build: a streaming monitor's close leaves no
+# TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
 # relay stalls a connect on it past the request deadline.
 POLLING_MONITORS = "serverMonitoringMode=poll"
 
@@ -442,15 +444,16 @@ def _log_tail(container: DockerContainer) -> str | None:
 
 
 @contextmanager
-def _started(container: DockerContainer) -> Iterator[None]:
-    """`with container:`, but a failed start's message carries the tail of the container's log.
+def _started(container: DockerContainer, ready: Callable[[], str]) -> Iterator[str]:
+    """`with container:`, but a start failing before `ready` returns carries the tail of the container's log.
 
-    testcontainers raises without it, then removes the container and its log. In the message, never a
-    note: `pytest_configure_node` hands the workers `str(error)`.
+    Neither phase's own error carries it, and stopping the container discards it. In the message,
+    never a note: `pytest_configure_node` hands the workers `str(error)`.
     """
 
     try:
         container.start()
+        url = ready()
     except Exception as error:
         try:
             log = _log_tail(container)
@@ -466,7 +469,7 @@ def _started(container: DockerContainer) -> Iterator[None]:
         raise
 
     try:
-        yield
+        yield url
     finally:
         container.stop()
 
@@ -480,8 +483,31 @@ def _standalone_mongod() -> Iterator[str]:
     from testcontainers.community.mongodb import MongoDbContainer
 
     container = MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
-    with _started(container):
-        yield f"{container.get_connection_url()}/?{POLLING_MONITORS}"
+    with _started(container, lambda: f"{container.get_connection_url()}/?{POLLING_MONITORS}") as url:
+        yield url
+
+
+def _elected(container: DockerContainer) -> str:
+    # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
+    url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
+
+    client = MongoClient(url)
+    try:
+        client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
+
+        # Initiation returns before the node elects itself, and the first write then fails with `NotWritablePrimary`.
+        deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
+        while not client.admin.command("hello").get("isWritablePrimary"):
+            if time.monotonic() > deadline:
+                # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
+                # `except Exception` misses.
+                raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
+            time.sleep(0.25)
+        _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
+    finally:
+        client.close()
+
+    return url
 
 
 @contextmanager
@@ -504,26 +530,7 @@ def _replica_set_mongod() -> Iterator[str]:
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
-    with _started(container):
-        # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
-        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
-
-        client = MongoClient(url)
-        try:
-            client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
-
-            # Initiation returns before the node elects itself, and the first write then fails with `NotWritablePrimary`.
-            deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
-            while not client.admin.command("hello").get("isWritablePrimary"):
-                if time.monotonic() > deadline:
-                    # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
-                    # `except Exception` misses.
-                    raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
-                time.sleep(0.25)
-            _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
-        finally:
-            client.close()
-
+    with _started(container, lambda: _elected(container)) as url:
         _REPLICA_SET_CONTAINERS[url] = container
         try:
             yield url
@@ -619,7 +626,7 @@ def pytest_configure_node(node: Any) -> None:
     """xdist's controller hook, unreached without `-n`.
 
     A worker is a session of its own and would start both servers. The controller also KEEPS them:
-    testcontainers' reaper reclaims a container when its starter disconnects.
+    a server stops with its starter's teardown, and the reaper reclaims only after a kill.
     """
 
     # A cost heuristic, never a decision: the default tier's own `-m` is the one run known to want
@@ -779,9 +786,8 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 def mongo_database(mongo_url: str) -> Iterator[Database]:
     """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
 
-    `tests/api/test_spieler_memberships_read.py :: squads` seeds a person predating `einwilligung`,
-    which the shipped validator requires; and both it and `tests/api/conftest.py :: league` drop
-    their collections, taking any validator with them.
+    `tests/api/test_spieler_memberships_read.py :: squads` and `tests/api/conftest.py :: league` both
+    drop their collections, taking any validator with them.
     """
 
     client = MongoClient(mongo_url)

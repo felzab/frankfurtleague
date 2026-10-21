@@ -14,7 +14,6 @@ registerDoubles({
 /* `await import`, never a static import beside the hook, which registers as this module evaluates. */
 const { alterAusserhalb } = await import("./constants.ts");
 const { alterAusserhalb: kontaktSatz } = await import("@/features/bewerbungen/constants.ts");
-const { schiedsrichterVorname } = await import("./constants.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
@@ -185,16 +184,5 @@ describe("what the administrator is told about the message a write sent", () => 
       describeLinkMail("anna@example.de", "gesperrt"),
       "Der Bestätigungslink ging nicht raus, weil die Adresse auf der Sperrliste steht.",
     );
-  });
-});
-
-describe("the forename the mail greets a referee by", () => {
-  it("takes the first whitespace-separated part, and nothing where the row has no name", () => {
-    assert.equal(schiedsrichterVorname("Anna Meier"), "Anna");
-    assert.equal(schiedsrichterVorname("  Anna   Meier "), "Anna");
-    assert.equal(schiedsrichterVorname("Anna"), "Anna");
-    assert.equal(schiedsrichterVorname(""), null);
-    assert.equal(schiedsrichterVorname("   "), null);
-    assert.equal(schiedsrichterVorname(null), null);
   });
 });

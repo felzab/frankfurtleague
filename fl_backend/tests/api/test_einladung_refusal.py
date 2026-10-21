@@ -17,6 +17,7 @@ from app.api.einladungen.services import (
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
+from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
 
@@ -24,15 +25,7 @@ CONFIRMED_ON = "2026-03-20"
 def kontaktperson(vorname: str, email: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
     """One seat as the junction stores it. `bestaetigt_am` is the whole of what a recipient has to clear."""
 
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email,
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"}
-        | {"bestaetigt_am": bestaetigt_am},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am=bestaetigt_am, email=email, telefon="+49 69 1234567")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung: Any = None) -> dict[str, Any]:
@@ -149,10 +142,8 @@ class TestWhoALinkIsMailedTo:
         assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["bramblewick@example.com"]
 
     def test_one_person_holding_two_seats_is_one_message(self):
-        """One mailbox spelled two ways: the DOMAIN is case-insensitive, so these two seats are one inbox."""
-
         block = kontakte(
-            trainer=kontaktperson("Bramblewick", "bramblewick@Example.com", bestaetigt_am=CONFIRMED_ON),
+            trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON),
             stellvertretung=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON),
         )
         empfaenger = bestaetigte_empfaenger(kontakte=block)
@@ -160,16 +151,6 @@ class TestWhoALinkIsMailedTo:
         assert len(empfaenger) == 1
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
         assert empfaenger[0].rolle == "trainer"
-
-    def test_two_seats_parted_by_the_case_of_their_local_parts_are_two_people(self):
-        """A local part is case-SENSITIVE (RFC 5321), so folding the whole address drops one of these two silently."""
-
-        block = kontakte(
-            trainer=kontaktperson("Bramblewick", "T.Mueller@schule.example", bestaetigt_am=CONFIRMED_ON),
-            stellvertretung=kontaktperson("Thordis", "t.mueller@schule.example", bestaetigt_am=CONFIRMED_ON),
-        )
-
-        assert [entry.email for entry in bestaetigte_empfaenger(kontakte=block)] == ["T.Mueller@schule.example", "t.mueller@schule.example"]
 
     def test_a_block_whose_seats_are_all_unconfirmed_addresses_nobody(self):
         block = kontakte(ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", bestaetigt_am=None))

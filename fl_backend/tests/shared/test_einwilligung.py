@@ -45,27 +45,19 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-09-bestaetigungsseite-4": "5bd721936cf000ca996d98013728b06af2d116d0e19b69d9c29771965a40a411",
     "2026-09-bestaetigungsseite-5": "8d3de56751483fe06311f894784b4562908e9d133386e004e9702db6e631215a",
     "2026-09-bestaetigungsseite-6": "1227f765f47568c1ef105d9ccddeee88732e5bf37b768eaa285b2717f236c905",
-    "2026-09-schiedsrichterseite": "21e9351ead79fce150e6dc1c822b0912ae630c493935fb901992a17948d893f0",
-    "2026-09-schiedsrichterseite-2": "57f8835d93222b31f07fcc344d7e49825dff32e042d3f08203c26e4e5ea1acd2",
-    "2026-09-schiedsrichterseite-3": "42a7cb76d1b0c7f89fff39ed3c16431e1bae66463ce6a71572ddb684d4426807",
-    "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
-    "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
-    "2026-09-spielerseite-3": "08810bd6501bdde29d871b01a4878f77b2e25d2562bb63e5b8d6ef8d4db74a48",
     # The account page's three, minted over the backend's words: no frontend copy of them ever existed.
     "2026-10-konto-spieler": "6b923626436ceb6b4670f6eb447e16bdbf633f2f8c2a637fa5818aff49f68031",
     "2026-10-konto-schiedsrichter": "c19cab56bfd34675507b17933d1c355a98b268d36f6ead18aa07fcda12a28192",
     "2026-10-konto-kontakt": "59c714135fa1a5662913aa268cfb87aaaee21534549bf8017e6bb2ee6a3f3b5c",
-    "2026-10-spielerseite-4": "0490d658a40af1a93a487338c2edaea205073bab924f15a060d236c04812fd5b",
     "2026-10-bestaetigungsseite-7": "c60d790129420fda529b1c7d790d6cf0dd3dead79ad7189cd7664e53f7641f01",
     "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",
     "2026-10-bestaetigungsseite-saison": "f336b66db9ad01b1636f0eda72d48a8f0e851960e8851a302e6c3a547cf460b5",
-    "2026-10-spielerseite-wiederkehrend": "3f77c8bf080b11a7609697ffdab2712d1b4502a5229736b5d94950e6154952e8",
     "2026-10-spielerseite-5": "67c3db041790712b7c649b1ff10a8800a2e69d1260250b7e769ffe727ffa4d29",
-    "2026-10-spielerseite-wiederkehrend-2": "c0376112b6f66667be76115d12e879590ef2233fcd92ac890a524f9317349c51",
     "2026-10-schiedsrichterseite-4": "1146c7493ca1c03bd2fb509ae5d870c28497337124776c4143f2c006288bb0af",
     "2026-10-bestaetigungsseite-8": "36008941791735e7b283b3c47566083f5a182fad6ef8ac5ab1e07f3a1fc62a77",
     "2026-10-bestaetigungsseite-verwaltung-2": "f38fb3df50883ebd87e89ee2b40c74b4554f4f94029c998a17db60577af0a711",
     "2026-10-bestaetigungsseite-saison-2": "a566bb3e3cd6b1942429dd3690554ddbd08ba0e58b915bf0792e247e1775f31b",
+    "2026-10-spielerseite-wiederkehrend-3": "513713fe524a1748819abb930a56b34f500246c24892d1a6d9462e6f6dbf3e58",
 }
 
 
@@ -106,51 +98,6 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickAlter",
             "klickHinweise",
             "keineEinwilligung",
-        ),
-    ),
-    "2026-09-schiedsrichterseite": ("bestaetigung_schiedsrichter", date(2026, 9, 22), None),
-    "2026-09-schiedsrichterseite-2": ("bestaetigung_schiedsrichter", date(2026, 9, 24), None),
-    "2026-09-schiedsrichterseite-3": (
-        "bestaetigung_schiedsrichter",
-        date(2026, 10, 3),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "veroeffentlichung",
-            "medien",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickEintrag",
-            "klickAlter",
-            "klickEinwilligung",
-            "klickHinweise",
-        ),
-    ),
-    "2026-09-spielerseite": ("bestaetigung_spieler", date(2026, 9, 22), None),
-    "2026-09-spielerseite-2": ("bestaetigung_spieler", date(2026, 9, 24), None),
-    "2026-09-spielerseite-3": (
-        "bestaetigung_spieler",
-        date(2026, 10, 3),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "veroeffentlichung",
-            "medien",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
-            "klickEinwilligung",
-            "klickHinweise",
         ),
     ),
     "2026-10-konto-spieler": (
@@ -263,44 +210,6 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "keineEinwilligung",
         ),
     ),
-    "2026-10-spielerseite-4": (
-        "bestaetigung_spieler",
-        date(2026, 10, 12),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "veroeffentlichung",
-            "medien",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
-            "klickEinwilligung",
-            "klickHinweise",
-        ),
-    ),
-    "2026-10-spielerseite-wiederkehrend": (
-        "bestaetigung_spieler_wiederkehrend",
-        date(2026, 10, 12),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "einwilligungen",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
-            "klickHinweise",
-        ),
-    ),
     "2026-10-spielerseite-5": (
         "bestaetigung_spieler",
         date(2026, 10, 18),
@@ -318,24 +227,6 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickIdentitaet",
             "klickAlter",
             "klickEinwilligung",
-            "klickHinweise",
-        ),
-    ),
-    "2026-10-spielerseite-wiederkehrend-2": (
-        "bestaetigung_spieler_wiederkehrend",
-        date(2026, 10, 18),
-        (
-            "worum",
-            "gespeichert",
-            "geburtsdatum",
-            "wer",
-            "einwilligungen",
-            "rechtsgrundlage",
-            "frist",
-            "widerruf",
-            "art21",
-            "klickIdentitaet",
-            "klickAlter",
             "klickHinweise",
         ),
     ),
@@ -436,6 +327,24 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickAlter",
             "klickHinweise",
             "keineEinwilligung",
+        ),
+    ),
+    "2026-10-spielerseite-wiederkehrend-3": (
+        "bestaetigung_spieler_wiederkehrend",
+        date(2026, 10, 21),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "einwilligungen",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickHinweise",
         ),
     ),
 }
@@ -566,14 +475,12 @@ class TestTheRegistryOfWordings:
         assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
         assert (saison.schalter, dict(saison.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
-    def test_the_pupil_page_changed_its_retention_paragraph_and_its_identity_line_alone(self):
-        """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""
+    def test_the_pupil_page_keeps_a_registration_until_its_team_decides(self):
+        """When a registration goes, which the notice states the same way: never at the next season's close."""
 
-        earlier = FASSUNGEN["2026-09-spielerseite-3"].absaetze_nach_schluessel
         running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]].absaetze_nach_schluessel
-        assert earlier is not None and running is not None
+        assert running is not None
 
-        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist", "klickIdentitaet"}
         assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
         assert "einen Monat nach der Entscheidung" in running["frist"]
 
@@ -596,7 +503,7 @@ class TestTheRegistryOfWordings:
     def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
         """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.
 
-        No choice is asked, its switch and controls being the words the stored choices are shown back under.
+        No choice is asked or shown, so a control word frozen here is one no reader saw.
         """
 
         neu = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]]
@@ -607,7 +514,7 @@ class TestTheRegistryOfWordings:
 
         assert geteilt == {"wer", "rechtsgrundlage", "frist", "widerruf", "art21", "klickIdentitaet", "klickHinweise"}
         assert not {"veroeffentlichung", "medien", "klickEinwilligung"} & set(wiederkehrend.absaetze_nach_schluessel)
-        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, dict(neu.bedienelemente))
+        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, {})
 
     @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
     def test_the_whatsapp_consent_is_taken_back_on_the_account_page_under_the_words_it_was_given(self, seite: Seite):
@@ -640,8 +547,9 @@ class TestTheRegistryOfWordings:
     def test_no_reader_can_reword_a_label_in_place(self):
         """Read-only all the way down: a caller writing into a served mapping would reword it for every later request."""
 
-        fassung = FASSUNGEN["2026-09-spielerseite-3"]
-        mappings = ((FASSUNGEN, "2026-09-spielerseite-3"), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.bedienelemente, "intern"))
+        label = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
+        fassung = FASSUNGEN[label]
+        mappings = ((FASSUNGEN, label), (LAUFENDE_FASSUNGEN, "bewerbung"), (fassung.bedienelemente, "intern"))
 
         for mapping, key in (*mappings, (fassung.absaetze_nach_schluessel, "worum")):
             with pytest.raises(TypeError):

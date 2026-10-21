@@ -12,12 +12,14 @@ import { act, createElement as h, useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
+import { z } from "zod";
 
 import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
@@ -50,6 +52,7 @@ const { EinladungLinkHolder } = await import("@/features/einladungen/components/
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { StepUpContext, STEP_UP_LABEL } = await import("@/shared/components/ui/stepUp.ts");
 const { DOUBLE_PRESS_MS } = await import("@/shared/hooks/useTwoPressConfirm.ts");
+const { FLBewerbungEinwilligungAnsichtResponseSchema } = await import("@/features/bewerbungen/schemas.ts");
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -80,6 +83,21 @@ const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
 });
 const SWAP = { teams: [swapTeam("t1", "SG Alpha", "A"), swapTeam("t2", "TSV Beta", "B")], playedKnockoutSpiele: 0 };
 
+/** A grant another administrator asked for, which this reader may approve or refuse. */
+const ANTRAG = {
+  id: "68c1f0a2b3c4d5e6f7a8b9e1",
+  adresse: "neu@schule.de",
+  gesperrt: false,
+  berechtigung_id: null,
+  verwaltung: "administration",
+  gestartet_von: "vorstand@schule.de",
+  gestartet_von_gesperrt: false,
+  angefragt_am: "2026-10-20T11:30:00Z",
+  bis: "2026-10-27T11:30:00Z",
+  steht: true,
+  verwehrt: null,
+};
+
 const RULES = saisonRules();
 const UNDRAWN = {
   saisonId: "2026-27",
@@ -96,6 +114,7 @@ const UNDRAWN = {
   ],
   gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
 };
@@ -104,6 +123,7 @@ const DRAWN = {
   spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
   spieltageCount: 5,
   bestand: { spiele: 15, erfasst: 0, angesetzt: 4 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: true,
 };
 
@@ -145,11 +165,18 @@ const M = {
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   sperren: "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
+  spielbestaetigung: "features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
+  zugangGenehmigen: "features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx",
+  zugangAntragGenehmigen: "features/berechtigungen/components/forms/AdminBerechtigungAntragGenehmigenPanel.tsx",
+  zugangAntragAblehnen: "features/berechtigungen/components/forms/AdminBerechtigungAntragAblehnenPanel.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
+  einsaetze: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+  spielbestaetigungLink: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
+  adresswechselWartet: "features/adresswechsel/components/forms/AdresswechselWartet.tsx",
 };
 
 const C = {
@@ -171,11 +198,18 @@ const C = {
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   sperren: await component(M.sperren, "AdminCreateSperreForm"),
+  spielbestaetigung: await component(M.spielbestaetigung, "SpielbestaetigungPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
+  zugangGenehmigen: await component(M.zugangGenehmigen, "AdminBerechtigungGenehmigenPanel"),
+  zugangAntragGenehmigen: await component(M.zugangAntragGenehmigen, "AdminBerechtigungAntragGenehmigenPanel"),
+  zugangAntragAblehnen: await component(M.zugangAntragAblehnen, "AdminBerechtigungAntragAblehnenPanel"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
+  einsaetze: await component(M.einsaetze, "SchiedsrichterEinsaetzeSection"),
+  spielbestaetigungLink: await component(M.spielbestaetigungLink, "SpielbestaetigungFormPanel"),
+  adresswechselWartet: await component(M.adresswechselWartet, "AdresswechselWartet"),
 };
 
 const einladungPanel = () =>
@@ -213,6 +247,51 @@ const registrierungenList = () =>
         },
       ],
       adresse: { team_id: TEAM_ID, saison_id: "2627" },
+    }),
+  );
+
+/** A referee's panel holding one open row of their own. */
+const einsaetzeSection = () =>
+  underNext(
+    el(C.einsaetze, {
+      einsaetze: [
+        {
+          id: "d".repeat(24),
+          spiel_id: "e".repeat(24),
+          schiedsrichter_id: "f".repeat(24),
+          ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+          zustand: "gueltig",
+          begruendung: null,
+          eingetragen: false,
+          vergangen: false,
+        },
+      ],
+    }),
+  );
+
+/** A fixture's confirmations panel holding one row of team 1's, about the Ansetzung `spielbestaetigungFields` names. */
+const spielbestaetigungPanel = (antwort: unknown) =>
+  underNext(
+    el(C.spielbestaetigung, {
+      stand: { zeilen: [spielbestaetigungFields({ antwort })], gelaufenAm: null },
+      spiel: {
+        id: "6890a1b2c3d4e5f607182930",
+        datum: "2026-08-05",
+        uhrzeit: "18:00:00",
+        ort: null,
+        team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha", tore: null },
+        team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta", tore: null },
+        ergebnis: null,
+        elfmeterschiessen: null,
+        sonderereignis: null,
+        schiedsrichter: null,
+      },
+      parteien: { teams: [], schiedsrichter: [] },
+      austritte: new Map(),
+      today: "2026-07-30",
+      isSpielSweepOn: true,
+      isActiveSaison: true,
+      onVorschlagUebernehmen: () => undefined,
     }),
   );
 
@@ -274,7 +353,8 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () =>
         el(C.saisonVorbei, {
-          ansicht: {
+          // Strict, since `el` hands its props on unread: a field the view does not declare fails the parse.
+          ansicht: z.strictObject(FLBewerbungEinwilligungAnsichtResponseSchema.shape).parse({
             acknowledged: 1,
             zustand: "saison_vorbei",
             quelle: "saison",
@@ -283,11 +363,10 @@ const PANELS: Record<string, Arming[]> = {
             schule: "Lessing-Kolleg",
             rolle: "ansprechperson",
             zugleich_rolle: null,
-            text_version: laufendeKontaktFassung().textVersion,
             laufende_fassung: laufendeKontaktFassung().textVersion,
             mindestalter: 18,
             medien_mindestalter: 18,
-          },
+          }),
           token: "kein-echtes-token",
           onAbschluss: () => undefined,
         }),
@@ -320,7 +399,8 @@ const PANELS: Record<string, Arming[]> = {
             bewerbungen: [],
             registrierungen: [],
             adresswechsel: [],
-            spieler_adresswechsel: [],
+            eigener_adresswechsel: null,
+            antraege: [],
             verwaltung: null,
           },
           konto: "geloescht",
@@ -495,10 +575,30 @@ const PANELS: Record<string, Arming[]> = {
             bewerbungen: [],
             registrierungen: [],
             adresswechsel: [],
-            spieler_adresswechsel: [],
+            eigener_adresswechsel: null,
+            antraege: [],
           },
         }),
       resting: "Adresse sperren",
+    },
+  ],
+  [M.spielbestaetigung]: [
+    {
+      render: () => spielbestaetigungPanel(null),
+      // The settle's reason first, as its closed press asks.
+      reach: (user) => user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage: SG Alpha" }), "Am Telefon zugesagt."),
+      resting: "Auf Zusage setzen: SG Alpha",
+    },
+    {
+      render: () =>
+        spielbestaetigungPanel({
+          art: "abgelehnt",
+          am: "2026-07-28",
+          von: { art: "kontakt", rolle: "trainer" },
+          vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+          begruendung: null,
+        }),
+      resting: "Vorschlag verwerfen: SG Alpha",
     },
   ],
   [M.zugangEntziehen]: [
@@ -543,6 +643,41 @@ const PANELS: Record<string, Arming[]> = {
       resting: "Mich zur Verwaltung herabstufen",
     },
   ],
+  [M.zugangGenehmigen]: [
+    {
+      render: () =>
+        underNext(
+          el(C.zugangGenehmigen, {
+            adresse: "vorstand@schule.de",
+            adresswechsel: {
+              id: "68c1f0a2b3c4d5e6f7a8b9e0",
+              email: "vorstand@neu.de",
+              email_gesperrt: false,
+              weg: "konto",
+              gestartet_von: null,
+              gestartet_von_gesperrt: false,
+              grund: null,
+              bestaetigt: true,
+              bis: "2026-10-27T11:30:00Z",
+              verwehrt: null,
+            },
+          }),
+        ),
+      resting: "Adressänderung genehmigen: vorstand@schule.de",
+    },
+  ],
+  [M.zugangAntragGenehmigen]: [
+    {
+      render: () => underNext(el(C.zugangAntragGenehmigen, { antrag: ANTRAG, zeile: ANTRAG.adresse })),
+      resting: "Antrag genehmigen: neu@schule.de",
+    },
+  ],
+  [M.zugangAntragAblehnen]: [
+    {
+      render: () => underNext(el(C.zugangAntragAblehnen, { antrag: ANTRAG, zeile: ANTRAG.adresse })),
+      resting: "Antrag ablehnen: neu@schule.de",
+    },
+  ],
   [M.einladung]: [
     { render: einladungPanel, reach: (user) => user.click(screen.getByRole("radio", { name: "Ersetzen" })), resting: "Neuen Link anlegen" },
     { render: einladungPanel, reach: (user) => user.click(screen.getByRole("radio", { name: "Zurückziehen" })), resting: "Link zurückziehen" },
@@ -583,6 +718,36 @@ const PANELS: Record<string, Arming[]> = {
   [M.registrierungen]: [
     { render: registrierungenList, resting: "Aufnehmen: Lena Meier" },
     { render: registrierungenList, resting: "Ablehnen: Registrierung von Lena Meier" },
+  ],
+  [M.einsaetze]: [{ render: einsaetzeSection, resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" }],
+  [M.spielbestaetigungLink]: [
+    { render: () => el(C.spielbestaetigungLink, { token: "kein-echtes-token", onAbschluss: () => undefined }), resting: "Zusagen" },
+  ],
+  [M.adresswechselWartet]: [
+    {
+      render: () =>
+        underNext(
+          el(C.adresswechselWartet, {
+            offen: {
+              id: "68c1f0a2b3c4d5e6f7a8b9e0",
+              email: "lena@neu.example",
+              weg: "wartezeit",
+              grund: "Postfach von der Schule gelöscht",
+              wartet_auf: "neue_adresse",
+              verschickt_am: "2026-10-01",
+              gueltig_bis: "2099-12-31T11:30:00Z",
+              freigegeben_am: null,
+              bestaetigt_am: null,
+              wirksam_ab: null,
+              zustellung: null,
+              abgelaufen: false,
+              genehmigung: null,
+            },
+            onGeschrieben: () => undefined,
+          }),
+        ),
+      resting: "Änderung verwerfen",
+    },
   ],
 };
 
@@ -715,6 +880,8 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.loeschung]:
     "the deletion link's interstitial, a person's own press on their own link, a grant holder's asking through the page's own window",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
+  [M.einsaetze]: "a referee's own answer on the person lane, which holds no administrator's step-up window",
+  [M.spielbestaetigungLink]: "the public fixture confirmation page, a club's own answer to its own link, which holds no step-up window",
 };
 
 /** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */

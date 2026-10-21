@@ -516,356 +516,6 @@
         "vorname"
       ]
     },
-    "2026-09-schiedsrichterseite": {
-      "text_version": "2026-09-schiedsrichterseite",
-      "seite": "bestaetigung_schiedsrichter",
-      "gilt_ab": "2026-09-22",
-      "absaetze": [
-        "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine Schule, Deine E-Mail-Adresse und Deine Telefonnummer, die für Dich hinterlegte Aufwandsentschädigung je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
-        "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben.",
-        "Deine Schule, Deine Kontaktdaten, die Aufwandsentschädigung und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
-        "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens im Spielplan bei den Spielen erscheinen, die Du leitest. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
-        "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und die Aufwandsentschädigung auszuzahlen, sind Name, Schule, Kontaktdaten, Betrag und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist Deine Tätigkeit für die Liga selbst (Art. 6 Abs. 1 lit. b DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, solange Du für die Liga Spiele leitest. Du kannst ihn jederzeit selbst löschen.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: dort steht „anonym“"
-      },
-      "absaetze_nach_schluessel": null,
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "minAlter",
-        "vorname"
-      ]
-    },
-    "2026-09-schiedsrichterseite-2": {
-      "text_version": "2026-09-schiedsrichterseite-2",
-      "seite": "bestaetigung_schiedsrichter",
-      "gilt_ab": "2026-09-24",
-      "absaetze": [
-        "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
-        "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
-        "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben.",
-        "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
-        "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
-        "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und das Honorar auszuzahlen, sind Name, Kontaktdaten, Betrag und Geburtsdatum, dazu Deine Schule, falls Du sie angibst. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, bis er endgültig gelöscht wird: von Dir selbst, von der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Namens im Spielplan so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
-        "intern": "Intern: dort steht „anonym“"
-      },
-      "absaetze_nach_schluessel": null,
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "medienMinAlter",
-        "minAlter",
-        "vorname"
-      ]
-    },
-    "2026-09-schiedsrichterseite-3": {
-      "text_version": "2026-09-schiedsrichterseite-3",
-      "seite": "bestaetigung_schiedsrichter",
-      "gilt_ab": "2026-10-03",
-      "absaetze": [
-        "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
-        "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
-        "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben.",
-        "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
-        "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und das Honorar auszuzahlen, sind Name, Kontaktdaten, Betrag und Geburtsdatum, dazu Deine Schule, falls Du sie angibst. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, bis er endgültig gelöscht wird: von Dir selbst, von der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Namens im Spielplan so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
-        "intern": "Intern: dort steht „anonym“"
-      },
-      "absaetze_nach_schluessel": {
-        "worum": "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
-        "gespeichert": "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
-        "geburtsdatum": "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben.",
-        "wer": "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
-        "veroeffentlichung": "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "medien": "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "rechtsgrundlage": "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und das Honorar auszuzahlen, sind Name, Kontaktdaten, Betrag und Geburtsdatum, dazu Deine Schule, falls Du sie angibst. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "frist": "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, bis er endgültig gelöscht wird: von Dir selbst, von der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
-        "widerruf": "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "art21": "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "klickEintrag": "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-        "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "klickEinwilligung": "dass Du in die Veröffentlichung Deines Namens im Spielplan so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "klickHinweise": "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      },
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "medienMinAlter",
-        "minAlter",
-        "vorname"
-      ]
-    },
-    "2026-09-spielerseite": {
-      "text_version": "2026-09-spielerseite",
-      "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-09-22",
-      "absaetze": [
-        "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
-        "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist Deine Teilnahme selbst (Art. 6 Abs. 1 lit. b DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
-      "absaetze_nach_schluessel": null,
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "minAlter",
-        "saison",
-        "schule",
-        "team",
-        "vorname"
-      ]
-    },
-    "2026-09-spielerseite-2": {
-      "text_version": "2026-09-spielerseite-2",
-      "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-09-24",
-      "absaetze": [
-        "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen.",
-        "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
-      "absaetze_nach_schluessel": null,
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "medienMinAlter",
-        "minAlter",
-        "saison",
-        "schule",
-        "team",
-        "vorname"
-      ]
-    },
-    "2026-09-spielerseite-3": {
-      "text_version": "2026-09-spielerseite-3",
-      "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-10-03",
-      "absaetze": [
-        "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
-      "absaetze_nach_schluessel": {
-        "worum": "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "gespeichert": "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "geburtsdatum": "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "wer": "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "veroeffentlichung": "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "medien": "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "rechtsgrundlage": "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "frist": "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
-        "widerruf": "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "art21": "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "klickEinwilligung": "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "klickHinweise": "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      },
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "medienMinAlter",
-        "minAlter",
-        "saison",
-        "schule",
-        "team",
-        "vorname"
-      ]
-    },
-    "2026-10-spielerseite-4": {
-      "text_version": "2026-10-spielerseite-4",
-      "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-10-12",
-      "absaetze": [
-        "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
-      "absaetze_nach_schluessel": {
-        "worum": "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "gespeichert": "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "geburtsdatum": "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "wer": "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "veroeffentlichung": "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-        "medien": "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem Konto zurücknehmen.",
-        "rechtsgrundlage": "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "frist": "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
-        "widerruf": "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "art21": "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
-        "klickEinwilligung": "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,",
-        "klickHinweise": "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      },
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "medienMinAlter",
-        "minAlter",
-        "saison",
-        "schule",
-        "team",
-        "vorname"
-      ]
-    },
-    "2026-10-spielerseite-wiederkehrend": {
-      "text_version": "2026-10-spielerseite-wiederkehrend",
-      "seite": "bestaetigung_spieler_wiederkehrend",
-      "gilt_ab": "2026-10-12",
-      "absaetze": [
-        "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
-        "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
-        "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "dass Du mindestens {minAlter} Jahre alt bist, was wir an Deinem Geburtsdatum prüfen,",
-        "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      ],
-      "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
-      "absaetze_nach_schluessel": {
-        "worum": "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
-        "gespeichert": "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "geburtsdatum": "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
-        "wer": "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "einwilligungen": "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
-        "rechtsgrundlage": "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
-        "frist": "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
-        "widerruf": "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
-        "art21": "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-        "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an Deinem Geburtsdatum prüfen,",
-        "klickHinweise": "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
-      },
-      "platzhalter": [
-        "datenschutz",
-        "kontakt",
-        "loeschung",
-        "minAlter",
-        "saison",
-        "schule",
-        "team",
-        "vorname"
-      ]
-    },
     "2026-10-konto-spieler": {
       "text_version": "2026-10-konto-spieler",
       "seite": "konto_spieler",
@@ -998,16 +648,16 @@
         "team"
       ]
     },
-    "2026-10-spielerseite-wiederkehrend-2": {
-      "text_version": "2026-10-spielerseite-wiederkehrend-2",
+    "2026-10-spielerseite-wiederkehrend-3": {
+      "text_version": "2026-10-spielerseite-wiederkehrend-3",
       "seite": "bestaetigung_spieler_wiederkehrend",
-      "gilt_ab": "2026-10-18",
+      "gilt_ab": "2026-10-21",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
+        "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, prüfen wir das gespeicherte. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
         "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
+        "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut. Wie Du entschieden hast, siehst Du in Deinem Konto, und dort kannst Du es jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
         "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
         "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
         "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
@@ -1017,16 +667,13 @@
         "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest."
       ],
       "schalter": "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
-      "bedienelemente": {
-        "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-        "intern": "Intern: nur Nummer und Position, ohne Namen"
-      },
+      "bedienelemente": {},
       "absaetze_nach_schluessel": {
         "worum": "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "gespeichert": "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-        "geburtsdatum": "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
+        "geburtsdatum": "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: Kennen wir es schon, prüfen wir das gespeicherte. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue Registrierung möglich.",
         "wer": "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga.",
-        "einwilligungen": "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
+        "einwilligungen": "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt weiter. Deshalb fragen wir es hier nicht erneut. Wie Du entschieden hast, siehst Du in Deinem Konto, und dort kannst Du es jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen.",
         "rechtsgrundlage": "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO).",
         "frist": "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann.",
         "widerruf": "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über „{loeschung}“ oder mit einer formlosen E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}.",
@@ -1292,7 +939,7 @@
     "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
     "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison-2",
     "bestaetigung_spieler": "2026-10-spielerseite-5",
-    "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-2",
+    "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-3",
     "bestaetigung_schiedsrichter": "2026-10-schiedsrichterseite-4",
     "konto_spieler": "2026-10-konto-spieler",
     "konto_schiedsrichter": "2026-10-konto-schiedsrichter",

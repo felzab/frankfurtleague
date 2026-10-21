@@ -11,13 +11,21 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
+from app.api.spielberichte.schemas import CustomSpielberichtMinute
 from app.api.spiele.schemas import FLSpielElfmeterschiessen
 from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
+from app.core.crud import GERMAN_COLLATION
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
-from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.bounds import (
+    ADRESSWECHSEL_NACHLAUF_TAGE,
+    AKTION_RETENTION_SECONDS,
+    SAISON_ID_LENGTH,
+    TEAM_DESCRIPTION_MAX_LENGTH,
+    TEAM_SHORTHAND_LENGTH,
+)
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
@@ -63,7 +71,6 @@ _SONDEREREIGNISSE = ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2"
 _TIEBREAK_ORDER = ["tordifferenz", "direkter_vergleich"]
 _AUSTRITT_ARTEN = ["disqualifikation", "rueckzug"]
 _EINWILLIGUNG_UMFANG = ["kader_oeffentlich", "intern"]
-_EINWILLIGUNG_QUELLEN = ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 _GRUPPEN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
@@ -99,7 +106,6 @@ _TRIKOT_FARBEN = [
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
-_KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 # Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
 _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
@@ -113,10 +119,29 @@ _SPIELBESTAETIGUNG_GRUENDE = [
     "spiel_entschieden",
     "abgesagt",
     "schiedsrichter_gewechselt",
+    "schiedsrichter_abgelehnt",
     "verworfen",
     "spiel_vergangen",
 ]
 _KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"]
+# Mirror `app/api/spielberichte/schemas.py`'s Literals and discriminators.
+_SPIELBERICHT_SEITEN = ["team1", "team2"]
+_SPIELBERICHT_SONDEREREIGNISSE = ["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]
+_KARTEN_FARBEN = ["gelb", "gelb_rot", "rot"]
+_KARTEN_GRUENDE = [
+    "foulspiel",
+    "unsportlichkeit",
+    "handspiel",
+    "meckern",
+    "spielverzoegerung",
+    "wiederholtes_foulspiel",
+    "grobes_foulspiel",
+    "taetlichkeit",
+    "beleidigung",
+    "notbremse",
+]
+_SPIELBERICHT_VON = ["schiedsrichter", "admin"]
+_SPIELBERICHT_UEBERNOMMEN_VON = ["admin"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
 # write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`), nor an address's anchor,
@@ -214,35 +239,34 @@ _NACHWEIS_WAHL = _object(
 _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien": _NACHWEIS_WAHL})
 
 
-# Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
-# widening `umfang` here widens it on all three collections.
+# Required TOGETHER: a record is born whole of its person's own confirmation, so a key missing is a
+# record nobody gave. Spread into the registration's own below, so widening `umfang` here widens it
+# on all three collections.
 _EINWILLIGUNG = _object(
-    required=("umfang", "datum", "bestaetigt_am"),
+    required=("umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
-        # Out of `required` and still closed: stored records carry it, and no write sets it.
-        "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
-        "datum": {"bsonType": _STRING_OR_NULL},
+        "datum": {"bsonType": "string"},
+        # Null for the read model's reason: no writer stores one.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
-        # predates them. A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG`
-        # member, so a record can be withdrawn from one and stand in the other.
-        "text_version": {"bsonType": _STRING_OR_NULL},
+        "text_version": {"bsonType": "string"},
+        # A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG` member, so a
+        # record can be withdrawn from one and stand in the other.
         "medien": {"bsonType": "bool"},
         "nachweis": _NACHWEIS,
     },
 )
 
-# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
-# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
-# pass without a scope.
+# A pending registration's: its stamp and label alone required and both choices nullable, a
+# returning pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would
+# then pass without a scope.
 _REGISTRIERUNG_EINWILLIGUNG = _object(
     nullable=True,
-    required=("bestaetigt_am",),
+    required=("bestaetigt_am", "text_version"),
     properties={
         **_EINWILLIGUNG["properties"],
         "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "datum": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": ["bool", "null"]},
     },
 )
@@ -250,20 +274,14 @@ _REGISTRIERUNG_EINWILLIGUNG = _object(
 # A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
 _KONTAKT_KENNTNISNAHME = _object(
-    required=("umfang", "text_version", "datum"),
+    required=("umfang", "text_version", "datum", "bestaetigt_am", "medien", "eingetragen_von"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
-        # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
-        "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
-        # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
-        # the key, and a decision re-validates the whole document.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Out of `required` for `bestaetigt_am`'s reason.
         "medien": {"bsonType": "bool"},
-        # Out of `required` for `bestaetigt_am`'s reason, and null only as the read model spells an absent key.
-        "eingetragen_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_EINGETRAGEN_VON, None]},
+        "eingetragen_von": {"bsonType": "string", "enum": _KONTAKT_EINGETRAGEN_VON},
         "nachweis": _NACHWEIS,
     },
 )
@@ -271,14 +289,14 @@ _KONTAKT_KENNTNISNAHME = _object(
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
 # set of details carrying no record is one nobody was told the league holds.
 _KONTAKTPERSON = _object(
-    required=("vorname", "nachname", "email", "telefon", "einwilligung"),
+    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
     properties={
         "vorname": {"bsonType": "string"},
         "nachname": {"bsonType": "string"},
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
-        # Nullable and out of `required`: the date arrives with the confirmation, and "required once
-        # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        # Nullable: the date arrives with the confirmation, and "non-null once confirmed" is no type or
+        # enum (`docs/backend/spec.md :: I141`), so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
@@ -351,7 +369,6 @@ _BEWERBUNG_BESTAETIGUNG = _object(
 # The block mirrors `kontakte`'s three slots and stays OUTSIDE it: acceptance copies `kontakte`
 # whole into `saison_teams`, and a hash inside a slot would live there for a season.
 _BEWERBUNG_BESTAETIGUNGEN = _object(
-    nullable=True,
     required=("trainer", "ansprechperson", "stellvertretung"),
     properties={
         "trainer": _BEWERBUNG_BESTAETIGUNG,
@@ -380,37 +397,30 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
     },
 )
 
-# A confirmed referee's address waiting on its own mailbox. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
-# nothing reminds about this link, and the address it proves is the block's own.
-_SCHIEDSRICHTER_ADRESSWECHSEL = _object(
+# How a change takes effect and how it ended, mirrored by `app/api/adresswechsel/services.py :: FLAdresswechselWeg` and
+# `:: FLAdresswechselEndeArt`.
+_ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"]
+_ADRESSWECHSEL_ENDE_ARTEN = ["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]
+
+# The approval a change moving a grant waits on. Its two addresses are administrators', as `erteilt_von` is.
+_ADRESSWECHSEL_GENEHMIGUNG = _object(
     nullable=True,
-    required=("email", "token_hash", "verschickt_am", "frist"),
+    required=("verwaltung", "angefragt_am", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
     properties={
-        "email": {"bsonType": "string"},
-        "token_hash": {"bsonType": "string"},
-        "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
-        "frist": {"bsonType": "string"},
-        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
-        "zustellung": _ZUSTELLUNG,
+        "verwaltung": {"bsonType": "string", "enum": ["owner", "administration"]},
+        "angefragt_am": {"bsonType": "date"},
+        "bis": {"bsonType": "date"},
+        "gestartet_von": {"bsonType": "string"},
+        "genehmigt_am": {"bsonType": ["date", "null"]},
+        "genehmigt_von": {"bsonType": _STRING_OR_NULL},
     },
 )
 
-# A pupil's new address waiting on its own mailbox. Spelled out rather than assigned
-# `_SCHIEDSRICHTER_ADRESSWECHSEL`, for `_SAISON_REGISTRIERUNG`'s reason: one name over both blocks
-# would let a widening of either widen the other silently.
-_SPIELER_ADRESSWECHSEL = _object(
+# Null while the change stands: `uniq_adresswechsel_adresse` reaches those rows alone, and the TTL index dates the rest.
+_ADRESSWECHSEL_BEENDET = _object(
     nullable=True,
-    required=("email", "token_hash", "verschickt_am", "frist"),
-    properties={
-        "email": {"bsonType": "string"},
-        "token_hash": {"bsonType": "string"},
-        "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
-        "frist": {"bsonType": "string"},
-        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
-        "zustellung": _ZUSTELLUNG,
-    },
+    required=("art", "am"),
+    properties={"art": {"bsonType": "string", "enum": _ADRESSWECHSEL_ENDE_ARTEN}, "am": {"bsonType": "date"}},
 )
 
 # A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
@@ -488,7 +498,7 @@ _BEWERBUNG_TRIKOT = _object(
     required=("vorhandener_satz", "wunschfarbe"),
     properties={
         "vorhandener_satz": {"bsonType": "string"},
-        "wunschfarbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
+        "wunschfarbe": {"bsonType": "string", "enum": _TRIKOT_FARBEN},
     },
 )
 
@@ -523,7 +533,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
-_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel", "antrag_abgelehnt", "antrag_beendet"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
@@ -534,9 +544,9 @@ _BERECHTIGUNG_STAND = _object(
     properties={"adresse": {"bsonType": _STRING_OR_NULL}, "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG}},
 )
 
-# The key a public submission is replayed by, and the digest of the payload it first carried
-# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Out of `required`
-# everywhere: every row stored before the key carries none.
+# A public submission's replay key and the digest of the payload it first carried
+# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Never required: a
+# keyless submission and an administrator's squad row carry none.
 _IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
     "idempotenz_schluessel": {"bsonType": "string"},
     "idempotenz_fingerabdruck": {"bsonType": "string"},
@@ -670,8 +680,8 @@ _SPIELBESTAETIGUNG_ANSETZUNG = _object(
     },
 )
 
-# One seat's links on a confirmation row. The hashes are typed alone: their bound of three is the
-# reminder's `$slice`, a count being no type (`docs/backend/spec.md :: I16`).
+# One seat's links on a confirmation row. The hashes are typed alone, a seat keeping every link it was
+# mailed (`docs/backend/spec.md :: I752`) and a count being no type (`:: I16`).
 _SPIELBESTAETIGUNG_SITZ = _object(
     nullable=True,
     required=("token_hashes",),
@@ -717,7 +727,88 @@ _SPIELBESTAETIGUNG_ANTWORT = _object(
 _SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
     nullable=True,
     required=("am", "grund"),
-    properties={"am": {"bsonType": "string"}, "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE}},
+    properties={
+        "am": {"bsonType": "string"},
+        "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE},
+        # Optional: only a closing owing a notice holds one, until the pass is told it went or gives it up.
+        "mitteilung": _object(nullable=True, required=("versuche",), properties={"versuche": {"bsonType": "int"}}),
+    },
+)
+
+
+_SPIELBERICHT_VORSCHLAG = _object(
+    required=("team1_tore", "team2_tore", "elfmeterschiessen", "sonderereignis"),
+    properties={
+        "team1_tore": {"bsonType": _INT_OR_NULL},
+        "team2_tore": {"bsonType": _INT_OR_NULL},
+        "elfmeterschiessen": _SPIEL_ELFMETERSCHIESSEN,
+        "sonderereignis": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELBERICHT_SONDEREREIGNISSE, None]},
+    },
+)
+
+_SPIELBERICHT_TORSCHUETZE = _object(
+    required=("seite", "spieler_id", "minute", "eigentor"),
+    properties={
+        "seite": {"bsonType": "string", "enum": _SPIELBERICHT_SEITEN},
+        # Null is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
+        "spieler_id": {"bsonType": ["objectId", "null"]},
+        "minute": {"bsonType": "string"},
+        "eigentor": {"bsonType": "bool"},
+    },
+)
+
+_SPIELBERICHT_KARTE = _object(
+    required=("seite", "spieler_id", "minute", "farbe", "grund"),
+    properties={
+        "seite": {"bsonType": "string", "enum": _SPIELBERICHT_SEITEN},
+        "spieler_id": {"bsonType": "objectId"},
+        "minute": {"bsonType": "string"},
+        "farbe": {"bsonType": "string", "enum": _KARTEN_FARBEN},
+        "grund": {"bsonType": _STRING_OR_NULL, "enum": [*_KARTEN_GRUENDE, None]},
+    },
+)
+
+_SPIELBERICHT_BERICHT = _object(
+    nullable=True,
+    required=(
+        "ergebnis_vorschlag",
+        "torschuetzen",
+        "karten",
+        "bemerkungen",
+        "seiten",
+        "eingereicht_am",
+        "eingereicht_von",
+        "geaendert_am",
+        "version",
+        "uebernommen_am",
+        "uebernommen_von",
+        "uebernommene_version",
+    ),
+    properties={
+        "ergebnis_vorschlag": _SPIELBERICHT_VORSCHLAG,
+        "torschuetzen": {"bsonType": "array", "items": _SPIELBERICHT_TORSCHUETZE},
+        "karten": {"bsonType": "array", "items": _SPIELBERICHT_KARTE},
+        "bemerkungen": {"bsonType": _STRING_OR_NULL},
+        # Null on a slot still open when the block was written.
+        "seiten": _object(
+            required=_SPIELBERICHT_SEITEN,
+            properties={seite: {"bsonType": ["objectId", "null"]} for seite in _SPIELBERICHT_SEITEN},
+        ),
+        # Instants rather than German days: a correction and an adoption on one day are two moments a reader orders.
+        "eingereicht_am": {"bsonType": "date"},
+        # Keyed on `art` as `_SPIELBESTAETIGUNG_PARTEI` is, requiring the discriminator alone for its reason.
+        "eingereicht_von": _object(
+            required=("art",),
+            properties={"art": {"bsonType": "string", "enum": _SPIELBERICHT_VON}, "schiedsrichter_id": {"bsonType": "objectId"}},
+        ),
+        "geaendert_am": {"bsonType": "date"},
+        "version": {"bsonType": "int"},
+        "uebernommen_am": {"bsonType": ["date", "null"]},
+        "uebernommen_von": _object(
+            nullable=True, required=("art",), properties={"art": {"bsonType": "string", "enum": _SPIELBERICHT_UEBERNOMMEN_VON}}
+        ),
+        "uebernommene_version": {"bsonType": _INT_OR_NULL},
+    },
 )
 
 
@@ -727,7 +818,7 @@ _SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
 COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     Collection.SAISONS: {
         "$jsonSchema": _object(
-            required=("_id", "start_date", "end_date", "status", "rules"),
+            required=("_id", "start_date", "end_date", "status", "rules", "bewerbung", "registrierung"),
             properties={
                 "_id": {"bsonType": "string"},
                 "start_date": {"bsonType": "string"},
@@ -760,9 +851,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
-                # Deliberately out of `required`: every stored season predates the field, so making
-                # the key mandatory would refuse every one of them and owe a backfill. A missing key
-                # and a stored null both read as never generated.
+                # Deliberately out of `required`: the season's creation writes none, the generator
+                # being what writes it. A missing key and a stored null both read as never generated.
                 "spielplan": _object(
                     nullable=True,
                     required=("generiert_am", "spieltage", "spiele"),
@@ -772,11 +862,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "spiele": {"bsonType": "int"},
                     },
                 ),
-                # Nullable and out of `required` as `spielplan` is, and for its reason. Both halves
-                # together: a switch with no span cannot say when the window closes, and a span with
-                # no switch cannot be shut early.
+                # Nullable, a season taking no applications holding none. Both halves together: a
+                # switch with no span cannot say when the window closes, and a span with no switch
+                # cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
-                # Out of `required` on the same terms as the window above it.
+                # On the same terms as the window above it.
                 "registrierung": _SAISON_REGISTRIERUNG,
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
@@ -792,7 +882,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.TEAMS: {
         "$jsonSchema": _object(
-            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "schulform", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -801,8 +891,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
-                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
-                # null both read as a school form nobody has recorded.
+                # A stored null reads as a school form nobody has recorded.
                 "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
                 # so its two letters stay reserved.
@@ -815,17 +904,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
             # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
             # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
-            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
+            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "trikot_farbe", "kontakte", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
-                # Both out of `required` for `saisons.spielplan`'s reason.
+                # Both written by the entry, null until a club is given its kit or its people.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
-                # Out of `required` for `saisons.spielplan`'s reason: no row carried links before them.
+                # Out of `required`: the entry writes none, the first save minting a link writes it.
                 "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
@@ -837,25 +926,21 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SPIELER: {
         "$jsonSchema": _object(
-            required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
+            required=("_id", "vorname", "nachname", "einwilligung", "geburtsdatum", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                # This and `einwilligung` nullable for the erased pupils' sentinel
+                # This, `einwilligung` and `geburtsdatum` nullable for the erased pupils' sentinel
                 # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), never an `anyOf` on its id, which is no
                 # type or enum; a person is held to both where written
                 # (`app/api/registrierungen/services.py :: compose_person`).
                 "vorname": {"bsonType": _STRING_OR_NULL},
                 "nachname": {"bsonType": _STRING_OR_NULL},
-                # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
-                # Out of `required` for `saisons.spielplan`'s reason. Stored as
+                # Out of `required`: the sentinel carries none. Stored as
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
-                # A delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`:
-                # only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
-                "adresswechsel": _SPIELER_ADRESSWECHSEL,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -872,18 +957,16 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "position",
                 "nummer",
                 "inactive_since",
+                "ist_nachnominiert",
+                "rolle",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
-                # Out of `required` while rows written under the marker's old spelling survive
-                # (`docs/backend/spec.md :: I302`): a retire or a reactivate `$set`s
-                # `inactive_since` alone, so requiring it would refuse one on such a row.
                 "ist_nachnominiert": {"bsonType": "bool"},
-                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
-                # null both read as holding no role.
+                # A null holds no role.
                 "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
@@ -990,9 +1073,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # a row never minted a link carry none, and correcting an unconfirmed retired referee's address
                 # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
-                # A delivery carrier too. Out of `required`: only a confirmed referee whose address
-                # an administrator moved carries one, until its mailbox answers.
-                "adresswechsel": _SCHIEDSRICHTER_ADRESSWECHSEL,
                 # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
                 # besides: only the person's own confirmation writes it, so a live row awaiting one
                 # carries null.
@@ -1018,7 +1098,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte",
                 "trikot",
                 "kader",
+                "stufengroesse",
+                "wunschgegner",
                 "entscheidung",
+                "bestaetigungsfrist",
+                "bestaetigungen",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -1031,20 +1115,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
-                # How many pupils the school's whole Abi-Jahrgang holds. Out of `required` for
-                # `wunschgegner`'s reason.
-                "stufengroesse": {"bsonType": _INT_OR_NULL},
-                # Free text, a school being free to name an opponent that has not applied. Out of
-                # `required` for `saisons.spielplan`'s reason.
+                # How many pupils the school's whole Abi-Jahrgang holds.
+                "stufengroesse": {"bsonType": "int"},
+                # Free text, a school being free to name an opponent that has not applied, and null
+                # where it names none.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
-                # Both out of `required` for `wunschgegner`'s reason. An application with no
-                # `bestaetigungen` block is one the confirmation flow does not apply to.
-                "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
+                # Both written by the submission, which mints every seat's link.
+                "bestaetigungsfrist": {"bsonType": "string"},
                 "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
                 # The day the deletion notice was settled -- delivered, or the seat that would read
                 # it emptied. The erasure's second condition: without it a failed erasure mails
-                # again every hour. Out of `required` for `wunschgegner`'s reason.
+                # again every hour. Out of `required`: only the sweep writes it.
                 "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
                 **_IDEMPOTENZ_PROPERTIES,
             },
@@ -1055,6 +1137,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=(
                 "_id",
                 "at",
+                "at_date",
                 "actor",
                 "trace_id",
                 "request",
@@ -1065,18 +1148,15 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before",
                 "modified_count",
                 "redacted_at",
+                "anlass",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "at": {"bsonType": "string"},
-                # Out of `required`: the rows the log already holds carry none, and strict
-                # validation refuses an erasure's `$set` over an invalid row. `record_write` stamps
-                # every row it builds, so those are the only ones outside the retention.
+                # Required: the retention index expires a row by this key alone, so a row without it
+                # is kept for ever.
                 "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
-                # Required where `at_date` above is not: the rows the log already holds carry this
-                # value under an older name, so a hand-run rename supplies it rather than the field
-                # staying optional (`docs/ops/runbooks.md` §2 has that order and what it costs).
                 "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": [*_LOGGED_COLLECTIONS, *_LOGGED_ACTS]},
@@ -1092,8 +1172,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before": {"bsonType": ["object", "array", "null"]},
                 "modified_count": {"bsonType": _INT_OR_NULL},
                 "redacted_at": {"bsonType": _STRING_OR_NULL},
-                # Out of `required` for `at_date`'s reason: the rows the log already holds carry none,
-                # and a backfill would be a one-off migration.
                 "anlass": {"bsonType": _STRING_OR_NULL},
             },
         )
@@ -1172,9 +1250,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": "string"},
-                # Unfolded, as the address rule stores it (`docs/backend/spec.md :: I332`). This is the
-                # address the confirmation link was mailed to, and `spieler.email` holds the folded
-                # form the sign-in seam joins on.
+                # Folded, as every address payload stores it (`docs/backend/spec.md :: I332`): a row
+                # typed otherwise matches no read, each an equality.
                 "email": {"bsonType": "string"},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.
@@ -1214,6 +1291,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "gesehen_am": {"bsonType": ["date", "null"]},
                 # Out of `required` too: a pasted `owner` row holds the tier from its grant's own date.
                 "ernannt_am": {"bsonType": ["date", "null"]},
+                # An address change's move alone writes it (`docs/backend/spec.md :: I866`).
+                "fortgefuehrt": _object(
+                    required=("berechtigt_seit", "inhaber_seit"),
+                    properties={"berechtigt_seit": {"bsonType": "date"}, "inhaber_seit": {"bsonType": ["date", "null"]}},
+                    nullable=True,
+                ),
             },
         )
     },
@@ -1265,6 +1348,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "beansprucht_bis": {"bsonType": ["date", "null"]},
                 "beanspruchung": {"bsonType": _STRING_OR_NULL},
                 "versuche": {"bsonType": "int"},
+                # Out of `required`: only an address change's effect writes it, on the rows naming the address it replaced.
+                "nachfolge": _object(
+                    nullable=True,
+                    required=(),
+                    properties={"jetzt": {"bsonType": _STRING_OR_NULL}, "vorher": {"bsonType": _STRING_OR_NULL}},
+                ),
             },
         )
     },
@@ -1324,6 +1413,111 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.SPIELBERICHTE: {
+        "$jsonSchema": _object(
+            required=("_id", "saison_id", "spiel_id", "bericht"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "spiel_id": {"bsonType": "objectId"},
+                "bericht": _SPIELBERICHT_BERICHT,
+            },
+        )
+    },
+    Collection.ADRESSWECHSEL: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "adresse",
+                "email",
+                "weg",
+                "token_hash",
+                "stopp_hash",
+                "verschickt_am",
+                "gueltig_bis",
+                "freigegeben_am",
+                "grund",
+                "bestaetigt_am",
+                "wirksam_ab",
+                "versand",
+                "genehmigung",
+                "beendet",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # The key, folded; null once ended, as `email` and `grund` are: a tombstone holds no address.
+                "adresse": {"bsonType": _STRING_OR_NULL},
+                "email": {"bsonType": _STRING_OR_NULL},
+                "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
+                # Here and on no model, as `einladungen.token_hash` is. Null while the address on file's approval is asked.
+                "token_hash": {"bsonType": _STRING_OR_NULL},
+                "stopp_hash": {"bsonType": "string"},
+                "verschickt_am": {"bsonType": "string"},
+                # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
+                "gueltig_bis": {"bsonType": ["date", "null"]},
+                "freigegeben_am": {"bsonType": ["date", "null"]},
+                "grund": {"bsonType": _STRING_OR_NULL},
+                "bestaetigt_am": {"bsonType": ["date", "null"]},
+                "wirksam_ab": {"bsonType": ["date", "null"]},
+                # The delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`), hand-written for `einladungen.versand`'s reason.
+                "versand": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+                "genehmigung": _ADRESSWECHSEL_GENEHMIGUNG,
+                "beendet": _ADRESSWECHSEL_BEENDET,
+            },
+        )
+    },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "art",
+                "bisherige_email",
+                "email",
+                "vorname",
+                "weg",
+                "erfasst_am",
+                "beansprucht_bis",
+                "beanspruchung",
+                "versuche",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "art": {"bsonType": "string", "enum": ["wirksam", "verworfen"]},
+                # The effect's notice names both addresses and whom it greets; a refusal's names the new address alone.
+                "bisherige_email": {"bsonType": _STRING_OR_NULL},
+                "email": {"bsonType": "string"},
+                "vorname": {"bsonType": _STRING_OR_NULL},
+                "weg": {"bsonType": _STRING_OR_NULL, "enum": [*_ADRESSWECHSEL_WEGE, None]},
+                "erfasst_am": {"bsonType": "date"},
+                # Required as keys and null until a pass claims the row, for `berechtigungen_postausgang`'s reason.
+                "beansprucht_bis": {"bsonType": ["date", "null"]},
+                "beanspruchung": {"bsonType": _STRING_OR_NULL},
+                "versuche": {"bsonType": "int"},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_ANTRAEGE: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "berechtigung_id", "genehmigung"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # Folded, as a grant's: the key `uniq_berechtigung_antrag_adresse` judges.
+                "adresse": {"bsonType": "string"},
+                "berechtigung_id": {"bsonType": ["objectId", "null"]},
+                # The address change's approval block, less the approval itself, which writes the grant and removes the row.
+                "genehmigung": _object(
+                    required=("verwaltung", "angefragt_am", "bis", "gestartet_von"),
+                    properties={
+                        "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                        "angefragt_am": {"bsonType": "date"},
+                        # A date, or `berechtigungen_antraege_bis` expires nothing.
+                        "bis": {"bsonType": "date"},
+                        "gestartet_von": {"bsonType": "string"},
+                    },
+                ),
+            },
+        )
+    },
 }
 
 
@@ -1377,7 +1571,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         partial_filter={"widerrufen_am": {"$type": "null"}},
     ),
     # `$type` for the reason above: a missing key indexes as null, so without the filter the second
-    # row stored before the key would collide with the first.
+    # keyless submission would collide with the first.
     UniqueIndex(
         Collection.BEWERBUNGEN,
         "uniq_bewerbung_idempotenz_schluessel",
@@ -1428,6 +1622,21 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one open confirmation per party per Ansetzung",
         partial_filter={"antwort": {"$type": "null"}, "geschlossen": {"$type": "null"}},
     ),
+    # What makes two first writes of one fixture's report one document: the second insert meets this.
+    UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
+    # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
+    # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
+    # or the planner scans.
+    UniqueIndex(
+        Collection.ADRESSWECHSEL,
+        "uniq_adresswechsel_adresse",
+        ("adresse",),
+        "one live change per address",
+        partial_filter={"beendet": {"$type": "null"}, "adresse": {"$type": "string"}},
+    ),
+    # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
+    # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
+    UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
 )
 
 
@@ -1442,6 +1651,9 @@ class SupportIndex:
     name: str
     keys: tuple[tuple[str, int], ...]
     rule: str
+    # The collation of the reads it serves, which must be the index's own: a read under another one walks none of its
+    # string keys (`docs/backend/spec.md :: I54`).
+    collation: Mapping[str, Any] | None = None
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
@@ -1533,19 +1745,18 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
     ),
-    # PLAIN for the index above's reason.
+    # PLAIN for the index above's reason: a tombstone keeps its hashes, so each link answers how its change ended.
     SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_adresswechsel_token_hash",
-        (("adresswechsel.token_hash", ASCENDING),),
-        "the referee address page's lookup, driven by strangers",
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_token_hash",
+        (("token_hash", ASCENDING),),
+        "the address page's lookup, driven by strangers",
     ),
-    # PLAIN for the referee's above's reason.
     SupportIndex(
-        Collection.SPIELER,
-        "spieler_adresswechsel_token_hash",
-        (("adresswechsel.token_hash", ASCENDING),),
-        "the pupil address page's lookup, driven by strangers",
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_stopp_hash",
+        (("stopp_hash", ASCENDING),),
+        "the address page's stop lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.
@@ -1626,6 +1837,83 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("antwort.von.halter", ASCENDING),),
         "the reasons a leaving contact typed, from whichever seat",
     ),
+    # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
+    # fixture the season-leading index could narrow by.
+    SupportIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "spielbestaetigungen_partei_schiedsrichter_id_saison_id",
+        (("partei.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own rows, on their panel and at their erasure",
+    ),
+    SupportIndex(
+        Collection.SPIELBERICHTE,
+        "spielberichte_saison_id",
+        (("saison_id", ASCENDING),),
+        "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
+    ),
+    # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
+    SupportIndex(
+        Collection.SPIELBERICHTE,
+        "spielberichte_eingereicht_von_schiedsrichter_id",
+        (("bericht.eingereicht_von.schiedsrichter_id", ASCENDING),),
+        "the reports a leaving referee sent, read inside their erasure's transaction",
+    ),
+    # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
+    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I838`).
+    SupportIndex(
+        Collection.SAISON_SPIELER,
+        "saison_spieler_saison_id_team_id",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "one season's squad rows of one club, counted",
+    ),
+    # The same keys under the collation the two squad reads sort names by, which the plain one cannot serve: the report
+    # reads it on every form and panel read and twice on every write, the squad page on every read.
+    SupportIndex(
+        Collection.SAISON_SPIELER,
+        "saison_spieler_saison_id_team_id_de",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "one season's squad rows of one or two clubs, ordered by name",
+        collation=GERMAN_COLLATION,
+    ),
+    # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
+    # clause of each `$or`, for the registration's pair's reason.
+    *(
+        SupportIndex(
+            Collection.SAISON_TEAMS,
+            f"saison_teams_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's seats, which the subject lookup reads on every signed-in page",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_kontakt_email",
+        (("kontakt.email", ASCENDING),),
+        "a person's referee rows, which the subject lookup reads on every signed-in page",
+    ),
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's applications, which every sign-in attempt and account page read",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    # Compound, so the sign-in's `status` term is read off the index; the erasure's read of every status walks its prefix.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_email_status",
+        (("email", ASCENDING), ("status", ASCENDING)),
+        "a person's registrations, which every sign-in attempt and account page read",
+    ),
+    SupportIndex(
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_email",
+        (("email", ASCENDING),),
+        "the changes naming an address as their new one, which every erasure and its preview read",
+    ),
 )
 
 
@@ -1668,6 +1956,23 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         0,
         "an address's anchor is removed once the TTL monitor next passes after its last write",
     ),
+    # A live change never expires, holding no date at `beendet.am`: the hourly pass ends it, taking its address out of the
+    # log images, which a TTL deletion never would.
+    TTLIndex(
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_beendet_am",
+        "beendet.am",
+        ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
+        "an ended address change is removed once its tombstone's retention has passed",
+    ),
+    # Zero: a lapsed request decides nothing, and every read already treats it as gone (`docs/backend/spec.md :: I851`).
+    TTLIndex(
+        Collection.BERECHTIGUNGEN_ANTRAEGE,
+        "berechtigungen_antraege_bis",
+        "genehmigung.bis",
+        0,
+        "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
+    ),
 )
 
 
@@ -1705,6 +2010,12 @@ class _PartialFilterOption(TypedDict, total=False):
     partialFilterExpression: Mapping[str, Any]
 
 
+class _CollationOption(TypedDict, total=False):
+    """Typed for `_PartialFilterOption`'s reason."""
+
+    collation: Mapping[str, Any]
+
+
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
     # Omitted rather than passed as `None` where a rule reaches every row: an omitted key and
     # `partialFilterExpression=None` are different options under one name, and `create_index` refuses
@@ -1718,8 +2029,11 @@ async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
 
 
 async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
+    # Omitted rather than passed as `None`, for `_apply_unique_index`'s reason.
+    collation_option: _CollationOption = {"collation": support.collation} if support.collation is not None else {}
+
     try:
-        await db[support.collection].create_index(list(support.keys), name=support.name)
+        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 
@@ -1931,19 +2245,22 @@ async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
 
 
 # The rule the `spieler` validator cannot state, its two nullable keys being the sentinel's alone.
-NAMELESS_PERSON_RULE = "a person is named and holds a consent record (spieler)"
+NAMELESS_PERSON_RULE = "a person is named, dated and holds a consent record (spieler)"
 
 
 async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
-    """Count the persons with a null forename or a null consent record, writing nothing.
+    """Count the persons with a null forename, birthdate or consent record, writing nothing.
 
-    The first 500s the admin's membership list and the team's squad, every served model requiring a
-    forename; the admission refuses to admit into the second.
+    A null forename or birthdate 500s the admin's membership list, the forename the team's squad too;
+    the admission refuses to admit into a null record.
     """
 
     # By its id, as every read excludes the sentinel, and by `$type` rather than null, so a missing key
     # stays the validator report's alone.
-    nameless = {"_id": {"$ne": GHOST_SPIELER_ID}, "$or": [{"vorname": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}]}
+    nameless = {
+        "_id": {"$ne": GHOST_SPIELER_ID},
+        "$or": [{"vorname": {"$type": "null"}}, {"geburtsdatum": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}],
+    }
     collection = db[Collection.SPIELER]
 
     return RelationReport(
@@ -1983,6 +2300,7 @@ _TEAMS_PER_GROUP = TypeAdapter(TeamsPerGroup)
 _STUFEN = TypeAdapter(Annotated[list[FLSpielerStufe], Field(min_length=1)])
 # The model whole: its validator refuses a level shoot-out, which no bound on either count states.
 _SHOOTOUT_OR_NULL = TypeAdapter(FLSpielElfmeterschiessen | None)
+_MINUTE = TypeAdapter(CustomSpielberichtMinute)
 
 # A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
 # empty name or a day no calendar holds, and a list serving that row answers 500 for every row
@@ -1999,7 +2317,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.BEWERBUNGEN: {
         "eingereicht_am": _DAY,
-        "bestaetigungsfrist": _OPTIONAL_DAY,
+        "bestaetigungsfrist": _DAY,
         "schule.team_name": _NON_EMPTY,
         "schule.full_name": _NON_EMPTY,
         "schule.shorthand": _SHORTHAND,
@@ -2113,10 +2431,8 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bestaetigung.verschickt_am": _DAY,
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
-        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
-        "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.frist": _DAY,
     },
     Collection.SPERRLISTE: {
         "grund": _NON_EMPTY,
@@ -2161,15 +2477,33 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "elfmeterschiessen.team1": _COUNT,
         "elfmeterschiessen.team2": _COUNT,
     },
+    Collection.SPIELBERICHTE: {
+        "bericht.ergebnis_vorschlag.team1_tore": _TORE_OR_NULL,
+        "bericht.ergebnis_vorschlag.team2_tore": _TORE_OR_NULL,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen": _SHOOTOUT_OR_NULL,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen.team1": _COUNT,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen.team2": _COUNT,
+        "bericht.torschuetzen.minute": _MINUTE,
+        "bericht.karten.minute": _MINUTE,
+        "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
+    },
+    Collection.ADRESSWECHSEL: {
+        "verschickt_am": _DAY,
+    },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "versuche": _COUNT,
+    },
+    Collection.BERECHTIGUNGEN_ANTRAEGE: {
+        "adresse": _NON_EMPTY,
+        "genehmigung.gestartet_von": _NON_EMPTY,
+    },
     Collection.SPIELER: {
-        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
         "vorname": _NON_EMPTY_OR_NULL,
         "inactive_since": _OPTIONAL_DAY,
         "geburtsdatum": _OPTIONAL_DAY,
-        "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.frist": _DAY,
     },
     Collection.SPIELORTE: {
         "name": _NON_EMPTY,
@@ -2205,12 +2539,19 @@ UNSERVABLE_VALUE_RULE = "every value its row models bound is one they admit ({})
 
 
 def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
-    value: Any = document
-    for step in path.split("."):
+    return _refused_at(adapter, document, path.split("."))
+
+
+def _refused_at(adapter: TypeAdapter[Any], value: Any, steps: list[str]) -> bool:
+    # An array met before the path ends: the rest names a field of every member, as a query's dotted path does.
+    if steps and isinstance(value, list):
+        return any(_refused_at(adapter, member, steps) for member in value)
+
+    if steps:
         # A parent stored null, or a key stored nowhere: the validator's own report names a missing key.
-        if not isinstance(value, Mapping) or step not in value:
+        if not isinstance(value, Mapping) or steps[0] not in value:
             return False
-        value = value[step]
+        return _refused_at(adapter, value[steps[0]], steps[1:])
 
     try:
         adapter.validate_python(value)

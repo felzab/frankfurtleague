@@ -3,16 +3,9 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
-import { ADRESSE_AENDERN } from "./constants.ts";
-import {
-  KEINE_ADRESSE_HINTERLEGT,
-  mapAdresswechselAntragRefusal,
-  mapAdresswechselLinkRefusal,
-  mapAlreadyInSaisonRefusal,
-  mapSquadRefusal,
-} from "./refusals.ts";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -20,12 +13,9 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
    doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the components it renders. */
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
-const { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } = await import("@/features/sperrliste/constants.ts");
 const {
-  beantrageSpielerAdresswechselAction,
   deleteSaisonSpielerAction,
   deleteSpielerAction,
-  einladeSpielerAdresswechselAction,
   patchSaisonSpielerAction,
   patchSpielerAction,
   postSaisonSpielerAction,
@@ -36,8 +26,6 @@ const {
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
-const REQUEST_OPERATION = "POST /spieler/{spieler_id}/adresswechsel";
-const RESEND_OPERATION = "POST /spieler/{spieler_id}/adresswechsel/einladen";
 
 const KEY = { spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0", saison_id: "2026" };
 
@@ -53,7 +41,7 @@ function landed({ endpoint }: ApiCall): Record<string, unknown> {
 describe("the player's writes", () => {
   it("reach each published path and method, the ids in the path and the fields alone in the body", async () => {
     answerWith((call) => Promise.resolve(landed(call)));
-    const person = { vorname: "Lena", nachname: "Meier", geburtsdatum: null };
+    const person = { vorname: "Lena", nachname: "Meier", geburtsdatum: "2009-05-04" };
     const squad = { team_id: ROW.team_id, nummer: "7", position: null, stufe: null, rolle: null };
 
     await patchSpielerAction({ id: KEY.spieler_id, ...person });
@@ -105,52 +93,5 @@ describe("what each squad write answers a refusal with", () => {
       act: () => reactivateSaisonSpielerAction(KEY),
       mapped: mapSquadRefusal,
     });
-  });
-});
-
-describe("what each address write answers a refusal with", () => {
-  it("answers the request's refusals with the request's own mapper", async () => {
-    await assertEachAnswered({
-      operation: REQUEST_OPERATION,
-      refuseWith: answerWith,
-      act: () => beantrageSpielerAdresswechselAction({ id: KEY.spieler_id, email: "lena@neu.example" }),
-      mapped: mapAdresswechselAntragRefusal,
-    });
-  });
-
-  it("answers the re-send's refusals with the pending change's mapper", async () => {
-    await assertEachAnswered({
-      operation: RESEND_OPERATION,
-      refuseWith: answerWith,
-      act: () => einladeSpielerAdresswechselAction({ id: KEY.spieler_id }),
-      mapped: mapAdresswechselLinkRefusal,
-    });
-  });
-
-  /* The address's own refusals land on the box holding it. The ban's sentence is the ban list's, for
-     the administrator who keeps the list, and under the box names only the way out the box cannot
-     offer. */
-  for (const [code, satz, feld] of [
-    ["REQ-SPIELER-003", SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD],
-    [
-      "REQ-SPIELER-006",
-      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
-      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
-    ],
-    ["REQ-SPIELER-007", "Das ist schon die hinterlegte Adresse.", "Das ist schon die hinterlegte Adresse."],
-  ] as const) {
-    it(`lands the request's ${code} on the address box`, () => {
-      assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, code)), { error: satz, fieldErrors: { email: feld } });
-    });
-  }
-
-  /* The waiting change's panel has no box, so its refusal sends the administrator to the press that opens one, by that press's label. */
-  it("names the address box's own press where a pending address is taken", () => {
-    assert.match(mapAdresswechselLinkRefusal(refusedOn(RESEND_OPERATION, "REQ-SPIELER-006")) ?? "", new RegExp(`„${ADRESSE_AENDERN}“`));
-  });
-
-  /* No box stands for a pupil holding no address, so only a stale page meets this. */
-  it("lands the request's REQ-SPIELER-008 on no box", () => {
-    assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, "REQ-SPIELER-008")), { error: KEINE_ADRESSE_HINTERLEGT });
   });
 });

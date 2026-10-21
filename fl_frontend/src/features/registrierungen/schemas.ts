@@ -127,8 +127,8 @@ export type FLEinwilligungUmfang = z.infer<typeof FLEinwilligungUmfangSchema>;
 /**
  * What a confirmation link is told before any press.
  *
- * No name travels: the link went to an address nobody has confirmed, which behind a typo is a
- * stranger's. The three stored answers are null on the new pupil's page.
+ * No name travels, nor anything the person's record holds: the link went to an address nobody has
+ * confirmed, which behind a typo is a stranger's.
  */
 export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
@@ -143,9 +143,6 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
   medien_mindestalter: MedienMindestalterSchema,
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  umfang: FLEinwilligungUmfangSchema.nullable(),
-  medien: z.boolean().nullable(),
 });
 export type FLRegistrierungBestaetigungAnsichtResponse = z.infer<typeof FLRegistrierungBestaetigungAnsichtResponseSchema>;
 export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["seite"];
@@ -156,11 +153,12 @@ export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["s
 /**
  * One person, one press, one token spent. **It bounds no age**: the floor arrives with the link's own read.
  *
- * Both choices null from the returning pupil's page, both set from the new pupil's (`REQ-REGISTRIERUNG-017`).
+ * Null where the page asks nothing: both choices and the date on the returning pupil's page
+ * (`REQ-REGISTRIERUNG-017`).
  */
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,
-  geburtsdatum: CustomDateStringSchema,
+  geburtsdatum: CustomDateStringSchema.nullable(),
   umfang: FLEinwilligungUmfangSchema.nullable(),
   // Separately answered from `umfang`, and the endpoint stores both: one press carries two
   // consents, and a media permission folded into the scope would be one nobody gave on its own.
@@ -176,28 +174,29 @@ export type FLRegistrierungBestaetigungPayload = z.infer<typeof FLRegistrierungB
  * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
  */
 export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungSeite) {
-  const mitAlter = FLRegistrierungBestaetigungPayloadSchema.extend({
-    geburtsdatum: CustomDateStringSchema.refine(
-      (datum) => {
-        const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
-
-        return datum >= frueheste && datum <= spaeteste;
-      },
-      { error: alterAusserhalb(mindestalter) },
-    ),
-  });
-
-  // The new pupil's pair tightened past the mirror's null: an unanswered scope is a field error before any press.
+  // The new pupil's three tightened past the mirror's null: an unanswered scope is a field error before any press.
   return seite === "bestaetigung_spieler"
-    ? mitAlter.extend({ umfang: FLEinwilligungUmfangSchema, medien: z.boolean() })
-    : mitAlter.extend({ umfang: z.null(), medien: z.null() });
+    ? FLRegistrierungBestaetigungPayloadSchema.extend({
+        geburtsdatum: CustomDateStringSchema.refine(
+          (datum) => {
+            const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+
+            return datum >= frueheste && datum <= spaeteste;
+          },
+          { error: alterAusserhalb(mindestalter) },
+        ),
+        umfang: FLEinwilligungUmfangSchema,
+        medien: z.boolean(),
+      })
+    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), medien: z.null() });
 }
 
 /** The write's echo: what was stored for this pupil, and nothing about any other row. */
 export const FLRegistrierungBestaetigungResponseSchema = BaseAPIResponseSchema.extend({
   ergebnis: z.literal("bestaetigt"),
-  geburtsdatum: CustomDateStringSchema,
-  // Null on the returning pupil's press, which sent none: its answer panel states the read's pair.
+  // Null where the press sent none, a stored one standing: the echo never carries it.
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  // Null on the returning pupil's press, which sent none.
   umfang: FLEinwilligungUmfangSchema.nullable(),
   medien: z.boolean().nullable(),
 });
@@ -258,17 +257,6 @@ export const FLRegistrierungPersonSchema = z.object({
 });
 export type FLRegistrierungPerson = z.infer<typeof FLRegistrierungPersonSchema>;
 
-/**
- * The one stored person holding no address whose name matches: proposed, never resolved, a typed name
- * being a weaker key than an address. Two namesakes propose neither, the read serving nothing to tell them apart.
- */
-export const FLRegistrierungVorschlagSchema = z.object({
-  spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string(),
-  nachname: z.string().nullable(),
-});
-export type FLRegistrierungVorschlag = z.infer<typeof FLRegistrierungVorschlagSchema>;
-
 /** One pending registration as a team's seat reads it: no address, no birthdate and no consent at any depth. */
 export const FLOffeneRegistrierungSchema = z.object({
   registrierung_id: CustomObjectIdStringSchema,
@@ -283,7 +271,6 @@ export const FLOffeneRegistrierungSchema = z.object({
   aufnehmbar: z.boolean(),
   nummer_doppelt: z.boolean(),
   person: FLRegistrierungPersonSchema.nullable(),
-  vorschlag: FLRegistrierungVorschlagSchema.nullable(),
 });
 export type FLOffeneRegistrierung = z.infer<typeof FLOffeneRegistrierungSchema>;
 
@@ -298,7 +285,7 @@ export type FLOffeneRegistrierungenResponse = z.infer<typeof FLOffeneRegistrieru
 
 /**
  * Whom the registration is admitted into: `null` makes a new person or takes the one its address
- * resolves to under the same name, an id is the representative's yes to that person or to a proposal.
+ * resolves to under the same name, an id is the representative's yes to that person where its details differ.
  */
 export const FLRegistrierungAufnehmenPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema.nullable(),
@@ -329,8 +316,8 @@ export const FLRegistrierungAblehnenPayloadSchema = z.object({
 export type FLRegistrierungAblehnenPayload = z.infer<typeof FLRegistrierungAblehnenPayloadSchema>;
 
 /**
- * The decline's echo. `email` is the address as typed, answered for the server-side mailer alone: the
- * action hands the browser none of it.
+ * The decline's echo. `email` is the address the link went to, answered for the server-side mailer alone:
+ * the action hands the browser none of it.
  */
 export const FLRegistrierungAblehnungResponseSchema = BaseAPIResponseSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,
@@ -351,6 +338,7 @@ export type FLRegistrierungAblehnungResponse = z.infer<typeof FLRegistrierungAbl
  */
 export const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
+  datum: FLEinwilligungSchema.shape.datum.nullable(),
   // Null where nobody was asked, never `false`: a returning pupil's media answer stands on their own record.
   medien: z.boolean().nullable(),
 });

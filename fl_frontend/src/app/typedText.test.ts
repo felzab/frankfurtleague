@@ -20,6 +20,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { parseModule } from "@/shared/testing/jsxReader.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
@@ -162,11 +163,11 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
         vorname: "Ada",
         nachname: null,
         inactive_since: null,
-        geburtsdatum: null,
-        einwilligung: null,
-        email: null,
-        adresswechsel: null,
-        adresswechsel_abgelaufen: false,
+        geburtsdatum: "2009-05-04",
+        einwilligung: bestaetigteEinwilligung(),
+        email: "ada@example.com",
+        adresswechsel_id: null,
+        adresswechsel_einsehbar_verwehrt: null,
         memberships: [{ ...KADER_ZEILE, saison_id: "2026", team_id: OBJECT_ID }],
       },
     ],
@@ -192,6 +193,17 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
     frist: "2026-10-31",
     vorschlag: null,
     beantwortet_von: null,
+  },
+  // The new mailbox's link, still to confirm: its view sits one level down, where `OPEN` does not reach.
+  "/adresswechsel/bestaetigung/ansicht": {
+    ansicht: {
+      seite: "neu",
+      zustand: "gueltig",
+      gueltig_bis: "2026-10-31T10:00:00Z",
+      wirksam_ab: null,
+      weg: "konto",
+      genehmigung_offen: false,
+    },
   },
 };
 
@@ -244,9 +256,8 @@ const LINKED: ReadonlySet<string> = new Set([
   "(public)/registrierung/page.tsx",
   "(public)/bestaetigung/kontakt/page.tsx",
   "(public)/bestaetigung/schiedsrichter/page.tsx",
-  "(public)/bestaetigung/schiedsrichter/adresse/page.tsx",
   "(public)/bestaetigung/spieler/page.tsx",
-  "(public)/bestaetigung/spieler/adresse/page.tsx",
+  "(public)/bestaetigung/adresse/page.tsx",
   "(public)/bestaetigung/spiel/page.tsx",
   "(public)/loeschung/page.tsx",
 ]);

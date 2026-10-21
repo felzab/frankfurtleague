@@ -32,6 +32,7 @@ from app.api.bewerbungen.services import (
     find_kontakt_gesperrt_refusal,
     find_new_club_refusal,
     find_reseat_refusal,
+    find_sitz_inhaber_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
@@ -45,7 +46,7 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
+from app.api.teams.services import find_club_entry_refusal
 from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -105,10 +106,7 @@ async def annehmen_bewerbung(
 
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
-    confirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no
-    confirmation block and is not held to it. A seat of such an application enters the season without the birthdate
-    the applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own
-    to state.
+    confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
@@ -127,7 +125,7 @@ async def annehmen_bewerbung(
         # In-session, as everything judged here is: a confirmation landing mid-request is judged by
         # the retry rather than lost, and the block copied into `saison_teams` below then carries
         # every person's own date and stamp.
-        refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen")))
+        refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -196,9 +194,9 @@ async def annehmen_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/bereich/admin/kontakte` reads them from here. Composed, never copied:
-                # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
-                "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
+                # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
+                # confirmed by its own person before acceptance was allowed (`REQ-BEWERBUNG-013`).
+                "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
                 "name": name,
                 "shorthand": shorthand,
@@ -306,7 +304,7 @@ async def erneut_einwilligung(
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
-    is judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a
+    is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
     decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
     holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
     """
@@ -417,6 +415,9 @@ async def korrigiere_kontakt_email(
     """
     Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
 
+    **The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save
+    answers one it takes off a seat; null where the corrected address is the one the seat held.
+
     The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
     record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
     deadline restarts from today exactly as a re-send restarts it.
@@ -425,7 +426,8 @@ async def korrigiere_kontakt_email(
     deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
     for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
     write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
-    — the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this
+    — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
+    caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
     application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
     no seat is a 404.
     """
@@ -451,6 +453,8 @@ async def korrigiere_kontakt_email(
         kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
         refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+        # After the answered check, which names an emptied seat more plainly than a holder that moved would.
+        refuse(find_sitz_inhaber_refusal(kontakte=kontakte, seat=rolle, bisherige_email=email_data.bisherige_email))
 
         other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)
@@ -469,7 +473,7 @@ async def korrigiere_kontakt_email(
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
-        await patch_one_in_db(
+        before = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
             update=compose_kontakt_email_update(
@@ -478,12 +482,21 @@ async def korrigiere_kontakt_email(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+        # Off the image this write replaced, never the read above it: the address the link left is the one the write moved.
+        alt = str(before["kontakte"][rolle]["email"])
         # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
         await anchor_the_addresses(
             [email_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
 
-        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(
+            email=email_data.email,
+            rollen=list(seats),
+            token=raw,
+            bestaetigungsfrist=bestaetigungsfrist,
+            # Both the stored fold (`docs/backend/spec.md :: I332`).
+            abgang_email=None if alt == email_data.email else alt,
+        )
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.
@@ -521,8 +534,8 @@ async def besetze_kontakt_sitz(
     nothing, seating them for a confirmation they cannot give.
 
     Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
-    stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
-    before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
+    stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
+    (`REQ-BEWERBUNG-011`); and on an address another
     contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
     (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
     seated being a new acceptance. A path naming no seat is a 404.
@@ -587,7 +600,7 @@ async def besetze_kontakt_sitz(
             [sitz_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
 
-        return FLBewerbungKontaktSitzResponse(rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktSitzResponse(email=sitz_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.

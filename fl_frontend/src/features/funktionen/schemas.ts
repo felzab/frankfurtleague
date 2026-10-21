@@ -1,6 +1,6 @@
 import z from "zod";
 
-import { asSignInIdentifier } from "@/core/emailAddress";
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import {
   BaseAPIResponseSchema,
   FLSelbstErasureBewerbungSchema,
@@ -10,6 +10,7 @@ import {
   FLSelbstErasureSpielerSchema,
   FLSubjektResponseSchema,
 } from "@/core/schemas";
+import { FLVerwaltungSchema } from "@/features/berechtigungen/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLRegistrierungSchema } from "@/features/registrierungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
@@ -40,16 +41,7 @@ export type FLTeamSitzeResponse = z.infer<typeof FLTeamSitzeResponseSchema>;
  * The erasure's lookup, held to no address rule as the API's is: a record stored under an older rule
  * stays erasable (`docs/backend/spec.md :: I329`).
  */
-const ADRESSE_NACHSCHLAGEN = addressSchema((address) => address.includes("@")).refine(
-  (address) => {
-    // Every referee row stored without an address shares one placeholder under RFC 6761's `invalid`, so a lookup
-    // there would reach all of them. Judged on the fold, as the API judges it:
-    // `fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`.
-    const domain = asSignInIdentifier(address).split("@").at(-1) ?? "";
-    return domain !== "invalid" && !domain.endsWith(".invalid");
-  },
-  { error: "Diese Adresse ist ein Platzhalter und gehört niemandem." },
-);
+const ADRESSE_NACHSCHLAGEN = addressSchema((address) => address.includes("@"));
 
 /** Mirrors `FLErasureAnsichtPayload`: the address the reveal is read for, in the body for the erasure's own reason. */
 export const FLErasureAnsichtPayloadSchema = z.object({ email: ADRESSE_NACHSCHLAGEN });
@@ -111,11 +103,26 @@ export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungS
   status: FLRegistrierungSchema.shape.status,
 });
 
-/** A referee row holding a change to the address still to be confirmed, which names no person to show. */
-export const FLErasureAnsichtAdresswechselSchema = z.object({ schiedsrichter_id: CustomObjectIdStringSchema });
+/**
+ * Another address's pending change naming this one as its new address, which names no person to show; `einsehbar_verwehrt`
+ * says why the address tool refuses it this administrator, null where it opens it.
+ */
+export const FLErasureAnsichtAdresswechselSchema = z.object({
+  adresswechsel_id: CustomObjectIdStringSchema,
+  einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+});
 
-/** A pupil row holding a change to the address still to be confirmed, as the referee's above. */
-export const FLErasureAnsichtSpielerAdresswechselSchema = z.object({ spieler_id: CustomObjectIdStringSchema });
+/** The address's own pending change, which its erasure ends; absent where it is one this reader may not see. */
+export const FLErasureAnsichtEigenerAdresswechselSchema = z.object({
+  adresswechsel_id: CustomObjectIdStringSchema,
+});
+
+/** An open grant request the erasure ends: one for this address (`betroffen`), or one this address asked (`gestellt`). */
+export const FLErasureAnsichtAntragSchema = z.object({
+  antrag_id: CustomObjectIdStringSchema,
+  verwaltung: FLVerwaltungSchema,
+  rolle: z.enum(["betroffen", "gestellt"]),
+});
 
 /**
  * Mirrors `FLErasureAnsichtResponse`: every record the erasure would reach, by kind, name and id, and never the
@@ -128,7 +135,8 @@ export const FLErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   bewerbungen: z.array(FLErasureAnsichtBewerbungSchema),
   registrierungen: z.array(FLErasureAnsichtRegistrierungSchema),
   adresswechsel: z.array(FLErasureAnsichtAdresswechselSchema),
-  spieler_adresswechsel: z.array(FLErasureAnsichtSpielerAdresswechselSchema),
+  eigener_adresswechsel: FLErasureAnsichtEigenerAdresswechselSchema.nullable(),
+  antraege: z.array(FLErasureAnsichtAntragSchema),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
   gesperrt: z.boolean(),
 });

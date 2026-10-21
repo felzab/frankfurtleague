@@ -7,7 +7,11 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
 import { Button } from "@heroui/react/button";
 
+import { VorschlagText } from "@/features/spielberichte/components/ui/VorschlagText";
+import { ANTWORT_LABELS, SCHIEDSRICHTER_PARTEI } from "@/features/spielbestaetigungen/constants";
+import { antwortStand, geltendeBestaetigungen, schiedsrichterAbsage } from "@/features/spielbestaetigungen/utils";
 import { Leer } from "@/shared/components/ui/Angabe";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -19,6 +23,9 @@ import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
+import type { BerichtChip } from "@/features/spielberichte/utils";
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../schemas";
 
 export function SpielCard({
@@ -28,6 +35,8 @@ export function SpielCard({
   asListitem = true,
   today,
   isFinishedSaison,
+  bestaetigungen,
+  berichtChip,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
@@ -44,6 +53,10 @@ export function SpielCard({
   today: string;
   /** Required: a card omitting it promises a Termin for a finished season's undated fixture. */
   isFinishedSaison: boolean;
+  /** The season's confirmation rows, an administrator's read: each party's answer to the Ansetzung this fixture holds. */
+  bestaetigungen?: SaisonBestaetigungen;
+  /** The report's proposal still to be adopted, an administrator's read the card shows only beside its edit link. */
+  berichtChip?: BerichtChip;
 }) {
   const {
     datum: spielDatum,
@@ -145,7 +158,83 @@ export function SpielCard({
           ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
+        {/* Keyed on the edit link, as the answers below are: `ergebnis_vorschlag` is withheld from the public tier. */}
+        {adminEditHref !== undefined && berichtChip !== undefined && (
+          <span className={labelBadge(berichtChip.tone)}>
+            {berichtChip.worte}
+            {berichtChip.vorschlag !== null && (
+              <>
+                {" "}
+                <VorschlagText vorschlag={berichtChip.vorschlag} />
+              </>
+            )}
+          </span>
+        )}
       </div>
+
+      {/* The admin card's alone, keyed on the edit link: a public caller handed the rows renders none of them. */}
+      {adminEditHref !== undefined && bestaetigungen !== undefined && (
+        <AntwortChips
+          spielData={spielData}
+          bestaetigungen={bestaetigungen.bySpielId.get(spielData.id) ?? []}
+          austritte={bestaetigungen.austritte}
+          today={today}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * One chip per party asked about the Ansetzung the fixture holds, in the card's order: team 1, team 2, the referee,
+ * whose own decline keeps its chip while the slot stays empty.
+ */
+function AntwortChips({
+  spielData,
+  bestaetigungen,
+  austritte,
+  today,
+}: {
+  spielData: FLSpiel;
+  bestaetigungen: readonly FLSpielbestaetigung[];
+  austritte: ReadonlyMap<string, string>;
+  today: string;
+}) {
+  const zeilen = geltendeBestaetigungen(bestaetigungen, spielData, { austritte, today });
+  const parteien = [
+    {
+      name: spielData.team1?.name,
+      zeile: zeilen.find((zeile) => zeile.partei.art === "team" && zeile.partei.team_id === spielData.team1?.team_id),
+    },
+    {
+      name: spielData.team2?.name,
+      zeile: zeilen.find((zeile) => zeile.partei.art === "team" && zeile.partei.team_id === spielData.team2?.team_id),
+    },
+    {
+      name: SCHIEDSRICHTER_PARTEI,
+      zeile: zeilen.find((zeile) => zeile.partei.art === "schiedsrichter") ?? schiedsrichterAbsage(bestaetigungen, spielData),
+    },
+  ].flatMap(({ name, zeile }) => (name === undefined || zeile === undefined ? [] : [{ name, zeile }]));
+
+  if (parteien.length === 0) return null;
+
+  return (
+    <ul
+      aria-label="Spielbestätigungen"
+      className="flex w-full flex-row flex-wrap items-center justify-center gap-2">
+      {parteien.map(({ name, zeile }) => {
+        const { label, tone } = ANTWORT_LABELS[antwortStand(zeile, today)];
+        return (
+          // Whose answer it is, in the visible words: three chips reading „Offen“ say nothing on their own. One line, as
+          // every pill: a long name ends in an ellipsis, which the card spells whole above, and the answer always shows.
+          <li
+            key={zeile.id}
+            className={`${labelBadge(tone)} h-7 max-w-full min-w-0`}>
+            <span className="min-w-0 truncate">{name}</span>
+            <span className="shrink-0">: {label}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -12,7 +12,8 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
@@ -39,7 +40,7 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -48,7 +49,14 @@ import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungenAnsicht, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis.ts";
+import type {
+  FLAustritt,
+  FLKontaktperson,
+  FLSaisonTeamAdresswechsel,
+  FLSaisonTeamBestaetigungenAnsicht,
+  FLSaisonTeamKontakte,
+} from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -90,6 +98,7 @@ const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kon
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 const { StepUpContext } = (await import("@/shared/components/ui/stepUp.ts")) as unknown as { StepUpContext: React.Context<unknown> };
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -98,7 +107,16 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({
+    text_version: "1",
+    datum: "2026-03-12",
+    bestaetigt_am: "2026-03-14",
+    // Both choices as the seat's own confirmation evidences them.
+    nachweis: {
+      umfang: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+      medien: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+    },
+  }),
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -133,6 +151,7 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
     isMember: true,
     emptiedSeatLabels: [],
     renamedConfirmedSeatLabels: [],
+    addressOnlySeatLabels: [],
     ...state,
   });
 
@@ -181,12 +200,18 @@ const sectionElement = (
   isMember = true,
   nimmtLinks = true,
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
+  adresswechsel: FLSaisonTeamAdresswechsel | null = null,
+  medienFragen: MedienFragen = {},
+  /** The draft, where it has moved off what the row stores. */
+  value: FLSaisonTeamKontakte | null = kontakte,
 ): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
-    value: kontakte,
+    medienFragen,
+    value,
     stored: kontakte,
     bestaetigungen,
+    adresswechsel,
     teamId: "507f1f77bcf86cd799439011",
     saisonId: "2526",
     nimmtLinks,
@@ -198,6 +223,12 @@ const sectionElement = (
     isDirty: false,
     onValidateSelection: () => undefined,
   });
+
+/** The seats with the Trainer confirmed on `textVersion` and no evidence of either choice, its page's questions `medienFragen`. */
+const ohneNachweis = (textVersion: string, medienFragen: MedienFragen): string => {
+  const trainer = { ...ADA, einwilligung: { ...ADA.einwilligung, text_version: textVersion, nachweis: { umfang: null, medien: null } } };
+  return editorTree(sectionElement({ ...BLOCK, trainer }, true, true, null, null, medienFragen), { ...BLOCK, trainer });
+};
 
 /** The seats as the admin meets them, in the state each case names. */
 const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): string =>
@@ -217,11 +248,14 @@ const viewElement = (
 ): ReactNode =>
   h(AdminKontakteEditView, {
     laufendesLabel,
+    medienFragen: {},
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
       saisonStatus,
-      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" } : null,
+      membership: hasRow
+        ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, adresswechsel: null, kontakte_stand: "9f2c" }
+        : null,
     },
   });
 
@@ -297,7 +331,7 @@ const unconfirmed = (vorname: string, nachname: string, email: string): FLKontak
   vorname,
   nachname,
   email,
-  einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+  einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
 });
 
 /** The editor page's address: the club the answers below hold, in the season they hold it in. */
@@ -305,6 +339,9 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
+/** The row's stand token and each seat's pending address change, as the same read serves them. */
+let storedStand = "9f2c";
+let storedAdresswechsel: FLSaisonTeamAdresswechsel | null = null;
 /** The registry's answer where a case names one, an `Error` failing its read. */
 let seitenAntwort: unknown = undefined;
 
@@ -326,7 +363,7 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: "9f2c" })],
+      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: storedStand, adresswechsel: storedAdresswechsel })],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
@@ -422,6 +459,24 @@ describe("the editor's shape", () => {
     }
   });
 
+  /* Off each stored seat's own confirmed label: the readout files the media choice against a confirmation only where
+     that label's page asked it, and a label the registry does not hold is left for the readout to say nobody checked. */
+  it("hands the editor whether each stored seat's page asked the media choice", async () => {
+    const vorDerFrage = "2026-09-bestaetigungsseite-6";
+    const mitDerFrage = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+    const bestaetigtAuf = (textVersion: string): FLKontaktperson => ({
+      ...ADA,
+      einwilligung: { ...ADA.einwilligung, text_version: textVersion },
+    });
+    storedBlock = { ...BLOCK, trainer: bestaetigtAuf(vorDerFrage), ansprechperson: bestaetigtAuf(mitDerFrage), stellvertretung: ADA };
+    try {
+      const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
+      assert.deepEqual((body.props as { medienFragen: unknown }).medienFragen, { [vorDerFrage]: false, [mitDerFrage]: true });
+    } finally {
+      storedBlock = BLOCK;
+    }
+  });
+
   /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
      the error boundary, which logs it, never an editor closing blank seats in silence. */
   it("lets a registry breaking its contract reach the error boundary", async () => {
@@ -464,8 +519,71 @@ describe("the editor's shape", () => {
     unmount();
   });
 
+  /* The stand moves with every write to the block, another administrator's included, whose seats may read alike. */
+  it("re-seeds the draft where the row's stand moved, the seats reading alike", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    const gespeichert = addresses()[0]?.value;
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    storedStand = "a1b2";
+    try {
+      rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+      assert.equal(addresses()[0]?.value, gespeichert, "the box keeps the draft over a block another write moved");
+    } finally {
+      storedStand = "9f2c";
+      unmount();
+    }
+  });
+
+  /* A seat's pending address change starts and ends with no edit here, and the page reads it live: the typed draft stays. */
+  it("keeps the typed draft where only a seat's pending address change moved", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    storedAdresswechsel = {
+      trainer: null,
+      ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0",
+      stellvertretung: null,
+      einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+    };
+    try {
+      rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+      // The control: the refresh reached the editor, or the kept draft below proves nothing.
+      assert.ok(screen.getByRole("link", { name: "Zur Änderung" }), "the refresh drew no pending change");
+      assert.equal(addresses()[0]?.value, "erika@example.org", "a pending change starting threw the typed draft away");
+    } finally {
+      storedAdresswechsel = null;
+      unmount();
+    }
+  });
+
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
      message between two keystrokes describes a value nobody finished entering. */
+  /* Raised off the composed draft, so it holds only where the editor hands the banner author its seats. */
+  it("names the address tool once a confirmed seat's address alone is retyped, and not for a new person", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(BLOCK), BLOCK));
+    const wegweiser = () => screen.queryAllByText(/Eine neue Adresse für dieselbe Person ändert sich/).length;
+    const [address] = screen.getAllByRole("textbox", { name: "E-Mail" });
+    const [nachname] = screen.getAllByRole("textbox", { name: /^Nachname/ });
+
+    await user.clear(address ?? assert.fail("the seats render no address box"));
+    await user.paste("grace.neu@example.org");
+    assert.ok(wegweiser() > 0, "an address-only change on a confirmed seat names no way to the address tool");
+
+    await user.clear(nachname ?? assert.fail("the seats render no surname box"));
+    await user.paste("Lovelace");
+    assert.equal(wegweiser(), 0, "a new person on the seat is sent to the address tool");
+  });
+
   it("judges a typed field when it is left, and never between keystrokes", async () => {
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(BLOCK), BLOCK));
@@ -606,6 +724,72 @@ describe("the editor's shape", () => {
     assert.equal(offers({}), 1, "an open seat on a running row offers no re-send, so the absences below prove nothing");
     assert.equal(offers({ saisonStatus: "past" }), 0, "a past season's row offers a re-send");
     assert.equal(offers({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }), 0, "a withdrawn team's row offers a re-send");
+  });
+
+  /* The editor reads a change pending at a seat's address and moves nothing: the same line the pupil and referee
+     editors show, linking to the address tool by the change's id. */
+  it("shows a change pending at one seat's address as the line linking to the address tool, on that seat alone", () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const html = editorTree(
+      sectionElement(BLOCK, true, true, null, {
+        trainer: null,
+        ansprechperson: id,
+        stellvertretung: null,
+        einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+      }),
+      BLOCK,
+    );
+
+    assert.equal(html.split("läuft eine Änderung.").length - 1, 1, "the line shows on other than the one seat");
+    assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
+    assert.ok(!sectionMarkup(BLOCK).includes("läuft eine Änderung"), "a seat no change waits at shows the line");
+  });
+
+  /* A contact person who is an administrator too: the tool refuses its reader their own address, and a grant holder's
+     without an owner's power, so that seat's line links into no refusal and says where the change opens. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no seat's change the tool refuses this reader as ${verwehrt}, saying where it opens`, () => {
+      const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+      const html = editorTree(
+        sectionElement(BLOCK, true, true, null, {
+          trainer: null,
+          ansprechperson: id,
+          stellvertretung: null,
+          einsehbar_verwehrt: { trainer: null, ansprechperson: verwehrt, stellvertretung: null },
+        }),
+        BLOCK,
+      );
+
+      assert.ok(!html.includes(`adresswechsel=${id}`), "the seat's line links into the tool's refusal");
+      assert.ok(textOf(html, " ").includes(`läuft eine Änderung. ${EINSEHBAR_VERWEHRT[verwehrt]}`), "the line says nothing of where it opens");
+    });
+  }
+
+  /* The seat's box takes input, so „diese Adresse“ would point at what is typed: the change is the stored address's. */
+  it("names the stored address the change is at, whatever the seat's box now holds", () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
+    const getippt = { ...BLOCK, ansprechperson: { ...grace, email: "neu@example.org" } };
+    const html = editorTree(
+      sectionElement(
+        BLOCK,
+        true,
+        true,
+        null,
+        {
+          trainer: null,
+          ansprechperson: id,
+          stellvertretung: null,
+          einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+        },
+        {},
+        getippt,
+      ),
+      BLOCK,
+    );
+
+    assert.match(html, /Für <span[^>]*>grace@example\.org<\/span> läuft eine Änderung\./);
+    assert.doesNotMatch(html, /Für diese Adresse/);
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
@@ -811,6 +995,7 @@ describe("the editor's shape", () => {
       trikot_farbe: null,
       kontakte: BLOCK_EMPTY,
       bestaetigungen: null,
+      adresswechsel: null,
       kontakte_stand: "9f2c",
     });
 
@@ -931,6 +1116,22 @@ describe("what the banners say", () => {
     assert.equal(einer?.title, zwei?.title, "the title changes with the seats, so it has to agree with a count");
     assert.match(einer?.title ?? "", /endgültig/, "the title leaves the loss open, which a fresh confirmation cannot repair");
   });
+
+  /* A person who only changed mailbox keeps the seat through the address tool: the save is not the way, so the page names it. */
+  it("names the address tool where a confirmed seat's draft changes the address alone, opening no dialog of its own", () => {
+    const banners = bannersFor({ renamedConfirmedSeatLabels: ["Trainer"], addressOnlySeatLabels: ["Trainer"] });
+    const wegweiser = banners.find((banner) => banner.id === "kontakte.address-only");
+
+    assert.ok(wegweiser, "an address-only change names no way to the address tool");
+    assert.equal(wegweiser.title, `Eine neue Adresse für dieselbe Person ändert sich unter „${ADRESSWECHSEL_EINTRAG.label}“`);
+    assert.equal(wegweiser.severity, "info");
+    assert.deepEqual(
+      resolveBlockingBanners(banners)?.map((banner) => banner.id),
+      ["kontakte.confirmation-cleared"],
+      "the way to the tool opens the save dialog",
+    );
+    assert.ok(!bannersFor({ renamedConfirmedSeatLabels: ["Trainer"] }).some((banner) => banner.id === "kontakte.address-only"));
+  });
 });
 
 describe("the way in and out of the editor", () => {
@@ -954,7 +1155,15 @@ describe("the way in and out of the editor", () => {
           saison: {
             saisonId: "2526",
             saisonStatus: "active",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, bestaetigungen: null, kontakte_stand: "9f2c" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte: BLOCK,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "9f2c",
+            },
           },
           today: "2026-03-01",
           gruppeLocked: false,
@@ -1215,12 +1424,9 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
     assert.match(renderedSeats, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("bewerbung")}"`), "an applicant's seat does not say so");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("liga")}"`), "a seat the league filled does not say so");
-    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than
-    // pending, and its box is labelled, so it takes the labelled word.
-    assert.ok(renderedSeats.includes('value="Nicht hinterlegt"'), "a seat stored before the field reads as one still pending");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {
+    for (const fieldName of ["eingetragen_von", "bestaetigt_am"]) {
       assert.ok(!renderedSeats.includes(`einwilligung.${fieldName}"`), `${fieldName} is still a named field, so a save can carry it`);
     }
   });
@@ -1276,7 +1482,7 @@ describe("the contact person's own two choices", () => {
         umfang: "kontaktdaten_whatsapp",
         medien: false,
         nachweis: {
-          umfang: null,
+          ...ADA.einwilligung.nachweis,
           medien: {
             am: "2026-10-04T08:00:00Z",
             text_version: "2026-10-konto-kontakt",
@@ -1299,6 +1505,34 @@ describe("the contact person's own two choices", () => {
     );
   });
 
+  /* A seat kept from before choices carried their own evidence stands on its confirmation alone: „Nicht bestätigt“ under
+     a choice the person confirmed would tell the administrator the league may not use it. */
+  it("reads a confirmed seat's choice with no evidence of its own as standing on the confirmation", () => {
+    const html = ohneNachweis("1", { 1: true });
+
+    assert.equal(
+      html.split("seit der Bestätigung am 14.03.2026, Fassung 1").length - 1,
+      2,
+      "a confirmed seat's choice reads as standing on nothing",
+    );
+    assert.ok(!html.includes("Nicht bestätigt"), "a confirmed seat's choice reads as unconfirmed");
+  });
+
+  /* A seat kept through the reset from a page that never asked the media choice holds the "false" the server wrote for
+     it: filed against the confirmation, the readout would present a choice nobody was offered as the person's own. */
+  it("reads a media choice the confirmed seat's page never asked as not asked", () => {
+    const vorDerFrage = "2026-09-bestaetigungsseite-6";
+    const html = ohneNachweis(vorDerFrage, { [vorDerFrage]: Object.hasOwn(publishedFassung(vorDerFrage).bedienelemente, "medien") });
+
+    assert.ok(html.includes(`Bei der Bestätigung am 14.03.2026 nicht gefragt (Fassung ${vorDerFrage})`), "the media choice reads as asked");
+    // The WhatsApp switch, which that page did ask.
+    assert.equal(
+      html.split(`seit der Bestätigung am 14.03.2026, Fassung ${vorDerFrage}`).length - 1,
+      1,
+      "either choice stands on the confirmation",
+    );
+  });
+
   /* The other arm of each: a readout saying „erlaubt“ for every seat would have the league write to
      someone on WhatsApp who never allowed it. */
   it("reads a seat that allows no WhatsApp as not allowed, and a given media consent as given", () => {
@@ -1309,7 +1543,7 @@ describe("the contact person's own two choices", () => {
       new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.erteilt}"`).test(html),
       "a given media consent reads otherwise",
     );
-    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+    assert.ok(html.includes("seit 14.03.2026, 10:00 Uhr, Fassung 1"), "a choice never moved does not stand on its confirmation's act");
   });
 });
 
@@ -1571,7 +1805,7 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     trainer: {
       ...seatPerson("Ada", "Byron", "ada@example.org"),
       geburtsdatum: null,
-      einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+      einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
     },
   };
 

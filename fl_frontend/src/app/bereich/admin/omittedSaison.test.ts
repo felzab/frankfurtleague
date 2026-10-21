@@ -13,6 +13,7 @@ import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
@@ -115,11 +116,11 @@ const spieler = (saisons: FLSaison[]) => ({
   vorname: "Ada",
   nachname: null,
   inactive_since: null,
-  geburtsdatum: null,
-  einwilligung: null,
-  email: null,
-  adresswechsel: null,
-  adresswechsel_abgelaufen: false,
+  geburtsdatum: "2009-05-04",
+  einwilligung: bestaetigteEinwilligung(),
+  email: "ada@example.com",
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   memberships: saisons.map((entry) => ({
     saison_id: entry.id,
     team_id: OBJECT_ID,
@@ -318,6 +319,7 @@ const PAGES = filesUnder(APP_DIR, (name) => name === "page.tsx", 20);
 const READS_NOTHING: Record<string, string> = {
   "[...unmatched]/page.tsx": "the admin 404, answered before any read for an address no other route takes",
   "loeschung/page.tsx": "a request by mail answered on two panels, each reading only once its own press names an address",
+  "adresswechsel/page.tsx": "an address change, read only by the id a link names or once the tool's press names an address",
 };
 /* A `[saison_id]` segment names the page's subject, which `resolveSaisonIdParam` answers with no
    fallback, and a season-bearing record's editor reads the season its record carries (I359): neither

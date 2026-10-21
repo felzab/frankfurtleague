@@ -9,11 +9,11 @@
 # nothing about which locations the edge makes reachable (`docs/ops/spec.md` I13).
 #
 # Invariants:
-# - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
+# - `docs/logging/spec.md` L11, and the edge's half of L12, every line's span.
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
 # - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
-# - `docs/ops/spec.md` I9, I507, and §1.3's server-action pair.
+# - `docs/ops/spec.md` I9, I507, §1.3's server-action and link-page pairs.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -249,13 +249,15 @@ done
 #   KEEP-REF|<referer>|<text> as KEEP, with the URL on a Referer header
 
 CASES=(
-  # The pages a mailed link lands on, each served by `location /`: pins against narrowing the map,
-  # which matches the parameter wherever it sits, to a path list.
+  # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
+  # wherever it sits, to a path list.
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
+  "LEAK|${BASE}/bestaetigung/adresse?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
+  "LEAK|${BASE}/loeschung?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -533,6 +535,13 @@ grade_security_headers() { # $1 what the request was, the headers already read
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
     fi
   done
+  # The file is what the sent value is compared to, so a `preload` written back into it passes that comparison
+  # (nginx/shared/security_headers.conf holds why none is sent).
+  if [[ "${SENT_VALUE[strict-transport-security]:-}" == *preload* ]]; then
+    fail "HEADER $1"
+    detail "expected Strict-Transport-Security without preload" "nginx sent: ${SENT_VALUE[strict-transport-security]}"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
   for name in "${!SECURITY_HEADERS[@]}"; do
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.
@@ -591,7 +600,8 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
-# On a GET, which no zone meters, so every location answers.
+# On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
+# so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
@@ -735,6 +745,16 @@ action_request() { # $1 a label, the rest curl options naming one transfer
   if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
   ACTION_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
 }
+# A spent key still admits one request per refill interval, which a lone probe can land on. Sent
+# twice back to back, a pair never holds two admissions, while a key nothing spent answers 200 twice.
+spent_request() { # $1 a label, the rest curl options naming one transfer; each half keeps its answer
+  local label="$1" half; shift
+  for half in a b; do
+    ACTION_LABELS+=( "$label" )
+    ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/${label}-${half}.headers" -o "${SCRATCH}/${label}-${half}.body"
+      -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+  done
+}
 ACTION_LABELS=()
 ACTION_REQUESTS=()
 # Twenty saves at once, under the burst of thirty.
@@ -747,51 +767,88 @@ for _ in $(seq 1 30); do
   action_request flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/"
 done
-# The key spent, so each of these answers 429 only if the map takes it for an action.
-action_request multipart -X POST -F "probe=1" "${BASE}/"
-action_request urlencoded -X POST --data "probe=1" "${BASE}/"
-action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
+# The key spent, so each of these is refused only if the map takes it for an action.
+spent_request multipart -X POST -F "probe=1" "${BASE}/"
+spent_request urlencoded -X POST --data "probe=1" "${BASE}/"
+spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
-action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# The refusal itself, kept whole: what Next's action client reads as the press's error. Not through
-# `action_request`, whose `-o /dev/null` curl would pair with this transfer in place of the file.
-ACTION_LABELS+=( refusal )
-ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/refusal.headers" -o "${SCRATCH}/refusal.body" -w '%{http_code}\n' --max-time 5
-  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
+LINK_ACTION_PATHS=( /bestaetigung/spiel /registrierung /registrierung/ /loeschung /loeschung/ )
+for _i in "${!LINK_ACTION_PATHS[@]}"; do
+  spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+    "${BASE}${LINK_ACTION_PATHS[_i]}"
+done
+# The refusal itself, kept whole: what Next's action client reads as the press's error.
+spent_request refusal -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Asked as a browser asks, `gzip_types` naming text/plain: `--compressed` decodes whatever body comes back.
-ACTION_LABELS+=( refusal-gzip )
-ACTION_REQUESTS+=( --next -s --compressed -H "Accept-Encoding: gzip" -D "${SCRATCH}/refusal-gzip.headers" -o "${SCRATCH}/refusal-gzip.body"
-  -w '%{http_code}\n' --max-time 5
-  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+spent_request refusal-gzip --compressed -H "Accept-Encoding: gzip" \
+  -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
-
+# Sent here and the link pages' run in a second curl, Windows capping one command line below both. A
+# transfer either curl never answered reads as `none`, the second's statuses kept at their labels.
 mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+ACTION_SENT=${#ACTION_LABELS[@]}
+ACTION_REQUESTS=()
+
+# The link pages' pair, every request it meters a page render. Its burst read off the file, so a
+# burst moved there is still flooded past, with twenty more for the refill the run takes.
+LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkseite burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkseite burst this test can read."
+for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
+  action_request link-flood "${BASE}/bestaetigung/spiel?token=${TOK}"
+done
+# The key spent: every link page, each block's own twin and the spellings nginx resolves before
+# choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
+LINK_MARKER="fl-link"
+LINK_SPENT=(
+  "/bestaetigung/kontakt?token=${TOK}"
+  "/bestaetigung/schiedsrichter?token=${TOK}"
+  "/bestaetigung/spieler?token=${TOK}"
+  "/bestaetigung/adresse?token=${TOK}"
+  "/registrierung?token=${TOK}"
+  "/registrierung/?token=${TOK}"
+  "/loeschung?token=${TOK}"
+  "/loeschung/?token=${TOK}"
+  "//bestaetigung/spiel?token=${TOK}"
+  "/bestaetigung/./spiel?token=${TOK}"
+  "/%62estaetigung/spiel?token=${TOK}"
+)
+for _i in "${!LINK_SPENT[@]}"; do
+  spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
+done
+# A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
+# gateway's link check may send, the second.
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
+
+mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
-  local label="$1" wanted="$2" _j _status found=0 all=1
+  local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
   for _j in "${!ACTION_LABELS[@]}"; do
     [[ "${ACTION_LABELS[_j]}" == "$label" ]] || continue
     _status="${ACTION_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+    answered+="${_status} "
     if [[ "$_status" == "${wanted#some:}" ]]; then found=1; else all=0; fi
   done
   if [[ "$wanted" == some:* ]] && (( found )); then return 0; fi
   if [[ "$wanted" != some:* ]] && (( all )); then return 0; fi
   fail "ACTION ${label}"
-  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: $(
-    for _j in "${!ACTION_LABELS[@]}"; do [[ "${ACTION_LABELS[_j]}" == "$label" ]] && printf '%s ' "${ACTION_STATUSES[_j]%$'\r'}"; done)"
+  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: ${answered}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 }
 expect_action rhythm 200
 expect_action flood some:429
-expect_action multipart 429
-expect_action urlencoded 429
-expect_action static-prefix 429
-expect_action colon-id 429
-expect_action refusal 429
-expect_action refusal-gzip 429
+expect_action multipart some:429
+expect_action urlencoded some:429
+expect_action static-prefix some:429
+expect_action colon-id some:429
+expect_action refusal some:429
+expect_action refusal-gzip some:429
 
 # The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
 # is graded too.
@@ -813,14 +870,153 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1"
 }
-grade_refusal refusal
+# The page `nginx/shared/site.conf :: @edge_refusal_seite` returns, read off the file as nginx sends it:
+# the single-quoted string, its newlines kept.
+REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
+awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"\") }
+  open && /^';\$/ { exit }
+  open { print }" "${REPO_ROOT}/nginx/shared/site.conf" > "$REFUSAL_PAGE"
+[[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
+
+# The page's colours against the season scheme `fl_frontend/src/app/globals.css` imports, as
+# `fl_frontend/src/core/emailShell.test.ts` holds the mails' to it: both are copied by hand. Read as
+# `scripts/checks/docs_gate/scheme.py :: _read` reads a scheme, copied: its kernel needs packages this
+# scope's interpreter need not hold.
+PAGE_PALETTE_READ='
+import re
+import sys
+
+page = open(sys.argv[1], "rb").read().decode("utf-8")
+app = sys.argv[2] + "/fl_frontend/src/app/"
+FROM_SCHEME = {
+    "--surface": "--bg-surface",
+    "--card": "--bg-base",
+    "--text": "--fg-muted",
+    "--heading": "--fg-base",
+    "--rule": "--border-base",
+    "--brand": "--accent-brand",
+}
+
+
+def body_after(text, opener):
+    found = re.search(opener, text)
+    if found is None:
+        return ""
+    depth = 1
+    for offset in range(found.end(), len(text)):
+        depth += {"{": 1, "}": -1}.get(text[offset], 0)
+        if depth == 0:
+            return text[found.end():offset]
+    return ""
+
+
+imported = re.search(r"@import\s+\"\./(schemes/[^\"]+)\"", open(app + "globals.css", "rb").read().decode("utf-8"))
+if imported is None:
+    sys.exit("globals.css imports no season scheme")
+scheme = open(app + imported.group(1), "rb").read().decode("utf-8")
+scheme = re.sub(r"/\*.*?\*/", lambda comment: re.sub(r"[^\n]", " ", comment.group(0)), scheme, flags=re.DOTALL)
+problems = []
+for theme, scheme_opener, page_opener in (
+    ("light", r":root\s*,\s*\[data-theme=\"light\"\]\s*\{", r":root\s*\{"),
+    ("dark", r"\[data-theme=\"dark\"\]\s*\{", r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{"),
+):
+    tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(scheme, scheme_opener)))
+    shown = {
+        name: "".join(format(int(channel), "02x") for channel in channels)
+        for name, *channels in re.findall(r"(--[a-z]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
+    }
+    for name, token in FROM_SCHEME.items():
+        wanted = tokens.get(token, "").lower().removeprefix(chr(35))
+        if not wanted or shown.get(name) != wanted:
+            problems.append(f"{theme} {name} reads {shown.get(name)}, the scheme {token} {wanted or None}")
+print("; ".join(problems))
+sys.exit(1 if problems else 0)
+'
+grade_page() { # $1 the transfer's label, its files named for it; $2 "head" where no body is sent
+  read_headers "${SCRATCH}/$1.headers"
+  # The charset in the header: a page with none is read in whatever encoding the browser guesses first.
+  if [[ "${SENT_VALUE[content-type]:-}" != "text/html; charset=utf-8" ]]; then
+    fail "ACTION $1"
+    detail "expected Content-Type: text/html; charset=utf-8, nginx sent '${SENT_VALUE[content-type]:-}'"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  if [[ "${2:-}" != head ]] && ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_PAGE"; then
+    fail "ACTION $1"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_seite, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  # The file is what the body is compared to, so a page losing either passes that comparison. Its URL carries the
+  # link's token, which a referer to the icon or the start page would hand on.
+  local palette
+  if [[ "${2:-}" != head ]] && ! grep -qF '<meta name="referrer" content="no-referrer" />' "${SCRATCH}/$1.body"; then
+    fail "ACTION $1"
+    detail "expected the page to withhold the referrer as every link page does, nginx sent no such meta tag"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  if [[ "${2:-}" != head ]] && ! palette="$("$EDGE_PY" -c "$PAGE_PALETTE_READ" "${SCRATCH}/$1.body" "$REPO_ROOT" 2>&1)"; then
+    fail "ACTION $1"
+    detail "expected the page's colours to be the season scheme's: ${palette}"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  grade_security_headers "the edge's own 429 page, $1"
+}
+grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was; $2 "page" or "head"
+  local _j half=a
+  for _j in "${!ACTION_LABELS[@]}"; do
+    [[ "${ACTION_LABELS[_j]}" == "$1" ]] || continue
+    if [[ "${ACTION_STATUSES[_j]:-none}" == 429* ]]; then
+      if [[ -n "${2:-}" ]]; then grade_page "$1-${half}" "$2"; else grade_refusal "$1-${half}"; fi
+      return
+    fi
+    half=b
+  done
+}
+grade_spent refusal
 # nginx's gzip filter leaves a 429 plain, compressing a 200, 403 or 404 alone (observed 2026-10-04); asked
 # anyway, so an encoding a later configuration adds is held to the same type and decoded bytes.
-grade_refusal refusal-gzip
+grade_spent refusal-gzip
 expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
+# A link page's action still reads the sentence: the page is its load's alone.
+for _i in "${!LINK_ACTION_PATHS[@]}"; do
+  _before=$ACTION_FAILURES
+  expect_action "link-action-${_i}" some:429
+  grade_spent "link-action-${_i}"
+  (( ACTION_FAILURES == _before )) || detail "link-action-${_i} posted to ${LINK_ACTION_PATHS[_i]}"
+done
+expect_action link-flood some:429
+for _i in "${!LINK_SPENT[@]}"; do
+  _before=$ACTION_FAILURES
+  expect_action "link-spent-${_i}" some:429
+  grade_spent "link-spent-${_i}" page
+  (( ACTION_FAILURES == _before )) || detail "link-spent-${_i} asked for ${LINK_SPENT[_i]}"
+done
+expect_action link-json some:429
+grade_spent link-json
+expect_action link-head some:429
+grade_spent link-head head
+
+# A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
+# it below the log's own level. Read once every kept refusal's access line is written, which comes
+# after its error line.
+LINK_LOGGED=0
+# Every spent link pair is marked, each sending two.
+LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
+for _ in $(seq 1 50); do
+  LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
+  if (( ${LINK_LOGGED:-0} >= LINK_KEPT )); then break; fi
+  sleep 0.2
+done
+(( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
+  || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
+LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" 2>/dev/null || true; })"
+if [[ -n "$LINK_ERRORS" ]]; then
+  fail "ACTION link-log"
+  detail "the error log holds a live token: ${LINK_ERRORS}"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+fi
 
 # --- the Control API the deploy reloads through ----------------------------------------------------
 
@@ -1180,6 +1376,7 @@ ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor,
 ${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
-actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
+metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

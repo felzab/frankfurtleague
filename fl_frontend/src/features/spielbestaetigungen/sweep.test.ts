@@ -18,11 +18,14 @@ const ereignisse: Ereignis[] = [];
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 let sweepSwitch: string | undefined = "on";
+/** Whether the notices' stamp fails, as a backend restarting under it fails it. */
+let mitgeteiltScheitert = false;
 let appEnv = "production";
 
 const LISTE = "/spielbestaetigungen/sweep";
 const PASS = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}`;
 const ANGEFRAGT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/angefragt`;
+const MITGETEILT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
 
 /** The listing's answer, and each season's pass's, which a case sets. */
 let listeAnswer: () => unknown = () => ({ acknowledged: 1, saison_ids: [], spiel_sweep_gelaufen_am: null });
@@ -39,8 +42,22 @@ const leererPass = (saisonId: string) => ({
   einteilungen: [],
   neue_ansetzungen: [],
   schiedsrichter_neue_ansetzungen: [],
+  schiedsrichter_gewechselt: [],
+  spiel_abgesagt: [],
+  schiedsrichter_spiel_abgesagt: [],
+  vorschlag_verworfen: [],
   geschlossen: 0,
   fehlgeschlagen: 0,
+  mitteilungen_aufgegeben: [],
+});
+
+/** One notice's slot and clubs, each kind carrying them alike. */
+const hinweis = (n: number) => ({
+  spielbestaetigung_id: id(n),
+  spiel_id: id(500),
+  team1_name: "Ernst-Reuter-Schule",
+  team2_name: "Goethe-Gymnasium",
+  alt: { datum: "2026-11-13", uhrzeit: "10:00:00" },
 });
 
 /** A fixture dated 20.11.2026, whose deadline the pass answers as 10.11.2026 rather than seven days before it. */
@@ -89,6 +106,12 @@ doubleApiClient(async (call: ApiCall, schema) => {
   if (angefragt !== null) {
     const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
     return schema.parse({ acknowledged: 1, saison_id: angefragt[1], angefragt: ids.length, fehlgeschlagen: 0 });
+  }
+  const mitgeteilt = /^\/spielbestaetigungen\/sweep\/(\d+)\/mitgeteilt$/.exec(call.endpoint);
+  if (mitgeteilt !== null) {
+    if (mitgeteiltScheitert) throw new Error("the notices' stamp went unanswered");
+    const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
+    return schema.parse({ acknowledged: 1, saison_id: mitgeteilt[1], mitgeteilt: ids.length });
   }
   const pass = /^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint);
   assert.ok(pass !== null, `the pass reached a route nothing here answers: ${call.endpoint}`);
@@ -146,10 +169,17 @@ const HOUR_MS = 60 * MINUTE_MS;
 const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
 const drops = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "drop" }> => ereignis.art === "drop");
 const gesendet = () => mail.sent;
+/** The sentence a notice to one person carries, and a notice to a club's mailboxes never. */
+const NUR_AN_DICH = "Diese E-Mail geht nur an Dich.";
 /** The ids the stamp was handed, over every stamp call of the pass. */
 const gestempelt = () =>
   apiCalls()
     .filter(({ endpoint }) => endpoint.endsWith("/angefragt"))
+    .flatMap(({ body }) => (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids);
+/** The ids the notices' stamp was handed, over every such call of the pass. */
+const mitgeteilt = () =>
+  apiCalls()
+    .filter(({ endpoint }) => endpoint.endsWith("/mitgeteilt"))
     .flatMap(({ body }) => (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids);
 const passLines = () => lines.filter(({ event }) => event.startsWith("spielbestaetigung."));
 
@@ -158,6 +188,7 @@ beforeEach(() => {
   lines.length = 0;
   ausgang.clear();
   sweepSwitch = "on";
+  mitgeteiltScheitert = false;
   appEnv = "production";
   listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627"], spiel_sweep_gelaufen_am: null });
   passAnswer = (saisonId) => leererPass(saisonId);
@@ -448,9 +479,41 @@ describe("what one pass mails", () => {
     // The team's notice is recorded against the seats it covered, the referee's rides the lane no record holds.
     assert.deepEqual(team?.tags, { ziel: "spielbestaetigung", ziel_id: id(2), anlass: "neue_ansetzung", rollen: "trainer-ansprechperson" });
     assert.deepEqual(schiri?.tags, { spielleitung: "hinweis" });
+    // One subject for both readers, so only the body tells the referee's notice from the club's.
+    assert.deepEqual(
+      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_AN_DICH)),
+      [false, true],
+      "a notice is worded for the other reader",
+    );
     // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
     assert.ok(team?.idempotencyKey !== undefined && schiri?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
     assert.equal(frische?.idempotencyKey, undefined, "a request carrying a fresh token was keyed");
+  });
+
+  /* A mailbox the void notice missed would read the fresh request as the newer of the two: the request waits unstamped,
+     the next pass asking it after the notice, while the fixture's other mailboxes are asked as usual. */
+  it("holds a fresh request back from a mailbox its void notice did not reach, and leaves it unstamped", async () => {
+    ausgang.set("abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [anfrage(1, "abgewiesen@schule.de"), anfrage(2, "gast@schule.de")],
+      einteilungen: [einteilung(3, "schiri-abgewiesen@schule.de")],
+      neue_ansetzungen: [{ ...hinweis(4), empfaenger: [{ address: "abgewiesen@schule.de", rollen: ["trainer"] }] }],
+      schiedsrichter_neue_ansetzungen: [{ ...hinweis(5), address: "schiri-abgewiesen@schule.de" }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject }) => [to, subject.split(":")[0]]),
+      [
+        ["abgewiesen@schule.de", "Neu angesetzt"],
+        ["schiri-abgewiesen@schule.de", "Neu angesetzt"],
+        ["gast@schule.de", "Bitte bestätigen"],
+      ],
+    );
+    assert.deepEqual([gestempelt(), mitgeteilt()], [[id(2)], []]);
   });
 
   /* The deadline the row carries, never one reckoned from the fixture's day. */
@@ -498,6 +561,140 @@ describe("what one pass mails", () => {
     assert.ok(!nachricht?.text.includes("token="), "the booking carries a token");
   });
 
+  /* The referee the close answered, on their own lane: their row is closed, so the request's stamp would mark nothing
+     asked, and the notice's stamp is what keeps the next pass from telling them again. */
+  it("tells a referee taken off a fixture on the referee's lane, and stamps it told rather than asked", async () => {
+    passAnswer = (saisonId) => ({ ...leererPass(saisonId), schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }] });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+      [["schiri@schule.de", "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium", { spielleitung: "hinweis" }]],
+    );
+    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
+    assert.deepEqual([gestempelt(), mitgeteilt()], [[], [id(4)]]);
+  });
+
+  /* The league's call-off reaches everyone it asked, so no club and no referee who agreed travels to the ground. */
+  it("tells the clubs' mailboxes and the referee of a called-off fixture, each notice keyed and stamped", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      spiel_abgesagt: [{ ...hinweis(5), empfaenger: [{ address: "team@schule.de", rollen: ["trainer"] }] }],
+      schiedsrichter_spiel_abgesagt: [{ ...hinweis(6), address: "schiri@schule.de" }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+      [
+        [
+          "team@schule.de",
+          "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
+          { ziel: "spielbestaetigung", ziel_id: id(5), anlass: "spiel_abgesagt", rollen: "trainer" },
+        ],
+        ["schiri@schule.de", "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026", { spielleitung: "hinweis" }],
+      ],
+    );
+    // One subject for both readers, so only the body tells the referee's notice from the club's.
+    assert.deepEqual(
+      gesendet().map(({ text }) => text.includes(NUR_AN_DICH)),
+      [false, true],
+      "a notice is worded for the other reader",
+    );
+    assert.ok(
+      gesendet().every(({ idempotencyKey }) => idempotencyKey !== undefined),
+      "a link-free notice went unkeyed",
+    );
+    assert.deepEqual(mitgeteilt(), [id(5), id(6)]);
+    // Stamped after both went: stamped first, a crash between would leave a party told by nobody and owed nothing.
+    assert.deepEqual(
+      ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
+      [LISTE, PASS("2627"), "team@schule.de", "schiri@schule.de", MITGETEILT("2627"), "drop"],
+    );
+  });
+
+  /* Its decline said the league decides; this is the word that it has, which nothing else sends. */
+  it("tells a club whose proposal was discarded that the date stands, keyed and stamped", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      vorschlag_verworfen: [{ ...hinweis(7), empfaenger: [{ address: "team@schule.de", rollen: ["trainer", "stellvertretung"] }] }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+      [
+        [
+          "team@schule.de",
+          "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
+          { ziel: "spielbestaetigung", ziel_id: id(7), anlass: "vorschlag_verworfen", rollen: "trainer-stellvertretung" },
+        ],
+      ],
+    );
+    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "the notice went unkeyed");
+    assert.deepEqual(mitgeteilt(), [id(7)]);
+  });
+
+  /* Unstamped, the backend answers the notice again on the next pass; stamped though it never went, nobody would hear. */
+  it("stamps a notice once a mailbox's send went, and none whose every send failed", async () => {
+    ausgang.set("weg@schule.de", "refused");
+    ausgang.set("schiri-weg@schule.de", "lost");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      neue_ansetzungen: [
+        {
+          ...hinweis(7),
+          empfaenger: [
+            { address: "weg@schule.de", rollen: ["trainer"] },
+            { address: "da@schule.de", rollen: ["ansprechperson"] },
+          ],
+        },
+        { ...hinweis(8), empfaenger: [{ address: "weg@schule.de", rollen: ["trainer"] }] },
+        // The mailbox that went ahead of the one that failed: neither the first send nor the last decides alone.
+        {
+          ...hinweis(10),
+          empfaenger: [
+            { address: "da@schule.de", rollen: ["ansprechperson"] },
+            { address: "weg@schule.de", rollen: ["trainer"] },
+          ],
+        },
+      ],
+      schiedsrichter_spiel_abgesagt: [{ ...hinweis(9), address: "schiri-weg@schule.de" }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(mitgeteilt(), [id(7), id(10)]);
+  });
+
+  /* The pass call stamped the reminder before answering, so a pass ending at the notices' stamp would cost the season
+     its reminders for good and its requests for an hour. */
+  it("mails the reminders and requests and stamps the requests where the notices' stamp failed, filing that failure", async () => {
+    mitgeteiltScheitert = true;
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }],
+      erinnerungen: [anfrage(2, "erinnert@schule.de")],
+      anfragen: [anfrage(3, "neu@schule.de")],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to }) => to),
+      ["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"],
+    );
+    assert.deepEqual(gestempelt(), [id(3)]);
+    assert.deepEqual(passLines()[0], {
+      level: "error",
+      event: "spielbestaetigung.sweep_failed",
+      fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
+    });
+  });
+
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */
   it("visits the seasons one at a time, in the order listed", async () => {
     listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627", "2728"], spiel_sweep_gelaufen_am: null });
@@ -525,7 +722,11 @@ describe("the pass's lines", () => {
     await runSpielSweep();
 
     assert.deepEqual(passLines(), [
-      { level: "info", event: "spielbestaetigung.sweep_pass", fields: { geschlossen: 2, angefragt: 1, erinnert: 1, fehlgeschlagen: 0 } },
+      {
+        level: "info",
+        event: "spielbestaetigung.sweep_pass",
+        fields: { geschlossen: 2, angefragt: 1, erinnert: 1, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 0 },
+      },
     ]);
   });
 
@@ -539,9 +740,35 @@ describe("the pass's lines", () => {
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
-        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, fehlgeschlagen: 3 },
+        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 3 },
       },
     ]);
+  });
+
+  /* A notice given up is a party nobody told: its line names the fixture an operator opens to tell them by hand
+     (`docs/ops/runbooks.md` §9), and its stamp keeps the next pass from answering it again. */
+  it("warns of each notice given up by its fixture and party, never a person, and stamps it", async () => {
+    const aufgegeben = [
+      { spielbestaetigung_id: id(11), spiel_id: id(500), partei: "team" as const },
+      { spielbestaetigung_id: id(12), spiel_id: id(501), partei: "schiedsrichter" as const },
+    ];
+    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: aufgegeben });
+
+    await runSpielSweep();
+
+    assert.deepEqual(passLines(), [
+      ...aufgegeben.map((notice) => ({
+        level: "warn",
+        event: "spielbestaetigung.mitteilung_aufgegeben",
+        fields: { error_code: "FE-SWEEP-004", saison_id: "2627", ...notice },
+      })),
+      {
+        level: "warn",
+        event: "spielbestaetigung.sweep_pass",
+        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
+      },
+    ]);
+    assert.deepEqual(mitgeteilt(), [id(11), id(12)]);
   });
 
   it("files a season it could not sweep under its own code, and goes on to the next", async () => {

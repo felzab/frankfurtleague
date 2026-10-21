@@ -3,14 +3,11 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas.ts";
-
-doubleEveryAction();
 
 /* Imported after the harness registers its loader, which is what compiles a `.tsx` at all. */
 const { FormSpielortSection } = await import("./FormSpielortSection.tsx");

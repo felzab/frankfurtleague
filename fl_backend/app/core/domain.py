@@ -286,7 +286,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Berechtigung",
         root=Collection.BERECHTIGUNGEN,
-        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG),
+        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG, Collection.BERECHTIGUNGEN_ANTRAEGE),
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
@@ -298,7 +298,10 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "membership, each write reading the other collection inside its own transaction. A grant is always "
             "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
             "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
-            "served to every administrator, and the outbox holds them until a pass has mailed them."
+            "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
+            "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
+            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
+            "(`docs/backend/spec.md :: I848`)."
         ),
     ),
     Aggregate(
@@ -340,6 +343,38 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "reads a row as the fixture's current state but through a comparison: the answer compares `ansetzung.stand` "
             "against the fixture's own, and the public verdict the five stored values. What is held is a rule over this "
             "collection alone, `uniq_spielbestaetigung_offen`: one open row per party per stand."
+        ),
+    ),
+    Aggregate(
+        name="Spielbericht",
+        root=Collection.SPIELBERICHTE,
+        members=(),
+        boundary=(
+            "One fixture's report: what the referee recorded of the match. Held true against nothing: it states what the "
+            "referee proposed, which stays true however the fixture is corrected afterwards -- so it is in no boundary with "
+            "`spiele`. The report writes no fixture; the administrator carries a proposal into the fixture by their own "
+            "save, and the state the report reads in is derived on every read from both. Three fixture writes reach the "
+            "report. A save adopting it stamps the version it took, in the save's transaction and only while the report "
+            "still stands at that version and names the clubs the save leaves on the fixture, so the stamp records the "
+            "adoption and holds no rule over the fixture, and a report corrected since, or written about other clubs, is "
+            "left unadopted rather than refusing the save; that save's undo puts the adoption it replaced back, in the "
+            "replay's transaction and only while the report still stands at the version stamped; and a confirmed replace "
+            "or an undraw is refused while any of the season's reports holds a block (`REQ-SPIELPLAN-007`), removing with "
+            "its fixtures only report documents holding none. What is held is a rule over this "
+            "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
+        ),
+    ),
+    Aggregate(
+        name="Adresswechsel",
+        root=Collection.ADRESSWECHSEL,
+        members=(Collection.ADRESSWECHSEL_POSTAUSGANG,),
+        boundary=(
+            "One live change per address, `uniq_adresswechsel_adresse`. The records it moves are the address's, read at "
+            "the effect, never stored on the change: a registration committed during its waiting time moves too. So it is "
+            "in no boundary with `spieler`, a seat, a referee or a grant, each of which the effect writes in its own "
+            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index. The "
+            "outbox joins it because an end owing a notice queues it in the end's own transaction, so a commit whose "
+            "answer was lost still has its notice delivered."
         ),
     ),
 )
@@ -399,8 +434,7 @@ REFERENCES: tuple[Reference, ...] = (
             "The erasure is the one removal, run for a person's own request and for an administrator answering one alike "
             "(`app/api/schiedsrichter/crud.py :: erase_referee_in_session`), and it CASCADES rather than being refused: a request "
             "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
-            "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
-            "never-asked referees repoints the same way, emptying the name as the erasure does. The ghost is "
+            "repointed at the ghost in the same transaction, each keeping its own `payment`. The ghost is "
             "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
             "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
             "reported as a retired booking, exactly as a merely retired referee is. No erasure reaches the ghost: each "
@@ -475,8 +509,8 @@ REFERENCES: tuple[Reference, ...] = (
             "`post_saison_team` reads the club, so entry naming one `teams` does not hold is a 404 and entry naming a "
             "RETIRED one is refused (`REQ-ENTER-005`); that same read seeds this row's `name` and `shorthand`, which a "
             "rename then rewrites while the season is not `past`; a REPLACEMENT is the third writer of all three, reseeding them "
-            "from the incoming club. A row naming no club predates that read -- the entry resolved nothing before it -- and is now "
-            "reachable only by a database edit; `report_relations` is what surfaces one, and the replacement is what repairs one, "
+            "from the incoming club. A row naming no club is reachable only by a database edit, clubs being retired and never "
+            "deleted; `report_relations` is what surfaces one, and the replacement is what repairs one, "
             "which is why it resolves the INCOMING club alone and never the outgoing one. "
             "Retiring a club is refused while a running or planned season holds it (`REQ-RETIRE-001`). A "
             "past season's rows survive the retirement, because those seasons still happened."
@@ -523,7 +557,7 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this rests on "
             "`post_saison_team` resolving the club at the junction's own entry: a squad row can name a club no "
-            "`teams` document holds only where the junction row predates that read. "
+            "`teams` document holds only by a database edit. "
             "Nothing is embedded and nothing is refused afterwards: a squad row pointing at a retired club still "
             "resolves, and the admin list renders it rather than hiding it."
         ),
@@ -664,6 +698,19 @@ REFERENCES: tuple[Reference, ...] = (
     ),
     Reference(
         source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "Copied off the fixture the sweep read, so a row names its fixture's own season; nothing is embedded. The "
+            "season's end clears what the rows hold of people (`app/api/spielbestaetigungen/crud.py :: strip_the_seasons_confirmations`). "
+            "No season delete exists."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
         fields=("partei.team_id",),
         target=Collection.TEAMS,
         on_reference_created=Action.NO_ACTION,
@@ -691,6 +738,64 @@ REFERENCES: tuple[Reference, ...] = (
             "names the ghost in their place and loses their reason. Removed rather than repointed as the fixtures are: the "
             "fixture is the league's record, the row the referee's own answer about their booking, and a row the ghost holds "
             "is a state the sweep never writes."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("spiel_id",),
+        target=Collection.SPIELE,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Both writers read the fixture the path names and answer 404 for one that does not exist. A fixture "
+            "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
+            "stands, unless the save adopts the report, which stamps the version it took "
+            "(`app/api/spielberichte/crud.py :: stamp_the_adoption`). A fixture is removed only with its season's whole "
+            "draw, by a confirmed replace or an undraw, which a submitted report refuses (`REQ-SPIELPLAN-007`); each removes "
+            "the season's report documents in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "Copied off the fixture the write read, never off a payload, so it names the fixture's own season; nothing is "
+            "embedded. The report's writes read the season's status, and after it has ended the referee writes no more "
+            "(`REQ-BERICHT-007`). No season delete exists."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("bericht.seiten.team1", "bericht.seiten.team2"),
+        target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Stamped off the fixture's sides by every write, never off a payload, null on a slot then open. Nothing is "
+            "embedded: a club's name is read off the fixture. A fixture re-fielded since leaves the stamp naming the club "
+            "that left, which is what reads the report `teams_geaendert` until a write stamps it again. A club is retired "
+            "by a date and never deleted, so the reference stays resolvable."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("bericht.eingereicht_von.schiedsrichter_id",),
+        target=Collection.SCHIEDSRICHTER,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Written by the referee's own write alone, which refuses a fixture booked to none of the writer's records "
+            "(`REQ-BERICHT-002`). A retirement deletes nothing. The erasure CASCADES ahead of the referee's own step "
+            "(`app/api/spielberichte/crud.py :: repoint_referee_reports_in_session`): every report they sent names the ghost "
+            "in their place, in the document and in its log images, its remarks and entries standing, as the fixtures they "
+            "officiated do: a report is the league's record of the match."
         ),
     ),
 )
@@ -732,7 +837,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, "
         "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
         "slots, and both are refused once "
-        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Once answered, the same "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). An address change taking effect "
+        "moves a confirmed seat's `email` to the new address, the application of any status. Once answered, the same "
         "person withdraws the WhatsApp scope and the media answer, each with its evidence, on every seat they hold while the "
         "application is pending, "
         "through `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`. Two administrative "
@@ -958,8 +1064,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
-        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
-        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
+        "brought onto the row by the acceptance, which copies the application's block whole, every seat confirmed by its "
+        "own person before acceptance is allowed (`REQ-BEWERBUNG-013`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
@@ -969,7 +1075,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
         "`umfang` and `medien`, each with its evidence, on every seat they hold on the row, and nothing else, through "
-        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
+        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`. An address change taking effect moves a confirmed "
+        "seat's `email` to the new address and voids the seat's links on the team's match confirmations",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(
@@ -1018,22 +1125,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "email",
         Editability.CONTROL_ONLY,
         "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
-        "address at the person's creation or onto a proposed person holding none, and the confirmation of an address change "
-        "through `POST /spieler/adresswechsel`, from the address its new mailbox proved. No payload carries it, an admission "
-        "never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
+        "address at the person's creation, and an address change taking effect -- its "
+        "new mailbox's confirmation through `POST /adresswechsel/bestaetigung`, an administrator's approval, or the hourly "
+        "`POST /adresswechsel/sweep` at the end of its waiting time -- from the address that mailbox proved. No payload "
+        "carries it, an admission never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
         "`POST /identitaet/subjekt` joins on the field by equality, so a value stored in any other form is matched by nothing",
         "app.api.registrierungen.services.compose_person_update",
-    ),
-    FieldPolicy(
-        Collection.SPIELER,
-        "adresswechsel",
-        Editability.CONTROL_ONLY,
-        "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
-        "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
-        "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
-        "`POST /spieler/adresswechsel`, the erasure of the address it names and, the day after its link lapses, "
-        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its delivery state on the system key alone",
-        "app.api.spieler.services.compose_spieler_adresswechsel",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -1231,24 +1328,12 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "kontakt.email",
         Editability.CONDITIONAL,
-        "written by a save only until the referee has confirmed; afterwards it moves only when the new mailbox confirms it "
-        "through `POST /schiedsrichter/adresswechsel`, the save keeping the stored address meanwhile, because the address is "
-        "what the person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
+        "written by a save only until the referee has confirmed; afterwards a save moving it is refused "
+        "(`REQ-SCHIEDSRICHTER-011`) and it moves only when an address change takes effect, because the address is what the "
+        "person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
         "save without an address is a 422: an administrator enters a referee, and the address is the one route by which that "
         "person learns of it. Nullable on the stored row all the same, for the ghost, which stands behind nobody",
-        "app.api.schiedsrichter.services.save_asks_an_address_change",
-    ),
-    FieldPolicy(
-        Collection.SCHIEDSRICHTER,
-        "adresswechsel",
-        Editability.CONTROL_ONLY,
-        "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
-        "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
-        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so do "
-        "either answer its person gives through `POST /schiedsrichter/adresswechsel` and, the day after its link lapses, "
-        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its "
-        "delivery state as they write `bestaetigung`'s, on the system key alone",
-        "app.api.schiedsrichter.services.compose_korrektur_update",
+        "app.api.schiedsrichter.services.find_bestaetigte_adresse_refusal",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1258,8 +1343,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
         "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting an unconfirmed RETIRED "
         "referee's address removes it and mints nothing, so the link a replaced block held stops working at once "
-        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through "
-        "`POST /schiedsrichter/adresswechsel` instead, whose confirmation removes that delivery state alone. "
+        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through an "
+        "address change instead, whose effect removes that delivery state alone. "
         "`POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
@@ -1272,7 +1357,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
         "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands, nobody else "
-        "being permitted to answer for a referee, and names no speaker (`erteilt_von` is a stored record's alone). It is "
+        "being permitted to answer for a referee. It is "
         "written whole once -- a "
         "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
         "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
@@ -1312,7 +1397,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "bestaetigung",
         Editability.CONTROL_ONLY,
         "on no payload. The submission mints the block whole, and the sweep's reminder adds a second live hash beside the "
-        "first without moving `frist`, so a pupil still holding the first mail is not punished by the chase. `POST "
+        "first without moving `frist`, so a pupil still holding the first mail is not punished by the chase. An address change "
+        "taking effect replaces an unanswered row's hashes with one nobody holds, so only a link reaching the moved address "
+        "confirms it. `POST "
         "/zustellung`, `POST /zustellung/angenommen` and `POST /zustellung/abgewiesen` write the delivery state under it on the "
         "system key alone",
         "app.api.registrierungen.services.compose_bestaetigung",
@@ -1323,7 +1410,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose on the new pupil's page: the server stamps "
         "`bestaetigt_am` and `datum` with the day the confirmation lands, nobody else being permitted to answer for a pupil, "
-        "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "and writes the record born with each choice's evidence. "
         "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
         "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
         "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "
@@ -1335,11 +1422,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant shows the stored date "
-        "back -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
-        "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
-        "checked for (`REQ-REGISTRIERUNG-007`). No "
-        "control puts it back, so a mistyped date is corrected by registering again",
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant asks none, the "
+        "press writing the stored date, never serving it, and refusing a person holding none (`REQ-REGISTRIERUNG-019`) -- "
+        "matched on the folded address AND the "
+        "folded name, so a sibling registering from a mailbox shared anyway is not given the stored person's date -- and "
+        "the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
+        "control puts it back, so a mistyped date is corrected by registering again. A returning pupil's stored date, which "
+        "registering again takes too, is corrected by an administrator on the person "
+        "(`app.api.spieler.admin_router.patch_spieler`), and the refusal of that date names the league's address",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
     FieldPolicy(
@@ -1358,6 +1448,92 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "on no payload: the sweep stamps it on a row whose fixture moved, was decided or called off, lost a club or "
         "changed referee, or whose day went by without any of those, and an administrator discarding a proposal stamps "
         "it on the declining row, each composing the reason itself",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht",
+        Editability.CONDITIONAL,
+        "written whole by the booked referee while the fixture's season runs, or by an administrator, once the fixture "
+        "is dated, its day has come and it was not called off: a report is the account of a match that took place, and "
+        "after its season the referee only reads it",
+        "app.api.spielberichte.services.find_nicht_gespielt_refusal",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.version",
+        Editability.COMPOSED,
+        "on no payload: the referee's write and the administrator's raise it by one wherever they change the block, "
+        "whichever field they move, so an adoption recording the version it took reads adopted exactly until the next of "
+        "them; the season-end strip, a referee erasure's repoint and the adoption's own stamp and undo leave it, the strip "
+        "else turning every adopted report `abweichend`",
+        "app.api.spielberichte.services.compose_bericht_update",
+    ),
+    FieldPolicy(
+        Collection.ADRESSWECHSEL,
+        "adresse",
+        Editability.CONTROL_ONLY,
+        "written once by a start, `POST /konto/adresswechsel` from the signed-in address or `POST /adresswechsel` from the "
+        "address an administrator types, folded; nulled by every ending, so a kept record holds no address. No payload moves it",
+        "app.api.adresswechsel.services.compose_record",
+    ),
+    FieldPolicy(
+        Collection.ADRESSWECHSEL,
+        "email",
+        Editability.CONTROL_ONLY,
+        "written once by a start and nulled by every ending; a re-send keeps it, and a change of mind is a new start, which "
+        "ends this change as replaced",
+        "app.api.adresswechsel.services.compose_record",
+    ),
+    FieldPolicy(
+        Collection.ADRESSWECHSEL,
+        "genehmigung",
+        Editability.CONTROL_ONLY,
+        "written by a start where the address holds a grant, its approver stamped by "
+        "`POST /adresswechsel/{adresswechsel_id}/genehmigung` alone, taken off by an effect finding the approval no longer "
+        "stands, and its starter and approver re-keyed by an effect or an erasure of theirs; nulled by every ending. No payload "
+        "carries it",
+        "app.api.adresswechsel.services.compose_genehmigung",
+    ),
+    FieldPolicy(
+        Collection.ADRESSWECHSEL,
+        "beendet",
+        Editability.CONTROL_ONLY,
+        "null from the start; written once by the one ending body every route, the pass and the erasure run, after which "
+        "nothing writes the record again but its TTL index",
+        "app.api.adresswechsel.crud.end_the_change_in_session",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.seiten",
+        Editability.COMPOSED,
+        "on no payload: every write of the block stamps the clubs the fixture fields, so a report whose fixture "
+        "fields others since reads `teams_geaendert` and no save adopts it until a write stamps them again",
+        "app.api.spielberichte.services.seiten_of",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommene_version",
+        Editability.CONTROL_ONLY,
+        "on no payload: the fixture save carrying `uebernimmt_bericht` writes it inside its own transaction, and only on a "
+        "report still at that version whose `seiten` are the clubs the save leaves, so a report corrected since the "
+        "editor read it is left unadopted rather than adopted unread, and one about other clubs credits neither. The undo of "
+        "that save writes back what the stamp replaced, from the save's own answer, on a report still at the version "
+        "stamped",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_am",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_von",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
+        "app.api.spielberichte.crud.stamp_the_adoption",
     ),
 )
 
@@ -1691,6 +1867,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_undraw_refusal.py::TestAnUndrawRunsOnlyInsideItsWindow",
     ),
     Rule(
+        code="REQ-SPIELPLAN-007",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /saisons/{saison_id}/spielplan · DELETE /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a replace or an undraw reaches no season holding a submitted match report",
+        implemented_by="app.api.saisons.services.find_berichte_refusal",
+        tested_by="tests/api/test_undraw_refusal.py::TestASubmittedReportKeepsTheSpielplan",
+    ),
+    Rule(
         code="REQ-SWAP-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /saisons/{saison_id}/gruppen/swap",
@@ -1912,6 +2097,31 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_occupant_refusal.py::TestTheBookingRefusal",
     ),
     Rule(
+        code="REQ-BOOKING-002",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a referee NEWLY assigned to a fixture, or kept on one a save puts back among those still to be played, has "
+            "confirmed their own entry"
+        ),
+        implemented_by="app.api.spiele.services.find_booking_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestAnUnconfirmedRefereeIsNeverBooked",
+    ),
+    Rule(
+        code="REQ-BOOKING-003",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a save keeping the referee its editor was served must find the fixture still booking them, so a referee's own "
+            "decline is never undone by an editor opened before it; a restore is judged against the fixture's own referee, "
+            "and so never meets it"
+        ),
+        implemented_by="app.api.spiele.services.find_referee_stand_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestASaveFromAnEditorOpenedBeforeTheDecline",
+    ),
+    Rule(
         code="REQ-CLASH-001",
         status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
@@ -2054,24 +2264,18 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
         status=HTTPStatus.NOT_FOUND,
-        operation=(
-            "POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel/ansicht"
-            " · POST /schiedsrichter/adresswechsel"
-        ),
+        operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
-        summary=(
-            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered or "
-            "discarded, or deleted with the referee"
-        ),
+        summary="a referee's link opens no entry -- unknown, replaced by a later mint, or deleted with the referee",
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
         status=HTTPStatus.GONE,
-        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
+        operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
-        summary="a link whose deadline has passed records no consent and confirms no address",
+        summary="a link whose deadline has passed records no consent",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
     ),
@@ -2107,10 +2311,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
-            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
         ),
         aggregate="Schiedsrichter",
-        summary="no confirmation or address link is minted for an address the ban list still holds",
+        summary="no confirmation link is minted for an address the ban list still holds",
         implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
@@ -2126,98 +2330,20 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
+        operation="POST /schiedsrichter/bestaetigung",
         aggregate="Schiedsrichter",
-        summary="a link mailed to an address the ban list now holds records no consent and confirms no address, whenever it was minted",
+        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
         implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
-        code="REQ-SCHIEDSRICHTER-010",
+        code="REQ-SCHIEDSRICHTER-011",
         status=HTTPStatus.CONFLICT,
-        operation="POST /schiedsrichter/adresswechsel",
+        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
         aggregate="Schiedsrichter",
-        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
-        implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
-        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
-    ),
-    Rule(
-        code="REQ-SPIELER-001",
-        status=HTTPStatus.NOT_FOUND,
-        operation="POST /spieler/adresswechsel/ansicht · POST /spieler/adresswechsel",
-        aggregate="Spieler",
-        summary=(
-            "a pupil's address link opens no change -- unknown, replaced by a later mint, already answered or discarded, or gone with the pupil"
-        ),
-        implemented_by="app.api.spieler.services.find_spieler_token_unknown_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmation",
-    ),
-    Rule(
-        code="REQ-SPIELER-002",
-        status=HTTPStatus.GONE,
-        operation="POST /spieler/adresswechsel",
-        aggregate="Spieler",
-        summary="an address link whose deadline has passed confirms no address",
-        implemented_by="app.api.spieler.services.find_spieler_token_expired_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-003",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen",
-        aggregate="Spieler",
-        summary="no address link is minted for an address the ban list still holds",
-        implemented_by="app.api.spieler.services.find_spieler_adresse_gesperrt_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-004",
-        status=HTTPStatus.FORBIDDEN,
-        operation="POST /spieler/adresswechsel",
-        aggregate="Spieler",
-        summary="a link mailed to an address the ban list now holds confirms no address, whenever it was minted",
-        implemented_by="app.api.spieler.services.find_spieler_bestaetigung_gesperrt_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-005",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /spieler/adresswechsel",
-        aggregate="Spieler",
-        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
-        implemented_by="app.api.spieler.services.find_spieler_ersetzte_adresse_gesperrt_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-006",
-        status=HTTPStatus.CONFLICT,
-        operation=(
-            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
-        ),
-        aggregate="Spieler",
-        summary="no address change is minted or confirmed to an address another pupil signs in on",
-        implemented_by="app.api.spieler.services.find_adresse_vergeben_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-007",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /spieler/{spieler_id}/adresswechsel",
-        aggregate="Spieler",
-        summary="an address change names an address other than the one the pupil signs in on",
-        implemented_by="app.api.spieler.services.find_adresse_unveraendert_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
-    ),
-    Rule(
-        code="REQ-SPIELER-008",
-        status=HTTPStatus.CONFLICT,
-        operation=(
-            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
-        ),
-        aggregate="Spieler",
-        summary="a pupil holding no address takes no address change, an address reaching them with their registration alone",
-        implemented_by="app.api.spieler.services.find_keine_adresse_refusal",
-        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+        summary="a save moves no confirmed referee's address to another mailbox, which an address change alone moves",
+        implemented_by="app.api.schiedsrichter.services.find_bestaetigte_adresse_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestTheSaveOnAConfirmedReferee",
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -2393,7 +2519,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
-        summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
+        summary="an application is accepted only once every seat carries its person's own stamp",
         implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),
@@ -2446,9 +2572,21 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
+        code="REQ-BEWERBUNG-021",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email",
+        aggregate="Bewerbung",
+        summary="an address correction lands only on a seat still holding the address the correcting page showed",
+        implemented_by="app.api.bewerbungen.services.find_sitz_inhaber_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestACorrectionComposedAgainstTheSeatsHolder",
+    ),
+    Rule(
         code="REQ-PURGE-003",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        operation=(
+            "POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung · POST /adresswechsel/ansicht"
+            " · POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
+        ),
         aggregate="Berechtigung",
         summary="an administrator's route on a mailbox refuses the mailbox they act as, their own account page serving it",
         implemented_by="app.api.identitaet.services.find_eigene_adresse_refusal",
@@ -2457,11 +2595,14 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-PURGE-005",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        operation=(
+            "POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung · POST /adresswechsel/ansicht"
+            " · POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
+        ),
         aggregate="Berechtigung",
         summary=(
-            "an address holding a live grant is revealed or erased, and one holding an `owner` grant signed out, only by an"
-            " actor holding an owner's power, judged on the grants the route reads"
+            "an address holding a live grant is revealed, erased or given an address change by the tool, and one holding an"
+            " `owner` grant signed out, only by an actor holding an owner's power, judged on the grants the route reads"
         ),
         implemented_by="app.api.identitaet.services.find_verwaltung_adresse_refusal",
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestAGrantHoldersAddress",
@@ -2486,6 +2627,18 @@ RULES: tuple[Rule, ...] = (
         ),
         implemented_by="app.api.identitaet.services.find_name_im_anlass_refusal",
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",
+    ),
+    Rule(
+        code="REQ-PURGE-007",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure",
+        aggregate="Berechtigung",
+        summary=(
+            "an erasure ending another address's pending change, that address holding a live grant, is made only by an"
+            " actor holding an owner's power, as only an owner discards such a change"
+        ),
+        implemented_by="app.api.identitaet.services.find_fremder_adresswechsel_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAGrantHoldersPendingChange",
     ),
     Rule(
         code="REQ-REFERENZEN-001",
@@ -2535,7 +2688,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BERECHTIGUNG-001",
         status=HTTPStatus.CONFLICT,
-        operation="POST /berechtigungen",
+        operation="POST /berechtigungen · POST /berechtigungen/antraege/{antrag_id}/genehmigung",
         aggregate="Berechtigung",
         summary="an address a live grant of either tier already holds takes no second one",
         implemented_by="app.api.berechtigungen.services.find_vorhanden_refusal",
@@ -2553,7 +2706,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BERECHTIGUNG-003",
         status=HTTPStatus.CONFLICT,
-        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id}",
+        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id} · POST /berechtigungen/antraege/{antrag_id}/genehmigung",
         aggregate="Berechtigung",
         summary="an address the ban list holds is granted nothing, and made an owner by nobody, until the ban is lifted",
         implemented_by="app.api.berechtigungen.services.find_gesperrt_refusal",
@@ -2588,6 +2741,51 @@ RULES: tuple[Rule, ...] = (
         summary="a demotion leaves at least one live, unbarred `owner` grant standing",
         implemented_by="app.api.berechtigungen.services.find_letzter_inhaber_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestTheLastOwner",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-008",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="an address a request not yet lapsed is about takes no second request, nor the act it asks for",
+        implemented_by="app.api.berechtigungen.antraege.find_antrag_offen_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestOneRequestPerAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-009",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request is approved by neither the address it is about nor the administrator who made it",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-010",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request for an owner's access is decided by another owner alone, signed in since becoming one",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-011",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request is decided by an administrator whose grant, an owner's tier for a promotion, took effect before it",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-012",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung",
+        aggregate="Berechtigung",
+        summary="a request is approved only while its requester holds, unbarred and since before it, the tier it asks for",
+        implemented_by="app.api.berechtigungen.antraege.find_antrag_verfallen_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestARequestOutlivesNoRequester",
     ),
     Rule(
         code="REQ-EINLADUNG-001",
@@ -2729,7 +2927,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
-        summary="a confirmation answers both choices on the new pupil's page and neither on the returning pupil's",
+        summary=(
+            "a confirmation answers both choices and a birthdate on the new pupil's page and none of the three on the "
+            "returning pupil's, which takes the stored person's date"
+        ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
     ),
@@ -2759,12 +2960,15 @@ RULES: tuple[Rule, ...] = (
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
-            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung · GET /spielbestaetigungen/selbst · "
+            "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort · "
+            "GET /spielberichte/person · GET /spielberichte/{spiel_id}/bericht · PUT /spielberichte/{spiel_id}/bericht"
         ),
         aggregate="Saison",
         summary=(
             "a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` "
-            "season, and a person's own consent record only from the address it was confirmed under"
+            "season, a person's own consent record or a referee's own fixture assignments only from the address the record "
+            "was confirmed under, and a referee's report only by a confirmed, live referee record the address holds"
         ),
         implemented_by="app.api.identitaet.services.find_funktion_refusal",
         tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
@@ -2792,7 +2996,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
-        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or else a proposal",
+        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or nobody for a new one",
         implemented_by="app.api.registrierungen.services.find_person_refusal",
         tested_by="tests/api/test_registrierung_aufnahme.py::TestThePersonAnAdmissionNames",
     ),
@@ -2822,6 +3026,15 @@ RULES: tuple[Rule, ...] = (
         summary="a registration confirmed on the returning pupil's page admits nobody where its address holds no stored person",
         implemented_by="app.api.registrierungen.services.find_person_fehlt_refusal",
         tested_by="tests/api/test_registrierung_aufnahme.py::TestAReturningRegistration",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-019",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="the returning pupil's page confirms nobody whose stored person holds no birthdate for it to take",
+        implemented_by="app.api.registrierungen.services.find_ohne_geburtsdatum_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheBirthdateAPageTakesAsGiven",
     ),
     Rule(
         code="REQ-EINWILLIGUNG-002",
@@ -2884,18 +3097,30 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestALinkToAnAddressBarredAfterTheMint",
     ),
     Rule(
+        code="REQ-ANSETZUNG-015",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
+        aggregate="Spielbestaetigung",
+        summary=("a referee answers only a row of an `active` season naming one of the live, confirmed referee records their address holds"),
+        implemented_by="app.api.spielbestaetigungen.services.find_fremde_zeile_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestARowAnswersOnlyToItsOwnReferee",
+    ),
+    Rule(
         code="REQ-ANSETZUNG-002",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row already answered, by any of the club's seats, takes no second answer, closed since or not",
+        summary=(
+            "a row already answered -- by any of the club's seats, by the referee it names, or by the league for either -- "
+            "takes no second answer, closed since or not"
+        ),
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheSeatTheAnswerRecords",
     ),
     Rule(
         code="REQ-ANSETZUNG-009",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
         summary="a row closed before anybody answered takes no answer",
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
@@ -2904,25 +3129,28 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ANSETZUNG-003",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row takes no answer after its deadline's day",
+        summary="a club's row takes no answer after its deadline's day, nor a referee's after the fixture's",
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
     ),
     Rule(
         code="REQ-ANSETZUNG-004",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about",
+        summary=(
+            "a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about, nor a "
+            "referee's once the fixture books another referee or none"
+        ),
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestAFixtureMovedMidAnswerIsJudgedAgain",
     ),
     Rule(
         code="REQ-ANSETZUNG-005",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
         summary=(
             "a row takes no answer once its fixture carries a result or a `sonderereignis`, or either club left the season on or"
@@ -2939,6 +3167,286 @@ RULES: tuple[Rule, ...] = (
         summary="a declining club's proposed date is today or later",
         implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-013",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen",
+        aggregate="Spielbestaetigung",
+        summary="an administrator answers for a party only on a row neither answered nor closed, so a seat's answer and theirs are one",
+        implemented_by="app.api.spielbestaetigungen.services.find_eintragen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-014",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen",
+        aggregate="Spielbestaetigung",
+        summary="a discard closes only a club's open decline that proposes another date, about the fixture's current Ansetzung",
+        implemented_by="app.api.spielbestaetigungen.services.find_verwerfen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
+    ),
+    Rule(
+        code="REQ-BERICHT-001",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a fixture's report is written once its fixture is dated and its day has come",
+        implemented_by="app.api.spielberichte.services.find_nicht_gespielt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestAReportFollowsTheMatchDay",
+    ),
+    Rule(
+        code="REQ-BERICHT-002",
+        status=HTTPStatus.FORBIDDEN,
+        operation="GET /spielberichte/{spiel_id}/bericht · PUT /spielberichte/{spiel_id}/bericht",
+        aggregate="Spielbericht",
+        summary="a referee reads and writes the report of a fixture booked to one of their own records alone",
+        implemented_by="app.api.spielberichte.services.find_nicht_geleitet_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyTheBookedRefereeReports",
+    ),
+    Rule(
+        code="REQ-BERICHT-003",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a pupil a report newly names on a side is in that side's live squad of the fixture's season",
+        implemented_by="app.api.spielberichte.services.find_nicht_im_kader_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestANewlyNamedPupilIsInTheSquad",
+    ),
+    Rule(
+        code="REQ-BERICHT-004",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a fixture called off or struck out takes no report",
+        implemented_by="app.api.spielberichte.services.find_abgesagt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestACalledOffFixtureTakesNoReport",
+    ),
+    Rule(
+        code="REQ-BERICHT-005",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a report's remarks name no seat holder of either club, the booked referee or a pupil of either squad",
+        implemented_by="app.api.spielberichte.services.find_name_in_bemerkungen_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRemarksNameNobody",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-001",
+        status=HTTPStatus.NOT_FOUND,
+        operation=("POST /adresswechsel/bestaetigung/ansicht · POST /adresswechsel/bestaetigung · POST /adresswechsel/bestaetigung/stopp"),
+        aggregate="Adresswechsel",
+        summary="an address link opens no change, live or kept",
+        implemented_by="app.api.adresswechsel.services.find_unbekannt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheLinks",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-002",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /adresswechsel/bestaetigung · POST /adresswechsel/bestaetigung/stopp · POST /adresswechsel/ansicht"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung · POST /konto/adresswechsel/freigabe"
+        ),
+        aggregate="Adresswechsel",
+        summary="a change that ended, or a link already answered, takes no further answer, re-send, discard or approval",
+        implemented_by="app.api.adresswechsel.services.find_beendet_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheLinks",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-003",
+        status=HTTPStatus.GONE,
+        operation=(
+            "POST /adresswechsel/bestaetigung · POST /konto/adresswechsel/freigabe · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen"
+        ),
+        aggregate="Adresswechsel",
+        summary=("a step whose deadline has passed -- a link, the address on file's approval, a grant's approval -- moves nothing"),
+        implemented_by="app.api.adresswechsel.services.find_abgelaufen_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/bestaetigung · POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a link mailed to an address the ban list now holds confirms no address, whenever it was minted",
+        implemented_by="app.api.adresswechsel.services.find_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-005",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /adresswechsel/bestaetigung · POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change whose replaced address the ban list now holds takes no effect, the address on file staying",
+        implemented_by="app.api.adresswechsel.services.find_ersetzte_gesperrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-006",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen · POST /adresswechsel/bestaetigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+        ),
+        aggregate="Adresswechsel",
+        summary="no change moving a pupil row onto an address another pupil signs in on is minted or takes effect",
+        implemented_by="app.api.adresswechsel.services.find_vergeben_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-007",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /konto/adresswechsel · POST /adresswechsel",
+        aggregate="Adresswechsel",
+        summary="a change names an address other than the one on file",
+        implemented_by="app.api.adresswechsel.services.find_unveraendert_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestThePersonsStart",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-008",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /adresswechsel",
+        aggregate="Adresswechsel",
+        summary="an administrator's reason for a change names no person of the records the change moves",
+        implemented_by="app.api.adresswechsel.services.find_name_im_grund_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheToolsStart",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-009",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen",
+        aggregate="Adresswechsel",
+        summary="no address link an administrator mints goes to an address the ban list still holds",
+        implemented_by="app.api.adresswechsel.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheToolsStart",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-010",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /konto/adresswechsel · POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change starts only for an address holding something it moves; an approval finding nothing left ends it",
+        implemented_by="app.api.adresswechsel.services.find_nichts_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestThePersonsStart",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-011",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /konto/adresswechsel · POST /adresswechsel",
+        aggregate="Adresswechsel",
+        summary="a change moving a grant starts only where somebody but its person and its starter could approve it",
+        implemented_by="app.api.adresswechsel.services.find_kein_genehmiger_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestThePersonsStart",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-012",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="an approval lands only on a change waiting on one",
+        implemented_by="app.api.adresswechsel.services.find_keine_genehmigung_offen_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheApproval",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-013",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change is approved by neither its own address nor the administrator who started it",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheApproval",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-014",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change moving an owner's grant is approved by another owner, signed in since becoming one, alone",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheApproval",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-015",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /adresswechsel/bestaetigung · POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change takes no effect where the address came to hold a grant its approval does not cover",
+        implemented_by="app.api.adresswechsel.services.find_nicht_gedeckt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheMovedGrant",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-016",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /adresswechsel/bestaetigung · POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change takes no effect moving a grant onto an address holding one",
+        implemented_by="app.api.adresswechsel.services.find_neue_berechtigt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheMovedGrant",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-017",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change is approved by an administrator holding their access, an owner's change their tier, since before it started",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheAdministratorFollowsTheirMove",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-018",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen · POST /adresswechsel/bestaetigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+        ),
+        aggregate="Adresswechsel",
+        summary="no change onto an address any entry names, confirmed or not, is minted by the league or takes effect",
+        implemented_by="app.api.adresswechsel.services.find_belegt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheNewAddressesOwnRecords",
+    ),
+    Rule(
+        code="REQ-BERICHT-006",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a report write names the version of the report its form was served, or none where none stood, and finds it "
+            "standing, so no form replaces a report its sender never saw"
+        ),
+        implemented_by="app.api.spielberichte.services.find_bericht_stand_refusal",
+        tested_by="tests/api/test_spielbericht_execution.py::TestAFormOpenedBeforeAnotherWrite",
+    ),
+    Rule(
+        code="REQ-BERICHT-007",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht",
+        aggregate="Spielbericht",
+        summary="a referee writes a fixture's report while its season runs, and only reads it once the season has ended",
+        implemented_by="app.api.spielberichte.services.find_saison_beendet_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRefereeWritesWhileTheSeasonRuns",
+    ),
+    Rule(
+        code="REQ-BERICHT-008",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a yellow or a second yellow card names its reason, unless the stored report holds that card, by side, pupil "
+            "and colour, with its reason stripped at the end of the season after the match"
+        ),
+        implemented_by="app.api.spielberichte.services.find_grund_fehlt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyANewCautionOwesItsReason",
+    ),
+    Rule(
+        code="REQ-BERICHT-009",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a report on a group-phase fixture proposes no shoot-out, which the fixture never keeps",
+        implemented_by="app.api.spielberichte.services.find_elfmeter_in_der_gruppe_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestAGroupFixtureTakesNoShootOut",
     ),
 )
 
@@ -3081,8 +3589,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a person holding no squad row at all",
         reason=(
-            "A person can stand with no squad row -- every row written before this programme may, and retiring a "
-            "person's last squad entry leaves the person -- and `REQ-SQUAD-001` governs the row rather than its "
+            "A person can stand with no squad row only by a database edit -- the admission writes the person and the "
+            "row together, and the erasure removes both -- and `REQ-SQUAD-001` governs the row rather than its "
             "absence. `GET /spieler/memberships` returns them with an empty membership list, so the read that "
             "would report the state already is the surface that repairs it."
         ),
@@ -3091,21 +3599,16 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
-        subject="a person carrying no birthdate, whose age nothing judges",
+        subject="a pupil whose age no squad rule judges",
         reason=(
-            "A pupil supplies their own date at a registration's confirmation and at no other keyboard, so requiring one on "
-            "the PERSON would refuse every row standing today. The `spieler` validator leaves the field out of `required`, "
-            "which is what lets those rows go on validating. "
-            "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
-            "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
-            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); a stored `FLEinwilligung.erteilt_von` "
-            "of `volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
-            "holds its own until the admission writes `spieler` from it, and every pupil row standing today is dropped once "
-            "at the end of this season (`docs/datenschutz.md`), so the field stays unrequired here until that admission "
-            "exists to fill it."
+            "A pupil's age is judged once, against the date they supply at their registration's confirmation "
+            "(`REQ-REGISTRIERUNG-007`), and the admission carries that date onto the person. Entering, moving or bringing "
+            "back a squad row judges no age, so a pupil the floor admitted stays in the squads whatever a later edit of the "
+            "date says. The league's other thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per "
+            "seat and judged for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`)."
         ),
         near=("REQ-BEWERBUNG-012", "REQ-REGISTRIERUNG-007", "REQ-SQUAD-001"),
-        proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
+        proven_by="tests/core/test_unenforced.py::TestAPupilsAgeNoSquadRuleJudges",
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(

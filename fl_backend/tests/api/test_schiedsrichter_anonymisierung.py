@@ -1,3 +1,4 @@
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -17,11 +18,9 @@ from app.api.schiedsrichter.admin_router import (
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.adresswechsel_router import post_adresswechsel
 from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
-    FLSchiedsrichterAdresswechselPayload,
     FLSchiedsrichterFilterParams,
     FLSchiedsrichterWriteResponse,
 )
@@ -31,7 +30,6 @@ from app.api.schiedsrichter.services import (
     build_ghost_schiedsrichter,
     build_unplayed_assignment_filter,
     compose_bestaetigung,
-    compose_einwilligung,
     first_stamped,
 )
 from app.api.spiele.schemas import (
@@ -49,15 +47,19 @@ from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.config import build_test_config
+from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, spiel_document
+from tests.documents import eigene_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
+
+from .adresswechsel_harness import answer as answer_the_change
+from .adresswechsel_harness import start as start_the_change
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
@@ -160,7 +162,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
         "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASHES[schiedsrichter_id], today=MINTED_ON),
-        "einwilligung": compose_einwilligung(umfang="kader_oeffentlich", medien=True, text_version="v1", today=MINTED_ON),
+        "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 
@@ -272,8 +274,8 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
 # `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE)
-A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT)
+THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, bestaetigt=False)
+A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT, bestaetigt=True)
 
 
 def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
@@ -338,43 +340,32 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
-    """Details EDITED through the real endpoints, which leave the log holding the pair the edit replaced.
+    """Details EDITED through the real endpoints: the telephone by the editor's save, the address by the referee's own change.
 
-    Without the edit the log would hold no contact value at all and every assertion below would pass
-    vacuously.
+    Without the edits the log would hold no contact value and every assertion below would pass vacuously.
     """
 
-    saved = await patch_schiedsrichter(
+    bisherige = FORMER_KONTAKT[schiedsrichter_id]["email"]
+    await patch_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_data=FLPatchSchiedsrichterPayload(
             name=REFEREE_NAMES[schiedsrichter_id],
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontaktPayload(**KONTAKT[schiedsrichter_id]),
+            kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=bisherige),
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
-        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
-    assert saved.adresswechsel is not None, "the seeded referee's address change minted no link"
-
-    # The referee has confirmed, so the address moves only once its new mailbox answers the link.
-    await post_adresswechsel(
-        antwort_data=FLSchiedsrichterAdresswechselPayload(token=saved.adresswechsel.token, antwort="bestaetigt"),
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=client,
-        config=build_test_config(),
-        today=TODAY,
-        germany_now=NOW,
+    minted = await start_the_change(
+        database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(bisherige), germany_now=NOW
     )
+    await answer_the_change(database, client, minted.token, germany_now=NOW)
 
 
 async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) -> None:
@@ -603,7 +594,12 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                     today=TODAY,
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    operator=ADMINISTRATORS[0],
+                    auth_time=int(time.time()),
                 )
                 answers.append("answered")
             except DocumentNotFoundException:
@@ -644,10 +640,8 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     spiele_collection=database[Collection.SPIELE],
                     sperrliste=ban_list(database),
                     adressanker_collection=database[Collection.ADRESSANKER],
-                    aktionen_collection=database[Collection.AKTIONEN],
                     db=client,
                     today=TODAY,
-                    germany_now=NOW,
                     refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":
@@ -891,8 +885,10 @@ def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: 
     theirs = (REFEREE_NAMES[SCHIEDSRICHTER_OID], *FORMER_KONTAKT[SCHIEDSRICHTER_OID].values(), *KONTAKT[SCHIEDSRICHTER_OID].values())
 
     assert [value for value in theirs if value in rendered] == []
-    # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all.
+    # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all. Both halves,
+    # each logged by its own write, so neither half of the redaction passes on a log missing that write.
     assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["telefon"] in rendered
+    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["email"] in rendered
     assert REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID] in rendered
 
 
@@ -1063,8 +1059,9 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
 
-    # The ghost's insert, the fixtures' repoint and the removal; the two redaction passes record nothing.
-    assert after_count == before_count + 3
+    # The ghost's insert, the fixtures' repoint, the removal, and the removal of the notice its address change still owed;
+    # the two redaction passes record nothing.
+    assert after_count == before_count + 4
     assert self_recorded == 0
 
 

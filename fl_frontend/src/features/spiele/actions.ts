@@ -1,5 +1,6 @@
 "use server";
 
+import { FLSpielberichtBerichtSchema } from "@/features/spielberichte/schemas";
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -13,7 +14,7 @@ import { describeMovedSpiele, formatSpielUpdateMessage } from "./utils";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type z from "zod";
-import type { FLSpielPriorPaarung } from "./schemas";
+import type { FLSpielPriorBericht, FLSpielPriorPaarung } from "./schemas";
 
 /**
  * The `spiel_nr` of every other fixture a match write moved. Read by the edit page's live warning through
@@ -30,9 +31,15 @@ type MovedFixtures = {
  */
 type SavedFixtures = MovedFixtures & {
   priorPaarungen?: FLSpielPriorPaarung[];
+  /** The report adoption the save stamped over, which the undo puts back; `null` where it stamped none. */
+  priorBericht?: FLSpielPriorBericht | null;
 };
 
-export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<ActionResult<SavedFixtures>> {
+export async function patchAdminSpielDataAction(
+  rawPayload: unknown,
+  rawSaisonId: unknown,
+  rawUebernimmtBericht: unknown,
+): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
@@ -53,11 +60,14 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
     if (saisonId.success) invalidatesOnWrite(`spiele:saison_id:${saisonId.data}`, `teams:saison_id:${saisonId.data}`);
 
+    // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
+    const uebernimmtBericht = FLSpielberichtBerichtSchema.shape.version.nullable().safeParse(rawUebernimmtBericht);
+
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.
     let patch_operation;
     try {
-      patch_operation = await patchAdminSpielData(validated.data);
+      patch_operation = await patchAdminSpielData(validated.data, uebernimmtBericht.success ? uebernimmtBericht.data : null);
     } catch (error) {
       const refusal = mapSpielRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
@@ -80,6 +90,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       // Passed through untouched: the server built each entry from the slice it judged this write on,
       // and anything composed here would be composed from a read taken before that write.
       priorPaarungen: patch_operation.prior_paarungen,
+      priorBericht: patch_operation.prior_bericht,
     };
   });
 }
@@ -129,11 +140,11 @@ export async function undoAdminSpielEditAction(rawPayload: z.input<typeof SpielU
     const validated = SpielUndoSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    const { saison_id, paarungen } = validated.data;
+    const { saison_id, paarungen, bericht } = validated.data;
     invalidatesOnWrite("spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`);
     let operation;
     try {
-      operation = await patchAdminSpielePaarungen({ paarungen });
+      operation = await patchAdminSpielePaarungen({ paarungen, bericht });
     } catch (error) {
       // The change standing whole: the replay is one transaction, so a refusal on any fixture leaves
       // every one of them where the save put it.

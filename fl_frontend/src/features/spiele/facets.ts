@@ -20,11 +20,11 @@ const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTI
 }));
 
 /**
- * Keyed on the id a fixture embeds: the erasure repoints every erased referee's fixtures at the one
- * ghost, so they already arrive under a single id and need no option merged by hand.
+ * Keyed on the id a fixture embeds, which the admin tier alone serves: the erasure repoints every erased
+ * referee's fixtures at the one ghost, so they arrive under a single id and need no option merged by hand.
  */
-function schiedsrichterOptionValue(schiedsrichter: NonNullable<FLSpiel["schiedsrichter"]>): string {
-  return schiedsrichter.schiedsrichter_id;
+function schiedsrichterOptionValue(spiel: FLSpiel): string | undefined {
+  return spiel.schiedsrichter?.schiedsrichter_id;
 }
 
 /** Distinct values of one embedded reference, in the order the fixtures name them. */
@@ -175,15 +175,14 @@ export function buildSpielFacets({
   const schiedsrichterFacet: Facet<FLSpiel> = {
     param: "schiedsrichter",
     label: "Schiedsrichter",
-    options: distinct(spiele, (spiel) =>
-      spiel.schiedsrichter
-        ? { id: schiedsrichterOptionValue(spiel.schiedsrichter), label: bookedSchiedsrichterName(spiel.schiedsrichter) }
-        : null,
-    ),
+    options: distinct(spiele, (spiel) => {
+      const id = schiedsrichterOptionValue(spiel);
+      return spiel.schiedsrichter && id !== undefined ? { id: id, label: bookedSchiedsrichterName(spiel.schiedsrichter) } : null;
+    }),
     // Keyed as a fixture's referee is, so a link built from a row reaches the option its fixtures sit
     // under. The ghost reaches this list through no season's referees, only through their fixtures.
     known: schiedsrichter.map((row) => ({ value: row.id, label: bookedSchiedsrichterName({ schiedsrichter_id: row.id, name: row.name }) })),
-    read: (spiel) => (spiel.schiedsrichter === null ? [] : [schiedsrichterOptionValue(spiel.schiedsrichter)]),
+    read: (spiel) => [schiedsrichterOptionValue(spiel)].filter((id): id is string => id !== undefined),
   };
 
   // `ansetzung` follows `status` because it is the only facet that narrows these rows to an

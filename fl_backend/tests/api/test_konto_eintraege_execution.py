@@ -98,8 +98,6 @@ REGISTRIERUNG_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f607860132")
 REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607860133")
 REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607860134")
 REGISTRIERUNG_KAETHE = ObjectId("6890a1b2c3d4e5f607860135")
-# Another mailbox by the fold, which lowercases ASCII alone, and one a case-insensitive pattern still admits.
-REGISTRIERUNG_KAETHE_UPPER = ObjectId("6890a1b2c3d4e5f607860136")
 
 EXPECTED: dict[str, set[tuple[str, str]]] = {
     WILTRUDIS: {
@@ -123,7 +121,7 @@ def _person(email: str) -> SignedActor:
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite-3", bestaetigt_am="2026-09-02", **fields)
+    return eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", bestaetigt_am="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -139,7 +137,7 @@ def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, 
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        einwilligung={"erfasst_von": "person", "text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
+        einwilligung={"text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
     )
 
 
@@ -194,7 +192,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(REFEREE_LIVE, "Wiltrudis.Ehrenpreis@Schule.de", "Wiltrudis Ehrenpreis"),
+            _referee(REFEREE_LIVE, WILTRUDIS, "Wiltrudis Ehrenpreis"),
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
             _referee(REFEREE_KAETHE, "käthe@xn--mller-kva.de", "Käthe Müller"),
@@ -204,7 +202,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            saison_team_document(PAST, TEAMS[0], "Schule0", "S0", kontakte=_kontakte(trainer=_seat("Wiltrudis.Ehrenpreis@Schule.DE"))),
+            saison_team_document(PAST, TEAMS[0], "Schule0", "S0", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
             saison_team_document(
                 ACTIVE,
                 TEAMS[1],
@@ -228,13 +226,12 @@ async def _seed(database: AsyncDatabase) -> None:
     declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_NEW, "Wiltrudis.Ehrenpreis@SCHULE.de"),
+            _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
             _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, seite=None),
             declined,
             # A returning pupil's: no choice on it, their own record standing.
             _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, seite="bestaetigung_spieler_wiederkehrend"),
-            _registrierung(REGISTRIERUNG_KAETHE, "Käthe@XN--MLLER-KVA.DE", vorname="Käthe"),
-            _registrierung(REGISTRIERUNG_KAETHE_UPPER, "KÄTHE@xn--mller-kva.de", vorname="Käthe"),
+            _registrierung(REGISTRIERUNG_KAETHE, "käthe@xn--mller-kva.de", vorname="Käthe"),
         ]
     )
 
@@ -300,7 +297,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "medien": True,
         "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        "kontext": {"vorname": "Wiltrudis", "team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
+        "kontext": {"team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",

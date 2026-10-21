@@ -6,15 +6,29 @@ import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { revalidateOverLoopback } from "@/core/revalidation";
-import { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } from "@/core/spielEmail";
+import {
+  buildSpielAbgesagtEmail,
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielErinnerungEmail,
+  buildSpielNeueAnsetzungEmail,
+  buildSpielVorschlagVerworfenEmail,
+} from "@/core/spielEmail";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
+import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
 
 import { spielBestaetigungsLink } from "./bestaetigungLink";
-import { getSpielbestaetigungSweepSaisons, postSpielbestaetigungSweep, postSpielbestaetigungSweepAngefragt } from "./mutations";
+import {
+  getSpielbestaetigungSweepSaisons,
+  postSpielbestaetigungSweep,
+  postSpielbestaetigungSweepAngefragt,
+  postSpielbestaetigungSweepMitgeteilt,
+} from "./mutations";
 
 import type { SpielAnsetzungText, SpielEmail } from "@/core/spielEmail";
 import type { VersandAusfall } from "@/core/versandAusfall";
@@ -23,11 +37,15 @@ import type {
   FLSpielbestaetigungSweepAnfrage,
   FLSpielbestaetigungSweepEinteilung,
   FLSpielbestaetigungSweepNeueAnsetzung,
+  FLSpielbestaetigungSweepSchiedsrichterGewechselt,
   FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
+  FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
+  FLSpielbestaetigungSweepSpielAbgesagt,
+  FLSpielbestaetigungSweepVorschlagVerworfen,
 } from "./schemas";
 
 /** One hour, as the other sweeps': every clock here selects on a date, so a shorter interval only asks the backend more often. */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend
@@ -39,7 +57,14 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
 const SWEEP_OPERATION = "spielbestaetigungSweep";
 
 /** What a pass did, summed over the seasons that answered. */
-type Zaehler = { geschlossen: number; angefragt: number; erinnert: number; fehlgeschlagen: number };
+type Zaehler = {
+  geschlossen: number;
+  angefragt: number;
+  erinnert: number;
+  mitgeteilt: number;
+  aufgegeben: number;
+  fehlgeschlagen: number;
+};
 
 /**
  * Arms the fixture confirmations' timer for the life of this process.
@@ -92,7 +117,7 @@ async function sweepAlleSaisons(): Promise<void> {
     return;
   }
 
-  const zaehler: Zaehler = { geschlossen: 0, angefragt: 0, erinnert: 0, fehlgeschlagen: 0 };
+  const zaehler: Zaehler = { geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 0 };
   // Season by season and never in parallel: one slow pass costs nothing, where a fan-out would put every
   // season's mail on the transport at once.
   for (const saisonId of saisonIds) {
@@ -103,16 +128,15 @@ async function sweepAlleSaisons(): Promise<void> {
     }
   }
 
-  // A warning where rows were passed over: each pass moves on past them, so only this count tells a pass failing on
-  // every row from a healthy one.
-  if (zaehler.fehlgeschlagen === 0) logger.info("spielbestaetigung.sweep_pass", zaehler);
+  // A warning where rows were passed over, each pass moving on past them, or a notice was given up, its party told by
+  // nobody: only these counts tell such a pass from a healthy one.
+  if (zaehler.fehlgeschlagen === 0 && zaehler.aufgegeben === 0) logger.info("spielbestaetigung.sweep_pass", zaehler);
   else logger.warn("spielbestaetigung.sweep_pass", { error_code: "FE-SWEEP-004", ...zaehler });
 }
 
 /**
- * One season's close, mint and remind, then the messages: a first request mailed before its stamp
- * (`docs/frontend/spec.md :: I742`), a reminder after the stamp the call itself wrote, so a failed send costs one
- * reminder rather than a daily repeat.
+ * One season's pass, then its messages: a notice and a first request each mailed before its stamp
+ * (`docs/frontend/spec.md :: I742`), a reminder after the stamp the call wrote, so a failed send costs one reminder.
  */
 async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   const antwort = await postSpielbestaetigungSweep(saisonId);
@@ -120,19 +144,66 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   zaehler.geschlossen += antwort.geschlossen;
   zaehler.fehlgeschlagen += antwort.fehlgeschlagen;
   zaehler.erinnert += antwort.erinnerungen.length;
+  zaehler.aufgegeben += antwort.mitteilungen_aufgegeben.length;
 
-  // First, so a mailbox reads that the earlier request is void before the fresh one for the moved fixture.
-  for (const neu of antwort.neue_ansetzungen) await mailNeueAnsetzung(neu);
-  for (const neu of antwort.schiedsrichter_neue_ansetzungen) await mailSchiedsrichterNeueAnsetzung(neu);
+  // First, so a mailbox reads that the earlier request is void before the fresh one for the moved fixture. Each notice
+  // the backend holds until stamped here, so one this process never sent is answered again by the next pass.
+  const mitgeteilt: string[] = [];
+  const notiert = (spielbestaetigungId: string, versand: "gesendet" | VersandAusfall) => {
+    if (istVersandt(versand)) mitgeteilt.push(spielbestaetigungId);
+  };
+  // Each fixture's mailbox whose void notice did not go: its fresh request waits, unstamped, for the next pass to ask it
+  // after the notice (`docs/frontend/spec.md :: I869`).
+  const ungewarnt = new Set<string>();
+  for (const neu of antwort.neue_ansetzungen) {
+    const versand = await mailNeueAnsetzung(neu);
+    notiert(neu.spielbestaetigung_id, versand);
+    if (!istVersandt(versand)) for (const { address } of neu.empfaenger) ungewarnt.add(postfach(neu.spiel_id, address));
+  }
+  for (const neu of antwort.schiedsrichter_neue_ansetzungen) {
+    const versand = await mailSchiedsrichterNeueAnsetzung(neu);
+    notiert(neu.spielbestaetigung_id, versand);
+    if (!istVersandt(versand)) ungewarnt.add(postfach(neu.spiel_id, neu.address));
+  }
+  for (const weg of antwort.schiedsrichter_gewechselt) notiert(weg.spielbestaetigung_id, await mailSchiedsrichterGewechselt(weg));
+  for (const ab of antwort.spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSpielAbgesagt(ab));
+  for (const ab of antwort.schiedsrichter_spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSchiedsrichterSpielAbgesagt(ab));
+  for (const weg of antwort.vorschlag_verworfen) notiert(weg.spielbestaetigung_id, await mailVorschlagVerworfen(weg));
+  // Stamped like a notice, after its line: answered again until a stamp lands, so a lost answer loses no give-up.
+  for (const aufgegeben of antwort.mitteilungen_aufgegeben) {
+    // Named field by field, never spread: the line names the fixture and the party's kind, never a person.
+    logger.warn("spielbestaetigung.mitteilung_aufgegeben", {
+      error_code: "FE-SWEEP-004",
+      saison_id: saisonId,
+      spielbestaetigung_id: aufgegeben.spielbestaetigung_id,
+      spiel_id: aufgegeben.spiel_id,
+      partei: aufgegeben.partei,
+    });
+    mitgeteilt.push(aufgegeben.spielbestaetigung_id);
+  }
+
+  if (mitgeteilt.length > 0) {
+    // Caught, never thrown: the pass call stamped today's reminders already, so a throw here leaves them unmailed, where
+    // an unstamped notice is only answered again by the next pass under the same day's key.
+    try {
+      const gestempelt = await postSpielbestaetigungSweepMitgeteilt(saisonId, { spielbestaetigung_ids: mitgeteilt });
+      zaehler.mitgeteilt += gestempelt.mitgeteilt;
+    } catch (error) {
+      logSweepFailure(error, saisonId);
+    }
+  }
 
   for (const erinnerung of antwort.erinnerungen) await mailAnfrage(erinnerung, "erinnerung");
 
   const angefragt: string[] = [];
   for (const anfrage of antwort.anfragen) {
+    // The whole row waits, never one link of it: a row stamped for its other mailboxes is never asked again.
+    if (anfrage.links.some(({ address }) => ungewarnt.has(postfach(anfrage.spiel_id, address)))) continue;
     if (await mailAnfrage(anfrage, "anfrage")) angefragt.push(anfrage.spielbestaetigung_id);
   }
   for (const einteilung of antwort.einteilungen) {
-    if (await mailEinteilung(einteilung)) angefragt.push(einteilung.spielbestaetigung_id);
+    if (ungewarnt.has(postfach(einteilung.spiel_id, einteilung.address))) continue;
+    if (istVersandt(await mailEinteilung(einteilung))) angefragt.push(einteilung.spielbestaetigung_id);
   }
 
   if (angefragt.length > 0) {
@@ -140,6 +211,11 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
     zaehler.angefragt += gestempelt.angefragt;
     zaehler.fehlgeschlagen += gestempelt.fehlgeschlagen;
   }
+}
+
+/** One fixture's mailbox: a person reading two fixtures' mail is told of each apart. */
+function postfach(spielId: string, address: string): string {
+  return `${spielId} ${address}`;
 }
 
 /** One fixture as the messages state it: the dates as the site prints them, a venue nobody assigned in the fixtures' word. */
@@ -154,10 +230,10 @@ function ansetzungText(ansetzung: FLSpielbestaetigungAnsichtAnsetzung): SpielAns
 }
 
 /**
- * Whether a request counts as made, on either lane (`docs/frontend/spec.md :: I742`). Production waits for a real send:
- * withheld there is a deployment missing its key, and stamping it would turn a party nobody asked into a silent one.
+ * Whether a request or a notice counts as sent, on either lane (`docs/frontend/spec.md :: I742`). Production waits for a
+ * real send: withheld there is a deployment missing its key, and a stamp would leave a party nobody told silent.
  */
-function istAngefragt(versand: "gesendet" | VersandAusfall): boolean {
+function istVersandt(versand: "gesendet" | VersandAusfall): boolean {
   if (versand === "gesendet" || versand === "gesperrt") return true;
 
   return versand === "zurueckgehalten" && frontend_config.APP_ENV !== "production";
@@ -194,44 +270,77 @@ async function mailAnfrage(anfrage: FLSpielbestaetigungSweepAnfrage, art: "anfra
           fristText: formatSpielDatum(anfrage.frist),
         }),
     });
-    angefragt = angefragt || istAngefragt(linkVersandOf(ergebnis));
+    angefragt = angefragt || istVersandt(linkVersandOf(ergebnis));
   }
 
   return angefragt;
 }
 
-/** The team's word that a fixture it was asked about moved, to every mailbox the row's seats hold now. */
-async function mailNeueAnsetzung(neu: FLSpielbestaetigungSweepNeueAnsetzung): Promise<void> {
-  for (const { address, rollen } of neu.empfaenger) {
+/**
+ * A team's notice, to every mailbox the row's seats hold now: sent once any mailbox's went, as a request counts as made,
+ * a mailbox the next pass tells again meeting the same day's key.
+ */
+async function mailTeamHinweis(
+  hinweis: FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt | FLSpielbestaetigungSweepVorschlagVerworfen,
+  anlass: "neue_ansetzung" | "spiel_abgesagt" | "vorschlag_verworfen",
+): Promise<"gesendet" | VersandAusfall> {
+  let versandt: "gesendet" | VersandAusfall = "fehlgeschlagen";
+  const fakten = {
+    origin: frontend_config.AUTH_URL,
+    team1: hinweis.team1_name,
+    team2: hinweis.team2_name,
+    datum: formatSpielDatum(hinweis.alt.datum),
+    uhrzeit: formatUhrzeit(hinweis.alt.uhrzeit),
+  };
+  const bauen = (): SpielEmail => {
+    const { origin, team1, team2, datum, uhrzeit } = fakten;
+    if (anlass === "vorschlag_verworfen")
+      return buildSpielVorschlagVerworfenEmail({ origin, team1, team2, datumText: datum, uhrzeitText: uhrzeit });
+    const notiz = { origin, team1, team2, altDatumText: datum, altUhrzeitText: uhrzeit, empfaenger: "team" } as const;
+    return anlass === "neue_ansetzung" ? buildSpielNeueAnsetzungEmail(notiz) : buildSpielAbgesagtEmail(notiz);
+  };
+
+  for (const { address, rollen } of hinweis.empfaenger) {
     const [erste, ...weitere] = rollen;
     if (erste === undefined) continue;
 
-    await sendZielMail({
+    const ergebnis = await sendZielMail({
       operation: SWEEP_OPERATION,
       // Keyed on the day: this body carries no link, so a pass that mailed and then failed composes the same message.
       auftrag: {
         ziel: "spielbestaetigung",
-        zielId: neu.spielbestaetigung_id,
-        anlass: "neue_ansetzung",
+        zielId: hinweis.spielbestaetigung_id,
+        anlass: anlass,
         rollen: [erste, ...weitere],
         idempotenzTag: getGermanTodayStr(),
       },
       recipients: [address],
-      buildMail: () =>
-        buildSpielNeueAnsetzungEmail({
-          origin: frontend_config.AUTH_URL,
-          team1: neu.team1_name,
-          team2: neu.team2_name,
-          altDatumText: formatSpielDatum(neu.alt.datum),
-          altUhrzeitText: formatUhrzeit(neu.alt.uhrzeit),
-          empfaenger: "team",
-        }),
+      buildMail: bauen,
     });
+    const versand = linkVersandOf(ergebnis);
+    if (!istVersandt(versandt)) versandt = versand;
   }
+
+  return versandt;
 }
 
-async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung): Promise<void> {
-  await mailSpielleitung(neu.address, ["neue_ansetzung", neu.spielbestaetigung_id], () =>
+/** The team's word that a fixture it was asked about moved. */
+async function mailNeueAnsetzung(neu: FLSpielbestaetigungSweepNeueAnsetzung): Promise<"gesendet" | VersandAusfall> {
+  return mailTeamHinweis(neu, "neue_ansetzung");
+}
+
+/** The team's word that a fixture it was asked about is called off. */
+async function mailSpielAbgesagt(ab: FLSpielbestaetigungSweepSpielAbgesagt): Promise<"gesendet" | VersandAusfall> {
+  return mailTeamHinweis(ab, "spiel_abgesagt");
+}
+
+/** The team's word that the league kept the date it declined and proposed another for. */
+async function mailVorschlagVerworfen(weg: FLSpielbestaetigungSweepVorschlagVerworfen): Promise<"gesendet" | VersandAusfall> {
+  return mailTeamHinweis(weg, "vorschlag_verworfen");
+}
+
+async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung): Promise<"gesendet" | VersandAusfall> {
+  return mailSpielleitung(neu.address, ["neue_ansetzung", neu.spielbestaetigung_id], () =>
     buildSpielNeueAnsetzungEmail({
       origin: frontend_config.AUTH_URL,
       team1: neu.team1_name,
@@ -243,12 +352,35 @@ async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchi
   );
 }
 
-async function mailEinteilung(einteilung: FLSpielbestaetigungSweepEinteilung): Promise<boolean> {
-  const versand = await mailSpielleitung(einteilung.address, ["einteilung", einteilung.spielbestaetigung_id], () =>
+async function mailSchiedsrichterGewechselt(weg: FLSpielbestaetigungSweepSchiedsrichterGewechselt): Promise<"gesendet" | VersandAusfall> {
+  return mailSpielleitung(weg.address, ["schiedsrichter_gewechselt", weg.spielbestaetigung_id], () =>
+    buildSpielEinteilungAufgehobenEmail({
+      origin: frontend_config.AUTH_URL,
+      team1: weg.team1_name,
+      team2: weg.team2_name,
+      altDatumText: formatSpielDatum(weg.alt.datum),
+      altUhrzeitText: formatUhrzeit(weg.alt.uhrzeit),
+    }),
+  );
+}
+
+async function mailSchiedsrichterSpielAbgesagt(ab: FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt): Promise<"gesendet" | VersandAusfall> {
+  return mailSpielleitung(ab.address, ["spiel_abgesagt", ab.spielbestaetigung_id], () =>
+    buildSpielAbgesagtEmail({
+      origin: frontend_config.AUTH_URL,
+      team1: ab.team1_name,
+      team2: ab.team2_name,
+      altDatumText: formatSpielDatum(ab.alt.datum),
+      altUhrzeitText: formatUhrzeit(ab.alt.uhrzeit),
+      empfaenger: "schiedsrichter",
+    }),
+  );
+}
+
+async function mailEinteilung(einteilung: FLSpielbestaetigungSweepEinteilung): Promise<"gesendet" | VersandAusfall> {
+  return mailSpielleitung(einteilung.address, ["einteilung", einteilung.spielbestaetigung_id], () =>
     buildSpielEinteilungEmail({ origin: frontend_config.AUTH_URL, ansetzung: ansetzungText(einteilung.ansetzung) }),
   );
-
-  return istAngefragt(versand);
 }
 
 /** One message to a referee, on the lane no record holds (`fl_frontend/src/core/spielleitungTag.ts :: SPIELLEITUNG_TAG`). */

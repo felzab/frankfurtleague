@@ -22,8 +22,16 @@ import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } fro
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
-import { mapEinladenRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import {
+  mapBestaetigteAdresseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar.ts";
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
@@ -44,6 +52,7 @@ const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
 const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 
 const CREATE_OPERATION = "POST /schiedsrichter";
 const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
@@ -55,6 +64,9 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
+
+/** The save's alone adds the confirmed referee's address, which only a page older than the record sends. */
+const patchAnswer = (error: unknown) => saveAnswer(error) ?? mapBestaetigteAdresseRefusal(error);
 
 describe("the referee's writes against the codes their endpoints publish", () => {
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
@@ -80,21 +92,35 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
     assert.deepEqual(
       publishedRefusals(SAVE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-007"],
+      ["REQ-SCHIEDSRICHTER-007", "REQ-SCHIEDSRICHTER-011"],
     );
-    for (const [operation, published] of [
-      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
-      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
+    for (const [operation, published, answer] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), saveAnswer],
+      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION), patchAnswer],
     ] as const) {
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
-        assert.notEqual(answerShown(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+        assert.notEqual(answerShown(operation, code, answer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
       }
     }
   });
 
   it("lands the ban on the box that holds the refused address", () => {
     assert.deepEqual(Object.keys(saveAnswer(refusedOn(CREATE_OPERATION, "REQ-SCHIEDSRICHTER-007"))?.fieldErrors ?? {}), ["kontakt.email"]);
+  });
+
+  /* Only a page older than the record sends a confirmed referee's address: the editor reads it, so the way on is the tool. */
+  it("answers a save moving a confirmed referee's address with the way to the address tool", () => {
+    assert.match(patchAnswer(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "", /unter „Adressänderung auf Anfrage“/);
+  });
+
+  /* An address change moving the stored address under an open editor is the other cause: the save carries back the
+     address the page read, and the administrator, having edited none, is told why all the same. */
+  it("names both causes of that refusal, an address changed since the page opened among them", () => {
+    assert.match(
+      patchAnswer(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "",
+      /hat die Person bestätigt oder ihre Adresse hat sich geändert/,
+    );
   });
 
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
@@ -173,8 +199,9 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
+  abgelaufen: { bestaetigung: false },
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */
@@ -182,7 +209,11 @@ let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
 /** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
 let registerFehlt: boolean | "vertragsbruch" = false;
 /** The read's judgement of each link's deadline, served beside the record. */
-let lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+let lapse: { bestaetigung_abgelaufen: boolean; adresswechsel_id: string | null; adresswechsel_einsehbar_verwehrt?: EinsehbarVerwehrt | null } =
+  {
+    bestaetigung_abgelaufen: false,
+    adresswechsel_id: null,
+  };
 answerReadsWith((endpoint, schema, params) => {
   if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
   if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
@@ -274,42 +305,6 @@ describe("what the save tells the administrator about the message it sent", () =
     });
   }
 
-  /* A notice to the address in force that failed asks the administrator to tell the person, which a clean save
-     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I679`). */
-  for (const [hinweis, variant, title] of [
-    ["fehlgeschlagen", "warning", "Mit Folgen gespeichert"],
-    ["zurueckgehalten", "success", "Änderung gespeichert"],
-  ] as const) {
-    it(`grades a save whose link went and whose notice is ${hinweis} a ${variant}`, async () => {
-      answerWith(() =>
-        Promise.resolve({
-          success: true,
-          updated_document: null,
-          message: "Schiedsrichter bearbeitet",
-          versandSatz: VERSAND_SATZ,
-          versand: "gesendet",
-          hinweis: hinweis,
-        }),
-      );
-
-      const user = userEvent.setup();
-      const { unmount } = renderEditor();
-      const before = toasts.length;
-      await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
-      await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
-      await act(answered);
-      await waitFor(() => {
-        assert.ok(toasts.length > before, "the save raised no toast at all");
-      });
-
-      assert.deepEqual(
-        toasts.slice(before).map((raised) => [raised.variant, raised.title]),
-        [[variant, title]],
-      );
-      unmount();
-    });
-  }
-
   it("falls back to the editor's own sentence where the save mailed nothing", async () => {
     answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));
 
@@ -342,10 +337,9 @@ describe("the referee's editor page", () => {
       inactive_since: null,
       einwilligung: {
         umfang: "intern",
-        erteilt_von: "volljaehrig",
         datum: "2026-09-22",
         bestaetigt_am: "2026-09-22",
-        text_version: "2026-09-schiedsrichterseite",
+        text_version: "2026-10-schiedsrichterseite-4",
         medien: false,
         nachweis: { umfang: null, medien: null },
       },
@@ -377,10 +371,9 @@ describe("the referee's editor page", () => {
       inactive_since: null,
       einwilligung: {
         umfang: "intern",
-        erteilt_von: "volljaehrig",
         datum: "2026-09-22",
         bestaetigt_am: "2026-09-22",
-        text_version: "2026-09-schiedsrichterseite",
+        text_version: "2026-10-schiedsrichterseite-4",
         medien: false,
         nachweis: { umfang: null, medien: null },
       },
@@ -433,10 +426,9 @@ describe("which link the editor's page marks as lapsed", () => {
   const bestaetigung = { verschickt_am: "2026-09-21", erinnert_am: null, frist, zustellung: null };
   const BESTAETIGT = {
     umfang: "intern",
-    erteilt_von: "volljaehrig",
     datum: "2026-09-22",
     bestaetigt_am: "2026-09-22",
-    text_version: "2026-09-schiedsrichterseite",
+    text_version: "2026-10-schiedsrichterseite-4",
     medien: false,
     nachweis: { umfang: null, medien: null },
   };
@@ -452,26 +444,38 @@ describe("which link the editor's page marks as lapsed", () => {
       return text;
     } finally {
       stored = { ...RECORD, inactive_since: null };
-      lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+      lapse = { bestaetigung_abgelaufen: false, adresswechsel_id: null };
     }
   }
 
   it("marks the consent link's panel where only that link has lapsed", async () => {
-    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_abgelaufen: false }, "Bestätigung");
+    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_id: null }, "Bestätigung");
 
     assert.match(shown, /abgelaufen/, "the consent link's panel says nothing of the lapse the read served for it");
   });
 
-  // A confirmed referee: the only one an address change waits on, and one whose consent link no lapse costs.
-  it("marks the address change's panel, and not the consent link's, where only the change has lapsed", async () => {
-    const record = {
-      einwilligung: BESTAETIGT,
-      bestaetigung,
-      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-10-01", frist, zustellung: null },
-    };
-    const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
+  /* The editor reads the change and moves nothing: one line, the same on every editor, links to the address tool. */
+  it("shows a change pending at a confirmed referee's address as the line linking to the address tool", async () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const shown = await shownIn({ einwilligung: BESTAETIGT }, { bestaetigung_abgelaufen: false, adresswechsel_id: id }, "Kontakt");
 
-    assert.match(await shownIn(record, served, "Neue E-Mail-Adresse"), /abgelaufen/, "the change's panel misses the lapse served for it");
-    assert.doesNotMatch(await shownIn(record, served, "Bestätigung"), /abgelaufen/, "the consent link's panel took the change's lapse");
+    assert.match(shown, /Für diese Adresse läuft eine Änderung\. Zur Änderung/);
+    assert.doesNotMatch(shown, /Link an neue Adresse senden|Änderung verwerfen/, "the editor still starts or ends a change itself");
   });
+
+  /* A referee who is an administrator too: the tool refuses its reader their own address, and a grant holder's without
+     an owner's power, so the line links into no refusal and says where the change opens. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      const served = {
+        bestaetigung_abgelaufen: false,
+        adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0",
+        adresswechsel_einsehbar_verwehrt: verwehrt,
+      };
+      const shown = await shownIn({ einwilligung: BESTAETIGT }, served, "Kontakt");
+
+      assert.ok(shown.includes(`Für diese Adresse läuft eine Änderung. ${EINSEHBAR_VERWEHRT[verwehrt]}`), shown);
+      assert.doesNotMatch(shown, /Zur Änderung/);
+    });
+  }
 });

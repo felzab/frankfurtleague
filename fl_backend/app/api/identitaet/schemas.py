@@ -1,8 +1,8 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
-from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLUtcInstant, FLVerwaltung
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
@@ -10,7 +10,7 @@ from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
-from app.shared.folding import sign_in_identifier, trimmed
+from app.shared.folding import trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
@@ -149,10 +149,12 @@ class FLErasure(BaseModel):
     # Per seat and never per row, as both reveals name them: one row seats one person twice.
     kontakt_sitze: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
+    # Another address's pending change naming this one, ended alone: the records it would move stay that address's.
     adresswechsel: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
     berechtigungen: int = Field(ge=0)
+    # Every request about the address or made by it, a lapsed one among them.
+    berechtigungen_antraege: int = Field(ge=0)
     drosselung: int = Field(ge=0)
 
 
@@ -207,7 +209,7 @@ class FLSelbstErasureAnsicht(BaseModel):
     sitze: list[FLSelbstErasureSitz]
     bewerbungen: list[FLSelbstErasureBewerbung]
     registrierungen: list[FLSelbstErasureRegistrierung]
-    # A count and no name: each is a pending change on another address's referee or pupil row.
+    # A count and no name: each is another address's pending change whose link reached this mailbox.
     adresswechsel: int = Field(ge=0)
 
 
@@ -236,39 +238,19 @@ class FLReferenzenResponse(BaseAPIResponse):
 
 # --- The ADMINISTRATOR's erasure on a mailed request, and its reveal.
 
-# German, as every refusal a payload's own validator raises is worded. It reaches `REQ-VAL-001`'s log
-# line, never the page, whose box words its own; `fl_backend/tests/shared/erasure_refusals.json` holds
-# the two predicates to one verdict.
-ADRESSE_UNTER_INVALID = "Diese Adresse ist ein Platzhalter und gehört niemandem."
-
-
-def refuse_the_reserved_domain(value: str) -> str:
-    """No mailbox sits under RFC 6761's reserved `invalid`, and every referee row stored without an address shares one placeholder there.
-
-    Looked up, it would reach all of them at once, so it is refused on its fold, before any read.
-    """
-
-    domain = sign_in_identifier(value).rpartition("@")[2]
-    if domain == "invalid" or domain.endswith(".invalid"):
-        raise ValueError(ADRESSE_UNTER_INVALID)
-
-    return value
-
 
 def _trimmed_as_the_page_trims(value: Any) -> Any:
     return trimmed(value) if isinstance(value, str) else value
 
 
-# A lookup asking no more than any payload stores, an `@` within the stored ceiling, and refusing the
-# reserved domain (`docs/backend/spec.md :: I329`): a record stored under an older rule stays
-# erasable.
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling
+# (`docs/backend/spec.md :: I329`): a record stored under an older rule stays erasable.
 ErasureAdresse = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
     # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
     BeforeValidator(_trimmed_as_the_page_trims),
-    AfterValidator(refuse_the_reserved_domain),
 ]
 
 # German, as the ban's `grund` words its own, and like it read on the log line alone: the box words
@@ -345,15 +327,28 @@ class FLErasureAnsichtRegistrierung(FLSelbstErasureRegistrierung):
 
 
 class FLErasureAnsichtAdresswechsel(BaseModel):
-    """Another address's referee row whose pending change names this one: the change goes and the row stands."""
+    """Another address's live change naming this one as its new address: the change ends, its address's records standing."""
 
-    schiedsrichter_id: CustomObjectId
+    adresswechsel_id: CustomObjectId
+    # Why the address tool refuses it this administrator, null where it opens it: the page links them there to discard it.
+    einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
-class FLErasureAnsichtSpielerAdresswechsel(BaseModel):
-    """Another address's pupil row whose pending change names this one, for `FLErasureAnsichtAdresswechsel`'s reason."""
+class FLErasureAnsichtEigenerAdresswechsel(BaseModel):
+    """The address's own live change, which the erasure ends with the records it would move."""
 
-    spieler_id: CustomObjectId
+    adresswechsel_id: CustomObjectId
+
+
+FLErasureAntragRolle = Literal["betroffen", "gestellt"]
+
+
+class FLErasureAnsichtAntrag(BaseModel):
+    """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
+
+    antrag_id: CustomObjectId
+    verwaltung: FLVerwaltung
+    rolle: FLErasureAntragRolle
 
 
 class FLErasureAnsicht(BaseModel):
@@ -368,7 +363,8 @@ class FLErasureAnsicht(BaseModel):
     bewerbungen: list[FLErasureAnsichtBewerbung]
     registrierungen: list[FLErasureAnsichtRegistrierung]
     adresswechsel: list[FLErasureAnsichtAdresswechsel]
-    spieler_adresswechsel: list[FLErasureAnsichtSpielerAdresswechsel]
+    eigener_adresswechsel: FLErasureAnsichtEigenerAdresswechsel | None
+    antraege: list[FLErasureAnsichtAntrag]
 
 
 class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):

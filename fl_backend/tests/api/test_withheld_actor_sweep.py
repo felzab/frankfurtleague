@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -92,6 +93,7 @@ _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere:
 
 # Each read no answer of which names an administrator, and what it serves instead.
 NAMES_NO_ADMINISTRATOR: dict[str, str] = {
+    "/api/v0/adresswechsel/ansicht": "what an address holds by kind and its live change, which names neither its starter nor its approver",
     "/api/v0/identitaet/erasure/ansicht": "every record an erasure would reach, by name and id and with no address",
     "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
     "/api/v0/saisons/list/admin": "seasons and their rules",
@@ -99,6 +101,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/saisons/{saison_id}/loeschung/vorschau": "how many pupils an activation deletes, counted and never named",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
+    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
     "/api/v0/spiele/action_required": "fixtures",
     "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
@@ -107,7 +110,9 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/selbst": "the signed-in pupil's own record, which carries no address",
     "/api/v0/schiedsrichter/selbst": "the signed-in referee's own records, served to that person alone",
+    "/api/v0/spielbestaetigungen/selbst": "the signed-in referee's own fixture assignments, which carry nobody's address",
     "/api/v0/konto/einwilligungen": "the signed-in person's own consent records, served to that person alone",
+    "/api/v0/konto/adresswechsel": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identitaet/selbst/erasure/ansicht": "the signed-in person's own records an erasure would remove, by name and with no address",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
     "/api/v0/spieltage/list/admin": "matchdays",
@@ -117,6 +122,10 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/memberships": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/sitze": "one team's seat holders by name, as the seat holders read them",
+    "/api/v0/spielberichte": "a season's reports by state, naming nobody",
+    "/api/v0/spielberichte/{spiel_id:objectid}/admin": "one fixture's report, its administrator named by kind alone",
+    "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
+    "/api/v0/spielberichte/person": "the signed-in referee's played fixtures, naming nobody",
 }
 
 
@@ -127,7 +136,10 @@ LAPSED = f"{int(SAISON_ID) - 1}"
 
 
 def _seed(url: str, *, ban_until: str | None) -> None:
-    """One row per read, each written by `BARRED` while they held a grant; `ban_until` bans them afterwards, through that season."""
+    """One row per read, each written by `BARRED` while they held a grant; `ban_until` bans them afterwards, through that season.
+
+    The grants' list reads two, a grant and a request, whose requester is withheld as a grant's granter is.
+    """
 
     client: MongoClient = MongoClient(url)
     try:
@@ -143,6 +155,16 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                     "erteilt_am": datetime(2026, 4, 1, tzinfo=UTC),
                 },
             ]
+        )
+        # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
+        database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            compose_antrag(
+                adresse="antrag.verwalterin@beispielschule.de",
+                verwaltung="administration",
+                berechtigung_id=None,
+                gestartet_von=BARRED,
+                now=datetime.now(UTC),
+            )
         )
         database[Collection.SPERRLISTE].insert_many(
             [
@@ -181,6 +203,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 "before": None,
                 "modified_count": None,
                 "redacted_at": None,
+                "anlass": None,
             }
         )
     finally:

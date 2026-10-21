@@ -14,6 +14,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
+    BEWERBUNG_SITZ_ANDERS_BESETZT,
     BEWERBUNG_SUBJECT_UNRESOLVED,
     claimed_pair_seat,
     compose_bestaetigungen,
@@ -24,6 +25,7 @@ from app.api.bewerbungen.services import (
     find_kontakt_email_refusal,
     find_new_club_refusal,
     find_reseat_refusal,
+    find_sitz_inhaber_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     hash_token,
@@ -123,15 +125,10 @@ BESTAETIGUNGEN = compose_bestaetigungen(
 class TestEverySeatIsConfirmedBeforeAcceptance:
     """`REQ-BEWERBUNG-013`: the block copied into the junction row must carry every person's own date and stamp."""
 
-    def test_an_application_stored_before_the_flow_is_not_held_to_it(self):
-        """The carve-out: without it every application in the queue becomes unacceptable in the deploy that ships this."""
-
-        assert find_unconfirmed_kontakte_refusal(kontakte=seats(), bestaetigungen=None) is None
-
     def test_every_seat_confirmed_passes(self):
         stamped = seats(trainer="2026-03-21", ansprechperson="2026-03-22", stellvertretung="2026-03-23")
 
-        assert find_unconfirmed_kontakte_refusal(kontakte=stamped, bestaetigungen=BESTAETIGUNGEN) is None
+        assert find_unconfirmed_kontakte_refusal(kontakte=stamped) is None
 
     @pytest.mark.parametrize(
         ("kontakte", "outstanding"),
@@ -148,7 +145,7 @@ class TestEverySeatIsConfirmedBeforeAcceptance:
     def test_a_seat_without_its_persons_stamp_refuses_and_is_named(self, kontakte: Mapping[str, Any], outstanding: str):
         """Named, so the administrator knows whom to wait for or re-send to."""
 
-        refusal = find_unconfirmed_kontakte_refusal(kontakte=kontakte, bestaetigungen=BESTAETIGUNGEN)
+        refusal = find_unconfirmed_kontakte_refusal(kontakte=kontakte)
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
@@ -266,8 +263,29 @@ def erased_entries(seat: str) -> dict[str, Any]:
 NOT_STEPPED_OUT = [
     pytest.param(BESTAETIGUNGEN, id="a seat still waiting on its own answer"),
     pytest.param(erased_entries("ansprechperson"), id="a seat erased at its person's request"),
-    pytest.param(None, id="an application stored before the confirmation flow"),
 ]
+
+
+class TestACorrectionComposedAgainstTheSeatsHolder:
+    """A page read before a Widerspruch and a reseat sends the address of the person who left, never of the one seated since."""
+
+    def test_the_address_the_seat_holds_lets_the_correction_land(self):
+        assert find_sitz_inhaber_refusal(kontakte=seats(), seat="ansprechperson", bisherige_email="ansgar@example.com") is None
+
+    def test_another_spelling_of_that_address_is_the_same_holder(self):
+        """On the sign-in fold, as the correction's own payload folds what it is sent."""
+        assert find_sitz_inhaber_refusal(kontakte=seats(), seat="ansprechperson", bisherige_email="Ansgar@EXAMPLE.com") is None
+
+    def test_a_seat_holding_another_address_is_refused(self):
+        refusal = find_sitz_inhaber_refusal(kontakte=seats(), seat="ansprechperson", bisherige_email="vorgaenger@example.com")
+
+        assert refusal is not None and refusal.error_code == BEWERBUNG_SITZ_ANDERS_BESETZT
+
+    def test_an_emptied_seat_is_refused_too(self):
+        """The answered check runs first and names it; this one still refuses rather than reading a missing holder as a match."""
+        emptied = {**seats(), "ansprechperson": None}
+
+        assert find_sitz_inhaber_refusal(kontakte=emptied, seat="ansprechperson", bisherige_email="ansgar@example.com") is not None
 
 
 class TestSeatingAnotherPersonWhereOneSteppedOut:

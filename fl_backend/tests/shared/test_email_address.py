@@ -7,7 +7,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.api.identitaet.schemas import ErasureAdresse
-from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier
+from app.shared.folding import canonical_address, league_address, sign_in_identifier
 
 # One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`:
 # each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part.
@@ -86,8 +86,7 @@ def test_every_parting_recorded_still_parts():
 ERASURE_LOOKUP: Final = TypeAdapter(ErasureAdresse)
 
 
-# Every row but those the lookup refuses for the placeholder's reserved domain, judged on the fold as it judges them.
-@pytest.mark.parametrize("row", [row for row in ROWS if row.folded.rpartition(".")[2] != "invalid"], ids=lambda row: row.case)
+@pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
 def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
     """The page ends the sign-in account its own trimmed box folds to: a lookup trimming otherwise erases another mailbox's records."""
 
@@ -95,12 +94,12 @@ def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
 
 
 @pytest.mark.parametrize("row", [row for row in ROWS if row.stored is not None], ids=lambda row: row.case)
-def test_what_a_payload_stores_is_ascii_and_folds_as_the_typed_address_does(row: Row):
-    """So a typed address, folded, joins the row its payload stored."""
+def test_what_a_payload_stores_is_ascii_and_the_typed_address_s_fold(row: Row):
+    """So a typed address, folded, meets the row its payload stored by equality."""
 
     assert row.stored is not None
     assert row.stored.isascii()
-    assert sign_in_identifier(row.stored) == row.folded
+    assert row.stored == row.folded
 
 
 @pytest.mark.parametrize(("probe", "key"), sorted(json.loads(BAN_KEYS.read_bytes().decode("utf-8")).items()), ids=ascii)
@@ -119,11 +118,3 @@ def test_a_typed_address_and_what_its_payload_stored_key_one_ban(row: Row):
 
     assert row.stored is not None
     assert canonical_address(row.typed) == canonical_address(row.stored)
-
-
-UMLAUT_DOMAIN: Final = "anna@müller.de"
-
-
-def test_a_unicode_domain_and_its_punycode_are_one_inbox_and_the_local_part_s_case_two():
-    assert mailbox_key(UMLAUT_DOMAIN) == mailbox_key("anna@XN--MLLER-KVA.DE")
-    assert mailbox_key("Anna@schule.de") != mailbox_key("anna@schule.de")

@@ -23,6 +23,7 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
 HALTER = "d" * 64
+ZUVOR = "e" * 64
 RECORD = ObjectId("6890a1b2c3d4e5f607860001")
 AM = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
@@ -46,7 +47,25 @@ LINES = {
         person_hash=PERSON, art="widerspruch", collection=Collection.BEWERBUNGEN, record_id=RECORD, am=AM, sitze=("trainer", "ansprechperson")
     ),
     "a declined address change": JournalLine(
-        person_hash=PERSON, art="adresswechsel_abgelehnt", collection=Collection.SCHIEDSRICHTER, record_id=RECORD, am=AM
+        person_hash=PERSON, art="adresswechsel_abgelehnt", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+    ),
+    "a discarded address change": JournalLine(
+        person_hash=PERSON, art="adresswechsel_verworfen", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+    ),
+    "a discarded address change whose new mailbox was told": JournalLine(
+        person_hash=PERSON, art="adresswechsel_verworfen_mitgeteilt", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+    ),
+    "a refused request": JournalLine(
+        person_hash=PERSON, art="antrag_abgelehnt", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
+    "a withdrawn request": JournalLine(
+        person_hash=PERSON, art="antrag_zurueckgezogen", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
+    "a request an address change ended": JournalLine(
+        person_hash=PERSON, art="antrag_beendet", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
+    "an address change taking effect": JournalLine(
+        person_hash=PERSON, art="adresswechsel_wirksam", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM, zuvor=ZUVOR
     ),
 }
 
@@ -59,6 +78,10 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["a withdrawal"].text() == (
         f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=intern medien=false"
     )
+    assert (
+        LINES["an address change taking effect"].text()
+        == f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor={ZUVOR}"
+    )
 
 
 @pytest.mark.parametrize("line", LINES.values(), ids=LINES.keys())
@@ -70,7 +93,7 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
     assert line.act().startswith(line.art)
-    assert PERSON not in line.act() and PSEUDONYM not in line.act() and HALTER not in line.act() and JOURNAL_TOKEN not in line.act()
+    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, ZUVOR, JOURNAL_TOKEN))
 
 
 def test_a_message_of_another_kind_is_no_line():
@@ -95,19 +118,34 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am=2026-10-15T10:00:00 text_version=v umfang=intern", id="no offset"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch spieler/{RECORD} am={AM} sitze=trainer", id="a Widerspruch on a pupil"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} widerspruch bewerbungen/{RECORD} am={AM}", id="a Widerspruch naming no seat"),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} am={AM}", id="a value twice"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} am={AM}", id="a value twice"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt nirgends/{RECORD} am={AM}", id="no collection the database holds"),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}", id="an id of no hex"),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/abcdefghijkl am={AM}", id="an id twelve letters long"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM}", id="an address change on a pupil row"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{'z' * 24} am={AM}", id="an id of no hex"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/abcdefghijkl am={AM}", id="an id twelve letters long"),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} pseudonym={PSEUDONYM}", id="a choice naming a pseudonym"
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} pseudonym={PSEUDONYM}",
+            id="a choice naming a pseudonym",
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym=anna@example.com", id="an address for the pseudonym"),
         pytest.param(
-            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} halter={HALTER}", id="a choice naming a holder digest"
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} halter={HALTER}",
+            id="a choice naming a holder digest",
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung halter=anna@example.com", id="an address for the holder digest"),
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} wer=ich", id="a value no act carries"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt adresswechsel/{RECORD} am={AM} wer=ich", id="a value no act carries"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM}", id="an effect naming no replaced address"
+        ),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_verworfen adresswechsel/{RECORD} am={AM} zuvor={ZUVOR}",
+            id="a discard naming a replaced address",
+        ),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung zuvor={ZUVOR}", id="an erasure naming a replaced address"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam adresswechsel/{RECORD} am={AM} zuvor=anna@example.com",
+            id="an address for the replaced one",
+        ),
     ],
 )
 def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):

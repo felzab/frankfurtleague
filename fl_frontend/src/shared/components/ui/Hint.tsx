@@ -79,6 +79,9 @@ export function Hint(props: HintProps) {
     return (
       <Description
         elementType="p"
+        // Mounted empty and hidden where a note may come later: react-aria names a description in the field's
+        // `aria-describedby` only if it stands at the field's first render (`react-aria :: useSlotId`).
+        hidden={props.text === ""}
         className={FIELD_HINT_CLASSES}>
         {props.text}
       </Description>

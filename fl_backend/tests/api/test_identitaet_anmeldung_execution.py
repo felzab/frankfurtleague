@@ -69,9 +69,9 @@ PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 PFEIFE_OFFEN = "pfeife.offen@schule.de"
 PFEIFE_RUHESTAND_OFFEN = "pfeife.ruhestand.offen@schule.de"
 GEIST = "geist@schule.de"
-# A registration stored as its payload keeps an address, the local part's case as typed, and asked folded.
-REGISTRIERT_STORED = "Rita.Registriert@Schule.de"
+# A registration stored as every payload stores an address, folded, and asked in another spelling.
 REGISTRIERT = "rita.registriert@schule.de"
+REGISTRIERT_STORED = REGISTRIERT
 REGISTRIERT_ABGELEHNT = "rita.abgelehnt@schule.de"
 REGISTRIERT_OFFEN = "rita.offen@schule.de"
 REGISTRIERT_OHNE_WAHL = "rita.ohnewahl@schule.de"
@@ -190,14 +190,15 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             spieler_document(SPIELER_AKTIV_OID, "Anna", "Aktiv", email=SPIELER_AKTIV),
             spieler_document(SPIELER_EHEMALIG_OID, "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": None}),
+            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
+            spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             spieler_document(
                 SPIELER_EHEMALIG_OFFEN_OID,
                 "Anna",
                 "Ehemalig-Offen",
                 email=SPIELER_EHEMALIG_OFFEN,
                 inactive_since="2026-03-01",
-                einwilligung={**EINWILLIGUNG, "bestaetigt_am": None},
+                einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""},
             ),
         ]
     )

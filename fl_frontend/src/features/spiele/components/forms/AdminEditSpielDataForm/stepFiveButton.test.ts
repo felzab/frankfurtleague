@@ -8,15 +8,12 @@ import { createElement as h } from "react";
 
 import { cleanup, render } from "@testing-library/react";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
 
 import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { Rule } from "postcss";
 import type { ReactNode } from "react";
-
-doubleEveryAction();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormSpielortSection } = await import("./FormSpielortSection.tsx");

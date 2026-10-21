@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
+import {
+  ADRESSWECHSEL_GUELTIG_STUNDEN,
+  ADRESSWECHSEL_NACHLAUF_TAGE,
+  ADRESSWECHSEL_WARTEZEIT_TAGE,
+  GENEHMIGUNG_TAGE,
+} from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
 import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
@@ -16,7 +22,6 @@ import {
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
-import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
@@ -49,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "20. Oktober 2026", digest: "ac2d4d690bdccd591b2c49da30af928dd44c7de2291dd35b6a1d37b5bba7390b" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "fec8a22214b8cf231bd51b5f19b796accffd75772a7767bb68969711ae1d735d" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -64,6 +69,17 @@ const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "
 function inWorten(zahl: number): string {
   const wort = ZAHLWORT[zahl];
   assert.ok(wort !== undefined, `the notice writes ${String(zahl)} in a word this case does not hold`);
+
+  return wort;
+}
+
+/* A count of days whole weeks long, which German states in weeks; the case's own table, as `ZAHLWORT` is, so a wrong
+   word in `core/adresswechsel.ts`'s map fails rather than agreeing with itself. */
+const WOCHEN: Readonly<Record<number, string>> = { 7: "eine Woche" };
+
+function inWochen(tage: number): string {
+  const wort = WOCHEN[tage];
+  assert.ok(wort !== undefined, `the notice states ${String(tage)} days in weeks this case does not hold`);
 
   return wort;
 }
@@ -202,14 +218,21 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
-     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  /* A journal line keeps an address as keyed hashes alone, an address change's line its new one, and its envelope's
+     trace id joins it to the access log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row
+     says both. */
   it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
     assert.ok(
       ANGABEN.has(
-        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
-          "Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als " +
-          "unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+        "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson, des Endes eines Antrags auf einen Zugang zur Verwaltung für Deine Adresse ohne " +
+          "Genehmigung, weil er abgelehnt oder zurückgezogen wird oder Deine Adresse wechselt, oder, bei einer Änderung Deiner " +
+          "E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres " +
+          "Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder " +
+          "der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung " +
+          "Deine als drei solche Schlüssel, bei einem Antrag die Adresse, für die er gestellt war, als einer, bei einer Änderung " +
+          "die neue Adresse als einer, auch wenn sie jemand anderem gehört, " +
+          "und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den " +
           "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
           "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
           "Zugriffsprotokoll zuordnen lässt",
@@ -229,55 +252,91 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed:
-     the hourly pass removes it the day after (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). */
-  it("gives a referee's unconfirmed new address its retention and the removal the day after its link lapsed", () => {
+  /* The reason is free text that may name somebody, so it goes with its season's contacts; the answer goes with the entry. */
+  it("gives a referee's answer to an Einteilung its retention, the reason's apart from the answer's", () => {
     assert.equal(
       ANGABEN.get(
-        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
-          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+        "Antwort einer Schiedsrichterin oder eines Schiedsrichters auf eine Einteilung: Zusage oder Absage mit Datum, bei einer " +
+          "Absage dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag " +
-        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
-        " löschen wir die Adresse am Tag danach",
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage oder Absage und Datum bleiben, solange " +
+        "der Eintrag besteht, und gehen mit ihm",
     );
   });
 
-  /* Two addresses are in play, so the sentence names the one the notice of the change goes to rather than a „sie“ fitting both. */
-  it("says the address on file stays in force and is the one told of a confirmed referee's address change", () => {
-    rendert(
-      "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
-        "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
-        "Hinweis auf die Änderung.",
-    );
-  });
-
-  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after. */
-  it("gives a pupil's unconfirmed new address its retention, its link's clock in words and the removal the day after it lapses", () => {
+  /* One record per address, perhaps a stranger's: its retention is stated with the clocks that end it, the hourly pass
+     ending a lapsed one within the hour, and an ended change's record holds no address. */
+  it("gives a pending new address its retention, each link's clock, the waiting time and the ended change's record", () => {
     assert.equal(
       ANGABEN.get(
-        "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer " +
-          "Schlüssel mit Versanddatum und Frist",
+        "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu " +
+          "ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die " +
+          "Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem " +
+          "sie gilt",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird " +
-        `sie gelöscht. Ihr Link gilt ${inWorten(SPIELER_ADRESSWECHSEL_FRIST_TAGE)} Tage ab dem Versand, und jeder neue Link ersetzt ` +
-        "den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
+      "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie " +
+        "verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht " +
+        "werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein " +
+        "Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
+        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem ` +
+        "Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die " +
+        "Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den " +
+        `Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
+        "Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat " +
+        `die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung; kann sie ` +
+        "dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen",
     );
   });
 
-  it("says the address on file stays in force and is the one told of a pupil's address change", () => {
+  /* An untagged message's provider report is acknowledged and recorded nowhere (`fl_frontend/src/app/api/mail/zustellung/route.ts`),
+     so the notice may not promise a log line for it. */
+  it("says the untagged notices' delivery state is kept nowhere", () => {
+    assert.equal(
+      vorkommen(
+        "Einige Hinweise versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren " +
+          "Zustellstand speichern wir nirgends.",
+      ),
+      1,
+    );
+  });
+
+  /* Two addresses are in play, so the sentence names the one the notice goes to rather than a „sie“ fitting both; and what
+     moves is everything the address holds, an unconfirmed registration among it, never only what was confirmed. */
+  it("says every account changes its address on its account page, the address on file is told, and what moves", () => {
     rendert(
-      "Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie " +
-        "schicken. Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.",
+      "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
+        "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
+        "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
+        "gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt, bei einem Zugang als Inhaberin oder Inhaber eine " +
+        `andere Inhaberin oder ein anderer Inhaber; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
+        "nach ihrem Beginn. Kannst Du Dich nicht mehr anmelden, trägt auf Deine Bitte auch die Verwaltung die neue Adresse ein: Wir " +
+        "fragen dann zuerst die bisherige, und erst wenn die Änderung dort im Konto freigegeben ist, schreiben wir an die neue; " +
+        `erreichst Du die bisherige nicht mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. ` +
+        "Gilt die neue, gilt sie " +
+        "für alles, was unter der bisherigen steht: Deine Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als " +
+        "Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze als Kontaktperson, Deine Registrierungen und einen Zugang zur " +
+        "Verwaltung; die bisherige bekommt eine Nachricht darüber.",
+    );
+    rendert("Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto.");
+  });
+
+  /* The account follows a change its holder asked for or approved, and never one made because the old mailbox is lost:
+     whoever holds that mailbox may have signed in there meanwhile. */
+  it("says which changes carry the sign-in account, ending every session, and which leave it behind", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        "Gilt eine neue E-Mail-Adresse, die Du selbst eingetragen oder unter der bisherigen freigegeben hast, tragen wir sie in Dein " +
+          "Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen, bleibt das Konto bei der " +
+          "bisherigen, und Du meldest Dich unter der neuen neu an.",
+      ),
     );
   });
 
   it("gives a rejected application, the action log and the backups their clocks in words", () => {
     assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
-    assert.ok(
-      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen")?.startsWith(
-        "Zwölf Monate ab dem Eintrag;",
-      ),
+    assert.equal(
+      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen"),
+      "Zwölf Monate ab dem Eintrag",
     );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
@@ -313,7 +372,7 @@ describe("the privacy notice's retention table", () => {
   it("says the account goes on its own once the address holds none of the records and grants that keep it", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
-        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung",
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung. Gilt eine neue Adresse, die Dein Konto mitnimmt, löschen wir es unter der bisherigen erst, wenn wir es umgetragen oder das Umtragen aufgegeben haben",
       ),
     );
   });
@@ -629,6 +688,26 @@ describe("the privacy notice states the registration, referee-link and ban clock
     );
   });
 
+  // The request waits as long as an address change's approval does, so the week is read off that one constant.
+  /* Every way a request ends is named: an address change ends one about its address, and an erasure of either person. */
+  it("keeps a request for access until it is decided, withdrawn, its address changes or a person's data is erased, a week at most", () => {
+    const frist =
+      ANGABEN.get(
+        "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+      ) ?? "";
+
+    assert.equal(GENEHMIGUNG_TAGE, 7);
+    assert.ok(
+      frist.startsWith(
+        "Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, " +
+          "die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht " +
+          "werden, längstens eine Woche; danach löschen wir ihn, eine Benachrichtigung über seine Ablehnung oder sein Ende an " +
+          "die Person, die ihn gestellt hat, sobald sie versandt ist.",
+      ),
+      frist,
+    );
+  });
+
   // Held here because this file owns the count words: the create form's hint and the ban list's
   // sidemenu note state the same length in a word too, and nothing else ties that word to the number.
   it("gives the ban list's create form and its sidemenu note the same seasons, in the same word", () => {
@@ -692,15 +771,39 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  it("publishes a referee's name on the participation basis and a pupil's only on consent", () => {
+  it("publishes neither a pupil's nor a referee's name on the participation basis, only on their consent", () => {
     rendert(
       "Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes " +
         "Interesse ist, den Spielbetrieb der Liga durchzuführen: Kader und Schiedsrichtereinsätze zu führen, das Mindestalter zu " +
-        "prüfen und Dich zu erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir von " +
-        "Spielerinnen und Spielern auf dieser Grundlage nichts: Dein Name im Kader erscheint nur mit Deiner Einwilligung (Abschnitt " +
-        "9). Den Namen einer Schiedsrichterin oder eines Schiedsrichters an einem Spiel veröffentlichen wir auf dieser Grundlage, wie " +
-        "Abschnitt 9 es beschreibt. Du kannst jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).",
+        "prüfen und Dich zu erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir auf " +
+        "dieser Grundlage keine Namen: Dein Name im Kader und Dein Name an einem Spiel, das Du pfeifst, erscheinen nur mit Deiner " +
+        "Einwilligung (Abschnitt 9). Du kannst jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).",
     );
+  });
+
+  /* The fixture read withholds a referee's name the referee has not agreed to, so the row's basis is that consent. */
+  it("publishes a referee's name at a fixture on the referee's own consent", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen " +
+          "Anfangsbuchstabe, sofern die Person dafür eine Einwilligung erteilt hat",
+      ),
+      "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
+    );
+  });
+
+  /* The fixture read serves a booked referee only once agreed, asked or not: a sentence bound to having been asked leaves
+     the referee nobody asked yet reading that they are shown. */
+  it("shows a referee at a fixture only once they or the league entered their agreement", () => {
+    assert.equal(
+      vorkommen("Ein Spiel steht erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat."),
+      1,
+    );
+  });
+
+  /* The report form takes an optional reason on a red card as well, so a reason stored on one is in the notice too. */
+  it("names the card reason the report form takes on every colour", () => {
+    assert.equal(vorkommen("die Farbe und einen Grund aus einer festen Liste, der bei Rot freiwillig ist."), 1);
   });
 
   // A deadline rather than „zeitnah“: Art. 12(3) DSGVO bounds the answer at a month.
@@ -768,7 +871,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
       vorkommen(
         "Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde " +
           "Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede solche Einwilligung. Eine abgelehnte Bewerbung " +
-          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung.",
+          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung. Deine E-Mail-Adresse änderst Du " +
+          "selbst in Deinem Konto.",
       ),
       1,
     );
@@ -835,13 +939,13 @@ describe("the privacy notice's publication and retention rows keep their ruled b
 
   /* The season-after rule, which activating a season runs: a cell keeping a pupil while taking part alone would
      promise a deletion nothing triggers (`fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`). */
-  it("keeps a pupil until the season after their last squad season ends, and once resets every pupil", () => {
+  it("keeps a pupil until the season after their last squad season ends", () => {
     assert.equal(
       ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern"),
       "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach " +
         "löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir " +
-        "früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und " +
-        "Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+        "früher. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil " +
+        "Du es verlangst",
     );
   });
 

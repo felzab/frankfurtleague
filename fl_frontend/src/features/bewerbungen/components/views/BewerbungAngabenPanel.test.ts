@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { publishedFassung } from "@/core/einwilligungDocument.ts";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { GELOESCHTE_PERSON, GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
+import { bestaetigungsStand } from "../../bestaetigungStand.ts";
 import { FLBewerbungSchema } from "../../schemas.ts";
 
+import type { MedienFragen } from "@/features/spieler/nachweis.ts";
 import type { FLBewerbung } from "../../schemas.ts";
 
 /* Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
@@ -44,26 +47,55 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
       // Spaced the way a school types one, which is the whole of what the two hrefs differ over.
       telefon: "069 12 34 56",
       geburtsdatum: "1990-01-01",
-      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer: null,
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Zwei Sätze", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Zwei Sätze", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: "Helmholtzschule",
   entscheidung: null,
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+  bestaetigungsfrist: "2026-05-15",
 } satisfies FLBewerbung);
 
-const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME): string =>
-  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: null });
+/** Whether each label's page asked the media choice, off the registry's words as the page reads them. */
+const fragenOf = (...labels: string[]): MedienFragen =>
+  Object.fromEntries(labels.map((label) => [label, Object.hasOwn(publishedFassung(label).bedienelemente, "medien")]));
+
+/** Rendered with the seats' states as the page derives them, which hands the panel every seat. */
+const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME, medienFragen: MedienFragen = {}): string => {
+  const bewerbung = { ...BEWERBUNG, ...fields };
+  return renderMarkup(BewerbungAngabenPanel, { bewerbung, teamName, staende: bestaetigungsStand(bewerbung), medienFragen });
+};
 
 /** One fact's value, cut from the `<dd>` under its own `<dt>`: the same words stand in several rows. */
 const factLine = (html: string, label: string): string => new RegExp(`<dt[^>]*>${label}</dt><dd[^>]*>(.*?)</dd>`, "s").exec(html)?.[1] ?? "";
+
+/** A contact page's label from before it asked the media choice, and one from after. */
+const VOR_DER_FRAGE = "2026-09-bestaetigungsseite-6";
+const MIT_DER_FRAGE = "2026-10-bestaetigungsseite-7";
+
+/** The pending application, its seat confirmed on `textVersion` with no evidence of either choice, as the page hands it. */
+function mitBestaetigung(textVersion: string, bestaetigtAm: string): string {
+  const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+  assert.ok(ansprechperson !== null);
+  const einwilligung = {
+    ...ansprechperson.einwilligung,
+    text_version: textVersion,
+    bestaetigt_am: bestaetigtAm,
+    nachweis: { umfang: null, medien: null },
+  };
+
+  return markup(
+    { status: "eingereicht", kontakte: { ...BEWERBUNG.kontakte, ansprechperson: { ...ansprechperson, einwilligung } } },
+    TEAM_NAME,
+    fragenOf(textVersion),
+  );
+}
 
 describe("the panel a triage decision is taken from", () => {
   /* First: a cut the panel's markup does not answer leaves every assertion below reading an empty
@@ -92,28 +124,6 @@ describe("the panel a triage decision is taken from", () => {
   it("reads a field the school left empty as not held", () => {
     assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
   });
-
-  /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
-     and leaves the stored records at the programme's end, so a label read off it would go blank. */
-  for (const [von, label] of [
-    ["bewerbung", "Mit der Bewerbung eingetragen"],
-    ["liga", "Von der Liga eingetragen"],
-    [null, "Herkunft nicht hinterlegt"],
-  ] as const) {
-    it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
-      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
-      assert.ok(ansprechperson !== null);
-      const html = markup({
-        kontakte: {
-          ...BEWERBUNG.kontakte,
-          ansprechperson: { ...ansprechperson, einwilligung: { ...ansprechperson.einwilligung, eingetragen_von: von } },
-        },
-      });
-
-      assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
-      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
-    });
-  }
 
   /* Withdrawable on the account page while the application is pending, so the administrator deciding it
      reads both as they stand, each with its act; both arms, so „erlaubt“ for every seat fails. */
@@ -146,6 +156,25 @@ describe("the panel a triage decision is taken from", () => {
       assert.notEqual(textOf(factLine(html, "WhatsApp")), whatsappWorte, "the WhatsApp scope stands on no act");
     });
   }
+
+  /* A seat confirmed before choices carried their own evidence stands on its confirmation alone, where its page asked. */
+  it("reads a confirmed seat's choice with no evidence of its own as standing on the confirmation", () => {
+    const html = mitBestaetigung(MIT_DER_FRAGE, "2026-10-13");
+
+    assert.ok(
+      textOf(factLine(html, "Medien")).endsWith(`seit der Bestätigung am 13.10.2026, Fassung ${MIT_DER_FRAGE}`),
+      textOf(factLine(html, "Medien")),
+    );
+  });
+
+  /* A seat kept through the reset from a page that never asked the media choice holds the "false" the server wrote for
+     it: filed against the confirmation, the readout would present a choice nobody was offered as the person's own. */
+  it("reads a media choice the confirmed seat's page never asked as not asked", () => {
+    const medien = textOf(factLine(mitBestaetigung(VOR_DER_FRAGE, "2026-09-20"), "Medien"));
+
+    assert.ok(medien.endsWith(`Bei der Bestätigung am 20.09.2026 nicht gefragt (Fassung ${VOR_DER_FRAGE})`), medien);
+    assert.ok(!medien.includes("seit der Bestätigung"), "the choice is filed against a confirmation that never asked it");
+  });
 
   /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
      the copy read out in the present tense would contradict them for as long as it is kept. */
@@ -201,13 +230,7 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(row), "069 12 34 56", "the number is shown stripped rather than as it was typed");
   });
 
-  /* A `null` here is a school that answered nothing rather than one that answered zero, and the panel
-     has one grade for that: compared against a second unanswered row, so neither reads as a blank cell. */
-  it("gives an unanswered number the panel's one empty grade", () => {
-    const unanswered = factLine(markup({ stufengroesse: null }), "Größe der Stufe");
-
-    assert.notEqual(unanswered, "", "the row a school left empty renders as nothing at all");
-    assert.equal(unanswered, factLine(markup({ wunschgegner: null }), "Wunschgegner"), "two unanswered rows carry two different grades");
+  it("shows the cohort size the school stated", () => {
     assert.equal(textOf(factLine(markup(), "Größe der Stufe")), "96");
   });
 

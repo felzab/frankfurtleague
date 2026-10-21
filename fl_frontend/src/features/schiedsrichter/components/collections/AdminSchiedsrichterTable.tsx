@@ -112,7 +112,6 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         </div>
         <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>{nichtHinterlegt("Schule")}</Leer>}</span>
         <span className={IDENTITY_PAIR_CLASSES}>
-          {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
           <span className={IDENTITY_LINE_CLASSES}>
             {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
@@ -132,8 +131,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     // on a nameless row names the entry rather than announcing that word as somebody's name.
     const rowSubject = name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${name}`;
 
-    // The stored values and never a displayed stand-in, less the placeholder a row without an address
-    // holds: a clipboard carrying either reads as a detail somebody could paste into a message.
+    // The stored values and never a displayed stand-in, which on a clipboard reads as a detail somebody
+    // could paste into a message.
     const email = hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : null;
     const kontaktdaten = [name, email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
     const hasKontakt = Boolean(email) || Boolean(schiedsrichter.kontakt.telefon);

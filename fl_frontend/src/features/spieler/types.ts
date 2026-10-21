@@ -1,7 +1,8 @@
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type {
   FLPatchSaisonSpielerPayload,
+  FLPatchSpielerPayload,
   FLPostSaisonSpielerPayload,
-  FLSpielerAdresswechsel,
   FLSpielerPosition,
   FLSpielerRolle,
   FLSpielerStufe,
@@ -21,6 +22,11 @@ export type FLSpielerFilterParams = {
   limit?: number;
   sort_by?: FLSpielerSortingOptions;
   order?: "asc" | "desc";
+};
+
+/** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
+export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {
+  geburtsdatum: string | null;
 };
 
 /** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
@@ -82,32 +88,20 @@ export type SpielerSaisonMembership = {
 export type SpielerSaisonContext = Pick<SpielerSaisonMembership, "saisonId" | "saisonStatus">;
 
 /**
- * The stored person the editor opens on. The address and its pending change travel beside the draft
- * and in no payload: they move through their own link, never through the save.
+ * The stored person the editor opens on. The address and the id of a change pending at it travel beside the
+ * draft and in no payload: the address moves through the change alone, never through the save.
  */
 export type AdminSpielerStored = {
   id: string;
   vorname: string;
   nachname: string | null;
   inactive_since: string | null;
-  geburtsdatum: string | null;
-  email: string | null;
-  adresswechsel: FLSpielerAdresswechsel | null;
-  /** The read's judgement of the pending link's deadline, never this browser's day. */
-  adresswechsel_abgelaufen: boolean;
+  geburtsdatum: string;
+  email: string;
+  adresswechsel_id: string | null;
+  /** Why the address tool refuses this administrator that change, as the read serves it: the editor then links nowhere. */
+  adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
 };
-
-/**
- * Every state a pupil's address link can be in but open. No `bestaetigt`: an answer removes what the
- * link opens. „ungueltig“ is this side's, for a token the read refused.
- */
-export type SpielerAdresswechselZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
-
-/** The states whose link the backend still takes the decline through, so the page keeps its token. */
-export type SpielerAdresswechselNurAblehnbar = Extract<SpielerAdresswechselZustand, "abgelaufen" | "nicht_bestaetigbar">;
-
-/** What the link page is handed, never a name, unlike the referee's twin: the page is open to whoever holds the link (`READ-PUPIL-005`). */
-export type SpielerAdresswechselAnsicht = { zustand: "gueltig"; frist: string } | { zustand: SpielerAdresswechselZustand };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */
 export type RowReturn = "open" | "clubLeft" | "squadFull";

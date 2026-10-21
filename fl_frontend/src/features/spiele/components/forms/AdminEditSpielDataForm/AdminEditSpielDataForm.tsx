@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@internationalized/date";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { AdminSpielberichtPanel } from "@/features/spielberichte/components/views/AdminSpielberichtPanel";
+import { eingesetztStand, haeltVorschlag, uebernahmeGesperrt } from "@/features/spielberichte/utils";
+import { SpielbestaetigungPanel } from "@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel";
+import { spielAnsetzung } from "@/features/spielbestaetigungen/utils";
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
@@ -31,7 +35,6 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
-import { toSchiedsrichterDraft } from "./FormSchiedsrichterSection";
 import { FormSonderereignisSection } from "./FormSonderereignisSection";
 import { toOrtDraft } from "./FormSpielortSection";
 import { SpielExpectedProvider } from "./SpielExpectedContext";
@@ -40,6 +43,9 @@ import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
+import type { FLSpielberichtBericht, FLSpielberichtVorschlag } from "@/features/spielberichte/schemas";
+import type { SpielberichtStand } from "@/features/spielberichte/types";
+import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
@@ -61,7 +67,11 @@ import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeade
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
-import type { SpielBannerAnsetzung, SpielRefusalCode } from "./banners";
+import type { SpielRefusalCode } from "./banners";
+
+const SPIELDATEN_AKTUALISIERT = "Die Spieldaten wurden aktualisiert.";
+const BERICHT_NICHT_UEBERNOMMEN =
+  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -80,6 +90,8 @@ export function AdminEditSpielDataForm({
   isActiveSaison,
   today,
   isSpielSweepOn,
+  bestaetigungen,
+  spielbericht,
   categorize,
   pageHeader,
 }: {
@@ -95,6 +107,10 @@ export function AdminEditSpielDataForm({
   today: string;
   /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
   isSpielSweepOn: boolean;
+  /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
+  bestaetigungen?: SpielbestaetigungenStand | null;
+  /** The fixture's report as the page read it on this open, `null` where the read failed; absent, the editor mounts no panel for it. */
+  spielbericht?: SpielberichtStand | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
   /**
@@ -141,6 +157,9 @@ export function AdminEditSpielDataForm({
 
   const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
 
+  // What „Vorschlag übernehmen“ seeded the result atoms with, and the report version it read: held apart from them.
+  const [eingesetzt, setEingesetzt] = useState<{ version: number; vorschlag: FLSpielberichtVorschlag } | null>(null);
+
   // ALWAYS closed on open, every fixture alike: the deliberate flip is the guard, so a stray
   // keystroke can neither invent a 0:0 nor silently rewrite a recorded result.
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState(false);
@@ -183,14 +202,35 @@ export function AdminEditSpielDataForm({
   };
 
   // Both sides submit as they stand, `null` included: an empty picker is how a bracket slot the
-  // group phase has not filled yet is recorded.
-  const buildPayload = (): FLPatchSpielDataPayloadDraft => ({ ...draft, spiel_id: spielData.id });
+  // group phase has not filled yet is recorded. The stand is the referee this editor was served, never the draft's pick.
+  const buildPayload = (): FLPatchSpielDataPayloadDraft => ({
+    ...draft,
+    spiel_id: spielData.id,
+    schiedsrichter_stand: spielData.schiedsrichter?.schiedsrichter_id ?? null,
+  });
 
   // The fixture as it will stand once saved, built once so the preview, the categorisation and the
   // knockout-cancellation warning cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
-  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
+  // Adopted only while the seeded atoms hold what the press set and both sides field the report's clubs: otherwise the
+  // result is the administrator's own, which the save's stamp must not name as the report's. Derived before the status.
+  const berichtSeiten = spielbericht?.lesen.bericht?.seiten;
+  const uebernimmtBericht =
+    eingesetzt !== null &&
+    berichtSeiten !== undefined &&
+    uebernahmeGesperrt(berichtSeiten, { team1: team1Payload, team2: team2Payload }) === null &&
+    haeltVorschlag(eingesetzt.vorschlag, { team1: team1Payload, team2: team2Payload, elfmeterschiessen, sonderereignis })
+      ? eingesetzt.version
+      : null;
+
+  const status = deriveSpielDraftStatus({
+    stored: spielData,
+    draft,
+    uebernimmtBericht,
+    expectedCategories: categorize(previewSpiel),
+    fieldErrors,
+  });
   const isDirty = status.isDirty && !hasSaved;
 
   // Unlatched as soon as the props catch up: left latched, a later edit on a restored tree would
@@ -260,20 +300,8 @@ export function AdminEditSpielDataForm({
   const dropsShootOut =
     hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
-  const ansetzung: SpielBannerAnsetzung = {
-    datum: draft.datum,
-    uhrzeit: draft.uhrzeit,
-    spielortId: ortPayload?.spielort_id ?? null,
-    team1Id: team1Payload?.team_id ?? null,
-    team2Id: team2Payload?.team_id ?? null,
-  };
-  const storedAnsetzung: SpielBannerAnsetzung = {
-    datum: spielData.datum,
-    uhrzeit: spielData.uhrzeit,
-    spielortId: spielData.ort?.spielort_id ?? null,
-    team1Id: spielData.team1?.team_id ?? null,
-    team2Id: spielData.team2?.team_id ?? null,
-  };
+  const ansetzung = spielAnsetzung({ datum: draft.datum, uhrzeit: draft.uhrzeit, ort: ortPayload, team1: team1Payload, team2: team2Payload });
+  const storedAnsetzung = spielAnsetzung(spielData);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
   // so a `null` preview contributes no fixture, never "nothing would be lost", and a failed one says so.
@@ -366,6 +394,7 @@ export function AdminEditSpielDataForm({
     setElfmeterschiessen(spielData.elfmeterschiessen);
     setNotiz(spielData.notiz);
     setErgebnisCanBeEdited(false);
+    setEingesetzt(null);
 
     setSubmitFieldErrors({}, {});
   };
@@ -393,6 +422,21 @@ export function AdminEditSpielDataForm({
     });
   };
 
+  /**
+   * Carries the report's proposal into the result atoms, the form staying mounted and every other edit standing:
+   * the save is still the administrator's, through the same gate and dialog as a typed result.
+   */
+  const uebernehmeVorschlag = (bericht: FLSpielberichtBericht) => {
+    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: ereignis } = bericht.ergebnis_vorschlag;
+    if (team1Payload) setTeam1Payload({ ...team1Payload, tore: team1_tore });
+    if (team2Payload) setTeam2Payload({ ...team2Payload, tore: team2_tore });
+    setElfmeterschiessen(elfmeter);
+    setSonderereignis(ereignis);
+    setHasSonderereignis(ereignis !== null);
+    setErgebnisCanBeEdited(true);
+    setEingesetzt({ version: bericht.version, vorschlag: bericht.ergebnis_vorschlag });
+  };
+
   const writeAfterBlock = () => {
     const payload = buildPayload();
     // Never `safeParse` here: the gate proved this draft parses before either route reached here, and the
@@ -401,7 +445,7 @@ export function AdminEditSpielDataForm({
 
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
+      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id, uebernimmtBericht).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
@@ -422,15 +466,23 @@ export function AdminEditSpielDataForm({
 
         // Built BEFORE leaving: these are this render's props and the toast outlives the page.
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
+        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same
+        // (`docs/backend/spec.md :: I811`): the result it saved is the older proposal.
+        const nichtUebernommen = uebernimmtBericht !== null && (res.priorBericht ?? null) === null;
+        const gespeichert = res.message ?? SPIELDATEN_AKTUALISIERT;
 
         offerUndo({
-          // Every fixture from the SAVE's own answer, in the order it reported them: the props this
-          // render was served are older than the save, so an undo built from them would revert a field
-          // another writer moved.
-          undo: () => undoAdminSpielEditAction({ paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id }),
-          message: res.message,
-          fallback: "Die Spieldaten wurden aktualisiert.",
-          warn: affected.length > 0,
+          // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
+          // render was served are older than the save, so an undo built from them would revert a field another writer moved.
+          undo: () =>
+            undoAdminSpielEditAction({
+              paarungen: res.priorPaarungen ?? [],
+              bericht: res.priorBericht ?? null,
+              saison_id: spielData.saison_id,
+            }),
+          message: nichtUebernommen ? `${gespeichert} ${BERICHT_NICHT_UEBERNOMMEN}` : res.message,
+          fallback: SPIELDATEN_AKTUALISIERT,
+          warn: affected.length > 0 || nichtUebernommen,
           router,
         });
 
@@ -564,6 +616,21 @@ export function AdminEditSpielDataForm({
               onValidateFields={validateFields}
             />
 
+            {spielbericht !== undefined && (
+              <AdminSpielberichtPanel
+                stand={spielbericht}
+                onUebernehmen={uebernehmeVorschlag}
+                uebernahmeGesperrt={
+                  spielbericht?.lesen.bericht == null
+                    ? null
+                    : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
+                }
+                eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
+                hatEntwurf={isDirty}
+                today={today}
+              />
+            )}
+
             <FormNotizSection
               notiz={notiz}
               onNotizChange={setNotiz}
@@ -585,6 +652,25 @@ export function AdminEditSpielDataForm({
               onSonderereignisChange={setSonderereignis}
               banners={banners}
             />
+
+            {bestaetigungen !== undefined && (
+              <SpielbestaetigungPanel
+                stand={bestaetigungen}
+                spiel={spielData}
+                parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
+                // `teams` joins each club's exit from this season on every read.
+                austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
+                today={today}
+                isSpielSweepOn={isSpielSweepOn}
+                isActiveSaison={isActiveSaison}
+                // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
+                // a discard drops the proposal with them, and Speichern still judges and offers its undo.
+                onVorschlagUebernehmen={(termin) => {
+                  setDatum(parseDate(termin.datum));
+                  setUhrzeit(parseTime(termin.uhrzeit));
+                }}
+              />
+            )}
           </EditFormLayout>
 
           <FormActionBar
@@ -639,9 +725,14 @@ export function AdminEditSpielDataForm({
         heading="Schiedsrichter anlegen">
         <AdminCreateSchiedsrichterForm
           onClose={closeCreating}
+          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`REQ-BOOKING-002`).
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
-            setSchiedsrichterPayload(toSchiedsrichterDraft(referee));
+          }}
+          // The picker stays empty under the toast, so the toast says why nobody was booked however the link ended.
+          unbooked={{
+            title: "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
+            addendum: "Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
           }}
         />
       </FormModal>

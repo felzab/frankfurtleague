@@ -1,4 +1,9 @@
-from app.api.saisons.services import SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, find_undraw_refusal
+from app.api.saisons.services import (
+    SPIELPLAN_BERICHTE_EINGEREICHT,
+    SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
+    find_berichte_refusal,
+    find_undraw_refusal,
+)
 from app.core.exceptions import WriteRefusal
 
 
@@ -72,3 +77,17 @@ class TestAnUndrawRunsOnlyInsideItsWindow:
 
         assert refusal is not None
         assert "it runs only on a planned season with nothing entered against it" in refusal.message
+
+
+class TestASubmittedReportKeepsTheSpielplan:
+    """`REQ-SPIELPLAN-007`: a replace and an undraw delete the season's reports with its fixtures, so one standing refuses both."""
+
+    def test_a_season_holding_none_is_permitted(self):
+        assert find_berichte_refusal(berichte=0) is None
+
+    def test_one_report_is_refused_and_counted(self):
+        refusal = find_berichte_refusal(berichte=1)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert "1 submitted match report(s)" in refusal.message

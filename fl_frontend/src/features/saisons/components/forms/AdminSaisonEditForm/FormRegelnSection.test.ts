@@ -244,8 +244,8 @@ describe("the rules panel's shape offer", () => {
     assert.equal(screen.getByRole("option", { name: /^2/ }).getAttribute("aria-disabled"), "true", "two groups stay open over a club in C");
   });
 
-  /* A season stored before these rules can hold a count the offer does not carry; dropped, the save sends a number
-     nobody chose. */
+  /* A season written by hand can hold a count the offer does not carry; dropped, the save sends a number nobody
+     chose. */
   it("keeps a stored count the offer does not carry, and stands on it", () => {
     render(panel({ rules: { ...RULES, number_of_groups: 3 } }));
 
@@ -282,6 +282,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
               { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
             ],
             bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
+            eingereichteBerichte: 0,
           },
           hasDrawnSpiele: true,
           spieltagBound: { startMax: null, endMin: null },

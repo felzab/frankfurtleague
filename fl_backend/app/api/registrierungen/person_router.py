@@ -7,13 +7,11 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.aktionen.crud import redact_images_in_session
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
-    persons_without_an_address,
     pull_offene_registrierung,
     pull_offene_registrierungen,
 )
@@ -27,7 +25,6 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
 )
 from app.api.registrierungen.services import (
-    beendeter_adresswechsel,
     compose_ablehnung_update,
     compose_kader_fields,
     compose_person,
@@ -39,15 +36,12 @@ from app.api.registrierungen.services import (
     find_stufe_refusal,
     find_unbestaetigt_refusal,
     nummern_im_kader,
-    ohne_adresswechsel,
     person_weicht_ab,
     registrierung_ist_bestaetigt,
-    sole_vorschlag,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter, spieler_adresswechsel_image_edits
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -101,8 +95,7 @@ async def get_offene_registrierungen(
     Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
 
     A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
-    differs, or else the one stored person holding no address whose name is the registration's. A typed name is a
-    weaker key than a shorthand, so a name only ever proposes. An unconfirmed row names neither: its address is unproven.
+    differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody.
     `vollstaendig` is false where more pending rows exist than `limit` serves.
     """
@@ -129,9 +122,6 @@ async def get_offene_registrierungen(
             session=session,
         )
         by_address = {person["email"]: person for person in persons}
-        # Read only where some confirmed row resolves to nobody: the one read that scans `spieler`.
-        unresolved = [row for row in bestaetigte if sign_in_identifier(str(row["email"])) not in by_address]
-        ohne_adresse = await persons_without_an_address(spieler_collection=spieler_collection, session=session) if unresolved else []
 
         worn = nummern_im_kader(
             await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
@@ -140,7 +130,6 @@ async def get_offene_registrierungen(
         def as_served(row: Mapping[str, Any]) -> FLOffeneRegistrierung:
             aufnehmbar = registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))
             person = by_address.get(sign_in_identifier(str(row["email"]))) if aufnehmbar else None
-            vorschlag = sole_vorschlag(registrierung_raw=row, ohne_adresse=ohne_adresse) if aufnehmbar and person is None else None
 
             return FLOffeneRegistrierung.model_validate(
                 {
@@ -161,9 +150,6 @@ async def get_offene_registrierungen(
                         "nachname": person.get("nachname"),
                         "weicht_ab": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
                     },
-                    "vorschlag": None
-                    if vorschlag is None
-                    else {"spieler_id": vorschlag["_id"], "vorname": vorschlag["vorname"], "nachname": vorschlag.get("nachname")},
                 }
             )
 
@@ -202,27 +188,26 @@ async def aufnehmen(
     Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
 
     The person survives the season, so the admission first looks for them: the stored person holding the
-    registration's address IS that person, and is updated with the registration's name, its confirmed birthdate and
-    its freshly confirmed consent record. Where that person's name or birthdate differs, `spieler_id` must name them
-    (the team said it is the same person). With no such person, `spieler_id` is null for a new one, or names the
-    addressless namesake the read proposed, who then takes the registration's address. A retired person comes back. Where
-    the admission writes an address the person did not hold, a pending address change of theirs ends with it: its link
-    opens nothing, and its address goes from every image the action log holds of them. One asked over the address they
-    hold stands.
+    registration's address IS that person, and is updated with the registration's name and, where the new pupil's page
+    asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
+    leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
+    name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
+    person, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs
+    stands, asked over the address this admission proves again.
 
     The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived
     today; this person's retired row of this season is rewritten rather than a second one written, whichever team
     it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
     press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
 
-    Refuses, in this order: no pending registration with this id (404), no seat on its team's season
-    (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban
-    list holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no
-    longer offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds
-    no stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, a namesake the body names
-    included, and the pupil registers again), a `spieler_id` that is not the person this registration may be admitted
-    into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a
-    full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
+    Refuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
+    registration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has
+    not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team
+    as neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration
+    confirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries
+    no choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this
+    registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season
+    (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
@@ -254,19 +239,10 @@ async def aufnehmen(
         adresse = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, adressen=[adresse], session=session)
         adresse_raw = resolved[0] if resolved else None
-        # Before a namesake is read: the team's answer cannot stand in for the person the pupil confirmed as.
+        # Before the body is judged: the team's answer cannot stand in for the person the pupil confirmed as.
         refuse(find_person_fehlt_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw))
-        benannt_raw = (
-            await spieler_collection.find_one(build_spieler_filter(aufnahme_data.spieler_id), session=session)
-            if adresse_raw is None and aufnahme_data.spieler_id is not None
-            else None
-        )
-        refuse(
-            find_person_refusal(
-                registrierung_raw=registrierung_raw, adresse_raw=adresse_raw, benannt_raw=benannt_raw, spieler_id=aufnahme_data.spieler_id
-            )
-        )
-        person_raw = adresse_raw or benannt_raw
+        refuse(find_person_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw, spieler_id=aufnahme_data.spieler_id))
+        person_raw = adresse_raw
         spieler_id = person_raw["_id"] if person_raw is not None else ObjectId()
 
         kader_raw = (
@@ -295,32 +271,16 @@ async def aufnehmen(
             # Read here, not by the address lookup, which serves no consent record
             # (`docs/backend/spec.md :: I584`): a choice the person moved after confirming the
             # registration stands (`:: I611`).
-            gespeichert = await spieler_collection.find_one(
-                {"_id": spieler_id}, projection={"einwilligung": 1, "email": 1, f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1}, session=session
-            )
-            beendet = beendeter_adresswechsel(person_raw=gespeichert or {}, adresse=adresse)
-            update = compose_person_update(
-                registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
-            )
+            gespeichert = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": spieler_id},
-                update=update if beendet is None else ohne_adresswechsel(update),
+                update=compose_person_update(
+                    registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
+                ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-
-            if beendet is not None:
-                # After the patch, for the decline's reason (`app/api/spieler/adresswechsel_router.py ::
-                # post_adresswechsel_antwort`): it reaches the pre-image the patch just filed.
-                ended = sign_in_identifier(beendet)
-                await redact_images_in_session(
-                    aktionen_collection=aktionen_collection,
-                    db_filter=build_redaction_filter([(Collection.SPIELER, [spieler_id])]),
-                    judge=lambda image: spieler_adresswechsel_image_edits(image, ended),
-                    stamp=log_stamp(germany_now),
-                    session=session,
-                )
 
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,
@@ -402,7 +362,8 @@ async def ablehnen(
     row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
     went to, for the decline mail and nothing else, and whether that address was ever confirmed.
 
-    Refuses no pending registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).
+    Refuses, in this order, a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
+    registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).
     """
 
     async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungAblehnungResponse:

@@ -21,7 +21,6 @@ function referee(id: string, held: Partial<FLSchiedsrichter> = {}): FLSchiedsric
     geburtsdatum: null,
     einwilligung: null,
     bestaetigung: null,
-    adresswechsel: null,
     ...held,
   };
 }
@@ -54,14 +53,6 @@ describe("the Angaben facet of the referee list", () => {
   it("reads a referee with neither a phone number nor an email address as a real gap rather than as a missing row", () => {
     assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=ohne_kontakt")), [OHNE_ALLES]);
     assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=kontakt")), [MIT_TELEFON, MIT_SCHULE]);
-  });
-
-  /* The placeholder a row without an address holds is the row still owed a real one, so filing it
-     under „Mit Kontakt“ hides it from exactly the filter that finds it. */
-  it("files a row holding only the placeholder address under „Ohne Kontakt“", () => {
-    const PLATZHALTER = referee("6890a1b2c3d4e5f607910014", { kontakt: { telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" } });
-
-    assert.deepEqual(applyFacets([PLATZHALTER, MIT_TELEFON], SCHIEDSRICHTER_FACETS, selection("angaben=ohne_kontakt")), [PLATZHALTER]);
   });
 
   it("adds rather than narrows where two options are picked, which is what OR within a facet promises", () => {

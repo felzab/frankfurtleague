@@ -1,9 +1,9 @@
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.shared.schemas.bounds import (
-    BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -11,9 +11,8 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
-from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
+from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -39,35 +38,6 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 # An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
 FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
-# What stored records name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
-# SPRECHER`). `bestandsuebernahme` marks a record carried over from before consent was collected.
-FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
-
-# What a pupil's address link shows, the referee's states (`app/api/schiedsrichter/schemas.py ::
-# FLSchiedsrichterAdresswechselZustand`). `nicht_bestaetigbar` also answers a new address another pupil
-# holds and a pupil holding none, alike with a ban on the replaced one; the press's codes part them.
-FLSpielerAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
-
-FLSpielerAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
-
-# The raw token as it arrives on the two base-tier endpoints, under the one ceiling every link this
-# application mints is spelled to.
-CustomSpielerToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
-
-
-class FLSpielerAdresswechsel(BaseModel):
-    """A pupil's new address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
-
-    The hash is the whole credential, and the link's lookup alone reads it.
-    """
-
-    email: str
-    verschickt_am: CustomDateString
-    # Stored rather than derived from `verschickt_am`: raising the bound must not move a link already sent.
-    frist: CustomDateString
-    # Null on every fresh mint: nothing is yet known about the message the link went out in.
-    zustellung: FLBewerbungZustellung | None = None
-
 
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
@@ -77,24 +47,21 @@ class FLEinwilligung(BaseModel):
     """
 
     umfang: FLEinwilligungUmfang
-    # Read off stored records alone, so defaulted: a record written from now on names no speaker.
-    erteilt_von: FLEinwilligungQuelle | None = None
-    # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
-    datum: CustomOptionalDateString
-    # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
-    # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
+    # The day consent was given. A record is born of its person's own confirmation, so it is that day.
+    datum: CustomDateString
+    # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit
+    # blanked reads, which every reader takes for none rather than refusing the row.
     bestaetigt_am: CustomOptionalDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
-    # a stored record claims. Defaulted, every stored record predating it.
-    text_version: str | None = None
+    # a stored record claims.
+    text_version: str
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
-    # are independent answers, so withdrawing one leaves the other standing. Defaulted for
-    # `text_version`'s reason.
-    medien: bool = False
-    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`), empty on a record no person has
-    # answered. Never null: a choice's evidence is set dotted, and MongoDB sets no field under a null.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # are independent answers, so withdrawing one leaves the other standing.
+    medien: bool
+    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`). Never null: a choice's evidence
+    # is set dotted, and MongoDB sets no field under a null.
+    nachweis: FLEinwilligungNachweise
 
 
 class _SpielerPerson(BaseModel):
@@ -131,7 +98,9 @@ class FLSpielerPublic(_SpielerPerson):
     # An ALLOW-LIST: every field is one this surface needs. Deriving it by subtracting what looks
     # sensitive puts each later addition to the document on the wire until somebody notices -- which
     # is how a consent record came to be published.
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    # No record id (`READ-PUPIL-005`): it outlives every season and team, so it would tie together
+    # each squad row of a pupil whose name is withheld. The table keys its rows by their place.
 
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
@@ -162,37 +131,26 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # no read serves the sentinel, so a null reaching one is that exclusion failing.
     vorname: CustomNonEmptyString | None
 
-    # Defaulted where the junction requires them (the stored row the marker, the writable block the
-    # role): a squad row written before either field existed still has to be describable, and a
-    # model that 422s describes it as impossible.
-    ist_nachnominiert: bool = False
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
-    # No default, unlike every defaulted field above: a default would let a row with no consent read
-    # back as though it had been asked. Nullable for `vorname`'s reason, the sentinel being nobody who
-    # could have agreed to anything.
+    # Nullable for `vorname`'s reason: every person carries the date of their own registration.
+    geburtsdatum: CustomOptionalDateString
+    # No default: a default would let a row with no consent read back as though it had been asked.
+    # Nullable for `vorname`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
-    # Defaulted: only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
-    adresswechsel: FLSpielerAdresswechsel | None = None
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
 class FLSaisonSpielerRow(BaseModel):
-    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
-
-    `rolle` is the one defaulted key: every stored row predates it, and
-    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
-    """
+    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
@@ -200,9 +158,7 @@ class FLSaisonSpielerRow(BaseModel):
     saison_id: str
     team_id: CustomObjectId
     ist_nachnominiert: bool
-    # DEFAULTED, alone on this model: every stored row predates the field, so the validator leaves
-    # it out of `required` and a model requiring it would describe those rows as impossible.
-    rolle: FLSpielerRolle | None = None
+    rolle: FLSpielerRolle | None
     stufe: FLSpielerStufe | None
     position: FLSpielerPosition | None
     # A STRING, never an int: squad numbers are worn, not counted, and "07" is a printed shirt.
@@ -238,7 +194,9 @@ class FLPatchSpielerPayload(BaseModel):
 
     vorname: CustomKontaktName
     nachname: CustomKontaktName | None
-    geburtsdatum: CustomOptionalDateString
+    # Never null: every person carries the date of their own registration, and a save clearing it
+    # would leave one whose age no page can read.
+    geburtsdatum: CustomDateString
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -304,64 +262,6 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerAdresswechselPayload(BaseModel):
-    """The address an administrator asks a pupil's link to go to. The path names the pupil."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    email: CustomEmail
-
-
-class FLSpielerAdresswechselMint(BaseModel):
-    """A freshly minted address link, answered ONCE and stored nowhere, admin-tier whole.
-
-    The raw token exists here and in the new mailbox; the database holds its hash.
-    """
-
-    token: str
-    frist: CustomDateString
-    # Both addresses as the mint's own transaction read them: one a caller read BEFORE the mint may
-    # name a mailbox a rival request has since replaced. The stored one is told a change was asked.
-    email: CustomNonEmptyString
-    bisherige_email: str
-    # Read in the same transaction for both mails' greeting: no admin read serves one pupil by id.
-    vorname: str
-
-
-class FLSpielerAdresswechselMintResponse(BaseAPIResponse):
-    """The request's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."""
-
-    adresswechsel: FLSpielerAdresswechselMint
-
-
-class FLSpielerAdresswechselAnsichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSpielerToken
-
-
-class FLSpielerAdresswechselAnsichtResponse(BaseAPIResponse):
-    """What one address link opens, declared from nothing (`READ-PUPIL-005`): never a name, either address or the id."""
-
-    zustand: FLSpielerAdresswechselZustand
-    frist: CustomDateString
-
-
-class FLSpielerAdresswechselAntwortPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSpielerToken
-    # Required rather than defaulted: a page that omitted it would have the model answer for the
-    # person whether a mailbox is theirs.
-    antwort: FLSpielerAdresswechselAntwort
-
-
-class FLSpielerAdresswechselAntwortResponse(BaseAPIResponse):
-    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
-
-    antwort: FLSpielerAdresswechselAntwort
-
-
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     """A junction row, which has no read model of its own -- so it is echoed as it was written."""
 
@@ -387,11 +287,7 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
-    # Defaulted for `FLSpieler`'s reason. The alias stands BEHIND the projection, which hands this
-    # model the new key from either stored spelling, so nothing reaches it; it is the ruled second
-    # half of that leniency (`docs/backend/spec.md :: I302`).
-    ist_nachnominiert: bool = Field(default=False, validation_alias=AliasChoices("ist_nachnominiert", "is_nachgetragen"))
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
 
     saison_id: str
     inactive_since: CustomOptionalDateString
@@ -408,19 +304,19 @@ class FLSpielerWithMemberships(_SpielerPerson):
 
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `FLSpielerMembership`'s reason, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
-    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
-    # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
-    einwilligung: FLEinwilligung | None = None
+    # Every person carries the date of their own registration, and this read serves no sentinel.
+    geburtsdatum: CustomDateString
+    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Never null:
+    # this read serves no sentinel, and every person is born of their own confirmed registration.
+    einwilligung: FLEinwilligung
     # Served here and withheld from the base tier, as the record above is: this read is the admin
-    # editor's, and an address is the person's own.
-    email: str | None = None
-    # Defaulted for `FLSpieler.adresswechsel`'s reason.
-    adresswechsel: FLSpielerAdresswechsel | None = None
-    # The read's own judgement by the rule the confirmation refuses on, so no client compares `frist`
-    # to a clock of its own. Required, so a read forgetting to judge it fails rather than answering false.
-    adresswechsel_abgelaufen: bool
+    # editor's, and an address is the person's own. Never null: the admission writes one.
+    email: str
+    # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
+    # rather than hiding a change as none.
+    adresswechsel_id: CustomObjectId | None
+    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
+    adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
     memberships: list[FLSpielerMembership]
 
 
@@ -497,8 +393,8 @@ class FLSpielerSelbstKaderZeile(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    rolle: FLSpielerRolle | None = None
-    ist_nachnominiert: bool = False
+    rolle: FLSpielerRolle | None
+    ist_nachnominiert: bool
     inactive_since: CustomOptionalDateString
 
 
@@ -508,7 +404,6 @@ class FLSpielerKontext(BaseModel):
     Null where no squad row names a team and season; the words then render without them.
     """
 
-    vorname: CustomNonEmptyString
     team: str | None
     schule: str | None
     saison: str | None
@@ -521,7 +416,7 @@ class FLSpielerSelbst(_SpielerPerson):
     """
 
     spieler_id: CustomObjectId
-    geburtsdatum: CustomOptionalDateString = None
+    geburtsdatum: CustomDateString
     kader: list[FLSpielerSelbstKaderZeile]
 
 

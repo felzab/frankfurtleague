@@ -1,5 +1,7 @@
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from itertools import combinations, product
 from typing import Any
 
@@ -7,9 +9,9 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import DuplicateKeyError, OperationFailure
+from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
 
-from app.api.saisons.admin_router import generate_spielplan, patch_saison
+from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
 from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
@@ -19,6 +21,7 @@ from app.api.saisons.schemas import (
     FLPatchSaisonResponse,
     FLSaisonRules,
     FLSpielplanShape,
+    FLUndrawSpielplanResponse,
 )
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
@@ -26,23 +29,27 @@ from app.api.saisons.services import (
     RULES_SHAPE_AFTER_DRAW,
     SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SPIELPLAN_ALREADY_DRAWN,
+    SPIELPLAN_BERICHTE_EINGEREICHT,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
 )
+from app.api.spielberichte.admin_router import patch_spielbericht
+from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtPayload
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exception_handlers import refused_index_of
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import trace_id_var
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -207,18 +214,33 @@ async def call_draw(
     replace: bool = False,
     today: str = TODAY,
     shape: FLSpielplanShape | None = None,
+    spielberichte_collection: Any = None,
+    saisons_collection: Any = None,
 ) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
         saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=database[Collection.SAISONS] if saisons_collection is None else saisons_collection,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+    )
+
+
+async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, spielberichte_collection: Any = None) -> FLUndrawSpielplanResponse:
+    return await undraw_spielplan(
+        saison_id=SAISON_ID,
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
+        db=client,
     )
 
 
@@ -934,6 +956,286 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     )
 
     return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
+
+
+def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
+    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
+
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+
+
+async def report_a_drawn_fixture(database: AsyncDatabase) -> None:
+    """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
+
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
+    assert spiel is not None, "the premise: the season is drawn"
+    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
+
+
+class TestAReplaceTakesTheSeasonsReports:
+    def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
+
+        The season's holds no submitted report, which would refuse the replace; the neighbour's does.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            berichte = database[Collection.SPIELBERICHTE]
+            return (
+                await berichte.count_documents({"saison_id": SAISON_ID}),
+                await berichte.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
+            )
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+
+
+class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
+    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.delete_many(*args, **kwargs)
+
+
+class TestASubmittedReportKeepsTheSpielplanFromAReplace:
+    """`REQ-SPIELPLAN-007` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
+
+    def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            await report_a_drawn_fixture(database)
+            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY))
+
+            return drawn, outcome, await watermark_now(database)
+
+        drawn, outcome, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
+
+    def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_fixture(database))
+            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY, spielberichte_collection=berichte))
+            berichte.assert_landed_inside(serially=0)
+
+            return drawn, outcome, await watermark_now(database), berichte.passes
+
+        drawn, outcome, watermark, passes = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
+        assert passes == 1
+
+
+# How long the removal holds its commit for the report's write. The hold lets go once the report's anchor meets the
+# removal's season write, the crossing proved, so this bounds only a run that never crosses.
+HOLD_S = 2.0
+
+# The race cases' fixture is played the day before their report is written.
+PLAYED_ON = "2026-08-20"
+REPORTED_ON = "2026-08-21"
+
+# A goalless report, the least a write takes.
+NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
+    {
+        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [],
+        "karten": [],
+        "bemerkungen": None,
+    }
+)
+
+
+async def held_until(event: asyncio.Event) -> None:
+    try:
+        await asyncio.wait_for(event.wait(), timeout=HOLD_S)
+    except TimeoutError:
+        return
+
+
+class SaisonsHeldAfterTheirWatermark:
+    """The replace's season collection, holding the replace open once its watermark write ran, for the report to land."""
+
+    def __init__(self, collection: Any, *, written: asyncio.Event, other: asyncio.Event) -> None:
+        self._collection = collection
+        self._written = written
+        self._other = other
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        result = await self._collection.find_one_and_update(*args, **kwargs)
+        if "spielplan" in kwargs.get("update", {}).get("$set", {}):
+            self._written.set()
+            await held_until(self._other)
+        return result
+
+
+class BerichteHeldAfterTheirCountOutside:
+    """The undraw's report collection, holding the undraw open once its count outside the transaction answered, for the report to land."""
+
+    def __init__(self, collection: Any, *, counted: asyncio.Event, other: asyncio.Event) -> None:
+        self._collection = collection
+        self._counted = counted
+        self._other = other
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            return cursor
+
+        # Read whole before the hold, so the count answers what stood before the report landed.
+        rows = await cursor.to_list()
+        self._counted.set()
+        await held_until(self._other)
+
+        return CountedRows(rows)
+
+
+@dataclass(frozen=True)
+class CountedRows:
+    """The rows a held count read, handed back as the cursor that read them would."""
+
+    rows: list[Any]
+
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        return self.rows[:length] if length is not None else self.rows
+
+
+# Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a report nested in the
+# open removal conflicts on every retry, and the removal cannot commit until the server kills its transaction.
+class ReportsAnchorMeetingTheRemoval:
+    """Counts each time the report's season anchor meets a write the removal holds open, and says so.
+
+    That meeting is the crossing: a report arriving after the removal's commit meets nothing, yet passes every other assertion.
+    """
+
+    def __init__(self, collection: Any, *, met: asyncio.Event) -> None:
+        self._collection = collection
+        self._met = met
+        self.conflicts = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await self._collection.update_many(*args, **kwargs)
+        except PyMongoError as conflict:
+            if conflict.has_error_label("TransientTransactionError"):
+                self.conflicts += 1
+                self._met.set()
+            raise
+
+
+async def an_admin_first_report(
+    database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: ObjectId, landed: asyncio.Event, saisons: Any = None
+) -> str:
+    """Through the administrator's route, so its own call of the season's anchor is the one under test."""
+
+    try:
+        await patch_spielbericht(
+            spiel_id=spiel_id,
+            bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, bericht_stand=None),
+            spiele_collection=database[Collection.SPIELE],
+            saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spieler_collection=database[Collection.SPIELER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            db=client,
+            today=REPORTED_ON,
+            now=datetime(2026, 8, 21, 12, tzinfo=UTC),
+        )
+    # The fixture the draw's removal took, as the report's own write answers it.
+    except DocumentNotFoundException as gone:
+        return str(gone.error_code)
+    finally:
+        landed.set()
+
+    return COMMITTED
+
+
+async def a_reportable_fixture(database: AsyncDatabase) -> ObjectId:
+    """A group fixture dated before the report's day, which keeps the removal's window open: a date is no recorded fact."""
+
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID, "saison_phase": "gruppenphase"})
+    assert spiel is not None, "the premise: the season is drawn"
+    await database[Collection.SPIELE].update_one({"_id": spiel["_id"]}, {"$set": {"datum": PLAYED_ON}})
+
+    return spiel["_id"]
+
+
+async def orphaned_reports(database: AsyncDatabase) -> list[ObjectId]:
+    standing = {row["_id"] for row in await database[Collection.SPIELE].find({}, {"_id": 1}).to_list()}
+
+    return [row["_id"] async for row in database[Collection.SPIELBERICHTE].find() if row["spiel_id"] not in standing]
+
+
+class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
+    """`docs/backend/spec.md :: I833`: the report's tail, every judgement past, lands inside the removal before its commit."""
+
+    def test_a_report_landing_inside_a_same_day_redraw_never_outlives_it(self, mongo_replica_set_url: str):
+        """The redraw's watermark write changes nothing, so only its own anchor writes the season the report anchors."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_draw(database, client)
+            spiel_id = await a_reportable_fixture(database)
+            # Set by the report's landing or by its anchor meeting the replace, whichever comes first: the hold's end.
+            watermark_written, released = asyncio.Event(), asyncio.Event()
+            anchors = ReportsAnchorMeetingTheRemoval(database[Collection.SAISONS], met=released)
+
+            async def report() -> str:
+                await held_until(watermark_written)
+                return await an_admin_first_report(database, client, spiel_id=spiel_id, landed=released, saisons=anchors)
+
+            saisons = SaisonsHeldAfterTheirWatermark(database[Collection.SAISONS], written=watermark_written, other=released)
+            outcomes = await asyncio.gather(
+                report(),
+                # The same day's redraw, whose watermark write changes nothing.
+                outcome_of(call_draw(database, client, replace=True, saisons_collection=saisons)),
+            )
+
+            return outcomes, await orphaned_reports(database), anchors.conflicts
+
+        (report, replace), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert conflicts > 0, "the report's anchor never met the replace inside it, so nothing below is the crossing"
+        assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
+        assert COMMITTED in (report, replace), "neither side landed"
+
+    def test_a_report_landing_inside_an_undraw_of_a_season_holding_no_watermark_never_outlives_it(self, mongo_replica_set_url: str):
+        """A season drawn outside this API holds no watermark, so the undraw's `$unset` changes nothing and only its anchor meets the report."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_draw(database, client)
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
+            spiel_id = await a_reportable_fixture(database)
+            counted, released = asyncio.Event(), asyncio.Event()
+            anchors = ReportsAnchorMeetingTheRemoval(database[Collection.SAISONS], met=released)
+
+            async def report() -> str:
+                await held_until(counted)
+                return await an_admin_first_report(database, client, spiel_id=spiel_id, landed=released, saisons=anchors)
+
+            berichte = BerichteHeldAfterTheirCountOutside(database[Collection.SPIELBERICHTE], counted=counted, other=released)
+            outcomes = await asyncio.gather(report(), outcome_of(call_undraw(database, client, spielberichte_collection=berichte)))
+
+            return outcomes, await orphaned_reports(database), anchors.conflicts
+
+        (report, undraw), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert conflicts > 0, "the report's anchor never met the undraw inside it, so nothing below is the crossing"
+        assert orphans == [], f"a report outlives the undraw: the report {report!r}, the undraw {undraw!r}"
+        assert COMMITTED in (report, undraw), "neither side landed"
 
 
 class TestAReplaceTakesTheSeasonsConfirmations:

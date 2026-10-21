@@ -33,7 +33,7 @@ const person = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" }),
 });
 
 const MEMBERSHIP: FLTeamMembership = {
@@ -43,6 +43,7 @@ const MEMBERSHIP: FLTeamMembership = {
   trikot_farbe: null,
   kontakte: null,
   bestaetigungen: null,
+  adresswechsel: null,
   kontakte_stand: "",
 };
 

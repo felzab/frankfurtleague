@@ -24,7 +24,17 @@ function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { 
   };
 }
 
-const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": VERWALTUNG_LOESCHEN };
+/**
+ * An owner's pending change the erasure would end, which the reveal leaves out for a reader holding no owner's power
+ * (`REQ-PURGE-007`): it is ended only where it can be seen.
+ */
+const VERDECKTER_ADRESSWECHSEL = `Die Löschung würde eine laufende Adressänderung beenden, die nur sieht, wer Inhaberin oder Inhaber der Verwaltung ist. Lass die Adresse von einer Inhaberin oder einem Inhaber löschen. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
+
+const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
+  "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN,
+  "REQ-PURGE-005": VERWALTUNG_LOESCHEN,
+  "REQ-PURGE-007": VERDECKTER_ADRESSWECHSEL,
+};
 
 const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
 

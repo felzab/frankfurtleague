@@ -44,6 +44,9 @@ const SUBMIT_OPERATION = "POST /registrierungen";
 const BESTAETIGUNG_OPERATION = "POST /registrierungen/bestaetigung";
 const EINLADUNG_ANSICHT_OPERATION = "POST /registrierungen/einladung/ansicht";
 
+/** The refused press's body where the pupil typed their date, which the new pupil's page asks. */
+const GETIPPT = { geburtsdatum: "2010-05-01" };
+
 /** A `REQ-VAL-001` naming one body path, as `fl_frontend/src/core/api.ts` reads it off the 422. */
 const refusedAt = (...path: string[]) => refusedPayload([bodyField(path)], "/registrierungen");
 
@@ -213,18 +216,21 @@ const readOf = (link: GelesenerLink | null) => {
 
 describe("what one refused confirmation shows", () => {
   it("answers nothing for a status this flow never reaches", async () => {
-    assert.equal(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004", 500), floorOf(16).lesen), null);
-    assert.equal(await mapBestaetigungRefusal(new Error("kein API-Fehler"), floorOf(16).lesen), null);
+    assert.equal(
+      await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004", 500), GETIPPT, floorOf(16).lesen),
+      null,
+    );
+    assert.equal(await mapBestaetigungRefusal(new Error("kein API-Fehler"), GETIPPT, floorOf(16).lesen), null);
   });
 
   it("tells the three link states apart, each on its own panel", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004"), GETIPPT, floorOf(16).lesen), {
       zustand: "ungueltig",
     });
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-005"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-005"), GETIPPT, floorOf(16).lesen), {
       zustand: "abgelaufen",
     });
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-006"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-006"), GETIPPT, floorOf(16).lesen), {
       zustand: "bestaetigt",
     });
   });
@@ -233,12 +239,12 @@ describe("what one refused confirmation shows", () => {
      refusal that answers nothing the page renders. */
   it("reads the view for the age refusal and the states it tells apart alone", async () => {
     const zustaende = floorOf(16);
-    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004"), zustaende.lesen);
-    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-012"), zustaende.lesen);
+    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004"), GETIPPT, zustaende.lesen);
+    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-012"), GETIPPT, zustaende.lesen);
     assert.equal(zustaende.gelesen(), 0, "a link state spent a read on the floor");
 
     const alter = floorOf(16);
-    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), alter.lesen);
+    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), GETIPPT, alter.lesen);
     assert.equal(alter.gelesen(), 1, "the age refusal reached the reader no number of its own could answer");
   });
 
@@ -252,16 +258,21 @@ describe("what one refused confirmation shows", () => {
       ["REQ-REGISTRIERUNG-005", null, "abgelaufen"],
       ["REQ-REGISTRIERUNG-006", null, "bestaetigt"],
     ] as const) {
-      assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), readOf(link).lesen), { zustand: zustand }, code);
+      assert.deepEqual(
+        await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), GETIPPT, readOf(link).lesen),
+        { zustand: zustand },
+        code,
+      );
     }
   });
 
   it("states the floor the link answered rather than one of its own", async () => {
-    const answered = await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(18).lesen);
+    const answered = await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), GETIPPT, floorOf(18).lesen);
 
     assert.equal(answered?.fieldErrors?.geburtsdatum, alterAusserhalb(18));
     assert.notEqual(
-      (await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.fieldErrors?.geburtsdatum,
+      (await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), GETIPPT, floorOf(16).lesen))?.fieldErrors
+        ?.geburtsdatum,
       answered?.fieldErrors?.geburtsdatum,
       "the sentence ignores the floor the read handed it",
     );
@@ -270,7 +281,7 @@ describe("what one refused confirmation shows", () => {
   /* A sentence naming a floor this link was not minted under sends the person to correct a date that
      was right, so an unreadable link's refusal names none, on the field all the same. */
   it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), GETIPPT, floorOf(null).lesen), {
       fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
@@ -278,39 +289,67 @@ describe("what one refused confirmation shows", () => {
   /* The page offers the media switch from the served age on the browser's German day, so a clock
      disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
   it("answers a media yes below the media age at the floor the link answered, switching it off, and naming none unread", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), GETIPPT, floorOf(16).lesen), {
       error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
     });
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), floorOf(null).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), GETIPPT, floorOf(null).lesen), {
       error: MEDIEN_NOCH_NICHT,
     });
   });
 
   /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page first. */
   it("answers choices the link's page does not ask with the mail's link", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-017"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-017"), GETIPPT, floorOf(16).lesen), {
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
 
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", async () => {
-    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), floorOf(16).lesen), {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), GETIPPT, floorOf(16).lesen), {
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
 
   it("puts a body refusal naming a field on that field's box, with the mail's link beside it, reading no floor", async () => {
-    const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), () => Promise.reject(new Error("the floor was read")));
+    const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), GETIPPT, () => Promise.reject(new Error("the floor was read")));
 
     assert.deepEqual(mapped, { fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
   });
 
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
     assert.equal(
-      (await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.zustand,
+      (await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), GETIPPT, floorOf(16).lesen))?.zustand,
       undefined,
     );
+  });
+
+  /* The returning pupil's page has no date field, and every reopened link takes the same stored date: a
+     field error there is a toast promising entries to correct that the page does not hold. */
+  it("names the stored date and the league's address where the stored date was judged, reading no view", async () => {
+    const mapped = await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), { geburtsdatum: null }, () =>
+      Promise.reject(new Error("the view was read")),
+    );
+
+    assert.deepEqual(mapped, {
+      error:
+        "Dein bei uns gespeichertes Geburtsdatum liegt außerhalb der Altersgrenzen dieser Saison. Du siehst es in Deinem Konto. " +
+        `Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}.`,
+    });
+  });
+
+  /* Only the league can date the person, so the mail's link, which `REQ-REGISTRIERUNG-017` sends a pupil back to,
+     would take the same undated person on every reopening. */
+  it("sends a returning pupil the league holds no birthdate for to the league, never back to the link", async () => {
+    const mapped = await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-019"), { geburtsdatum: null }, () =>
+      Promise.reject(new Error("the view was read")),
+    );
+
+    assert.deepEqual(mapped, {
+      error:
+        "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen. " +
+        `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen.`,
+    });
   });
 
   /* Both directions against the published document, as the submission's twin has: a code the
@@ -326,10 +365,11 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-010",
       "REQ-REGISTRIERUNG-012",
       "REQ-REGISTRIERUNG-017",
+      "REQ-REGISTRIERUNG-019",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
-      const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
+      const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), GETIPPT, floorOf(16).lesen);
       assert.notEqual(own ?? answerShown("POST /registrierungen/bestaetigung", code, () => null), null, `${code} maps to nothing`);
     }
     assert.deepEqual(published, [...mapped].sort());

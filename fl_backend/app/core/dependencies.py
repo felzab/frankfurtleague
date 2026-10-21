@@ -9,13 +9,17 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.db import (
     get_adressanker_collection,
+    get_adresswechsel_collection,
+    get_adresswechsel_postausgang_collection,
     get_aktionen_collection,
     get_berechtigungen_angekuendigt_collection,
+    get_berechtigungen_antraege_collection,
     get_berechtigungen_collection,
     get_berechtigungen_postausgang_collection,
     get_bewerbungen_collection,
     get_database,
     get_db_client,
+    get_drosselung_collection,
     get_einladungen_collection,
     get_registrierungen_collection,
     get_saison_spieler_collection,
@@ -23,6 +27,7 @@ from app.core.db import (
     get_saisons_collection,
     get_schiedsrichter_collection,
     get_sperrliste_collection,
+    get_spielberichte_collection,
     get_spielbestaetigungen_collection,
     get_spiele_collection,
     get_spieler_collection,
@@ -72,6 +77,16 @@ BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(get_ber
 AdressankerCollection = Annotated[AsyncCollection, Depends(get_adressanker_collection)]
 
 SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(get_spielbestaetigungen_collection)]
+
+SpielberichteCollection = Annotated[AsyncCollection, Depends(get_spielberichte_collection)]
+
+AdresswechselCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_collection)]
+
+AdresswechselPostausgangCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_postausgang_collection)]
+
+DrosselungCollection = Annotated[AsyncCollection, Depends(get_drosselung_collection)]
+
+BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_antraege_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

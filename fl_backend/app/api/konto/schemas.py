@@ -1,11 +1,15 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
+from app.api.adresswechsel.services import FLAdresswechselWartetAuf, FLAdresswechselWeg
+from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.bewerbungen.schemas import FLKontaktRolle
-from app.api.schiedsrichter.schemas import FLSchiedsrichterKontext, FLSchiedsrichterSelbst
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
 from app.api.spieler.schemas import FLEinwilligung, FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
 from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -27,7 +31,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
     einwilligung: FLEinwilligung
     # The block's `text_version` under the name the page reads it by: the words shown read-only beside the
     # control are the ones confirmed, never an account-page press's.
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     nachweis_stand: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
@@ -44,20 +48,19 @@ class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
 
     inactive_since: CustomOptionalDateString
     einwilligung: FLEinwilligung
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     nachweis_stand: FLEinwilligungStand
     erteilbar: bool
     medien_angeboten: bool
     mindestalter: int
     medien_mindestalter: int = Field(gt=0)
-    kontext: FLSchiedsrichterKontext
 
 
 class FLSitzBestaetigt(BaseModel):
     """One confirmation a person gave on a row: the seats it answered, its words and the floor its page named."""
 
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    text_version: str | None
+    text_version: str
     bestaetigt_am: CustomOptionalDateString
     # The age floor that page named over these roles, which the page fills `{minAlter}` from.
     mindestalter: int
@@ -118,7 +121,7 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     # The club's own name, today; null where its document is gone.
     team_name: str | None
     saison_id: str
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     # Both null on a returning pupil's registration, which asked none: the page shows its stored data
     # and offers no consent control, the person's own record holding their choices.
     umfang: FLEinwilligungUmfang | None
@@ -137,6 +140,69 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
+
+
+class FLKontoAdresswechselOffen(BaseModel):
+    """The address's live change as its own account page reads it."""
+
+    # What the approval names, so a tab drawn before a later start approves nothing it never showed.
+    id: CustomObjectId
+    # Whole where the person typed it on this page; masked where an administrator started the change, which may be a
+    # pretext whose target the holder of the address on file must not learn (`app/api/adresswechsel/services.py :: maskierte_adresse`).
+    email: str
+    weg: FLAdresswechselWeg
+    wartet_auf: FLAdresswechselWartetAuf
+    gueltig_bis: FLUtcInstant | None
+    wirksam_ab: FLUtcInstant | None
+    genehmigung: FLAdresswechselGenehmigungStand | None
+    # Judged as the hourly pass ends one, so the page closes a lapsed step's press without a clock of its own.
+    abgelaufen: bool
+
+
+class FLKontoAdresswechselResponse(BaseAPIResponse):
+    """Whether the signed-in address may change, and the change pending on it."""
+
+    # The address holds anything a change moves, a grant included.
+    moeglich: bool
+    offen: FLKontoAdresswechselOffen | None
+
+
+class FLKontoAdresswechselPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: CustomEmail
+
+
+class FLKontoAdresswechselMintResponse(BaseAPIResponse):
+    """The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither."""
+
+    id: CustomObjectId
+    token: str
+    stopp_token: str
+    gueltig_bis: FLUtcInstant
+    email: str
+    bisherige_email: str
+    vorname: str
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
+    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    genehmiger_anzahl: int = Field(ge=0)
+
+
+class FLKontoAdresswechselFreigabePayload(BaseModel):
+    """The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: CustomObjectId
+
+
+class FLKontoAdresswechselFreigabeResponse(BaseAPIResponse):
+    """The approval, answered ONCE to the frontend's server, which mails the new mailbox its link."""
+
+    id: CustomObjectId
+    token: str
+    gueltig_bis: FLUtcInstant
+    email: str
 
 
 class FLKontoEinwilligungenResponse(BaseAPIResponse):

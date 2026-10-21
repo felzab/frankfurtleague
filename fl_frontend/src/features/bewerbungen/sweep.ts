@@ -9,10 +9,12 @@ import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
+import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
+import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -21,8 +23,8 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
+import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
 import type { FLRegistrierungSweepBenachrichtigung, FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
-import type { FLSchiedsrichterAdresswechselSweepResponse } from "@/features/schiedsrichter/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
@@ -30,7 +32,7 @@ import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./sc
  * One hour. Every clock selects on a date, so the interval decides only how late in the day a
  * deadline is acted on, and a shorter one buys a punctuality nobody has asked for.
  */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend
@@ -43,7 +45,7 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
 const SWEEP_OPERATION = "bewerbungSweep";
 
 /** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
-type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed";
+type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "adresswechsel.sweep_failed";
 
 /** The rows each season half's calls passed over in one pass, summed over the seasons that answered. */
 type Uebergangen = { bewerbung: number; registrierung: number };
@@ -95,15 +97,22 @@ export async function runBewerbungSweep(): Promise<void> {
   }
 }
 
-/** A referee's or a pupil's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
+/**
+ * Every pending change whose step lapsed, and every one whose waiting time ended. On every pass: no switch holds a
+ * lapsed address or keeps a due one from taking effect.
+ */
 async function sweepAdresswechsel(): Promise<void> {
   let entfernt = 0;
+  let wirksam = 0;
+  let verworfen = 0;
   try {
-    let antwort: FLSchiedsrichterAdresswechselSweepResponse;
+    let antwort: FLAdresswechselSweepResponse;
     let nach: string | null = null;
     do {
-      antwort = await postSchiedsrichterAdresswechselSweep(nach);
+      antwort = await postAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
+      verworfen += antwort.verworfen;
+      wirksam += antwort.wirksam;
       // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
       // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
       if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
@@ -113,11 +122,19 @@ async function sweepAdresswechsel(): Promise<void> {
     } while (nach !== null);
 
     // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-    logPass("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend }, antwort.verbleibend);
+    logPass(
+      "adresswechsel.sweep_pass",
+      { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen, verbleibend: antwort.verbleibend },
+      antwort.verbleibend,
+    );
   } catch (error) {
-    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
-    logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
+    logger.info("adresswechsel.sweep_pass", { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen });
+    logSweepFailure("adresswechsel.sweep_failed", error, undefined);
   }
+
+  // Whatever the calls came to: every notice an end queued, this pass's and any whose answer a confirmation or an
+  // approval lost, is delivered from the outbox (`docs/backend/spec.md :: I846`).
+  await runAdresswechselPostausgang();
 }
 
 async function sweepAlleSaisons(): Promise<void> {
@@ -150,7 +167,7 @@ async function sweepAlleSaisons(): Promise<void> {
  * tells a half failing on every row from a healthy one.
  */
 function logPass(
-  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass",
+  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "adresswechsel.sweep_pass",
   felder: Record<string, unknown>,
   offen: number,
 ): void {

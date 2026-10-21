@@ -10,7 +10,7 @@ import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answerReadsWith,
@@ -33,13 +33,9 @@ const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // landing. A case naming an administrator says so itself.
 beforeEach(() => setSession(null, "/bereich"));
 
-// The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
-
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
-const { FunktionenGuard } = await import("@/features/funktionen/components/providers/FunktionenGuard.tsx");
 const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
 const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
@@ -67,7 +63,7 @@ async function redirectsOf(Page: () => unknown): Promise<string[]> {
   return thrown.flatMap((error) => redirectTarget(error) ?? []);
 }
 
-/** The landing as the person area mounts it: under its layout, whose guard runs first. */
+/** The landing as the person area mounts it: under its layout, whose hold runs first. */
 const landingUnderItsLayout = () => h(PersoenlichLayout, { children: h(PersoenlichStartPage) });
 
 /** The `href` of every link the landing's switch offers. */
@@ -86,23 +82,13 @@ async function renderedAlone(Page: () => ReactNode | Promise<ReactNode>): Promis
   return { markup: markup, reads: readsOf(steps).map(({ endpoint }) => endpoint) };
 }
 
-describe("the guard over the person area", () => {
-  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
-     redirect would pass this case with the layout's gone. */
-  it("sends a request with no person's session to sign in", async () => {
-    setSubject(null);
-    const redirects = await redirectsOf(() => h(PersoenlichLayout, { children: h("p", null, "Seite") }));
-
-    // Every part reading the session turns the request away alike, each slot of the frame and the guard.
-    assert.ok(redirects.length > 0, "the layout turns nobody away");
-    assert.deepEqual([...new Set(redirects)], ["/signin"]);
-  });
-
-  /* The guard alone, which both lanes' layouts mount around the page slot, beside a frame that paints without it. */
-  it("turns a missing session away before anything under it renders", async () => {
+describe("the person area's layout", () => {
+  /* The layout itself redirects nobody (`docs/frontend/spec.md :: I834`), so the page under it is what
+     sends a lapsed session on: its redirect must reach the walk through every part holding the page slot. */
+  it("lets the page under it send a request with no person's session to sign in", async () => {
     setSubject(null);
 
-    assert.deepEqual(await redirectsOf(() => h(FunktionenGuard, { children: h("p", null, "Seite") })), ["/signin"]);
+    assert.deepEqual(await redirectsOf(landingUnderItsLayout), ["/signin"]);
   });
 
   /* A layout above does not rerun on a soft navigation, so a nested one entered on a lapsed session is
@@ -286,32 +272,65 @@ describe("the way back from the account page", () => {
 /** One referee row as the own-data read serves it; the read's emptiest answer would hold none to show. */
 const SCHIEDSRICHTER_SELBST = { ...schiedsrichterSelbst(), schiedsrichter_id: TEAM_A };
 
+/** One fixture the referee is booked on, as their own rows' read serves it. */
+const EINSATZ = {
+  id: "6890a1b2c3d4e5f607250051",
+  spiel_id: "6890a1b2c3d4e5f607250061",
+  schiedsrichter_id: TEAM_A,
+  ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+  zustand: "gueltig",
+  begruendung: null,
+  eingetragen: false,
+  vergangen: false,
+};
+
+/** The referee's page, its two reads answering the referee's own data and the fixtures named. */
+async function refereePage(einsaetze: readonly (typeof EINSATZ)[]) {
+  setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+  answerReadsWith((endpoint, schema, params) => {
+    if (endpoint === "/schiedsrichter/selbst") return { acknowledged: 1, schiedsrichter: [SCHIEDSRICHTER_SELBST] };
+    if (endpoint === "/spielbestaetigungen/selbst") return { acknowledged: 1, spielbestaetigungen: einsaetze };
+    return EMPTIEST_ANSWER(endpoint, schema, params);
+  });
+  try {
+    return await renderedAlone(PersoenlichSchiedsrichterPage);
+  } finally {
+    answerReadsWith(EMPTIEST_ANSWER);
+  }
+}
+
 describe("the referee's page", () => {
-  /* The person tier's own read, and no other: the page shows the referee their own data. */
-  it("reads the referee's own records and shows their data", async () => {
-    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    answerReadsWith((endpoint, schema, params) =>
-      endpoint === "/schiedsrichter/selbst"
-        ? { acknowledged: 1, schiedsrichter: [SCHIEDSRICHTER_SELBST] }
-        : EMPTIEST_ANSWER(endpoint, schema, params),
-    );
-    const { markup, reads } = await renderedAlone(PersoenlichSchiedsrichterPage);
+  /* The person tier's own reads, and no other: the page shows the referee their own data and their fixtures. */
+  it("reads the referee's own records and rows and shows their data", async () => {
+    const { markup, reads } = await refereePage([]);
 
-    assert.deepEqual(reads, ["/schiedsrichter/selbst"]);
+    assert.deepEqual([...reads].sort(), ["/schiedsrichter/selbst", "/spielbestaetigungen/selbst"]);
     assert.ok(textOf(markup, " ").includes("Mara Okafor"), "the referee's own data is not what renders");
-    answerReadsWith(EMPTIEST_ANSWER);
   });
 
-  /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
-  it("sends a referee the backend finds no confirmed row for to the landing", async () => {
-    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    answerReadsWith(() => {
-      throw refusedOn("GET /schiedsrichter/selbst", "REQ-FUNKTION-001");
+  /* The page's wiring alone: the view's own suite holds the empty state an empty list draws, so the page handing the
+     section no list would pass there and fail here. */
+  it("shows a booked fixture rather than the empty state", async () => {
+    const { EINSAETZE_LEER } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
+
+    const gebucht = textOf((await refereePage([EINSATZ])).markup, " ");
+    assert.ok(gebucht.includes("Ernst-Reuter-Schule gegen Goethe-Gymnasium"), "the booked fixture does not render");
+    assert.ok(!gebucht.includes(EINSAETZE_LEER), "a referee booked on a fixture is told they are booked on none");
+  });
+
+  /* The row went between the page's check and the backend's: the page's own turn-away, reached late, by either read. */
+  for (const operation of ["GET /schiedsrichter/selbst", "GET /spielbestaetigungen/selbst"]) {
+    it(`sends a referee the backend finds no confirmed row for to the landing, refused by ${operation}`, async () => {
+      setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+      answerReadsWith((endpoint, schema, params) => {
+        if (operation.endsWith(endpoint)) throw refusedOn(operation, "REQ-FUNKTION-001");
+        return EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+
+      assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
+      answerReadsWith(EMPTIEST_ANSWER);
     });
-
-    assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
-    answerReadsWith(EMPTIEST_ANSWER);
-  });
+  }
 
   /* The page speaks to a referee, so a person holding none is sent where their own Funktionen are. */
   it("sends a person holding no referee row to the landing, logging why", async () => {
@@ -435,18 +454,15 @@ describe("the bare /bereich/admin", () => {
 /** A page answered with the team area's own parameters, which every other page ignores. */
 const PAGE_PARAMS = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
 
-/** A segment matching what no sibling route does, whose page answers not-found for everyone. */
-const CATCH_ALL = /^\[\.\.\..+\]$/;
-
-/** Every person and team page, read off the tree so a page added tomorrow answers to the case below. */
+/** Every person and team page, the catch-alls among them, read off the tree so a page added tomorrow answers to the case below. */
 const PERSON_PAGES = [
   ...filesUnder(path.join(APP_DIR, "bereich", "(persoenlich)"), (name) => name === "page.tsx", 3),
   ...filesUnder(path.join(APP_DIR, "bereich", "team"), (name) => name === "page.tsx", 1),
-].filter((file) => !CATCH_ALL.test(path.basename(path.dirname(file))));
+];
 
 describe("every person page's subject", () => {
-  /* A layout does not rerun on a soft navigation, so a lapsed session meets its redirect in the page.
-     Called alone: the harness walks a page only where its layout returns it, which Next does not. */
+  /* No layout turns a lapsed session away (`docs/frontend/spec.md :: I834`), and a soft navigation reruns
+     none: the page is the one turn-away. Called alone, as the harness walks a page only where its layout returns it. */
   it("sends a request with no person's session to sign in from the page itself", async () => {
     setSubject(null);
 
@@ -476,7 +492,7 @@ async function layoutsDownTo(dir: string): Promise<Layout[]> {
   return Promise.all(chain.map(async (file) => ((await import(pathToFileURL(file).href)) as { default: Layout }).default));
 }
 
-/** Around the page, recording that the walk got past every guard to it. */
+/** Around the page, recording that the walk got past every layout to it. */
 let reached = false;
 const Probe = ({ children }: { children: ReactNode }) => {
   reached = true;
@@ -499,9 +515,9 @@ async function readsUnder(dir: string): Promise<number> {
 }
 
 describe("an admin render's subject reads", () => {
-  /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
-     alone. A real admin page under every layout above it, which is where a guard added too high lands. */
-  it("runs no person guard", async () => {
+  /* The person's session read sits in the person's layouts only, so an administrator's request runs
+     `getAdminSession` alone. A real admin page under every layout above it, which is where a read added too high lands. */
+  it("runs no person session read", async () => {
     setSession({ user: { email: "pia@example.org" } }, "/bereich");
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 

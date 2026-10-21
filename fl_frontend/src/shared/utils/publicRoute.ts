@@ -6,7 +6,8 @@ import { logger } from "@/core/logging";
 import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
 
 import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
-import { explainsItself, logCodedFailure } from "./degradedRead";
+import { logActionFailure } from "./actionFailure";
+import { explainsItself } from "./degradedRead";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -29,7 +30,7 @@ export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
 
 /** A route's error line, carrying the codes a thrown API error holds. */
 function logRouteError(message: string, error: unknown): void {
-  logCodedFailure(message, error, "FE-ACT-001");
+  logActionFailure(message, error);
 }
 
 /**

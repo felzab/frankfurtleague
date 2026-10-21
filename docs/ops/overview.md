@@ -102,7 +102,7 @@ documentation is a development and in-network tool ([`spec.md`](spec.md) I134).
 [`spec.md`](spec.md) §1.4, and I3's `default_server` rejecting an unknown `Host` at TLS time.
 
 **The published unauthenticated writes are rate-limited at the edge**, the sign-in POST among them,
-whose action id ships in a client chunk. Which paths carry a zone, their pairing and what carries no
+whose action id ships in a client chunk, and so is every page a mailed or shared link opens. Which paths carry a zone, their pairing and what carries no
 zone at all are [`spec.md`](spec.md) §1.3.
 
 ## Images and deployment

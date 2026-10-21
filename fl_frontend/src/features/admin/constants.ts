@@ -1,3 +1,4 @@
+import At from "@gravity-ui/icons/At";
 import Ban from "@gravity-ui/icons/Ban";
 import Calendar from "@gravity-ui/icons/Calendar";
 import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
@@ -15,7 +16,7 @@ import PersonXmark from "@gravity-ui/icons/PersonXmark";
 import Sliders from "@gravity-ui/icons/Sliders";
 import Tray from "@gravity-ui/icons/Tray";
 
-import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
+import { ADMINISTRATOREN_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
 
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
@@ -46,6 +47,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   Key,
   // A person taken out of the league whole, never the bin a single record's removal wears.
   PersonXmark,
+  // An address, never the envelope the contacts list wears: what moves is the sign-in, not a message.
+  At,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -181,6 +184,22 @@ export const LOESCHUNG_EINTRAG = {
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
+/** The address tool's entry, named where an editor and a refusal send a reader to it, so a rename reaches both. */
+export const ADRESSWECHSEL_EINTRAG = {
+  id: "adresswechsel",
+  label: "Adressänderung auf Anfrage",
+  iconName: "At",
+  hint: {
+    // „sagt“: the first way asks the address on file, which only approves where someone still signs in there.
+    lead: "Die E-Mail-Adresse einer Person ändern, die sagt, dass sie sich nicht mehr anmelden kann.",
+    points: [
+      { term: "Wer sich anmelden kann", detail: "ändert die eigene Adresse selbst auf der Kontoseite." },
+      // Keyed by the address a person writes from, as the erasure's page is: nothing here is browsed.
+      { term: "Die bisherige Adresse", detail: "gibst Du ein, um zu sehen, was unter ihr steht." },
+    ],
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // Deliberately unnamed: a season is created and edited here, which makes this the subject the menu
   // is organised under rather than one more group in it. `SidemenuNavLinks` renders neither a label
@@ -288,7 +307,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
       SPERRLISTE_EINTRAG,
       {
         id: "administratoren",
-        label: "Administratoren",
+        label: ADMINISTRATOREN_TITEL,
         iconName: "Key",
         hint: {
           lead: "Wer die Verwaltung der Liga betreten darf.",
@@ -299,11 +318,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // Its own group rather than a row under „Protokoll“, which records what an administrator did: an erasure is a
-  // thing done, answering a person's request.
+  // Its own group rather than a row under „Protokoll“, which records what an administrator did: an erasure and an address change are
+  // things done, each answering a person's request.
   {
     category_name: "Datenschutz",
-    sub_options: [LOESCHUNG_EINTRAG],
+    sub_options: [LOESCHUNG_EINTRAG, ADRESSWECHSEL_EINTRAG],
   },
 
   {

@@ -72,7 +72,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   const aufnahme = useTwoPressConfirm();
   const ablehnung = useTwoPressConfirm();
   const name = `${registrierung.vorname} ${registrierung.nachname}`;
-  const { person, vorschlag } = registrierung;
+  const { person } = registrierung;
   const ziel = { ...adresse, registrierung_id: registrierung.registrierung_id };
 
   /** Both decisions take the row off the list, so the press's place is read now and landed on once the write succeeded. */
@@ -113,11 +113,9 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
   // The address resolved to somebody whose details differ: the yes names that person, and the no is a
   // decline telling the pupil to register under an address of their own.
   const gefragt = person !== null && person.weicht_ab;
-  // A name alone proposes: the armed press, the safer answer, makes a new person.
-  const vorgeschlagen = person === null ? vorschlag : null;
   // Each armed control names its effect, so one habitual press means the same in every card: the
   // primary is the safer answer, the stored record where the address resolved it.
-  const gewaffnet = gefragt ? `Als ${kaderName(person)} aufnehmen` : vorgeschlagen === null ? "Ja, aufnehmen" : "Als neue Person aufnehmen";
+  const gewaffnet = gefragt ? `Als ${kaderName(person)} aufnehmen` : "Ja, aufnehmen";
 
   // The row's cancel hands the focus back to the control that armed it, and the row's first press is
   // the admission: a cancelled decline names its own control here, read once the decline has disarmed.
@@ -173,10 +171,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               registrieren.
             </p>
           )}
-          {vorgeschlagen !== null && <p className="fluid-sm text-pretty text-foreground">{dieselbePerson(kaderName(vorgeschlagen))}</p>}
-          {!gefragt && vorgeschlagen === null && (
-            <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>
-          )}
+          {!gefragt && <p className="fluid-sm text-pretty text-foreground">{registrierung.vorname} kommt in den Kader dieser Saison.</p>}
         </ConfirmReveal>
       )}
       {ablehnung.isConfirming && (
@@ -207,18 +202,6 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
               }
               onPress={() => aufnehmen(gefragt ? person.spieler_id : null)}
             />
-          </FocusSlot>
-        )}
-        {aufnahme.isConfirming && vorgeschlagen !== null && (
-          <FocusSlot name={AUFNEHMEN}>
-            <Button
-              type="button"
-              variant="secondary"
-              isPending={aufnahme.isPending}
-              onPress={() => aufnehmen(vorgeschlagen.spieler_id)}
-              className={formButton({ intent: "cancel", stacks: true })}>
-              {`Als ${kaderName(vorgeschlagen)} aufnehmen`}
-            </Button>
           </FocusSlot>
         )}
         {aufnahme.isConfirming && gefragt && (

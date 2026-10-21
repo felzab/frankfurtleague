@@ -17,17 +17,16 @@ import {
    the shapes and never a value inside one. */
 const SERVED_EINWILLIGUNG = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-10-01",
   bestaetigt_am: "2026-10-01",
-  text_version: "2026-10-spielerseite-4",
+  text_version: "2026-10-spielerseite-5",
   medien: false,
   nachweis: {
-    umfang: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4", erteilt_zuvor: null },
+    umfang: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-5", erteilt_zuvor: null },
     medien: {
       am: "2026-10-03T16:05:31+00:00",
       text_version: "2026-10-konto-spieler",
-      erteilt_zuvor: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4" },
+      erteilt_zuvor: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-5" },
     },
   },
 };
@@ -50,7 +49,7 @@ describe("a consent record whose evidence is filled, as a read serves it", () =>
 // answers both names as `null` for a person it withholds (`READ-PUPIL-003`), and a stricter mirror
 // reports a landed write as failed.
 describe("the floor a read of a player states", () => {
-  const publik = { id: "0".repeat(24), vorname: "Anna", nachname: "M.", nummer: "7", position: "Tor" };
+  const publik = { vorname: "Anna", nachname: "M.", nummer: "7", position: "Tor" };
   const echo = { acknowledged: 1, spieler_id: "0".repeat(24), vorname: "Anna", nachname: "Mustermann", inactive_since: null };
 
   it("takes the two null names the gate serves for a withheld person", () => {
@@ -64,10 +63,20 @@ describe("the floor a read of a player states", () => {
   });
 });
 
+// The squad page hands the parsed rows to a client component, so whatever the mirror keeps ships in
+// the page's payload: a record id the wire carried would tie a withheld row to its others (`READ-PUPIL-005`).
+describe("the squad row a visitor's page receives", () => {
+  it("drops a record id the answer carries", () => {
+    const served = FLSpielerPublicSchema.parse({ id: "0".repeat(24), vorname: null, nachname: null, nummer: "7", position: "Tor" });
+
+    assert.equal("id" in served, false);
+  });
+});
+
 // An administrator's edit may not store a name the pupil's own registration would refuse, and says so
 // in the sentence every form holding a name to that ceiling says.
 describe("the ceiling a person edit holds each name to", () => {
-  const names = { id: "0".repeat(24), vorname: "Max", nachname: "Mustermann", geburtsdatum: null };
+  const names = { id: "0".repeat(24), vorname: "Max", nachname: "Mustermann", geburtsdatum: "2009-05-04" };
 
   for (const part of ["vorname", "nachname"] as const) {
     it(`refuses a ${part} one past the registration's ceiling, in that ceiling's words`, () => {

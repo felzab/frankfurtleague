@@ -15,6 +15,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
@@ -132,7 +133,7 @@ const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperso
   email,
   telefon,
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
@@ -150,8 +151,9 @@ const SCHIEDSRICHTER = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
+  abgelaufen: { bestaetigung: false },
 };
 
 const SPIELER = {
@@ -159,17 +161,11 @@ const SPIELER = {
   vorname: "Lena",
   nachname: "Meier",
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   email: "lena.meier@schule.example",
-  adresswechsel: null,
-  adresswechsel_abgelaufen: false,
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
 };
-
-/** A new address waiting on its mailbox, whose panel's re-send moves the record as the request does. */
-const SPIELER_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
-
-/** The referee's twin of the pupil's waiting address. */
-const SCHIEDSRICHTER_ADRESSWECHSEL = { email: "pia@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
 
 const SPIELER_MEMBERSHIP = {
   team_id: TEAM_A.teamId,
@@ -182,13 +178,12 @@ const SPIELER_MEMBERSHIP = {
 };
 
 /** The player's editor in the season its squad row stands in unless told otherwise, and what the view hands it besides. */
-const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean; isMember?: boolean } = {}) => ({
+const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; isMember?: boolean } = {}) => ({
   spieler: {
     ...SPIELER,
     inactive_since: over.inactiveSince ?? null,
-    adresswechsel: over.adresswechsel === true ? SPIELER_ADRESSWECHSEL : null,
   },
-  einwilligung: null,
+  einwilligung: bestaetigteEinwilligung(),
   istFassungBekannt: true,
   saison: {
     saisonId: "2026",
@@ -231,7 +226,15 @@ const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: 
     membership:
       over.isMember === false
         ? null
-        : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
+        : {
+            gruppe: "A" as const,
+            austritt: null,
+            trikot_farbe: null,
+            kontakte: null,
+            bestaetigungen: null,
+            adresswechsel: null,
+            kontakte_stand: "stand",
+          },
   },
   today: "2026-09-14",
   gruppeLocked: over.locked ?? false,
@@ -287,8 +290,15 @@ const saisonProps = (over: { drawn?: boolean } = {}) => ({
           spieltageCount: 5,
           schedule: SAISON_SCHEDULE,
           bestand: { spiele: 15, erfasst: 0, angesetzt: 0 },
+          eingereichteBerichte: 0,
         }
-      : { spielplan: null, spieltageCount: 0, schedule: SAISON_SCHEDULE, bestand: { spiele: 0, erfasst: 0, angesetzt: 0 } },
+      : {
+          spielplan: null,
+          spieltageCount: 0,
+          schedule: SAISON_SCHEDULE,
+          bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+          eingereichteBerichte: 0,
+        },
   hasDrawnSpiele: over.drawn === true,
   spieltagBound: { startMax: null, endMin: null },
 });
@@ -370,6 +380,7 @@ const EDITORS: Record<string, Editor> = {
       return renderEditor(
         h(AdminKontakteEditForm, {
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+          medienFragen: {},
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",
@@ -385,6 +396,7 @@ const EDITORS: Record<string, Editor> = {
                 trainer_ist_zugleich: null,
               },
               bestaetigungen: null,
+              adresswechsel: null,
               kontakte_stand: "stand",
             },
           },
@@ -919,12 +931,6 @@ type RecordMove = {
 /** The squad row the pupil editor's season addresses, as its removal and return name it. */
 const SQUAD_ROW_KEY = { spieler_id: SPIELER.id, saison_id: "2026" };
 
-/** A new address typed into the pupil's address box, which no save carries. */
-async function typeNewAddress(user: UserEvent): Promise<void> {
-  await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-  await typeInto(user, box("Neue E-Mail-Adresse"), "lena@neu.example");
-}
-
 const RECORD_MOVES: Record<string, RecordMove> = {
   "the venue's reactivation": {
     render: async () => {
@@ -984,38 +990,6 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Bestätigungslink senden",
     write: "einladeSchiedsrichterAction",
   },
-  "the referee's waiting address's re-send": {
-    render: async () => {
-      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
-
-      return renderEditor(
-        h(AdminSchiedsrichterEditView, {
-          istFassungBekannt: true,
-          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
-          inactiveSince: null,
-        }),
-      );
-    },
-    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
-    press: "Link erneut senden: Neue E-Mail-Adresse",
-    write: "einladeAdresswechselAction",
-  },
-  "the referee's waiting address's discard": {
-    render: async () => {
-      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
-
-      return renderEditor(
-        h(AdminSchiedsrichterEditView, {
-          istFassungBekannt: true,
-          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
-          inactiveSince: null,
-        }),
-      );
-    },
-    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
-    press: "Änderung verwerfen",
-    write: "verwirfAdresswechselAction",
-  },
   "the player's reactivation": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -1039,41 +1013,6 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     write: "deleteSpielerAction",
     payload: { id: SPIELER.id },
   },
-  // The address panel's two link writes, each re-keying the editor on the moved block.
-  "the player's address change": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps()));
-    },
-    ready: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-      await typeInto(user, box("Neue E-Mail-Adresse"), "lena@neu.example");
-    },
-    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
-    press: "Link an neue Adresse senden",
-    write: "beantrageSpielerAdresswechselAction",
-  },
-  "the player's waiting address's re-send": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
-    },
-    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
-    press: "Link erneut senden",
-    write: "einladeSpielerAdresswechselAction",
-  },
-  "the player's waiting address's discard": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
-    },
-    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
-    press: "Änderung verwerfen",
-    write: "verwirfSpielerAdresswechselAction",
-  },
   "the squad row's removal": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -1094,62 +1033,6 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     // The entry's own pick, which the draft leaves out: the player holds no squad row for it to change.
     ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
-    press: "In Kader 2026 aufnehmen",
-    write: "postSaisonSpielerAction",
-  },
-  // The address box holds no draft field, yet each of these re-keys the editor over its typing.
-  "the player's waiting address's re-send, over a typed new address": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
-    },
-    type: typeNewAddress,
-    press: "Link erneut senden",
-    write: "einladeSpielerAdresswechselAction",
-  },
-  "the squad row's removal, over a typed new address": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps()));
-    },
-    type: typeNewAddress,
-    press: "Aus Kader 2026 austragen",
-    write: "deleteSaisonSpielerAction",
-    payload: SQUAD_ROW_KEY,
-  },
-  "the player's reactivation, over a typed new address": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps({ inactiveSince: RETIRED_ON })));
-    },
-    type: typeNewAddress,
-    press: "Reaktivieren",
-    write: "reactivateSpielerAction",
-    payload: { id: SPIELER.id },
-  },
-  "the player's retirement, over a typed new address": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps()));
-    },
-    type: typeNewAddress,
-    press: "Stilllegen",
-    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
-    write: "deleteSpielerAction",
-    payload: { id: SPIELER.id },
-  },
-  "the player's squad entry, over a typed new address": {
-    render: async () => {
-      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-
-      return renderEditor(h(AdminSpielerEditView, spielerProps({ isMember: false })));
-    },
-    ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
-    type: typeNewAddress,
     press: "In Kader 2026 aufnehmen",
     write: "postSaisonSpielerAction",
   },
@@ -1504,119 +1387,81 @@ describe("a season page holding a redraw's moved shape", () => {
   });
 });
 
-/** The pupil page as its route renders it: the view holding the address box's typing above the editor it keys. */
-async function renderSpielerPage(): Promise<{ rerenderSaved: () => Promise<void>; rerenderConfirmed: () => Promise<void> }> {
-  const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
-  const props = spielerProps();
-  const page = (spieler: typeof props.spieler): ReactNode =>
-    underNext(h(AdminSpielerEditView, { ...props, spieler: spieler }), { router, search: "saison_id=2026" });
-  const { rerender } = render(page(props.spieler));
+/** The referee page as its route renders it, and the save's refresh it is handed. */
+async function renderSchiedsrichterPage(): Promise<{ rerenderSaved: () => Promise<void> }> {
+  const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+  const page = (schiedsrichter: typeof SCHIEDSRICHTER): ReactNode =>
+    underNext(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: schiedsrichter, inactiveSince: null }), {
+      router,
+      search: "saison_id=2026",
+    });
+  const { rerender } = render(page(SCHIEDSRICHTER));
 
   return {
     // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
-    rerenderSaved: () => act(async () => void rerender(page({ ...props.spieler, vorname: "Lena-Marie" }))),
-    // What a confirmed change hands it: the stored address moved, which the typing is measured against.
-    rerenderConfirmed: () => act(async () => void rerender(page({ ...props.spieler, email: "lena@neu.example" }))),
+    rerenderSaved: () => act(async () => void rerender(page({ ...SCHIEDSRICHTER, name: "Pia Kraft-Meier" }))),
   };
 }
 
-const newAddressValue = (): string | undefined => screen.queryByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" })?.value;
+async function renderSpielerPage(): Promise<{ rerenderSaved: () => Promise<void> }> {
+  const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+  const props = spielerProps();
+  const page = (vorname: string): ReactNode =>
+    underNext(h(AdminSpielerEditView, { ...props, spieler: { ...props.spieler, vorname: vorname } }), { router, search: "saison_id=2026" });
+  const { rerender } = render(page(SPIELER.vorname));
 
-describe("a pupil page holding a typed new address", () => {
-  /* The box's typing is what no save sends, and every way off the page drops it: counted apart from the draft, a save,
-     a cancel or a reload would take it without a word. */
-  it("counts the typed address as unsaved, so the leave prompt asks over it alone", async () => {
-    const user = userEvent.setup();
-    await renderSpielerPage();
-    assert.equal(leavePromptAsks(), false, "the clean page already asks, so nothing below is judged");
+  return {
+    // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
+    rerenderSaved: () => act(async () => void rerender(page("Lena-Marie"))),
+  };
+}
 
-    await typeNewAddress(user);
-
-    assert.equal(leavePromptAsks(), true, "a typed address left the page free to unload");
-  });
-
-  it("asks on Abbrechen instead of leaving, and leaves on Verwerfen", async () => {
-    const user = userEvent.setup();
-    await renderSpielerPage();
-    await typeNewAddress(user);
-    seen.back = 0;
-    seen.pushed.length = 0;
-
-    // The bar's, last on the page: the open box carries an „Abbrechen“ of its own, which closes the box alone.
-    await user.click(screen.getAllByRole("button", { name: "Abbrechen" }).at(-1) ?? assert.fail("the page offers no Abbrechen"));
-
-    assert.equal(departures(), 0, "Abbrechen left over the typed address");
-    assert.match(discardDialog()?.textContent ?? "", /1 Änderung ist noch nicht gespeichert/);
-
-    await user.click(screen.getByRole("button", { name: "Verwerfen" }));
-    assert.equal(departures(), 1, "Verwerfen did not leave");
-  });
-
-  /* The save's refresh remounts the editor on the stored record, so a dialog or typing the editor held itself would go
-     with it; the case hands the page that refresh. */
-  it("asks on Speichern's exit, and keeps the typed address through the refresh that re-keys the editor", async () => {
+describe("a pupil page's save", () => {
+  /* The referee's twin, for the pupil's key: without it the refresh keeps the boxes on the first props, and the next
+     save writes the old name back. */
+  it("shows the saved values once the refresh hands the page the stored record", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
     try {
       const user = userEvent.setup();
       const { rerenderSaved } = await renderSpielerPage();
       await typeInto(user, box("Vorname"), "Lena-Marie");
-      await typeNewAddress(user);
-      seen.back = 0;
-      seen.pushed.length = 0;
       calls.length = 0;
 
       await saveThrough(user);
       await rerenderSaved();
 
-      assert.deepEqual(written(), ["patchSpielerAction"], "the save did not write, so its exit is not judged");
-      assert.equal(departures(), 0, "the save left over the typed address");
-      assert.match(discardDialog()?.textContent ?? "", /1 Änderung ist noch nicht gespeichert/);
-
-      await user.click(screen.getByRole("button", { name: "Weiter bearbeiten" }));
-
-      assert.ok(discardDialog() === null, "Weiter bearbeiten left the dialog open");
-      assert.equal(newAddressValue(), "lena@neu.example", "the typed address did not survive the save");
-      assert.equal(departures(), 0);
+      assert.deepEqual(written(), ["patchSpielerAction"], "the save did not write, so its refresh is not judged");
+      assert.equal(
+        screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname", hidden: true }).value,
+        "Lena-Marie",
+        "the box shows the value from before the save over the saved one",
+      );
     } finally {
       answerWith(REFUSED);
     }
   });
+});
 
-  /* The typing is measured against the stored address, so a change confirmed under it starts the box again: kept, an
-     address typed against the old one would read as a move off the new one. */
-  it("closes the box once the stored address moves", async () => {
-    const user = userEvent.setup();
-    const { rerenderConfirmed } = await renderSpielerPage();
-    await typeNewAddress(user);
-
-    assert.equal(newAddressValue(), "lena@neu.example", "the box never took the typing");
-
-    await rerenderConfirmed();
-
-    assert.equal(newAddressValue(), undefined, "the typing outlived the moved address");
-    assert.equal(leavePromptAsks(), false, "the page still asks over typing it no longer shows");
-  });
-
-  /* The counting may not reach a box holding nothing its press would send: a page that asked over nothing would train
-     the dialog away. */
-  it("stays as it was with the box open on the stored address, or on one the sign-in fold makes it", async () => {
+describe("a referee page's save", () => {
+  /* The save's refresh remounts the editor on the stored record, so the boxes read what was saved rather than the props
+     they first rendered with, which a later save would write back. */
+  it("shows the saved values once the refresh hands the page the stored record", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
     try {
       const user = userEvent.setup();
-      await renderSpielerPage();
-      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-      assert.equal(newAddressValue(), SPIELER.email, "the box opened on something else, so nothing below is judged");
-      assert.equal(leavePromptAsks(), false, "the box opened on the stored address counts as typing");
+      const { rerenderSaved } = await renderSchiedsrichterPage();
+      await typeInto(user, box("Name"), "Pia Kraft-Meier");
+      calls.length = 0;
 
-      await typeInto(user, box("Neue E-Mail-Adresse"), "LENA.MEIER@Schule.Example");
-      assert.equal(leavePromptAsks(), false, "an address the fold makes the stored one counts as typing");
-
-      await typeInto(user, box("Vorname"), "Lena-Marie");
-      seen.back = 0;
-      seen.pushed.length = 0;
       await saveThrough(user);
-      assert.equal(departures(), 1, "the save over the draft alone did not leave");
-      assert.ok(discardDialog() === null, "the save over the draft alone asked");
+      await rerenderSaved();
+
+      assert.deepEqual(written(), ["patchSchiedsrichterAction"], "the save did not write, so its refresh is not judged");
+      assert.equal(
+        screen.getByRole<HTMLInputElement>("textbox", { name: "Name", hidden: true }).value,
+        "Pia Kraft-Meier",
+        "the box shows the value from before the save over the saved one",
+      );
     } finally {
       answerWith(REFUSED);
     }

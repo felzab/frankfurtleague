@@ -51,8 +51,8 @@ function filesUnder(relative) {
  * Hashing all three into `settings` puts them inside eslint's own key. `pnpm-lock.yaml` stands in for
  * the third: every version this tree resolves is in it, and nothing else names them all.
  *
- * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
- * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
+ * Every stylesheet under `src/`, not the entry point alone: `globals.css` imports the season scheme,
+ * and a set defined by a walk cannot fall behind a file someone adds.
  *
  * GROW THIS when a rule gains a cross-file input that is none of the three. The cache is a local
  * accelerator and never an authority: CI restores the pnpm store and never `node_modules`, where this
@@ -1054,7 +1054,28 @@ const SEARCH_FIELD_HOME = {
   ],
 };
 
+/**
+ * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
+ * failure on the sign-in or the mail path routinely carries the submitted address
+ * (`docs/logging/spec.md :: L9`).
+ */
+const LOGGED_ERROR = {
+  selector:
+    'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
+  message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
+  // Production-wide but for these, never a list of mail paths: a lint judges one file, and cannot see a
+  // module reach the mailer through another.
+  exempt: [
+    // Next's hook for a crash no code caught, whose stack is the only account of it.
+    "src/core/instrumentation.ts",
+    // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form: its
+    // logging helper is private, and an action's or a route's failure logs through `actionFailure.ts`, under this ban.
+    "src/shared/utils/degradedRead.ts",
+  ],
+};
+
 const SOURCE_BANS = [
+  LOGGED_ERROR,
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
     // property rule production takes would refuse, so a test keeps the call ban alone.
@@ -1310,6 +1331,10 @@ const SOURCE_BANS = [
       "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx",
       "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
       "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+      "src/features/spielberichte/components/forms/SpielberichtForm/FormKartenSection.tsx",
+      "src/features/spielberichte/components/forms/SpielberichtForm/FormVorschlagSection.tsx",
+      // Hands its select the mark its caller names, as the wrappers hand HeroUI theirs.
+      "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx",
     ],
   },
   {
@@ -1378,17 +1403,6 @@ const SOURCE_BANS = [
 ];
 
 /**
- * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
- * failure on the sign-in or the mail path routinely carries the submitted address
- * (`docs/logging/spec.md :: L9`).
- */
-const LOGGED_ERROR = {
-  selector:
-    'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
-  message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-};
-
-/**
  * Bans reaching part of the production tree, each with its population's glob. In a chain each scope
  * lies inside every earlier one, which lets its block restate theirs, and no two chains' scopes meet.
  */
@@ -1400,8 +1414,6 @@ const SCOPED_BANS = [
       selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
-    // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
-    { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },
   ],
   // The layer boundaries' own reach, production alone: a test loads a slice to sweep it.
   [
@@ -1409,28 +1421,6 @@ const SCOPED_BANS = [
       files: ["src/core/**/*.{ts,tsx}"],
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
-    },
-    {
-      files: ["src/core/auth.ts", "src/core/authIndexes.ts", "src/core/mail.ts", "src/core/mailGate.ts", "src/core/signInGate.ts"],
-      ...LOGGED_ERROR,
-    },
-  ],
-  [
-    {
-      files: [
-        "src/features/auth/actions.ts",
-        "src/features/bewerbungen/actions.ts",
-        "src/features/bewerbungen/notifications.ts",
-        "src/features/bewerbungen/sweep.ts",
-        "src/features/funktionen/actions.ts",
-        "src/features/funktionen/sweep.ts",
-        "src/features/saisons/sweep.ts",
-        "src/features/schiedsrichter/notifications.ts",
-        "src/features/sperrliste/actions.ts",
-        "src/features/spieler/notifications.ts",
-        "src/features/zustellung/notifications.ts",
-      ],
-      ...LOGGED_ERROR,
     },
   ],
   // An admin view's file, whatever its component is named or bound as: the facets `AdminCrudView` is
@@ -1457,6 +1447,7 @@ const SCOPED_BANS = [
         "registrierungen",
         "schiedsrichter",
         "sperrliste",
+        "spielberichte",
         "spielbestaetigungen",
         "spielorte",
       ].map((slice) => `src/features/${slice}/queries.ts`),

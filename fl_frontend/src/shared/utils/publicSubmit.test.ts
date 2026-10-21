@@ -13,7 +13,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
-import { JA_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { JA_ANGEFRAGT } from "@/core/adresswechselAntworten.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -23,6 +23,7 @@ import {
   laufendeSchiedsrichterFassung,
   laufendeSpielerFassung,
 } from "@/shared/testing/einwilligungAnswers.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -44,9 +45,9 @@ const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/
 const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
 const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx");
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
-const { SchiedsrichterAdresswechselView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
-const { SpielerAdresswechselView } = await import("@/features/spieler/components/views/SpielerAdresswechselView.tsx");
+const { AdresswechselLinkView } = await import("@/features/adresswechsel/components/views/AdresswechselLinkView.tsx");
 const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
+const { SignedInCard } = await import("@/features/auth/components/ui/SignedInCard.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
 const { SpielbestaetigungFormPanel } = await import("@/features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx");
@@ -247,6 +248,8 @@ type PublicForm = {
   render: () => ReactNode;
   /** Everything the form asks for, answered as a visitor answers it, and the press that sends it. */
   submit: (user: User) => Promise<void>;
+  /** The title an answer lost in transport takes where the press names its own act; `UNKLAR_TITEL` otherwise. */
+  unklarTitel?: string;
 };
 
 const SCHOOL_ID = "68d0f2a4c1e2b3a4d5e6f708";
@@ -318,7 +321,6 @@ const FORMS: Record<string, PublicForm> = {
           schule: "Lessing-Kolleg",
           rolle: "ansprechperson",
           zugleich_rolle: null,
-          text_version: laufendeKontaktFassung().textVersion,
           laufende_fassung: laufendeKontaktFassung().textVersion,
           mindestalter: 18,
           medien_mindestalter: 18,
@@ -339,7 +341,6 @@ const FORMS: Record<string, PublicForm> = {
           ansicht: {
             acknowledged: 1,
             zustand: "gueltig",
-            text_version: SCHIEDSRICHTER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
             frist: "2026-10-05",
@@ -354,17 +355,14 @@ const FORMS: Record<string, PublicForm> = {
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     },
   },
-  "the referee's address page": {
-    module: "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
-    route: "/api/bestaetigung/schiedsrichter/adresse",
-    render: () => h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
-    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
-  },
-  "the pupil's address page": {
-    module: "features/spieler/components/views/SpielerAdresswechselView.tsx",
-    route: "/api/bestaetigung/spieler/adresse",
-    render: () => h(SpielerAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
-    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+  "the address page": {
+    module: "features/adresswechsel/components/views/AdresswechselLinkView.tsx",
+    route: "/api/bestaetigung/adresse",
+    render: () =>
+      h(AdresswechselLinkView, {
+        start: { zustand: "gueltig", gueltigBis: "2026-10-05T10:00:00Z", weg: "konto", token: "kein-echtes-token" },
+      }),
+    submit: (user) => user.click(screen.getByRole("button", { name: JA_ANGEFRAGT })),
   },
   // The sixth digit sends the check by itself.
   "the sign-in code step": {
@@ -381,6 +379,14 @@ const FORMS: Record<string, PublicForm> = {
         onSignedIn: () => undefined,
       }),
     submit: (user) => user.type(screen.getByLabelText("Code aus der E-Mail"), "048213"),
+  },
+  // A signed-in reader's press, not a form, on the same transport: its lost answer names the sign-out it may have done.
+  "the signed-in card's sign-out": {
+    module: "features/auth/signOut.ts",
+    route: "/api/signout",
+    render: () => underNext(h(SignedInCard, { address: "vorstand@example.org" })),
+    submit: (user) => pressTwice(user, { resting: "Abmelden", armed: "Abmelden?" }),
+    unklarTitel: "Abmeldung unklar",
   },
   "the registration form": {
     module: "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
@@ -427,9 +433,6 @@ const FORMS: Record<string, PublicForm> = {
             seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,
-            geburtsdatum: null,
-            umfang: null,
-            medien: null,
           },
         },
         fassung: SPIELER,
@@ -446,9 +449,7 @@ const FORMS: Record<string, PublicForm> = {
     module: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
     route: "/api/bestaetigung/spiel",
     render: () => h(SpielbestaetigungFormPanel, { token: "kein-echtes-token", onAbschluss: () => undefined }),
-    submit: async (user) => {
-      await user.click(screen.getByRole("button", { name: /Zusagen/ }));
-    },
+    submit: (user) => pressTwice(user, { resting: "Zusagen", armed: "Ja, zusagen" }),
   },
 };
 
@@ -515,7 +516,7 @@ describe("where each public form's write is transported", () => {
       // The title alone: a form whose resend cannot land twice says so in its own sentence.
       assert.deepEqual(
         shown.map(({ title }) => title),
-        [UNKLAR_TITEL],
+        [form.unklarTitel ?? UNKLAR_TITEL],
         `${name} titles a press nobody can tell landed as something other than of unknown outcome`,
       );
     });

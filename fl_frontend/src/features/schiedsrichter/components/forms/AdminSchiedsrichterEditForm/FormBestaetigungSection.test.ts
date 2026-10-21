@@ -42,14 +42,16 @@ const BLOCK: FLSchiedsrichterBestaetigung = {
   zustellung: null,
 };
 
+/** Each choice as the referee's own confirmation evidences it. */
+const BESTAETIGUNG = { am: "2026-09-22T09:00:00Z", text_version: "2026-10-schiedsrichterseite-4", erteilt_zuvor: null };
+
 const BESTAETIGT: FLEinwilligung = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
-  text_version: "2026-09-schiedsrichterseite",
+  text_version: "2026-10-schiedsrichterseite-4",
   medien: false,
-  nachweis: { umfang: null, medien: null },
+  nachweis: { umfang: BESTAETIGUNG, medien: BESTAETIGUNG },
 };
 
 type Props = Parameters<typeof FormBestaetigungSection>[0];
@@ -106,18 +108,16 @@ describe("what the editor shows about a referee's own confirmation", () => {
   /* A key the registry holds nothing for is a record citing words nobody can produce, and a bare key
      renders it alike a known one; the key stands beside the mark, for whoever repairs it. */
   it("marks a stored label the registry does not hold, beside the key", () => {
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${String(BESTAETIGT.text_version)} Unbekannte Fassung`);
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${BESTAETIGT.text_version} Unbekannte Fassung`);
   });
 
   /* The registry's read failed: the panel says the check was not made rather than calling the label known or unknown. */
   it("says the stored label went unchecked where the registry could not be read", () => {
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${String(BESTAETIGT.text_version)} Nicht geprüft`);
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${BESTAETIGT.text_version} Nicht geprüft`);
   });
 
-  it("says in words where the record cites no label, and shows a known one as its key", () => {
-    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht hinterlegt");
-    assertLeerMarkup(renderTree(panel({ einwilligung: { ...BESTAETIGT, text_version: null } })), "Nicht hinterlegt");
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
+  it("shows a known label as its key", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), BESTAETIGT.text_version);
   });
 
   /* The account page moves one choice and leaves the confirmation's day and label standing, so a
@@ -131,9 +131,9 @@ describe("what the editor shows about a referee's own confirmation", () => {
           umfang: {
             am: "2026-10-04T08:00:00Z",
             text_version: "2026-10-konto-schiedsrichter",
-            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite" },
+            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-10-schiedsrichterseite-4" },
           },
-          medien: null,
+          medien: BESTAETIGUNG,
         },
       },
     });
@@ -144,8 +144,8 @@ describe("what the editor shows about a referee's own confirmation", () => {
     );
     assert.ok(text.includes("zuvor erteilt am 22.09.2026, 11:00 Uhr"), "the withdrawal hides the grant it ended");
     assert.ok(
-      text.includes("seit der Bestätigung am 22.09.2026, Fassung 2026-09-schiedsrichterseite"),
-      "a choice never moved does not stand on its confirmation",
+      text.includes("seit 22.09.2026, 11:00 Uhr, Fassung 2026-10-schiedsrichterseite-4"),
+      "a choice never moved does not stand on its confirmation's act",
     );
   });
 
@@ -177,7 +177,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
 
     assert.match(shown, /Name im Spielplan/, "the publication answer is not shown");
     assert.match(shown, /Nicht zugesagt/, "the media answer is not shown");
-    assert.match(shown, /2026-09-schiedsrichterseite/, "the stamped wording is not named");
+    assert.match(shown, /2026-10-schiedsrichterseite-4/, "the stamped wording is not named");
     assert.match(shown, /01\.01\.1990/, "the birthdate the same press wrote is not shown");
   });
 
@@ -185,13 +185,22 @@ describe("what the editor shows about a referee's own confirmation", () => {
     assert.match(words({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: null }), /Geburtsdatum Nicht hinterlegt/);
   });
 
-  /* A live row with no confirmed record still stands in the public schedule by its shortened name: the
-     fixture read consults no consent record, so the panel promises no hidden name. */
+  /* A stamp a hand edit blanked reads as none (`docs/backend/spec.md :: I387`): a state of the record, never a value the
+     panel holds no copy of, which „Nicht hinterlegt“ would claim. */
+  it("reads a record whose confirmation stamp is blanked as not confirmed", () => {
+    const overrides = { bestaetigung: BLOCK, einwilligung: { ...BESTAETIGT, bestaetigt_am: null } };
+
+    assertLeerMarkup(renderTree(panel(overrides)), "Nicht bestätigt");
+    assert.match(words(overrides), /Bestätigt am Nicht bestätigt/, "the stamp's row reads otherwise");
+  });
+
+  /* A live row with no confirmed record can be booked onto no fixture, so the panel says that rather than how a
+     schedule it never reaches would name it. */
   it("says what an outstanding confirmation means, rather than leaving the panel empty", () => {
     const text = words({ bestaetigung: BLOCK });
 
     assert.match(text, /noch nicht bestätigt/);
-    assert.match(text, /erster Namensteil und der Anfangsbuchstabe des nächsten/);
+    assert.match(text, /Einteilen lässt sie sich erst, wenn sie bestätigt hat/);
     assert.ok(!text.includes(SCHIEDSRICHTER_ANONYM_LABEL), text);
   });
 

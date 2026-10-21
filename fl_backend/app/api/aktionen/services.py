@@ -5,9 +5,7 @@ from typing import Any, Final
 
 from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
 from app.api.kontakte.services import same_address
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.services import withheld_actor
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -91,27 +89,52 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
         DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
         DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
-        DbCollection.SCHIEDSRICHTER: (
-            # A row since re-addressed: the referee step reaches only the rows naming the person now.
-            ImageAddress("kontakt.email", "kontakt.email", None),
-            ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
-        ),
-        # The referee row's twin: a row since re-addressed, and another pupil's pending change.
-        DbCollection.SPIELER: (
+        # A row since re-addressed: the referee step reaches only the rows naming the person now.
+        DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
+        DbCollection.SPIELER: (ImageAddress("email", "email", None),),
+        # Either address of a change, and the administrators who started or approved one, whose marker keeps the image valid.
+        DbCollection.ADRESSWECHSEL: (
+            ImageAddress("adresse", "adresse", None),
             ImageAddress("email", "email", None),
-            ImageAddress(f"{SPIELER_ADRESSWECHSEL_FELD}.email", SPIELER_ADRESSWECHSEL_FELD, None),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
+            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", ERASED_ACTOR_MARKER),
+        ),
+        # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
+        DbCollection.BERECHTIGUNGEN_ANTRAEGE: (
+            ImageAddress("adresse", "adresse", None),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
         ),
     }
 )
 
 
+def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple[ImageAddress, ...]:
+    """What an effect writes over the replaced address in these images: who acted carries to the new address.
+
+    A record's own subject's address goes, as the erasure takes it (`docs/backend/spec.md :: I845`).
+    """
+
+    return tuple(
+        ImageAddress(address.path, address.overwritten, neue if address.replacement == ERASED_ACTOR_MARKER else None) for address in addresses
+    )
+
+
+# The collections whose images an effect re-keys: a change's, a grant's and a request's, reached by address alone once the
+# effect has moved the person or ended the request; every other record's images are reached by their record's id.
+EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERECHTIGUNGEN, DbCollection.BERECHTIGUNGEN_ANTRAEGE)
+
+
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
-    """The log rows of one collection whose images may hold this address; `address_image_edits` decides on the fold."""
+    """The log rows of one collection whose images hold this address; `address_image_edits` decides which field."""
+
+    # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/erasure.py`): a pasted row keeps its
+    # typed spelling into the image its revoke files. Every other image holds a fold a write stored.
+    matched = same_address(identifier) if collection == DbCollection.BERECHTIGUNGEN else sign_in_identifier(identifier)
 
     return {
         # `collection` first, the half `aktionen_target` serves: nothing indexes inside `before`.
         "collection": str(collection),
-        "$or": [{f"before.{address.path}": same_address(identifier)} for address in IMAGE_ADDRESSES[collection]],
+        "$or": [{f"before.{address.path}": matched} for address in IMAGE_ADDRESSES[collection]],
     }
 
 

@@ -9,6 +9,7 @@ export const membershipAnswer = (overrides: Record<string, unknown> = {}) => ({
   trikot_farbe: null,
   kontakte: null,
   bestaetigungen: null,
+  adresswechsel: null,
   kontakte_stand: "",
   ...overrides,
 });

@@ -1,14 +1,16 @@
 import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
+import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
+import { declareWriteTags, requestEndsOwnSession, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
-import { logCodedFailure } from "./degradedRead";
+import { logActionFailure } from "./actionFailure";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -28,6 +30,18 @@ const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_E
 
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
+
+/**
+ * `null` for this site's own page. Such a route spends a credential or ends a session, so a browser too old to
+ * label its request is judged by the pinned origin, never the caller's.
+ */
+export function crossSiteRefusal(request: Request): NextResponse | null {
+  const secFetchSite = request.headers.get("sec-fetch-site");
+  if (secFetchSite === "same-origin") return null;
+  if (secFetchSite === null && request.headers.get("origin") === new URL(frontend_config.AUTH_URL).origin) return null;
+
+  return new NextResponse(null, { status: 403 });
+}
 
 /** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
 const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
@@ -83,7 +97,9 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[] }> {
+): Promise<
+  { forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[]; endsOwnSession: boolean }
+> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -98,7 +114,7 @@ async function runGuarded<S, T extends { success: boolean }>(
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
 
-      logCodedFailure(`${guard.lane} mutation failed: ${mutationName}`, error, "FE-ACT-001");
+      logActionFailure(`${guard.lane} mutation failed: ${mutationName}`, error);
 
       // Judged by what this request sent, a server action being a POST whatever it does.
       answer = answerThrow(error, guard.wording);
@@ -107,15 +123,16 @@ async function runGuarded<S, T extends { success: boolean }>(
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
     const tags = requestWriteTags();
+    const endsOwnSession = requestEndsOwnSession();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
       logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags };
+      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote, tags: tags };
+    return { forbidden: false, answer: answer, wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
   });
 }
 
@@ -131,8 +148,12 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote, tags } = guarded;
+  const { answer, wrote, tags, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
+  // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
+  // the page leaves by a document load (`docs/frontend/spec.md :: I831`). No such write declares a tag to drop.
+  if (endsOwnSession) return answer;
+
   // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
   // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I640`).
   if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
@@ -236,6 +257,6 @@ function isConfirmationRefused(error: unknown): error is APIBadStatusError {
 function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
   if (!isConfirmationRefused(error)) throw error;
 
-  logCodedFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, "FE-ACT-001");
+  logActionFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error);
   return stepUpRequired();
 }

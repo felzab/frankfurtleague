@@ -28,7 +28,9 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
+    bestaetigungsfrist_from,
     build_wiederholung_filter,
+    compose_bestaetigungen,
     compose_einwilligung,
     compose_kontakte,
     find_already_entered_refusal,
@@ -66,7 +68,7 @@ from app.shared.schemas.bounds import (
     TEAM_NAME_MAX_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
-from tests.documents import ADDRESS
+from tests.documents import ADDRESS, bestaetigte_kenntnisnahme, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -474,11 +476,10 @@ class TestNoBirthdateOnAnyPayload:
 
         assert "geburtsdatum" not in composed.model_dump(mode="json")
 
-    @pytest.mark.parametrize("stored", [pytest.param({}, id="no key"), pytest.param({"geburtsdatum": None}, id="a null")])
-    def test_a_stored_contact_with_no_date_still_reads(self, stored: Mapping[str, Any]):
-        """A seat is stored without one until its person confirms, so a required field here would 500 the triage over one."""
+    def test_a_stored_contact_with_no_date_still_reads(self):
+        """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
 
-        record = {**person(), **stored, "einwilligung": {**JUNCTION_EINWILLIGUNG, "erfasst_von": "administrativ"}}
+        record = {**person(), "geburtsdatum": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
 
         assert FLKontaktperson.model_validate(record).geburtsdatum is None
 
@@ -672,7 +673,6 @@ class TestWhatTheServerComposes:
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert "erfasst_von" not in composed[seat]["einwilligung"]
         assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
         assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
 
@@ -692,9 +692,9 @@ class TestWhatTheServerComposes:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": False}))
 
-    @pytest.mark.parametrize("field", ["umfang", "erfasst_von", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "eingetragen_von", "datum", "bestaetigt_am"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim a person's own consent, or backdate or pre-confirm one."""
+        """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": True, field: "x"}))
@@ -799,9 +799,9 @@ class TestWhatTheSubmissionPayloadRefuses:
     def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
         """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
 
-        stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": None}
+        stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": "blau"}
 
-        assert FLBewerbungTrikot.model_validate(stored).wunschfarbe is None
+        assert len(FLBewerbungTrikot.model_validate(stored).vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
 
     def test_a_padded_kuerzel_is_trimmed_to_fit_rather_than_refused(self):
         """The strip runs before the width is counted, as it does on every payload string carrying a floor."""
@@ -966,11 +966,6 @@ class TestTheYearGroupIsBoundedAsAYearGroup:
 
         assert_rejects(FLPostBewerbungPayload, without, "stufengroesse")
 
-    def test_an_application_stored_before_the_field_still_reads(self):
-        """Stored rows predate the key, and `FLBewerbung` defaulting it is the whole of what keeps the triage list readable."""
-
-        assert FLBewerbung.model_validate(stored_application()).stufengroesse is None
-
 
 class TestNoCeilingReachesTheReadSide:
     """Every bound above is the WRITE side's alone.
@@ -997,7 +992,8 @@ class TestNoCeilingReachesTheReadSide:
         long_name = "A" * (KONTAKT_NAME_MAX_LENGTH * 3)
         stored = {
             **person(vorname=long_name, nachname=long_name),
-            "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v3", "datum": TODAY},
+            "geburtsdatum": "1984-05-09",
+            "einwilligung": bestaetigte_kenntnisnahme(text_version="v3", datum=TODAY, bestaetigt_am=TODAY),
         }
 
         assert len(FLKontaktperson.model_validate(stored).vorname) == KONTAKT_NAME_MAX_LENGTH * 3
@@ -1168,11 +1164,7 @@ class TestASchoolWithNoWebsite:
 
 
 class TestTheColourTheSchoolWants:
-    """Required on the PUBLIC payload and nullable on the stored shape.
-
-    An applicant names the colour they want; the administrator assigning the real one at acceptance
-    may leave it open.
-    """
+    """Required on the payload and on the stored shape alike: the applicant names the colour they want."""
 
     @pytest.mark.parametrize(
         "trikot",
@@ -1202,11 +1194,6 @@ class TestTheColourTheSchoolWants:
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "zorbanaxgruen"}))
 
-    def test_a_stored_application_naming_no_colour_still_reads(self):
-        """The direction that ships silently: the triage list parses every stored application through this model."""
-
-        assert FLBewerbungTrikot.model_validate({"vorhandener_satz": "", "wunschfarbe": None}).wunschfarbe is None
-
 
 def stored_application(**overrides: Any) -> dict[str, Any]:
     """One application in the shape the triage READS it, which is where a narrowed model would fail."""
@@ -1221,7 +1208,11 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "kontakte": compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY),
         "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
+        "stufengroesse": 96,
+        "wunschgegner": None,
         "entscheidung": None,
+        "bestaetigungsfrist": bestaetigungsfrist_from(today=TODAY),
+        "bestaetigungen": compose_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY),
         **overrides,
     }
 
@@ -1301,11 +1292,6 @@ class TestTheOpponentTheSchoolWants:
         at_the_bound = submission(wunschgegner="Z" * BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)
 
         assert len(cast(str, FLPostBewerbungPayload.model_validate(at_the_bound).wunschgegner)) == BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH
-
-    def test_an_application_stored_before_the_field_still_reads(self):
-        """The direction that ships silently: the validator cannot require the key, so the triage meets documents without it."""
-
-        assert FLBewerbung.model_validate(stored_application()).wunschgegner is None
 
     def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
         """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""

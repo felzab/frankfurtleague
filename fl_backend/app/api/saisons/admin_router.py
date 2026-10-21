@@ -52,6 +52,7 @@ from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
     as_the_draw_answers,
     find_activation_refusal,
+    find_berichte_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
     find_spielplan_refusal,
@@ -62,6 +63,7 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -93,6 +95,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SperrlisteCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
@@ -803,6 +806,7 @@ async def generate_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
@@ -814,8 +818,10 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation
-    older than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
+    deletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s
+    window and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused
+    `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
+    the removed rows back.
     """
 
     if spielplan_data.replace:
@@ -892,6 +898,14 @@ async def generate_spielplan(
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
+        if spielplan_data.replace:
+            refuse(
+                find_berichte_refusal(
+                    berichte=await count_eingereichte_berichte(
+                        spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
+                    )
+                )
+            )
 
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
@@ -951,9 +965,13 @@ async def generate_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
+            # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
+            # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
             # (`.claude/CLAUDE.md` §3).
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
+            await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -971,6 +989,17 @@ async def generate_spielplan(
         # the merged copy lost it at validation.
         shape = spielplan_data.shape
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
+
+        if spielplan_data.replace:
+            # Counted again outside the transaction (`docs/backend/spec.md :: I118`): a report's first write conflicts
+            # with this one on the season (`:: I833`), and a correction on the report, but a document no write made does not.
+            refuse(
+                find_berichte_refusal(
+                    berichte=await count_eingereichte_berichte(
+                        spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None
+                    )
+                )
+            )
 
         watermark = FLSaisonSpielplan(generiert_am=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
         # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
@@ -1018,13 +1047,17 @@ async def undraw_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
     """
     Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
 
-    The replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape
-    rules to `PATCH` and the groups to an entry.
+    Every fixture's confirmations go with it.
+
+    The replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it
+    (`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
+    an entry.
     """
 
     async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
@@ -1058,11 +1091,23 @@ async def undraw_spielplan(
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
+        refuse(
+            find_berichte_refusal(
+                berichte=await count_eingereichte_berichte(
+                    spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
+                )
+            )
+        )
+
+        # The season a report's first write anchors, so the two conflict: the `$unset` below changes nothing on a season
+        # holding no watermark, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+        await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
-        # replaying them then holds a fixture whose matchday is already gone. Their confirmations go
-        # ahead of them for the same reason (`app/core/domain.py :: REFERENCES`).
+        # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
+        # go first for that reason (`app/core/domain.py :: REFERENCES`).
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
+        await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
@@ -1075,6 +1120,13 @@ async def undraw_spielplan(
             update={"$unset": {"spielplan": ""}},
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+
+        # The replace's reason (`docs/backend/spec.md :: I118`).
+        refuse(
+            find_berichte_refusal(
+                berichte=await count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
+            )
         )
 
         return FLUndrawSpielplanResponse(

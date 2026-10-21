@@ -681,9 +681,9 @@ def test_a_wider_floor_on_the_old_stamp_is_a_finding_and_a_narrower_one_is_free(
 def test_a_total_floor_stands_only_beside_references_re_stamped_from_one_population():
     """A wider total floor silences the whole-gate line, and `--stamp` cuts one only from one population's draws."""
 
-    def pair(backend: str, db: str, total_floor: str) -> dict[str, Any]:
+    def pair(backend: str, ops: str, total_floor: str) -> dict[str, Any]:
         return budget.parse_reference(
-            table(row("backend", "40", "15", "60", backend), row("db", "100", "7", "135", db), row("total", "140", total_floor, "-", "-"))
+            table(row("backend", "40", "15", "60", backend), row("ops", "100", "7", "135", ops), row("total", "140", total_floor, "-", "-"))
         )
 
     base = pair(STAMP, STAMP, "-")
@@ -691,7 +691,7 @@ def test_a_total_floor_stands_only_beside_references_re_stamped_from_one_populat
     assert budget.check_raise(base, pair("30@2026-09-02/9", "30@2026-09-02/9", "5"), TODAY) == []
     assert budget.check_raise(pair(STAMP, STAMP, "5"), pair(STAMP, STAMP, "4"), TODAY) == []
     for head, why in (
-        (pair(STAMP, STAMP, "90"), "backend, db kept the stamp the base carries"),
+        (pair(STAMP, STAMP, "90"), "backend, ops kept the stamp the base carries"),
         (pair("30@2026-09-02/9", "30@2026-09-02/8", "5"), "the references beside it name 2 populations"),
     ):
         findings = budget.check_raise(base, head, TODAY)
@@ -716,6 +716,64 @@ def test_a_matrix_job_s_instances_on_unequal_budgets_are_a_finding():
     assert details(findings) == [
         "`frontend-units`'s instances carry 2 budgets (frontend-units (1) 190, frontend-units (2) 175), "
         "and a matrix job's instances carry one, the widest instance's"
+    ]
+
+
+SPLIT_STAMP = "24@2026-09-01/37627541547"
+
+
+def split(*instances: tuple[str, str, str, str]) -> dict[str, Any]:
+    """`db` split into instances, each `(seconds, floor, budget, measured)`, the total kept their sum."""
+    summed = sum(int(figures[0]) for figures in instances if figures[0] != "-")
+    return budget.parse_reference(
+        table(*(row(f"db ({n})", *figures) for n, figures in enumerate(instances, 1)), row("total", str(summed), "7", "-", "-"))
+    )
+
+
+UNSPLIT = budget.parse_reference(table(row("db", "113", "7", "160", SPLIT_STAMP), row("total", "113", "7", "-", "-")))
+
+
+def test_a_job_split_into_a_matrix_inherits_its_parent_s_stamp_and_budget():
+    """A pull-request stamp on a tree-keyed job, which a new row could never carry, stands where it is the parent's own."""
+    assert budget.check_raise(UNSPLIT, split(("-", "-", "160", SPLIT_STAMP), ("-", "-", "160", SPLIT_STAMP)), TODAY) == []
+    assert budget.check_raise(UNSPLIT, split(("-", "-", "140", SPLIT_STAMP), ("-", "-", "140", SPLIT_STAMP)), TODAY) == []
+
+
+def test_an_instance_s_figure_above_its_parent_s_is_a_finding():
+    """The parent's spans bound an instance from above and from nowhere else, so its population vouches for no higher figure."""
+    findings = budget.check_raise(UNSPLIT, split(("-", "-", "170", SPLIT_STAMP), ("-", "-", "170", SPLIT_STAMP)), TODAY)
+
+    assert details(findings) == [
+        f"`db ({n})` carries `db`'s stamp {SPLIT_STAMP}, so it inherits that row's population and no figure above it, "
+        "and its budget 170 s against 160 s is one"
+        for n in (1, 2)
+    ]
+    reference = budget.check_raise(UNSPLIT, split(("120", "9", "160", SPLIT_STAMP), ("-", "-", "160", SPLIT_STAMP)), TODAY)
+    assert details(reference) == [
+        f"`db (1)` carries `db`'s stamp {SPLIT_STAMP}, so it inherits that row's population and no figure above it, "
+        "and its reference 120 s against 113 s, floor 9% against 7% is one"
+    ]
+
+
+def test_an_instance_on_a_stamp_its_parent_never_had_is_judged_as_a_new_stamp():
+    """Inheritance is the parent's population as it stood; any other stamp counts its own runs, and a pull request's times no tree-keyed job."""
+    findings = budget.check_raise(UNSPLIT, split(("-", "-", "160", "24@2026-09-02/123"), ("-", "-", "160", SPLIT_STAMP)), TODAY)
+
+    assert details(findings) == [
+        "`db (1)`'s new stamp 24@2026-09-02/123 names a pull-request run, and this job's cache is keyed on the tree, "
+        "so only main's first attempts time it"
+    ]
+
+
+def test_an_instance_beside_the_row_it_would_replace_inherits_nothing():
+    """Both standing, the parent's row still holds its own job, so the instance's stamp is new to the file."""
+    head = budget.parse_reference(
+        table(row("db", "113", "7", "160", SPLIT_STAMP), row("db (1)", "-", "-", "160", SPLIT_STAMP), row("total", "113", "7", "-", "-"))
+    )
+
+    assert [finding.detail for finding in budget.check_raise(UNSPLIT, head, TODAY)] == [
+        f"`db (1)`'s new stamp {SPLIT_STAMP} names a pull-request run, and this job's cache is keyed on the tree, "
+        "so only main's first attempts time it"
     ]
 
 
@@ -1287,15 +1345,34 @@ def test_the_floor_is_cut_for_the_window_the_report_takes():
     assert re.findall(r"^\s+window=([0-9]+)$", workflow, re.MULTILINE) == [str(budget.WINDOW)]
 
 
-# A cache step of the job's own, or the image builds' layer cache in the Actions cache service. The
-# toolchain actions' caches are keyed on the lockfiles, which a push to main restores as a re-run does.
-OWN_CACHE_RE = re.compile(r"^\s+- uses: actions/cache(?:/restore|/save)?@|^\s+VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
+# A cache step of the job's own, the image builds' layer cache, or the frontend toolchain's pnpm
+# store. The backend toolchain's uv cache is lockfile-keyed too and left out: cold, it costs nothing
+# a job's span shows.
+TREE_KEYED_RE = re.compile(
+    r"^\s+- uses: actions/cache(?:/restore|/save)?@|^\s+VERIFY_IMAGES_CACHE: gha$|^\s+- uses: \./\.github/actions/frontend-toolchain$",
+    re.MULTILINE,
+)
 
 
-def test_every_job_with_a_cache_of_its_own_is_stamped_from_main_alone():
+def test_every_job_a_cache_keyed_on_the_tree_speeds_is_stamped_from_main_alone():
     """Read off the workflow rather than off the constant, so a cache added to a job joins the set or fails here."""
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
 
-    cached = {key for key, body in job_bodies(workflow).items() if OWN_CACHE_RE.search(body)}
+    cached = {key for key, body in job_bodies(workflow).items() if TREE_KEYED_RE.search(body)}
 
     assert cached == budget.TREE_KEYED
+
+
+def test_a_matrix_job_s_instances_answer_to_its_key_in_the_tree_keyed_set():
+    """The set names workflow job keys and a row names an instance, so an instance not mapped to its key escapes every refusal."""
+    base = budget.parse_reference(table(row("frontend-units (2)", "-", "-", "205", STAMP), row("total", "0", "-", "-", "-")))
+    head = budget.parse_reference(table(row("frontend-units (2)", "-", "-", "205", "30@2026-09-02/123"), row("total", "0", "-", "-", "-")))
+
+    assert [finding.detail for finding in budget.check_raise(base, head, TODAY)] == [
+        "`frontend-units (2)`'s new stamp 30@2026-09-02/123 names a pull-request run, and this job's cache is keyed on the tree, "
+        "so only main's first attempts time it"
+    ]
+    reruns = [attempt(1, n, {"frontend-units (2)": 100}) for n in range(1, 11)]
+    assert budget.stamp(base, reruns, None, None)[0]["frontend-units (2)"] == base["frontend-units (2)"]
+    pulls = [attempt(7, n, {"frontend-units (2)": 100}, event="pull_request") for n in range(1, 11)]
+    assert budget.stamp(base, pulls, 7, None)[1][0].startswith("frontend-units (2): not stamped -- its cache is keyed on the tree")

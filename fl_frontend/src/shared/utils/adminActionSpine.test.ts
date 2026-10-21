@@ -12,11 +12,10 @@ const { setRefusal } = doubleActionRequest({ session: null });
 const { AENDERUNG_STEHT_WEITERHIN, ANMELDUNG_ABGELAUFEN } = await import("./actionError.ts");
 
 /**
- * The two actions that authorize nobody, named by export rather than by their slice, so an admin action added
- * beside them is called too: `handleSignIn` is reachable without a session, and `signOutAction` ends the one it
- * would check.
+ * The action that authorizes nobody, named by export rather than by its slice, so an admin action added beside it
+ * is called too: `handleSignIn` is reachable without a session.
  */
-const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
+const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn"]);
 
 /**
  * The account page's actions, which admit either lane and so answer a caller nobody signed in as the

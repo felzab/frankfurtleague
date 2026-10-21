@@ -103,8 +103,8 @@ function bracketRefusal(groups: number, qualifiers: number): ShapeRefusal | null
   // A one-club bracket is no knockout round at all: `knockout_phases_for` is empty below two.
   if (bracket < 2) return "noBracket";
 
-  // A count off the universe makes the product a non-power-of-two whatever stands beside it, which
-  // is the state a season stored before these rules can still be in.
+  // A count off the universe makes the product a non-power-of-two whatever stands beside it: every
+  // rules write refuses one, so only a season written by hand holds it.
   return SHAPE_COUNT_UNIVERSE.includes(groups) && SHAPE_COUNT_UNIVERSE.includes(qualifiers) ? null : "noBracket";
 }
 

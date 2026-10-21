@@ -7,6 +7,8 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
+import type { SpielberichtStand } from "@/features/spielberichte/types";
+import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 
@@ -15,7 +17,21 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * takes the lookup lists as props (frontend spec I12). It runs `categorizeActionRequired` over the one
  * fixture, so that rule has a single copy.
  */
-export function AdminSpielEditView({ spielData, today, isSpielSweepOn }: { spielData: FLSpielAdmin; today: string; isSpielSweepOn: boolean }) {
+export function AdminSpielEditView({
+  spielData,
+  today,
+  isSpielSweepOn,
+  bestaetigungen,
+  spielbericht,
+}: {
+  spielData: FLSpielAdmin;
+  today: string;
+  isSpielSweepOn: boolean;
+  /** `null` where the read failed, which the panel says. */
+  bestaetigungen: SpielbestaetigungenStand | null;
+  /** `null` where its read failed, which the panel says; absent where `SPIELBERICHT_EINGABE` reads off and no report stands. */
+  spielbericht?: SpielberichtStand | null;
+}) {
   const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();
 
   /**
@@ -45,6 +61,8 @@ export function AdminSpielEditView({ spielData, today, isSpielSweepOn }: { spiel
         isActiveSaison={isActiveSaison}
         today={today}
         isSpielSweepOn={isSpielSweepOn}
+        bestaetigungen={bestaetigungen}
+        spielbericht={spielbericht}
         categorize={categorize}
         pageHeader={{
           title: `Spiel ${String(spielData.spiel_nr)}`,

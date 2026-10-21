@@ -69,9 +69,10 @@ export function TeamSpielerView({
                   <p className="muted-hint">{isFinishedSaison ? "Für dieses Team gibt es keinen Kader." : KADER_LEER}</p>
                 </div>
               )}>
-              {teamSpieler.map((spielerData) => (
+              {teamSpieler.map((spielerData, index) => (
                 <Table.Row
-                  key={spielerData.id}
+                  // The read serves no record id (`READ-PUPIL-005`); a row's place in it is stable while this read stands.
+                  key={index}
                   className="border-b border-border last:border-0">
                   <Table.Cell className="px-1 py-4 lg:px-4">
                     <div className="flex items-center gap-x-3">

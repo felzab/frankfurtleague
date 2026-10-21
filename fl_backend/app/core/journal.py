@@ -32,9 +32,21 @@ from app.shared.schemas.custom import parse_object_id
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
 JOURNAL_TOKEN: Final = "loeschung-journal"
 
-# An erasure, which an administrator runs again on its page, and the three choices a person makes for themselves,
-# which the replay writes again.
-JournalArt = Literal["loeschung", "widerruf", "widerspruch", "adresswechsel_abgelehnt"]
+# An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
+# somebody has an art of its own: the replay tells them again from the art alone.
+JournalArt = Literal[
+    "loeschung",
+    "widerruf",
+    "widerspruch",
+    "adresswechsel_abgelehnt",
+    "adresswechsel_gestoppt",
+    "adresswechsel_verworfen",
+    "adresswechsel_verworfen_mitgeteilt",
+    "adresswechsel_wirksam",
+    "antrag_abgelehnt",
+    "antrag_zurueckgezogen",
+    "antrag_beendet",
+]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
 DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
@@ -43,7 +55,20 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
     ),
     "widerspruch": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
-    "adresswechsel_abgelehnt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
+    # Each on the change's own record, whose id names one change: a start never reuses one.
+    "adresswechsel_abgelehnt": frozenset({Collection.ADRESSWECHSEL}),
+    "adresswechsel_gestoppt": frozenset({Collection.ADRESSWECHSEL}),
+    # Ended telling nobody: by an administrator, by a start replacing it, or by its own press finding nothing to move.
+    "adresswechsel_verworfen": frozenset({Collection.ADRESSWECHSEL}),
+    # Ended at its effect by the hourly pass or an approval, which told its new mailbox it did not take effect.
+    "adresswechsel_verworfen_mitgeteilt": frozenset({Collection.ADRESSWECHSEL}),
+    # The replay moves everything the restored address on file holds, as the effect did.
+    "adresswechsel_wirksam": frozenset({Collection.ADRESSWECHSEL}),
+    # Restored, an ended request would stand to be approved. Refused by a decider and ended by an address change, it told
+    # its requester; withdrawn by them, nobody.
+    "antrag_abgelehnt": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
+    "antrag_zurueckgezogen": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
+    "antrag_beendet": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")
@@ -78,6 +103,9 @@ class JournalLine:
     # An erasure's person as their fixture answers stored them (`app/api/spielbestaetigungen/services.py :: halter_of`), for
     # the pseudonym's reason: a restore brings their reasons back with no address beside them. Absent on an older line.
     halter: str | None = None
+    # The address a change taking effect replaced, by its journal hash: where an erasure of the new address follows, the
+    # restored database holds the moved records at this one.
+    zuvor: str | None = None
 
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
@@ -86,6 +114,8 @@ class JournalLine:
             raise ValueError("an erasure's line alone names its person's log pseudonym")
         if self.halter is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.halter)):
             raise ValueError("an erasure's line alone names its person's holder digest")
+        if (self.art == "adresswechsel_wirksam") != (self.zuvor is not None) or (self.zuvor is not None and not _HASH.fullmatch(self.zuvor)):
+            raise ValueError("a change taking effect, and only one, names the address it replaced by a journal hash")
 
         if self.art == "loeschung":
             if (
@@ -121,7 +151,11 @@ class JournalLine:
     def text(self) -> str:
         """The line as the stream carries it."""
 
-        keyed = [f"{name}={value}" for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter)) if value is not None]
+        keyed = [
+            f"{name}={value}"
+            for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter), ("zuvor", self.zuvor))
+            if value is not None
+        ]
 
         return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *keyed])
 
@@ -182,7 +216,7 @@ def parse_line(message: str) -> JournalLine | None:
             wahlen[key] = _read_value(key, value)
         elif key == "sitze":
             fields["sitze"] = tuple(value.split(","))
-        elif key in ("am", "text_version", "pseudonym", "halter"):
+        elif key in ("am", "text_version", "pseudonym", "halter", "zuvor"):
             fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")

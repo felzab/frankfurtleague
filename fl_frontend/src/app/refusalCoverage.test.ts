@@ -12,19 +12,22 @@ import { publishedOperations } from "@/core/openapiDocument.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "@/features/bewerbungen/schemas.ts";
+
 /* The request the public mappers' reads and the undo actions load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
 const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
-const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
+const { isFunktionLost, isRefusal } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/adminUndo.ts");
+const adresswechsel = await import("@/features/adresswechsel/refusals.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
 const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.ts");
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
 const funktionen = await import("@/features/funktionen/refusals.ts");
-const kontoLoeschung = await import("@/features/konto/refusals.ts");
+const kontoRefusals = await import("@/features/konto/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
 const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
@@ -35,8 +38,8 @@ const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
 const spielbestaetigungen = await import("@/features/spielbestaetigungen/utils.ts");
+const spielberichte = await import("@/features/spielberichte/utils.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
-const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
 const spieltage = await import("@/features/spieltage/refusals.ts");
 const teams = await import("@/features/teams/refusals.ts");
@@ -64,6 +67,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /berechtigungen": berechtigungen.mapErteilenRefusal,
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
+  "POST /berechtigungen/antraege/{antrag_id}/genehmigung": berechtigungen.mapAntragGenehmigungRefusal,
+  "DELETE /berechtigungen/antraege/{antrag_id}": berechtigungen.mapAntragAblehnungRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
   "POST /bewerbungen/einwilligung": (error) =>
     bewerbungUtils.mapEinwilligungRefusal(error, async () => ({
@@ -78,11 +83,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
         schule: "Lessing-Kolleg",
         rolle: "ansprechperson" as const,
         zugleich_rolle: null,
-        text_version: null,
         laufende_fassung: "bestaetigung_kontakt",
         mindestalter: BEWERBUNG_MIN_ALTER,
         medien_mindestalter: MEDIEN_MIN_ALTER,
-      },
+      } satisfies FLBewerbungEinwilligungAnsichtResponse,
     })),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
@@ -96,7 +100,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) =>
-    registrierungen.mapBestaetigungRefusal(error, async () => ({
+    registrierungen.mapBestaetigungRefusal(error, { geburtsdatum: "2010-05-01" }, async () => ({
       zustand: "gueltig" as const,
       ansicht: { mindestalter: REGISTRIERUNG_MIN_ALTER, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
@@ -113,7 +117,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /saisons/{saison_id}/spielplan": saisons.mapUndrawRefusal,
   "POST /schiedsrichter": (error) => schiedsrichter.mapNameRefusal(error) ?? schiedsrichter.mapGesperrteAdresseRefusal(error),
   "PATCH /schiedsrichter/{schiedsrichter_id}": (error) =>
-    schiedsrichter.mapNameRefusal(error) ?? schiedsrichter.mapGesperrteAdresseRefusal(error),
+    schiedsrichter.mapNameRefusal(error) ??
+    schiedsrichter.mapGesperrteAdresseRefusal(error) ??
+    schiedsrichter.mapBestaetigteAdresseRefusal(error),
   "DELETE /schiedsrichter/{schiedsrichter_id}": schiedsrichter.mapRetireRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": schiedsrichter.mapReactivateRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
@@ -124,12 +130,20 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
       ansicht: { mindestalter: 16, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
-  "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
-  "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
   // edit racing it, the shared reader's.
-  "POST /identitaet/selbst/erasure": kontoLoeschung.mapLoeschungRefusal,
+  "POST /identitaet/selbst/erasure": kontoRefusals.mapLoeschungRefusal,
+  "POST /konto/adresswechsel": adresswechsel.mapKontoAdresswechselRefusal,
+  "POST /konto/adresswechsel/freigabe": adresswechsel.mapKontoFreigabeRefusal,
+  // One link page and one tool for every address: the change is the address's, never a record's.
+  "POST /adresswechsel/bestaetigung/ansicht": adresswechsel.mapAdresswechselAnsichtRefusal,
+  "POST /adresswechsel/bestaetigung": adresswechsel.mapAdresswechselPresseRefusal,
+  "POST /adresswechsel/bestaetigung/stopp": adresswechsel.mapAdresswechselPresseRefusal,
+  "POST /adresswechsel/ansicht": adresswechsel.mapVerwaltungAnsichtRefusal,
+  "POST /adresswechsel": adresswechsel.mapVerwaltungStartRefusal,
+  "POST /adresswechsel/{adresswechsel_id}/einladen": adresswechsel.mapVerwaltungLinkRefusal,
+  "DELETE /adresswechsel/{adresswechsel_id}": adresswechsel.mapVerwaltungLinkRefusal,
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": (error) => adresswechsel.mapGenehmigungRefusal(error, null),
   // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,
@@ -138,12 +152,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   "POST /spielbestaetigungen": spielbestaetigungen.mapAnsetzungRefusal,
   "POST /spielbestaetigungen/ansicht": spielbestaetigungen.mapAnsetzungAnsichtRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
-  "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,
-  "POST /spieler/{spieler_id}/adresswechsel/einladen": spieler.mapAdresswechselLinkRefusal,
-  "POST /spieler/adresswechsel": spielerQueries.mapSpielerAdresswechselRefusal,
-  "POST /spieler/adresswechsel/ansicht": spielerQueries.mapSpielerAdresswechselAnsichtRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
@@ -151,6 +163,19 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // landing, as each page's own check sends a person holding none.
   "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  // Read beside the referee's own records, so the same page's landing.
+  "GET /spielbestaetigungen/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort": spielbestaetigungen.mapSchiedsrichterAntwortRefusal,
+  "GET /spielberichte/person": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  // The report page's own read: a lost record is the panel's landing, a fixture booked to somebody else its own state.
+  "GET /spielberichte/{spiel_id}/bericht": (error) =>
+    isFunktionLost(error)
+      ? "the landing, in the page's stead"
+      : isRefusal(error) && error.serverErrorCode === "REQ-BERICHT-002"
+        ? "the page's state for a fixture booked to somebody else"
+        : null,
+  "PUT /spielberichte/{spiel_id}/bericht": (error) => spielberichte.mapSpielberichtRefusal(error, "schiedsrichter"),
+  "PATCH /spielberichte/{spiel_id}": (error) => spielberichte.mapSpielberichtRefusal(error, "admin"),
   "PATCH /spieler/selbst/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),

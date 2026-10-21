@@ -36,6 +36,7 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.bans import ban_list
+from tests.documents import eigene_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -52,15 +53,8 @@ FIRST_HASH = hash_token("first")
 _NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
-def einwilligung(*, bestaetigt_am: str | None = TODAY) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": bestaetigt_am,
-        "bestaetigt_am": bestaetigt_am,
-        "text_version": "2026-09-spielerseite",
-        "medien": False,
-    }
+def einwilligung() -> dict[str, Any]:
+    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY)
 
 
 def zustellung(stand: str) -> dict[str, Any]:

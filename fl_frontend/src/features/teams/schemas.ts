@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
 // hold it (`docs/glossary.md :: Kürzel`). `fl_backend/tests/shared/test_frontend_mirrors.py` pairs
@@ -134,8 +135,6 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  // As `FLEinwilligungSchema.erteilt_von`: a stored seat's value alone, null on every seat written since.
-  erfasst_von: z.enum(["person", "administrativ"]).nullable(),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
@@ -146,8 +145,8 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   // The seat's consent to photographs, video and interviews, answered apart from `umfang`.
   medien: z.boolean(),
   // Who seated the person, which decides the page the seat's link opens: the applicant on the form or
-  // the league. Null on a seat stored before the field, never a guess here.
-  eingetragen_von: z.enum(["bewerbung", "liga"]).nullable(),
+  // the league.
+  eingetragen_von: z.enum(["bewerbung", "liga"]),
   nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;
@@ -157,8 +156,8 @@ export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
   umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
-  // No `erfasst_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
-  // could name either would let an administrator file a transcription as the person's own answer.
+  // No `eingetragen_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
+  // could name the stamp would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
     .trim()
@@ -458,6 +457,26 @@ export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
 });
 export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
 
+/** Mirrors `FLSaisonTeamAdresswechselVerwehrt` — per seat, why the address tool refuses its change this administrator. */
+export const FLSaisonTeamAdresswechselVerwehrtSchema = z.object({
+  trainer: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+  ansprechperson: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+  stellvertretung: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+});
+
+/**
+ * Mirrors `FLSaisonTeamAdresswechsel` — the change pending at each confirmed seat's address, one for every record that
+ * address holds, `null` where none waits.
+ */
+export const FLSaisonTeamAdresswechselSchema = z.object({
+  trainer: CustomObjectIdStringSchema.nullable(),
+  ansprechperson: CustomObjectIdStringSchema.nullable(),
+  stellvertretung: CustomObjectIdStringSchema.nullable(),
+  // Null at a seat whose change the tool opens, or where none stands.
+  einsehbar_verwehrt: FLSaisonTeamAdresswechselVerwehrtSchema,
+});
+export type FLSaisonTeamAdresswechsel = z.infer<typeof FLSaisonTeamAdresswechselSchema>;
+
 /** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
 export const FLTeamMembershipSchema = z.object({
   saison_id: z.string(),
@@ -469,6 +488,8 @@ export const FLTeamMembershipSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Each seat's link as the contacts editor shows it, `null` where the row stores no block.
   bestaetigungen: FLSaisonTeamBestaetigungenAnsichtSchema.nullable(),
+  // `null` where the row stores no block, as `bestaetigungen` is.
+  adresswechsel: FLSaisonTeamAdresswechselSchema.nullable(),
   // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
   // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
   kontakte_stand: z.string(),

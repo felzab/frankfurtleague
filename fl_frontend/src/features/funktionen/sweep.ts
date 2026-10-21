@@ -3,6 +3,7 @@ import "server-only";
 import { deleteAccountFor, listAccounts } from "@/core/auth";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { HOUR_MS } from "@/core/timeUnits";
 
 import { REFERENZEN_ADRESSEN_MAX } from "./constants";
 import { postReferenzen } from "./mutations";
@@ -11,7 +12,7 @@ import { postReferenzen } from "./mutations";
  * One hour, as the application sweep's: an account nothing references admits no sign-in to any panel,
  * so a later pass costs nobody anything, and a shorter interval only asks the backend more often.
  */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend

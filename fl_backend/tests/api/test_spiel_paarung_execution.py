@@ -24,6 +24,7 @@ from app.api.spiele.schemas import (
     FLPatchSpielePaarungenResponse,
     FLPatchSpielPaarungPayload,
 )
+from app.api.spiele.services import BOOKING_UNCONFIRMED_REFEREE
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
@@ -171,14 +172,15 @@ def spielort_document() -> dict[str, Any]:
 
 
 def schiedsrichter_document() -> dict[str, Any]:
-    return {
-        "_id": SCHIEDSRICHTER,
-        "name": SCHIEDSRICHTER_NAME,
-        "schule": None,
-        "default_payment": DEFAULT_PAYMENT,
-        "kontakt": {"telefon": None, "email": None},
-        "inactive_since": None,
-    }
+    """Confirmed by its own person, as every referee a save may book is."""
+
+    return documents.schiedsrichter_document(
+        SCHIEDSRICHTER,
+        email="referee@example.com",
+        name=SCHIEDSRICHTER_NAME,
+        default_payment=DEFAULT_PAYMENT,
+        einwilligung=documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20"),
+    )
 
 
 def spiel_document(
@@ -324,6 +326,7 @@ def _dependencies(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str
         "spieltage_collection": database[Collection.SPIELTAGE],
         "spielorte_collection": database[Collection.SPIELORTE],
         "schiedsrichter_collection": database[Collection.SCHIEDSRICHTER],
+        "spielberichte_collection": database[Collection.SPIELBERICHTE],
     }
 
 
@@ -338,7 +341,7 @@ async def call_replay(
 ) -> FLPatchSpielePaarungenResponse:
     """The whole undo as one request, which is the only shape it has: the list travels in the order it is given."""
 
-    payload = FLPatchSpielePaarungenPayload(paarungen=paarungen)
+    payload = FLPatchSpielePaarungenPayload(paarungen=paarungen, bericht=None)
 
     return await patch_spiele_paarungen(payload=payload, **_dependencies(database, client))
 
@@ -636,3 +639,46 @@ class TestAChainOfRoundsGoesBackWholeOrNotAtAll:
         # ONE entry, naming the result that really stood there: both restores rewrite this fixture,
         # and the second finds it already empty, so a second entry would name a loss of nothing.
         assert [(entry.spiel_nr, entry.voided_ergebnis) for entry in replayed.advanced_to] == [(FINALE_NR, "2:0")]
+
+
+UNBESTAETIGT = oid("00c2")
+
+
+class TestARestoreBooksOnlyAConfirmedReferee:
+    """`REQ-BOOKING-002` judged on the replay as on the save: a restore naming a referee is a booking like any other."""
+
+    def test_putting_back_a_referee_whose_person_has_not_confirmed_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].insert_one(
+                documents.schiedsrichter_document(UNBESTAETIGT, email="neu@example.com", name="N. Neu", default_payment=15, einwilligung=None)
+            )
+            stored = await stored_spiel(database, FILLING)
+            restore = FLPatchSpielPaarungPayload.model_validate(
+                {
+                    "spiel_id": FILLING,
+                    "team1": None,
+                    "team2": {"team_id": DELTA, "tore": None},
+                    "elfmeterschiessen": None,
+                    "sonderereignis": None,
+                    "other_fields": {
+                        "replaced": ["schiedsrichter"],
+                        "team1_quelle": None,
+                        "team2_quelle": None,
+                        "datum": stored["datum"],
+                        "uhrzeit": stored["uhrzeit"],
+                        "ort": None,
+                        "schiedsrichter": {"schiedsrichter_id": UNBESTAETIGT, "payment": 15},
+                        "notiz": None,
+                    },
+                }
+            )
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await call_replay(database, client, [restore])
+
+            return refused.value.error_code, (await stored_spiel(database, FILLING))["schiedsrichter"]
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=one_spieltag_holding_a_played_fixture()) == (
+            BOOKING_UNCONFIRMED_REFEREE,
+            None,
+        )

@@ -15,14 +15,19 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
+import type { FLEinladungAnsichtResponse, FLRegistrierungBestaetigungAnsichtResponse } from "@/features/registrierungen/schemas";
+import type { FLSchiedsrichterBestaetigungAnsichtResponse } from "@/features/schiedsrichter/schemas";
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /* Nothing here is saved: every write is held unanswered, and every read of the page stands still. */
 doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
@@ -124,7 +129,7 @@ const PERSON = (vorname: string, email: string) => ({
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
@@ -143,6 +148,10 @@ const REFEREE = {
   default_payment: 25,
   kontakt: { email: "pia@example.org", telefon: null },
   inactive_since: null,
+  geburtsdatum: "1990-01-01",
+  einwilligung: bestaetigteEinwilligung(),
+  bestaetigung: null,
+  adresswechsel: null,
 };
 const OFFER = [
   { gruppe: "A" as const, occupied: 1, capacity: 4 },
@@ -159,7 +168,7 @@ const LEVEL_KNOCKOUT = spielFields({
   elfmeterschiessen: { team1: 5, team2: 4 },
   ort: { spielort_id: VENUE.id, name: VENUE.name, maps_link: VENUE.maps_link, mietpreis: 40 },
   schiedsrichter: { schiedsrichter_id: REFEREE.id, name: REFEREE.name, payment: 25 },
-} as never);
+});
 const staende = async () => {
   const { bestaetigungsStand } = await import("@/features/bewerbungen/bestaetigungStand.ts");
   const kontakt = (vorname: string, email: string) => ({
@@ -168,7 +177,7 @@ const staende = async () => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
+    einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
@@ -181,7 +190,7 @@ const staende = async () => {
     },
     bestaetigungen: { ansprechperson: offen, stellvertretung: offen, trainer: { ...offen, abgelehnt_am: "2026-09-03" } },
     status: "eingereicht",
-  } as never);
+  });
 };
 
 type FormCase = {
@@ -206,7 +215,7 @@ const FORMS: Record<string, FormCase> = {
           spielort: { id: VENUE.id, name: VENUE.name, address: ADDRESS, default_mietpreis: 40 },
           isRetired: false,
           pageHeader: { title: VENUE.name },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSpielortEditForm>),
       );
     },
     expected: ["aria INPUT:Standard-Mietpreis", "name address.plz", "name address.stadt", "name address.strasse", "name name"],
@@ -227,12 +236,14 @@ const FORMS: Record<string, FormCase> = {
             geburtsdatum: null,
             einwilligung: null,
             bestaetigung: null,
-            adresswechsel: null,
-            abgelaufen: { bestaetigung: false, adresswechsel: false },
+            adresswechsel_id: null,
+            adresswechsel_einsehbar_verwehrt: null,
+            abgelaufen: { bestaetigung: false },
           },
+          istFassungBekannt: true,
           isRetired: false,
           pageHeader: { title: REFEREE.name },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSchiedsrichterEditForm>),
       );
     },
     expected: ["aria INPUT:Standard-Honorar", "name kontakt.email", "name name"],
@@ -246,10 +257,10 @@ const FORMS: Record<string, FormCase> = {
         vorname: "Lena",
         nachname: "Meier",
         inactive_since: null,
-        geburtsdatum: null,
-        email: null,
-        adresswechsel: null,
-        adresswechsel_abgelaufen: false,
+        geburtsdatum: "2009-05-04",
+        email: "lena.meier@example.com",
+        adresswechsel_id: null,
+        adresswechsel_einsehbar_verwehrt: null,
       };
       const membership = {
         team_id: TEAM_A.teamId,
@@ -263,7 +274,7 @@ const FORMS: Record<string, FormCase> = {
       const editor = (withMembership: boolean) =>
         h(AdminSpielerEditForm, {
           spieler,
-          einwilligung: null,
+          einwilligung: bestaetigteEinwilligung(),
           saison: {
             saisonId: "2026",
             saisonStatus: "active",
@@ -272,15 +283,54 @@ const FORMS: Record<string, FormCase> = {
             membership: withMembership ? membership : null,
           },
           teams: [TEAM_A, TEAM_B],
+          istFassungBekannt: true,
           pageHeader: { title: "Lena Meier" },
-        } as never);
+        } satisfies ComponentProps<typeof AdminSpielerEditForm>);
       const rostered = await marksOf(editor(true));
       document.body.innerHTML = "";
       const unrostered = await marksOf(editor(false));
 
       return [...rostered.map((mark) => `rostered ${mark}`), ...unrostered.map((mark) => `unrostered ${mark}`)];
     },
-    expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
+    expected: [
+      "rostered aria spinbutton:Geburtsdatum",
+      "rostered name vorname",
+      "unrostered aria spinbutton:Geburtsdatum",
+      "unrostered name vorname",
+      "unrostered star Team suppressed",
+    ],
+  },
+  "the match report": {
+    module: "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
+    marks: async () => {
+      const { SpielberichtForm } = await import("@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx");
+      const { kontextOf } = await import("@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft.ts");
+      const { FLSpielberichtSchiedsrichterResponseSchema } = await import("@/features/spielberichte/schemas.ts");
+      const lesen = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
+      return marksOf(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: lesen.spiel.spiel_id,
+          kontext: kontextOf(lesen),
+          stored: lesen.bericht,
+          header: { title: "Spielbericht" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+      );
+    },
+    // An entry's fields by their index, which every entry of a list shares. The goals, shown, and a caution's reason are
+    // refused empty by refinements their leaves cannot state, so each site marks them by hand.
+    expected: [
+      "aria INPUT:Goethe-Gymnasium",
+      "aria INPUT:Lessing-Gymnasium",
+      "name bericht.karten.0.minute",
+      "name bericht.torschuetzen.0.minute",
+      "star Farbe suppressed",
+      "star Grund suppressed",
+      "star Minute suppressed",
+      "star Spielerin oder Spieler suppressed",
+      "star Team suppressed",
+    ],
   },
   "a seat holder's squad row editor": {
     module: "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
@@ -305,7 +355,7 @@ const FORMS: Record<string, FormCase> = {
           erlaubteStufen: ["Q1"],
           heldRollen: {},
           kaderHref: `/bereich/team/${TEAM_A.teamId}/2026/kader`,
-        } as never),
+        } satisfies ComponentProps<typeof KaderZeileEditForm>),
       );
     },
     expected: [],
@@ -330,7 +380,15 @@ const FORMS: Record<string, FormCase> = {
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte: null,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "stand",
+            },
           },
           today: "2026-09-14",
           gruppeLocked: false,
@@ -361,11 +419,20 @@ const FORMS: Record<string, FormCase> = {
       const editor = (kontakte: FLSaisonTeamKontakte | null) =>
         h(AdminKontakteEditForm, {
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+          medienFragen: {},
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "stand" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "stand",
+            },
           },
           pageHeader: { title: TEAM_A.name },
         });
@@ -444,10 +511,11 @@ const FORMS: Record<string, FormCase> = {
               { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
             ],
             bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+            eingereichteBerichte: 0,
           },
           hasDrawnSpiele: false,
           spieltagBound: { startMax: null, endMin: null },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSaisonEditView>),
       );
     },
     expected: [
@@ -485,7 +553,7 @@ const FORMS: Record<string, FormCase> = {
           },
           saisonSpan: { start: "2026-08-01", end: "2027-06-30" },
           pageHeader: { title: "1. Spieltag" },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSpieltagEditForm>),
       );
     },
     expected: ["aria spinbutton:Beginn", "aria spinbutton:Ende"],
@@ -494,7 +562,8 @@ const FORMS: Record<string, FormCase> = {
     module: "features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx",
     marks: async () => {
       const { AdminEditSpielDataForm } = await import("@/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx");
-      const editor = (spiel: unknown) =>
+      const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
+      const editor = (spiel: ComponentProps<typeof AdminEditSpielDataForm>["spielData"]) =>
         h(AdminEditSpielDataForm, {
           spielData: spiel,
           teams: [],
@@ -503,13 +572,15 @@ const FORMS: Record<string, FormCase> = {
           saisonSpiele: [spiel],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: false,
           today: "2026-09-14",
+          isSpielSweepOn: false,
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },
-        } as never);
-      const open = await marksOf(editor(spielFields({ id: "6890a1b2c3d4e5f607182901", saison_id: "2026" })));
+        } satisfies ComponentProps<typeof AdminEditSpielDataForm>);
+      const open = await marksOf(editor(FLSpielAdminSchema.parse(spielFields({ id: "6890a1b2c3d4e5f607182901", saison_id: "2026" }))));
       document.body.innerHTML = "";
-      const level = await marksOf(editor(LEVEL_KNOCKOUT));
+      const level = await marksOf(editor(FLSpielAdminSchema.parse(LEVEL_KNOCKOUT)));
 
       return [...open.map((mark) => `open ${mark}`), ...level.map((mark) => `level ${mark}`)];
     },
@@ -582,7 +653,8 @@ const FORMS: Record<string, FormCase> = {
           schulen: [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }],
           isSchulenLesbar: true,
           vergebeneFarben: [],
-        } as never),
+          siteKey: TEST_SITE_KEY,
+        } satisfies ComponentProps<typeof BewerbungForm>),
         async (into) => {
           await openEverySwitch(into);
           const picker = document.querySelector<HTMLSelectElement>('select[name="team_id"]');
@@ -642,6 +714,7 @@ const FORMS: Record<string, FormCase> = {
     marks: async () => {
       const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
       const { laufendeKontaktFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
+      const { MEDIEN_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
       return marksOf(
         h(BestaetigungFormPanel, {
           fassung: laufendeKontaktFassung(),
@@ -650,8 +723,9 @@ const FORMS: Record<string, FormCase> = {
           saison: "2026",
           rolle: "Ansprechperson",
           mindestalter: 18,
+          medienMindestalter: MEDIEN_MIN_ALTER,
           onAbschluss: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof BestaetigungFormPanel>),
         async (into) => {
           await typeFirstDate(30, into);
           await openEverySwitch(into);
@@ -679,9 +753,10 @@ const FORMS: Record<string, FormCase> = {
             kader_frei: true,
             team_eingetragen: true,
             nachnominierung: false,
-          },
+          } satisfies FLEinladungAnsichtResponse,
+          siteKey: TEST_SITE_KEY,
           onLinkTot: () => undefined,
-        } as never),
+        }),
       );
     },
     expected: ["name email", "name nachname", "name vorname", "star E-Mail drawn", "star Nachname drawn", "star Vorname drawn"],
@@ -697,10 +772,11 @@ const FORMS: Record<string, FormCase> = {
           neubesetzung: laufendeNeubesetzung(),
           staende: await staende(),
           frist: "2099-12-31",
+          fristAbgelaufen: false,
           isOpen: true,
           isDirty: false,
           onGetipptChange: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof BewerbungBestaetigungStrip>),
         async (into) => {
           const user = userEvent.setup();
           const reseat = screen.queryByRole("button", { name: "Neu besetzen: Trainer" });
@@ -734,7 +810,7 @@ const FORMS: Record<string, FormCase> = {
       const { laufendeSpielerFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
       const fassung = laufendeSpielerFassung();
-      const ansicht = {
+      const ansicht: FLRegistrierungBestaetigungAnsichtResponse = {
         acknowledged: 1,
         zustand: "gueltig",
         team: "Lessing-Kolleg",
@@ -743,12 +819,9 @@ const FORMS: Record<string, FormCase> = {
         seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
-        geburtsdatum: null,
-        umfang: null,
-        medien: null,
       };
       return marksOf(
-        h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung } as never),
+        h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung }),
         async (into) => {
           await typeFirstDate(20, into);
           await pressEveryRadio(into);
@@ -777,6 +850,32 @@ const FORMS: Record<string, FormCase> = {
     // The reason is optional, so it carries no mark.
     expected: ["aria spinbutton:Neuer Anpfiff", "aria spinbutton:Neues Datum", "star Neuer Anpfiff drawn", "star Neues Datum drawn"],
   },
+  "a referee's decline on their panel": {
+    module: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+    marks: async () => {
+      const { SchiedsrichterEinsaetzeSection } =
+        await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
+      const einsatz = {
+        id: "68c1f0a2b3c4d5e6f7a8b9f1",
+        spiel_id: "68c1f0a2b3c4d5e6f7a8b9f9",
+        schiedsrichter_id: "68c1f0a2b3c4d5e6f7a8b9f8",
+        ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+        zustand: "gueltig" as const,
+        begruendung: null,
+        eingetragen: false,
+        vergangen: false,
+      };
+      return marksOf(h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz] }), async (into) => {
+        // The reason box stands behind the disclosure, which is what offers it.
+        await userEvent.setup().click(screen.getByRole("button", { name: /^Absagen/ }));
+        await settle();
+        marksOn(into);
+      });
+    },
+    // A decline takes no answer without its reason, so the box is marked.
+    // The row's name rides in the label for a screen reader, as the admin panel's box carries its party's.
+    expected: ["name begruendung", "star Begründung: SG Alpha gegen SG Beta am 20.11.2026 drawn"],
+  },
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     marks: async () => {
@@ -791,14 +890,13 @@ const FORMS: Record<string, FormCase> = {
             ansicht: {
               acknowledged: 1,
               zustand: "gueltig",
-              text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,
               frist: "2026-10-05",
-            },
+            } satisfies FLSchiedsrichterBestaetigungAnsichtResponse,
             fassung,
           },
-        } as never),
+        }),
         async (into) => {
           await typeFirstDate(20, into);
           await pressEveryRadio(into);
@@ -903,7 +1001,7 @@ const FORMS: Record<string, FormCase> = {
           saisonOptions: [{ saisonId: "2026", offer: OFFER }],
           defaultSaisonId: "2026",
           onClose: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof AdminCreateTeamForm>),
       );
     },
     expected: [

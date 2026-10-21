@@ -1,5 +1,4 @@
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+import { DAY_MS, HOUR_MS } from "./timeUnits";
 
 /** How long a session of one kind survives without use, and how long it survives at all. */
 export type Lifetime = { readonly idle: number; readonly absolute: number };

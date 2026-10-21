@@ -13,16 +13,22 @@ Invariants:
 
 import copy
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.adresswechsel.services import compose_record
+from app.api.berechtigungen.schemas import FLAdresswechselWeg
+from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon
+from app.core.recording import log_stamp
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
+from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -33,13 +39,27 @@ ADDRESS: Final[Mapping[str, str]] = {
     "stadt": "Frankfurt am Main",
 }
 
-# A guardian's word as a person stored before the registration flow carries it.
-EINWILLIGUNG: Final[Mapping[str, str]] = {
-    "umfang": "kader_oeffentlich",
-    "erteilt_von": "erziehungsberechtigt",
-    "datum": "2026-01-15",
-    "bestaetigt_am": "2026-01-20",
-}
+_GERMANY: Final = ZoneInfo("Europe/Berlin")
+
+
+def bestaetigt_um(tag: str) -> str:
+    """The instant a seed's person confirmed on `tag`: noon in Germany, spelled as `log_stamp` spells evidence."""
+
+    return log_stamp(datetime.fromisoformat(f"{tag}T12:00:00").replace(tzinfo=_GERMANY))
+
+
+# A pupil's record as their own confirmation wrote it and their admission carried it onto the person,
+# publishing the name and no media.
+EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
+    block={
+        "umfang": "kader_oeffentlich",
+        "datum": "2026-01-20",
+        "bestaetigt_am": "2026-01-20",
+        "text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
+        "medien": False,
+    },
+    am=bestaetigt_um("2026-01-20"),
+)
 
 # The ordinary competition, so no rule a suite is not about refuses first. Every key spelled out, so a
 # key added to `FLSaisonRules` fails a seed rather than taking a default nobody picked.
@@ -71,6 +91,8 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
         "end_date": f"{saison_id}-06-30",
         "status": status,
         "rules": rules_document(),
+        "bewerbung": None,
+        "registrierung": None,
         **fields,
     }
 
@@ -86,6 +108,7 @@ def team_document(team_id: Any, name: str, shorthand: str, **fields: Any) -> dic
         "full_name": f"{name}-Schule",
         "website_url": f"https://{name.lower()}.example.de",
         "address": dict(ADDRESS),
+        "schulform": None,
         "inactive_since": None,
         **fields,
     }
@@ -99,6 +122,8 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
         "team_id": team_id,
         "gruppe": "A",
         "austritt": None,
+        "trikot_farbe": None,
+        "kontakte": None,
         "name": name,
         "shorthand": shorthand,
         **fields,
@@ -155,6 +180,44 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str,
     }
 
 
+def bericht_document(**fields: Any) -> dict[str, Any]:
+    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
+
+    am = datetime(2026, 3, 15, 20, tzinfo=UTC)
+
+    return {
+        "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [{"seite": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
+        "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
+        "bemerkungen": None,
+        "seiten": {"team1": None, "team2": None},
+        "eingereicht_am": am,
+        "eingereicht_von": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        "geaendert_am": am,
+        "version": 1,
+        "uebernommen_am": None,
+        "uebernommen_von": None,
+        "uebernommene_version": None,
+        **fields,
+    }
+
+
+def spielbericht_seiten(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """The clubs `spiel` fields, as a report written on it stamps them."""
+
+    return {seite: (spiel.get(seite) or {}).get("team_id") for seite in ("team1", "team2")}
+
+
+def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+    return {
+        "_id": ObjectId(),
+        "saison_id": spiel["saison_id"],
+        "spiel_id": spiel["_id"],
+        "bericht": bericht_document(seiten=spielbericht_seiten(spiel)),
+        **fields,
+    }
+
+
 def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
     """A seat's decline as its link stores it, proposing another date; its holder the digest of `adresse`, the answer's own fold."""
 
@@ -169,11 +232,16 @@ def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | Non
 
 
 def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fields: Any) -> dict[str, Any]:
+    """A person as their admission writes them, the record and the date their registration carried."""
+
     return {
         "_id": spieler_id,
         "vorname": vorname,
         "nachname": nachname,
-        "einwilligung": dict(EINWILLIGUNG),
+        # One per id, folded as the admission stores it, so two seeded persons never meet on `uniq_spieler_email`.
+        "email": f"{spieler_id}@schule.example".lower(),
+        "geburtsdatum": "2009-05-04",
+        "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
         "inactive_since": None,
         **fields,
     }
@@ -209,22 +277,12 @@ def bewerbung_document(
 ) -> dict[str, Any]:
     """A stored application, its school an existing club by `team_id` or a new one in `schule`.
 
-    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day.
-    Without `bestaetigungsfrist` it predates the confirmation flow.
+    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day,
+    the deadline counted from the mint.
     """
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
-    bestaetigung = (
-        {}
-        if bestaetigungsfrist is None
-        else {
-            "wunschgegner": None,
-            "bestaetigungsfrist": bestaetigungsfrist,
-            "bestaetigungen": compose_bestaetigungen(
-                hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
-            ),
-        }
-    )
+    gemintet = verschickt_am or eingereicht_am
 
     return {
         "_id": bewerbung_id,
@@ -236,8 +294,11 @@ def bewerbung_document(
         "kontakte": dict(kontakte),
         "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "stufengroesse": 96,
+        "wunschgegner": None,
         "entscheidung": None,
-        **bestaetigung,
+        "bestaetigungsfrist": bestaetigungsfrist if bestaetigungsfrist is not None else bestaetigungsfrist_from(today=gemintet),
+        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
         **fields,
     }
 
@@ -289,12 +350,35 @@ def registrierung_document(
 
 
 def kontaktperson_document(
-    vorname: str, *, bestaetigt_am: str | None = None, einwilligung: Mapping[str, Any] | None = None, **fields: Any
+    vorname: str,
+    *,
+    bestaetigt_am: str | None = None,
+    einwilligung: Mapping[str, Any] | None = None,
+    am: str | None = None,
+    eingetragen_von: FLKontaktEingetragenVon = "bewerbung",
+    **fields: Any,
 ) -> dict[str, Any]:
-    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+    """One contact seat as its seating stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
 
     `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
     """
+
+    seated = compose_einwilligung(text_version="v3", today="2026-03-20", eingetragen_von=eingetragen_von)
+    if bestaetigt_am is None:
+        block = {**seated, **(einwilligung or {})}
+    elif not bestaetigt_am:
+        # A blank stamp, which only a hand edit stores and every reader takes for none: nobody answered.
+        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+    else:
+        # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
+        # choices with their evidence, judged against the seat as seated.
+        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+        if NACHWEIS not in block:
+            beleg_am = am if am is not None else bestaetigt_um(bestaetigt_am)
+            block[NACHWEIS] = {
+                wahl: compose_beleg(gespeichert=seated, wahl=wahl, wert=block[wahl], am=beleg_am, text_version=block["text_version"])
+                for wahl in WAHLEN
+            }
 
     return {
         "vorname": vorname,
@@ -302,16 +386,19 @@ def kontaktperson_document(
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 170 1234567",
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": bestaetigt_am,
-            **(einwilligung or {}),
-        },
+        "einwilligung": block,
         **fields,
     }
+
+
+def bestaetigte_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", bestaetigt_am: str = "2026-01-16") -> dict[str, Any]:
+    """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
+
+    return dict(
+        kontaktperson_document("Kenntnis", bestaetigt_am=bestaetigt_am, einwilligung={"text_version": text_version, "datum": datum})[
+            "einwilligung"
+        ]
+    )
 
 
 def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
@@ -354,18 +441,24 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
 # and every label a case asserts are passed at the call.
 
 
-def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, **fields: Any) -> dict[str, Any]:
-    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media."""
+def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media.
 
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": bestaetigt_am,
-        "bestaetigt_am": bestaetigt_am,
-        "text_version": text_version,
-        "medien": False,
-        **fields,
-    }
+    Each choice evidenced at `am`, noon of `bestaetigt_am` unless a case names it; `fields` laid over the block.
+    """
+
+    geboren = compose_geboren(
+        block={
+            "umfang": "kader_oeffentlich",
+            "datum": bestaetigt_am,
+            "bestaetigt_am": bestaetigt_am,
+            "text_version": text_version,
+            "medien": False,
+        },
+        am=am if am is not None else bestaetigt_um(bestaetigt_am),
+    )
+
+    return {**geboren, **fields}
 
 
 def schiedsrichter_document(
@@ -405,3 +498,28 @@ def registrierung_bestaetigt(
         "today": today,
         "am": am,
     }
+
+
+def adresswechsel_document(
+    *,
+    adresse: str,
+    email: str,
+    token_hash: str | None,
+    day: str,
+    weg: FLAdresswechselWeg = "konto",
+    genehmigung: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A live change's record as a start inserts it at noon of `day` in Germany, its stop link a hash nobody holds."""
+
+    started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
+
+    return compose_record(
+        adresse=adresse,
+        email=email,
+        weg=weg,
+        token_hash=token_hash,
+        stopp_hash=hash_token(f"stop-{token_hash}"),
+        grund=None,
+        genehmigung=genehmigung,
+        now=started,
+    )

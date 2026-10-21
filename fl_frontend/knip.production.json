@@ -7,13 +7,15 @@
   // Production code no `start` script reaches: the image build runs the first under the third, and
   // the deploy's preflight runs the second.
   "entry": ["scripts/emit-environment-names.mjs!", "scripts/check-environment-names.mjs!", "scripts/tsconfig-alias-hook.mjs!"],
-  // The suite's own modules, `fl_frontend/eslint.config.mjs :: TEST_ONLY` among them, and the test
-  // runner's reporter. A module added to that list is added here too, or this run names it unused.
+  // The suite's own modules, `fl_frontend/eslint.config.mjs :: TEST_ONLY` among them, the test
+  // runner's reporter and the gate's shard lister. A module added to that list is added here too, or
+  // this run names it unused.
   "project": [
     "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
     "!src/shared/testing/**!",
     "!src/core/{authDoubles,blankComments,cacheScope,childTestRun,edgeRedaction,einwilligungDocument,expiredTransactions,exportingModule,keyTiers,mailDouble,mailText,openapiDocument,openingTag,publishedCeilings,pythonComments,schemaModules,schemeReader,stdoutCapture,subjectFixtures,testAuthenticator,treeWalk,verdicts}.ts!",
-    "!scripts/case-count-reporter.mjs!"
+    "!scripts/case-count-reporter.mjs!",
+    "!scripts/shard-files.mjs!"
   ],
   "ignoreIssues": {
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's

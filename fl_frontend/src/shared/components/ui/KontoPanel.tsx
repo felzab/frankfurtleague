@@ -1,3 +1,5 @@
+import { focusSection } from "@/shared/utils/focusAfterWrite";
+
 import { Angabe } from "./Angabe";
 import { formPanel } from "./formPanel";
 import { PanelHeading } from "./PanelHeading";
@@ -11,11 +13,14 @@ import type { ReactNode } from "react";
  */
 export function KontoPanel({
   email,
+  adresswechsel,
   sicherheit,
   einwilligung,
   loeschung,
 }: {
   email: string;
+  /** The address control beside the address it would change, empty where the address holds nothing it moves. */
+  adresswechsel: ReactNode;
   sicherheit: ReactNode;
   einwilligung: ReactNode;
   loeschung: ReactNode;
@@ -27,19 +32,25 @@ export function KontoPanel({
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         {/* `h2` panels under the bar's `h1`, which reads „Konto“: a page carries no second `h1`. „Zugang“
             is the administration grant's word, so the address a person signs in with is not headed by it. */}
-        <section className={panel.root()}>
+        {/* A section, so a write that takes the address control away lands on this heading (`docs/frontend/spec.md :: I536`). */}
+        <section
+          className={panel.root()}
+          {...focusSection("anmeldung")}>
           <div className={panel.header()}>
             <PanelHeading
               className={panel.heading()}
               title="Anmeldung"
             />
           </div>
-          <dl className={panel.body()}>
-            <Angabe label="E-Mail-Adresse">
-              {/* Broken anywhere, as every page showing the sign-in address breaks it. */}
-              <span className="break-all">{email}</span>
-            </Angabe>
-          </dl>
+          <div className={panel.body()}>
+            <dl>
+              <Angabe label="E-Mail-Adresse">
+                {/* Broken anywhere, as every page showing the sign-in address breaks it. */}
+                <span className="break-all">{email}</span>
+              </Angabe>
+            </dl>
+            {adresswechsel}
+          </div>
         </section>
 
         {sicherheit}

@@ -19,7 +19,7 @@
 # is cut before the merge from the code being merged rather than after it from code already holding
 # the gate. Left out of a row's population, that row alone: a job that did not succeed; a job whose
 # log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
-# tree's; and for a job whose own cache is keyed on the tree
+# tree's; and for a job a cache keyed on the tree speeds
 # (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
 # main, and any pull-request run: a re-run restores everything its first attempt wrote, while a push
 # to main finds warm only what the trees before it left unchanged, so re-runs read at least as warm
@@ -56,6 +56,9 @@
 # refused otherwise by `scripts/checks/check_gate_budget.py :: check_raise` in the pull request's
 # `docs` job. Lowering one is free; dropping a budget, or a reference or floor the report compares,
 # to `-` removes a ceiling or a comparison rather than lowering it, and is refused whatever the stamp.
+# A pooled job's budget also stays under its timeout by the time a stalled unit takes to be named, or
+# GitHub ends the job first and names nothing
+# (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. Only a new job is refused without a row; a check
@@ -68,26 +71,29 @@
 # here that judges a cost.
 #
 # `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, and
-# inside the population its stamp counts its widest run costs five times its narrowest, so the
-# number a ceiling would be set from says more about which layers were warm than about the tree. The
-# Dockerfile change most worth catching is the one that empties that cache, and the median report
-# is the only guard a row like this has, so it has none while the row carries no reference.
+# inside the population its stamp counts its widest run costs about twelve times its narrowest, so
+# the number a ceiling would be set from says more about which layers were warm than about the tree.
+# The Dockerfile change most worth catching is the one that empties that cache, and the median
+# report is the only guard a row like this has, so it has none while the row carries no reference.
 #
-# `backend`, `db`, `docs`, `ops`, `scripts` and the `frontend-units` shards are cut from the 24
-# attempts of pull-request run 37627541547, the merge commit their stamps name, the tree that run
-# tests being the one main carries after the merge. `scripts` counts 23: one attempt's job failed
-# fetching the pinned shellcheck, so its population is too short to cut into two windows of twelve
-# and the row carries `-` for reference and floor, held by its budget alone.
+# `backend`, `docs`, `ops`, `scripts`, the `frontend-units` shards and the one `db` job the `db`
+# shards were split from are cut from the 24 attempts of pull-request run 37627541547, the merge
+# commit their stamps name, the tree that run tests being the one main carries after the merge.
+# `scripts` counts 23: one attempt's job failed fetching the pinned shellcheck, so its population is
+# too short to cut into two windows of twelve and the row carries `-` for reference and floor, held
+# by its budget alone. The `db` and `frontend-units` shards install the frontend from a store and a
+# verdict keyed on the lockfile, so their re-runs never met the cold install main's first push after
+# a lockfile change pays; each row is re-stamped only from twenty-four first attempts of pushes to
+# main, the count its reference and floor need, and until then none of its figures rises.
 #
-# `format`, `frontend` and `images` are cut from the main push runs their stamps count, every one of
-# them carrying the backend's tier over workers and the db scope's two suites started together. Their
-# caches are keyed on the tree, so only a first attempt of a push times them, and a population as
-# short as theirs cannot be cut into two windows of twelve: drawn with replacement it reads its own
-# smallness rather than the job -- five runs of `frontend` answered 5 percent that way -- and a
-# reference with no floor beside it is a median the report cannot judge. So each of these rows
-# carries `-` for both, is held by its budget alone where it has one, and is listed by the report as
-# measured rather than compared; its reference and floor are cut once twenty-four first attempts of
-# pushes to main exist.
+# `format`, `frontend` and `images` are cut from the main push runs their stamps count. Their caches
+# are keyed on the tree, so only a first attempt of a push times them, and a population under
+# twenty-four, as each of theirs is, cannot be cut into two windows of twelve: drawn with
+# replacement it reads its own smallness rather than the job -- five runs of `frontend` answered 5
+# percent that way -- and a reference with no floor beside it is a median the report cannot judge.
+# So each of these rows carries `-` for both, is held by its budget alone where it has one, and is
+# listed by the report as measured rather than compared; its reference and floor are cut once
+# twenty-four first attempts of pushes to main exist.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -129,7 +135,7 @@
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
 # of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
 # take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
-# much as the guard, and each paid once per run. Every run the `db` row's stamp counts carries the
+# much as the guard, and each paid once per run. Every run the `db` rows' stamp counts carries the
 # guard, so the budget cut from them already holds its 0.05 s. The figure is a development
 # machine's, which is what the guard's own cost can be measured on: it runs before the tier rather
 # than in it.
@@ -218,9 +224,28 @@
 # the budget check look a row up by. A row shared by the instances would have both readers fold
 # names in step with each other, and the total would count one shard's span where every shard ran.
 # Their four budgets are one figure, cut by the rule above from the widest shard span in the runs
-# their stamp counts: `node --test --test-shard` hands a shard the files at its positions in the
-# sorted list, whatever they cost, so which shard is heaviest moves as files are added.
+# their stamp counts: a shard's files move as files are added and as their cost table is re-cut
+# (`scripts/gate/shard_plan.py`), so which shard is heaviest moves with them.
 # `scripts/checks/check_gate_budget.py :: check_matrix_budgets` refuses the four apart.
+#
+# `db` is a matrix job of two shards on the same terms, split from one job whose row carried the
+# stamp both instances' rows carry. An instance runs part of that job's tests over the same setup,
+# so every span the stamp counts bounds an instance from above, and each row inherits the budget
+# and stamp as they stood, with `-` for the reference and floor a half's median would not sit near,
+# until twenty-four first attempts of pushes to main re-cut it.
+# `scripts/checks/check_gate_budget.py :: split_from` reads such a row as the parent's population
+# rather than a new stamp, and `:: above_parent` refuses a figure above the parent's.
+#
+# Planning a shard is a step both matrices gained, measured locally on 2026-10-21 over eight
+# interleaved rounds on the sixteen-core Windows machine, nothing else of the fleet running. A
+# `frontend-units` shard pays the lister, 1771-1830 ms, the planner, 199-233 ms, and `--literal`,
+# 1394-1481 ms; a `db` shard pays the backend's listing and plan, 797-815 ms, and the frontend's
+# lister, plan and `--literal` together, 2962-3004 ms. `pnpm exec node -e ""` alone took 1345-1388 ms
+# over six rounds, against 155-187 ms for `--literal` and 530-555 ms for the lister run by the
+# pinned node directly, so most of each node step is pnpm's start on Windows; a runner's is timed
+# only by CI, as is the `actions/setup-python` lookup `frontend-units` gained. A `db` shard's
+# planning, under 4 s, is far below the half of the tiers it leaves to the other shard, so the
+# parent's spans still bound it.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
@@ -586,16 +611,17 @@
 # 2026-09-27 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper bound
 # on a runner's cost. The budget does not move and takes no new stamp.
 #
-# `format` restores prettier's cache on a runner, under a key carrying the lockfile, every frontend
-# stylesheet and the commit (`.github/workflows/verify.yml`, the format job). The scope took 21 s
-# from an empty cache against 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a
-# warm check with 50 source files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to
-# five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. A runner still starts cold wherever the lockfile or a stylesheet moves and on
-# a key's first run, so the budget is the cold job's, cut from the widest cold run on record rather
-# than from the stamped runs alone: of the main runs its stamp counts, the first found no cache and
-# spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
-# 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
+# `format` restores prettier's cache on a runner, under a key carrying the installed version of
+# every package a check loads, every frontend stylesheet and the commit
+# (`.github/workflows/verify.yml`, the format job). The scope took 21 s from an empty cache against
+# 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a warm check with 50 source
+# files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to five interleaved rounds
+# each, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else. A
+# runner still starts cold wherever one of those packages or a stylesheet moves and on a key's first
+# run, so the budget is the cold job's, cut from the widest cold run on record rather than from the
+# stamped runs alone: of the 17 first attempts of pushes to main its stamp counts, the seven that
+# found no cache spanned 50-69 s against 23-31 s for the ten that restored one, which the rule above
+# makes 90 s.
 #
 # `frontend-units`, `db`, `backend` and `scripts` gained the refusal of a test file that runs no
 # case, each figure measured locally on 2026-10-02 on a sixteen-core Windows machine carrying a fleet
@@ -843,11 +869,9 @@
 #   `fl_backend/tests/api/test_saison_cache.py :: test_no_two_writers_share_a_key`, under 5 ms
 # - `db`:
 #   `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows`,
-#   0.36-0.50 s an arm over its two; the worst-call cases
+#   0.36-0.50 s an arm over its two; the worst-call case
 #   `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
-#   0.42-0.52 s, and
-#   `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
-#   0.71-0.78 s; `fl_backend/tests/api/test_sperrliste_execution.py :: TestANameARivalWritesMidBan`,
+#   0.42-0.52 s; `fl_backend/tests/api/test_sperrliste_execution.py :: TestANameARivalWritesMidBan`,
 #   4.5-7.2 s alone, 3.8-4.5 s of it the database setup its first case pays;
 #   `fl_backend/tests/core/test_constraints_execution.py :: test_the_erasure_marks_a_persons_log_rows_through_an_index`,
 #   0.16-0.29 s a call; and five more read-model offenders, 0.04-0.07 s each, inside the offenders'
@@ -863,13 +887,11 @@
 #   against 8.26-12.11 s without; and the cases `scripts/tests/test_orchestration_tools.py` gained,
 #   about 8 s by pytest's durations, the 4.2 s hook case the largest, inside 173-185 s for the module
 #
-# Six frontend files the lanes widened with no figure of their own, each run alone three times on
+# Four frontend files the lanes widened with no figure of their own, each run alone three times on
 # 2026-10-16 at about 60 percent CPU, whole files and so upper bounds on what was added:
 # `fl_frontend/src/features/berechtigungen/constants.test.ts` 1.6 s,
 # `fl_frontend/src/features/funktionen/actions.test.ts` 2.1-2.3 s,
-# `fl_frontend/src/features/kontakte/versand.test.ts` 2.3-2.8 s,
-# `fl_frontend/src/features/schiedsrichter/adresswechsel.test.ts` 2.3-2.6 s,
-# `fl_frontend/src/features/spieler/adresswechsel.test.ts` 2.2-2.5 s and the step-up sweep,
+# `fl_frontend/src/features/kontakte/versand.test.ts` 2.3-2.8 s and the step-up sweep,
 # `fl_frontend/src/shared/utils/adminStepUp.test.ts`, 10.9-11.5 s. No row moves and none takes a
 # stamp.
 #
@@ -930,23 +952,22 @@
 # total does not move; it sits inside its row, and no row moves. The resolver check the edge test
 # gained after both runs rides the loop that already reads every `nginx/` config, unmeasured.
 #
-# `db` gained eight modules over the erasures, the pupils' sentinel and the address change, each run
-# once alone, measured locally on 2026-10-18 on a sixteen-core Windows machine at about 60 percent
-# CPU from other agent sessions, so single runs and upper bounds. Each figure is pytest's own span
-# over the module's db-marked cases, and holds 2.6-3.2 s of its first case's setup starting the
-# servers, which the gate starts once a run:
+# `db` gained seven modules over the erasures and the pupils' sentinel, each run once alone,
+# measured locally on 2026-10-18 on a sixteen-core Windows machine at about 60 percent CPU from other
+# agent sessions, so single runs and upper bounds. Each figure is pytest's own span over the module's
+# db-marked cases, and holds 2.6-3.2 s of its first case's setup starting the servers, which the gate
+# starts once a run:
 #
 # - `fl_backend/tests/api/test_erasure_auf_anfrage.py`, 38 cases, 14.5 s
 # - `fl_backend/tests/api/test_funktionen_erasure.py`, 32 cases, 13.6 s
-# - `fl_backend/tests/api/test_spieler_adresswechsel_execution.py`, 55 cases, 8.0 s
 # - `fl_backend/tests/api/test_erasure_isolation.py`, 15 cases, 7.1 s
 # - `fl_backend/tests/api/test_berechtigungen_erasure_execution.py`, 12 cases, 5.3 s
 # - `fl_backend/tests/api/test_identitaet_referenzen_execution.py`, 21 cases, 4.7 s
 # - `fl_backend/tests/api/test_aktionen_redaction_execution.py`, 5 cases, 4.7 s
 # - `fl_backend/tests/api/test_spieler_sentinel.py`, 17 cases, 4.6 s
 #
-# Together 62.5 s, about 40 s with each module's server start taken out, which the tier spreads over
-# its workers a module at a time. The row's stamp predates all eight, so its budget was cut from runs
+# Together 54.5 s, about 34 s with each module's server start taken out, which the tier spreads over
+# its workers a module at a time. The row's stamp predates all seven, so its budget was cut from runs
 # without them. On run 39157909162, testing the merge of 2cc7c4ff9 on 2026-10-18, the `db` job
 # spanned about 140 s by its log's first and last lines against the row's 160 s budget, the backend's
 # tier taking 113 s and the frontend's db-tier files 66 s beside it. No row moves and none takes a
@@ -1022,8 +1043,10 @@
 #   `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 62 cases, 11.95-12.35 s;
 #   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 20 cases, 5.86-6.42 s;
 #   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 35 cases, 5.75-6.30 s; and
-#   `fl_backend/tests/core/test_conftest_servers.py`, 4 cases starting servers of their own,
-#   2.70-3.39 s. Each module has a pair of runs within 0.2 s, and its run outside the pair read
+#   `fl_backend/tests/core/test_conftest_servers.py`, 5 cases starting servers of their own,
+#   2.70-3.39 s over four of them, the fifth
+#   (`:: test_a_replica_set_that_never_initiates_fails_naming_its_log_and_leaves_no_container`)
+#   measured with the four in the `db` paragraph below. Each module has a pair of runs within 0.2 s, and its run outside the pair read
 #   0.3-0.7 s higher.
 # - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
 #   longer from pnpm's start:
@@ -1050,6 +1073,135 @@
 # against its 105 s budget, `db` 112-157 s against 160 s, and the four `frontend-units` shards
 # 127-190, 94-169, 109-176 and 107-154 s against 205 s. No row moves and none takes a stamp.
 #
+# `backend`'s default tier, module by module, at this branch's head 1efaa6a04 against 53377c00f, the
+# tree the row's stamp counts: each module alone in a pytest process of its own, one run at each
+# tree, the two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows
+# machine whose load through that loop was not recorded, 30 percent read as the db loop before it
+# ended. Each run's wall less that of a run collecting no case, 3.02 s at the head and 2.84 s at the
+# stamp, summed 181.7 s against 136.1 s, and the cases' own phases 110.7 s against 86.9 s. This
+# branch added
+# `fl_backend/tests/api/test_adresswechsel_refusal.py`, 42 cases, 2.14 s by pytest's span;
+# `fl_backend/tests/api/test_spielbericht_shapes.py`, 78 cases, 0.92 s; and
+# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`, 2 cases, 0.82 s. Most of the growth is
+# in the source sweeps, whose case counts held: each one's first case builds a trace of the
+# application's source that `fl_backend/tests/core/app_source.py` caches for the process, 6.1-6.2 s at
+# the head against 3.2 s at the stamp in
+# `fl_backend/tests/core/test_duplicate_key_publication.py` and `fl_backend/tests/api/test_admin_guard.py`,
+# the application having grown from 42,752 lines to 62,657. A process a module pays that build once in
+# every module reading it, where the tier's workers pay it once each, so these sums compare the two
+# trees and are no runner's seconds. Beside the tier in the scope's pool, later that day with no
+# other agent's tests running, interleaved after one warm run of each: pyright over the backend took
+# 19.34-19.61 s against 15.09-15.12 s at the stamp, three rounds, and `scripts/checks/check_test_estate.py`
+# 6.67-6.76 s against 5.14-5.25 s, five rounds, every run exit 0. No row moves and none takes a stamp.
+#
+# `db`, module by module, at this branch's head 1efaa6a04 against 53377c00f, the tree the row's stamp
+# counts: each module's db-marked cases alone in a pytest process of its own, one run at each tree,
+# the two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows machine
+# with no other agent's tests running, whose load through that loop was not recorded (84 percent read
+# as it started and 30 percent as it ended). Each figure is pytest's own span, and holds about 2.2 s
+# of its first case's setup starting the servers, which the gate starts once a run:
+#
+# - added by this branch: `fl_backend/tests/api/test_adresswechsel_execution.py`, 173 cases, 26.80 s;
+#   `fl_backend/tests/api/test_berechtigungen_antraege_execution.py`, 61 cases, 9.84 s;
+#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py`, 21 cases, 8.61 s; and
+#   `fl_backend/tests/api/test_spielbericht_execution.py`, 40 cases, 7.22 s
+# - grown by it: `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 93 cases, 17.64 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 87 cases, 9.51 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 18 cases, 5.71 s;
+#   `fl_backend/tests/api/test_kontakt_bestaetigung.py`, 68 cases, 8.79 s against 7.28 s;
+#   `fl_backend/tests/api/test_undraw_execution.py`, 31 cases, 6.40 s against 5.62 s; and
+#   `fl_backend/tests/api/test_drosselung_execution.py`, 41 cases, 7.84 s against 7.42 s
+# - `fl_backend/tests/core/test_conftest_servers.py`, 5 cases, 4.26 s: the replica set that never
+#   initiates 1.65 s of call time, the two servers exiting at start 1.15 s and 0.64 s, and the two
+#   containers the daemon never created 0.01 s each
+# - each sweep's worst call: `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
+#   its full share 0.09 s of call time, `fl_backend/tests/api/test_loeschung_sweep.py`'s 0.39 s and
+#   `fl_backend/tests/api/test_bewerbung_sweep_execution.py`'s two 0.68 s and 0.11 s; and,
+#   measured alone twice later that day with the module at 22 cases, 9.32-9.37 s,
+#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: test_a_full_share_of_due_changes_asking_the_running_season`
+#   0.36 s
+#
+# Summed with each module's server start taken out, the tier's work came to 334.6 s against 195.4 s:
+# 36.0 s of it modules this branch added and about 25.6 s its growth of older ones, the rest modules
+# and cases `main` gained after the stamp. Two older modules grew per case rather than by cases.
+# `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py`'s seed now takes each of its two
+# referees through a whole address change, 184-204 ms against 37-42 ms, before an erasure of 76-83 ms
+# against 14-16 ms, by a profile of its phases over two runs at each tree that day; every case erases,
+# so each seeds its own. `fl_backend/tests/core/test_constraints_execution.py`'s 18 index-read cases
+# each seeded a corpus of 2000 rows, 6.38 s at the head against 3.30 s; one case a family now seeds
+# it once and explains every read, and the four took 7.27-7.84 s by pytest's span against
+# 12.25-12.33 s for the 18, two interleaved runs each with the servers' start in both, later that
+# day. Sums of one module a process compare the two trees and are no runner's seconds. No row moves
+# and none takes a stamp.
+#
+# `frontend-units (4)`, file by file, at this branch's head 1efaa6a04 against 53377c00f, the tree the
+# row's stamp counts: each of the shard's files alone through `test:base`, one run at each tree, the
+# two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows machine with
+# no other agent's tests running, at 23-87 percent CPU over its last five minutes with its own runs
+# counted and unread before them. By the runner's own `duration_ms` the shard's files held 498.9 s
+# against 258.8 s, 124 files against 105, each run 1.32-2.13 s longer from pnpm's start. The shard
+# takes the files at its positions in the sorted list, and only 19 of its files sat in it at the
+# stamp: the 81 that moved in from other shards hold 357.6 s, against 189.7 s for the 86 that moved
+# out, so membership makes 167.9 s of the 240.1 s it grew. Its largest file, 45.2 s,
+# `fl_frontend/src/features/admin/editorWiring.test.ts`, sat in shard 3. Files new since the stamp add
+# 79.4 s, 47.7 s of it the twelve this branch added there:
+# `fl_frontend/src/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.test.ts`
+# 13.22 s, `fl_frontend/src/features/adresswechsel/components/views/AdresswechselLinkView.test.ts`
+# 10.36 s, `fl_frontend/src/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.test.ts`
+# 9.81 s, `fl_frontend/src/app/bereich/admin/finalrunden/page.test.ts` 2.69 s,
+# `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.test.ts` 2.53 s,
+# `fl_frontend/src/app/dashboard/layoutError.test.ts` 2.38 s,
+# `fl_frontend/src/app/bereich/admin/spielsuche/page.test.ts` 2.29 s,
+# `fl_frontend/src/features/spielberichte/components/views/AdminSpielberichtPanel.test.ts` 2.03 s,
+# `fl_frontend/src/features/adresswechsel/actions.test.ts` 0.97 s, `fl_frontend/src/app/api/signout/route.test.ts`
+# 0.95 s, and `fl_frontend/src/features/adresswechsel/refusals.test.ts` and
+# `fl_frontend/src/features/spielberichte/utils.test.ts` 0.20 s each. The 19 files that stayed took
+# 7.1 s less. A moved file's own growth since the stamp is inside the membership figure, the loop
+# having timed shard 4 alone. Sums of one file a process compare the two trees and are no runner's
+# seconds.
+#
+# The files this branch added in the other three shards, each run once alone through `test:base`
+# later on 2026-10-21 with no other agent's tests running, at 46-70 percent CPU read between the
+# runs, so upper bounds, by `duration_ms`: nine in shard 1, 43.3 s; eight in shard 2, 30.2 s; and
+# thirteen in shard 3, 76.9 s. The longest were
+# `fl_frontend/src/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.test.ts`
+# 17.03 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/vorschlagSeed.test.ts`
+# 13.62 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/bestaetigungPanel.test.ts`
+# 12.76 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/adoptionSave.test.ts`
+# 12.58 s,
+# `fl_frontend/src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.test.ts`
+# 11.91 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselBeantragen.test.ts`
+# 11.11 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselWartet.test.ts`
+# 10.03 s, and the three approval panels under
+# `fl_frontend/src/features/berechtigungen/components/forms/` 9.36-9.45 s each; the other twenty
+# took 0.31-3.39 s, `fl_frontend/src/features/spielberichte/components/views/SchiedsrichterSpielberichteSection.test.ts`
+# 2.72 s among them. No row moves and none takes a stamp.
+#
+# `scripts` and `docs` gained this branch's cases and reads, measured locally on 2026-10-21 on a
+# sixteen-core Windows machine with no other agent's tests running, at 46-70 percent CPU read between
+# the runs, so upper bounds, by pytest's own figures, each module alone:
+#
+# - `scripts/tests/test_gate_pool.py`, 32 cases, 40.07-40.55 s over two runs: the stall named before
+#   the job's timeout,
+#   `scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`,
+#   0.03 s, and the watcher held to that bound,
+#   `scripts/tests/test_gate_pool.py :: test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts`,
+#   0.17 s
+# - `scripts/tests/test_fixture_readers.py`, 27 cases, 3.59 s alone, its eleven functions over the
+#   shell lift's bash parse, nineteen cases, 2.13-2.17 s over two runs
+# - `scripts/tests/test_check_public_routes.py`, 100 cases, 0.76 s alone
+# - `scripts/tests/test_workflow_caches.py`, 15 cases, 2.64 s alone
+# - `scripts/tests/test_branch_checks.py :: test_a_hash_inside_a_quoted_nginx_value_is_text_and_the_comment_after_it_is_read`,
+#   0.75 s, and the two cases `scripts/tests/test_check_gate_budget.py` gained, under 5 ms each
+# - `docs`: `scripts/checks/check_public_routes.py`, finding link pages by their minters across
+#   `fl_frontend/src`, took 318-350 ms end to end, median 333 ms, against 194-261 ms, median 205 ms,
+#   for the checker before that read, ten interleaved rounds after one warm run of each, every run
+#   exit 0
+#
+# Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the `scripts` row
+# carries `-` for its reference, and the checker sits far inside the floor the `docs` row carries.
+# No row moves and none takes a stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, keeps the base's where it re-stamped
@@ -1062,15 +1214,16 @@
 #
 # job	seconds	floor	budget	measured
 backend	78	21	105	24@2026-10-07/37627541547
-db	113	7	160	24@2026-10-07/37627541547
+db (1)	-	-	160	24@2026-10-07/37627541547
+db (2)	-	-	160	24@2026-10-07/37627541547
 docs	42	8	60	24@2026-10-07/37627541547
-format	-	-	70	3@2026-09-26
+format	-	-	90	17@2026-10-20
 frontend	-	-	220	16@2026-10-19
 frontend-units (1)	156	5	205	24@2026-10-07/37627541547
 frontend-units (2)	132	4	205	24@2026-10-07/37627541547
 frontend-units (3)	139	11	205	24@2026-10-07/37627541547
 frontend-units (4)	96	14	205	24@2026-10-07/37627541547
-images	-	-	-	3@2026-09-26
+images	-	-	-	17@2026-10-20
 ops	18	23	45	24@2026-10-07/37627541547
 scripts	-	-	90	23@2026-10-07/37627541547
-total	774	4	-	-
+total	661	4	-	-

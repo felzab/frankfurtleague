@@ -213,43 +213,6 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
     assert [image["shorthand"] for image in rows[1]["before"]] == ["CS"] and rows[1]["redacted_at"] is None
 
 
-# Each key the log's rows gained after rows without it were stored: the validator requires neither.
-LATER_KEYS = ["at_date", "anlass"]
-
-
-@pytest.mark.parametrize("later_key", LATER_KEYS)
-def test_a_row_stored_before_a_key_existed_is_still_redactable(mongo_url: str, later_key: str):
-    """Strict validation validates an UPDATE too, so requiring either key would invalidate every row already in the log.
-
-    The erasure's own `$set` over such a row is then refused whole, and its transaction aborts
-    (`docs/backend/spec.md :: I42`).
-    """
-
-    async def body(database: AsyncDatabase) -> Any:
-        legacy = {key: value for key, value in recorded_row().items() if key != later_key}
-        # The bypass is the only way to reach the state the log is really in: the validator is
-        # attached here, and every writer in this codebase stamps the row it builds.
-        await database[Collection.AKTIONEN].insert_one(legacy, bypass_document_validation=True)
-
-        redacted = await patch_many_in_db(
-            collection=database[Collection.AKTIONEN],
-            db_filter=build_redaction_filter([(Collection.TEAMS, [TEAM_OID])]),
-            update=build_redaction_update(at=RECORDED_AT),
-        )
-
-        stored = await database[Collection.AKTIONEN].find_one({"collection": str(Collection.TEAMS)})
-        assert stored is not None
-        return redacted.modified_count, stored
-
-    modified, row = on_a_database(mongo_url, body)
-
-    assert modified == 1
-    assert row["before"] is None and row["redacted_at"] == RECORDED_AT
-    # The redaction sets two keys and backfills none: a row without a retention stamp stays outside the
-    # retention index and leaves at the season reset instead (`docs/datenschutz.md :: 3`).
-    assert later_key not in row
-
-
 def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url: str):
     """A validator refusing everything enforces its rule perfectly and makes the log unwritable."""
     assert insert_outcome(mongo_url, recorded_row()) == "accepted"
@@ -277,6 +240,9 @@ def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url:
         # The defect the date stamp exists against: a TTL index over a string builds and expires
         # nothing, so the validator is what refuses the row rather than the index.
         (recorded_row(at_date=RECORDED_AT), "the retention stamp stored as the text `at` already holds"),
+        # The retention index expires a row by its stamp alone, so a row without one would be kept for ever.
+        ({key: value for key, value in recorded_row().items() if key != "at_date"}, "a row carrying no retention stamp"),
+        ({key: value for key, value in recorded_row().items() if key != "anlass"}, "a row carrying no `anlass` key at all"),
         (recorded_row(modified_count="40"), "a count stored as a string"),
         (recorded_row(request={"method": "PATCH"}), "a request missing the path half of the pair"),
     ],
@@ -316,10 +282,6 @@ def test_a_malformed_row_is_rejected(mongo_url: str, row: dict[str, Any], why: s
         (
             recorded_row(operation="erase_many", document_id=None, db_filter={"_id": str(TEAM_OID)}, before=None, modified_count=1),
             "an erasure, which keeps its count and no image of what it took",
-        ),
-        (
-            {key: value for key, value in recorded_row().items() if key != "at_date"},
-            "a row the log took before the retention stamp existed, whose redaction an erasure must still be able to write",
         ),
     ],
     ids=lambda value: value if isinstance(value, str) else "",

@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS } from "@/features/spieler/constants.ts";
 import { FLPostSaisonSpielerPayloadSchema } from "@/features/spieler/schemas.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup } from "@/shared/testing/renderTest.ts";
 
@@ -54,12 +55,12 @@ const renderEditor = () =>
           vorname: "Lena",
           nachname: "Meier",
           inactive_since: null,
-          geburtsdatum: null,
-          email: null,
-          adresswechsel: null,
-          adresswechsel_abgelaufen: false,
+          geburtsdatum: "2009-05-04",
+          email: "lena.meier@example.com",
+          adresswechsel_id: null,
+          adresswechsel_einsehbar_verwehrt: null,
         },
-        einwilligung: null,
+        einwilligung: bestaetigteEinwilligung(),
         saison: {
           saisonId: "2026",
           saisonStatus: "active",

@@ -217,11 +217,11 @@ class TestASeatTheProviderRefuses:
         [
             pytest.param(compose_bestaetigungen(hashes=HASHES, today=MAILED_ON), id="nothing known about the message yet"),
             pytest.param({"trainer": None}, id="an erased seat"),
-            pytest.param(None, id="an application stored before the flow"),
+            pytest.param(None, id="a season row holding no links"),
         ],
     )
     def test_a_seat_with_no_delivery_state_is_not_unreachable(self, block: Any):
-        """Silence is not a refusal: an application stored before the field, and one whose seat was emptied, are chased and swept as before."""
+        """Silence is not a refusal: no message on record, an emptied seat and a row holding no links make no seat unreachable."""
 
         assert seat_zustellung(bestaetigungen=block, seat="trainer") is None
         assert not seat_is_unreachable(bestaetigungen=block, seat="trainer")

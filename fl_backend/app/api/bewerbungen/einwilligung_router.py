@@ -117,7 +117,6 @@ async def _saison_ansicht(
     assert row is not None and seat is not None
 
     slot = (row.get("kontakte") or {}).get(seat)
-    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
     zugleich = saison_link_pair(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seat=seat, token_hash=token_hash)
     seats = (seat,) if zugleich is None else (seat, zugleich)
@@ -138,7 +137,6 @@ async def _saison_ansicht(
         schule=saison_schule(row),
         rolle=seat,
         zugleich_rolle=zugleich,
-        text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[saison_antwort_seite(row=row, seats=seats)],
         mindestalter=mindestalter_for(seats),
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
@@ -163,7 +161,7 @@ async def get_einwilligung_ansicht(
     """
     Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
 
-    The seat's state, the school, the season, the role and the consent wording's version, and `zugleich_rolle`: the
+    The seat's state, the school, the season, the role, and `zugleich_rolle`: the
     second seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the
     link went to an address nobody has confirmed, which behind a typo is a stranger's.
     `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
@@ -199,9 +197,7 @@ async def get_einwilligung_ansicht(
     refuse(find_unknown_token_refusal(seat=seat))
     assert seat is not None
 
-    # A declined or erased seat holds nobody, so the wording's version is null there.
     slot = (bewerbung_raw.get("kontakte") or {}).get(seat)
-    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
     # The answer's own resolution, so the page names exactly the seats a press will write and states
     # the floor that press will be judged by.
@@ -221,7 +217,6 @@ async def get_einwilligung_ansicht(
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
         zugleich_rolle=zugleich,
-        text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)],
         mindestalter=mindestalter_for(seats),
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,

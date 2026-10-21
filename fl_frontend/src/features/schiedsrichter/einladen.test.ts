@@ -63,14 +63,14 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 });
 
 const withRow = (email: string | null, name?: string | null) => () => ({
   acknowledged: 1,
   schiedsrichter: stored(email, name),
   bestaetigung_abgelaufen: false,
-  adresswechsel_abgelaufen: false,
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
 });
 
 /** A link minted for `email`, as each minting write answers it. */
@@ -93,7 +93,6 @@ beforeEach(() => {
     updated_document: stored("korrigiert@example.de"),
     fanned_out_to_spiele: 0,
     bestaetigung: minted("korrigiert@example.de"),
-    adresswechsel: null,
   });
   reactivate = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), bestaetigung: minted("anna@example.de") });
 });
@@ -270,31 +269,10 @@ describe("what the create tells the administrator", () => {
   });
 });
 
-/* The placeholder a row without an address is given, which the API refuses with a 422 whose box gets
-   only the generic sentence: refused here instead, the box says the placeholder is what has to change. */
-describe("a save still carrying the placeholder address", () => {
-  it("is refused on the address box in German, before the endpoint", async () => {
-    save = () => {
-      throw new Error("the save reached the endpoint");
-    };
-
-    const res = await patchSchiedsrichterAction({
-      ...ENTWURF,
-      id: SCHIEDSRICHTER_ID,
-      kontakt: { email: "adresse-fehlt@frankfurtleague.invalid", telefon: null },
-    });
-
-    assert.equal(res.success, false);
-    assert.equal(
-      res.success ? undefined : res.fieldErrors?.["kontakt.email"],
-      "Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein.",
-    );
-    assert.deepEqual(mail.sent, []);
-  });
-
+describe("a save carrying no address", () => {
   // Each payload declares its own `kontakt`, so a save redeclaring the address as optional passes
   // every create case and lets an edit clear the only route by which the person learns of the entry.
-  it("is refused on the address box without an address as well, before the endpoint", async () => {
+  it("is refused on the address box, before the endpoint", async () => {
     save = () => {
       throw new Error("the save reached the endpoint");
     };
@@ -354,7 +332,6 @@ describe("what the save hands the editor about the message it sent", () => {
       updated_document: stored("anna@example.de"),
       fanned_out_to_spiele: 0,
       bestaetigung: null,
-      adresswechsel: null,
     });
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
@@ -413,21 +390,6 @@ describe("the reactivation of an unanswered referee", () => {
 
     assert.equal(res.success, false);
     assert.match(res.success ? "" : res.error, /Sperrliste/);
-    assert.deepEqual(mail.sent, []);
-  });
-});
-
-/* The re-send takes the placeholder for no address before any round trip, and leaves a real address
-   to the API. */
-describe("the re-send of a row holding the placeholder", () => {
-  it("is refused as having no address, reaching no endpoint", async () => {
-    row = withRow("adresse-fehlt@frankfurtleague.invalid");
-
-    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
-
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse/);
-    assert.deepEqual(mints(), []);
     assert.deepEqual(mail.sent, []);
   });
 });

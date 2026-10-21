@@ -29,13 +29,11 @@ from app.shared.folding import sign_in_identifier
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
 
 # What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
-# and what the returning page shows back. No evidence: a base-tier read carries nothing it does not show.
+# and the birthdate the returning page takes as given. Never a choice: no link read serves one.
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
     "geburtsdatum",
     "einwilligung.bestaetigt_am",
-    "einwilligung.umfang",
-    "einwilligung.medien",
 )
 
 
@@ -44,7 +42,7 @@ async def person_at_the_address(
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and what it shows back.
+    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and the date the press takes.
     return await spieler_collection.find_one(
         build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
         projection=list(PERSON_ANSICHT_FIELDS),
@@ -102,22 +100,6 @@ async def persons_at(
     return await aggregate_many_from_db(
         collection=spieler_collection,
         pipeline=[{"$match": build_real_spieler_filter(build_adressen_filter(adressen))}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
-        session=session,
-    )
-
-
-async def persons_without_an_address(*, spieler_collection: AsyncCollection, session: AsyncClientSession | None) -> list[Mapping[str, Any]]:
-    """Every stored person holding no address, whom a name may be proposed for.
-
-    Unbounded and unindexed on purpose: every person the admission makes or matches takes an address,
-    so this set only shrinks.
-    """
-
-    # Never the sentinel, the one other row holding no address: proposed and confirmed, it would take a
-    # name onto every erased pupil's entry.
-    return await aggregate_many_from_db(
-        collection=spieler_collection,
-        pipeline=[{"$match": build_real_spieler_filter({"email": None})}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 

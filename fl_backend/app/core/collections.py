@@ -65,3 +65,15 @@ class Collection(StrEnum):
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"
+    #: One fixture's report: the referee's proposed result, scorers, cards and remarks, which the fixture's
+    #: result never reads. Created by its first writer, one per fixture.
+    SPIELBERICHTE = "spielberichte"
+    #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
+    #: ended, it keeps no address, its links answering how it ended until its TTL index removes it.
+    ADRESSWECHSEL = "adresswechsel"
+    #: The notices an address change's end owes, each written in that end's transaction and removed only by the stamp
+    #: of the pass that claimed it, so a lost answer loses none.
+    ADRESSWECHSEL_POSTAUSGANG = "adresswechsel_postausgang"
+    #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
+    #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
+    BERECHTIGUNGEN_ANTRAEGE = "berechtigungen_antraege"
