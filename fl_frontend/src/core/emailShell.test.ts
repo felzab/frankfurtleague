@@ -72,6 +72,7 @@ const {
   buildSpielEinteilungEmail,
   buildSpielErinnerungEmail,
   buildSpielNeueAnsetzungEmail,
+  buildSpielVorschlagVerworfenEmail,
 } = await import("./spielEmail.ts");
 const {
   buildAdresswechselEmail,
@@ -326,6 +327,14 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       altDatumText: "20.11.2026",
       altUhrzeitText: "14:30",
       empfaenger: "schiedsrichter",
+    }),
+  buildSpielVorschlagVerworfenEmail: (origin) =>
+    buildSpielVorschlagVerworfenEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      datumText: "20.11.2026",
+      uhrzeitText: "14:30",
     }),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(
