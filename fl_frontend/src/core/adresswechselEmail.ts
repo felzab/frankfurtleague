@@ -280,10 +280,11 @@ const GENEHMIGUNG_BETREFF = "Eine Adressänderung wartet auf Deine Genehmigung";
 export function buildAdresswechselGenehmigungEmail({ origin }: { origin: string }): AdresswechselEmail {
   const site = mailOrigin(origin);
   const ziel = `${site}${ADMINISTRATOREN_PFAD}`;
+  // Never that the person gave the address: on the lost-mailbox way an administrator typed it.
   const satz =
-    "eine Person mit Zugang zur Verwaltung hat eine neue E-Mail-Adresse angegeben. Bevor der Zugang zu ihr wechselt, muss eine andere Person aus der Verwaltung zustimmen.";
+    "für eine Person mit Zugang zur Verwaltung ist eine neue E-Mail-Adresse eingetragen. Der Zugang wechselt erst zu ihr, wenn die Änderung genehmigt ist.";
   const pruefen =
-    "Prüfe die Änderung unter „Administratoren“, und stimme nur zu, wenn Du sicher bist, dass die Person sie selbst angefragt hat.";
+    "Prüfe die Änderung unter „Administratoren“, und genehmige sie nur, wenn Du sicher bist, dass die Person sie selbst angefragt hat.";
 
   const html = renderKarte({
     titel: `${BRAND_NAME}: ${GENEHMIGUNG_BETREFF}`,
