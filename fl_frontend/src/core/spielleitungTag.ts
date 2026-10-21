@@ -2,8 +2,8 @@
 // `server-only`, and the reader is not.
 
 /**
- * What a referee's word about a fixture they officiate rides under, the booking, the notice that the fixture moved and
- * the notice that their Einteilung is lifted alike: one recipient, one lane.
+ * What every message to a referee about a fixture they officiate rides under, whatever
+ * `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailSpielleitung` sends: one recipient, one lane.
  */
 export const SPIELLEITUNG_TAG = "spielleitung";
 

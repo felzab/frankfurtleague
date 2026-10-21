@@ -60,6 +60,13 @@ SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team2",
 )
 
+# What a fixture's confirmations read as a call-off once entered before the fixture's day: nobody is
+# due at the ground, though the event decides the fixture (`app/api/spielbestaetigungen/services.py :: grund_to_close`).
+SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY: tuple[FLSonderereignis, ...] = (
+    "nichtantreten_team1",
+    "nichtantreten_team2",
+)
+
 # `anzahl_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
 # only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
 # accident, never by derivation: the questions differ.
@@ -791,7 +798,7 @@ class FLSpiel(FLSpielCommon):
 
 
 def _withheld_unless_agreed(block: Any) -> Any:
-    """The block, or `None` where the booked referee was asked and has not agreed to the Ansetzung as it stands.
+    """The block where the booked referee agreed to the Ansetzung as it stands, else `None`, never asked included.
 
     Never a decorator on `FLSpielJoined`: pydantic hands it to the admin subclasses, which serve the assignment as made.
     """
@@ -803,7 +810,8 @@ def _withheld_unless_agreed(block: Any) -> Any:
     if "einsatz_bestaetigt" not in block:
         raise ValueError("a served referee block carries the join's acceptance verdict")
 
-    return None if block["einsatz_bestaetigt"] is False else block
+    # `is True`, never `is not False`: a verdict of any other value publishes nobody.
+    return block if block["einsatz_bestaetigt"] is True else None
 
 
 class FLSpielJoined(FLSpielCommon):

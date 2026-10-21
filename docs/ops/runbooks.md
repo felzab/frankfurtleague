@@ -1742,10 +1742,15 @@ every confirmation row minted and every answer given since the snapshot:
 - **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
   of a first request mailed before the snapshot answers again; a reminder's mailed inside the
   window does not.
+- **A referee's answer given inside the window** is gone with their row. Their decline also took
+  them off the fixture, so the restore books them onto it again with no row, and the first pass
+  mails them a fresh Einteilung; until they agree again the fixture names no referee.
 
 Write to each club mailed inside the window, which the mail provider's list of sent messages names
 by subject, that a link from those days answers nothing and an answer given then is to be given
-again.
+again. Write to each referee booked onto a fixture still to come, at the address their record
+holds, that an answer given on their panel in those days is to be given again there, a decline
+included: no record the restore keeps says which of them answered.
 
 **A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
 fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No

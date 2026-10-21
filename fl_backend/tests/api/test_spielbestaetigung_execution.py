@@ -1079,8 +1079,21 @@ class TestTheDiscard:
 
         declined, served, row = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen"})
+        # Holding the club its notice that the date stands, the fixture's day being to come.
+        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen", "mitteilung": {"versuche": 0}})
         assert served.updated_document.geschlossen is not None and served.updated_document.geschlossen.grund == "verworfen"
+
+    def test_the_clubs_link_then_reads_the_leagues_decision(self, mongo_replica_set_url: str):
+        """Read as its decline alone, the link would still say the league is to decide, and the club might stay away."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+            declined = await ansicht(database, token(TEAM1, "stellvertretung"))
+            await verwerfen(database, client, ROW1)
+
+            return declined.zustand, (await ansicht(database, token(TEAM1, "stellvertretung"))).zustand
+
+        assert on_a_fixture(mongo_replica_set_url, body) == ("abgelehnt", "verworfen")
 
     @pytest.mark.parametrize("agreed", [pytest.param(False, id="open"), pytest.param(True, id="agreed")])
     def test_a_row_no_open_decline_with_a_proposal_is_refused_and_closes_nothing(self, mongo_replica_set_url: str, agreed: bool):
@@ -1556,6 +1569,55 @@ class TestARefereesDeclineReturnsTheFixture:
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == 0
 
 
+# Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
+OTHER_REFEREES_ROWS = 2000
+
+REFEREE_INDEX_SCAN = "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }"
+
+
+def reads_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
+    """The panel's aggregate and the erasure's, each matching the referee's id first."""
+
+    stages = command.get("pipeline") or [{}]
+    return collection == Collection.SPIELBESTAETIGUNGEN and "partei.schiedsrichter_id" in (stages[0].get("$match") or {})
+
+
+class TestARefereesOwnRowsAreReadThroughTheirIndex:
+    """`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`'s referee index, which nothing else would keep the planner on."""
+
+    @pytest.mark.parametrize(
+        "read",
+        [
+            pytest.param(lambda watched, watching: eigene(watched, watching), id="the panel"),
+            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT), id="the erasure"),
+        ],
+    )
+    def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(
+        self, mongo_replica_set_url: str, read: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+    ):
+        others = [
+            documents.spielbestaetigung_document(
+                fixture(ObjectId(), spiel_nr=100 + position),
+                partei={"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+                kontakte=None,
+            )
+            for position in range(OTHER_REFEREES_ROWS)
+        ]
+
+        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(others)
+            _, sent = await plans_of_sent_reads(mongo_replica_set_url, database, read, reads_a_referees_rows)
+
+            return sent
+
+        sent = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        # The premise: the read was sent, or the plan below would pass vacuously.
+        assert sent, "the read sent no aggregate matching the referee's id"
+        for _, plan in sent:
+            assert plan == REFEREE_INDEX_SCAN, plan
+
+
 async def book_ute(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].update_one(
         {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "name": "Ute Lang", "payment": 20}}}
@@ -1855,8 +1917,12 @@ class TestTheRefereesOwnRows:
         assert plan == "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }", plan
 
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
-        """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's."""
+        """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's.
 
+        An open booking dated after an agreed one leads it: by day alone it would sit below.
+        """
+
+        open_later_spiel, open_later = a_booking(ObjectId("6890a1b2c3d4e5f607d50020"), ObjectId("6890a1b2c3d4e5f607d50068"), "2027-05-27")
         later_spiel, later = a_booking(
             ObjectId("6890a1b2c3d4e5f607d50016"), ObjectId("6890a1b2c3d4e5f607d50064"), "2027-05-20", antwort=ZUGESAGT
         )
@@ -1873,12 +1939,13 @@ class TestTheRefereesOwnRows:
         eintraege = on_a_refereed_fixture(
             mongo_replica_set_url,
             body,
-            rows=[referee_row(), later, long_ago, lately],
-            spiele=[later_spiel, long_ago_spiel, lately_spiel],
+            rows=[referee_row(), later, long_ago, lately, open_later],
+            spiele=[later_spiel, long_ago_spiel, lately_spiel, open_later_spiel],
         )
 
         assert [(eintrag.id, eintrag.vergangen) for eintrag in eintraege] == [
             (REFEREE_ROW, False),
+            (open_later["_id"], False),
             (later["_id"], False),
             (lately["_id"], True),
             (long_ago["_id"], True),
@@ -1899,11 +1966,13 @@ class TestTheRefereesOwnRows:
 
         assert [eintrag.id for eintrag in eintraege] == [REFEREE_ROW]
 
-    def test_an_agreed_fixture_called_off_reads_as_called_off(self, mongo_replica_set_url: str):
+    # A no-show entered before the day decides the fixture, yet nobody is due at the ground either.
+    @pytest.mark.parametrize("sonderereignis", ["annulliert", "nichtantreten_team2"])
+    def test_an_agreed_fixture_called_off_reads_as_called_off(self, mongo_replica_set_url: str, sonderereignis: str):
         """Ahead of the agreement, before the pass has closed the row: a referee checking the panel must not travel."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "annulliert"}})
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": sonderereignis}})
             return (await eigene(database, client)).spielbestaetigungen
 
         (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(antwort=ZUGESAGT)])

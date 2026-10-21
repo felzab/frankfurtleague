@@ -58,6 +58,13 @@ describe("a referee's fixtures, to come and gone by", () => {
 
     assert.equal(screen.queryAllByRole("heading", { level: 3, name: VERGANGENE_EINSAETZE }).length, 0);
   });
+
+  /* One Termin, one spelling: the administrator's panel and the club's page read the same slot as `terminText` writes it. */
+  it("writes the slot as every other confirmation surface does", () => {
+    renderSection([einsatz(1, "Goethe-Gymnasium")]);
+
+    assert.ok(screen.getByText("20.11.2026 um 14:30 Uhr"));
+  });
 });
 
 describe("a referee's spent rows", () => {

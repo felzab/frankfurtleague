@@ -432,7 +432,7 @@ reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
-sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
+sentence, a link page's the page. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
 compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
 grades a link page's refused load the same way against the page, and that page's referrer tag and its
@@ -1585,6 +1585,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A guard the database tier stays green without                     | Narrowed — dropping `session=` at `judge_and_write_the_rules` turns `--db` (§1.6) red; which other callbacks no case drives is [`docs/backend/spec.md`](../backend/spec.md) §4's                   |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | Cloudflare may rewrite the edge's own 429                         | Open — whether the tunnel passes `@edge_refusal`'s body and `Content-Type` unchanged shows only in production, on the 32nd action POST after a deploy (§1.3)                                       |
+| Cloudflare may rewrite the edge's own 429 page                    | Open — whether the tunnel passes `@edge_refusal_seite`'s page unchanged shows only in production, on a link page loaded past its burst (§1.3)                                                      |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
 | CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
 | A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: eight days at worst                                                       |

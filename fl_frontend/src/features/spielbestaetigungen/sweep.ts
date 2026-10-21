@@ -13,6 +13,7 @@ import {
   buildSpielEinteilungEmail,
   buildSpielErinnerungEmail,
   buildSpielNeueAnsetzungEmail,
+  buildSpielVorschlagVerworfenEmail,
 } from "@/core/spielEmail";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { HOUR_MS } from "@/core/timeUnits";
@@ -40,6 +41,7 @@ import type {
   FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
   FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
   FLSpielbestaetigungSweepSpielAbgesagt,
+  FLSpielbestaetigungSweepVorschlagVerworfen,
 } from "./schemas";
 
 /** One hour, as the other sweeps': every clock here selects on a date, so a shorter interval only asks the backend more often. */
@@ -155,6 +157,7 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   for (const weg of antwort.schiedsrichter_gewechselt) notiert(weg.spielbestaetigung_id, await mailSchiedsrichterGewechselt(weg));
   for (const ab of antwort.spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSpielAbgesagt(ab));
   for (const ab of antwort.schiedsrichter_spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSchiedsrichterSpielAbgesagt(ab));
+  for (const weg of antwort.vorschlag_verworfen) notiert(weg.spielbestaetigung_id, await mailVorschlagVerworfen(weg));
   // Stamped like a notice, after its line: answered again until a stamp lands, so a lost answer loses no give-up.
   for (const aufgegeben of antwort.mitteilungen_aufgegeben) {
     // Named field by field, never spread: the line names the fixture and the party's kind, never a person.
@@ -259,11 +262,24 @@ async function mailAnfrage(anfrage: FLSpielbestaetigungSweepAnfrage, art: "anfra
  * a mailbox the next pass tells again meeting the same day's key.
  */
 async function mailTeamHinweis(
-  hinweis: FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt,
-  anlass: "neue_ansetzung" | "spiel_abgesagt",
+  hinweis: FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt | FLSpielbestaetigungSweepVorschlagVerworfen,
+  anlass: "neue_ansetzung" | "spiel_abgesagt" | "vorschlag_verworfen",
 ): Promise<"gesendet" | VersandAusfall> {
   let versandt: "gesendet" | VersandAusfall = "fehlgeschlagen";
-  const bauen = anlass === "neue_ansetzung" ? buildSpielNeueAnsetzungEmail : buildSpielAbgesagtEmail;
+  const fakten = {
+    origin: frontend_config.AUTH_URL,
+    team1: hinweis.team1_name,
+    team2: hinweis.team2_name,
+    datum: formatSpielDatum(hinweis.alt.datum),
+    uhrzeit: formatUhrzeit(hinweis.alt.uhrzeit),
+  };
+  const bauen = (): SpielEmail => {
+    const { origin, team1, team2, datum, uhrzeit } = fakten;
+    if (anlass === "vorschlag_verworfen")
+      return buildSpielVorschlagVerworfenEmail({ origin, team1, team2, datumText: datum, uhrzeitText: uhrzeit });
+    const notiz = { origin, team1, team2, altDatumText: datum, altUhrzeitText: uhrzeit, empfaenger: "team" } as const;
+    return anlass === "neue_ansetzung" ? buildSpielNeueAnsetzungEmail(notiz) : buildSpielAbgesagtEmail(notiz);
+  };
 
   for (const { address, rollen } of hinweis.empfaenger) {
     const [erste, ...weitere] = rollen;
@@ -280,15 +296,7 @@ async function mailTeamHinweis(
         idempotenzTag: getGermanTodayStr(),
       },
       recipients: [address],
-      buildMail: () =>
-        bauen({
-          origin: frontend_config.AUTH_URL,
-          team1: hinweis.team1_name,
-          team2: hinweis.team2_name,
-          altDatumText: formatSpielDatum(hinweis.alt.datum),
-          altUhrzeitText: formatUhrzeit(hinweis.alt.uhrzeit),
-          empfaenger: "team",
-        }),
+      buildMail: bauen,
     });
     const versand = linkVersandOf(ergebnis);
     if (!istVersandt(versandt)) versandt = versand;
@@ -305,6 +313,11 @@ async function mailNeueAnsetzung(neu: FLSpielbestaetigungSweepNeueAnsetzung): Pr
 /** The team's word that a fixture it was asked about is called off. */
 async function mailSpielAbgesagt(ab: FLSpielbestaetigungSweepSpielAbgesagt): Promise<"gesendet" | VersandAusfall> {
   return mailTeamHinweis(ab, "spiel_abgesagt");
+}
+
+/** The team's word that the league kept the date it declined and proposed another for. */
+async function mailVorschlagVerworfen(weg: FLSpielbestaetigungSweepVorschlagVerworfen): Promise<"gesendet" | VersandAusfall> {
+  return mailTeamHinweis(weg, "vorschlag_verworfen");
 }
 
 async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung): Promise<"gesendet" | VersandAusfall> {

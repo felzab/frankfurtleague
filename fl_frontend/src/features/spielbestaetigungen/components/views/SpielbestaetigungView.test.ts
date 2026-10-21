@@ -216,6 +216,8 @@ describe("the fixture confirmation page", () => {
         { zustand: "abgelehnt", beantwortet_von: { art: "kontakt", rolle: "trainer" } },
         "Für dieses Spiel hat Dein Team den Termin schon abgesagt.",
       ],
+      // The league kept the date the club declined: read as the decline alone, the page would say the league is still to decide.
+      [{ zustand: "verworfen", termin: { datum: "2026-11-07", uhrzeit: "14:30:00" } }, "Die Liga hat entschieden: Der Termin oben bleibt."],
       [{ zustand: "abgelaufen" }, DEAD],
       [{ zustand: "termin-vorbei" }, TERMIN_VORBEI],
       [{ zustand: "ungueltig" }, DEAD],

@@ -14,9 +14,8 @@ import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/s
 import type { FLSchiedsrichterSelbst } from "../../schemas";
 
 /**
- * A referee's fixtures above their own data, read-only, one panel per referee row the address holds: whether the
- * name stands in the Spielplan is changed on the account page, so this page links there rather than offering a
- * second control.
+ * A referee's fixtures and reports above their own read-only data, a panel per referee row the address holds: whether
+ * the name stands in the Spielplan is changed on the account page, which this page links to, offering no second control.
  */
 export function SchiedsrichterSelbstView({
   schiedsrichter,

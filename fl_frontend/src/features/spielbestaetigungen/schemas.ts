@@ -41,14 +41,15 @@ export const FLSpielbestaetigungAntwortArtSchema = z.enum(["zugesagt", "abgelehn
 export type FLSpielbestaetigungAntwortArt = z.infer<typeof FLSpielbestaetigungAntwortArtSchema>;
 
 /**
- * What a reopened link shows; `unlesbar`, a read that failed, is the page's own. `vorschlag` is a link still answerable
- * while the other club's decline proposes another date, and `abgesagt` one whose fixture was called off.
+ * What a reopened link shows; `unlesbar`, a read that failed, is the page's own. `vorschlag`: the other club's decline
+ * proposes another date; `abgesagt`: the fixture was called off; `verworfen`: the league discarded this decline's proposal.
  */
 export const FLSpielbestaetigungZustandSchema = z.enum([
   "gueltig",
   "vorschlag",
   "zugesagt",
   "abgelehnt",
+  "verworfen",
   "abgelaufen",
   "ungueltig",
   "abgesagt",
@@ -299,6 +300,10 @@ export type FLSpielbestaetigungSweepSpielAbgesagt = z.infer<typeof FLSpielbestae
 export const FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema = FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema;
 export type FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema>;
 
+/** A club's decline whose proposed date the administrator discarded: the slot it was asked about, which stands. */
+export const FLSpielbestaetigungSweepVorschlagVerworfenSchema = FLSpielbestaetigungSweepNeueAnsetzungSchema;
+export type FLSpielbestaetigungSweepVorschlagVerworfen = z.infer<typeof FLSpielbestaetigungSweepVorschlagVerworfenSchema>;
+
 /** A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person. */
 export const FLSpielbestaetigungSweepAufgegebenSchema = z.object({
   spielbestaetigung_id: CustomObjectIdStringSchema,
@@ -318,6 +323,7 @@ export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.exte
   schiedsrichter_gewechselt: z.array(FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema),
   spiel_abgesagt: z.array(FLSpielbestaetigungSweepSpielAbgesagtSchema),
   schiedsrichter_spiel_abgesagt: z.array(FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema),
+  vorschlag_verworfen: z.array(FLSpielbestaetigungSweepVorschlagVerworfenSchema),
   geschlossen: z.int().nonnegative(),
   fehlgeschlagen: z.int().nonnegative(),
   // Each a party nobody told, answered on every pass until stamped like a notice.

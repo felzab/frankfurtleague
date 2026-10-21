@@ -14,6 +14,7 @@ const {
   buildSpielEinteilungEmail,
   buildSpielErinnerungEmail,
   buildSpielNeueAnsetzungEmail,
+  buildSpielVorschlagVerworfenEmail,
 } = await import("./spielEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
@@ -38,6 +39,7 @@ const GERECHNET = "13.11.2026";
 
 const anfrage = { origin: ORIGIN, link: LINK, team: "Goethe-Gymnasium", ansetzung: ANSETZUNG, fristText: FRIST };
 const neu = { origin: ORIGIN, team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", altDatumText: "20.11.2026", altUhrzeitText: "14:30" };
+const verworfen = { origin: ORIGIN, team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datumText: "20.11.2026", uhrzeitText: "14:30" };
 
 /** Each message as a reader of either part reads it, so one fact is checked in both. */
 const beideTeile = (mail: { html: string; text: string }): readonly (readonly [string, string])[] => [
@@ -55,6 +57,7 @@ const NACHRICHTEN = {
   "Aufgehobene Einteilung": buildSpielEinteilungAufgehobenEmail(neu),
   "Absage an ein Team": buildSpielAbgesagtEmail({ ...neu, empfaenger: "team" }),
   "Absage an die Schiedsrichterin oder den Schiedsrichter": buildSpielAbgesagtEmail({ ...neu, empfaenger: "schiedsrichter" }),
+  "Verworfener Vorschlag": buildSpielVorschlagVerworfenEmail(verworfen),
 } as const;
 
 /* The request's heading, its button and the page the button opens name one act in one phrase, as the other link
@@ -129,6 +132,12 @@ describe("each message states the same facts in both parts", () => {
       "Wird das Spiel neu angesetzt, bekommst Du eine neue Einteilung.",
       "Diese E-Mail geht nur an Dich.",
     ],
+    "Verworfener Vorschlag": [
+      "für das Spiel Ernst-Reuter-Schule gegen Goethe-Gymnasium hat Dein Team einen anderen Termin vorgeschlagen.",
+      "Die Liga hat entschieden: Das Spiel bleibt am 20.11.2026 um 14:30 Uhr.",
+      "Du musst nichts tun.",
+      "Diese E-Mail geht an die Kontaktpersonen Deines Teams.",
+    ],
   };
 
   for (const [name, mail] of Object.entries(NACHRICHTEN) as [keyof typeof NACHRICHTEN, (typeof NACHRICHTEN)[keyof typeof NACHRICHTEN]][]) {
@@ -171,6 +180,7 @@ describe("each message states the same facts in both parts", () => {
         "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium",
         "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026",
         "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026",
+        "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026",
       ],
     );
   });
@@ -186,14 +196,16 @@ describe("each message states the same facts in both parts", () => {
   });
 
   /* A moved fixture's notice offers nothing to press: the link it voids is the one it is about. Neither does the
-     notice that a referee's Einteilung is lifted, nor a call-off, each leaving nothing to answer. */
-  it("offers no control on a moved fixture's notice, a lifted Einteilung or a call-off", () => {
+     notice that a referee's Einteilung is lifted, nor a call-off, nor a discarded proposal's, each leaving nothing
+     to answer. */
+  it("offers no control on a moved fixture's notice, a lifted Einteilung, a call-off or a discarded proposal", () => {
     for (const mail of [
       NACHRICHTEN["Neue Ansetzung an ein Team"],
       NACHRICHTEN["Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter"],
       NACHRICHTEN["Aufgehobene Einteilung"],
       NACHRICHTEN["Absage an ein Team"],
       NACHRICHTEN["Absage an die Schiedsrichterin oder den Schiedsrichter"],
+      NACHRICHTEN["Verworfener Vorschlag"],
     ]) {
       assert.ok(!mail.html.includes('<a href="http://localhost:3000/bestaetigung'), "the notice links a confirmation page");
       assert.ok(!mail.html.includes(`class="fl-actions"`), "the notice draws a control");
@@ -252,13 +264,17 @@ describe("no value can open a line of its own in the text part", () => {
         mail: buildSpielAbgesagtEmail({ ...neu, empfaenger, [feld]: wert }),
       })),
     ),
+    ...(["team1", "team2", "datumText", "uhrzeitText"] as const).map((feld) => ({
+      name: `the discarded proposal's ${feld}`,
+      mail: buildSpielVorschlagVerworfenEmail({ ...verworfen, [feld]: wert }),
+    })),
   ];
 
   it("folds every value the messages print onto one line, in the text part and the subject", () => {
     const alle = faelle();
 
     // A floor under the population: a list built from nothing would pass the loop below having compared nothing.
-    assert.ok(alle.length >= 37, `only ${String(alle.length)} cases were built`);
+    assert.ok(alle.length >= 41, `only ${String(alle.length)} cases were built`);
     for (const { name, mail } of alle) {
       assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name} forged a line`);
       // Folded, never dropped: the clubs, the slot, the deadline and the link are what the reader acts on.

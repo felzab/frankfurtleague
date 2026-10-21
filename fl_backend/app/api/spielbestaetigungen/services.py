@@ -18,6 +18,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungZustand,
 )
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielOrtFieldPayload,
@@ -246,6 +247,16 @@ def zustand_of(
     # Ahead of the answer too: an agreement to a fixture called off since would send its party to the ground.
     if grund == "abgesagt":
         return "abgesagt"
+
+    # Ahead of the answer as well, which would read as a decision still to come: the league kept the date. Never once the
+    # fixture moved, the date it kept gone with the move.
+    if (
+        grund is None
+        and isinstance(geschlossen, Mapping)
+        and geschlossen["grund"] in GRUENDE_ANSWERED_FOR_THE_STAND
+        and not stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+    ):
+        return "verworfen"
 
     if isinstance(antwort, Mapping):
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
@@ -657,7 +668,11 @@ def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwort
 
 
 def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
-    """These referees' rows in these seasons, open, answered or closed; the season leads, so the read walks `(saison_id, spiel_id)`."""
+    """These referees' rows in these seasons, open, answered or closed, walked through the referee-leading index.
+
+    The season-leading one would walk every fixture's rows of the season
+    (`tests/api/test_spielbestaetigung_execution.py :: TestARefereesOwnRowsAreReadThroughTheirIndex`).
+    """
 
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
 
@@ -685,7 +700,7 @@ def schiedsrichter_zustand_of(
     """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
 
     zustand = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today, gesperrt=False, vorschlag_offen=None)
-    assert zustand != "gesperrt" and zustand != "vorschlag"
+    assert zustand != "gesperrt" and zustand != "vorschlag" and zustand != "verworfen"
 
     return zustand
 
@@ -767,6 +782,25 @@ def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, 
     return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
+def build_void_notice_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
+    """These fixtures' rows a move closed whose notice is still held: their party not yet told their link is void."""
+
+    return {
+        "saison_id": saison_id,
+        "spiel_id": {"$in": list(spiel_ids)},
+        "geschlossen.grund": "ansetzung_geaendert",
+        "geschlossen.mitteilung": {"$ne": None},
+    }
+
+
+def void_notice_held(row: Mapping[str, Any]) -> bool:
+    """`build_void_notice_held_filter` judged of a row read: a move's closing whose notice no `/mitgeteilt` has stamped."""
+
+    geschlossen = row.get("geschlossen") or {}
+
+    return geschlossen.get("grund") == "ansetzung_geaendert" and geschlossen.get("mitteilung") is not None
+
+
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
     block = spiel.get(side)
 
@@ -791,9 +825,13 @@ def grund_to_close(
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First, ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it
     # stands, or the row's where the fixture lost its date.
-    entschieden = entscheidung_of(
-        spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=spiel.get("datum") or ansetzung["datum"]
-    )
+    tag = spiel.get("datum") or ansetzung["datum"]
+    # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
+    # parties are told and shown a call-off (`docs/backend/spec.md :: I836`).
+    if today < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
+        return "abgesagt"
+
+    entschieden = entscheidung_of(spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=tag)
     if entschieden is not None:
         return entschieden
 
@@ -1029,6 +1067,15 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
     )
 
 
+def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
+    """Whether a discard owes the club a notice that the date stands: about a day to come (`docs/backend/spec.md :: I835`).
+
+    No stamp asked, as `notice_owed` asks one: the decline it discards came through one of the club's own links.
+    """
+
+    return _notice_to_come(row=row, grund="verworfen", spiel={}, today=today)
+
+
 def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
     """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
 
@@ -1037,10 +1084,18 @@ def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
 
     grund = row["geschlossen"]["grund"]
     if grund == "abgesagt":
-        return entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+        # A no-show stands past its day, deciding the fixture, and still voids what its parties were asked.
+        return (
+            spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY
+            or entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+        )
 
     if grund == "schiedsrichter_gewechselt":
         return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")
+
+    # The date the discard kept: moved since, the club is asked about the new one instead.
+    if grund == "verworfen":
+        return ansetzung_stand_of(spiel) == row["ansetzung"]["stand"]
 
     return ansetzung_stand_of(spiel) != row["ansetzung"]["stand"]
 
