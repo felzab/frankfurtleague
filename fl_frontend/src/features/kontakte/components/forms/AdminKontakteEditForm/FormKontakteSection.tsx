@@ -14,6 +14,7 @@ import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import {
   eingetragenVonLabel,
@@ -553,7 +554,10 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg nachweis={person.einwilligung.nachweis.umfang} />
+            <Beleg
+              nachweis={person.einwilligung.nachweis.umfang}
+              bestaetigung={bestaetigungOf(person.einwilligung)}
+            />
           </div>
 
           <div className="flex flex-col gap-y-1">
@@ -564,7 +568,10 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg nachweis={person.einwilligung.nachweis.medien} />
+            <Beleg
+              nachweis={person.einwilligung.nachweis.medien}
+              bestaetigung={bestaetigungOf(person.einwilligung)}
+            />
           </div>
         </div>
       </div>

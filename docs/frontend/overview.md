@@ -65,7 +65,7 @@ tried to prerender its data would fail the image build rather than merely render
 
 **HeroUI is imported component by component**, because that package's entry pulls in everything it
 ships and Tailwind does not tree-shake CSS imported from a dependency. The cost is one maintenance
-rule, and the checklist for it — both stylesheets included — is [`spec.md`](spec.md) §1.11.
+rule, and the checklist for it is [`spec.md`](spec.md) §1.11.
 
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix rather than a guess
 about the audience: the stylesheet uses `oklch()`, `color-mix()` and `@property`, so a browser below

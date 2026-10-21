@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { GRUPPEN_OFF_RULES, SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
+import { GRUPPEN_OFF_RULES, SPIELBERICHTE_HALTEN_DEN_SPIELPLAN, SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 
 import {
   rolloverBlockedReason,
@@ -21,6 +21,7 @@ const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): Spielpl
   hasDrawnSpiele: false,
   spieltageCount: 0,
   erfassteSpieleCount: 0,
+  eingereichteBerichteCount: 0,
   hasKoRunden: true,
   startDate: "2026-05-01",
   endDate: "2026-07-31",
@@ -323,6 +324,14 @@ describe("spielplanUndrawBlockedReason", () => {
     // This panel's verb, as the replace's arm pins its own: one sentence copied across would offer
     // the operation the admin is not standing in front of.
     assert.match(erfasst, /Zurücknehmen lässt sich der Spielplan/);
+  });
+
+  /* `REQ-SPIELPLAN-007`: the endpoint refuses both writes while a report stands, so offering either would put the
+     admin through the destructive dialog to a refusal. A recorded fact goes first, as it names its own way back. */
+  it("closes the undraw and the replace while a submitted report stands, in the refusal's own words", () => {
+    assert.equal(undrawBlock({ ...DRAWN, eingereichteBerichteCount: 1 }), SPIELBERICHTE_HALTEN_DEN_SPIELPLAN);
+    assert.equal(spielplanBlock({ ...DRAWN, eingereichteBerichteCount: 1 }), SPIELBERICHTE_HALTEN_DEN_SPIELPLAN);
+    assert.match(undrawBlock({ ...DRAWN, erfassteSpieleCount: 1, eingereichteBerichteCount: 1 }) ?? "", /schon etwas eingetragen/);
   });
 
   /* A date alone is not a recorded fact, and `buildSpielplanBestand` counts it under `angesetzt`

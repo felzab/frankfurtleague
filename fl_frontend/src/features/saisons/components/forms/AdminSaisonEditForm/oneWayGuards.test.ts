@@ -50,6 +50,7 @@ const PANELS: Panel[] = [
         ],
         gruppenOccupancy: { A: 4, B: 4 },
         bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+        eingereichteBerichte: 0,
         hasDrawnSpiele: false,
         onBeforeWrite: guard,
         // A first draw offers no boxes, so nothing here moves the redraw.

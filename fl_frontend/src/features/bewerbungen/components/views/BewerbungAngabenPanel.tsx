@@ -5,6 +5,7 @@ import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf } from "@/features/spieler/nachweis";
 import {
   eingetragenVonLabel,
   KONTAKT_ROLLEN,
@@ -85,7 +86,7 @@ export function BewerbungAngabenPanel({
 }: {
   bewerbung: FLBewerbung;
   teamName: string | null;
-  /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
+  /** Each seat's state, as `bestaetigungsStand` reads it. */
   staende: readonly SitzBestaetigung[];
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
@@ -199,9 +200,9 @@ export function BewerbungAngabenPanel({
                         </a>
                       )}
                     </Angabe>
-                    {/* The stored block's own name where no per-seat state exists: it says who entered
-                        these details and when, which on an application from before the workflow is
-                        nobody's answer — and a Zusage turns on that answer. */}
+                    {/* The stored block's own name where no state is handed for the seat: it says who
+                        entered these details and when, which is nobody's answer — and a Zusage turns on
+                        that answer. */}
                     <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
@@ -228,11 +229,17 @@ export function BewerbungAngabenPanel({
                       <>
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
-                          <Beleg nachweis={person.einwilligung.nachweis.umfang} />
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.umfang}
+                            bestaetigung={bestaetigungOf(person.einwilligung)}
+                          />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
                           {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                          <Beleg nachweis={person.einwilligung.nachweis.medien} />
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.medien}
+                            bestaetigung={bestaetigungOf(person.einwilligung)}
+                          />
                         </Angabe>
                       </>
                     )}

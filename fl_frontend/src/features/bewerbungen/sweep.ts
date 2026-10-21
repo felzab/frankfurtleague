@@ -9,6 +9,7 @@ import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
 import { adresswechselWirksam, mailAdresswechselNichtWirksam } from "@/features/adresswechsel/notifications";
@@ -31,7 +32,7 @@ import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./sc
  * One hour. Every clock selects on a date, so the interval decides only how late in the day a
  * deadline is acted on, and a shorter one buys a punctuality nobody has asked for.
  */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend

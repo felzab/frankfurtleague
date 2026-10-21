@@ -805,6 +805,9 @@ class FLKontaktAbgang(BaseModel):
     # As the replaced block spelled it: the notice goes where the seat's mail went.
     email: str
     schule: str
+    # The seats the mailbox still holds on the row, which the Trainer's pairing alone allows: told it left
+    # every seat, it would read its kept seat's links as dead.
+    bleibt_als: list[FLKontaktRolle]
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):

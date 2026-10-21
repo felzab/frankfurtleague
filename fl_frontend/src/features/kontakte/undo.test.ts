@@ -224,7 +224,7 @@ describe("the contacts save's undo", () => {
           ? { acknowledged: 1, angewendet: true }
           : endpoint === "/teams/memberships"
             ? NO_CLUB
-            : replayed(1, [MINT], [{ rollen: ["ansprechperson"], email: "grace@example.org", schule: "Lessing-Kolleg" }]),
+            : replayed(1, [MINT], [{ rollen: ["ansprechperson"], email: "grace@example.org", schule: "Lessing-Kolleg", bleibt_als: [] }]),
       ),
     );
 
