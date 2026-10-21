@@ -1070,7 +1070,10 @@
 # `fl_backend/tests/core/test_duplicate_key_publication.py` and `fl_backend/tests/api/test_admin_guard.py`,
 # the application having grown from 42,752 lines to 62,657. A process a module pays that build once in
 # every module reading it, where the tier's workers pay it once each, so these sums compare the two
-# trees and are no runner's seconds. No row moves and none takes a stamp.
+# trees and are no runner's seconds. Beside the tier in the scope's pool, later that day with no
+# other agent's tests running, interleaved after one warm run of each: pyright over the backend took
+# 19.34-19.61 s against 15.09-15.12 s at the stamp, three rounds, and `scripts/checks/check_test_estate.py`
+# 6.67-6.76 s against 5.14-5.25 s, five rounds, every run exit 0. No row moves and none takes a stamp.
 #
 # `db`, module by module, at this branch's head 1efaa6a04 against 53377c00f, the tree the row's stamp
 # counts: each module's db-marked cases alone in a pytest process of its own, one run at each tree,
@@ -1094,16 +1097,23 @@
 #   containers the daemon never created 0.01 s each
 # - each sweep's worst call: `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
 #   its full share 0.09 s of call time, `fl_backend/tests/api/test_loeschung_sweep.py`'s 0.39 s and
-#   `fl_backend/tests/api/test_bewerbung_sweep_execution.py`'s two 0.68 s and 0.11 s
+#   `fl_backend/tests/api/test_bewerbung_sweep_execution.py`'s two 0.68 s and 0.11 s; and,
+#   measured alone twice later that day with the module at 22 cases, 9.32-9.37 s,
+#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: test_a_full_share_of_due_changes_asking_the_running_season`
+#   0.36 s
 #
 # Summed with each module's server start taken out, the tier's work came to 334.6 s against 195.4 s:
 # 36.0 s of it modules this branch added and about 25.6 s its growth of older ones, the rest modules
-# and cases `main` gained after the stamp. Two older modules grew per case rather than by cases:
-# `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py`, whose seed now takes each of its two
+# and cases `main` gained after the stamp. Two older modules grew per case rather than by cases.
+# `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py`'s seed now takes each of its two
 # referees through a whole address change, 184-204 ms against 37-42 ms, before an erasure of 76-83 ms
-# against 14-16 ms, by a profile of its phases over two runs at each tree that day; and `fl_backend/tests/core/test_constraints_execution.py`, whose 18 index-read
-# cases each seeded a corpus of 2000 rows, 6.38 s at the head against 3.30 s. Sums of one module a
-# process compare the two trees and are no runner's seconds. No row moves and none takes a stamp.
+# against 14-16 ms, by a profile of its phases over two runs at each tree that day; every case erases,
+# so each seeds its own. `fl_backend/tests/core/test_constraints_execution.py`'s 18 index-read cases
+# each seeded a corpus of 2000 rows, 6.38 s at the head against 3.30 s; one case a family now seeds
+# it once and explains every read, and the four took 7.27-7.84 s by pytest's span against
+# 12.25-12.33 s for the 18, two interleaved runs each with the servers' start in both, later that
+# day. Sums of one module a process compare the two trees and are no runner's seconds. No row moves
+# and none takes a stamp.
 #
 # `frontend-units (4)`, file by file, at this branch's head 1efaa6a04 against 53377c00f, the tree the
 # row's stamp counts: each of the shard's files alone through `test:base`, one run at each tree, the
@@ -1128,8 +1138,50 @@
 # 0.95 s, and `fl_frontend/src/features/adresswechsel/refusals.test.ts` and
 # `fl_frontend/src/features/spielberichte/utils.test.ts` 0.20 s each. The 19 files that stayed took
 # 7.1 s less. A moved file's own growth since the stamp is inside the membership figure, the loop
-# having timed shard 4 alone. Sums of one file a process compare the two trees and
-# are no runner's seconds. No row moves and none takes a stamp.
+# having timed shard 4 alone. Sums of one file a process compare the two trees and are no runner's
+# seconds.
+#
+# The files this branch added in the other three shards, each run once alone through `test:base`
+# later on 2026-10-21 with no other agent's tests running, at 46-70 percent CPU read between the
+# runs, so upper bounds, by `duration_ms`: nine in shard 1, 43.3 s; eight in shard 2, 30.2 s; and
+# thirteen in shard 3, 76.9 s. The longest were
+# `fl_frontend/src/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.test.ts`
+# 17.03 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/vorschlagSeed.test.ts`
+# 13.62 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/bestaetigungPanel.test.ts`
+# 12.76 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/adoptionSave.test.ts`
+# 12.58 s,
+# `fl_frontend/src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.test.ts`
+# 11.91 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselBeantragen.test.ts`
+# 11.11 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselWartet.test.ts`
+# 10.03 s, and the three approval panels under
+# `fl_frontend/src/features/berechtigungen/components/forms/` 9.36-9.45 s each; the other twenty
+# took 0.31-3.39 s, `fl_frontend/src/features/spielberichte/components/views/SchiedsrichterSpielberichteSection.test.ts`
+# 2.72 s among them. No row moves and none takes a stamp.
+#
+# `scripts` and `docs` gained this branch's cases and reads, measured locally on 2026-10-21 on a
+# sixteen-core Windows machine with no other agent's tests running, at 46-70 percent CPU read between
+# the runs, so upper bounds, by pytest's own figures, each module alone:
+#
+# - `scripts/tests/test_gate_pool.py`, 32 cases, 40.07-40.55 s over two runs: the stall named before
+#   the job's timeout,
+#   `scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`,
+#   0.03 s, and the watcher held to that bound,
+#   `scripts/tests/test_gate_pool.py :: test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts`,
+#   0.17 s
+# - `scripts/tests/test_fixture_readers.py`, 27 cases, 3.59 s alone, its eleven functions over the
+#   shell lift's bash parse, nineteen cases, 2.13-2.17 s over two runs
+# - `scripts/tests/test_check_public_routes.py`, 100 cases, 0.76 s alone
+# - `scripts/tests/test_workflow_caches.py`, 15 cases, 2.64 s alone
+# - `scripts/tests/test_branch_checks.py :: test_a_hash_inside_a_quoted_nginx_value_is_text_and_the_comment_after_it_is_read`,
+#   0.75 s, and the two cases `scripts/tests/test_check_gate_budget.py` gained, under 5 ms each
+# - `docs`: `scripts/checks/check_public_routes.py`, finding link pages by their minters across
+#   `fl_frontend/src`, took 318-350 ms end to end, median 333 ms, against 194-261 ms, median 205 ms,
+#   for the checker before that read, ten interleaved rounds after one warm run of each, every run
+#   exit 0
+#
+# Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the `scripts` row
+# carries `-` for its reference, and the checker sits far inside the floor the `docs` row carries.
+# No row moves and none takes a stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
