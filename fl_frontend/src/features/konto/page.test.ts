@@ -15,8 +15,7 @@ import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/Ei
 import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
-// The shells hand a sign-out action to the bar. Every argument recorded, so a case reads what a control's
-// action was bound to as well as what it sends.
+// Every argument recorded, so a case reads what a control's action was bound to as well as what it sends.
 const { calls: actionCalls } = doubleEveryAction({ payloadOf: (args) => args });
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */

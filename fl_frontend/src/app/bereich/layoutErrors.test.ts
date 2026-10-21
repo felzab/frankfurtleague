@@ -13,7 +13,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
@@ -21,8 +21,6 @@ import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
-// Each shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
 
@@ -82,8 +80,10 @@ type Area = {
   /** The layout as Next mounts it, with a page slot standing in for whatever page is asked for. */
   layout: () => ReactElement<{ children?: ReactNode }>;
   boundary: ComponentType<{ children?: ReactNode }>;
-  /** Makes the read the layout's guard awaits throw. */
+  /** Makes the read the layout's hold awaits throw. */
   failRead: () => void;
+  /** Makes the request one the area serves no session for. */
+  refuse: () => void;
   pathname: string;
   params: Record<string, string> | null;
 };
@@ -96,6 +96,7 @@ const AREAS: Area[] = [
     layout: () => PersoenlichLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: PersonAreaBoundary,
     failRead: () => setSubject(OUTAGE),
+    refuse: () => setSubject(null),
     pathname: "/bereich",
     params: null,
   },
@@ -106,6 +107,7 @@ const AREAS: Area[] = [
     layout: () => TeamLayout({ params: Promise.resolve(TEAM), children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: TeamAreaBoundary,
     failRead: () => setSubject(OUTAGE),
+    refuse: () => setSubject(null),
     pathname: `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`,
     params: TEAM,
   },
@@ -116,6 +118,7 @@ const AREAS: Area[] = [
     layout: () => AdminLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: AdminAreaBoundary,
     failRead: () => setSession(OUTAGE),
+    refuse: () => setSession(null),
     pathname: "/bereich/admin/sperrliste",
     params: null,
   },
@@ -141,7 +144,7 @@ describe("a read failing in an area's layout", () => {
     }
   });
 
-  /* The area's `error.tsx` sits inside its layout, so a throw in the layout's guard or chrome reaches
+  /* The area's `error.tsx` sits inside its layout, so a throw in the layout's hold or chrome reaches
      the root boundary, the visitor's chrome and all, unless the layout wraps it itself. */
   it("throws inside the boundary the layout wraps itself in", async () => {
     for (const area of AREAS) {
@@ -198,7 +201,7 @@ describe("a read failing in an area's layout", () => {
     }
   });
 
-  /* The guard's own answer to a missing session is a redirect, which is Next's to act on: caught here,
+  /* A page's own answer to a missing session is a redirect, which is Next's to act on: caught here,
      a lapsed session would read as an outage rather than reach sign-in. */
   it("lets a redirect and a not-found through to Next", () => {
     for (const area of AREAS) {
@@ -236,20 +239,59 @@ function readersIn(node: unknown, found: Reader[] = []): Reader[] {
   return found;
 }
 
-/** The readers each person lane's layout holds, named so a walk finding fewer fails rather than passes. */
-const LANE_READERS: Record<string, string[]> = {
-  "the person area": ["FunktionenGuard", "PersonEntries", "PersonLaneFunktionSwitcher"],
-  "the team area": ["FunktionenGuard", "PersonLaneFunktionSwitcher", "TeamContent", "TeamEntries", "TeamHeading", "TeamSaisonChip"],
+/** Whether `target` stands anywhere in `node`'s tree, its props read through as a slot is an element-valued prop. */
+function holds(node: unknown, target: unknown): boolean {
+  if (node === target) return true;
+  if (Array.isArray(node)) return node.some((child) => holds(child, target));
+  if (!isValidElement<Record<string, unknown>>(node)) return false;
+  return Object.values(node.props).some((value) => holds(value, target));
+}
+
+/** The readers each area's layout holds, named so a walk finding fewer fails rather than passes. */
+const FRAME_READERS: Record<string, string[]> = {
+  "the person area": ["PersonEntries", "PersonLaneFunktionSwitcher", "PersonSessionHold"],
+  "the team area": ["PersonLaneFunktionSwitcher", "PersonSessionHold", "TeamContent", "TeamEntries", "TeamHeading", "TeamSaisonChip"],
+  "the admin area": ["AdminFunktionSwitcher", "AdminSaisonSlot", "AdminSessionHold"],
 };
 
+const readerNames = (readers: Reader[]): string[] => [...new Set(readers.map(({ type }) => type.name))].sort();
+
+describe("each session reader of an area's frame, for a refused session (`docs/frontend/spec.md :: I834`)", () => {
+  /* The page alone turns a refused session away: thrown here, a redirect unmounts the whole area, bar and
+     rail with it, and a part withholding the page slot keeps the page's own redirect from the client. */
+  it("redirects nowhere, and hands on the page slot it holds", async () => {
+    for (const area of AREAS) {
+      const readers = readersIn(area.layout());
+      assert.deepEqual(readerNames(readers), FRAME_READERS[area.name], `${area.name} holds other readers`);
+
+      for (const reader of readers) {
+        area.refuse();
+        const { thrown } = await callPage(() => reader.type(reader.props), NO_PROPS);
+
+        assert.deepEqual(
+          thrown.map((error) => (error as { digest?: unknown } | null)?.digest ?? error),
+          [],
+          `${area.name}'s ${reader.type.name} answers a refused session with a throw`,
+        );
+        if ("children" in reader.props) {
+          assert.ok(
+            holds(await reader.type(reader.props), reader.props.children),
+            `${area.name}'s ${reader.type.name} withholds the page slot`,
+          );
+        }
+      }
+    }
+  });
+});
+
 describe("each session reader of a person lane's layout", () => {
-  /* The builder stage reaches no sign-in store, and the guard's own `connection()` shields nothing beside
+  /* The builder stage reaches no sign-in store, and the hold's own `connection()` shields nothing beside
      it: each part of the frame streams on its own, so its read failing as the build's does must find the
      request already awaited. */
   it("awaits the request before its own session read, whatever is mounted above it", async () => {
     for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
       const readers = readersIn(area.layout());
-      assert.deepEqual([...new Set(readers.map(({ type }) => type.name))].sort(), LANE_READERS[area.name], `${area.name} holds other readers`);
+      assert.deepEqual(readerNames(readers), FRAME_READERS[area.name], `${area.name} holds other readers`);
 
       for (const reader of readers) {
         area.failRead();

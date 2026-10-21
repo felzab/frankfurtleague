@@ -13,9 +13,9 @@ import type { ReactElement } from "react";
 import type { TeamSeat } from "./teamSeats";
 
 /**
- * The signed-in person, or a redirect to sign in (`docs/frontend/spec.md :: I377`). A layout's guard
- * does not rerun on a soft navigation, so a page reading `getSubjectSession` itself renders empty for
- * a lapsed session.
+ * The signed-in person, or a redirect to sign in (`docs/frontend/spec.md :: I377`): a page's alone, thrown
+ * inside its segment. The frame reads `getSubjectSession` and answers `null` with its fallback, a redirect
+ * there unmounting it whole (`docs/frontend/spec.md :: I834`).
  */
 export async function requireSubjectSession(): Promise<SubjectSession> {
   const subject = await getSubjectSession();

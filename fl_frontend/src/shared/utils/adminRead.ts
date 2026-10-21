@@ -6,8 +6,8 @@ import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { runWithIncomingTrace } from "./traceScope";
 
 /**
- * The admin pages' own check, answered as `AdminAuthGuard` answers: Next renders a page whatever its layout's guard
- * decides, and a soft navigation no layout at all (`docs/frontend/spec.md :: I122`).
+ * The admin pages' own check, and their one turn-away: the layout redirects nobody, a redirect there unmounting the
+ * whole frame, and a soft navigation renders no layout at all (`docs/frontend/spec.md :: I122`, `:: I834`).
  */
 export async function requireAdminRequest(): Promise<void> {
   // Loaded at the call: every slice's `queries.ts` imports this module, public pages among their

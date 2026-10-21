@@ -9,14 +9,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { Funktion } from "@/core/funktionen.ts";
-
-// The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the harness registers the
    resolver the icon package's bare `./x` imports need as it evaluates, and a static import resolves first. */

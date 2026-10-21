@@ -2,14 +2,14 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
-import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
+import { getSubjectSession } from "@/core/subject";
+import { PersonSessionHold } from "@/features/funktionen/components/providers/PersonSessionHold";
 import { TeamAreaBoundary } from "@/features/funktionen/components/providers/TeamAreaBoundary";
 import { PersonLaneFunktionSwitcher } from "@/features/funktionen/components/ui/PersonLaneFunktionSwitcher";
 import { SaisonChipSlot } from "@/features/funktionen/components/ui/SaisonChipSlot";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamShell, TeamShellHeading, TeamSidemenuEntries } from "@/features/funktionen/components/ui/TeamShell";
 import { TEAM_SHELL_FALLBACK, TEAM_SIDEMENU_ENTRIES, teamStructureFor } from "@/features/funktionen/constants";
-import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SidemenuEntriesSkeleton } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
@@ -45,46 +45,53 @@ export default function TeamLayout({ children, params }: { children: React.React
           </Suspense>
         }>
         {/* Not redundant with `loading.tsx`, which Next nests INSIDE this boundary: this one covers the
-            guard's session round-trip, which sits above the page segment. */}
+            hold's session round-trip, which sits above the page segment. */}
         <Suspense fallback={<ContentLoader />}>
-          <FunktionenGuard>
+          <PersonSessionHold>
             <TeamContent params={params}>{children}</TeamContent>
-          </FunktionenGuard>
+          </PersonSessionHold>
         </Suspense>
       </TeamShell>
     </TeamAreaBoundary>
   );
 }
 
-/** The seats the person holds at the address, which every part of this layout below reads first. */
+/**
+ * The seats the person holds at the address, which every part of this layout below reads first; `null` for a
+ * refused session, which each part answers with its fallback, the page turning it away (`docs/frontend/spec.md :: I834`).
+ */
 async function seatsHere(params: TeamParams) {
   // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
   // ahead of this runs at build time (`docs/frontend/spec.md :: I448`).
   await connection();
   const { team_id, saison_id } = await params;
-  // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
-  const { funktionen } = funktionenOf(await requireSubjectSession());
+  // The hold's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
+  const subject = await getSubjectSession();
+  if (subject === null) return null;
+  const { funktionen } = funktionenOf(subject);
 
   // A seat on a `past` season is no Funktion, so its address lands here as held by nobody.
   return { funktionen: funktionen, saisonId: saison_id, seats: seatsAt(funktionen, team_id, saison_id) };
 }
 
+/** The bar heads a refused session's address as it does before the read: it holds no seat to be refused from. */
 async function TeamHeading({ params }: { params: TeamParams }) {
-  const { seats } = await seatsHere(params);
+  const here = await seatsHere(params);
 
-  return <TeamShellHeading isRefused={seats.length === 0} />;
+  return <TeamShellHeading isRefused={here !== null && here.seats.length === 0} />;
 }
 
 async function TeamEntries({ params }: { params: TeamParams }) {
-  const { seats } = await seatsHere(params);
+  const here = await seatsHere(params);
 
-  return <TeamSidemenuEntries structure={teamStructureFor(seats)} />;
+  return <TeamSidemenuEntries structure={teamStructureFor(here?.seats ?? [])} />;
 }
 
 /** No chip over an address the person holds nothing on: its segment is whatever was typed there. */
 async function TeamSaisonChip({ params }: { params: TeamParams }) {
-  const { saisonId, seats } = await seatsHere(params);
-  if (seats.length === 0) return null;
+  const here = await seatsHere(params);
+  if (here === null || here.seats.length === 0) return null;
+  const { saisonId, seats } = here;
 
   return (
     <SaisonChipSlot
@@ -95,8 +102,11 @@ async function TeamSaisonChip({ params }: { params: TeamParams }) {
 }
 
 async function TeamContent({ params, children }: { params: TeamParams; children: React.ReactNode }) {
-  const { funktionen, seats } = await seatsHere(params);
-  if (seats.length > 0) return <>{children}</>;
+  const here = await seatsHere(params);
+  // A refused session reaches the page, whose own `requireTeamSeats` sends it to sign in: withheld, the
+  // page's redirect would never reach the client.
+  if (here === null || here.seats.length > 0) return <>{children}</>;
+  const { funktionen } = here;
 
   // Here alone: each page under this checks the seat again and renders nothing, which would log it twice.
   logPageVerweigert("/bereich/team/[team_id]/[saison_id]", "kein_sitz");
