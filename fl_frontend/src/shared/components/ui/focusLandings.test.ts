@@ -461,6 +461,7 @@ const MIT_OFFENEN_SITZEN: Bewerbung = {
 const bewerbungPage = (bewerbung: Bewerbung) =>
   h(AdminBewerbungView, {
     neubesetzung: laufendeNeubesetzung(),
+    medienFragen: {},
     bewerbung,
     fristAbgelaufen: false,
     teamName: "SG Alpha",
@@ -513,6 +514,7 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
     status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
     children: h(AdminKontakteEditView, {
       laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+      medienFragen: {},
       team: { id: TEAM_A, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
       saison: {
         saisonId: "2026",

@@ -16,6 +16,7 @@ import { BewerbungAngabenPanel } from "./BewerbungAngabenPanel";
 import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { GruppeOffer } from "@/features/teams/types";
 import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
 
@@ -31,6 +32,7 @@ export function AdminBewerbungView({
   saisonStatus,
   gruppeOffer,
   neubesetzung,
+  medienFragen,
 }: {
   bewerbung: FLBewerbung;
   /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
@@ -42,6 +44,7 @@ export function AdminBewerbungView({
   gruppeOffer: readonly GruppeOffer[];
   /** `null` where the registry could not be read, which closes the reseat. */
   neubesetzung: Neubesetzung | null;
+  medienFragen: MedienFragen;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -90,6 +93,7 @@ export function AdminBewerbungView({
             bewerbung={bewerbung}
             teamName={teamName}
             staende={staende}
+            medienFragen={medienFragen}
           />
 
           {/* Standing whatever the endpoint would refuse, its own control closed with the reason

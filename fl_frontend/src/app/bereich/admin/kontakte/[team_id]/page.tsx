@@ -6,6 +6,7 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
+import { getMedienFragen } from "@/features/spieler/medienFragen";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -59,12 +60,14 @@ async function AdminKontakteEditContent({
   // A club outside the selected season is NOT not-found: the club exists and the URL names it, so the
   // page opens on a membership of `null` and the panel says there is no row to hang seats off.
   const saison: TeamSaisonMembership = resolveTeamSaisonMembership(team.memberships, selectedSaison);
+  const medienFragen = await runWithIncomingTrace(() => getMedienFragen(saison.membership?.kontakte ?? null));
 
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminKontakteEditView
       key={JSON.stringify({ team, saison })}
       laufendesLabel={laufendesLabel}
+      medienFragen={medienFragen}
       team={{ id: team.id, name: team.name, shorthand: team.shorthand, inactive_since: team.inactive_since }}
       saison={saison}
     />

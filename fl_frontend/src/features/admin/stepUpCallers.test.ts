@@ -279,6 +279,7 @@ const kontakteEditor = () =>
   underNext(
     h(AdminKontakteEditForm, {
       laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+      medienFragen: {},
       teamId: TEAM_ID,
       saison: {
         saisonId: "2627",
