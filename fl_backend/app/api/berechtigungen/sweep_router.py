@@ -98,8 +98,8 @@ async def post_berechtigungen_abgleich(
 
     A `beantragt` row is a grant or a promotion asked for, which no grant has yet. It goes to its own `an` rather than to
     `empfaenger`: whoever could approve the request now, as `POST /berechtigungen/antraege/{antrag_id}/genehmigung` judges
-    them, and nobody once the request is decided, withdrawn, lapsed or erased, or its requester no longer holds the tier it
-    asks for. `an` is null on every other row.
+    them, and nobody where the request is decided, withdrawn, lapsed or erased, or its requester does not hold, since before
+    it, the tier it asks for. `an` is null on every other row.
     """
 
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:

@@ -1198,7 +1198,7 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
             await told(database, client)
-            # Asked by the owner and approved by Anna, so the address the database edit removes acts on no bookkeeping row,
+            # Asked by `OWNER` and approved by Anna, so the address the database edit removes acts on no bookkeeping row,
             # the request's notice included.
             created = await grant(database, client, als=OWNER, approver=ANNA)
             await revoke(database, client, created)
