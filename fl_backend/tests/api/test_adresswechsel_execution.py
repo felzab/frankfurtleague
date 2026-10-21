@@ -1769,6 +1769,32 @@ class TestWhatTheEffectLeavesTheErasure:
 
 
 class TestTheErasure:
+    def test_a_seat_left_before_the_change_goes_with_the_erasure_at_the_new_address(self, mongo_replica_set_url: str):
+        """The editor's image of the seat the person left names them by the replaced address, which no document holds.
+
+        The unconfirmed seat still standing at that address keeps it: an erasure there reaches it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            replacement = {**documents.kontaktperson_document("Vera", bestaetigt_am="2026-03-21"), "nachname": "Zwirnbach"}
+            await as_administrator(
+                ADMIN,
+                patch_one_in_db(
+                    collection=database[Collection.SAISON_TEAMS],
+                    db_filter={"_id": ROW_OID},
+                    update={"$set": {"kontakte.ansprechperson": {**replacement, "email": FOREIGN_EMAIL}}},
+                    return_document=ReturnDocument.BEFORE,
+                ),
+            )
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            await erased(database, client, NEW_EMAIL)
+            logged = await database[Collection.AKTIONEN].find_one({"collection": Collection.SAISON_TEAMS, "document_id": ROW_OID})
+            assert logged is not None, "the editor's write filed no log row"
+            return logged["before"]["kontakte"]["ansprechperson"], logged["before"]["kontakte"]["stellvertretung"]["email"]
+
+        assert on_a_person(mongo_replica_set_url, body) == (None, EMAIL)
+
     def test_an_erased_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)

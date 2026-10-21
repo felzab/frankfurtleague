@@ -5,7 +5,7 @@ Here rather than beside `app/core/recording.py :: build_image_redactions`: a red
 through `app/core/crud.py`, which imports that module, so the call would close a cycle there.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence, Set
 from functools import partial
 from typing import Any
 
@@ -19,6 +19,7 @@ from app.api.aktionen.services import (
     build_address_images_filter,
     carried_by_the_effect,
 )
+from app.api.kontakte.services import build_seat_images_filter, seat_address_carry_edits
 from app.core.collections import Collection as DbCollection
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_redactions
@@ -145,7 +146,8 @@ async def carry_the_replaced_address_in_images(
 ) -> int:
     """Re-key the replaced address in these collections' log images as an address change's effect owes them.
 
-    Every other collection keeps its subject's address, its record reached by id; who acted carries everywhere.
+    Every other collection keeps its subject's address, its record reached by id, a seat's apart
+    (`app/api/aktionen/crud.py :: carry_the_replaced_address_in_seat_images`); who acted carries everywhere.
     """
 
     changed = 0
@@ -166,3 +168,29 @@ async def carry_the_replaced_address_in_images(
         )
 
     return changed
+
+
+async def carry_the_replaced_address_in_seat_images(
+    *,
+    aktionen_collection: AsyncCollection,
+    # Both folded (`app/shared/folding.py :: sign_in_identifier`).
+    alt: str,
+    neue: str,
+    # Each document and slot still seating `alt` once the effect moved its own seats.
+    staying: Set[tuple[Any, str]],
+    stamp: str,
+    session: AsyncClientSession,
+) -> int:
+    """Re-key the replaced address in every seat image an address change's effect leaves nobody holding.
+
+    A seat the person left before their change is reached by no document, so its images are an erasure's by address alone
+    (`app/api/kontakte/services.py :: build_seat_images_filter`).
+    """
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_seat_images_filter(alt),
+        judge=partial(seat_address_carry_edits, alt=alt, neue=neue, staying=staying),
+        stamp=stamp,
+        session=session,
+    )

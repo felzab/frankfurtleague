@@ -95,6 +95,15 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
 
+def seat_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, staying: Set[tuple[Any, str]]) -> dict[str, str]:
+    """Each seat of one log image at the replaced address carried to the new one, but one `staying` names.
+
+    A seat still standing there is nobody's proven own, and that address's erasure reaches its images.
+    """
+
+    return {f"kontakte.{slot}.email": neue for slot in find_matching_slots(image, alt) if (image.get("_id"), slot) not in staying}
+
+
 def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:
     if not slots:
         return {}
