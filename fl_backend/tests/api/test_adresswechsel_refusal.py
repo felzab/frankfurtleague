@@ -24,6 +24,7 @@ from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwe
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
+from app.shared.folding import canonical_address
 
 ADMIN = "verwaltung@frankfurtleague.de"
 OWNER = "inhaberin@frankfurtleague.de"
@@ -41,6 +42,21 @@ class TestTheMask:
         ],
     )
     def test_it_shows_the_first_letters_and_the_last_label_and_never_the_length(self, email: str, masked: str):
+        assert maskierte_adresse(email) == masked
+
+    @pytest.mark.parametrize(
+        ("email", "masked"),
+        [
+            pytest.param("x@Mailbox.invalid", "x•••@m•••.invalid", id="a special-use domain"),
+            pytest.param("x@localhost", "x•••@l•••", id="a dotless domain"),
+            pytest.param("x@xn--zz-garbage.de", "x•••@x•••.de", id="a label no punycode decodes, shown as stored"),
+        ],
+    )
+    def test_a_stored_address_the_rule_came_to_refuse_still_masks(self, email: str, masked: str):
+        """The account page masks what is stored, and a stored value the rule refuses would answer it a 500."""
+
+        with pytest.raises(ValueError):
+            canonical_address(email)
         assert maskierte_adresse(email) == masked
 
     def test_two_addresses_differing_past_their_first_letters_mask_alike(self):
