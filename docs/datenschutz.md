@@ -894,7 +894,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
   retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
-  unconfirmed or decided registration, a decided application and a pending address change. The
+  unconfirmed or decided registration, a decided application, a pending address change and a
+  pending request for a grant. The
   account sweep deletes the account with its sessions, passkeys and codes
   (`docs/frontend/spec.md :: I699`), a barred address's as any other's: a ban holds none (ruled
   2026-10-16). The published notice states the criterion in advance (`DatenschutzView.tsx :: FRISTEN`),
@@ -1004,11 +1005,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept as the
   application log they are written to is, and in a file per day deleted thirty days after its last
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
-  a requested erasure, or a consent its person withdrew, a Widerspruch, or an address change
-  declined through its link, stopped by its address on file, discarded, or taken effect, and its
-  person by keyed hashes of an address alone; a change is discarded by an administrator, by a later
-  change of the same address, by its address on file holding nothing left to move, or by the hourly
-  pass refusing it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
+  a requested erasure, or a consent its person withdrew, a Widerspruch, an address change
+  declined through its link, stopped by its address on file, discarded, or taken effect, or a
+  request for a grant refused, withdrawn or ended by its address changing, and its person by keyed
+  hashes of an address alone; a change is discarded by an administrator, by a later change of the
+  same address, by its address on file holding nothing left to move, or by the hourly pass refusing
+  it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
   line holds three, the journal's own, the pseudonym the action log and the day counts key that
   person on, and the digest their fixture answers carry, so a restore holding the address nowhere
   still finds those rows and the reasons those answers hold (`docs/backend/spec.md :: I666`,
@@ -1018,7 +1020,11 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   declined, stopped or discarded keeps a hash of an address that may be a stranger's who never asked
   to be stored (`fl_backend/app/api/adresswechsel/crud.py :: ending_line`); the line of one taking
   effect keys the address it replaced as well, which a restore followed by an erasure of the new
-  address finds the moved records under (`:: wirksam_line`, `docs/backend/spec.md :: I808`). The day file keeps each line's whole log
+  address finds the moved records under (`:: wirksam_line`, `docs/backend/spec.md :: I808`). **A
+  request's line keys the address the grant was asked for**, which may be a stranger's an
+  administrator mistyped (`fl_backend/app/api/berechtigungen/antraege.py :: abgelehnt_line`); a
+  restore replays it, so a refused request does not come back to be approved
+  (`fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_antrag_abgelehnt`). The day file keeps each line's whole log
   envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run

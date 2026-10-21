@@ -1193,8 +1193,9 @@ x /var/log/frankfurtleague/nginx
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
 every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
-every address change declined, stopped or discarded and every one taking effect
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706); a restore runs each erasure
+every address change declined, stopped or discarded and every one taking effect, and every request
+for a grant refused, withdrawn or ended by its address changing
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857); a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
@@ -1738,11 +1739,12 @@ enter again what it lacks.
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link,
-every address change declined, stopped or discarded (by an administrator, by a later start replacing it, or by the
-hourly pass refusing it when due) and every one taking effect, each naming its person by a keyed hash and never
-by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
+every address change declined, stopped or discarded (by an administrator, by a later start replacing it, by
+finding nothing left to move, or by the hourly pass refusing it when due) and every one taking effect, and every
+request for a grant refused, withdrawn or ended by its address changing, each naming its person by a keyed hash
+and never by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
 the digest their fixture answers carry, whether its commit landed or lost its answer
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857). §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
