@@ -459,9 +459,6 @@ const DRIVES: Record<string, Drive[]> = {
   "features/adresswechsel/components/forms/AdresswechselWartet.tsx :: einladeAdresswechselAction": [
     { render: () => adresswechselPanel(), press: "Link erneut senden", asks: true },
   ],
-  "features/adresswechsel/components/forms/AdresswechselWartet.tsx :: verwirfAdresswechselAction": [
-    { render: () => adresswechselPanel(), press: "Änderung verwerfen", asks: true },
-  ],
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx :: mailEinladungAction": [
     {
       render: () =>
