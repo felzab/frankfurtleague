@@ -7,8 +7,6 @@ import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { bestaetigungOf, medienBestaetigungOf } from "@/features/spieler/nachweis";
 import {
-  eingetragenVonLabel,
-  KONTAKT_ROLLEN,
   KONTAKT_WHATSAPP_FRAGE,
   KONTAKT_WHATSAPP_LABELS,
   kontaktGeburtsdatumLeer,
@@ -144,9 +142,11 @@ export function BewerbungAngabenPanel({
 
       <Panel title="Kontaktpersonen">
         <div className="flex w-full flex-col gap-y-6">
-          {KONTAKT_ROLLEN.map(({ value, label }) => {
+          {/* `staende` holds every seat in the label table's order (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts ::
+              bestaetigungsStand`), so each seat is read with its state and none without. */}
+          {staende.map((stand) => {
+            const { rolle: value, label } = stand;
             const person = kontakte[value];
-            const stand = staende.find((sitz) => sitz.rolle === value) ?? null;
 
             return (
               <div
@@ -204,26 +204,14 @@ export function BewerbungAngabenPanel({
                         </a>
                       )}
                     </Angabe>
-                    {/* The stored block's own name where no state is handed for the seat: it says who
-                        entered these details and when, which is nobody's answer — and a Zusage turns on
-                        that answer. */}
-                    <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
+                    <Angabe label="Bestätigung">
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
-                      {stand === null ? (
-                        <>
-                          {eingetragenVonLabel(person.einwilligung.eingetragen_von)}
-                          {`, ${formatSpielDatum(person.einwilligung.datum)}`}
-                        </>
-                      ) : stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? (
-                        stand.satz
-                      ) : (
-                        <Leer>{stand.satz}</Leer>
-                      )}
+                      {stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? stand.satz : <Leer>{stand.satz}</Leer>}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
-                      {(stand === null || stand.stand.art === "bestaetigt") &&
+                      {stand.stand.art === "bestaetigt" &&
                         person.einwilligung.text_version !== "" &&
                         ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { EINWILLIGUNG_MEDIEN_LABELS, EINWILLIGUNG_UMFANG_LABELS, EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS } from "../../../constants.ts";
@@ -133,6 +134,15 @@ describe("the stored consent panel", () => {
 
     assert.match(text, /Erteilt am\s*02\.03\.2026/, "the day the consent was given is not shown");
     assert.match(text, /Bestätigt am\s*04\.03\.2026/, "the day the consent was confirmed is not shown");
+  });
+
+  /* A stamp a hand edit blanked reads as none (`docs/backend/spec.md :: I387`): a state of the record, never a value the
+     panel holds no copy of, which „Nicht hinterlegt“ would claim. */
+  it("reads a record whose confirmation stamp is blanked as not confirmed", () => {
+    const html = markup({ ...ERTEILT, bestaetigt_am: null });
+
+    assertLeerMarkup(html, "Nicht bestätigt");
+    assert.match(textOf(html), /Bestätigt am\s*Nicht bestätigt/, "the stamp's row reads otherwise");
   });
 
   /* Compared whole rather than by an opening fragment: „steuert die Veröffentlichung“ is a prefix of

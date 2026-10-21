@@ -236,7 +236,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
   its `bestaetigt_am` is stamped (`docs/backend/spec.md :: READ-PUPIL-003`); every other row is
-  served as a nameless slot keeping its `nummer` and `position`. **The gate fails closed**, so a
+  served as a nameless slot keeping its `nummer` and `position`. No squad row carries the pupil's
+  record id, which would link every season's row of a pupil whose name is withheld
+  (`:: READ-PUPIL-005`). **The gate fails closed**, so a
   record nobody confirmed withholds the name rather than publishing it — the state
   `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
   the one a scope read on its own would publish. The board's full names in the Impressum stand
@@ -878,8 +880,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I846`, `:: I480`); an
-  erasure of either address removes it.
+  in the log once delivered or after the hand-outs
+  `fl_backend/app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS` allows
+  (`docs/backend/spec.md :: I846`, `:: I480`); an erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.

@@ -244,7 +244,8 @@ async def a_seat_on_the_application(database: AsyncDatabase, client: AsyncMongoC
     return await korrigiere_kontakt_email(
         bewerbung_id=BEWERBUNG_OID,
         seat="ansprechperson",
-        email_data=FLBewerbungKontaktEmailPayload(email=TYPED),
+        # The seeded Ansprechperson's address, which the correcting page showed.
+        email_data=FLBewerbungKontaktEmailPayload(email=TYPED, bisherige_email="quillhilde@example.com"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],

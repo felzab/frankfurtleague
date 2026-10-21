@@ -10,7 +10,7 @@ import { declareWriteTags, requestEndsOwnSession, requestWriteSent, requestWrite
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
-import { logCodedFailure } from "./degradedRead";
+import { logActionFailure } from "./actionFailure";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -114,7 +114,7 @@ async function runGuarded<S, T extends { success: boolean }>(
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
 
-      logCodedFailure(`${guard.lane} mutation failed: ${mutationName}`, error, "FE-ACT-001");
+      logActionFailure(`${guard.lane} mutation failed: ${mutationName}`, error);
 
       // Judged by what this request sent, a server action being a POST whatever it does.
       answer = answerThrow(error, guard.wording);
@@ -257,6 +257,6 @@ function isConfirmationRefused(error: unknown): error is APIBadStatusError {
 function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
   if (!isConfirmationRefused(error)) throw error;
 
-  logCodedFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, "FE-ACT-001");
+  logActionFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error);
   return stepUpRequired();
 }

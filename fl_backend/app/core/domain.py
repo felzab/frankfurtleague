@@ -2572,6 +2572,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
+        code="REQ-BEWERBUNG-021",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email",
+        aggregate="Bewerbung",
+        summary="an address correction lands only on a seat still holding the address the correcting page showed",
+        implemented_by="app.api.bewerbungen.services.find_sitz_inhaber_refusal",
+        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestACorrectionComposedAgainstTheSeatsHolder",
+    ),
+    Rule(
         code="REQ-PURGE-003",
         status=HTTPStatus.FORBIDDEN,
         operation=(

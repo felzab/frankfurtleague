@@ -37,7 +37,8 @@ async def get_spieler(
     read adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).
 
     Both names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);
-    the row keeps its `nummer` and `position`.
+    the row keeps its `nummer` and `position`, and no row carries the person's record id
+    (`READ-PUPIL-005`).
     """
 
     # Resolved here, never as a field default, and only beside a team: a squad is one season's
@@ -82,8 +83,8 @@ async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection:
         projection={"vorname": 1, "nachname": 1, "einwilligung": 1},
     )
 
-    # Redacted HERE and whole on the admin echo: the list publishes every pupil's id, so a name
-    # left standing on this path would be one dereference away from public.
+    # Redacted HERE and whole on the admin echo: this path is base-tier and answers any id it is
+    # handed, and an id is no secret -- every administrator's page and link carries one.
     served = public_person(
         vorname=spieler_raw.get("vorname"),
         nachname=spieler_raw.get("nachname"),

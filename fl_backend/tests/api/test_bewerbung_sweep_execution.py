@@ -1152,6 +1152,8 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
         """
 
         accepted = {"status": "angenommen", "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None}}
+        report = a_report(SAISON_ID)
+        declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # A page and one more: a kept page answered as read drains for ever, which `DRAIN_BOUND_S` turns into a failure.
@@ -1162,6 +1164,9 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
             await database[Collection.SPIELE].insert_one(
                 spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
             )
+            # Both strips run after the activation committed and judge the season again in their own transactions.
+            await database[Collection.SPIELBERICHTE].insert_one(report)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(declined)
 
             async def activate() -> Any:
                 return await activate_saison(
@@ -1196,6 +1201,8 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                 timeout=DRAIN_BOUND_S,
             )
             junction_row = await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+            report_now = await database[Collection.SPIELBERICHTE].find_one({"_id": report["_id"]})
+            confirmation_now = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": declined["_id"]})
 
             return (
                 interleaved.rival_outcome,
@@ -1206,13 +1213,16 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                     await stored(database, ACCEPTED_OID) is not None,
                     junction_row is not None and junction_row["kontakte"] is not None,
                 ),
+                (report_now, confirmation_now),
             )
 
-        outcome, activated, kept = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+        outcome, activated, kept, (report_now, confirmation_now) = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
 
         # The premise first: the activation committed inside the clock's transaction.
         assert (outcome, activated is not None and activated["status"]) == (COMMITTED, "active")
         assert kept == expected
+        assert report_now["bericht"]["bemerkungen"] == report["bericht"]["bemerkungen"], "the report strip ran past the activation"
+        assert confirmation_now["antwort"]["begruendung"] == declined["antwort"]["begruendung"], "the confirmations' strip ran past it"
 
 
 class TestASeasonNobodyHas:

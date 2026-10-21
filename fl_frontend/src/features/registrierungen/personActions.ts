@@ -4,6 +4,7 @@ import z from "zod";
 
 import { frontend_config } from "@/core/config";
 import { buildRegistrierungAbsageEmail } from "@/core/registrierungEmail";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -80,7 +81,8 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
       throw error;
     }
 
-    if (ablehnung.bestaetigt) await mailAbsage(ablehnung);
+    // The decline has committed: a send broken off is no doubt about it (`docs/frontend/spec.md :: I372`).
+    if (ablehnung.bestaetigt) await runAnsweringOwnCut(() => mailAbsage(ablehnung));
 
     // The same words whatever the send did: a team told that a note was withheld would learn that the
     // pupil's address is barred, which no seat holder is told.

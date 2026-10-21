@@ -49,7 +49,7 @@ describe("a consent record whose evidence is filled, as a read serves it", () =>
 // answers both names as `null` for a person it withholds (`READ-PUPIL-003`), and a stricter mirror
 // reports a landed write as failed.
 describe("the floor a read of a player states", () => {
-  const publik = { id: "0".repeat(24), vorname: "Anna", nachname: "M.", nummer: "7", position: "Tor" };
+  const publik = { vorname: "Anna", nachname: "M.", nummer: "7", position: "Tor" };
   const echo = { acknowledged: 1, spieler_id: "0".repeat(24), vorname: "Anna", nachname: "Mustermann", inactive_since: null };
 
   it("takes the two null names the gate serves for a withheld person", () => {
@@ -60,6 +60,16 @@ describe("the floor a read of a player states", () => {
   it("takes an empty first name on the admin echo, whose model states no floor", () => {
     assert.equal(FLSpielerAdminSingleResponseSchema.safeParse(echo).success, true);
     assert.equal(FLSpielerAdminSingleResponseSchema.safeParse({ ...echo, vorname: "" }).success, true);
+  });
+});
+
+// The squad page hands the parsed rows to a client component, so whatever the mirror keeps ships in
+// the page's payload: a record id the wire carried would tie a withheld row to its others (`READ-PUPIL-005`).
+describe("the squad row a visitor's page receives", () => {
+  it("drops a record id the answer carries", () => {
+    const served = FLSpielerPublicSchema.parse({ id: "0".repeat(24), vorname: null, nachname: null, nummer: "7", position: "Tor" });
+
+    assert.equal("id" in served, false);
   });
 });
 

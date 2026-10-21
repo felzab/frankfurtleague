@@ -764,6 +764,9 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
+  // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
+  // person took since, which a fresh read would hand the address typed for the one who left (`REQ-BEWERBUNG-021`).
+  bisherige_email: KontaktEmailSchema,
 });
 export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
 

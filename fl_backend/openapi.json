@@ -1137,7 +1137,7 @@
     "/api/v0/spieler": {
       "get": {
         "summary": "List Spieler",
-        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);\nthe row keeps its `nummer` and `position`.",
+        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);\nthe row keeps its `nummer` and `position`, and no row carries the person's record id\n(`READ-PUPIL-005`).",
         "operationId": "get_spieler_api_v0_spieler_get",
         "security": [
           {
@@ -6000,7 +6000,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\n**The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save\nanswers one it takes off a seat; null where the corrected address is the one the seat held.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\n**The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save\nanswers one it takes off a seat; null where the corrected address is the one the seat held.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the\ncaller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -6068,7 +6068,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
+            "$ref": "#/components/responses/409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-BEWERBUNG-021"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -14908,12 +14908,19 @@
             "maxLength": 254,
             "format": "email",
             "title": "Email"
+          },
+          "bisherige_email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Bisherige Email"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "email"
+          "email",
+          "bisherige_email"
         ],
         "title": "FLBewerbungKontaktEmailPayload",
         "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten."
@@ -29870,11 +29877,6 @@
             ],
             "title": "Nachname"
           },
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id"
-          },
           "nummer": {
             "anyOf": [
               {
@@ -29906,8 +29908,7 @@
         },
         "type": "object",
         "required": [
-          "nachname",
-          "id"
+          "nachname"
         ],
         "title": "FLSpielerPublic",
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it."
@@ -33498,7 +33499,7 @@
           }
         }
       },
-      "409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019": {
+      "409.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019.REQ-BEWERBUNG-021": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -33514,7 +33515,8 @@
                         "REQ-BEWERBUNG-001",
                         "REQ-BEWERBUNG-011",
                         "REQ-BEWERBUNG-014",
-                        "REQ-BEWERBUNG-019"
+                        "REQ-BEWERBUNG-019",
+                        "REQ-BEWERBUNG-021"
                       ]
                     }
                   }

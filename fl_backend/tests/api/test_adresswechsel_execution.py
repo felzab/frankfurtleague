@@ -1377,9 +1377,9 @@ class TestTheApproval:
 
 class TestTheContactsEditorsRead:
     def test_each_confirmed_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):
-        """The confirmed Ansprechperson, typed otherwise, folds to the changed address and names its change.
+        """The confirmed Ansprechperson holds the changed address and names its change.
 
-        The Stellvertretung folds to it too but never confirmed, so the change moves nothing of it and names it nothing.
+        The Stellvertretung holds it too but never confirmed, so the change moves nothing of it and names it nothing.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

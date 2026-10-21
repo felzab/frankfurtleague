@@ -396,12 +396,18 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
  */
 export function describeBewerbungMail(
   betreff: BewerbungBetreff,
-  { delivered, unreachable, withheld, gesperrt }: Pick<BewerbungMailOutcome, "delivered" | "unreachable" | "withheld" | "gesperrt">,
+  {
+    delivered,
+    unreachable,
+    withheld,
+    ungewiss,
+    gesperrt,
+  }: Pick<BewerbungMailOutcome, "delivered" | "unreachable" | "withheld" | "ungewiss" | "gesperrt">,
 ): string {
   // A filed message is this deployment's, and no address an administrator could write to instead.
   const verfehlt = unreachable.filter((address) => !withheld.includes(address));
 
-  if (delivered.length === 0 && verfehlt.length === 0 && withheld.length === 0) {
+  if (delivered.length === 0 && verfehlt.length === 0 && withheld.length === 0 && ungewiss.length === 0) {
     // Ahead of the empty application's sentence, which would send the reader looking for an address
     // the application does hold.
     return gesperrt > 0
@@ -412,18 +418,26 @@ export function describeBewerbungMail(
   // Beside whatever went: the shortfall is no failure for the reader to chase.
   const nachSperre = gesperrt === 0 ? "" : ` ${gesperrtSatz(gesperrt)}`;
 
-  if (delivered.length === 0 && verfehlt.length === 0) return `${ZURUECKGEHALTEN}${nachSperre}`;
+  if (delivered.length === 0 && verfehlt.length === 0 && ungewiss.length === 0) return `${ZURUECKGEHALTEN}${nachSperre}`;
 
   // German counts nothing and one with words, never with a figure.
-  if (verfehlt.length === 0) {
+  if (verfehlt.length === 0 && ungewiss.length === 0) {
     return delivered.length === 1
       ? `Die ${betreff} ging an eine Kontaktperson.${nachSperre}`
       : `Die ${betreff} ging an ${String(delivered.length)} Kontaktpersonen.${nachSperre}`;
   }
 
-  const nichtErreicht = `Nicht erreicht wurden: ${verfehlt.join(", ")}. Melde Dich selbst bei ihnen.`;
+  // A send broken off unanswered may have arrived, so it is named apart from a refused one, and never as the whole
+  // decision's doubt: the decision has committed (`docs/frontend/spec.md :: I372`).
+  const offen = [
+    ...(verfehlt.length === 0 ? [] : [`Nicht erreicht wurden: ${verfehlt.join(", ")}.`]),
+    ...(ungewiss.length === 0 ? [] : [`Ob die ${betreff} bei ${ungewiss.join(", ")} ankam, ist unklar.`]),
+  ];
+  const nachfassen = `${offen.join(" ")} Melde Dich selbst bei ihnen.`;
 
-  return delivered.length === 0
-    ? `Die ${betreff} konnte an niemanden verschickt werden. ${nichtErreicht}${nachSperre}`
-    : `Die ${betreff} ging raus. ${nichtErreicht}${nachSperre}`;
+  if (delivered.length > 0) return `Die ${betreff} ging raus. ${nachfassen}${nachSperre}`;
+
+  return verfehlt.length > 0
+    ? `Die ${betreff} konnte an niemanden verschickt werden. ${nachfassen}${nachSperre}`
+    : `${nachfassen}${nachSperre}`;
 }

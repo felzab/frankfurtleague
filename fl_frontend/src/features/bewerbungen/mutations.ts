@@ -124,11 +124,15 @@ export async function erneutSendenEinwilligung({ id, rolle }: FLEinwilligungErne
 }
 
 /** **The only field of a submitted application an administrator may move**, answered with a link the caller mails to it. */
-export async function korrigierenKontaktEmail({ id, rolle, email }: FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
+export async function korrigierenKontaktEmail({
+  id,
+  rolle,
+  ...korrektur
+}: FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
   return apiClient<FLBewerbungKontaktEmailResponse>(`/bewerbungen/${id}/kontakte/${rolle}/email`, FLBewerbungKontaktEmailResponseSchema, {
     method: "POST",
     authType: "admin",
-    body: JSON.stringify({ email: email }),
+    body: JSON.stringify(korrektur),
   });
 }
 

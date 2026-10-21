@@ -7,13 +7,15 @@ import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
+import { logActionFailure } from "@/shared/utils/actionFailure";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { explainsItself, logCodedFailure } from "@/shared/utils/degradedRead";
+import { explainsItself } from "@/shared/utils/degradedRead";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -103,11 +105,15 @@ async function notifyBewerbung({
 
   const benanntesTeam = teamName;
 
-  const outcome = await sendBewerbungMail({
-    operation: operation,
-    recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
-    buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
-  });
+  // The decision has committed: a send broken off is worded in the report's own sentence, never as the request's doubt,
+  // which would drop the sentence naming whom to tell by hand (`docs/frontend/spec.md :: I372`).
+  const outcome = await runAnsweringOwnCut(() =>
+    sendBewerbungMail({
+      operation: operation,
+      recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
+      buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
+    }),
+  );
 
   return describeBewerbungMail(betreff, outcome);
 }
@@ -123,8 +129,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
-    if (!explainsItself(failed))
-      logCodedFailure("An application's collision read failed and its refusal takes the shared words", failed, "FE-ACT-001");
+    if (!explainsItself(failed)) logActionFailure("An application's collision read failed and its refusal takes the shared words", failed);
     return null;
   });
 

@@ -848,6 +848,9 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
     # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
     # public form refused too and a correction cannot store what a submission could not.
     email: CustomEmail
+    # The address the page showed on the seat: a seat another person took since is refused rather than handed
+    # the address typed for the one who left (`REQ-BEWERBUNG-021`).
+    bisherige_email: CustomEmail
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):

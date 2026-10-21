@@ -30,7 +30,7 @@ class TestTheMembershipsPipeline:
         lookup = next(stage["$lookup"] for stage in build_team_memberships_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
-        # Composed after the read off the seats' folded addresses, which the junction stores as typed.
+        # Composed after the read, off the seats' addresses.
         composed = {"adresswechsel"}
         assert projection == {"_id": 0} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
 

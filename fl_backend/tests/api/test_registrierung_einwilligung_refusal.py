@@ -179,7 +179,7 @@ class TestTheLookupAndItsProjections:
         }
 
     def test_the_views_read_takes_the_stamp_and_none_of_the_registrations_answers(self):
-        """What the pupil answered is shown back from the person alone, so a confirmed row's own answers reach no base-tier read."""
+        """The view reads the confirmation's stamp alone: neither the registration's answers nor the person's reach a base-tier read."""
 
         assert "geburtsdatum" not in BESTAETIGUNG_ANSICHT_FIELDS
         assert [key for key in BESTAETIGUNG_ANSICHT_FIELDS if key.startswith("einwilligung")] == ["einwilligung.bestaetigt_am"]

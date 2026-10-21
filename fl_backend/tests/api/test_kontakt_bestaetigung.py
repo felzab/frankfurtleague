@@ -66,6 +66,7 @@ from tests.whole_database import where_held
 from tests.worker import worker_database
 
 from .conftest import config_for
+from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths, loaded_by_the_link
 
 pytestmark = pytest.mark.db
 
@@ -248,11 +249,11 @@ async def replace(database: AsyncDatabase) -> Any:
     )
 
 
-async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY, saison_teams: Any = None) -> Any:
     return await get_einwilligung_ansicht(
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
@@ -274,6 +275,7 @@ async def answer(
     text_version: str = SAISON_SEITE,
     medien: bool = False,
     saisons: Any = None,
+    saison_teams: Any = None,
 ) -> Any:
     erteilt = antwort == "erteilt"
     body = {
@@ -288,7 +290,7 @@ async def answer(
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -676,6 +678,52 @@ class TestTheResend:
             return None
 
         on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
+
+
+def _seat_paths(block: str, *leaves: str) -> set[str]:
+    return {f"{block}.{seat}.{leaf}" for seat in SEATS for leaf in leaves}
+
+
+# What each handler resolves off the row its token found, `_id` among them since a projection keeps it unless told
+# otherwise. Neither holds the wording label a seat confirmed under: the page names its own, and the press records it.
+SAISON_ANSICHT_RESOLVES = frozenset(
+    _seat_paths("bestaetigungen", "token_hash", "abgelehnt_am", "frist")
+    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.eingetragen_von")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "name", "austritt"}
+)
+SAISON_ANTWORT_RESOLVES = SAISON_ANSICHT_RESOLVES | _seat_paths(
+    "kontakte", "einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis"
+)
+
+
+class TestWhatASeasonRowsLinkLoads:
+    """Holds the narrowing alone: a projection too short is answered by the cases driving each field either read resolves."""
+
+    def test_the_view_never_holds_the_row_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            response = await save(database, THREE)
+            recorder = ReadsRecorded(database[Collection.SAISON_TEAMS])
+            await ansicht(database, response.bestaetigungen[1].token, saison_teams=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= SAISON_ANSICHT_RESOLVES
+
+    def test_the_answer_never_holds_the_row_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            response = await save(database, THREE)
+            recorder = ReadsRecorded(database[Collection.SAISON_TEAMS])
+            await answer(database, response.bestaetigungen[1].token, saison_teams=recorder)
+
+            return loaded_by_the_link(recorder)
+
+        loaded = on_a_league(mongo_replica_set_url, body)
+
+        assert loaded, "the link's own read did not run"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= SAISON_ANTWORT_RESOLVES
 
 
 class TestTheLinkConfirms:

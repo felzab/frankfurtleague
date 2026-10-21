@@ -227,11 +227,13 @@ describe("the clubs' answers on the admin search's cards", () => {
     screen.getByText((_, chip) => chip?.tagName === "LI" && chip.textContent === "FC Alpha: Zugesagt");
   });
 
-  // An unread answer and an unasked fixture would read alike on the card, so the page says which it is.
+  // An unread answer and an unasked fixture would read alike on the card, so the page says which it is, and that the
+  // referee's answer went with the clubs': both are rows of the read that failed.
   it("says the answers could not be read, rather than showing cards that read as asked nothing", () => {
     renderView("", { ...ADMIN, bestaetigungen: null });
 
     screen.getByText("Die Spielbestätigungen ließen sich gerade nicht lesen");
+    screen.getByText(/weder der Teams noch ihrer Schiedsrichterin oder ihres Schiedsrichters/);
   });
 
   // A cut read names what it cut, or the cards it shorted read as complete.

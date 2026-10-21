@@ -234,7 +234,7 @@ async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registr
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    """The holder check, shared with the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
+    """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
     return await post_adresswechsel_verwaltung(
         adresswechsel_data=FLAdresswechselVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
