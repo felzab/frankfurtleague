@@ -44,6 +44,7 @@ registerDoubles({
 const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
 const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_PRESS } = await import("./constants.ts");
 const { mapSperreRefusal } = await import("./refusals.ts");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
 
@@ -260,6 +261,23 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       "a declined registration is said to end with the ban, or asked to be edited with no tool to do it",
     );
   });
+
+  /* The address tool refuses its reader their own address and, without an owner's power, a grant holder's: a change
+     it would refuse is linked nowhere, its line saying where it opens, and asks for no edit. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no address change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      antwort = () => Promise.resolve({ ...NICHTS, adresswechsel: [{ adresswechsel_id: WECHSEL, einsehbar_verwehrt: verwehrt }] });
+
+      const { dialog } = await gezeigt();
+
+      assert.deepEqual(verweiseIn(dialog), []);
+      assert.ok(
+        within(dialog).queryByText(`Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[verwehrt]}`) !== null,
+        "the line links into a refusal, or says nothing of where the change opens",
+      );
+      assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "an edit is asked with no tool to make it");
+    });
+  }
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */
   it("links a pupil holding no squad row to their record", async () => {

@@ -6,6 +6,7 @@ import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
+import { EinsehbarVerwehrtSchema } from "./einsehbar";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,
@@ -26,6 +27,7 @@ import {
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
+import type { EinsehbarVerwehrt } from "./einsehbar";
 import type {
   FLAdresswechselEinladenPayload,
   FLAdresswechselGenehmigungPayload,
@@ -172,18 +174,25 @@ export async function verwirfAdresswechselAction(rawPayload: FLAdresswechselVerw
  * this press, which owes what a confirmation would: the account's move, the completion notice, and the grant's
  * announcement.
  */
-export async function genehmigeAdresswechselAction(rawPayload: FLAdresswechselGenehmigungPayload): Promise<ActionResult> {
+export async function genehmigeAdresswechselAction(
+  rawPayload: FLAdresswechselGenehmigungPayload,
+  // The row's served reason the address tool refuses this approver, sent by the page: it words the discard a refusal
+  // sends them to, and authorises nothing, the backend judging the approval and the tool on their own.
+  einsehbarVerwehrt: EinsehbarVerwehrt | null,
+): Promise<ActionResult> {
   // The enrolment's window, the grant write's own: the approval hands a grant to another address (`docs/frontend/spec.md :: I458`).
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {
     const validated = FLAdresswechselGenehmigungPayloadSchema.safeParse(rawPayload);
+    const verwehrt = EinsehbarVerwehrtSchema.nullable().safeParse(einsehbarVerwehrt);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    if (!verwehrt.success) return { success: false, error: VALIDATION_FAILED };
 
     let antwort;
     try {
       antwort = await genehmigeAdresswechsel(validated.data);
     } catch (error) {
-      const refusal = mapGenehmigungRefusal(error);
+      const refusal = mapGenehmigungRefusal(error, verwehrt.data);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }

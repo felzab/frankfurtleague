@@ -185,6 +185,7 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   einwilligung: null,
   bestaetigung: null,
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   abgelaufen: { bestaetigung: false },
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
@@ -228,6 +229,7 @@ const spielerEditor = (inactiveSince: string | null, inKader = true) =>
       geburtsdatum: "2009-05-04",
       email: "lena.meier@schule.example",
       adresswechsel_id: null,
+      adresswechsel_einsehbar_verwehrt: null,
     },
     einwilligung: bestaetigteEinwilligung(),
     saison: {

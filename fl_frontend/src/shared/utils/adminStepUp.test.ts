@@ -137,11 +137,11 @@ const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn"])
 const ACCOUNT_SLICES: ReadonlySet<string> = new Set(["konto", "passkeys"]);
 
 /** The action named, off the real server action module of its slice that exports it. */
-async function action(name: string): Promise<(payload?: unknown) => Promise<unknown>> {
+async function action(name: string): Promise<(payload?: unknown, context?: unknown) => Promise<unknown>> {
   const slice = STEP_UP_WRITES[name] ?? assert.fail(`${name} is no step-up write`);
   for (const file of serverActionModules(20).filter((module) => path.basename(path.dirname(module)) === slice)) {
     const found = ((await import(pathToFileURL(file).href)) as Record<string, unknown>)[name];
-    if (typeof found === "function") return found as (payload?: unknown) => Promise<unknown>;
+    if (typeof found === "function") return found as (payload?: unknown, context?: unknown) => Promise<unknown>;
   }
   return assert.fail(`${slice} exports no ${name}`);
 }
@@ -574,7 +574,7 @@ const NEW_SAISON = {
  * Per operation publishing the backend's own confirmation refusal, the action sending it and a payload
  * its schema admits; a conditional write's is the call its condition steps up, which the backend judges alike.
  */
-const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown }> = {
+const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown; context?: unknown }> = {
   "POST /berechtigungen": { name: "postBerechtigungAction", payload: { email: "neu@schule.de" } },
   "DELETE /berechtigungen/{berechtigung_id}": { name: "deleteBerechtigungAction", payload: { id: GRANT_ID } },
   "PATCH /berechtigungen/{berechtigung_id}": { name: "patchBerechtigungAction", payload: { id: GRANT_ID, verwaltung: "owner" } },
@@ -646,7 +646,12 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /adresswechsel/{adresswechsel_id}/einladen": { name: "einladeAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
   "DELETE /adresswechsel/{adresswechsel_id}": { name: "verwirfAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
   // The approval hands a grant to another address, so its window is the enrolment's, as a grant write's.
-  "POST /adresswechsel/{adresswechsel_id}/genehmigung": { name: "genehmigeAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": {
+    name: "genehmigeAdresswechselAction",
+    payload: { id: ADRESSWECHSEL_ID },
+    // The row's served reason the tool refuses its reader, which words a refusal and decides nothing.
+    context: null,
+  },
   "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": {
@@ -702,12 +707,12 @@ describe("a write the backend refuses for want of a recent confirmation", () => 
 
   /* The session is inside the spine's window, so only the backend refuses: the answer has to be the
      spine's own refusal, and the figure re-read, for the page's next press to ask. */
-  for (const [operation, { name, payload }] of Object.entries(CONFIRMED_BY_THE_BACKEND)) {
+  for (const [operation, { name, payload, context }] of Object.entries(CONFIRMED_BY_THE_BACKEND)) {
     it(`${name} answers the step-up refusal, and the page's figure is read again`, async () => {
       setFresh(true);
       answerWith(() => Promise.reject(refusedOn(operation, "REQ-AUTH-009")));
 
-      assert.deepEqual(await (await action(name))(payload), refused, `${name} answered the backend's refusal in other words`);
+      assert.deepEqual(await (await action(name))(payload, context), refused, `${name} answered the backend's refusal in other words`);
       assert.deepEqual(
         cacheCalls.map((call) => call.name),
         ["refresh"],

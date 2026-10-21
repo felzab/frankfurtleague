@@ -8,7 +8,9 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLGenehmigungVerwehrt } from "@/features/berechtigungen/schemas";
+import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { EinsehbarVerwehrt } from "./einsehbar";
 import type { AdresswechselLinkZustand } from "./link";
 
 // ---- The link page ------------------------------------------------------------------------------
@@ -211,11 +213,26 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
   }
 }
 
-const ohneGenehmigung = (grund: string): string =>
+/** Who discards a change the approval left open, by why the tool refuses this approver, the tool's discard being the only one. */
+function verwerfen(verwehrt: EinsehbarVerwehrt | null): Omit<RefusalParts, "reason"> {
+  switch (verwehrt) {
+    case null:
+      return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
+    case "verwaltung":
+      return {
+        repair: { before: "Frag eine Inhaberin oder einen Inhaber der Verwaltung, sie", after: "zu verwerfen" },
+        where: ADRESSWECHSEL_EINTRAG.label,
+      };
+    // One's own change is refused its approval before the effect judges it, so this one is never reached by a press.
+    case "eigene":
+      return { repair: "Stoppe sie auf Deiner Kontoseite" };
+  }
+}
+
+const ohneGenehmigung = (grund: string, verwehrt: EinsehbarVerwehrt | null): string =>
   buildRefusal({
     reason: `${grund}, deshalb ist nichts genehmigt. Die Änderung bleibt offen, bis sie verworfen wird oder abläuft`,
-    repair: { before: "Verwirf sie", after: "" },
-    where: ADRESSWECHSEL_EINTRAG.label,
+    ...verwerfen(verwehrt),
   });
 
 /**
@@ -239,7 +256,7 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLGenehmigungVerwehrt, string
 };
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
-const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
+const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<string, string>> => ({
   "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_VERWEHRT.juenger,
   "REQ-ADRESSWECHSEL-002": BEENDET,
   // The press itself ended the change, finding the address emptied since its start: never „schon beendet“.
@@ -252,17 +269,23 @@ const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
   // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
   // stands unapproved until it is discarded or lapses.
-  "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste"),
-  "REQ-ADRESSWECHSEL-005": ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste"),
-  "REQ-ADRESSWECHSEL-006": ohneGenehmigung("Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an"),
-  "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt"),
-  "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung"),
-};
+  "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", verwehrt),
+  "REQ-ADRESSWECHSEL-005": ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", verwehrt),
+  "REQ-ADRESSWECHSEL-006": ohneGenehmigung(
+    "Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an",
+    verwehrt,
+  ),
+  "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
+  "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
+});
 
-/** The approval's refusal, or `null`, the `DB-COMMON` pair among them, which the shared reader words. */
-export function mapGenehmigungRefusal(error: unknown): string | null {
+/**
+ * The approval's refusal, or `null`, the `DB-COMMON` pair among them, which the shared reader words. `verwehrt` is the
+ * row's served reason the tool refuses this approver, which picks the discard's wording and nothing else.
+ */
+export function mapGenehmigungRefusal(error: unknown, verwehrt: EinsehbarVerwehrt | null): string | null {
   if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
   if (!isRefusal(error)) return null;
 
-  return GENEHMIGUNG_WORTE[error.serverErrorCode ?? ""] ?? null;
+  return genehmigungWorte(verwehrt)[error.serverErrorCode ?? ""] ?? null;
 }

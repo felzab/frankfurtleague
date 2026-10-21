@@ -336,7 +336,7 @@ describe("the waiting change's two controls", () => {
 
 describe("another administrator's approval", () => {
   it("approves by the change's id, and says the access moves once the change takes effect", async () => {
-    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
+    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null);
 
     assert.deepEqual(backendCalls(), [["POST", `/adresswechsel/${ADRESSWECHSEL_ID}/genehmigung`, undefined]]);
     assert.match(message(res), /Der Zugang wechselt zur neuen Adresse, sobald sie bestätigt ist/);
@@ -361,7 +361,7 @@ describe("another administrator's approval", () => {
       },
     ];
 
-    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
+    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null);
 
     assert.match(message(res), /Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt\./);
     assert.deepEqual(mailedTo(), [], "the answer waited on the notice");
@@ -383,14 +383,25 @@ describe("another administrator's approval", () => {
     );
   });
 
-  it("answers every refusal the approval publishes through its mapper, and announces nothing", async () => {
-    await assertEachAnswered({
-      operation: APPROVAL,
-      refuseWith: (next) => void (antwort[APPROVAL] = next),
-      act: () => genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }),
-      mapped: mapGenehmigungRefusal,
+  /* The row's reason picks the discard a refusal sends its approver to, so each is answered with its own. */
+  for (const verwehrt of [null, "verwaltung", "eigene"] as const) {
+    it(`answers every refusal the approval publishes through its mapper for a reader the tool refuses ${String(verwehrt)}, and announces nothing`, async () => {
+      await assertEachAnswered({
+        operation: APPROVAL,
+        refuseWith: (next) => void (antwort[APPROVAL] = next),
+        act: () => genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, verwehrt),
+        mapped: (error) => mapGenehmigungRefusal(error, verwehrt),
+      });
+      assert.deepEqual(deferred, []);
     });
-    assert.deepEqual(deferred, []);
+  }
+
+  /* Sent by the page, so read as any value a browser could send: one off the served set approves nothing. */
+  it("refuses a reason off the served set before reaching the backend", async () => {
+    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, "inhaber" as never);
+
+    assert.equal(res.success, false);
+    assert.deepEqual(backendCalls(), []);
   });
 });
 
@@ -426,14 +437,14 @@ describe("the windows the writes are held to", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
     setSession({ user: { email: "vorstand@example.org" } });
     // The doubled store stamps the session as it first serves it, which is now.
-    assert.equal((await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID })).success, true);
+    assert.equal((await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null)).success, true);
 
     t.mock.timers.tick(4 * 60 * 1000);
-    assert.equal((await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID })).success, true);
+    assert.equal((await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null)).success, true);
 
     client.calls.length = 0;
     t.mock.timers.tick(2 * 60 * 1000);
-    const refused = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
+    const refused = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null);
     assert.equal(Reflect.get(refused, "stepUp"), true, "the refusal does not ask the page to confirm");
     assert.deepEqual(client.calls, [], "a stale session reached the backend");
   });

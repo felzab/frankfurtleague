@@ -346,6 +346,7 @@ function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, tea
           <FormAdresseSection
             email={spieler.email}
             adresswechselId={spieler.adresswechsel_id}
+            adresswechselVerwehrt={spieler.adresswechsel_einsehbar_verwehrt}
           />
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
