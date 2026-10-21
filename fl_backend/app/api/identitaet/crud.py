@@ -763,8 +763,9 @@ async def erase_everything(
             session=session,
         )
 
+    berechtigungen_antraege = 0
     if _runs(erase_antraege_in_session, scope):
-        await erase_antraege_in_session(
+        berechtigungen_antraege = await erase_antraege_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, session=session
         )
 
@@ -813,6 +814,7 @@ async def erase_everything(
         registrierungen=registrierungen,
         adresswechsel=adresswechsel,
         berechtigungen=berechtigungen,
+        berechtigungen_antraege=berechtigungen_antraege,
         drosselung=drosselung,
     )
 

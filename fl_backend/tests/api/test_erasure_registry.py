@@ -25,7 +25,16 @@ IDENTIFIER = "zorbanax.quillfeather@example.org"
 
 # One grant taken, so the journal reads the grants once the erasure committed.
 A_GRANT_TAKEN = FLErasure(
-    spieler=0, saison_spieler=0, schiedsrichter=0, spiele=0, kontakt_sitze=0, registrierungen=0, adresswechsel=0, berechtigungen=1, drosselung=0
+    spieler=0,
+    saison_spieler=0,
+    schiedsrichter=0,
+    spiele=0,
+    kontakt_sitze=0,
+    registrierungen=0,
+    adresswechsel=0,
+    berechtigungen=1,
+    berechtigungen_antraege=0,
+    drosselung=0,
 )
 
 

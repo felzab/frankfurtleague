@@ -213,7 +213,8 @@ async def get_erasure_ansicht(
     the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
     answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
     they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
-    answer standing; what the person made or decided for others, which names a marker in their place; their day counts; their rows in the
+    answer standing; what the person made or decided for others, which names a marker in their place; their day counts; every
+    request for a grant about their address or made by it, which goes; their rows in the
     log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
     other log image holding the address; each grant's announced row, and an announced row holding the address under
     another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their

@@ -114,7 +114,8 @@ async def get_erasure_ansicht_auf_anfrage(
     and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
     confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
     which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
-    others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
+    others, which name a marker in its place; its day counts; every request for a grant about the address or made by it,
+    which goes; its rows in the log; every log image of a record the
     erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
     address under another grant's id; and the address in every notice still queued, withheld. Written besides: the

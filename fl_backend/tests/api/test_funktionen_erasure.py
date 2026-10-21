@@ -849,6 +849,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
+            # The request about their address and the one they asked.
+            "berechtigungen_antraege": 2,
             "drosselung": 4,
         }
 

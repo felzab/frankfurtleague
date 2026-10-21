@@ -388,11 +388,10 @@ async def a_corrected_referee_address(database: AsyncDatabase, client: AsyncMong
     )
 
 
-# Each writer an address enters a record through from a payload, with the count the erasure's answer files it under, or none
-# where the answer counts no such record.
-WRITERS: dict[str, tuple[Rival, str | None]] = {
+# Each writer an address enters a record through from a payload, with the count the erasure's answer files it under.
+WRITERS: dict[str, tuple[Rival, str]] = {
     "a grant": (a_grant, "berechtigungen"),
-    "a request for a grant": (a_request, None),
+    "a request for a grant": (a_request, "berechtigungen_antraege"),
     "a contact seat on a season row": (a_seat_on_the_season_row, "kontakt_sitze"),
     "a contact seat on an application": (a_seat_on_the_application, "kontakt_sitze"),
     "a contact seat filled on an application": (a_seat_filled_on_the_application, "kontakt_sitze"),
@@ -443,7 +442,7 @@ class TestARecordWrittenInsideTheErasureGoesWithIt:
 
         assert (outcome, wrote) == (COMMITTED, True), "the writer or the erasure never committed, so this case proves nothing"
         assert held == [], f"{held} still hold the address the erasure answered for"
-        assert counted_as is None or getattr(answer, counted_as) == 1
+        assert getattr(answer, counted_as) == 1
 
 
 # The person lane: the erased address holds a seat on the club's row, from which it declines another pupil's registration.
