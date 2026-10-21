@@ -48,13 +48,13 @@ describe("how each contact repair is addressed", () => {
     assert.deepEqual(lastSent(), { endpoint: `/bewerbungen/${ID}/einwilligung/trainer/erneut`, method: "POST", body: undefined });
   });
 
-  it("posts the correction with the seat in the path and the address alone in the body", async () => {
-    await korrigierenKontaktEmail({ id: ID, rolle: "ansprechperson", email: "anna.neu@example.de" });
+  it("posts the correction with the seat in the path, and the address and the one the page showed in the body", async () => {
+    await korrigierenKontaktEmail({ id: ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: "anna@example.de" });
 
     assert.deepEqual(lastSent(), {
       endpoint: `/bewerbungen/${ID}/kontakte/ansprechperson/email`,
       method: "POST",
-      body: { email: "anna.neu@example.de" },
+      body: { email: "anna.neu@example.de", bisherige_email: "anna@example.de" },
     });
   });
 

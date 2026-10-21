@@ -16,6 +16,7 @@ import {
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { SessionRow } from "@/core/authDoubles.ts";
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Granted nothing: the person lane of every guard below. */
@@ -303,7 +304,7 @@ describe("what a removal costs, and what it refuses", () => {
     // The request's clock, which its deadline was set on as the press began.
     let clock = 0;
     t.mock.method(performance, "now", () => clock);
-    mail.answerWith(async () => {
+    mail.answerWith(async (): Promise<MailOutcome> => {
       // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
       clock = REQUEST_DEADLINE_MS - 1;
       const bound = boundCall(REQUEST_DEADLINE_MS);
