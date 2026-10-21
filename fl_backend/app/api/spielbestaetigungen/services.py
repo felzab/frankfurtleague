@@ -767,6 +767,25 @@ def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, 
     return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
+def build_void_notice_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
+    """These fixtures' rows a move closed whose notice is still held: their party not yet told their link is void."""
+
+    return {
+        "saison_id": saison_id,
+        "spiel_id": {"$in": list(spiel_ids)},
+        "geschlossen.grund": "ansetzung_geaendert",
+        "geschlossen.mitteilung": {"$ne": None},
+    }
+
+
+def void_notice_held(row: Mapping[str, Any]) -> bool:
+    """`build_void_notice_held_filter` judged of a row read: a move's closing whose notice no `/mitgeteilt` has stamped."""
+
+    geschlossen = row.get("geschlossen") or {}
+
+    return geschlossen.get("grund") == "ansetzung_geaendert" and geschlossen.get("mitteilung") is not None
+
+
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
     block = spiel.get(side)
 

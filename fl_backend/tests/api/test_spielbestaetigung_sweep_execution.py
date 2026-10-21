@@ -32,6 +32,7 @@ from app.api.spielbestaetigungen.services import (
     compose_antwort_update,
     compose_closing_update,
     compose_spielbestaetigung,
+    letzter_anfrage_tag,
     parteien_of,
     seat_holding,
 )
@@ -667,7 +668,7 @@ class TestAMovedFixtureAsksAgain:
 
 
 class TestTheVoidNoticeGoesAheadOfTheFreshRequest:
-    """`docs/backend/spec.md :: I769`: a full close share leaves a moved fixture's mailed rows open for one more pass."""
+    """`docs/backend/spec.md :: I769`: a full close or notice share holds a moved fixture's fresh request back one more pass."""
 
     def test_the_moved_fixture_is_asked_on_the_pass_that_announces_it(self, mongo_replica_set_url: str):
         decided = [
@@ -704,6 +705,37 @@ class TestTheVoidNoticeGoesAheadOfTheFreshRequest:
             [],
             [],
         )
+        assert (len(announced.neue_ansetzungen), len(announced.schiedsrichter_neue_ansetzungen)) == (2, 1)
+        assert (len(announced.anfragen), len(announced.einteilungen)) == (2, 1)
+
+    def test_a_full_notice_share_holds_the_moved_fixture_back_until_its_notices_go(self, mongo_replica_set_url: str):
+        """Closed in its pass, the moved fixture's rows hold notices the notice step's full share leaves unanswered."""
+
+        # Past the answer window, so the mint asks none of them and its share stays the moved fixture's.
+        backlog = [
+            fixture(ObjectId(f"6890a1b2c3d4e5f6078{position:05d}"), 40 + position, days_after(day=letzter_anfrage_tag(today=TODAY), days=1))
+            for position in range(MITTEILUNGEN_PER_PASS)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            # About a slot left before the moved fixture's day, so the notice step's share takes them first.
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [a_held_notice({**spiel, "datum": days_after(day=TODAY, days=1)}) for spiel in backlog]
+            )
+            await move(database, client, SPIEL, uhrzeit="19:00:00")
+            crowded = await sweep(database, client)
+            await mitgeteilt(database, client, [notice.spielbestaetigung_id for notice in crowded.neue_ansetzungen])
+
+            return crowded, await sweep(database, client)
+
+        crowded, announced = on_a_league(mongo_replica_set_url, body, spiele=[*backlog, fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (crowded.geschlossen, len(crowded.neue_ansetzungen), crowded.schiedsrichter_neue_ansetzungen) == (3, MITTEILUNGEN_PER_PASS, [])
+        assert {notice.spiel_id for notice in crowded.neue_ansetzungen} == {spiel["_id"] for spiel in backlog}
+        assert (crowded.anfragen, crowded.einteilungen) == ([], [])
+        assert {notice.spiel_id for notice in [*announced.neue_ansetzungen, *announced.schiedsrichter_neue_ansetzungen]} == {SPIEL}
         assert (len(announced.neue_ansetzungen), len(announced.schiedsrichter_neue_ansetzungen)) == (2, 1)
         assert (len(announced.anfragen), len(announced.einteilungen)) == (2, 1)
 
