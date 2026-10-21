@@ -143,10 +143,25 @@ class TestTheLinksLookups:
 SECOND_OWNER = "zweite.inhaberin@frankfurtleague.de"
 LATE = "spaet@frankfurtleague.de"
 PROMOTED = "befoerdert@frankfurtleague.de"
+# Moved by their own address change after the request, each row granted afresh then; the second owner demoted since, the
+# third demoted and promoted again since.
+MOVED = "verwaltung.neu@frankfurtleague.de"
+MOVED_OWNER = "inhaberin.neu@frankfurtleague.de"
+MOVED_DEMOTED = "zurueckgestuft@frankfurtleague.de"
+MOVED_REPROMOTED = "wieder.befoerdert@frankfurtleague.de"
 BEFORE, AFTER = NOW - timedelta(days=1), NOW + timedelta(hours=1)
+CARRIED_ADMINISTRATION = {"berechtigt_seit": BEFORE, "inhaber_seit": None}
+CARRIED_OWNER = {"berechtigt_seit": BEFORE, "inhaber_seit": BEFORE}
 
 
-def a_grant(adresse: str, verwaltung: str, *, at: datetime = BEFORE, ernannt_am: datetime | None = None) -> dict[str, Any]:
+def a_grant(
+    adresse: str,
+    verwaltung: str,
+    *,
+    at: datetime = BEFORE,
+    ernannt_am: datetime | None = None,
+    fortgefuehrt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """A grant pasted at `at`, which no reconciliation has seen: its date is its own and its id's."""
 
     return {
@@ -156,6 +171,7 @@ def a_grant(adresse: str, verwaltung: str, *, at: datetime = BEFORE, ernannt_am:
         "erteilt_von": OWNER,
         "erteilt_am": at,
         **({} if ernannt_am is None else {"ernannt_am": ernannt_am}),
+        **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
     }
 
 
@@ -165,6 +181,10 @@ GRANTS = [
     a_grant(SECOND_OWNER, "owner"),
     a_grant(LATE, "administration", at=AFTER),
     a_grant(PROMOTED, "owner", ernannt_am=AFTER),
+    a_grant(MOVED, "administration", at=AFTER, fortgefuehrt=CARRIED_ADMINISTRATION),
+    a_grant(MOVED_OWNER, "owner", at=AFTER, fortgefuehrt=CARRIED_OWNER),
+    a_grant(MOVED_DEMOTED, "administration", at=AFTER, fortgefuehrt=CARRIED_OWNER),
+    a_grant(MOVED_REPROMOTED, "owner", at=AFTER, ernannt_am=AFTER, fortgefuehrt=CARRIED_OWNER),
 ]
 
 
@@ -191,6 +211,17 @@ class TestWhoMayNotApprove:
             pytest.param(a_change(gestartet_von=CHANGED), LATE, False, "juenger", id="an administrator granted after the request"),
             pytest.param(
                 a_change(gestartet_von=OWNER, verwaltung="owner"), PROMOTED, True, "juenger", id="an owner promoted after the request"
+            ),
+            pytest.param(a_change(gestartet_von=CHANGED), MOVED, False, None, id="an administrator whose own address changed since"),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner"), MOVED_OWNER, True, None, id="an owner whose own address changed since"
+            ),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner"),
+                MOVED_REPROMOTED,
+                True,
+                "juenger",
+                id="an owner moved, then demoted and promoted again since",
             ),
         ],
     )
@@ -223,6 +254,24 @@ class TestWhetherAnApprovalStillStands:
             ),
             pytest.param(
                 a_change(gestartet_von=CHANGED, genehmigt_von=ERASED_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
+            ),
+            # The effect of their own change carried `genehmigt_von` to the row it granted afresh.
+            pytest.param(
+                a_change(gestartet_von=CHANGED, genehmigt_von=MOVED), GRANTS, set(), True, id="its approver's own address changed since"
+            ),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner", genehmigt_von=MOVED_OWNER),
+                GRANTS,
+                set(),
+                True,
+                id="an owner's change, its approver's own address changed since",
+            ),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner", genehmigt_von=MOVED_DEMOTED),
+                GRANTS,
+                set(),
+                False,
+                id="an owner's change, its approver moved and demoted since",
             ),
         ],
     )

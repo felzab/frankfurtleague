@@ -46,8 +46,8 @@ from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_abo
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
 from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
+from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht, lebendige_adresse
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
-from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
@@ -880,6 +880,8 @@ async def _move_the_grant(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         now=now,
         session=session,
+        # The four-eyes rule dates the person, not the mailbox (`docs/backend/spec.md :: I865`).
+        fortgefuehrt=compose_fortgefuehrt(grant, announced[0] if announced else None),
     )
 
 

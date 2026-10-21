@@ -1537,8 +1537,9 @@ class TestTheMovedGrant:
         assert NEW_EMAIL in addresses and SECOND_ADMIN not in addresses
 
 
-# Where the suite's owner moves to, and an administrator granted after a change was asked.
+# Where the suite's owner and its first administrator move to, and an administrator granted after a change was asked.
 OWNER_NEW_EMAIL = "inhaberin.neu@anderswo.example.org"
+ADMIN_NEW_EMAIL = "verwaltung.neu@anderswo.example.org"
 LATE_ADMIN = "spaet.gekommen@anderswo.example.org"
 # Where a person moves on to after a first change.
 THIRD_EMAIL = "lenore.dritte@nochwoanders.example.org"
@@ -1561,6 +1562,18 @@ async def granted_later(database: AsyncDatabase, adresse: str, *, at: Any) -> No
     """
 
     await database[Collection.BERECHTIGUNGEN].insert_one({**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": adresse, "erteilt_am": at})
+
+
+# An hour past the suite's clock: a grant an address change makes then is younger than every request the case started.
+AN_HOUR_ON = NOW + timedelta(hours=1)
+
+
+async def moved_on(database: AsyncDatabase, client: AsyncMongoClient, adresse: str, neue: str) -> None:
+    """The administrator at `adresse` changes their own address to `neue` an hour on, approved by another and confirmed."""
+
+    own = await start(database, client, identifier=adresse, email=neue, germany_now=AN_HOUR_ON)
+    await approve(database, client, own.id, operator=SECOND_ADMIN, germany_now=AN_HOUR_ON)
+    await answer(database, client, own.token, germany_now=AN_HOUR_ON)
 
 
 class TestTheAdministratorFollowsTheirMove:
@@ -1695,6 +1708,36 @@ class TestTheAdministratorFollowsTheirMove:
         # Asked again: the start's notice and the one the withdrawal queued, each read for whoever could approve it now.
         assert told == [sorted([OWNER, SECOND_ADMIN, THIRD_ADMIN])] * 2
         assert approved.wirksam
+
+    def test_an_approval_whose_approver_changed_their_own_address_since_stands_and_asks_nobody_again(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await approve(database, client, minted.id, operator=ADMIN)
+            await moved_on(database, client, ADMIN, ADMIN_NEW_EMAIL)
+            answered = await answer(database, client, minted.token, germany_now=AN_HOUR_ON)
+            return answered, await change(database, minted.id), await approvers_told(database, client, now=AN_HOUR_ON)
+
+        answered, record, told = on_a_person(mongo_replica_set_url, body)
+
+        assert (answered.wirksam, record["beendet"]["art"]) == (True, "wirksam")
+        # The two starts' notices alone, each claimed for nobody once both changes ended: no withdrawal queued a third.
+        assert told == [[], []]
+
+    def test_an_administrator_who_changed_their_own_address_since_is_asked_and_approves(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await moved_on(database, client, ADMIN, ADMIN_NEW_EMAIL)
+            told = await approvers_told(database, client, now=AN_HOUR_ON)
+            await approve(database, client, minted.id, operator=ADMIN_NEW_EMAIL, germany_now=AN_HOUR_ON)
+            return told, await answer(database, client, minted.token, germany_now=AN_HOUR_ON)
+
+        told, answered = on_a_person(mongo_replica_set_url, body)
+
+        # The person's change, then the administrator's own, ended as the claim reads it.
+        assert told == [sorted([ADMIN_NEW_EMAIL, OWNER, SECOND_ADMIN, THIRD_ADMIN]), []]
+        assert answered.wirksam
 
     def test_an_administrator_granted_after_the_request_approves_nothing_of_it(self, mongo_replica_set_url: str):
         """Else one person grants a second mailbox they hold and approves with it."""
