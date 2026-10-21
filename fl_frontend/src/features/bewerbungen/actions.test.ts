@@ -898,18 +898,20 @@ describe("the re-sent confirmation link", () => {
     assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, false, "the re-send was not refused, so nothing is judged");
     assert.equal(mailed.length, 0, "the re-send mailed a link the backend refused to mint");
 
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    // Each press that mints a link, its write answering a deadline the page's read does not hold.
+    for (const [where, press, answer, to] of [
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben(), PERSON.email],
+      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), korrigiert(), KORREKTUR.email],
+      ["the reseat", () => besetzeKontaktSitzAction(SITZ), besetzt(), SITZ.email],
+    ] as const) {
+      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+      answerWith(() => Promise.resolve(answer));
 
-    assert.equal(
-      (await einwilligungErneutSendenAction(ERNEUT)).success,
-      true,
-      "the re-send mailed nothing, so the deadline is judged on nothing",
-    );
-    assert.ok(
-      mailed[0]?.text.includes(formatSpielDatum("2026-09-18")),
-      "the message states the deadline the page held, not the one the write set",
-    );
+      assert.equal((await press()).success, true, `${where} did not land, so its deadline is judged on nothing`);
+      const text = mailed.findLast((mail) => mail.to === to)?.text ?? "";
+      assert.ok(text.includes(formatSpielDatum("2026-09-18")), `${where}'s message states no deadline the write set`);
+      assert.ok(!text.includes(formatSpielDatum("2026-09-01")), `${where}'s message states the deadline the page held`);
+    }
   });
 
   /* Judged before the mint, because `compose_erneut_update` replaces the seat's entry whole: a press
@@ -1277,8 +1279,8 @@ describe("the person seated where one stepped out", () => {
     assert.deepEqual(writes, [], "the reseat seated a person behind a message nobody could compose");
   });
 
-  /* `gepaarteSitze` mirrors `paired_seat`, which drops a seat missing either half — and every seat
-     this write fills was emptied, so a message composed from it names one seat of a pair. */
+  /* A pair recomputed from the page's read mirrors `paired_seat`, which drops a seat missing either half — and every
+     seat this write fills was emptied, so a message composed from it would name one seat of a pair. */
   it("names the seats the write itself answered rather than recomputing the pair", async () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
