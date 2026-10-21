@@ -152,6 +152,28 @@ describe("the new mailbox's side of the address page", () => {
     );
   });
 
+  /* Pressed, so the backend refuses the decline as well; and its link never lapsed, the approval's week did. */
+  it("tells a confirmed change whose approval lapsed why it ends, offering no press", () => {
+    render(h(AdresswechselLinkView, { start: { zustand: "genehmigung_abgelaufen", weg: "konto" } }));
+
+    assert.equal(screen.getByRole("heading", { level: 1 }).textContent, "Änderung abgelaufen");
+    assert.deepEqual(
+      screen.queryAllByRole("button").map((button) => button.textContent.trim()),
+      [],
+    );
+    assert.match(
+      document.body.textContent,
+      /Die Änderung ist abgelaufen, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat\. Diese Adresse wird nicht übernommen\. Brauchst Du die Änderung noch, frag sie in Deinem Konto neu an\./,
+    );
+    assert.doesNotMatch(document.body.textContent, /Dieser Link ist abgelaufen|24 Stunden/);
+
+    for (const weg of ["freigabe", "wartezeit"] as const) {
+      const shown = words({ zustand: "genehmigung_abgelaufen", weg });
+      assert.doesNotMatch(shown, /in Deinem Konto/, `a lapsed ${weg} change is sent to an account page that cannot start it`);
+      assert.match(shown, /Brauchst Du die Änderung noch, schreib uns an/);
+    }
+  });
+
   it("a barred address opens on the ban's sentence and nothing else (`docs/frontend/spec.md :: I516`)", () => {
     const shown = words({ zustand: "gesperrt" });
 
@@ -173,6 +195,7 @@ describe("the new mailbox's side of the address page", () => {
       [{ zustand: "abgelaufen", weg: "konto", token: "abc123" }, "Dieser Link ist abgelaufen."],
       [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann nicht mehr bestätigt werden."],
       [{ zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" }, "sobald die Verwaltung die Änderung genehmigt hat."],
+      [{ zustand: "genehmigung_abgelaufen", weg: "konto" }, "weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat."],
       [{ zustand: "beendet", seite: "bisherig", art: "wirksam" }, "Für das Konto gilt inzwischen eine neue E-Mail-Adresse."],
       [{ zustand: "ungueltig" }, "Zu diesem Link finden wir keine Änderung."],
       [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
@@ -291,6 +314,7 @@ describe("the new mailbox's side of the address page", () => {
       { zustand: "gesperrt" },
       { zustand: "beendet", seite: "neu", art: "wirksam" },
       { zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" },
+      { zustand: "genehmigung_abgelaufen", weg: "konto" },
     ] as const) {
       assert.ok(!("token" in startOf(ohne, "abc123")), `${ohne.zustand} kept a token no press may spend`);
     }
@@ -437,6 +461,16 @@ describe("the address page over its read", () => {
 
     answerReadsWith(() => ({ acknowledged: 1, ansicht: { seite: "bisherig", zustand: "beendet", art: "wirksam" } }));
     assert.deepEqual(await pageStart(), { zustand: "beendet", seite: "bisherig", art: "wirksam" });
+  });
+
+  /* Pressed, so its own state and no token: the read's `abgelaufen` keeps one for the decline an unpressed link still takes. */
+  it("opens a pressed link whose approval lapsed on its own state, without the token", async () => {
+    answerReadsWith(() => ({
+      acknowledged: 1,
+      ansicht: { seite: "neu", zustand: "genehmigung_abgelaufen", gueltig_bis: null, wirksam_ab: null, weg: "konto", genehmigung_offen: null },
+    }));
+
+    assert.deepEqual(await pageStart(), { zustand: "genehmigung_abgelaufen", weg: "konto" });
   });
 
   it("opens on its own state where the network never answered the read, rather than calling a live link void", async () => {

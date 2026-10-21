@@ -56,6 +56,8 @@ const TITEL: Record<Exclude<AdresswechselStart["zustand"], "gesperrt" | "beendet
   genehmigung: STOPP_TITEL,
   wartezeit: STOPP_TITEL,
   abgelaufen: "Link abgelaufen",
+  // The heading the change's tombstone reads once the hourly pass has ended it.
+  genehmigung_abgelaufen: "Änderung abgelaufen",
   nicht_bestaetigbar: "Änderung nicht mehr möglich",
   ungueltig: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
@@ -412,6 +414,21 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
           </BestaetigungErgebnis>
           <NurAblehnen antwort={antwort} />
         </>
+      )}
+
+      {/* Pressed, so no decline is offered: the backend refuses every press on a confirmed change. */}
+      {stand.zustand === "genehmigung_abgelaufen" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ_CLASSES}>
+            Die Änderung ist abgelaufen, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat. Diese Adresse wird nicht übernommen.{" "}
+            {stand.weg === "konto"
+              ? "Brauchst Du die Änderung noch, frag sie in Deinem Konto neu an."
+              : `Brauchst Du die Änderung noch, schreib uns an ${KONTAKT_EMAIL}.`}
+          </p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
       )}
 
       {/* Naming neither the ban, nor another pupil holding the address: the holder of this mailbox may be a
