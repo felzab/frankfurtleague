@@ -299,6 +299,14 @@ export type FLSpielbestaetigungSweepSpielAbgesagt = z.infer<typeof FLSpielbestae
 export const FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema = FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema;
 export type FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema>;
 
+/** A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person. */
+export const FLSpielbestaetigungSweepAufgegebenSchema = z.object({
+  spielbestaetigung_id: CustomObjectIdStringSchema,
+  spiel_id: CustomObjectIdStringSchema,
+  partei: z.enum(["team", "schiedsrichter"]),
+});
+export type FLSpielbestaetigungSweepAufgegeben = z.infer<typeof FLSpielbestaetigungSweepAufgegebenSchema>;
+
 /** One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp. */
 export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
@@ -312,8 +320,8 @@ export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.exte
   schiedsrichter_spiel_abgesagt: z.array(FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema),
   geschlossen: z.int().nonnegative(),
   fehlgeschlagen: z.int().nonnegative(),
-  // Notices the pass stopped owing unsent, each a party nobody told.
-  mitteilungen_aufgegeben: z.int().nonnegative(),
+  // Each a party nobody told, answered on every pass until stamped like a notice.
+  mitteilungen_aufgegeben: z.array(FLSpielbestaetigungSweepAufgegebenSchema),
 });
 export type FLSpielbestaetigungSweepResponse = z.infer<typeof FLSpielbestaetigungSweepResponseSchema>;
 

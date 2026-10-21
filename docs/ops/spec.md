@@ -425,8 +425,8 @@ link page goes to `:: @edge_refusal_seite` instead (`nginx/shared/http.conf :: $
 a branded page with its way back to the site, since a sentence alone, opened from a mail, is a dead
 end. The page is written inline in the configuration, because the deploy compares every file under
 `nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
-its colours are the mail shell's, copied by hand from `fl_frontend/src/app/schemes/2027.css` and
-held to it by nothing. Next 16.4.2 hands a server action's caller the body of a
+it withholds the referrer, as every link page does, since its URL carries the link's token; and its
+colours are the season scheme's, copied by hand. Next 16.4.2 hands a server action's caller the body of a
 failed answer that is not RSC as the error's message under that exact type alone, and the frontend
 reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
@@ -435,7 +435,9 @@ handler's caller reads the status alone, and a page load past the connection cei
 sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
 compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
-grades a link page's refused load the same way against the page.
+grades a link page's refused load the same way against the page, and that page's referrer tag and its
+colours against the scheme `fl_frontend/src/app/globals.css` imports, which a comparison with the
+file it was read off cannot hold.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
