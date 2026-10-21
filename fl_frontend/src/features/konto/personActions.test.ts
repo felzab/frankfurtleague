@@ -50,8 +50,8 @@ const ABGLEICH = "/api/v0/berechtigungen/abgleich";
 let abgleiche = 0;
 const FREIGABE = "/api/v0/konto/adresswechsel/freigabe";
 
-/** Who is told an approval waits: none for an address holding no grant. */
-let genehmiger: string[] = [];
+/** How many are told an approval waits: none for an address holding no grant. */
+let genehmigerAnzahl = 0;
 /** The grant the signed-in address holds, as the subject read serves it: none, unless a case names its tier. */
 let grant: { verwaltung: "owner" | "administration"; berechtigt_seit: string; inhaber_seit: string | null } | null = null;
 let startAnswer: () => Response;
@@ -68,7 +68,7 @@ const mint = () => ({
   email: NEU,
   bisherige_email: BISHER,
   vorname: "Lena",
-  genehmiger: genehmiger,
+  genehmiger_anzahl: genehmigerAnzahl,
 });
 
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
@@ -127,7 +127,7 @@ beforeEach(() => {
   writes.length = 0;
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
-  genehmiger = [];
+  genehmigerAnzahl = 0;
   grant = null;
   deferred.length = 0;
   abgleiche = 0;
@@ -178,7 +178,7 @@ describe("the person's own start of an address change", () => {
   /* A grant moves only once another administrator approves: the approvers are told once, by the grants' outbox the
      start queued, and the person that the old address signs in meanwhile. */
   it("leaves the approvers to the grants' outbox, drained behind the answer, and tells the person the old address signs in meanwhile", async () => {
-    genehmiger = ["anna@verwaltung.example", "ben@verwaltung.example"];
+    genehmigerAnzahl = 2;
     grant = { verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", inhaber_seit: null };
     await verwaltendAngemeldet();
 
@@ -200,7 +200,7 @@ describe("the person's own start of an address change", () => {
 
   /* An owner told that any administrator may approve asks one, whose press is closed: the tier names the approver. */
   it("names another owner as the approver where the moved grant is an owner's", async () => {
-    genehmiger = ["anna@verwaltung.example"];
+    genehmigerAnzahl = 1;
     grant = { verwaltung: "owner", berechtigt_seit: "2026-01-01T00:00:00Z", inhaber_seit: "2026-01-01T00:00:00Z" };
     await verwaltendAngemeldet();
 

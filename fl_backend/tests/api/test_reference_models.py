@@ -325,7 +325,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
         parsed = FLSpielerWithMemberships.model_validate(
-            {**stored, "adresswechsel_id": None, "adresswechsel_einsehbar": False, "memberships": []}
+            {**stored, "adresswechsel_id": None, "adresswechsel_einsehbar_verwehrt": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None

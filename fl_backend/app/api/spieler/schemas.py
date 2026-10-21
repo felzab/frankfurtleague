@@ -2,6 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
@@ -312,8 +313,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
     # rather than hiding a change as none.
     adresswechsel_id: CustomObjectId | None
-    # Whether the address tool opens that change for this administrator; false where none stands.
-    adresswechsel_einsehbar: bool
+    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
+    adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
     memberships: list[FLSpielerMembership]
 
 

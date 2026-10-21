@@ -286,8 +286,8 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   vorname: z.string().nullable(),
   // The administrator's warning that the new address already holds records of its own, which merge.
   adresse_belegt: z.boolean(),
-  // Who could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); empty where no grant moves.
-  genehmiger: z.array(z.string()),
+  // How many could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); 0 where none moves.
+  genehmiger_anzahl: z.int().nonnegative(),
 });
 export type FLAdresswechselVerwaltungMintResponse = z.infer<typeof FLAdresswechselVerwaltungMintResponseSchema>;
 

@@ -72,7 +72,13 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   }
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
-      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_id: null, adresswechsel_einsehbar: false }
+      ? {
+          acknowledged: 1,
+          schiedsrichter: referee(),
+          bestaetigung_abgelaufen: false,
+          adresswechsel_id: null,
+          adresswechsel_einsehbar_verwehrt: null,
+        }
       : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null };
   }
   if (endpoint.endsWith("/spielplan")) {

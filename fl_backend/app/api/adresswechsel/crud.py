@@ -44,11 +44,12 @@ from app.api.aktionen.crud import (
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -757,13 +758,21 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    # A seat left before the change is in no document an erasure at the new address reads, so its images follow the
-    # person; one standing at the replaced address as nobody's proven own keeps it.
+    # A seat or referee row left before the change is in no document an erasure at the new address reads, so its images
+    # follow the person; one standing at the replaced address as nobody's proven own keeps it.
     await carry_the_replaced_address_in_images(
         aktionen_collection=aktionen_collection,
         alt=alt,
         neue=neu,
         staying=await _seats_staying_at(alt, collections=(saison_teams_collection, bewerbungen_collection), session=session),
+        referees_held={
+            row["_id"]
+            for row in await aggregate_many_from_db(
+                collection=schiedsrichter_collection,
+                pipeline=[{"$match": build_selbst_referee_filter(alt, neu)}, {"$project": {"_id": 1}}],
+                session=session,
+            )
+        },
         stamp=stamp,
         session=session,
     )
@@ -964,7 +973,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     ]
 
 
-async def einsehbare_adressen(
+async def verwehrte_adressen(
     adressen: Iterable[str],
     *,
     akteur: str,
@@ -972,23 +981,24 @@ async def einsehbare_adressen(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     session: AsyncClientSession | None,
-) -> set[str]:
-    """Which of these folded addresses' changes the address tool opens for this administrator.
+) -> dict[str, FLAdresswechselEinsehbarVerwehrt]:
+    """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
 
-    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar`; the grants are read only where an address is
-    asked, most reads serving no change.
+    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
+    address is asked, most reads serving no change.
     """
 
     gefragt = set(adressen)
     if not gefragt:
-        return set()
+        return {}
     grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
 
     return {
-        adresse
+        adresse: grund
         for adresse in gefragt
-        if adresswechsel_einsehbar(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
+        if (grund := adresswechsel_einsehbar_verwehrt(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced))
+        is not None
     }
 
 

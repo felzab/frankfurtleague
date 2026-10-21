@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
 // hold it (`docs/glossary.md :: Kürzel`). `fl_backend/tests/shared/test_frontend_mirrors.py` pairs
@@ -456,6 +457,13 @@ export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
 });
 export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
 
+/** Mirrors `FLSaisonTeamAdresswechselVerwehrt` — per seat, why the address tool refuses its change this administrator. */
+export const FLSaisonTeamAdresswechselVerwehrtSchema = z.object({
+  trainer: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+  ansprechperson: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+  stellvertretung: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+});
+
 /**
  * Mirrors `FLSaisonTeamAdresswechsel` — the change pending at each confirmed seat's address, one for every record that
  * address holds, `null` where none waits.
@@ -464,8 +472,8 @@ export const FLSaisonTeamAdresswechselSchema = z.object({
   trainer: CustomObjectIdStringSchema.nullable(),
   ansprechperson: CustomObjectIdStringSchema.nullable(),
   stellvertretung: CustomObjectIdStringSchema.nullable(),
-  // The seats among these whose change the address tool opens for this administrator.
-  einsehbar: z.array(z.enum(["ansprechperson", "stellvertretung", "trainer"])),
+  // Null at a seat whose change the tool opens, or where none stands.
+  einsehbar_verwehrt: FLSaisonTeamAdresswechselVerwehrtSchema,
 });
 export type FLSaisonTeamAdresswechsel = z.infer<typeof FLSaisonTeamAdresswechselSchema>;
 

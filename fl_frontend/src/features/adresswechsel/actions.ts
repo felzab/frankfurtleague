@@ -90,7 +90,7 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
     const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
     // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
     // the answer as an approval is: mailing them here too would tell each twice.
-    if (mint.genehmiger.length > 0) afterTheResponse(runBerechtigungenAbgleich);
+    if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
 
     return {
       success: true,

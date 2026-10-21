@@ -114,8 +114,8 @@ async def get_adresswechsel_ansicht(
     a body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's
     links answer `beendet` and how it ended for as long as its record is kept.
 
-    The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `abgelaufen` where its approval week
-    lapsed unapproved; else `gesperrt` wherever the ban list holds the address the link was mailed to, then
+    The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `genehmigung_abgelaufen` where its
+    approval week lapsed unapproved; else `gesperrt` wherever the ban list holds the address the link was mailed to, then
     `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
