@@ -309,6 +309,41 @@ def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
     ]
 
 
+def split_from(base: dict[str, Row] | None, head: dict[str, Row], job: str) -> Row | None:
+    """The base's row `X` that a new `X (i)` carrying `X`'s stamp replaces.
+
+    An instance runs part of its parent's tests over the same setup, so each span the parent's
+    stamp counts bounds it from above.
+    """
+    instance = INSTANCE.match(job)
+    if base is None or job in base or instance is None:
+        return None
+    parent = base.get(instance.group(1))
+    row = head[job]
+    if parent is None or instance.group(1) in head or row.measured is None or row.measured != parent.measured:
+        return None
+    return parent
+
+
+def above_parent(job: str, row: Row, parent: Row) -> list[str]:
+    """Each figure an instance carries past the parent row whose population it inherits."""
+    rose: list[str] = []
+    if parent.budget is not None and (row.budget is None or row.budget > parent.budget):
+        rose.append(f"budget {NONE if row.budget is None else f'{row.budget} s'} against {parent.budget} s")
+    if row.seconds is not None and (parent.seconds is None or row.seconds > parent.seconds):
+        rose.append(f"reference {row.seconds} s against {NONE if parent.seconds is None else f'{parent.seconds} s'}")
+    if row.floor is not None and (parent.floor is None or row.floor > parent.floor):
+        rose.append(f"floor {row.floor}% against {NONE if parent.floor is None else f'{parent.floor}%'}")
+    return (
+        [
+            f"`{job}` carries `{parent.job}`'s stamp {row.measured}, so it inherits that row's population and no figure "
+            f"above it, and its {', '.join(rose)} is one"
+        ]
+        if rose
+        else []
+    )
+
+
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
     """The file against its base: a rise carries a fresh stamp of enough runs, and no ceiling or comparison vanishes.
 
@@ -337,6 +372,10 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
             findings.append(
                 Finding("fail", f"`{job}`'s stamp {row.measured} is dated after today ({today.isoformat()}), and a measurement cannot be")
             )
+            continue
+        parent = split_from(base, head, job)
+        if parent is not None:
+            findings += [Finding("fail", problem) for problem in above_parent(job, row, parent)]
             continue
         # Only a stamp this branch wrote: one the base already carries was judged when it landed.
         if before is None or row.measured != before.measured:

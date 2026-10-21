@@ -1141,8 +1141,8 @@ the `.test` family alone, and `pnpm run test:db` collects the suffix in every ex
 takes, so the two scripts partition the default set. The gate's db scope runs `test:db`.
 The library's memory adapter, which `fl_frontend/src/core/auth.test.ts` runs on, resolves two writes to
 one row last-writer-wins, so a refusal the database makes never happens there. Because the `test`
-script ends in its patterns, a flag appended after it is not applied: the gate shards the suite
-through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
+script ends in its patterns, a flag appended after it is not applied: a shard hands `test:base`
+its planned files in place of the patterns (`scripts/gate/shard_plan.py`).
 
 **A transaction a db file's replica set aborts at MongoDB's lifetime limit fails that file**
 (`fl_frontend/src/core/expiredTransactions.ts :: closeJudgingExpiredTransactions`), its one

@@ -719,6 +719,64 @@ def test_a_matrix_job_s_instances_on_unequal_budgets_are_a_finding():
     ]
 
 
+SPLIT_STAMP = "24@2026-09-01/37627541547"
+
+
+def split(*instances: tuple[str, str, str, str]) -> dict[str, Any]:
+    """`db` split into instances, each `(seconds, floor, budget, measured)`, the total kept their sum."""
+    summed = sum(int(figures[0]) for figures in instances if figures[0] != "-")
+    return budget.parse_reference(
+        table(*(row(f"db ({n})", *figures) for n, figures in enumerate(instances, 1)), row("total", str(summed), "7", "-", "-"))
+    )
+
+
+UNSPLIT = budget.parse_reference(table(row("db", "113", "7", "160", SPLIT_STAMP), row("total", "113", "7", "-", "-")))
+
+
+def test_a_job_split_into_a_matrix_inherits_its_parent_s_stamp_and_budget():
+    """A pull-request stamp on a tree-keyed job, which a new row could never carry, stands where it is the parent's own."""
+    assert budget.check_raise(UNSPLIT, split(("-", "-", "160", SPLIT_STAMP), ("-", "-", "160", SPLIT_STAMP)), TODAY) == []
+    assert budget.check_raise(UNSPLIT, split(("-", "-", "140", SPLIT_STAMP), ("-", "-", "140", SPLIT_STAMP)), TODAY) == []
+
+
+def test_an_instance_s_figure_above_its_parent_s_is_a_finding():
+    """The parent's spans bound an instance from above and from nowhere else, so its population vouches for no higher figure."""
+    findings = budget.check_raise(UNSPLIT, split(("-", "-", "170", SPLIT_STAMP), ("-", "-", "170", SPLIT_STAMP)), TODAY)
+
+    assert details(findings) == [
+        f"`db ({n})` carries `db`'s stamp {SPLIT_STAMP}, so it inherits that row's population and no figure above it, "
+        "and its budget 170 s against 160 s is one"
+        for n in (1, 2)
+    ]
+    reference = budget.check_raise(UNSPLIT, split(("120", "9", "160", SPLIT_STAMP), ("-", "-", "160", SPLIT_STAMP)), TODAY)
+    assert details(reference) == [
+        f"`db (1)` carries `db`'s stamp {SPLIT_STAMP}, so it inherits that row's population and no figure above it, "
+        "and its reference 120 s against 113 s, floor 9% against 7% is one"
+    ]
+
+
+def test_an_instance_on_a_stamp_its_parent_never_had_is_judged_as_a_new_stamp():
+    """Inheritance is the parent's population as it stood; any other stamp counts its own runs, and a pull request's times no tree-keyed job."""
+    findings = budget.check_raise(UNSPLIT, split(("-", "-", "160", "24@2026-09-02/123"), ("-", "-", "160", SPLIT_STAMP)), TODAY)
+
+    assert details(findings) == [
+        "`db (1)`'s new stamp 24@2026-09-02/123 names a pull-request run, and this job's cache is keyed on the tree, "
+        "so only main's first attempts time it"
+    ]
+
+
+def test_an_instance_beside_the_row_it_would_replace_inherits_nothing():
+    """Both standing, the parent's row still holds its own job, so the instance's stamp is new to the file."""
+    head = budget.parse_reference(
+        table(row("db", "113", "7", "160", SPLIT_STAMP), row("db (1)", "-", "-", "160", SPLIT_STAMP), row("total", "113", "7", "-", "-"))
+    )
+
+    assert [finding.detail for finding in budget.check_raise(UNSPLIT, head, TODAY)] == [
+        f"`db (1)`'s new stamp {SPLIT_STAMP} names a pull-request run, and this job's cache is keyed on the tree, "
+        "so only main's first attempts time it"
+    ]
+
+
 def test_a_stamp_the_base_already_carries_is_not_judged_again():
     """A row stamped before the minimum held keeps standing while nothing moves it, as `ops`' thirteen-run stamp does."""
     short = budget.parse_reference(table(row("ops", "17", "29", "45", "13@2026-09-01"), row("total", "17", "-", "-", "-")))

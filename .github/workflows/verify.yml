@@ -266,7 +266,17 @@ jobs:
   # wall-clock time.
 
   # The marker belongs to the suite, not to this pipeline.
+
+  # Split by file across two shards, each file's measured cost placing it (`scripts/gate/shard_plan.py`):
+  # run in one job, the two tiers took the job past its budget.
   db:
+    # Spelled out for `frontend-units`' reason: the budget check finds each instance's row by this name.
+    name: db (${{ matrix.shard }})
+    strategy:
+      # For `frontend-units`' reasons: a red shard cancels none of the others, and `shard` is the one axis.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
     # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
     runs-on: ubuntu-22.04
@@ -351,7 +361,10 @@ jobs:
           fi
           echo "docker pull exited ${rc} after ${seconds} s; this step waited $(( $(date +%s) - waited )) s for it."
           exit "$rc"
-      - name: Run the db scope
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the db tiers
+        # The count is the matrix's own size, for `frontend-units`' reason.
+        env:
+          VERIFY_DB_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: ./scripts/gate/verify.sh --db
 
   frontend:
@@ -421,8 +434,8 @@ jobs:
             exit 1
           fi
 
-  # The frontend unit tests, split by file across four shards: run in one job, they would be the
-  # run's longest step.
+  # The frontend unit tests, split by file across four shards, each file's measured cost placing it
+  # (`scripts/gate/shard_plan.py`): run in one job, they would be the run's longest step.
 
   # Four, not three: three shards finish level with the frontend job, so the run would wait on the
   # slower of two near-equal spans; four finish well before it.
@@ -443,10 +456,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        # The shard's files are planned by `scripts/gate/shard_plan.py`, at the checkers' floor, above
+        # this image's own python; an interpreter and no virtualenv, the planner reading the standard
+        # library alone.
+        with:
+          python-version-file: fl_backend/.python-version
       - uses: ./.github/actions/frontend-toolchain
       - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the frontend unit tests
-        # On this step alone: `verify.sh` refuses a shard beside any other scope, and `node --test`
-        # counts shards from 1, as the list does.
+        # On this step alone: `verify.sh` refuses a shard beside any other scope, and counts shards
+        # from 1, as the list does.
 
         # The count is the matrix's own size rather than a second copy of it, so a shard added to
         # the list is a shard every instance counts.

@@ -8,6 +8,7 @@
 #   ./scripts/gate/verify.sh                   every scope — the run a pull request is called ready to merge on; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
 #   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
+#   VERIFY_DB_SHARD=<i>/<n> ./scripts/gate/verify.sh --db                 shard i of n of both db tiers
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --serial          one scope at a time, in the order the output already reads
@@ -52,15 +53,24 @@ if (( RUN_FRONTEND )) && ! worker; then
 fi
 
 # A shard proves part of one scope, so it is taken only where that scope runs alone, whose closing
-# line already withholds "Safe to merge." `node --test` counts shards from 1.
+# line already withholds "Safe to merge." Counted from 1, as the CI matrix counts its instances.
+refuse_unplaced_shard() { # $1 the variable's name, $2 its value, $3 the scope's flag, $4 whether that scope runs alone
+  if [[ ! "$2" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+    refuse "$1 is '$2', which names no shard. Spell it <index>/<count>, counting from 1, with the index no larger than the count."
+  fi
+  if (( ! $4 )); then
+    refuse "$1 is set, and a shard is taken only by $3 run alone: beside another scope, the run would read as the whole suite proven."
+  fi
+}
 VERIFY_TEST_SHARD="${VERIFY_TEST_SHARD:-}"
 if [[ -n "$VERIFY_TEST_SHARD" ]]; then
-  if [[ ! "$VERIFY_TEST_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
-    refuse "VERIFY_TEST_SHARD is '${VERIFY_TEST_SHARD}', which names no shard. Spell it <index>/<count>, counting from 1, with the index no larger than the count."
-  fi
-  if (( ! RUN_FRONTEND_UNITS || RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES )); then
-    refuse "VERIFY_TEST_SHARD is set, and a shard is taken only by --frontend-units run alone: beside another scope, the run would read as the whole suite proven."
-  fi
+  refuse_unplaced_shard VERIFY_TEST_SHARD "$VERIFY_TEST_SHARD" --frontend-units \
+    "$(( RUN_FRONTEND_UNITS && ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) ))"
+fi
+VERIFY_DB_SHARD="${VERIFY_DB_SHARD:-}"
+if [[ -n "$VERIFY_DB_SHARD" ]]; then
+  refuse_unplaced_shard VERIFY_DB_SHARD "$VERIFY_DB_SHARD" --db \
+    "$(( RUN_DB && ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_OPS || RUN_IMAGES) ))"
 fi
 
 # Windows alone, where no signal reaches the gate past its launching shell: the gate joins the job
@@ -218,6 +228,13 @@ if (( RUN_OPS || RUN_IMAGES )); then
   }
 fi
 PY=""
+# A unit-test shard is planned by `scripts/gate/shard_plan.py`, which reads the standard library
+# alone, so any interpreter at the floor serves where no other scope needs the virtualenv.
+if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+  PY="$(any_python)" \
+    || refuse "No python found, and shard ${VERIFY_TEST_SHARD} of the unit tests is planned by scripts/gate/shard_plan.py."
+  require_python_floor "$PY"
+fi
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   # `refuse`, not `die`: an absent virtualenv is not something the change could be fixed to answer
   # for, and 1 is spoken for by findings (`docs/ops/spec.md` §1.7). The ending is the caller's, for
@@ -332,10 +349,38 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # `app/` alone, deptry's default: `tests/` imports the dev group by design, and `scripts/` would
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
+# A shard's files arrive planned, newline-separated (`plan_backend_db_shard`, `plan_frontend_shard`);
+# unsharded, each tier finds its own.
 do_backend_db() {
-  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" )
+  local -a files=()
+  if [[ -n "${FL_GATE_DB_BACKEND_FILES:-}" ]]; then mapfile -t files <<< "$FL_GATE_DB_BACKEND_FILES"; fi
+  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" "${files[@]}" )
 }
-do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
+do_frontend_db() {
+  local -a files=()
+  if [[ -z "${FL_GATE_DB_FRONTEND_FILES:-}" ]]; then ( cd fl_frontend && pnpm run test:db ); return; fi
+  mapfile -t files <<< "$FL_GATE_DB_FRONTEND_FILES"
+  ( cd fl_frontend && pnpm run test:base "${files[@]}" )
+}
+
+# The files one shard of a tier runs: the tier's own discovery, cut by `scripts/gate/shard_plan.py`
+# from the cost table under `.github/shard-costs/`. Never `node --test --test-shard`, which takes
+# the files at the shard's positions in the sorted list whatever they cost.
+FRONTEND_COSTS=.github/shard-costs/frontend.tsv
+BACKEND_DB_COSTS=.github/shard-costs/backend-db.tsv
+# The runner reads each path it is named as a glob, so a planned path goes back through the lister to
+# be written as one matching that file alone: `[spiel_id]` would match no file, or another.
+plan_frontend_shard() { # $1 the package.json script whose files are cut, $2 <index>/<count>
+  local listed planned
+  listed="$( cd fl_frontend && pnpm exec node scripts/shard-files.mjs "$1" )" || return
+  planned="$(printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$FRONTEND_COSTS" --shard "$2")" || return
+  printf '%s\n' "$planned" | ( cd fl_frontend && pnpm exec node scripts/shard-files.mjs --literal )
+}
+plan_backend_db_shard() { # $1 <index>/<count>
+  local listed
+  listed="$("$PY" scripts/gate/shard_plan.py --list-db-modules)" || return
+  printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$BACKEND_DB_COSTS" --shard "$1"
+}
 
 # No `--cache-to` here: buildx answers one status for the whole solve, so a cache export failing after
 # the image loaded would read as a failed build. `export_image_cache` exports in a run of its own.
@@ -381,10 +426,12 @@ do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_knip_prod()  { ( cd fl_frontend && pnpm knip:prod ); }
-# The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
-# appends after them reaches the runner unapplied, every shard then running the whole suite.
+# A shard's files arrive planned, newline-separated (`plan_frontend_shard`); unsharded, the tier finds its own.
 do_unit_tests() {
-  ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
+  local -a files=()
+  if [[ -z "${FL_GATE_UNIT_FILES:-}" ]]; then ( cd fl_frontend && pnpm test ); return; fi
+  mapfile -t files <<< "$FL_GATE_UNIT_FILES"
+  ( cd fl_frontend && pnpm run test:base "${files[@]}" )
 }
 # The builder's skipped validation, for `fl_frontend/Dockerfile`'s reason; on this command alone. The
 # type pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
@@ -1060,6 +1107,8 @@ if (( RUN_FRONTEND_UNITS )); then
 
   if [[ -n "$VERIFY_TEST_SHARD" ]]; then
     info "shard ${VERIFY_TEST_SHARD} of the unit tests: the other shards' files are not run here"
+    FL_GATE_UNIT_FILES="$(plan_frontend_shard test "$VERIFY_TEST_SHARD")" \
+      || refuse "no plan for shard ${VERIFY_TEST_SHARD} of the unit tests, so no file of it ran. The planner's own reason is above."
   fi
   step "frontend-units · unit tests"
   # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
@@ -1439,6 +1488,17 @@ if (( RUN_DB )); then
   # wall of validator and unique-index failures naming no cause, and the green verdict is worth as
   # little as the red (`docs/ops/spec.md` §1.6).
   claim_db_run
+
+  # Planned here, ahead of the units that read them: a worker inherits the exported lists, and a
+  # planner's refusal stays this run's own exit 2 rather than a tier's.
+  if [[ -n "$VERIFY_DB_SHARD" ]]; then
+    info "shard ${VERIFY_DB_SHARD} of both db tiers: the other shards' files are not run here"
+    FL_GATE_DB_BACKEND_FILES="$(plan_backend_db_shard "$VERIFY_DB_SHARD")" \
+      || refuse "no plan for shard ${VERIFY_DB_SHARD} of the backend's db tier, so no file of it ran. The planner's own reason is above."
+    FL_GATE_DB_FRONTEND_FILES="$(plan_frontend_shard test:db "$VERIFY_DB_SHARD")" \
+      || refuse "no plan for shard ${VERIFY_DB_SHARD} of the frontend's db tier, so no file of it ran. The planner's own reason is above."
+    export FL_GATE_DB_BACKEND_FILES FL_GATE_DB_FRONTEND_FILES
+  fi
 
   # Together only where this section runs alone, as in a CI db job or a bare `--db`: beside other
   # sections the frontend's 3 s store bounds overrun. A worker is one of several; the section list,

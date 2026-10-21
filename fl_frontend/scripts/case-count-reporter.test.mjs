@@ -114,7 +114,7 @@ describe("the case-count reporter", () => {
     assert.deepEqual(run(["cases.test.mjs"], ["--test-name-pattern=^runs$"]), { status: 0, said: "" });
   });
 
-  /* The gate's units run in shards, and a shard never starts the files another runs. */
+  /* A run sharded by node's own flag never starts the files another shard runs. */
   it("leaves each shard of a run passing over the files the other shard runs", () => {
     assert.deepEqual(run(["cases.test.mjs", "other-cases.test.mjs"], ["--test-shard=1/2"]), { status: 0, said: "" });
     assert.deepEqual(run(["cases.test.mjs", "other-cases.test.mjs"], ["--test-shard=2/2"]), { status: 0, said: "" });

@@ -90,11 +90,11 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# A closed row costs three commands, its pre-image logged for a restore, which a fan-out's count-only log row
-# (`docs/backend/spec.md :: I40`) would lose; at that cost a 23rd close takes the worst call past
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`
+# Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
+# (`docs/backend/spec.md :: I40`) loses; a 20th close takes the worst call past
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
-CLOSES_PER_PASS: Final = 22
+CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole. With `REMINDERS_PER_PASS` at most `ANFRAGEN_LISTED_PER_PASS`, a
 # reminder of a request never stamped going out as one: so one `/angefragt` call stamps every row a call answers.

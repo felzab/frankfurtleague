@@ -1076,6 +1076,16 @@ carries an `if:` or a `continue-on-error`**, either of which leaves the job `suc
 that never ran or failed
 (`scripts/tests/test_check_publish_verdict.py :: test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it`).
 
+**A shard runs the files its plan places in it, each file in exactly one shard**:
+`scripts/gate/shard_plan.py` takes the files the tier itself would run, longest first, each to the
+shard holding least, by the costs under `.github/shard-costs/`, a file the table lacks costing the
+mean of those it holds. A shard by position (`node --test --test-shard`) takes the files at its
+places in the sorted list whatever they cost, so its heaviest shard follows file names rather than
+work. Re-cut a table, from each file run alone through its tier's runner, when one shard's CI span
+pulls away from the others'. `VERIFY_TEST_SHARD=<i>/<n>` with `--frontend-units` and
+`VERIFY_DB_SHARD=<i>/<n>` with `--db` each run shard `i` of `n`, counted from 1, and each is
+refused beside any other scope, where the run would read as the whole suite proven.
+
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv the backend image copies in (§1.1); each
 flag's argument is in `.github/actions/backend-toolchain/action.yml`, which every such job calls.
@@ -1089,7 +1099,7 @@ every job's version; the reason is at that workflow's `verify` job.
 | `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                               |
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier), `check_test_estate.py` and `deptry` over `app/` started together behind it                                                                                            | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                          | pnpm install                                                                                                                                   |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                   |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                                                                      | pnpm install, and for a shard an interpreter at the checkers' floor, which plans it                                                            |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                         | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                  |
 | `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), concurrent when alone                                                       | venv + pnpm install + Docker                                                                                                                   |
@@ -1303,7 +1313,7 @@ and may take none, `RULES` being where it is stated.
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
 their own scope behind `require_docker` — which is what lets `--quick` skip them — and in CI the
-concurrent `db` job, which pulls the tier's `mongod` image in an advisory step of its own
+concurrent `db` shards, each pulling the tier's `mongod` image in an advisory step of its own
 before pytest, so the download is attributed in the log rather than hidden inside the test span.
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.
