@@ -103,7 +103,7 @@ const BESTAND = {
   registrierungen: [
     { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "eingereicht", ...PERSON },
   ],
-  adresswechsel: [{ adresswechsel_id: WECHSEL }],
+  adresswechsel: [{ adresswechsel_id: WECHSEL, einsehbar: true }],
 };
 
 /** What the read of the address answers in the case at hand, its grant's field among the records. */

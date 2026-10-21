@@ -299,6 +299,7 @@ describe("who is offered an address change's approval", () => {
       bestaetigt: true,
       bis: "2026-10-27T11:30:00Z",
       verwehrt,
+      einsehbar: true,
     },
   });
 

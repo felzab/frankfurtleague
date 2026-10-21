@@ -10,6 +10,7 @@ Invariants:
 - Every read of a live change carries `LIVE_TERMS`, the filter `uniq_adresswechsel_adresse` indexes.
 """
 
+import unicodedata
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -18,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLGenehmigungVerwehrt
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import canonical_address
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
 
 ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAdresswechselWeg)
@@ -396,6 +397,20 @@ def deckt(genehmigung: Any, verwaltung: Any) -> bool:
     return isinstance(genehmigung, Mapping) and _RANG.get(str(genehmigung.get("verwaltung")), -1) >= _RANG.get(str(verwaltung), 2)
 
 
+def _gezeigtes_label(label: str) -> str:
+    """One domain label as its reader knows it: decoded from punycode where it decodes, as stored where it does not."""
+
+    if not label.startswith("xn--"):
+        return label
+    try:
+        decoded = label.removeprefix("xn--").encode("ascii").decode("punycode")
+    except UnicodeError:
+        return label
+
+    # Punycode decodes nonsense into control characters rather than refusing it.
+    return label if any(unicodedata.category(character)[0] == "C" for character in decoded) else decoded
+
+
 def maskierte_adresse(email: str) -> str:
     """The pending address a league-started change shows its address on file (`docs/backend/spec.md :: I822`).
 
@@ -403,8 +418,10 @@ def maskierte_adresse(email: str) -> str:
     internationalised domain shows its own letter.
     """
 
-    local, _, domain = canonical_address(email).rpartition("@")
-    labels = domain.split(".")
+    # Folded and decoded, never judged by the address rule, whose tables move without us: a stored value it came to
+    # refuse would answer the account page a 500 (`app/shared/schemas/kontakt.py :: FLKontaktPayload`).
+    local, _, domain = sign_in_identifier(email).rpartition("@")
+    labels = [_gezeigtes_label(label) for label in domain.split(".")]
     gekuerzt = f"{labels[0][:1]}•••" + (f".{labels[-1]}" if len(labels) > 1 else "")
 
     return f"{local[:1]}•••@{gekuerzt}"

@@ -115,9 +115,9 @@ async def get_adresswechsel_ansicht(
     links answer `beendet` and how it ended for as long as its record is kept.
 
     The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `abgelaufen` where its approval week
-    lapsed unapproved; else `gesperrt` wherever the ban list holds the
-    address the link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for
-    the address on file's sake, each a state the confirmation is refused in. Those read alike here, though the press
+    lapsed unapproved; else `gesperrt` wherever the ban list holds the address the link was mailed to, then
+    `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for the address on file's sake or would
+    find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
     `nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and
     until when, and never whether it could be confirmed: the stop is refused nothing.
@@ -163,7 +163,8 @@ async def get_adresswechsel_ansicht(
             session=None,
         )
         gesperrt = urteil.ursache == "neue_gesperrt"
-        nicht_bestaetigbar = urteil.ursache in _NICHT_BESTAETIGBAR
+        # An address left holding nothing to move too: the press ends that change discarded and answers `-002`.
+        nicht_bestaetigbar = urteil.ursache in _NICHT_BESTAETIGBAR or urteil.leer
 
     zustand = neu_zustand(record, now=germany_now, gesperrt=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar)
 
