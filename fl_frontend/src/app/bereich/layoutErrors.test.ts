@@ -296,12 +296,12 @@ describe("each session reader of an area's frame, for a refused session (`docs/f
   });
 });
 
-describe("each session reader of a person lane's layout", () => {
+describe("each session reader of an area's layout", () => {
   /* The builder stage reaches no sign-in store, and the hold's own `connection()` shields nothing beside
      it: each part of the frame streams on its own, so its read failing as the build's does must find the
      request already awaited. */
   it("awaits the request before its own session read, whatever is mounted above it", async () => {
-    for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
+    for (const area of AREAS) {
       const readers = readersIn(area.layout());
       assert.deepEqual(readerNames(readers), FRAME_READERS[area.name], `${area.name} holds other readers`);
 
