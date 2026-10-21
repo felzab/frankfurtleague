@@ -757,13 +757,21 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    # A seat left before the change is in no document an erasure at the new address reads, so its images follow the
-    # person; one standing at the replaced address as nobody's proven own keeps it.
+    # A seat or referee row left before the change is in no document an erasure at the new address reads, so its images
+    # follow the person; one standing at the replaced address as nobody's proven own keeps it.
     await carry_the_replaced_address_in_images(
         aktionen_collection=aktionen_collection,
         alt=alt,
         neue=neu,
         staying=await _seats_staying_at(alt, collections=(saison_teams_collection, bewerbungen_collection), session=session),
+        referees_held={
+            row["_id"]
+            for row in await aggregate_many_from_db(
+                collection=schiedsrichter_collection,
+                pipeline=[{"$match": build_selbst_referee_filter(alt, neu)}, {"$project": {"_id": 1}}],
+                session=session,
+            )
+        },
         stamp=stamp,
         session=session,
     )

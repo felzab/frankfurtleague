@@ -101,6 +101,7 @@ from .adresswechsel_harness import (
     THIRD_ADMIN,
     TODAY,
     TYPED,
+    UNCONFIRMED_REFEREE_OID,
     UNCONFIRMED_REG_LINK,
     UNCONFIRMED_REG_OID,
     administrator_starts,
@@ -2131,6 +2132,39 @@ class TestTheErasure:
             return logged["before"]["kontakte"]["ansprechperson"], logged["before"]["kontakte"]["stellvertretung"]["email"]
 
         assert on_a_person(mongo_replica_set_url, body) == (None, EMAIL)
+
+    @pytest.mark.parametrize(
+        ("edit", "kept"),
+        [
+            pytest.param({"kontakt.email": FOREIGN_EMAIL}, None, id="re-addressed before the change: its image follows the person"),
+            pytest.param({"name": "Vera Zwirnbach"}, EMAIL, id="still standing at the replaced address: its image keeps it"),
+        ],
+    )
+    def test_a_referee_row_left_before_the_change_goes_with_the_erasure_at_the_new_address(
+        self, mongo_replica_set_url: str, edit: dict[str, Any], kept: str | None
+    ):
+        """The editor's image of the unconfirmed referee row names the replaced address, which, re-addressed, no row holds."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await as_administrator(
+                ADMIN,
+                patch_one_in_db(
+                    collection=database[Collection.SCHIEDSRICHTER],
+                    db_filter={"_id": UNCONFIRMED_REFEREE_OID},
+                    update={"$set": edit},
+                    return_document=ReturnDocument.BEFORE,
+                ),
+            )
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            await erased(database, client, NEW_EMAIL)
+            logged = await database[Collection.AKTIONEN].find_one(
+                {"collection": Collection.SCHIEDSRICHTER, "document_id": UNCONFIRMED_REFEREE_OID}
+            )
+            assert logged is not None, "the editor's write filed no log row"
+            return logged["before"]["kontakt"]["email"]
+
+        assert on_a_person(mongo_replica_set_url, body) == kept
 
     def test_an_erased_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
