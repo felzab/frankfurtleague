@@ -10,14 +10,11 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
-
-doubleEveryAction();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormSchiedsrichterSection } = await import("./FormSchiedsrichterSection.tsx");

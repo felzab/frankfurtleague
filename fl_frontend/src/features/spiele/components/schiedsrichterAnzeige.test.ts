@@ -9,7 +9,6 @@ import {
   SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
   spielSchiedsrichterAnzeige,
 } from "@/features/schiedsrichter/constants.ts";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -18,8 +17,6 @@ import { PLACEHOLDER } from "@/shared/utils/format.ts";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { SpielFieldPath } from "../draftStatus.ts";
 import type { FLSpiel, FLSpielWithDraftFields } from "../schemas.ts";
-
-doubleEveryAction();
 
 /* Imported after the harness registers its loader, which is what compiles a `.tsx` at all. */
 const { SpielDraftPreview } = await import("./forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
