@@ -83,8 +83,8 @@ DEFAULT_PAYMENT = 20
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
 BANNED_EMAIL = "gesperrt@example.com"
-# Under RFC 6761's reserved `.invalid`, which no mail system delivers to.
-PLACEHOLDER_EMAIL = "adresse-fehlt@frankfurtleague.invalid"
+# Under RFC 6761's reserved `.invalid`, which no payload stores and no mail system delivers to.
+UNFOLDABLE_EMAIL = "jemand@schule.invalid"
 TELEFON = "+49 69 1234567"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -576,10 +576,7 @@ class TestTheReSend:
         assert BESTAETIGUNG_FELD not in row
 
     def test_a_stored_address_no_payload_would_take_is_refused_as_none(self, mongo_replica_set_url: str):
-        """The placeholder a row without an address is given.
-
-        The ban-list hash cannot key it, so unjudged it answers 500 rather than a refusal the panel words.
-        """
+        """The ban-list hash cannot key it, so unjudged it answers 500 rather than a refusal the panel words."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(WriteRefusalException) as refused:
@@ -587,7 +584,7 @@ class TestTheReSend:
 
             return refused.value, await stored(database)
 
-        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL)])
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=UNFOLDABLE_EMAIL)])
 
         assert refused.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
         assert BESTAETIGUNG_FELD not in row
@@ -665,13 +662,13 @@ class TestTheReactivation:
         assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(response.bestaetigung.token)
         assert filed == 1
 
-    def test_a_row_holding_the_placeholder_comes_back_unasked(self, mongo_replica_set_url: str):
-        """Entering the real address is the save that mints; a link minted here would go to nobody."""
+    def test_a_row_holding_no_usable_address_comes_back_unasked(self, mongo_replica_set_url: str):
+        """Entering a real address is the save that mints; a link minted here would go to nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await reactivate(database, client), await stored(database)
 
-        response, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL, **RETIRED)])
+        response, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=UNFOLDABLE_EMAIL, **RETIRED)])
 
         assert row["inactive_since"] is None
         assert response.bestaetigung is None

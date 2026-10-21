@@ -462,10 +462,10 @@ class TestTheReactivationAsks:
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": None}, False),
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
-            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am=""), "inactive_since": "2026-01-01"}, True),
         ],
-        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder", "empty-stamp"],
+        ids=["retired-unanswered", "not-retired", "answered", "no-address", "unfoldable-address", "empty-stamp"],
     )
     def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
         assert owes_reactivation_mint(stored=stored) is owed
@@ -486,10 +486,10 @@ class TestARefereeWithNoAddress:
         assert refusal is not None
         assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
 
-    def test_the_placeholder_under_the_reserved_domain_is_refused_as_none(self):
-        """The value a row without an address is given, which no payload takes and the ban-list hash cannot key."""
+    def test_an_address_under_a_reserved_domain_is_refused_as_none(self):
+        """No payload takes one, and the ban-list hash cannot key it."""
 
-        refusal = find_missing_address_refusal(email="adresse-fehlt@frankfurtleague.invalid")
+        refusal = find_missing_address_refusal(email="jemand@schule.invalid")
 
         assert refusal is not None
         assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
@@ -525,10 +525,10 @@ class TestACorrectedAddressReMints:
         [
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
-            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
+            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
         ],
-        ids=["address-moved", "address-entered", "placeholder-replaced", "empty-stamp"],
+        ids=["address-moved", "address-entered", "unfoldable-replaced", "empty-stamp"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (

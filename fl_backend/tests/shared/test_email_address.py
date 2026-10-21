@@ -86,8 +86,7 @@ def test_every_parting_recorded_still_parts():
 ERASURE_LOOKUP: Final = TypeAdapter(ErasureAdresse)
 
 
-# Every row but those the lookup refuses for the placeholder's reserved domain, judged on the fold as it judges them.
-@pytest.mark.parametrize("row", [row for row in ROWS if row.folded.rpartition(".")[2] != "invalid"], ids=lambda row: row.case)
+@pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
 def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
     """The page ends the sign-in account its own trimmed box folds to: a lookup trimming otherwise erases another mailbox's records."""
 

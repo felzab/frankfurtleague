@@ -52,7 +52,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, schiedsrichter_document, spiel_document
+from tests.documents import ban_document, spiel_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
@@ -107,10 +107,6 @@ ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 GRANT_ID_OF = {row["adresse"]: row["_id"] for row in grants_for_the_suite()}
 
 ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
-
-# What every address-less referee row holds, under RFC 6761's reserved `invalid`: one value, shared by every such row.
-PLACEHOLDER = "adresse-fehlt@frankfurtleague.invalid"
-PLACEHOLDER_REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f607d00001"), ObjectId("6890a1b2c3d4e5f607d00002"))
 
 # An address a hand edit gave both sentinels, which no erasure may reach through them.
 SENTINEL_ADDRESS = "von.hand@example.com"
@@ -905,31 +901,7 @@ class TestAnotherAdministratorsAddress:
 
 @pytest.mark.db
 class TestRowsNoMailboxNames:
-    """What no request may reach through this route: the placeholder every address-less referee row shares, and the two sentinels."""
-
-    def test_a_look_alike_of_the_placeholder_is_refused_as_the_placeholder(self, mongo_replica_set_url: str):
-        """Its stop full-width: the fold converts the domain as the URL Standard does, so it names the placeholder and both routes refuse it."""
-
-        look_alike = PLACEHOLDER.replace(".invalid", f"{chr(0xFF0E)}invalid")
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].insert_many(
-                [
-                    schiedsrichter_document(referee_id, email=PLACEHOLDER, name=f"Ohne Adresse {index}", default_payment=20, einwilligung=None)
-                    for index, referee_id in enumerate(PLACEHOLDER_REFEREE_OIDS)
-                ]
-            )
-            ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(look_alike))
-            erasure = await posted(mongo_replica_set_url, PATH, erasure_of(look_alike))
-
-            return (
-                [(response.status_code, response.json()["error_code"]) for response in (ansicht, erasure)],
-                await database[Collection.SCHIEDSRICHTER].count_documents({"kontakt.email": PLACEHOLDER}),
-            )
-
-        answers, left = on_a_league_of_its_own(mongo_replica_set_url, body)
-
-        assert (answers, left) == ([(422, PAYLOAD_REFUSED)] * 2, len(PLACEHOLDER_REFEREE_OIDS))
+    """What no request may reach through this route: the two sentinels."""
 
     def test_the_sentinels_given_an_address_by_hand_are_reached_by_neither_request(self, mongo_replica_set_url: str):
         """Each step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
@@ -1090,33 +1062,6 @@ class TestTheAnlassIsRefusedAtTheBox:
         """The control: a route refusing every body would pass the cases above."""
 
         response = answered_unanswered(PATH, erasure_of(anlass="x" * ERASURE_ANLASS_MAX_LENGTH))
-
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE
-
-
-class TestThePlaceholderIsRefusedAtTheBox:
-    """Every referee row stored without an address shares one placeholder, so a lookup of it would reach them all at once."""
-
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
-    @pytest.mark.parametrize(
-        "email",
-        [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID", "jemand@invalid"],
-        ids=["as stored", "folding to it", "any mailbox under it", "the reserved name itself"],
-    )
-    def test_it_is_refused_on_its_fold(self, path: str, email: str):
-        assert refused_at(answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))) == (
-            422,
-            PAYLOAD_REFUSED,
-            [["email"]],
-        )
-
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
-    def test_an_address_merely_naming_the_word_reaches_the_database(self, path: str):
-        """The control, and the boundary: the domain is refused, never a mailbox spelling `invalid` elsewhere."""
-
-        email = "invalid@invalid-schule.de"
-        response = answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))
 
         assert response.status_code == 500, response.json()
         assert response.json()["error_code"] in UNREACHED_DATABASE

@@ -876,14 +876,12 @@ Read the result afterwards: it says whether the address's account went too, and 
 erasure could not delete goes when the address is erased again
 ([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
 
-**The page refuses three kinds of address, and says so before anyone confirms**: the
-administrator's own, which goes through their account page or an owner; any holding a grant, to an
-administrator who is not an owner; and any under the reserved `.invalid` domain, which every referee
-row stored without an address shares, so that an erasure of it would reach them all at once
-(`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). Which route answers the
-person behind such a row is the address route all the same
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save their own
-address on the row in the referee editor, which on a row still in service mails them a confirmation
+**The page refuses two kinds of address, and says so before anyone confirms**: the
+administrator's own, which goes through their account page or an owner; and any holding a grant, to
+an administrator who is not an owner. A referee row stored without an address of its own is
+reached by the address route all the same
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save the person's
+own address on the row in the referee editor, which on a row still in service mails them a confirmation
 link first, then erase that address; otherwise the row goes with the referee drop, immediately
 before the deploy whose fixture read first consults a referee's own consent
 ([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)). A pupil row
@@ -1823,9 +1821,7 @@ guard reads something the restore took away:
   a grant takes a passkey sign-in that recent (I489).
 - **A record holding no address.** No erasure reaches one
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so no line names
-  it. A placeholder referee whose person's address was saved before their erasure comes back holding
-  the placeholder where the snapshot predates the save, matching no hash: the mail thread is its
-  record, and the save and the erasure are repeated.
+  it.
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Once the erasure above has run again, the

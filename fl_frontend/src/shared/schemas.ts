@@ -217,17 +217,11 @@ export const FLKontaktSchema = z.object({
   // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
   // in a space that the rule took before it was narrowed, would fail the whole referee list's parse.
   telefon: z.string().nullable(),
-  // Judged on the payload alone: a referee row with no address of its own holds the `.invalid`
-  // placeholder (`isPlaceholderAddress`), which the rule refuses, so a read stating it fails the list.
+  // Judged on the payload alone: an address stored under an older rule would fail the whole referee
+  // list's parse.
   email: z.string().nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;
-
-/**
- * The address a referee row without one is given, under RFC 6761's `.invalid`, which the API refuses
- * among its special-use names.
- */
-export const isPlaceholderAddress = (email: string): boolean => email.toLowerCase().endsWith(".invalid");
 
 /** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
 export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
@@ -240,14 +234,7 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
     .nullable(),
   // Required where the telephone is not: an administrator enters a referee, and the address is how
   // that person learns of it.
-  email: kontaktEmailOn(
-    // Named here, the box says why rather than the save failing whole. On the box, ahead of the reserved
-    // domain's sentence: the placeholder's `.invalid` is one, and only this sentence says what to type.
-    asciiLocalBox.refine((email) => !isPlaceholderAddress(email), {
-      error: "Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein.",
-      abort: true,
-    }),
-  ),
+  email: KontaktEmailSchema,
 });
 
 /**

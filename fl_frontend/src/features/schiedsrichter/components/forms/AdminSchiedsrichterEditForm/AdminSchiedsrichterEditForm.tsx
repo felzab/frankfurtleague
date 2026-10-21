@@ -54,7 +54,7 @@ const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
 
 /**
  * The same refusal for a row whose address this save replaced when it was none a payload takes: no
- * address at all, or the placeholder under `.invalid`, neither of which may be written back.
+ * address at all, which may not be written back.
  */
 const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
   reason: "Vor dem Speichern war zu diesem Eintrag keine echte E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
@@ -115,8 +115,7 @@ function SchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, 
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
   const bestaetigt = schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null;
 
-  // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
-  // link can go and no undo may write back.
+  // Over the STORED address: none is somewhere no link can go and no undo may write back.
   const gespeicherteAdresseGilt = hatAdresse(schiedsrichter.kontakt.email);
 
   const [hasSaved, setHasSaved] = useState(false);

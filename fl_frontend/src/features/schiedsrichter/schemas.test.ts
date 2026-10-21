@@ -11,7 +11,8 @@ import {
   hatAdresse,
 } from "./schemas.ts";
 
-const PLATZHALTER = "adresse-fehlt@frankfurtleague.invalid";
+// Under a special-use name, which the address rule refuses and a rule of an earlier day may have stored.
+const ALTE_ADRESSE = "jemand@schule.invalid";
 
 describe("whether a referee row holds an address", () => {
   // Without it a check answering none for everything passes the case below.
@@ -19,25 +20,23 @@ describe("whether a referee row holds an address", () => {
     assert.equal(hatAdresse("anna@schule.de"), true);
   });
 
-  it("reads no address, a blank one and the placeholder alike as none", () => {
+  it("reads no address and a blank one alike as none", () => {
     assert.equal(hatAdresse(null), false);
     assert.equal(hatAdresse(""), false);
     assert.equal(hatAdresse("   "), false);
-    assert.equal(hatAdresse(PLATZHALTER), false);
-    assert.equal(hatAdresse(PLATZHALTER.toUpperCase()), false, "the placeholder in capitals is read as an address");
   });
 });
 
-/* The read states no address rule: one row holding the placeholder, which the rule refuses, would otherwise fail the
-   whole list's parse and take every referee off the page. */
+/* The read states no address rule: one row holding an address the rule refuses would otherwise fail the whole list's
+   parse and take every referee off the page. */
 describe("the referee list's read", () => {
-  it("takes a row holding the placeholder address", () => {
+  it("takes a row holding an address the rule refuses", () => {
     const row = {
       id: "6890a1b2c3d4e5f607800001",
       name: "Anna Körner",
       schule: null,
       default_payment: 20,
-      kontakt: { telefon: null, email: PLATZHALTER },
+      kontakt: { telefon: null, email: ALTE_ADRESSE },
       inactive_since: null,
       geburtsdatum: null,
       einwilligung: null,

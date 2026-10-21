@@ -121,8 +121,7 @@ async def get_erasure_ansicht_auf_anfrage(
     address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
-    the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved
-    `invalid` domain, where every referee row stored without an address shares one placeholder.
+    the administrator holds an owner's power (`REQ-PURGE-005`).
     """
 
     identifier = sign_in_identifier(ansicht_data.email)
@@ -241,9 +240,7 @@ async def erase_auf_anfrage(
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
     signed in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
-    other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An
-    address under the reserved `invalid` domain is refused 422 before any read: every referee row stored without an
-    address shares one placeholder there.
+    other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
     redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
@@ -369,7 +366,7 @@ async def post_abmeldung(
 
     Refused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the
     administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an
-    owner's power (`REQ-PURGE-005`), and with a 422 an address under the reserved `invalid` domain. Unlike the erasure, it
+    owner's power (`REQ-PURGE-005`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
 

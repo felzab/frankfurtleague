@@ -17,7 +17,6 @@ import {
   FLBewerbungZustellungSchema,
   FLKontaktPayloadSchema,
   FLKontaktSchema,
-  isPlaceholderAddress,
   PersonNameSchema,
 } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -48,10 +47,10 @@ export const FLPatchSchiedsrichterPayloadSchema = z.object({
 export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterPayloadSchema>;
 
 /**
- * Whether a row holds an address rather than none or the placeholder a row without one is given: a
- * surface reading the bare value files the placeholder as reached, and an undo would write it back.
+ * Whether a row holds an address rather than none: a surface reading the bare value files an emptied
+ * one as reached, and an undo would write it back.
  */
-export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "" && !isPlaceholderAddress(email);
+export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "";
 
 /**
  * Widened at each field whose emptied box holds `null`, which the schema above refuses at the submit. `Omit`, not an intersection: `T & { default_payment: number | null }` stays

@@ -253,12 +253,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `:: READ-REFEREE-005`, [section 4](#4-what-is-published-and-on-what-basis)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
-  optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. The
-  referee rows holding no address are given a placeholder under the reserved `.invalid` domain, by a
-  step run at the database rather than by any code here, and they keep it until an administrator
-  corrects it to the real address or the row is dropped
-  ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
-  placeholder, the mint refusing it as no address
+  optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. No
+  link is ever minted to a row holding no usable address, the mint refusing it as none
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
 - **Every account's address changes only once the new mailbox confirms it, and the address on file
   can stop the change until it takes effect**, because the address is what the person's sign-in and
@@ -413,10 +409,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registration's address, and only an address change taking effect moves that address; a referee's
   create and save each require one. Every erasure is keyed
   on a mailbox, so the rows stored without one before are reached by none: a pupil row from before
-  the registration flow, and a referee row holding one placeholder under the reserved `.invalid`
-  domain, which the administrator's erasure and its reveal refuse before any read, since it would
-  reach every such row at once (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`).
-  Both kinds go with the one-off removals of [section 3](#3-the-current-pupil-records-are-reset-once):
+  the registration flow, and a referee row the league stored without an address of its own. Both
+  kinds go with the one-off removals of [section 3](#3-the-current-pupil-records-are-reset-once):
   the referee rows immediately before the deploy whose fixture read first consults a referee's own
   consent, the pupil rows at the end of this season. Until that pupil reset an administrator can still enter a
   pupil row holding no address into a squad, and the reset takes that squad row too. Until the
@@ -1194,7 +1188,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
-  Nothing informs these people under Art. 14: a placeholder row is
+  Nothing informs these people under Art. 14: a row holding no address of its own is
   never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
   real address is mailed its link only when an administrator's write mints one
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Art. 14 (5)(b) lifts the duty where
