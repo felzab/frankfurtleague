@@ -224,8 +224,8 @@
 # the budget check look a row up by. A row shared by the instances would have both readers fold
 # names in step with each other, and the total would count one shard's span where every shard ran.
 # Their four budgets are one figure, cut by the rule above from the widest shard span in the runs
-# their stamp counts: `node --test --test-shard` hands a shard the files at its positions in the
-# sorted list, whatever they cost, so which shard is heaviest moves as files are added.
+# their stamp counts: a shard's files move as files are added and as their cost table is re-cut
+# (`scripts/gate/shard_plan.py`), so which shard is heaviest moves with them.
 # `scripts/checks/check_gate_budget.py :: check_matrix_budgets` refuses the four apart.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's

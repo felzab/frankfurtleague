@@ -1071,7 +1071,12 @@ of the machine rather than of the tier, and neither half of it belongs in
 
 **CI runs every scope on every event**, one parallel job per scope (`.claude/CLAUDE.md` §7, **ci**).
 The `format` job and the `frontend-units` shards run beside the `frontend` job, which runs
-neither. **The aggregate `verify` job fails on a skipped job**, and **no scope job or its run step
+neither. **A shard runs the files its plan places in it, each file in exactly one shard**:
+`scripts/gate/shard_plan.py` takes the files the tier itself would run, longest first, each to the
+shard holding least, by the costs under `.github/shard-costs/`, a file the table lacks costing its
+mean. A shard by position (`node --test --test-shard`) takes the files at its places in the sorted
+list whatever they cost, so its heaviest shard follows file names rather than work. Re-cut a table
+from each file's run alone through its tier's runner when shards drift apart. **The aggregate `verify` job fails on a skipped job**, and **no scope job or its run step
 carries an `if:` or a `continue-on-error`**, either of which leaves the job `success` over a scope
 that never ran or failed
 (`scripts/tests/test_check_publish_verdict.py :: test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it`).

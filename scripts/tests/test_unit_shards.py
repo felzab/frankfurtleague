@@ -1,6 +1,6 @@
 """SCRIPTS · the frontend unit tests' shards: the CI matrix counts its shards, and the gate refuses a shard it cannot place.
 
-A shard runs the files `node --test` hands it and no others, so a count typed by hand beside the
+A shard runs the files its plan hands it and no others, so a count typed by hand beside the
 matrix can name shards no instance runs, their files in none while every instance is green. The
 refusals are driven through the real `scripts/gate/verify.sh` over a copy of `scripts/`. The db tier
 starts under the unit tier's launcher, so a loader hook one of them takes the other takes too.

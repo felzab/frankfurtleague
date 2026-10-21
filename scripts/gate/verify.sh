@@ -52,7 +52,7 @@ if (( RUN_FRONTEND )) && ! worker; then
 fi
 
 # A shard proves part of one scope, so it is taken only where that scope runs alone, whose closing
-# line already withholds "Safe to merge." `node --test` counts shards from 1.
+# line already withholds "Safe to merge." Counted from 1, as the CI matrix counts its instances.
 VERIFY_TEST_SHARD="${VERIFY_TEST_SHARD:-}"
 if [[ -n "$VERIFY_TEST_SHARD" ]]; then
   if [[ ! "$VERIFY_TEST_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
@@ -218,6 +218,13 @@ if (( RUN_OPS || RUN_IMAGES )); then
   }
 fi
 PY=""
+# A unit-test shard is planned by `scripts/gate/shard_plan.py`, which reads the standard library
+# alone, so any interpreter at the floor serves where no other scope needs the virtualenv.
+if [[ -n "$VERIFY_TEST_SHARD" ]]; then
+  PY="$(any_python)" \
+    || refuse "No python found, and shard ${VERIFY_TEST_SHARD} of the unit tests is planned by scripts/gate/shard_plan.py."
+  require_python_floor "$PY"
+fi
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   # `refuse`, not `die`: an absent virtualenv is not something the change could be fixed to answer
   # for, and 1 is spoken for by findings (`docs/ops/spec.md` §1.7). The ending is the caller's, for
@@ -337,6 +344,22 @@ do_backend_db() {
 }
 do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
 
+# The files one shard of a tier runs: the tier's own discovery, cut by `scripts/gate/shard_plan.py`
+# from the cost table under `.github/shard-costs/`. Never `node --test --test-shard`, which takes
+# the files at the shard's positions in the sorted list whatever they cost.
+FRONTEND_COSTS=.github/shard-costs/frontend.tsv
+BACKEND_DB_COSTS=.github/shard-costs/backend-db.tsv
+plan_frontend_shard() { # $1 the package.json script whose files are cut, $2 <index>/<count>
+  local listed
+  listed="$( cd fl_frontend && pnpm exec node scripts/shard-files.mjs "$1" )" || return
+  printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$FRONTEND_COSTS" --shard "$2" --glob-literal
+}
+plan_backend_db_shard() { # $1 <index>/<count>
+  local listed
+  listed="$("$PY" scripts/gate/shard_plan.py --list-db-modules)" || return
+  printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$BACKEND_DB_COSTS" --shard "$1"
+}
+
 # No `--cache-to` here: buildx answers one status for the whole solve, so a cache export failing after
 # the image loaded would read as a failed build. `export_image_cache` exports in a run of its own.
 build_image() {
@@ -381,10 +404,12 @@ do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_knip_prod()  { ( cd fl_frontend && pnpm knip:prod ); }
-# The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
-# appends after them reaches the runner unapplied, every shard then running the whole suite.
+# A shard's files arrive planned, newline-separated (`plan_frontend_shard`); unsharded, the tier finds its own.
 do_unit_tests() {
-  ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
+  local -a files=()
+  if [[ -z "${FL_GATE_UNIT_FILES:-}" ]]; then ( cd fl_frontend && pnpm test ); return; fi
+  mapfile -t files <<< "$FL_GATE_UNIT_FILES"
+  ( cd fl_frontend && pnpm run test:base "${files[@]}" )
 }
 # The builder's skipped validation, for `fl_frontend/Dockerfile`'s reason; on this command alone. The
 # type pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
@@ -1060,6 +1085,8 @@ if (( RUN_FRONTEND_UNITS )); then
 
   if [[ -n "$VERIFY_TEST_SHARD" ]]; then
     info "shard ${VERIFY_TEST_SHARD} of the unit tests: the other shards' files are not run here"
+    FL_GATE_UNIT_FILES="$(plan_frontend_shard test "$VERIFY_TEST_SHARD")" \
+      || refuse "no plan for shard ${VERIFY_TEST_SHARD} of the unit tests, so no file of it ran. The planner's own reason is above."
   fi
   step "frontend-units · unit tests"
   # The runner's own codes, not the kernel's: 1 is a failing test, and anything else -- no test file
