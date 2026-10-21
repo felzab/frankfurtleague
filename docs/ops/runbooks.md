@@ -624,13 +624,20 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds                                                                                                           |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus every match report they first sent (`spielberichte.bericht.eingereicht_von.schiedsrichter_id`), its remarks until the season-end strip, which their own report page shows one fixture at a time and a read-only Playground query on that field finds whole         |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                       |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.torschuetzen.spieler_id`, `spielberichte.bericht.karten.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus every match report they first sent (`spielberichte.bericht.eingereicht_von.schiedsrichter_id`), its remarks until the season-end strip, which their own report page shows one fixture at a time and a read-only Playground query on that field finds whole                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang`; plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.genehmigung.gestartet_von`, `berechtigungen_antraege.adresse`), listed under „Offene Anträge“ on `/bereich/admin/administratoren`, and every address change of a grant holder they started or approved (`adresswechsel.genehmigung.gestartet_von`, `adresswechsel.genehmigung.genehmigt_von`), which a read-only Playground query on those fields finds |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`adresswechsel.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.adresse`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+**Whatever the role, a pending change of their address and its owed notices are read apart.** Type
+the address on file into the address tool, `/bereich/admin/adresswechsel`
+(`POST /adresswechsel/ansicht`), the one read serving a live change's new address and reason; the
+editors show only that a change waits. A notice an ended change still owes either address sits in
+`adresswechsel_postausgang` (`bisherige_email`, `email`, and on some rows the first name), which no
+page renders and a read-only Playground query on those two fields finds.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -762,8 +769,10 @@ seat, registration and grant the address holds, so one sign-in stays whole
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends, unless the new address already held records of its own (`docs/backend/spec.md :: I860`);
-  after a change started on a recorded reason, or onto such an address, they sign in anew, and the account sweep
+  it ends, unless the new address already held records of its own (`docs/backend/spec.md :: I860`)
+  or holds an account of its own (`FE-AUTH-013` at `WARN`), where the old account keeps its sessions
+  until the sweep below; after a change started on a recorded reason, or onto such an address, they
+  sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
   references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
@@ -1194,8 +1203,9 @@ x /var/log/frankfurtleague/nginx
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
 every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
-every address change declined, stopped or discarded and every one taking effect
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706); a restore runs each erasure
+every address change declined, stopped or discarded and every one taking effect, and every request
+for a grant refused, withdrawn or ended by its address changing
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857); a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
@@ -1348,11 +1358,15 @@ counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left 
 
 **A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
 next confirmation or approval, or after the next pass — once its ten-minute lease lapses. A drain
-that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`. After 24 hand-outs the notice is
-given up under `FE-MAIL-016`, and nobody can be named afterwards, so repair the refusal while those
-lines stand:
+that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed
+to carry `FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After 24
+hand-outs the notice is given up under `FE-MAIL-016`, the account left at the replaced address, and
+nobody can be named afterwards, so repair the refusal while those lines stand:
 
-    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed)'
+    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
+
+A `konto_nicht_umgezogen` line at `WARN` reading `grund: "belegt"` needs no repair: the new address
+held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
@@ -1739,11 +1753,12 @@ enter again what it lacks.
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link,
-every address change declined, stopped or discarded (by an administrator, by a later start replacing it, or by the
-hourly pass refusing it when due) and every one taking effect, each naming its person by a keyed hash and never
-by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
+every address change declined, stopped or discarded (by an administrator, by a later start replacing it, by
+finding nothing left to move, or by the hourly pass refusing it when due) and every one taking effect, and every
+request for a grant refused, withdrawn or ended by its address changing, each naming its person by a keyed hash
+and never by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
 the digest their fixture answers carry, whether its commit landed or lost its answer
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857). §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1785,8 +1800,8 @@ refuses a moment naming no offset, a restore's end no later than the snapshot, a
 the export wrote no file for. Each line is listed by its act and its record, never by its person:
 
 - **An erasure** is followed by every collection, document and field holding its address, or by
-  "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
-  or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
+  "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
+  database is not read, an account whose
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
   the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
   day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
@@ -1831,9 +1846,9 @@ going on to name it since its hash matches nothing the record holds. Four things
   from its line, moving every record again; **one started inside the window** reads `left for
 review`, the restored database holding no change to move: ask the person to start it again on their
   account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **The
-  sign-in store is not restored**, so the account and its passkeys stay at the new address while the
-  records stand at the replaced one: the person signs in at the replaced address by code to start
-  again, and once the new mailbox confirms, the new address signs in to the account it kept. A
+  sign-in store comes back with the cluster** (the last bullet below), so the account and its
+  passkeys stand at the replaced address again beside the records: the person signs in there to
+  start again, and the new change's effect moves the account with the records, as a replayed one does. A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
   (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
