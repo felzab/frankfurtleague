@@ -144,12 +144,9 @@ async def carry_the_replaced_address_in_images(
     stamp: str,
     session: AsyncClientSession,
 ) -> int:
-    """Re-key the replaced address in the log images an address change's effect owes, in ONE read of the log.
+    """Re-key the replaced address in the log images an effect owes, in ONE read, as its share is sized.
 
-    Who acted carries everywhere; a change's, a grant's and a request's subject address too, and a seat's wherever no
-    document seats the address still: a seat the person left is reached by no document, so its images are an erasure's by
-    address alone (`app/api/kontakte/services.py :: build_seat_images_filter`). Every other record's images are reached by
-    its id. One read, as the effect's share is sized (`fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`).
+    Who acted, a change's, grant's or request's subject, and a left seat, which only its address reaches.
     """
 
     judges: dict[str, list[Callable[[Mapping[str, Any]], ImageEdits]]] = {}

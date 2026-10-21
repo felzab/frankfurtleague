@@ -355,10 +355,9 @@ async def queue_the_approval_notice_in_session(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Tell whoever could approve the change's grant move that it waits, through the grants' outbox, in the caller's transaction.
+    """Queue, in the caller's transaction, the grants' outbox notice that the change's grant move waits on an approval.
 
-    Its recipients are read when a pass claims it (`app/api/berechtigungen/sweep_router.py :: post_berechtigungen_abgleich`),
-    so a change approved, ended or lapsed by then mails nobody, and a lost answer loses no notice.
+    Recipients are read at the claim (`app/api/berechtigungen/sweep_router.py :: post_berechtigungen_abgleich`).
     """
 
     await post_one_to_db(
@@ -538,7 +537,7 @@ async def take_effect_in_session(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
-        # The approvers are asked again: nobody else knows the approval they saw given no longer stands.
+        # The approvers are asked again: nobody else knows the approval they saw given has fallen.
         await queue_the_approval_notice_in_session(
             adresswechsel_id=record["_id"],
             gestartet_von=str(record["genehmigung"]["gestartet_von"]),

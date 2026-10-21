@@ -104,7 +104,7 @@ async def post_berechtigungen_abgleich(
     them, and nobody where the request is decided, withdrawn, lapsed or erased, or its requester does not hold, since before
     it, the tier it asks for. An `adresswechsel` row is an address change moving a grant, keyed by the change, that waits on
     an approval: it goes to its own `an` too, whoever could approve it now as `POST /adresswechsel/{adresswechsel_id}/genehmigung`
-    judges them, and nobody where the change is approved, ended or past its week, or its address holds no grant any more.
+    judges them, and nobody where the change is approved, ended or past its week, or its address now holds no grant.
     `an` is null on every other row.
     """
 
