@@ -1,10 +1,10 @@
 import z from "zod";
 
 import { afterTheResponse } from "@/core/afterResponse";
+import { kontoAnNeuerAdresse } from "@/features/adresswechsel/konto";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
 import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
-import { kontoAnNeuerAdresse } from "@/features/adresswechsel/queries";
 import { mapAdresswechselPresseRefusal } from "@/features/adresswechsel/refusals";
 import { FLAdresswechselAntwortPayloadSchema, FLAdresswechselStoppPayloadSchema } from "@/features/adresswechsel/schemas";
 import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";

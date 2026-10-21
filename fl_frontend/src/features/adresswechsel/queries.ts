@@ -1,22 +1,12 @@
-import { accountStandsAt } from "@/core/auth";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { ansichtOf } from "./link";
-import { postAdresswechselAdresse, postAdresswechselAnsicht, postAdresswechselVerwaltungAnsicht } from "./mutations";
+import { postAdresswechselAnsicht, postAdresswechselVerwaltungAnsicht } from "./mutations";
 import { mapAdresswechselAnsichtRefusal, mapVerwaltungAnsichtRefusal } from "./refusals";
 
 import type { AdresswechselAnsicht } from "./link";
-import type { FLAdresswechselAdressePayload, FLAdresswechselVerwaltungAnsichtResponse } from "./schemas";
-
-/**
- * Whether a sign-in account already stands at the new address of the live change the key names, which refuses the
- * change. The address stays inside this call: no caller, page or log line is handed it.
- */
-export async function kontoAnNeuerAdresse(schluessel: FLAdresswechselAdressePayload): Promise<boolean> {
-  const { email } = await postAdresswechselAdresse(schluessel);
-  return email !== null && (await accountStandsAt(email));
-}
+import type { FLAdresswechselVerwaltungAnsichtResponse } from "./schemas";
 
 /** What one address link opens, either side's, live or ended. */
 export async function getAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
@@ -29,12 +19,12 @@ export async function getAdresswechselAnsicht(token: string): Promise<Adresswech
       throw error;
     });
 
+    if (gelesen.zustand !== "gueltig") return gelesen;
+
     // The backend cannot see the sign-in store, so its view offers the press this refusal closes: said here, as the
-    // backend's own refusals of the address are, so the page never offers a confirmation the press refuses.
-    if (gelesen.zustand === "gueltig" && (await kontoAnNeuerAdresse({ token: token }))) {
-      return { zustand: "nicht_bestaetigbar", weg: gelesen.weg };
-    }
-    return gelesen;
+    // backend's own refusals of the address are. Loaded at the call, for `requireAdminRequest`'s reason.
+    const { kontoAnNeuerAdresse } = await import("./konto");
+    return (await kontoAnNeuerAdresse({ token: token })) ? { zustand: "nicht_bestaetigbar", weg: gelesen.weg } : gelesen;
   });
 }
 

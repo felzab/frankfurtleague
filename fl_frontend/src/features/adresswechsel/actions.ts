@@ -8,6 +8,7 @@ import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
+import { kontoAnNeuerAdresse } from "./konto";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,
@@ -17,7 +18,6 @@ import {
 } from "./mutations";
 import { describeAdresswechselMail, mailAdresswechsel } from "./notifications";
 import { runAdresswechselPostausgang } from "./postausgang";
-import { kontoAnNeuerAdresse } from "./queries";
 import {
   KONTO_BELEGT_ERNEUT,
   KONTO_BELEGT_START,
