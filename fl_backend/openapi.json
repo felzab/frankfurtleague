@@ -7361,7 +7361,7 @@
     "/api/v0/adresswechsel": {
       "post": {
         "summary": "Start an address change for a person who cannot sign in",
-        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n`adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the\nchange would move (`-008`).",
+        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n`adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the\nchange would move (`-008`).",
         "operationId": "post_adresswechsel_verwaltung_api_v0_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -10760,7 +10760,7 @@
       },
       "post": {
         "summary": "Start a change of the signed-in person's address",
-        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant, `genehmiger`\nnames who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; `-011` where nobody could approve the grant's move, the last owner making another first; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
+        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant,\n`genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; `-011` where nobody could approve the grant's move, the last owner making another first; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
         "operationId": "post_adresswechsel_api_v0_konto_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -12411,12 +12411,10 @@
             "type": "boolean",
             "title": "Adresse Belegt"
           },
-          "genehmiger": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Genehmiger"
+          "genehmiger_anzahl": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Genehmiger Anzahl"
           }
         },
         "type": "object",
@@ -12430,7 +12428,7 @@
           "bisherige_email",
           "vorname",
           "adresse_belegt",
-          "genehmiger"
+          "genehmiger_anzahl"
         ],
         "title": "FLAdresswechselVerwaltungMintResponse",
         "description": "A started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole."
@@ -19119,12 +19117,10 @@
             "type": "string",
             "title": "Vorname"
           },
-          "genehmiger": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Genehmiger"
+          "genehmiger_anzahl": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Genehmiger Anzahl"
           }
         },
         "type": "object",
@@ -19136,7 +19132,7 @@
           "email",
           "bisherige_email",
           "vorname",
-          "genehmiger"
+          "genehmiger_anzahl"
         ],
         "title": "FLKontoAdresswechselMintResponse",
         "description": "The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither."

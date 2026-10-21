@@ -53,7 +53,7 @@ const wartezeit = {
   // None on the lost-mailbox way, whose address on file may be a stranger's by now.
   vorname: null as string | null,
   adresse_belegt: false,
-  genehmiger: [] as string[],
+  genehmiger_anzahl: 0,
 };
 /** A start without one: nothing goes to the new mailbox before the address on file approves. */
 const freigabe = { ...wartezeit, weg: "freigabe", token: null, vorname: "Lena" };
@@ -228,7 +228,7 @@ describe("an administrator's start of a change", () => {
 
   /* A grant holder's change waits on another administrator, told once, by the grants' outbox the start queued. */
   it("mails no approver itself and drains the grants' outbox behind the answer", async () => {
-    antwort[START] = () => ({ ...wartezeit, genehmiger: [GENEHMIGER] });
+    antwort[START] = () => ({ ...wartezeit, genehmiger_anzahl: 1 });
 
     await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
 

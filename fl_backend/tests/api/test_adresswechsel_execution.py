@@ -212,7 +212,7 @@ class TestThePersonsStart:
 
         minted, record, rows = on_a_person(mongo_replica_set_url, body)
 
-        assert (minted.email, minted.bisherige_email, minted.vorname, minted.genehmiger) == (NEW_EMAIL, EMAIL, "Lenore", [])
+        assert (minted.email, minted.bisherige_email, minted.vorname, minted.genehmiger_anzahl) == (NEW_EMAIL, EMAIL, "Lenore", 0)
         assert (record["adresse"], record["email"], record["weg"], record["beendet"], record["genehmigung"]) == (
             EMAIL,
             NEW_EMAIL,
@@ -256,7 +256,7 @@ class TestThePersonsStart:
             return sorted(minted.model_dump()), (await change(database, minted.id))["email"]
 
         assert on_a_person(mongo_replica_set_url, body) == (
-            ["acknowledged", "bisherige_email", "email", "genehmiger", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
+            ["acknowledged", "bisherige_email", "email", "genehmiger_anzahl", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
             NEW_EMAIL,
         )
 
@@ -300,13 +300,13 @@ class TestThePersonsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             minted = await start(database, client)
-            return minted, await change(database, minted.id)
+            return minted, await change(database, minted.id), await approvers_told(database, client)
 
-        minted, record = on_a_person(mongo_replica_set_url, body)
+        minted, record, told = on_a_person(mongo_replica_set_url, body)
 
-        assert sorted(minted.genehmiger) == sorted(
-            ["admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com"]
-        )
+        approvers = sorted(["admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com"])
+        # Named where they are mailed, the grants' outbox claim; the start's answer counts them and names nobody.
+        assert (told, minted.genehmiger_anzahl) == ([approvers], len(approvers))
         genehmigung = record["genehmigung"]
         assert (genehmigung["verwaltung"], genehmigung["gestartet_von"], genehmigung["genehmigt_am"]) == ("administration", EMAIL, None)
 
@@ -317,12 +317,12 @@ class TestThePersonsStart:
             refused = await refused_code(start(database, client, identifier=OWNER))
             await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
             minted = await start(database, client, identifier=OWNER)
-            return refused, minted.genehmiger
+            return refused, minted.genehmiger_anzahl, await approvers_told(database, client)
 
-        refused, genehmiger = on_a_person(mongo_replica_set_url, body)
+        refused, anzahl, told = on_a_person(mongo_replica_set_url, body)
 
         assert refused == ADRESSWECHSEL_KEIN_GENEHMIGER
-        assert genehmiger == [SECOND_ADMIN]
+        assert (anzahl, told) == (1, [[SECOND_ADMIN]])
 
     def test_it_replaces_the_live_change_whose_links_then_answer_how_it_ended(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
@@ -837,7 +837,7 @@ class TestTheToolsStart:
 
         plain, joined, record = on_a_person(mongo_replica_set_url, body)
 
-        assert (plain.weg, plain.token is not None, plain.adresse_belegt, plain.genehmiger) == ("wartezeit", True, False, [])
+        assert (plain.weg, plain.token is not None, plain.adresse_belegt, plain.genehmiger_anzahl) == ("wartezeit", True, False, 0)
         assert joined.adresse_belegt is True
         assert record["grund"] is None  # ended by the second start, its reason out of the record
 
@@ -901,11 +901,11 @@ class TestTheToolsStart:
             await granted(database)
             started = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
             refused = await refused_code(approve(database, client, started.id, operator=OWNER))
-            return started, refused, await change(database, started.id)
+            return refused, await change(database, started.id), await approvers_told(database, client)
 
-        started, refused, record = on_a_person(mongo_replica_set_url, body)
+        refused, record, [told] = on_a_person(mongo_replica_set_url, body)
 
-        assert OWNER not in started.genehmiger and EMAIL not in started.genehmiger
+        assert told and OWNER not in told and EMAIL not in told
         assert record["genehmigung"]["gestartet_von"] == OWNER
         assert refused == ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT
 
@@ -1058,11 +1058,11 @@ class TestTheApproval:
             first = await approvers_told(database, client)
             await approve(database, client, minted.id, operator=ADMIN)
             # The lease lapsed, the row unstamped, as a failed delivery leaves it.
-            return minted.genehmiger, first, await approvers_told(database, client, now=NOW + timedelta(minutes=11))
+            return minted.genehmiger_anzahl, first, await approvers_told(database, client, now=NOW + timedelta(minutes=11))
 
-        genehmiger, first, after = on_a_person(mongo_replica_set_url, body)
+        anzahl, [first], after = on_a_person(mongo_replica_set_url, body)
 
-        assert first == [sorted(genehmiger)]
+        assert len(first) == anzahl > 0
         assert after == [[]]
 
     def test_an_approval_before_the_confirmation_lets_the_confirmation_take_effect(self, mongo_replica_set_url: str):

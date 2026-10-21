@@ -330,8 +330,9 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     vorname: str | None
     # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
     adresse_belegt: bool
-    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
-    genehmiger: list[str]
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
+    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    genehmiger_anzahl: int = Field(ge=0)
 
 
 class FLAdresswechselIdResponse(BaseAPIResponse):

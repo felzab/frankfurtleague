@@ -294,7 +294,7 @@ async def post_adresswechsel_verwaltung(
     `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
     address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
     mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
-    this one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
+    this one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
     The address's live change ends replaced.
     `adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.
 
@@ -388,7 +388,7 @@ async def post_adresswechsel_verwaltung(
             bisherige_email=identifier,
             vorname=None if weg == "wartezeit" else bestand.vorname,
             adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
-            genehmiger=genehmiger,
+            genehmiger_anzahl=len(genehmiger),
         )
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
@@ -487,7 +487,7 @@ async def einladen_adresswechsel(
             bisherige_email=identifier,
             vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
             adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
-            genehmiger=[],
+            genehmiger_anzahl=0,
         )
 
     async with transaction_session(db) as session:
