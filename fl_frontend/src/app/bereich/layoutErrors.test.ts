@@ -20,7 +20,7 @@ import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
 
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
-const { setSession, setSubject } = doubleActionRequest();
+const { setRefusal, setSession, setSubject } = doubleActionRequest();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
 
@@ -82,8 +82,8 @@ type Area = {
   boundary: ComponentType<{ children?: ReactNode }>;
   /** Makes the read the layout's hold awaits throw. */
   failRead: () => void;
-  /** Makes the request one the area serves no session for. */
-  refuse: () => void;
+  /** Each way the area serves no session for the request, by name: a frame reader answering one alike may answer another apart. */
+  refusals: Record<string, () => void>;
   pathname: string;
   params: Record<string, string> | null;
 };
@@ -96,7 +96,7 @@ const AREAS: Area[] = [
     layout: () => PersoenlichLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: PersonAreaBoundary,
     failRead: () => setSubject(OUTAGE),
-    refuse: () => setSubject(null),
+    refusals: { "no person": () => setSubject(null) },
     pathname: "/bereich",
     params: null,
   },
@@ -107,7 +107,7 @@ const AREAS: Area[] = [
     layout: () => TeamLayout({ params: Promise.resolve(TEAM), children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: TeamAreaBoundary,
     failRead: () => setSubject(OUTAGE),
-    refuse: () => setSubject(null),
+    refusals: { "no person": () => setSubject(null) },
     pathname: `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`,
     params: TEAM,
   },
@@ -118,7 +118,17 @@ const AREAS: Area[] = [
     layout: () => AdminLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: AdminAreaBoundary,
     failRead: () => setSession(OUTAGE),
-    refuse: () => setSession(null),
+    // Every refusal but `unread`, which the hold throws to the boundary: a team contact or a revoked grant
+    // opening the area is turned away by the page as a sign-in is.
+    refusals: Object.fromEntries(
+      (["signIn", "noGrant", "grantGone"] as const).map((refusal) => [
+        refusal,
+        () => {
+          setSession(null);
+          setRefusal(refusal);
+        },
+      ]),
+    ),
     pathname: "/bereich/admin/sperrliste",
     params: null,
   },
@@ -264,20 +274,22 @@ describe("each session reader of an area's frame, for a refused session (`docs/f
       const readers = readersIn(area.layout());
       assert.deepEqual(readerNames(readers), FRAME_READERS[area.name], `${area.name} holds other readers`);
 
-      for (const reader of readers) {
-        area.refuse();
-        const { thrown } = await callPage(() => reader.type(reader.props), NO_PROPS);
+      for (const [refusal, refuse] of Object.entries(area.refusals)) {
+        for (const reader of readers) {
+          refuse();
+          const { thrown } = await callPage(() => reader.type(reader.props), NO_PROPS);
 
-        assert.deepEqual(
-          thrown.map((error) => (error as { digest?: unknown } | null)?.digest ?? error),
-          [],
-          `${area.name}'s ${reader.type.name} answers a refused session with a throw`,
-        );
-        if ("children" in reader.props) {
-          assert.ok(
-            holds(await reader.type(reader.props), reader.props.children),
-            `${area.name}'s ${reader.type.name} withholds the page slot`,
+          assert.deepEqual(
+            thrown.map((error) => (error as { digest?: unknown } | null)?.digest ?? error),
+            [],
+            `${area.name}'s ${reader.type.name} answers ${refusal} with a throw`,
           );
+          if ("children" in reader.props) {
+            assert.ok(
+              holds(await reader.type(reader.props), reader.props.children),
+              `${area.name}'s ${reader.type.name} withholds the page slot on ${refusal}`,
+            );
+          }
         }
       }
     }
