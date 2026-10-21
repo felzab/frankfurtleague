@@ -615,6 +615,38 @@ def _shell_comments(text: str) -> str:
     return "\n".join(keep)
 
 
+def _nginx_comments(text: str) -> str:
+    """nginx comments only, columns kept.
+
+    A `#` opens one where a token starts outside quotes, as nginx reads it, so a colour in a quoted
+    value is text on every line the value spans.
+    """
+    keep: list[str] = []
+    boundary, quote, escaped = True, "", False
+    for line in text.split("\n"):
+        start = -1
+        for column, char in enumerate(line):
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped, boundary = True, False
+            elif quote:
+                quote = "" if char == quote else quote
+            elif char in " \t\r;{}":
+                boundary = True
+            elif boundary and char == "#":
+                start = column
+                break
+            elif boundary and char in "\"'":
+                quote, boundary = char, False
+            else:
+                boundary = False
+        # A quoted string runs on past the line's end; anything else ends a token there.
+        boundary = boundary or not quote
+        keep.append(" " * start + line[start:] if start != -1 else "")
+    return "\n".join(keep)
+
+
 def _marker_lines(text: str) -> str:
     """Every line carrying a `#` or a triple quote, line count kept.
 
@@ -838,6 +870,8 @@ def comments_only(text: str, suffix: str) -> str:
     """
     if suffix == ".sh":
         return _shell_comments(text)
+    if suffix == ".conf":
+        return _nginx_comments(text)
     if suffix == ".json":
         return _cstyle_comments(text, JSON_QUOTES)
     if suffix in CSTYLE_SUFFIXES:
@@ -853,7 +887,7 @@ def comment_style(path: Path) -> str:
     for `path.suffix` to dispatch on.
     """
     suffix = path.suffix.lower()
-    return suffix if suffix in SOURCE_SUFFIXES or suffix == ".json" else ".sh"
+    return suffix if suffix in SOURCE_SUFFIXES or suffix in (".json", NGINX_STYLE) else ".sh"
 
 
 def is_prose(path: Path) -> bool:
@@ -869,10 +903,16 @@ def is_prose(path: Path) -> bool:
 DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
 PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
 
+# Every `.conf` the corpus holds is nginx's, whose `#` the shell reader's line scan misreads inside
+# a quoted value.
+NGINX_STYLE: Final = ".conf"
+# The styles whose comments open on `#`: a header and a comment run are read alike in each.
+HASH_STYLES: Final[tuple[str, ...]] = (".sh", NGINX_STYLE)
+
 # Comment STYLES rather than kinds: `comment_style` hands a suffix it does not know to the shell
 # reader, so a hook and a Dockerfile arrive here as `.sh`. A style outside this register has its
 # opening block measured by INC-9 instead.
-HEADER_SUFFIXES: Final[tuple[str, ...]] = (".py", ".sh")
+HEADER_SUFFIXES: Final[tuple[str, ...]] = (".py", *HASH_STYLES)
 
 
 def _module_header(raw: str, suffix: str) -> list[str] | None:
@@ -885,7 +925,7 @@ def _module_header(raw: str, suffix: str) -> list[str] | None:
         return None
     lines = raw.split("\n")
     i = 0
-    if suffix == ".sh":
+    if suffix in HASH_STYLES:
         # A tool's directive stands above the header as the shebang does, and ends it below as it
         # ends any comment block (INC-9), so neither its words nor its line reach INC-2's shape.
         while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!") or is_directive_line(lines[i])):
@@ -917,7 +957,7 @@ def _module_header(raw: str, suffix: str) -> list[str] | None:
 def _header_line(line: str, suffix: str) -> str:
     """One header line with its comment decoration removed -- the text INC-2's shapes apply to."""
     text = line.strip()
-    if suffix == ".sh":
+    if suffix in HASH_STYLES:
         return text.lstrip("#").strip()
     if suffix == ".py":
         text = PY_DOCSTRING_OPEN_RE.sub("", text)
@@ -1034,8 +1074,8 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             if lines[index : index + len(header)] == header:
                 outside.update(range(index + 1, index + len(header) + 1))
                 break
-    # Python alone has a grammar here a line scan gets wrong; every other kind's comment opens on
-    # a marker no literal of its own can carry at the margin.
+    # Python has a grammar here a line scan gets wrong, and nginx a quoted value spanning lines,
+    # read apart below; every other kind's comment opens on a marker no literal can carry at the margin.
     if suffix == ".py":
         return _python_runs(raw, frozenset(outside))
 
@@ -1043,7 +1083,9 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
     current: list[str] = []
     first_line = 0
     closing: str | None = None
-    hash_only = suffix == ".sh"
+    hash_only = suffix in HASH_STYLES
+    # A quoted nginx value runs over lines, so a line it holds opening on a marker is no comment.
+    said = _nginx_comments(raw).split("\n") if suffix == NGINX_STYLE else None
 
     def flush() -> None:
         nonlocal current, first_line
@@ -1056,6 +1098,9 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             flush()
             continue
         text = line.strip()
+        if said is not None and said[number - 1].strip() != text:
+            flush()
+            continue
         if closing is not None:  # inside a block comment or a docstring
             current.append(_header_line(text.removesuffix(closing), suffix))
             if closing in text:
