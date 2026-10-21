@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import {
   mapBestaetigteAdresseRefusal,
@@ -11,6 +11,7 @@ import {
   mapNameRefusal,
   mapReactivateRefusal,
   mapRetireRefusal,
+  SCHIEDSRICHTER_REPLAY_REFUSALS,
 } from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -124,5 +125,14 @@ describe("what each referee write answers a refusal with", () => {
       act: () => reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapReactivateRefusal,
     });
+  });
+
+  /* An address change landing inside the undo window refuses the replay of a referee confirmed all along, so the undo's
+     sentence names both causes the save's names: one naming the confirmation alone tells the administrator a falsehood. */
+  it("names both causes of the confirmed-address refusal on the undo as the save does", () => {
+    const beide = /bestätigt oder ihre Adresse hat sich geändert/;
+
+    assert.match(mapBestaetigteAdresseRefusal(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "", beide);
+    assert.match(SCHIEDSRICHTER_REPLAY_REFUSALS["REQ-SCHIEDSRICHTER-011"] ?? "", beide);
   });
 });
