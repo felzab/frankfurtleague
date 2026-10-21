@@ -292,7 +292,7 @@ class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
 
 
 class FLSpielberichtPersonEintrag(BaseModel):
-    """One played fixture booked to the signed-in referee, and whether their report stands."""
+    """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 
     spiel_id: CustomObjectId
     datum: CustomDateString
