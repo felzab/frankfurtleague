@@ -547,6 +547,14 @@ describe("an address change carrying the account, against a real database (`docs
       ].sort(),
     );
     assert.equal((await sessionRows()).length, 4, "a session was ended by a carry that moved nothing");
+    // A stamp written apart from the refused move would end every session of a person whose address never changed.
+    assert.deepEqual(
+      await authDb()
+        .collection("user")
+        .countDocuments({ sessionsEndedAt: { $exists: true } }),
+      0,
+      "a carry that moved nothing stamped an account's sessions ended",
+    );
   });
 });
 
