@@ -169,6 +169,8 @@ const HOUR_MS = 60 * MINUTE_MS;
 const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
 const drops = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "drop" }> => ereignis.art === "drop");
 const gesendet = () => mail.sent;
+/** The sentence a notice to one person carries, and a notice to a club's mailboxes never. */
+const NUR_AN_DICH = "Diese E-Mail geht nur an Dich.";
 /** The ids the stamp was handed, over every stamp call of the pass. */
 const gestempelt = () =>
   apiCalls()
@@ -477,6 +479,12 @@ describe("what one pass mails", () => {
     // The team's notice is recorded against the seats it covered, the referee's rides the lane no record holds.
     assert.deepEqual(team?.tags, { ziel: "spielbestaetigung", ziel_id: id(2), anlass: "neue_ansetzung", rollen: "trainer-ansprechperson" });
     assert.deepEqual(schiri?.tags, { spielleitung: "hinweis" });
+    // One subject for both readers, so only the body tells the referee's notice from the club's.
+    assert.deepEqual(
+      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_AN_DICH)),
+      [false, true],
+      "a notice is worded for the other reader",
+    );
     // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
     assert.ok(team?.idempotencyKey !== undefined && schiri?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
     assert.equal(frische?.idempotencyKey, undefined, "a request carrying a fresh token was keyed");
@@ -562,6 +570,12 @@ describe("what one pass mails", () => {
         ],
         ["schiri@schule.de", "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026", { spielleitung: "hinweis" }],
       ],
+    );
+    // One subject for both readers, so only the body tells the referee's notice from the club's.
+    assert.deepEqual(
+      gesendet().map(({ text }) => text.includes(NUR_AN_DICH)),
+      [false, true],
+      "a notice is worded for the other reader",
     );
     assert.ok(
       gesendet().every(({ idempotencyKey }) => idempotencyKey !== undefined),
