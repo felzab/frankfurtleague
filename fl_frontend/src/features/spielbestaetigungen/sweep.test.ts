@@ -585,13 +585,21 @@ describe("what one pass mails", () => {
           ],
         },
         { ...hinweis(8), empfaenger: [{ address: "weg@schule.de", rollen: ["trainer"] }] },
+        // The mailbox that went ahead of the one that failed: neither the first send nor the last decides alone.
+        {
+          ...hinweis(10),
+          empfaenger: [
+            { address: "da@schule.de", rollen: ["ansprechperson"] },
+            { address: "weg@schule.de", rollen: ["trainer"] },
+          ],
+        },
       ],
       schiedsrichter_spiel_abgesagt: [{ ...hinweis(9), address: "schiri-weg@schule.de" }],
     });
 
     await runSpielSweep();
 
-    assert.deepEqual(mitgeteilt(), [id(7)]);
+    assert.deepEqual(mitgeteilt(), [id(7), id(10)]);
   });
 
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */
