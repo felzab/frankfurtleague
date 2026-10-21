@@ -52,8 +52,8 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
 
 SAISON_ID = "2026"
-# A century ahead of the real clock: an ended change and a day's count expire by their TTL index, and the monitor
-# deletes an expired one at its next pass, under a case reading it back. Every seeded day moves with it.
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
+# under a case reading it back. Every seeded day moves with it.
 TODAY = "2126-04-01"
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Past a step's 24 hours, past a grant's week of approval, and past a confirmed change's waiting time.

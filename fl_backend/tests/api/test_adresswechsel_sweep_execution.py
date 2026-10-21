@@ -54,8 +54,8 @@ DATABASE_NAME = worker_database("fl_adresswechsel_sweep_test")
 # Minted at noon on these days, the link lapsed at noon today, half an hour before `NOW`, and lapses tomorrow.
 MINTED_TO_LAPSE_YESTERDAY = "2126-04-15"
 MINTED_TO_LAPSE_TODAY = "2126-04-16"
-# A century ahead of the real clock: an ended change and a day's count expire by their TTL index, and the monitor
-# deletes an expired one at its next pass, under a case reading it back. Every seeded day moves with it.
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
+# under a case reading it back. Every seeded day moves with it.
 NOW = datetime(2126, 4, 16, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Confirmed this long ago, a change waiting is due by `NOW` or still waits.
 CONFIRMED_TO_BE_DUE = NOW - timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE, minutes=1)
