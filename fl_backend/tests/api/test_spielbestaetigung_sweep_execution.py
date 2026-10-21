@@ -2298,6 +2298,33 @@ class TestANoticeOutlivesALostAnswer:
         assert (elsewhere.mitgeteilt, here.mitgeteilt, again.mitgeteilt) == (0, 1, 0)
 
 
+class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
+    """`docs/backend/spec.md :: I840`: its parties asked about `NEXT_WEEK`, the fixture moved before any pass closed their rows."""
+
+    @pytest.mark.parametrize(
+        ("today", "moved_to", "told"),
+        [
+            pytest.param(days_after(day=NEXT_WEEK, days=1), days_after(day=NEXT_WEEK, days=7), True, id="off a day gone by"),
+            pytest.param(TODAY, YESTERDAY, True, id="onto a day gone by"),
+            # None owed rather than owed and given up: a notice given up sends the administrator to tell by hand.
+            pytest.param(days_after(day=NEXT_WEEK, days=1), TODAY, False, id="from one day gone by to another"),
+        ],
+    )
+    def test_the_pass_closing_it(self, mongo_replica_set_url: str, today: str, moved_to: str, told: bool):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"datum": moved_to}})
+            return await sweep(database, client, today=today), await rows(database, geschlossen={"$ne": None})
+
+        late, closed = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert {row["geschlossen"]["grund"] for row in closed} == {"ansetzung_geaendert"}
+        assert (len(late.neue_ansetzungen), len(late.schiedsrichter_neue_ansetzungen), late.mitteilungen_aufgegeben) == (
+            (2, 1, 0) if told else (0, 0, 0)
+        )
+
+
 class TestANoticeWhoseClosingWasUndoneIsDropped:
     """`docs/backend/spec.md :: I839`: each first pass's notices went unstamped, so the second pass holds them still."""
 

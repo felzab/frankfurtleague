@@ -1434,7 +1434,7 @@ went, the notices it stamped as told, the notices given up and the rows it passe
 and as a warning under `FE-SWEEP-004` where it passed rows over or gave a notice up. A notice of a
 move, a referee taken off or a call-off is answered on every pass until its stamp lands, and given
 up after the attempts `fl_backend/app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
-allows or once its day has passed: an `aufgegeben` count is a club or a referee nobody told, so open
+allows or once its day has passed, a move's once both the slot it left and the fixture's new one have: an `aufgegeben` count is a club or a referee nobody told, so open
 the fixture's confirmations panel and tell them by hand. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
 that failed files that line and no pass line, its cache drop still running and filing
 `cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed

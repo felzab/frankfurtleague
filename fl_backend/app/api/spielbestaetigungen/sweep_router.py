@@ -360,15 +360,16 @@ async def sweep_spielbestaetigungen(
     that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
     counting it as that club's agreement.
 
-    A closing owes its party a notice where the party's first request or Einteilung went out: for a move, always; for a
-    referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline,
-    which closed its row as it was given -- and for a call-off, only about a day today or later. The closed row holds the
+    A closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:
+    for a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move
+    it shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a
+    call-off, the slot the row was about. The closed row holds the
     notice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the
     mailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in
     `schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`
     and `schiedsrichter_spiel_abgesagt`. A notice is answered on every pass until the caller stamps it through
     `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
-    allows, or about a day gone by, is given up and counted in `mitteilungen_aufgegeben`, and one with nobody left to
+    allows, or no longer about a day to come, is given up and counted in `mitteilungen_aufgegeben`, and one with nobody left to
     tell, or whose closing the fixture has since undone -- reinstated, its referee booked again, back at the row's
     slot -- is dropped unanswered, the mint asking its party afresh.
 
@@ -479,10 +480,11 @@ async def sweep_spielbestaetigungen(
 
         for row in taken:
             grund = gruende[row["_id"]]
+            owed = notice_owed(row=row, grund=grund, spiel=spiele[row["spiel_id"]], today=today)
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_holding_filter()},
-                update=compose_closing_update(grund=grund, today=today, mitteilung=notice_owed(row=row, grund=grund, today=today)),
+                update=compose_closing_update(grund=grund, today=today, mitteilung=owed),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
@@ -509,7 +511,6 @@ async def sweep_spielbestaetigungen(
         # The share cut before the reads it needs, every held row being one it answers or drops: read for the page, the
         # fixtures, clubs and referees would cost a season's `getMore`s the close's share pays for (`CLOSES_PER_PASS`).
         share = rows if batch.share is None else rows[: batch.share]
-        spent = {row["_id"] for row in share if mitteilung_spent(row=row, today=today)}
         spiele = await _spiele(
             spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in share], session=session
         )
@@ -524,18 +525,20 @@ async def sweep_spielbestaetigungen(
             ids=[row["partei"]["schiedsrichter_id"] for row in share if row["partei"]["art"] == "schiedsrichter"],
             session=session,
         )
-        # The rows whose closing the fixture has undone since: dropped, never given up, there being nothing to tell.
-        undone: set[Any] = set()
+        # The rows given up: each counted, nothing else told.
+        spent: set[Any] = set()
 
         def notice_of(row: Mapping[str, Any]) -> _Notice | None:
             """The notice this row holds, or `None` where its closing was undone, it is spent, or nobody is left to tell."""
 
-            # Ahead of the spend: a given-up notice warns the administrator to tell its party by hand.
-            if not notice_holds(row=row, spiel=spiele[row["spiel_id"]]):
-                undone.add(row["_id"])
+            spiel = spiele[row["spiel_id"]]
+            # Ahead of the spend, and dropped rather than given up: a given-up notice warns the administrator to tell its
+            # party by hand, and a closing undone leaves nothing to tell.
+            if not notice_holds(row=row, spiel=spiel):
                 return None
 
-            if row["_id"] in spent:
+            if mitteilung_spent(row=row, spiel=spiel, today=today):
+                spent.add(row["_id"])
                 return None
 
             ansetzung, partei, grund = row["ansetzung"], row["partei"], row["geschlossen"]["grund"]
@@ -610,7 +613,7 @@ async def sweep_spielbestaetigungen(
 
         return _Told(
             notices=[notice for _, notice in taken if notice is not None],
-            aufgegeben=sum(row_id in spent and row_id not in undone for row_id in dropped),
+            aufgegeben=sum(row_id in spent for row_id in dropped),
         )
 
     async def mint(session: AsyncClientSession, batch: Batch) -> _Minted:

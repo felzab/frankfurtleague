@@ -470,7 +470,7 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     schiedsrichter_spiel_abgesagt: list[FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt]
     geschlossen: int
     fehlgeschlagen: int
-    # Notices this pass stopped owing unsent: handed out as often as the cap allows, or about a day gone by.
+    # Notices this pass stopped owing unsent: handed out as often as the cap allows, or no longer about a day to come.
     mitteilungen_aufgegeben: int
 
 

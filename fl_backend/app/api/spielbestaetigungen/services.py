@@ -803,7 +803,8 @@ def grund_to_close(
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
         return "ansetzung_geaendert"
 
-    # Last, so a move to or from a past day is still announced. Kept open, a row whose day went by unplayed would ask
+    # Last, so a move to or from a past day is still announced while the other day is to come
+    # (`docs/backend/spec.md :: I840`). Kept open, a row whose day went by unplayed would ask
     # about a past date for good, at the front of the close's oldest-first page.
     if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
@@ -998,19 +999,35 @@ def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitte
 MITTEILUNG_VERSUCHE_HOECHSTENS: Final = 24
 
 
-def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I836`).
+GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt", "abgesagt"})
 
-    Only a party its request or Einteilung was mailed to; a referee change and a call-off only about a day still to come.
+
+def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether a notice is about a day still to come (`docs/backend/spec.md :: I840`).
+
+    A move's notice is about the slot left and the one the fixture holds now, so either day still to come keeps it: the
+    slot left is void, or a fresh request follows.
     """
 
-    if row.get("angefragt_am") is None:
-        return False
+    tage = [row["ansetzung"]["datum"]]
+    if grund == "ansetzung_geaendert" and isinstance(spiel.get("datum"), str):
+        tage.append(spiel["datum"])
 
-    if grund == "ansetzung_geaendert":
-        return True
+    return any(tag >= today for tag in tage)
 
-    return grund in ("schiedsrichter_gewechselt", "abgesagt") and not _day_passed(ansetzung=row["ansetzung"], today=today)
+
+def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I836`, `:: I840`).
+
+    Only a party its request or Einteilung was mailed to, about a day still to come: none owed rather than owed and given up,
+    which would send the administrator to tell by hand about a day gone by.
+    """
+
+    return (
+        row.get("angefragt_am") is not None
+        and grund in GRUENDE_OWING_A_NOTICE
+        and _notice_to_come(row=row, grund=grund, spiel=spiel, today=today)
+    )
 
 
 def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
@@ -1036,11 +1053,13 @@ def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
     return {"saison_id": saison_id, "geschlossen.mitteilung": {"$ne": None}}
 
 
-def mitteilung_spent(*, row: Mapping[str, Any], today: str) -> bool:
-    """Whether a pass gives a held notice up: handed out the cap's number of times, or about a day gone by."""
+def mitteilung_spent(*, row: Mapping[str, Any], spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether a pass gives a held notice up: handed out the cap's number of times, or no longer about a day to come."""
 
-    return int(row["geschlossen"]["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or _day_passed(
-        ansetzung=row["ansetzung"], today=today
+    geschlossen = row["geschlossen"]
+
+    return int(geschlossen["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or not _notice_to_come(
+        row=row, grund=geschlossen["grund"], spiel=spiel, today=today
     )
 
 
