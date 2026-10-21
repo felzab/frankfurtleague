@@ -189,11 +189,12 @@ async def a_pass(database: AsyncDatabase, client: AsyncMongoClient, **replaced: 
     return answers
 
 
-def stored_before_its_validator(spieler_id: ObjectId) -> dict[str, Any]:
-    """A log row stored before its validator required `trace_id`, which refuses the redaction's update under strict validation."""
+def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
+    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2025-01-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(Collection.SPIELER),
@@ -203,6 +204,7 @@ def stored_before_its_validator(spieler_id: ObjectId) -> dict[str, Any]:
         "before": pupil(spieler_id, "vorher@beispielschule.de"),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 
@@ -740,14 +742,14 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 class TestOneRecordHoldsBackNobody:
     def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A log row stored before its validator required `trace_id` refuses the redaction's update, a real failure under strict validation.
+        """A log image refusing the redaction's update, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
         """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.AKTIONEN].insert_one(stored_before_its_validator(numbered(1)), bypass_document_validation=True)
+            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(numbered(1)), bypass_document_validation=True)
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -899,7 +901,7 @@ class TestEachCallTakesAShare:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
             await database[Collection.AKTIONEN].insert_many(
-                [stored_before_its_validator(numbered(position)) for position in failing], bypass_document_validation=True
+                [refusing_its_redaction(numbered(position)) for position in failing], bypass_document_validation=True
             )
             answers = await a_pass(database, client)
 
