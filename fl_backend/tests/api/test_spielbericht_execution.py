@@ -438,6 +438,17 @@ class TestEachRefusalWritesNothing:
         assert outcome == code
         assert documents_now == []
 
+    def test_an_ended_season_is_refused_before_a_stale_stand(self, mongo_replica_set_url: str):
+        """Composed on no report where version 1 stands: only the season's check inside the transaction answers ahead of the stand's."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            await end_the_season(database)
+            outcome = await outcome_of(put(database, client, bericht(torschuetzen=[tor("team1", LINA, "24")])))
+            return outcome, [document["bericht"]["version"] for document in await stored(database)]
+
+        assert on_the_league(mongo_replica_set_url, run) == (BERICHT_SAISON_BEENDET, [1])
+
     def test_a_correction_after_the_season_s_strip_resends_its_cautions_without_their_reasons(self, mongo_replica_set_url: str):
         """The strip deleted the yellow's reason; the administrator corrects the scorer's minute, and adds no caution."""
 
