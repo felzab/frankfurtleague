@@ -13,8 +13,8 @@ concrete exploit sentence.
 CONTEXT — derive, do not assume: auth is Better Auth via `src/core/auth.ts` with a proxy matcher on
 `/bereich` and `/signin`, checking only that a session cookie is carried, the admin subtree included, **plus** the
 grant's check every admin-tier read makes in `src/shared/utils/adminRead.ts :: runAdminRead`, which turns a refused
-session away whatever the layout decides, a layout's guard stopping no page segment; the in-layout `AdminAuthGuard`
-covers the shell alone (defence in depth — verify each still exists rather than assuming any); the frontend holds
+session away whatever the layout decides, no layout turning a session away; the in-layout `AdminSessionHold`
+holds the page slot back until the session is judged and redirects nobody (defence in depth — verify each still exists rather than assuming any); the frontend holds
 tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a
 `.claude/rules/cross-surface.md` clause: the single enforced CSP with `react/no-danger` as compensating control,
