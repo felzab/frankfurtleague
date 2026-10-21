@@ -277,7 +277,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   old account keeps its sessions until the account sweep. A new address that any entry names,
   confirmed or not, a pending grant request among them, refuses the change
   (`docs/backend/spec.md :: I860`), and so does one a sign-in account already signs in at, an account
-  no record names included (`docs/frontend/spec.md :: I869`), so no change joins two people's records
+  no record names included (`docs/frontend/spec.md :: I872`), so no change joins two people's records
   or sign-ins. After a change started on a recorded reason, or one whose new address came to hold an
   account after its confirmation, the person signs in anew at the new address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.
