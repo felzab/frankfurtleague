@@ -7,21 +7,18 @@ import { berichtChip, mapSpielberichtRefusal } from "./utils.ts";
 
 import type { FLSpielberichtZustand } from "./schemas.ts";
 
-const chip = (zustand: FLSpielberichtZustand) =>
-  berichtChip({
-    spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2",
-    zustand,
-    ergebnis_vorschlag: { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
-  });
+const VORSCHLAG = { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null };
+
+const chip = (zustand: FLSpielberichtZustand) => berichtChip({ spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2", zustand, ergebnis_vorschlag: VORSCHLAG });
 
 describe("what an administrator's card says of its report", () => {
   it("names a proposal still to adopt with its score", () => {
-    assert.deepEqual(chip("vorgeschlagen"), { text: "Ergebnis vorgeschlagen 3:1", tone: "info" });
+    assert.deepEqual(chip("vorgeschlagen"), { worte: "Ergebnis vorgeschlagen", vorschlag: VORSCHLAG, tone: "info" });
   });
 
   /* `abweichend` is also a first report beside a result typed by hand, which nobody changed: „geändert“ would be false. */
   it("names a report the result does not stand on as not adopted, in the panel's warning tone", () => {
-    assert.deepEqual(chip("abweichend"), { text: "Bericht nicht übernommen 3:1", tone: "warning" });
+    assert.deepEqual(chip("abweichend"), { worte: "Bericht nicht übernommen", vorschlag: VORSCHLAG, tone: "warning" });
   });
 
   /* The triage cards of every section carry the chip, so a state awaiting nobody chipping its card would ask for an
@@ -32,7 +29,7 @@ describe("what an administrator's card says of its report", () => {
 
   /* Proposed for other clubs than the fixture fields now: its score beside the card's clubs would read as theirs. */
   it("names a report about other teams without its score", () => {
-    assert.deepEqual(chip("teams_geaendert"), { text: "Bericht zu anderen Teams", tone: "warning" });
+    assert.deepEqual(chip("teams_geaendert"), { worte: "Bericht zu anderen Teams", vorschlag: null, tone: "warning" });
   });
 });
 

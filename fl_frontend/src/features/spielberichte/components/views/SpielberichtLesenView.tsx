@@ -5,7 +5,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 
-import { vorschlagText } from "../../utils";
+import { VorschlagText } from "../ui/VorschlagText";
 import { BerichtEintraege } from "./BerichtEintraege";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
@@ -38,7 +38,9 @@ export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsr
               <p className="muted-hint">Zu diesem Spiel hast Du keinen Spielbericht eingetragen.</p>
             ) : (
               <>
-                <p className="fluid-sm font-semibold text-foreground">{`Ergebnis: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
+                <p className="fluid-sm font-semibold text-foreground">
+                  Ergebnis: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
+                </p>
                 <BerichtEintraege
                   lesen={lesen}
                   bericht={bericht}

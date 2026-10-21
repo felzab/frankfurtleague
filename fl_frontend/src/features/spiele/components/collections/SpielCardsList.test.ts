@@ -8,7 +8,9 @@ import { createElement as h } from "react";
 import { spielbestaetigungFields, spielFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { shownText, spokenText } from "@/shared/testing/spokenText.ts";
 
+import type { FLSpielberichtVorschlag } from "@/features/spielberichte/schemas.ts";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas.ts";
 import type { FLSpiel } from "../../schemas.ts";
 
@@ -118,25 +120,32 @@ describe("the answer chips on a fixture's card", () => {
 });
 
 describe("the report chip on a fixture's card", () => {
-  const mitChip = (isAdmin: boolean): string =>
-    textOf(
-      renderTree(
-        underNext(
-          h(SpielCardsList, {
-            spiele: [SPIEL],
-            today: "2026-07-30",
-            isFinishedSaison: false,
-            isAdmin,
-            berichtChipsBySpielId: new Map([[SPIEL.id, { text: "Ergebnis vorgeschlagen 3:1", tone: "info" as const }]]),
-          }),
-        ),
+  const VORSCHLAG: FLSpielberichtVorschlag = { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null };
+  const karte = (isAdmin: boolean, vorschlag: FLSpielberichtVorschlag | null = VORSCHLAG): string =>
+    renderTree(
+      underNext(
+        h(SpielCardsList, {
+          spiele: [SPIEL],
+          today: "2026-07-30",
+          isFinishedSaison: false,
+          isAdmin,
+          berichtChipsBySpielId: new Map([[SPIEL.id, { worte: "Ergebnis vorgeschlagen", vorschlag, tone: "info" as const }]]),
+        }),
       ),
-      " ",
     );
+  const mitChip = (isAdmin: boolean): string => textOf(karte(isAdmin), " ");
 
   /* The proposed result is withheld from the public tier, so the chip is keyed on the edit link as the answers are. */
   it("stays off a public card even where its caller passes the chips, and shows on the admin card", () => {
     assert.doesNotMatch(mitChip(false), /Ergebnis vorgeschlagen/);
     assert.match(mitChip(true), /Ergebnis vorgeschlagen 3:1/);
+  });
+
+  /* A level proposal decided in a shoot-out: the card shows the house's mark and a screen reader hears its words. */
+  it("speaks a proposed shoot-out's mark in full", () => {
+    const markup = karte(true, { ...VORSCHLAG, team2_tore: 3, elfmeterschiessen: { team1: 4, team2: 2 } });
+
+    assert.match(shownText(markup), /Ergebnis vorgeschlagen 3:3 \(4:2 i\.\u202FE\.\)/);
+    assert.match(spokenText(markup), /Ergebnis vorgeschlagen 3:3 \(4:2 im Elfmeterschießen\)/);
   });
 });

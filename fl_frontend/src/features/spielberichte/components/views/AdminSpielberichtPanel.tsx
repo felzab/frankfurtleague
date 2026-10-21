@@ -15,7 +15,8 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { benannt } from "@/shared/utils/benannt";
 
 import { SPIELBERICHT_ZUSTAND_LABELS, SPIELBERICHT_ZUSTAND_TONE } from "../../constants";
-import { berichtSperre, berlinZeitpunkt, vorschlagText } from "../../utils";
+import { berichtSperre, berlinZeitpunkt } from "../../utils";
+import { VorschlagText } from "../ui/VorschlagText";
 import { BerichtEintraege } from "./BerichtEintraege";
 
 import type { FLSpielberichtBericht } from "../../schemas";
@@ -137,7 +138,9 @@ function BerichtInhalt({
 
           {zeigtVorschlag && (
             <div className="flex w-full flex-col gap-y-2">
-              <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
+              <p className="fluid-sm font-semibold text-foreground">
+                Vorschlag: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
+              </p>
               <div className="flex flex-row flex-wrap items-center gap-3">
                 <Hint
                   mode="refusal"

@@ -7,6 +7,7 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
 import { Button } from "@heroui/react/button";
 
+import { VorschlagText } from "@/features/spielberichte/components/ui/VorschlagText";
 import { ANTWORT_LABELS, SCHIEDSRICHTER_PARTEI } from "@/features/spielbestaetigungen/constants";
 import { antwortStand, geltendeBestaetigungen, schiedsrichterAbsage } from "@/features/spielbestaetigungen/utils";
 import { Leer } from "@/shared/components/ui/Angabe";
@@ -158,7 +159,17 @@ export function SpielCard({
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
         {/* Keyed on the edit link, as the answers below are: `ergebnis_vorschlag` is withheld from the public tier. */}
-        {adminEditHref !== undefined && berichtChip !== undefined && <span className={labelBadge(berichtChip.tone)}>{berichtChip.text}</span>}
+        {adminEditHref !== undefined && berichtChip !== undefined && (
+          <span className={labelBadge(berichtChip.tone)}>
+            {berichtChip.worte}
+            {berichtChip.vorschlag !== null && (
+              <>
+                {" "}
+                <VorschlagText vorschlag={berichtChip.vorschlag} />
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {/* The admin card's alone, keyed on the edit link: a public caller handed the rows renders none of them. */}
