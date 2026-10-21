@@ -893,7 +893,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
 - **A sign-in account and its passkeys are kept until no league record or grant holds their
   address, and then deleted within the hour, with no message.** A record holds it as a contact seat
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
-  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
+  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`); an
+  address an address change replaced is held until the notice carrying its account to the new
+  address is delivered, so the sweep never deletes the account the person is moving. What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
   unconfirmed or decided registration, a decided application and a pending address change. The
   account sweep deletes the account with its sessions, passkeys and codes

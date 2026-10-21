@@ -757,6 +757,7 @@ def referenced_addresses(
     pupil_rows: Iterable[Mapping[str, Any]],
     registrierung_rows: Iterable[Mapping[str, Any]],
     grant_rows: Iterable[Mapping[str, Any]],
+    carry_rows: Iterable[Mapping[str, Any]],
 ) -> frozenset[str]:
     """Every address, on the sign-in fold, that one of these records names (`docs/backend/spec.md :: I698`)."""
 
@@ -771,6 +772,8 @@ def referenced_addresses(
         # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
+        # An effect's notice owing its account's carry: swept before its drain, the account and its passkeys are gone.
+        *(row.get("bisherige_email") for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)

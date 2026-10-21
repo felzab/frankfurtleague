@@ -185,6 +185,16 @@ def compose_postausgang(
     }
 
 
+def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
+    """The owed effects' notices whose drain still carries a sign-in account off one of these folded addresses.
+
+    The frontend's `fl_frontend/src/features/adresswechsel/notifications.ts :: adresswechselWirksam` carries on these
+    terms; no index serves them, the outbox holding only notices not yet delivered.
+    """
+
+    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}, "adresse_belegt": False}
+
+
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
     """An approval that does not stand, taken off: its request's instant and deadline stay, so a new approval is judged as the first."""
 

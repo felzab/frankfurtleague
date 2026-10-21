@@ -47,7 +47,7 @@ from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.admin_router import erase_auf_anfrage
-from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasurePayload
 from app.api.identitaet.services import EIGENE_ADRESSE, VERWALTUNG_ADRESSE
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
@@ -538,6 +538,37 @@ class TestTheNewAddressesOwnRecords:
 
         assert wirksam
         assert [(notice["art"], notice["email"], notice["adresse_belegt"]) for notice in notices] == [("wirksam", NEW_EMAIL, True)]
+
+
+async def unreferenced(database: AsyncDatabase, *addresses: str) -> list[str]:
+    return await unreferenced_of(
+        list(addresses),
+        record_collections(database),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+    )
+
+
+class TestTheAccountSweepWaitsForTheCarry:
+    @pytest.mark.parametrize(("weg", "held"), [("konto", True), ("wartezeit", False), ("onto-records", False)])
+    def test_the_replaced_address_stays_referenced_while_its_account_s_carry_is_owed(self, mongo_replica_set_url: str, weg: str, held: bool):
+        """Swept before the drain, the account and its passkeys would be gone when the carry runs; a notice carrying none holds nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if weg == "onto-records":
+                await held_by_another(database, "a-seat")
+            minted = await (administrator_starts(database, client, grund=GRUND) if weg == "wartezeit" else start(database, client))
+            await answer(database, client, minted.token)
+            if weg == "wartezeit":
+                await sweep(database, client, germany_now=AFTER_THE_WAIT)
+            owed_now = await unreferenced(database, EMAIL)
+            await database[Collection.ADRESSWECHSEL_POSTAUSGANG].delete_many({})
+            return owed_now, await unreferenced(database, EMAIL)
+
+        owed_now, delivered = on_a_person(mongo_replica_set_url, body, records=False)
+
+        assert owed_now == ([] if held else [EMAIL])
+        assert delivered == [EMAIL]
 
 
 class TestTheConfirmationsRefusals:

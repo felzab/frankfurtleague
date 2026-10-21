@@ -15,6 +15,7 @@ from app.api.adresswechsel.crud import (
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
 )
+from app.api.adresswechsel.services import build_owed_carry_filter
 from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
 from app.api.berechtigungen.antraege import erase_antraege_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
@@ -875,7 +876,13 @@ class ErasureJournal[Erased: FLErasure]:
             fl_logger.error(f"The grants went unchecked after an erasure: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED})
 
 
-async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection) -> list[str]:
+async def unreferenced_of(
+    identifiers: Sequence[str],
+    records: RecordCollections,
+    *,
+    berechtigungen_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+) -> list[str]:
     """Which of these addresses no record references (`docs/backend/spec.md :: I698`).
 
     Each collection is read once for the whole batch rather than once per address, which is what
@@ -890,7 +897,7 @@ async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections
 
     # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it
     # (`docs/datenschutz.md :: 6`).
-    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows) = await gather_cancelling(
+    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await gather_cancelling(
         aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
@@ -899,6 +906,10 @@ async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections
         # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
         # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
         read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
+        aggregate_many_from_db(
+            collection=adresswechsel_postausgang_collection,
+            pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"bisherige_email": 1}}],
+        ),
     )
 
     # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced.
@@ -911,6 +922,7 @@ async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections
         pupil_rows=pupil_rows,
         registrierung_rows=registrierung_rows,
         grant_rows=grant_rows,
+        carry_rows=carry_rows,
     )
 
     return unreferenced(identifiers, referenced=referenced)
