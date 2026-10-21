@@ -43,7 +43,7 @@ export type FLSpielberichtSeite = z.infer<typeof FLSpielberichtSeiteSchema>;
  * called off or struck out has no report (`REQ-BERICHT-004`).
  */
 const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"], {
-  error: "Bitte wähle ein Ereignis.",
+  error: "Bitte wähle ein Sonderereignis.",
 });
 export type FLSpielberichtSonderereignis = z.infer<typeof FLSpielberichtSonderereignisSchema>;
 
@@ -167,7 +167,11 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
 
       if (isNoShow(sonderereignis)) {
         if (team1_tore !== null || team2_tore !== null || elfmeterschiessen !== null) {
-          issue("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.", ["ergebnis_vorschlag", "sonderereignis"]);
+          // Both readers' words: the administrator correcting the report is the league this would name as someone else.
+          issue("Bei einem Nichtantreten stehen keine Tore im Bericht: Das Ergebnis ist die Wertung der Liga.", [
+            "ergebnis_vorschlag",
+            "sonderereignis",
+          ]);
         }
         if (bericht.torschuetzen.length > 0) issue("Bei einem Nichtantreten gibt es keine Torschützen.", ["torschuetzen"]);
         return;

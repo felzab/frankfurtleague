@@ -206,6 +206,30 @@ describe("the referee's report form", () => {
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the hidden scorer entry still stands in the draft");
   });
 
+  /* The administrator correcting a report is the league the referee's sentence names as someone else. */
+  it("tells the administrator of a no-show where its result comes from, in their own words", async () => {
+    const user = userEvent.setup();
+    const gelesen = FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture());
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "admin",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: null,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/admin",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+
+    await pick(user, screen.getByRole("button", { name: /^Sonderereignis/ }), "Nichtantreten Team 2");
+
+    assert.ok(screen.getByText(/stehen im Bericht keine Tore: Das Ergebnis ergibt sich im Spiel aus der Wertung\./));
+    assert.equal(screen.queryAllByText(/trägst Du keine Tore ein/).length, 0, "the administrator is addressed as the referee");
+  });
+
   /* The press reads „Speichern“ and the request went out, so the failure is the success negated, never „nicht gesendet“. */
   it("titles a refused save as not saved", async () => {
     const user = userEvent.setup();
@@ -355,6 +379,8 @@ describe("the referee's report form", () => {
       const ohneKarte = spielberichtReadFixture();
       render(umbesetzt({ ...ohneKarte, bericht: { ...ohneKarte.bericht, karten: [] } }));
       assert.ok(screen.getByText("Im Spiel stehen inzwischen andere Teams"));
+      // No entry of the moved side named anybody, so the banner claims no removal.
+      assert.equal(screen.queryAllByText(/aus ihren Einträgen genommen/).length, 0, "the banner claims a removal nobody underwent");
       calls.length = 0;
 
       await user.click(screen.getByRole("button", { name: "Speichern" }));
@@ -369,6 +395,7 @@ describe("the referee's report form", () => {
       // Team 2's squad is the new club's: the stored card names a pupil of the club that left.
       render(umbesetzt({ ...gelesen, kader: { ...gelesen.kader, team2: [] } }));
       assert.ok(screen.getByText("Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu."));
+      assert.ok(screen.getByText(/aus ihren Einträgen genommen/), "the banner leaves the removal unsaid");
       calls.length = 0;
 
       await user.click(screen.getByRole("button", { name: "Speichern" }));
