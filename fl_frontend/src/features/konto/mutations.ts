@@ -9,6 +9,7 @@ import {
 
 import type { FLErasureResponse } from "@/core/schemas";
 import type {
+  FLKontoAdresswechselFreigabePayload,
   FLKontoAdresswechselFreigabeResponse,
   FLKontoAdresswechselMintResponse,
   FLKontoAdresswechselPayload,
@@ -35,11 +36,12 @@ export async function beantrageKontoAdresswechsel(payload: FLKontoAdresswechselP
   });
 }
 
-/** The address on file's approval of a change an administrator started without a reason. */
-export async function gibKontoAdresswechselFrei(): Promise<FLKontoAdresswechselFreigabeResponse> {
+/** The address on file's approval of the change an administrator started without a reason, named by the id its page showed. */
+export async function gibKontoAdresswechselFrei(payload: FLKontoAdresswechselFreigabePayload): Promise<FLKontoAdresswechselFreigabeResponse> {
   return apiClient<FLKontoAdresswechselFreigabeResponse>("/konto/adresswechsel/freigabe", FLKontoAdresswechselFreigabeResponseSchema, {
     method: "POST",
     authType: "admin",
+    body: JSON.stringify(payload),
   });
 }
 

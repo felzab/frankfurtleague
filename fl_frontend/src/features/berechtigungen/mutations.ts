@@ -3,6 +3,9 @@ import { apiClient } from "@/core/api";
 import {
   FLBerechtigungAbgleichResponseSchema,
   FLBerechtigungAngekuendigtResponseSchema,
+  FLBerechtigungAntragAbgelehntResponseSchema,
+  FLBerechtigungAntragGenehmigtResponseSchema,
+  FLBerechtigungStufeResponseSchema,
   FLBerechtigungWriteResponseSchema,
   FLPostBerechtigungResponseSchema,
 } from "./schemas";
@@ -11,7 +14,11 @@ import type {
   FLBerechtigungAbgleichResponse,
   FLBerechtigungAngekuendigtPayload,
   FLBerechtigungAngekuendigtResponse,
+  FLBerechtigungAntragAbgelehntResponse,
+  FLBerechtigungAntragGenehmigtResponse,
+  FLBerechtigungAntragKeyPayload,
   FLBerechtigungKeyPayload,
+  FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
   FLPatchBerechtigungPayload,
   FLPostBerechtigungPayload,
@@ -34,11 +41,27 @@ export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Prom
   });
 }
 
-export async function patchBerechtigung({ id, ...fields }: FLPatchBerechtigungPayload): Promise<FLBerechtigungWriteResponse> {
-  return apiClient<FLBerechtigungWriteResponse>(`/berechtigungen/${id}`, FLBerechtigungWriteResponseSchema, {
+export async function patchBerechtigung({ id, ...fields }: FLPatchBerechtigungPayload): Promise<FLBerechtigungStufeResponse> {
+  return apiClient<FLBerechtigungStufeResponse>(`/berechtigungen/${id}`, FLBerechtigungStufeResponseSchema, {
     method: "PATCH",
     authType: "admin",
     body: JSON.stringify(fields),
+  });
+}
+
+export async function postAntragGenehmigung({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungAntragGenehmigtResponse> {
+  return apiClient<FLBerechtigungAntragGenehmigtResponse>(
+    `/berechtigungen/antraege/${id}/genehmigung`,
+    FLBerechtigungAntragGenehmigtResponseSchema,
+    { method: "POST", authType: "admin" },
+  );
+}
+
+// Hard, as the revoke is: a refused or withdrawn request keeps nothing to restore.
+export async function deleteAntrag({ id }: FLBerechtigungAntragKeyPayload): Promise<FLBerechtigungAntragAbgelehntResponse> {
+  return apiClient<FLBerechtigungAntragAbgelehntResponse>(`/berechtigungen/antraege/${id}`, FLBerechtigungAntragAbgelehntResponseSchema, {
+    method: "DELETE",
+    authType: "admin",
   });
 }
 

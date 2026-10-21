@@ -43,17 +43,8 @@ const ADRESSWECHSEL = "/adresswechsel/sweep";
  */
 let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
 
-/** A change the pass made take effect, as its answer hands it on: made because the mailbox was lost, so no account moves. */
-type Wirksam = { bisherige_email: string; email: string; vorname: string; weg: "wartezeit" };
-
-/** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
-const entfernt = (
-  anzahl: number,
-  verbleibend: number,
-  nach: string | null = null,
-  wirksam: Wirksam[] = [],
-  verworfen: { email: string }[] = [],
-) => ({
+/** One call of the lapsed addresses' half: how many went, took effect or were refused, how many are still due, and where the pass goes on. */
+const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null, wirksam = 0, verworfen = 0) => ({
   acknowledged: 1,
   entfernt: anzahl,
   verbleibend: verbleibend,
@@ -65,12 +56,42 @@ const entfernt = (
 /** The grants' claim with nothing to announce. */
 const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
+const POSTAUSGANG = "/adresswechsel/sweep/postausgang";
+const ZUGESTELLT = "/adresswechsel/sweep/postausgang/zugestellt";
+
+/** A notice an address change's end owes, as the outbox's claim hands it on. */
+type Owed = {
+  id: string;
+  art: "wirksam" | "verworfen";
+  bisherige_email: string | null;
+  email: string;
+  vorname: string | null;
+  weg: "wartezeit" | null;
+  aufgegeben: boolean;
+};
+
+/** What the outbox holds for the next claim, emptied by it, and the ids each stamp named, in order. */
+let owed: Owed[] = [];
+const stamps: unknown[] = [];
+
+const outboxAnswer = (endpoint: string, body: string | undefined) => {
+  if (endpoint === ZUGESTELLT) {
+    stamps.push(JSON.parse(String(body)));
+    return { acknowledged: 1, zugestellt: 1, ignoriert: 0 };
+  }
+  const mitteilungen = owed;
+  owed = [];
+  return { acknowledged: 1, beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
+};
+
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 doubleApiClient(({ endpoint, method, params, body }, schema) => {
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
   if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
+  // The address changes' outbox, drained after every pass: answered apart, so the halves' calls stay the cases' own.
+  if (endpoint === POSTAUSGANG || endpoint === ZUGESTELLT) return schema.parse(outboxAnswer(endpoint, body));
   // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
   const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
   events.push(call);
@@ -249,6 +270,8 @@ beforeEach(() => {
   appEnv = "production";
   sweepAnswers({});
   adresswechselAnswer = () => entfernt(0, 0);
+  owed = [];
+  stamps.length = 0;
 });
 
 describe("what register arms", () => {
@@ -1260,20 +1283,36 @@ describe("the half after the season loop", () => {
     );
   });
 
-  /* The answer is the only place a replaced address survives its change's effect: each is mailed its completion
-     notice, naming no new address, and one refused send costs the others nothing. */
-  it("mails every replaced address of the pass its completion notice, a refused one costing the rest nothing", async () => {
+  /** An owed notice of each kind, as the pass's own effects and refusals queue them. */
+  const wirksamFuer = (id: string, bisherige: string, neu: string): Owed => ({
+    id: id,
+    art: "wirksam",
+    bisherige_email: bisherige,
+    email: neu,
+    vorname: null,
+    weg: "wartezeit",
+    aufgegeben: false,
+  });
+  const verworfenFuer = (id: string, email: string): Owed => ({
+    id: id,
+    art: "verworfen",
+    bisherige_email: null,
+    email: email,
+    vorname: null,
+    weg: null,
+    aufgegeben: false,
+  });
+
+  /* The outbox, not the answer, is where a replaced address survives its change's effect: each is mailed its completion
+     notice naming no new address, one refused send costs the others nothing, and only what left is stamped. */
+  it("delivers every notice the outbox owes after the pass, stamping what left and leaving a refused one owed", async () => {
     refused.add("alt-1@schule.de");
-    adresswechselAnswer = inTurn([
-      entfernt(
-        0,
-        0,
-        ORT_ADRESSE,
-        [{ bisherige_email: "alt-1@schule.de", email: "neu-1@schule.de", vorname: "Mira", weg: "wartezeit" }],
-        [{ email: "abgelehnt@schule.de" }],
-      ),
-      entfernt(1, 0, null, [{ bisherige_email: "alt-2@schule.de", email: "neu-2@schule.de", vorname: "Jonas", weg: "wartezeit" }]),
-    ]);
+    adresswechselAnswer = () => entfernt(1, 0, null, 2, 1);
+    owed = [
+      wirksamFuer(`${"e".repeat(23)}1`, "alt-1@schule.de", "neu-1@schule.de"),
+      wirksamFuer(`${"e".repeat(23)}2`, "alt-2@schule.de", "neu-2@schule.de"),
+      verworfenFuer(`${"e".repeat(23)}3`, "abgelehnt@schule.de"),
+    ];
 
     await runBewerbungSweep();
 
@@ -1290,17 +1329,16 @@ describe("the half after the season loop", () => {
       notices.every(({ text }) => !text.includes("neu-1@schule.de") && !text.includes("neu-2@schule.de")),
       "a completion notice names the new address",
     );
+    assert.deepEqual(stamps, [{ beanspruchung: "claim-1", ids: [`${"e".repeat(23)}2`, `${"e".repeat(23)}3`] }]);
     assert.deepEqual(
       lines.filter(({ event }) => event === "adresswechsel.sweep_pass").map(({ fields }) => fields),
       [{ entfernt: 1, wirksam: 2, verworfen: 1, verbleibend: 0 }],
     );
   });
 
-  /* A due change the pass refused leaves the new mailbox waiting on nothing: it is told, by no name, and one refused
-     send costs the others nothing. */
-  it("mails the new address of every due change the pass refused a nameless notice, a refused one costing the rest nothing", async () => {
-    refused.add("abgelehnt-1@schule.de");
-    adresswechselAnswer = () => entfernt(0, 0, null, [], [{ email: "abgelehnt-1@schule.de" }, { email: "abgelehnt-2@schule.de" }]);
+  /* A due change the pass refused leaves the new mailbox waiting on nothing: it is told, by no name. */
+  it("mails the new address of every due change the pass refused a nameless notice", async () => {
+    owed = [verworfenFuer(`${"e".repeat(23)}1`, "abgelehnt-1@schule.de"), verworfenFuer(`${"e".repeat(23)}2`, "abgelehnt-2@schule.de")];
 
     await runBewerbungSweep();
 
@@ -1312,6 +1350,36 @@ describe("the half after the season loop", () => {
     assert.ok(
       notices.every(({ text }) => !/Hallo [A-ZÄÖÜ]/.test(text)),
       "the notice greets the new mailbox by a name",
+    );
+  });
+
+  /* A confirmation's or an approval's notice whose answer was lost waits in the outbox: a half that failed must not
+     hold it back another hour. */
+  it("drains the outbox where the half threw", async () => {
+    adresswechselAnswer = () => {
+      throw new Error("the lapsed addresses were refused");
+    };
+    owed = [wirksamFuer(`${"e".repeat(23)}1`, "alt-1@schule.de", "neu-1@schule.de")];
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(stamps, [{ beanspruchung: "claim-1", ids: [`${"e".repeat(23)}1`] }]);
+  });
+
+  /* Given up by the backend's count: stamped unsent, and the line names its kind and no address (`FE-MAIL-016`). */
+  it("stamps an abandoned notice unsent, logging its kind and never its address", async () => {
+    owed = [{ ...wirksamFuer(`${"e".repeat(23)}1`, "alt-1@schule.de", "neu-1@schule.de"), aufgegeben: true }];
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      events.filter(({ kind }) => kind === "mail"),
+      [],
+    );
+    assert.deepEqual(stamps, [{ beanspruchung: "claim-1", ids: [`${"e".repeat(23)}1`] }]);
+    assert.deepEqual(
+      lines.filter(({ event }) => event === "adresswechsel.notice_abandoned"),
+      [{ level: "error", event: "adresswechsel.notice_abandoned", fields: { error_code: "FE-MAIL-016", art: "wirksam" } }],
     );
   });
 });

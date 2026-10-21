@@ -32,6 +32,9 @@ from pymongo.errors import PyMongoError
 
 from app.api.adresswechsel.crud import end_the_change_in_session, move_the_address_in_session, read_the_bestand
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
+from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
+from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.services import genehmigung_steht
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
 from app.api.identitaet.lookup import RecordCollections
@@ -394,6 +397,33 @@ async def _plan_adresswechsel(
     return Plan("to replay", rewrite_the_ending)
 
 
+async def _plan_antrag_abgelehnt(
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+) -> Plan:
+    """A refused or withdrawn request the restore brought back, removed again; one lapsed since is gone to every reader already."""
+
+    antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one(
+        {"_id": line.record_id}, {"adresse": 1, "genehmigung.bis": 1}, session=session
+    )
+    if antrag is None:
+        return Plan("no such record")
+    if not ist_offen(antrag, now=now):
+        return Plan("already done")
+    if not _holds(antrag.get("adresse"), line, schluessel):
+        return Plan("left for review")
+
+    async def rewrite_the_refusal(session: AsyncClientSession) -> Any:
+        # The request's notice the restore brought back goes with it, as the refusal took it.
+        return await remove_the_antrag_in_session(
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            antrag_id=antrag["_id"],
+            session=session,
+        )
+
+    return Plan("to replay", rewrite_the_refusal)
+
+
 def _records_of(database: AsyncDatabase) -> RecordCollections:
     return RecordCollections(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -415,7 +445,9 @@ async def _plan_adresswechsel_wirksam(
 
     record = await database[Collection.ADRESSWECHSEL].find_one({"_id": line.record_id}, session=session)
     if record is None:
-        return Plan("no such record")
+        # Started after the snapshot, the window's own line being its effect: the records stand at the replaced address
+        # while the sign-in store, never restored, keeps the account at the new one, so somebody must tell the person.
+        return Plan("left for review", detail="started after the snapshot: its person starts the change again")
 
     beendet = record.get("beendet")
     if beendet is not None:
@@ -434,8 +466,23 @@ async def _plan_adresswechsel_wirksam(
     if bestand.leer:
         return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
     genehmigung = record.get("genehmigung")
+    sperrliste = BanList(
+        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
+    )
     if bestand.berechtigung is not None and (
-        not deckt(genehmigung, bestand.berechtigung.get("verwaltung")) or (genehmigung or {}).get("genehmigt_am") is None
+        not deckt(genehmigung, bestand.berechtigung.get("verwaltung"))
+        or (genehmigung or {}).get("genehmigt_am") is None
+        # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
+        # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
+        or not genehmigung_steht(
+            betroffen=record["adresse"],
+            genehmigung=genehmigung,
+            grants=await read_berechtigungen(berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session),
+            announced=await read_the_announced(
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], session=session
+            ),
+            gesperrt=frozenset(),
+        )
     ):
         return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
 
@@ -443,9 +490,7 @@ async def _plan_adresswechsel_wirksam(
         await move_the_address_in_session(
             record=record,
             bestand=bestand,
-            sperrliste=BanList(
-                sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
-            ),
+            sperrliste=sperrliste,
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             spieler_collection=database[Collection.SPIELER],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -456,6 +501,11 @@ async def _plan_adresswechsel_wirksam(
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            einladungen_collection=database[Collection.EINLADUNGEN],
+            sperrliste_collection=database[Collection.SPERRLISTE],
+            adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+            drosselung_collection=database[Collection.DROSSELUNG],
             aktionen_collection=database[Collection.AKTIONEN],
             adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,
@@ -536,6 +586,8 @@ async def plan_replay(
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
         case "adresswechsel_wirksam":
             return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session, now=now)
+        case "antrag_abgelehnt":
+            return await _plan_antrag_abgelehnt(line, database, schluessel=schluessel, session=session, now=now)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 

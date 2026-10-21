@@ -91,12 +91,20 @@ export function mapKontoAdresswechselRefusal(error: unknown): { error?: string; 
   }
 }
 
-/** The approval, or `null`: a change answered, stopped or replaced since the page loaded is the 404. */
+/** The approval, or `null`: a shown change awaiting no approval is the 404, and one replaced or stopped since the page loaded `-002`. */
 export function mapKontoFreigabeRefusal(error: unknown): string | null {
   if (isRecordMissing(error)) return "Es wartet keine Änderung mehr auf Deine Freigabe. Lade die Seite neu.";
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-ADRESSWECHSEL-003" ? "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht." : null;
+  switch (error.serverErrorCode) {
+    case "REQ-ADRESSWECHSEL-003":
+      return "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht.";
+    // Nothing approved: the page's change was replaced, and the reload shows the one standing now.
+    case "REQ-ADRESSWECHSEL-002":
+      return "Diese Änderung ist inzwischen beendet, freigegeben ist nichts. Lade die Seite neu.";
+    default:
+      return null;
+  }
 }
 
 /** The stop, or `null`: the one refusal is a change already gone, whose page the reload brings up to date. */
@@ -162,7 +170,8 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
     case "REQ-ADRESSWECHSEL-011":
       return {
-        error: "Diese Änderung könnte niemand aus der Verwaltung genehmigen. Mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber.",
+        error:
+          "Diese Änderung könnte gerade niemand aus der Verwaltung genehmigen. Bei einem Zugang als Inhaberin oder Inhaber mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber, sonst gib einer weiteren Person Zugang zur Verwaltung.",
       };
     case "REQ-ADRESSWECHSEL-008":
       return { error: NAME_IM_GRUND, fieldErrors: { grund: NAME_IM_GRUND } };
@@ -193,6 +202,9 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
     // The panel has no box, so the sentence names the way out it does hold.
     case "REQ-ADRESSWECHSEL-006":
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
+    // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
+    case "REQ-ADRESSWECHSEL-003":
+      return "Die Woche für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
     default:
       return null;
   }
@@ -205,14 +217,18 @@ const ohneGenehmigung = (grund: string): string =>
     where: ADRESSWECHSEL_EINTRAG.label,
   });
 
+/** An approver whose access, or owner's tier, is younger than the request: the press and the row's reason say it alike. */
+export const GENEHMIGUNG_JUENGER = "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte.";
+
 /** Said beside the press it refuses, the administrators page holding the change's row. */
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
+  "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_JUENGER,
   "REQ-ADRESSWECHSEL-002": BEENDET,
   "REQ-ADRESSWECHSEL-012": buildRefusal({ reason: "Diese Änderung wartet auf keine Genehmigung mehr", repair: LADE_DIE_SEITE_NEU }),
   "REQ-ADRESSWECHSEL-013": "Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt jemand anderes.",
   "REQ-ADRESSWECHSEL-014":
     "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
-  "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Die Zeit für die Genehmigung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
+  "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
   // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
   // stands unapproved until it is discarded or lapses.
   "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste"),

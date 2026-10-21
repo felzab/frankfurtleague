@@ -19,20 +19,21 @@ export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days after its start a change moving a grant waits for
- * another administrator's approval before it lapses. Exported for the mirror test, as the waiting time is.
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days after its start a write waits for a second
+ * administrator's approval before it lapses; the notice states it for a change moving a grant. Exported for the
+ * mirror test, as the waiting time is.
  * @internal
  */
-export const ADRESSWECHSEL_GENEHMIGUNG_TAGE = 7;
+export const GENEHMIGUNG_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
 export const ADRESSWECHSEL_WARTEZEIT_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_WARTEZEIT_TAGE];
-export const ADRESSWECHSEL_GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_GENEHMIGUNG_TAGE];
+export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE];
 
 /**
- * How a change reaches its effect, as the backend stores it: the one spelling the slice's mirror, the mails
- * and the link reports read, `core` being the layer all three may import.
+ * How a change reaches its effect, as the backend stores it: the one spelling the slices' mirrors, the mails
+ * and the link reports read, `core` being the layer all of them may import.
  */
 export const ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"] as const;
 export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];

@@ -12,15 +12,21 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand, as_utc
+from app.api.berechtigungen.schemas import (
+    FLBerechtigungAenderungArt,
+    FLBerechtigungPostausgangArt,
+    FLBerechtigungStand,
+    FLGenehmigungVerwehrt,
+    as_utc,
+)
 from app.api.sperrliste.services import withheld_actor
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
 
-# No route removes an `owner` row: an owner is demoted by another owner, or steps down, before a
-# revoke reaches the row, so the tier stays out of an administrator's reach (`docs/backend/spec.md :: I436`).
+# A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
+# out of an administrator's reach; only an erasure and an address change's move remove one (`docs/backend/spec.md :: I436`).
 BERECHTIGUNG_INHABER = "REQ-BERECHTIGUNG-002"
 
 BERECHTIGUNG_GESPERRT = "REQ-BERECHTIGUNG-003"
@@ -298,7 +304,7 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
 def compose_postausgang(
     *,
     berechtigung_id: ObjectId,
-    art: FLBerechtigungAenderungArt,
+    art: FLBerechtigungPostausgangArt,
     jetzt: FLBerechtigungStand | None,
     vorher: FLBerechtigungStand | None,
     geaendert_von: str | None,
@@ -334,6 +340,23 @@ def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, 
     return {"_id": berechtigung_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
 
 
+def haelt_seit(
+    adresse: str, *, verwaltung: str, vor: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Whether this folded address's live grant, an owner's for an `owner` act, took effect at or before `vor`.
+
+    A grant made after a request approves nothing of it, or one person could grant a second mailbox and approve with it.
+    """
+
+    row = next((grant for grant in lebendige(grants) if grant["adresse"] == adresse), None)
+    if row is None:
+        return False
+    record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
+    seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, record)
+
+    return seit is not None and seit <= as_utc(vor)
+
+
 def genehmiger_of(
     *,
     verwaltung: str,
@@ -341,18 +364,65 @@ def genehmiger_of(
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
     gesperrt: Set[str],
+    vor: datetime,
 ) -> list[str]:
-    """Every address that could approve an address change moving a grant of `verwaltung`.
+    """Every address that could approve an act on a grant of `verwaltung` asked at `vor`.
 
-    A live, unbarred grant in effect, an owner's in effect for an owner's grant, and neither the changed address nor the
-    change's starter (`ausgenommen`).
+    A live, unbarred grant in effect since then, an owner's for an owner's act, and neither the act's subject nor its
+    starter (`ausgenommen`).
     """
-
-    records = {record["_id"]: record for record in announced}
-    seit = inhaber_seit if verwaltung == "owner" else berechtigt_seit
 
     return [
         str(row["adresse"])
         for row in lebendige(grants)
-        if row["adresse"] not in ausgenommen and row["adresse"] not in gesperrt and seit(row, records.get(row["_id"])) is not None
+        if row["adresse"] not in ausgenommen
+        and row["adresse"] not in gesperrt
+        and haelt_seit(str(row["adresse"]), verwaltung=verwaltung, vor=vor, grants=grants, announced=announced)
     ]
+
+
+def genehmigung_verwehrt(
+    *,
+    betroffen: Any,
+    genehmigung: Mapping[str, Any],
+    akteur: str,
+    inhaber: bool,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+) -> FLGenehmigungVerwehrt | None:
+    """Why this folded administrator may not approve the act `genehmigung` waits on, or `None`.
+
+    `inhaber` is whether their session holds an owner's power now (`docs/backend/spec.md :: I818`, `:: I843`).
+    """
+
+    if betroffen == akteur:
+        return "eigene"
+    if genehmigung.get("gestartet_von") == akteur:
+        return "gestartet"
+    verwaltung = str(genehmigung.get("verwaltung"))
+    if verwaltung == OWNER and not inhaber:
+        return "inhaber"
+    if not haelt_seit(akteur, verwaltung=verwaltung, vor=genehmigung["angefragt_am"], grants=grants, announced=announced):
+        return "juenger"
+
+    return None
+
+
+def genehmigung_steht(
+    *,
+    betroffen: Any,
+    genehmigung: Mapping[str, Any],
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    gesperrt: Set[str],
+) -> bool:
+    """Whether a given approval still stands where the act takes effect: its approver may approve it now as when they did.
+
+    An approval never outlives its approver's grant, their owner's tier, or a ban since (`docs/backend/spec.md :: I844`).
+    """
+
+    von = genehmigung.get("genehmigt_von")
+    if not isinstance(von, str) or von in gesperrt or von in {betroffen, genehmigung.get("gestartet_von")}:
+        return False
+
+    return haelt_seit(von, verwaltung=str(genehmigung.get("verwaltung")), vor=genehmigung["angefragt_am"], grants=grants, announced=announced)

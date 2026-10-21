@@ -13,7 +13,8 @@ import {
   postAdresswechselVerwaltungAnsicht,
   verwirfAdresswechsel,
 } from "./mutations";
-import { adresswechselWirksam, describeAdresswechselMail, mailAdresswechsel, mailGenehmigungWartet } from "./notifications";
+import { describeAdresswechselMail, mailAdresswechsel, mailGenehmigungWartet } from "./notifications";
+import { runAdresswechselPostausgang } from "./postausgang";
 import { mapGenehmigungRefusal, mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "./refusals";
 import {
   FLAdresswechselEinladenPayloadSchema,
@@ -132,10 +133,11 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       success: true,
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
-      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.`,
+      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.${mint.adresse_belegt ? ` ${ADRESSE_BELEGT_SATZ}` : ""}`,
       versand: versand.link,
       hinweis: versand.hinweis,
-      adresseBelegt: false,
+      // Read again by the re-send's own transaction: records may have reached the new address since the start.
+      adresseBelegt: mint.adresse_belegt,
     };
   });
 }
@@ -190,10 +192,11 @@ export async function genehmigeAdresswechselAction(rawPayload: FLAdresswechselGe
       return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    if (antwort.mitteilung !== null) {
-      // Behind the response, as a grant written on the administrators page is announced.
+    if (antwort.wirksam) {
+      // Behind the response, as a grant written on the administrators page is announced; the completion notice and the
+      // account's carry wait in the outbox the effect wrote, which the hourly pass drains where this one never runs.
       afterTheResponse(runBerechtigungenAbgleich);
-      await adresswechselWirksam({ operation: "genehmigeAdresswechselAction", mitteilung: antwort.mitteilung });
+      afterTheResponse(runAdresswechselPostausgang);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }
 

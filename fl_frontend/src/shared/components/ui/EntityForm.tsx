@@ -19,6 +19,9 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ZodType } from "zod";
 import type { StepUpDemand } from "./stepUp";
 
+/** The answer of a save that stood, as the caller's action typed it. */
+type Saved<TSaved> = TSaved & { success: true; message: string };
+
 /**
  * The create and edit form skeleton, once. A call site guarding its own result does so to narrow a
  * payload field, never because this form reads one: what it answers is `ActionResult` and nothing more.
@@ -53,15 +56,16 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    */
   toPayload: (draft: TDraft) => TPayload;
   /**
-   * The title the create raises, and the action's own sentence stands beside it: this literal is
-   * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
+   * The title raised beside the action's own sentence: a literal, or the literal the caller's answer picks where one
+   * save stands two ways. A literal either way, for `docs/frontend/spec.md :: I42`'s register, which cannot reach a
+   * server's words.
    */
-  successMessage: string;
+  successMessage: string | ((saved: Saved<TSaved>) => string);
   /**
    * A save that stood but cost something: `when` reads the caller's own answer, and `title` replaces
    * `successMessage` at the warning variant, a literal for `successMessage`'s reason.
    */
-  warning?: { title: string; when: (saved: TSaved & { success: true; message: string }) => boolean };
+  warning?: { title: string; when: (saved: Saved<TSaved>) => boolean };
   onClose: () => void;
   /**
    * The required asterisks, and only a form that creates something sets it. It governs the marks alone: the
@@ -117,7 +121,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
           // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
           // the title: an action with nothing to add sends the title's own words.
           const warnTitle = warning !== undefined && warning.when(res) ? warning.title : null;
-          const title = warnTitle ?? successMessage;
+          const title = warnTitle ?? (typeof successMessage === "string" ? successMessage : successMessage(res));
           (warnTitle === null ? appToast.success : appToast.warning)(title, { description: res.message === title ? undefined : res.message });
           onClose();
         });

@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
 import {
-  ADRESSWECHSEL_GENEHMIGUNG_TAGE,
   ADRESSWECHSEL_GUELTIG_STUNDEN,
   ADRESSWECHSEL_NACHLAUF_TAGE,
   ADRESSWECHSEL_WARTEZEIT_TAGE,
+  GENEHMIGUNG_TAGE,
 } from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "bcf8596d814541bf0f3599d3b7bfe84165c1bfb5ac633c7d2f8c6953536af26c" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "7e4004c2c4a41d71cc39997534aacf70aa643a6e5009522f39bf79f6ec63e0e4" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -218,16 +218,18 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
-     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  /* A journal line keeps an address as keyed hashes alone, an address change's line its new one, and its envelope's
+     trace id joins it to the access log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row
+     says both. */
   it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
     assert.ok(
       ANGABEN.has(
-        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
-          "Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse, des Stopps ihrer Änderung oder der Änderung " +
-          "selbst, sobald sie gilt. Deine " +
-          "E-Mail-Adresse steht darin nur als " +
-          "unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+        "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres " +
+          "Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder " +
+          "der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung " +
+          "Deine als drei solche Schlüssel, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, " +
+          "und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den " +
           "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
           "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
           "Zugriffsprotokoll zuordnen lässt",
@@ -270,12 +272,27 @@ describe("the privacy notice's retention table", () => {
           "sie gilt",
       ),
       "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie " +
-        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund; es bleibt ein Vermerk ohne " +
-        "Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
-        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
+        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein " +
+        "Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
+        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem ` +
+        "Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die " +
+        "Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den " +
+        `Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
         "Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat " +
         `die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung; kann sie ` +
         "dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen",
+    );
+  });
+
+  /* An untagged message's provider report is acknowledged and recorded nowhere (`fl_frontend/src/app/api/mail/zustellung/route.ts`),
+     so the notice may not promise a log line for it. */
+  it("says the untagged notices' delivery state is kept nowhere", () => {
+    assert.equal(
+      vorkommen(
+        "Einige Hinweise versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren " +
+          "Zustellstand speichern wir nirgends.",
+      ),
+      1,
     );
   });
 
@@ -286,7 +303,7 @@ describe("the privacy notice's retention table", () => {
       "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
         "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
         "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
-        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(ADRESSWECHSEL_GENEHMIGUNG_TAGE)} ` +
+        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
         "nach ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch " +
         "anmelden, gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht " +
         `mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +
@@ -663,6 +680,17 @@ describe("the privacy notice states the registration, referee-link and ban clock
       ANGABEN.get("Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat"),
       "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
     );
+  });
+
+  // The request waits as long as an address change's approval does, so the week is read off that one constant.
+  it("keeps a request for access until it is decided or withdrawn, a week at most", () => {
+    const frist =
+      ANGABEN.get(
+        "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+      ) ?? "";
+
+    assert.equal(GENEHMIGUNG_TAGE, 7);
+    assert.ok(frist.includes("längstens eine Woche; danach löschen wir ihn."), frist);
   });
 
   // Held here because this file owns the count words: the create form's hint and the ban list's

@@ -9,12 +9,17 @@ from app.api.adresswechsel.services import (
     FLAdresswechselNeuZustand,
     FLAdresswechselVerwaltung,
     FLAdresswechselWartetAuf,
-    FLAdresswechselWeg,
 )
-from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLUtcInstant
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
-from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, ERASURE_ANLASS_MAX_LENGTH
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
+from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.custom import (
+    SINGLE_LINE_PATTERN,
+    CustomDateString,
+    CustomNonEmptyString,
+    CustomObjectId,
+    CustomStrippedNonEmptyString,
+)
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
@@ -40,6 +45,7 @@ class FLAdresswechselGenehmigung(BaseModel):
     """The approval a change moving a grant waits on."""
 
     verwaltung: FLAdresswechselVerwaltung
+    angefragt_am: datetime
     bis: datetime
     gestartet_von: str
     genehmigt_am: datetime | None
@@ -76,24 +82,66 @@ class FLAdresswechsel(BaseModel):
     beendet: FLAdresswechselBeendet | None
 
 
-class FLAdresswechselMitteilung(BaseModel):
-    """What a change taking effect hands the frontend's server: whom the completion notice greets, and the sign-in account to carry.
+# What an end owes after its commit: an effect's completion notice and account carry, or a refused due change's notice.
+FLAdresswechselPostausgangArt = Literal["wirksam", "verworfen"]
 
-    Server to server alone: the link page's route handler strips it before the browser.
+
+class FLAdresswechselPostausgang(BaseModel):
+    """One owed notice as `adresswechsel_postausgang` stores it, its validator's twin."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    art: FLAdresswechselPostausgangArt
+    bisherige_email: str | None
+    email: str
+    vorname: str | None
+    weg: FLAdresswechselWeg | None
+    erfasst_am: datetime
+    beansprucht_bis: datetime | None
+    beanspruchung: str | None
+    # How many claims have handed the row out; each claim raises it in its own transaction.
+    versuche: int = Field(ge=0)
+
+
+class FLAdresswechselPostausgangZeile(BaseModel):
+    """One owed notice a pass claimed, server to server alone: no browser receives an address of it.
+
+    `wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,
+    never told why.
     """
 
-    bisherige_email: str
+    id: CustomObjectId
+    art: FLAdresswechselPostausgangArt
+    bisherige_email: str | None
     # The new address as stored, which the sign-in account is carried to.
     email: str
-    vorname: str
+    # Null on the lost-mailbox way and on a refusal: that mailbox may be a stranger's, and the new one is greeted by nobody.
+    vorname: str | None
     # A change that waited carries no sign-in account: whatever its old mailbox's holder enrolled meanwhile would follow.
-    weg: FLAdresswechselWeg
+    weg: FLAdresswechselWeg | None
+    # Past the last hand-out: the caller mails nothing, logs it by its id, and stamps it.
+    aufgegeben: bool
 
 
-class FLAdresswechselVerworfenMitteilung(BaseModel):
-    """A due change the hourly pass refused: its new address alone, which is told it did not take effect, and never why."""
+class FLAdresswechselPostausgangResponse(BaseAPIResponse):
+    """The owed notices one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` null exactly where it holds none."""
 
-    email: str
+    beanspruchung: str | None
+    beansprucht_bis: FLUtcInstant | None
+    mitteilungen: list[FLAdresswechselPostausgangZeile]
+
+
+class FLAdresswechselZugestelltPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    beanspruchung: CustomStrippedNonEmptyString
+    # A repeated id is counted once rather than refused: a pass retrying its own stamp is not wrong.
+    ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
+
+
+class FLAdresswechselZugestelltResponse(BaseAPIResponse):
+    zugestellt: int = Field(ge=0)
+    # Every distinct id this claim does not hold: unknown, stamped already, or claimed since by another pass.
+    ignoriert: int = Field(ge=0)
 
 
 class FLAdresswechselGenehmigungStand(BaseModel):
@@ -161,15 +209,15 @@ class FLAdresswechselAntwortPayload(BaseModel):
 
 
 class FLAdresswechselAntwortResponse(BaseAPIResponse):
-    """The answer recorded, and nothing of the change beyond what the frontend's server mails and strips."""
+    """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
     antwort: FLAdresswechselAntwort
     # Set where a change waiting after its confirmation now waits until then.
     wirksam_ab: FLUtcInstant | None
     # Set where the change now waits on another administrator's approval of its grant's move.
     genehmigung_offen: bool
-    # Set where the change took effect.
-    mitteilung: FLAdresswechselMitteilung | None
+    # Set where the change took effect: its notice is queued (`FLAdresswechselPostausgangZeile`), never answered here.
+    wirksam: bool
 
 
 class FLAdresswechselStoppPayload(BaseModel):
@@ -273,7 +321,8 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     gueltig_bis: FLUtcInstant
     email: CustomNonEmptyString
     bisherige_email: str
-    vorname: str
+    # Null on the lost-mailbox way: the address on file may have passed to a stranger, so its notice greets nobody.
+    vorname: str | None
     # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
     adresse_belegt: bool
     # Whom the frontend's server tells an approval waits; empty where no grant moves.
@@ -288,7 +337,6 @@ class FLAdresswechselGenehmigungResponse(BaseAPIResponse):
     id: CustomObjectId
     # Whether the approval made the change take effect, the new mailbox having confirmed and no waiting time left.
     wirksam: bool
-    mitteilung: FLAdresswechselMitteilung | None
 
 
 # --- The hourly pass.
@@ -304,9 +352,9 @@ class FLAdresswechselSweepResponse(BaseAPIResponse):
     """One call's share of the live changes whose step lapsed or whose waiting time ended."""
 
     entfernt: int
-    # Due changes a judgement refused at the end of their waiting time, each new address to be told it did not take effect.
-    verworfen: list[FLAdresswechselVerworfenMitteilung]
-    wirksam: list[FLAdresswechselMitteilung]
+    # Due changes a judgement refused at the end of their waiting time, and due ones taken effect, each notice queued.
+    verworfen: int = Field(ge=0)
+    wirksam: int = Field(ge=0)
     # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
     verbleibend: int
     # The last change this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.

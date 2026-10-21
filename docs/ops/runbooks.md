@@ -443,6 +443,12 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
   its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
   five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
+- **A grant waits as a request wherever another administrator could approve it, and a promotion
+  wherever another owner could** (`docs/backend/spec.md :: I848`): it takes effect once that person
+  approves it on the same page, someone who held their own grant since before the request
+  (`:: I849`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
+  colleague: a request nobody decides lapses after a week (`:: I851`), and one whose requester was
+  revoked, demoted or barred since is approved by nobody and waits for a refusal (`:: I850`).
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
@@ -460,7 +466,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
   without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
   paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
-  folded address revokes it. The statement itself is kept off this public repository.
+  folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
+  alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
@@ -700,13 +707,16 @@ seat, registration and grant the address holds, so one sign-in stays whole
 (`docs/backend/spec.md :: I793`).
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
-  ändern“. They confirm it is them by passkey or by a code to the address on file, type the new
-  address, and confirm it from its own mailbox within 24 hours; the address on file is told, with a
+  ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
+  access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
+  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours; the address on
+  file is told, with a
   link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
-  until the address on file signs in and approves the change on its account page within 24 hours
+  until the address on file signs in and approves the change on its account page within
+  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours
   (`docs/backend/spec.md :: I794`). Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
@@ -720,14 +730,18 @@ seat, registration and grant the address holds, so one sign-in stays whole
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
   stays twelve months in the log, and the backend refuses a name of the person
   (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
-  by link within 24 hours, and the change takes effect seven days later, judged again then; until
+  by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
+  and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page
   (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change also waits on another administrator's
-  approval on the administrators page, an owner's for an owner's grant, within a week of its start;
+  approval on the administrators page, an owner's for an owner's grant, within
+  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
   neither the changed address nor whoever started the change gives it
-  (`docs/backend/spec.md :: I817`, `:: I818`). The tool starts a grant holder's change for an owner
+  (`docs/backend/spec.md :: I817`, `:: I818`). Revoking the grant while a confirmed change waits needs
+  no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere
+  (`docs/backend/spec.md :: I847`). The tool starts a grant holder's change for an owner
   alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address
   (`docs/backend/spec.md :: I819`). On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant (`docs/backend/spec.md :: I820`).
@@ -758,8 +772,7 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **The holder of a pending new address**, a mailbox a change was started for. Until the change
   takes effect, that address reaches nothing of the person's (`docs/backend/spec.md :: I560`), and
   only the erasure's own read finds the change from it: type it on „Löschung auf Anfrage“, whose list
-  names the pending change, then open the change in the address tool by the address on file and
-  discard it there, which takes the address out of the change's record and the log's images of it
+  names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it
   (`docs/backend/spec.md :: I704`). Where the holder asked for their data to be deleted, the erasure
   itself ends the change alone and leaves the records standing (`docs/backend/spec.md :: I668`). The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
@@ -964,10 +977,8 @@ it; work through it before the second press, since the dialog closes on the ban.
 - a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
   no administrator decides either, its team cannot admit a barred address, and the clock erases
   both;
-- another referee's pending change of address to it: „Adressänderung ansehen“ opens that
-  referee's editor, whose „Änderung verwerfen“ removes it;
-- another pupil's pending change of address to it: „Adressänderung ansehen“ opens that pupil's
-  editor, whose „Änderung verwerfen“ removes it;
+- another address's pending change to it, one item for each: „Adressänderung ansehen“ opens that
+  change in the address tool, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
 Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
@@ -1327,13 +1338,20 @@ the deadline stops there fails its call with the date left stale, as a failure t
 report.
 
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
-ending the address changes whose step lapsed and making the due ones take effect, mailing each
-replaced address its completion notice and the new address of a change refused at its due time a
-notice naming nobody. It writes
-one line per pass holding its counts and no person, `adresswechsel.sweep_pass`, at
-`INFO` where the pass left no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning
-where it left rows due; a half that threw files `adresswechsel.sweep_failed` under
-`FE-SWEEP-001` besides.
+ending the address changes whose step lapsed and making the due ones take effect, then draining the
+outbox those ends wrote: each replaced address gets its completion notice and the new address of a
+change refused at its due time a notice naming nobody. It writes one line per pass holding its
+counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, which a
+`LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due; a half that threw files
+`adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
+
+**A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
+next confirmation or approval, or after the next pass — once its ten-minute lease lapses. A drain
+that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`. After 24 hand-outs the notice is
+given up under `FE-MAIL-016`, and nobody can be named afterwards, so repair the refusal while those
+lines stand:
+
+    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed)'
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
@@ -1370,18 +1388,22 @@ database did not raise came from. Find the record it points to and repair it, an
 deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
 pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
-removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the
-next pass judges it afresh.
+removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown: one that
+did not commit is judged afresh by the next pass, and an effect or a refusal that did is told by
+the outbox's drain, its notice queued in the same transaction.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
-The run passes those pupils over on every pass until their address is stored in that form. **An
-address the rule refuses is replaced through the pupil editor's change**, to the person's own, which
-stores it folded once its mailbox confirms. **A spelling that differs from its fold only in case,
-surrounding spaces or the domain's form is refused there as the address already held**
-(`REQ-SPIELER-007`), so it is rewritten to its fold by hand, as a MongoDB Playground paste kept in
-the operator's checklist (§2). An empty one is a pupil holding no address, whom no route reaches
+The run passes those pupils over on every pass until their address is stored in that form. **No
+route repairs one**: the address tool and the account page find a pupil by the folded address alone
+(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
+finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
+Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
+that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
+an address the rule refuses to the folded address the person is established to hold, as
+[section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
+mailbox's. An empty one is a pupil holding no address, whom no route reaches
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
@@ -1392,10 +1414,13 @@ environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds 
 deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
 neither.
 
-**One promise rests on `BEWERBUNG_SWEEP`**: the word that a lapsed pending address goes the day
-after its link lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy
-notice's „am Tag danach“. It is the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off it is
-not kept. **The activation press's message that the next hourly pass deletes what it left („Was noch
+**Two promises rest on `BEWERBUNG_SWEEP`**, both the address-change half's to keep
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
+both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
+administrator started with a reason takes effect its waiting time after its confirmation. While `BEWERBUNG_SWEEP` is off neither is kept: a lapsed change keeps
+its new address and its reason, and a change past its waiting time takes effect only where an
+approval it still owed is pressed after it. **The activation press's message that the next hourly pass deletes what it left („Was noch
 aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
 the press deletes under arms that pass, and with it the squad cache's drop after it.
 
@@ -1803,9 +1828,15 @@ going on to name it since its hash matches nothing the record holds. Four things
 - **A Widerspruch's replay mails nobody**, its submitter having been told when it was made.
 - **An address change that took effect inside the window, started before the snapshot**, replays
   from its line, moving every record again; **one started inside the window** reads `left for
-review`, the restored record holding no change to move: ask the person to start it again on their
-  account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). A change
-  started or confirmed inside the window and not yet in effect is in no journal: its person starts
+review`, the restored database holding no change to move: ask the person to start it again on their
+  account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **The
+  sign-in store is not restored**, so the account and its passkeys stay at the new address while the
+  records stand at the replaced one: the person signs in at the replaced address by code to start
+  again, and once the new mailbox confirms, the new address signs in to the account it kept. A
+  grant holder's effect whose approval came after the snapshot also reads `left for review`: the
+  restored change waits on an approval again, and where its week is past an approval is refused
+  (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
+  confirmed or approved inside the window and not yet in effect is in no journal: its person starts
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
@@ -1864,6 +1895,10 @@ undid the erasures, and which nothing re-runs:
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator
   (`docs/backend/spec.md :: I439`).
+- **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again
+  (`docs/backend/spec.md :: I852`). One approved inside the window is back as a request beside the
+  grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
+  asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
   at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
   thread that asked for each is the record, the log having rolled back with it.

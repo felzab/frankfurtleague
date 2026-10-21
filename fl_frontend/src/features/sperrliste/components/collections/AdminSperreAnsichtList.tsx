@@ -102,7 +102,7 @@ const EINTRAEGE: Eintraege = {
     }),
   adresswechsel: (adresswechsel, saisonHref) =>
     adresswechsel.map(({ adresswechsel_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung auf diese Adresse",
+      text: "Eine laufende Adressänderung auf diese Adresse",
       verweise: [
         { label: SPERRE_ANSICHT_VERWEISE.adresswechsel, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) },
       ],

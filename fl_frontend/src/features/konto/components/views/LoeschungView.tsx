@@ -81,8 +81,8 @@ function zeilenOf({ spieler, schiedsrichter, sitze, bewerbungen, registrierungen
       ? []
       : [
           adresswechsel === 1
-            ? "Eine noch nicht bestätigte Adressänderung auf Deine Adresse"
-            : `${String(adresswechsel)} noch nicht bestätigte Adressänderungen auf Deine Adresse`,
+            ? "Eine laufende Adressänderung auf Deine Adresse"
+            : `${String(adresswechsel)} laufende Adressänderungen auf Deine Adresse`,
         ]),
     ...(verwaltung === null ? [] : ["Dein Zugang zur Verwaltung"]),
   ];

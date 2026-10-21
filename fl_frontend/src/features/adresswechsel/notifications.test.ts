@@ -31,11 +31,13 @@ const store = memoryStore("__flAdresswechselCarryStore");
  * The store's unique email index, which the in-memory adapter has none of: an update moving an account onto an
  * address another account holds is refused with the server's own code, as `user_email_uidx` refuses it.
  */
+let storeDown = false;
 const uniqueEmailAdapter = (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
   const adapter = insertOrderedAdapter(store as unknown as MemoryDB)(options);
   return {
     ...adapter,
     update: async (args: Parameters<typeof adapter.update>[0]) => {
+      if (storeDown) throw new MongoServerError({ message: "not primary", code: 10107 });
       const email = (args.update as { email?: unknown }).email;
       if (args.model === "user" && typeof email === "string" && store.user.some((row) => row.email === email)) {
         throw new MongoServerError({ message: "E11000 duplicate key error", code: 11000, keyPattern: { email: 1 } });
@@ -73,6 +75,7 @@ beforeEach(() => {
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
   logged.length = 0;
+  storeDown = false;
 });
 
 describe("a change taking effect, as its caller's server finishes it", () => {
@@ -136,6 +139,27 @@ describe("a change taking effect, as its caller's server finishes it", () => {
     );
   });
 
+  /* The outbox keeps the row: the next claim moves the account first, and only then tells the old address it moved. */
+  it("answers a move the store broke off as not done with, and sends no notice yet", async () => {
+    await sessionByCode(auth, store, BISHER);
+    storeDown = true;
+
+    const erledigt = await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto") });
+
+    assert.equal(erledigt, false);
+    assert.deepEqual(mail.sent, []);
+    assert.deepEqual(
+      logged.filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen").map(({ level, meta }) => [level, meta?.error_code]),
+      [["error", "FE-AUTH-013"]],
+    );
+  });
+
+  it("answers a sent notice as done with, and a send that never left as not", async () => {
+    assert.equal(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") }), true);
+    mail.answerWith(() => "unsent");
+    assert.equal(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") }), false);
+  });
+
   it("carries nothing where the replaced address never had an account, and logs nothing", async () => {
     await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto") });
 
@@ -154,14 +178,21 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 describe("the notice of a due change the pass refused", () => {
   /* Through the ban list like every message: a refusal caused by a ban on this very address mails nothing there. */
   it("mails the new address a nameless notice, and a barred one nothing", async () => {
-    const gesendet = await mailAdresswechselNichtWirksam({ operation: "test", verworfen: { email: NEU } });
+    const gesendet = await mailAdresswechselNichtWirksam({ operation: "test", email: NEU });
     mail.answerWith(() => "barred");
-    const gesperrt = await mailAdresswechselNichtWirksam({ operation: "test", verworfen: { email: NEU } });
+    const gesperrt = await mailAdresswechselNichtWirksam({ operation: "test", email: NEU });
 
     assert.deepEqual(mail.sent.map(({ to, subject }) => [to, subject]).slice(0, 1), [
       [NEU, "Deine E-Mail-Adresse bei der Frankfurt League wurde nicht geändert"],
     ]);
-    assert.deepEqual([gesendet, gesperrt], ["gesendet", "gesperrt"]);
+    // Both done with: a barred address is never mailed, however often the outbox claims its row.
+    assert.deepEqual([gesendet, gesperrt], [true, true]);
+  });
+
+  it("answers a failed send as not done with, so the outbox keeps the row", async () => {
+    mail.answerWith(() => "unsent");
+
+    assert.equal(await mailAdresswechselNichtWirksam({ operation: "test", email: NEU }), false);
   });
 });
 

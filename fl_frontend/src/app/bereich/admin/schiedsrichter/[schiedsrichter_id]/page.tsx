@@ -44,9 +44,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   );
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSchiedsrichterEditView
-      key={JSON.stringify([schiedsrichter, bestaetigung_abgelaufen, adresswechsel_id])}
       schiedsrichter={{
         id: schiedsrichter.id,
         name: schiedsrichter.name,

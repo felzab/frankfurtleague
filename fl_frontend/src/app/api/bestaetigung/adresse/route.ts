@@ -1,10 +1,12 @@
 import z from "zod";
 
+import { afterTheResponse } from "@/core/afterResponse";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
-import { adresswechselWirksam } from "@/features/adresswechsel/notifications";
+import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { mapAdresswechselPresseRefusal } from "@/features/adresswechsel/refusals";
 import { FLAdresswechselAntwortPayloadSchema, FLAdresswechselStoppPayloadSchema } from "@/features/adresswechsel/schemas";
+import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -52,12 +54,16 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ansicht: ansicht };
       }
 
-      // The replaced address, the new one and the first name reach this handler alone: a leaked link learns only
-      // what it posted, so none of them travels on to the browser (`docs/frontend/spec.md :: I805`).
-      if (antwort.mitteilung !== null) await adresswechselWirksam({ operation: "postAdresswechsel", mitteilung: antwort.mitteilung });
+      // The effect queued its notice and its account's carry in its own transaction: delivered behind the response, and
+      // by the hourly pass where this drain never runs (`docs/backend/spec.md :: I846`). No address reaches this handler.
+      if (antwort.wirksam) {
+        afterTheResponse(runAdresswechselPostausgang);
+        // A grant the effect moved is announced now, as the approval announces one, not at the next five-minute pass.
+        afterTheResponse(runBerechtigungenAbgleich);
+      }
 
       return gedrueckt(antwort.antwort, {
-        wirksam: antwort.mitteilung !== null,
+        wirksam: antwort.wirksam,
         wirksam_ab: antwort.wirksam_ab,
         genehmigung_offen: antwort.genehmigung_offen,
       });

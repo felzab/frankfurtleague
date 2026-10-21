@@ -7,8 +7,14 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
-import { ZUGANG_ERTEILT } from "./constants.ts";
-import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals.ts";
+import { ERNENNUNG_BEANTRAGT_MESSAGE, ZUGANG_BEANTRAGT_MESSAGE, ZUGANG_ERTEILT } from "./constants.ts";
+import {
+  mapAntragAblehnungRefusal,
+  mapAntragGenehmigungRefusal,
+  mapEntziehenRefusal,
+  mapErteilenRefusal,
+  mapStufeRefusal,
+} from "./refusals.ts";
 
 /** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
 const deferred: (() => unknown)[] = [];
@@ -30,13 +36,25 @@ const traces: { endpoint: string; trace: string | undefined; actor: string | und
 
 const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
+const ANTRAG_ID = "6890a1b2c3d4e5f6071b0009";
+
+/** Whether the backend answers a grant or a promotion as a request another administrator must approve, until a case says so. */
+let beantragt = false;
+
 const client = doubleApiAnswers(({ endpoint, method }) => {
   traces.push({ endpoint, trace: getRequestTraceId(), actor: getRequestActor()?.email });
   if (endpoint === "/berechtigungen/abgleich") return Promise.resolve(NOTHING_CLAIMED);
-  return Promise.resolve(method === "POST" ? { acknowledged: 1, created_id: GRANT_ID } : { acknowledged: 1, berechtigung_id: GRANT_ID });
+  if (endpoint.startsWith("/berechtigungen/antraege/")) {
+    return Promise.resolve(method === "DELETE" ? { acknowledged: 1, antrag_id: ANTRAG_ID } : { acknowledged: 1, berechtigung_id: GRANT_ID });
+  }
+  if (method === "POST") return Promise.resolve({ acknowledged: 1, created_id: beantragt ? ANTRAG_ID : GRANT_ID, beantragt });
+  return Promise.resolve(
+    method === "PATCH" ? { acknowledged: 1, berechtigung_id: GRANT_ID, beantragt } : { acknowledged: 1, berechtigung_id: GRANT_ID },
+  );
 });
 
-const { deleteBerechtigungAction, patchBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
+const { deleteBerechtigungAction, genehmigeAntragAction, lehneAntragAbAction, patchBerechtigungAction, postBerechtigungAction } =
+  await import("./actions.ts");
 const { getRequestActor, getRequestTraceId } = await import("@/core/requestScope.ts");
 
 const MINUTE_MS = 60 * 1000;
@@ -44,6 +62,7 @@ const MINUTE_MS = 60 * 1000;
 beforeEach(() => {
   deferred.length = 0;
   traces.length = 0;
+  beantragt = false;
   setFresh(true);
 });
 
@@ -109,6 +128,77 @@ describe("the announcement a change schedules", () => {
   }
 });
 
+/* A request is the pass's to mail, to whoever could approve it, so it is scheduled behind the answer as a grant is. */
+describe("a grant or a promotion another administrator must approve", () => {
+  it("answers the grant as a request and schedules the pass that mails it", async () => {
+    beantragt = true;
+
+    assert.deepEqual(await postBerechtigungAction({ email: "neu@schule.de" }), {
+      success: true,
+      created_id: ANTRAG_ID,
+      beantragt: true,
+      message: ZUGANG_BEANTRAGT_MESSAGE,
+    });
+    assert.equal(deferred.length, 1, "the request scheduled no pass, or more than one");
+  });
+
+  it("answers the promotion as a request and schedules the pass that mails it", async () => {
+    beantragt = true;
+
+    assert.deepEqual(await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" }), {
+      success: true,
+      beantragt: true,
+      message: ERNENNUNG_BEANTRAGT_MESSAGE,
+    });
+    assert.equal(deferred.length, 1, "the request scheduled no pass, or more than one");
+  });
+});
+
+describe("a request's approval", () => {
+  it("approves the request by its id and schedules the announcement of the grant it made", async () => {
+    const result = await genehmigeAntragAction({ id: ANTRAG_ID });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ endpoint, method }) => [method, endpoint]),
+      [["POST", `/berechtigungen/antraege/${ANTRAG_ID}/genehmigung`]],
+    );
+    assert.equal(deferred.length, 1, "the approval scheduled no announcement, or more than one");
+  });
+
+  it("answers every refusal the approval publishes through its mapper, and announces nothing", async () => {
+    await assertEachAnswered({
+      operation: "POST /berechtigungen/antraege/{antrag_id}/genehmigung",
+      refuseWith: client.answerWith,
+      act: () => genehmigeAntragAction({ id: ANTRAG_ID }),
+      mapped: mapAntragGenehmigungRefusal,
+    });
+    assert.deepEqual(deferred, []);
+  });
+});
+
+describe("a request's refusal or withdrawal", () => {
+  it("removes the request by its id and announces nothing", async () => {
+    const result = await lehneAntragAbAction({ id: ANTRAG_ID });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ endpoint, method }) => [method, endpoint]),
+      [["DELETE", `/berechtigungen/antraege/${ANTRAG_ID}`]],
+    );
+    assert.deepEqual(deferred, []);
+  });
+
+  it("answers every refusal the refusal publishes through its mapper", async () => {
+    await assertEachAnswered({
+      operation: "DELETE /berechtigungen/antraege/{antrag_id}",
+      refuseWith: client.answerWith,
+      act: () => lehneAntragAbAction({ id: ANTRAG_ID }),
+      mapped: mapAntragAblehnungRefusal,
+    });
+  });
+});
+
 describe("the revoke", () => {
   it("removes the grant by its id and schedules the announcement behind the answer", async () => {
     const result = await deleteBerechtigungAction({ id: GRANT_ID });
@@ -136,7 +226,7 @@ describe("the tier change", () => {
   it("sends the tier alone to the grant's path and schedules the announcement behind the answer", async () => {
     const result = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
 
-    assert.deepEqual(result, { success: true, message: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung." });
+    assert.deepEqual(result, { success: true, beantragt: false, message: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung." });
     assert.deepEqual(
       requestsOf(client.calls).map(({ endpoint, method, body }) => [method, endpoint, body]),
       [["PATCH", `/berechtigungen/${GRANT_ID}`, { verwaltung: "owner" }]],
@@ -150,6 +240,7 @@ describe("the tier change", () => {
     for (let press = 1; press <= 2; press += 1) {
       assert.deepEqual(await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "administration" }), {
         success: true,
+        beantragt: false,
         message: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
       });
     }
@@ -180,7 +271,7 @@ describe("the tier change", () => {
   });
 });
 
-describe("the window all three are held to", () => {
+describe("the enrolment window", () => {
   /* Five minutes, not the step-up's two hours (`docs/frontend/spec.md :: I458`). The standing window
      still holds here, which is what makes the case about the narrow one. */
   it("refuses each from a session confirmed six minutes ago, sending nothing", async (t) => {
@@ -194,12 +285,30 @@ describe("the window all three are held to", () => {
     const erteilt = await postBerechtigungAction({ email: "neu@schule.de" });
     const entzogen = await deleteBerechtigungAction({ id: GRANT_ID });
     const geaendert = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
+    // A request's approval is the grant or the promotion it asked for.
+    const genehmigt = await genehmigeAntragAction({ id: ANTRAG_ID });
 
-    for (const refused of [erteilt, entzogen, geaendert]) {
+    for (const refused of [erteilt, entzogen, geaendert, genehmigt]) {
       assert.equal(refused.success, false);
       assert.equal("stepUp" in refused && refused.stepUp, true, "the refusal does not ask the page to confirm");
     }
     assert.deepEqual(client.calls, [], "a stale session reached the backend");
+  });
+
+  /* The backend holds a request's refusal to the step-up's window alone: it hands nobody access. */
+  it("sends a request's refusal from that same session, which the narrow window does not bind", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 3_000_000 });
+    setSession({ user: { email: "vorstand@example.org" } });
+    assert.equal((await postBerechtigungAction({ email: "neu@schule.de" })).success, true);
+    client.calls.length = 0;
+
+    t.mock.timers.tick(6 * MINUTE_MS);
+
+    assert.equal((await lehneAntragAbAction({ id: ANTRAG_ID })).success, true);
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ method }) => method),
+      ["DELETE"],
+    );
   });
 
   it("sends each from a session confirmed four minutes ago", async (t) => {

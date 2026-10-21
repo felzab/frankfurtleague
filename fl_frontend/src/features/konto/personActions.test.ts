@@ -224,10 +224,10 @@ describe("the approval and the stop on the account page", () => {
   it("approves under the person's actor and mails the link to the new address alone", async () => {
     await angemeldet();
 
-    const answer = await gibAdresswechselFreiAction();
+    const answer = await gibAdresswechselFreiAction({ id: CARRIER });
 
     assert.equal(answer.success, true, JSON.stringify(answer));
-    assert.deepEqual(writes, [{ method: "POST", path: FREIGABE, body: null, actor: true }]);
+    assert.deepEqual(writes, [{ method: "POST", path: FREIGABE, body: { id: CARRIER }, actor: true }]);
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
       [NEU],
@@ -238,7 +238,7 @@ describe("the approval and the stop on the account page", () => {
     const row = await angemeldet();
     row.createdAt = new Date(Date.now() - 10 * 60 * 1000);
 
-    assert.deepEqual(await gibAdresswechselFreiAction(), stepUpRequired());
+    assert.deepEqual(await gibAdresswechselFreiAction({ id: CARRIER }), stepUpRequired());
     assert.deepEqual(writes, []);
   });
 
@@ -246,7 +246,7 @@ describe("the approval and the stop on the account page", () => {
     await angemeldet();
     freigabeAnswer = unbestaetigt;
 
-    assert.deepEqual(await gibAdresswechselFreiAction(), stepUpRequired());
+    assert.deepEqual(await gibAdresswechselFreiAction({ id: CARRIER }), stepUpRequired());
     assert.equal(writes.length, 1, "the backend was never asked, so the refusal proves nothing");
     assert.ok(
       cacheCalls.some(({ name }) => name === "refresh"),

@@ -661,9 +661,9 @@ describe("the editor's shape", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
     const html = editorTree(sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }), BLOCK);
 
-    assert.equal(html.split("Eine neue Adresse wartet auf ihre Bestätigung.").length - 1, 1, "the line shows on other than the one seat");
+    assert.equal(html.split("Für diese Adresse läuft eine Änderung.").length - 1, 1, "the line shows on other than the one seat");
     assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
-    assert.ok(!sectionMarkup(BLOCK).includes("Eine neue Adresse wartet"), "a seat no change waits at shows the line");
+    assert.ok(!sectionMarkup(BLOCK).includes("Für diese Adresse läuft eine Änderung"), "a seat no change waits at shows the line");
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field

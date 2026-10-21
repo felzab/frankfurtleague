@@ -286,7 +286,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Berechtigung",
         root=Collection.BERECHTIGUNGEN,
-        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG),
+        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG, Collection.BERECHTIGUNGEN_ANTRAEGE),
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
@@ -298,7 +298,10 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "membership, each write reading the other collection inside its own transaction. A grant is always "
             "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
             "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
-            "served to every administrator, and the outbox holds them until a pass has mailed them."
+            "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
+            "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
+            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
+            "(`docs/backend/spec.md :: I848`)."
         ),
     ),
     Aggregate(
@@ -363,12 +366,14 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Adresswechsel",
         root=Collection.ADRESSWECHSEL,
-        members=(),
+        members=(Collection.ADRESSWECHSEL_POSTAUSGANG,),
         boundary=(
             "One live change per address, `uniq_adresswechsel_adresse`. The records it moves are the address's, read at "
             "the effect, never stored on the change: a registration committed during its waiting time moves too. So it is "
             "in no boundary with `spieler`, a seat, a referee or a grant, each of which the effect writes in its own "
-            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index."
+            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index. The "
+            "outbox joins it because an end owing a notice queues it in the end's own transaction, so a commit whose "
+            "answer was lost still has its notice delivered."
         ),
     ),
 )
@@ -2659,7 +2664,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BERECHTIGUNG-001",
         status=HTTPStatus.CONFLICT,
-        operation="POST /berechtigungen",
+        operation="POST /berechtigungen · POST /berechtigungen/antraege/{antrag_id}/genehmigung",
         aggregate="Berechtigung",
         summary="an address a live grant of either tier already holds takes no second one",
         implemented_by="app.api.berechtigungen.services.find_vorhanden_refusal",
@@ -2677,7 +2682,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BERECHTIGUNG-003",
         status=HTTPStatus.CONFLICT,
-        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id}",
+        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id} · POST /berechtigungen/antraege/{antrag_id}/genehmigung",
         aggregate="Berechtigung",
         summary="an address the ban list holds is granted nothing, and made an owner by nobody, until the ban is lifted",
         implemented_by="app.api.berechtigungen.services.find_gesperrt_refusal",
@@ -2712,6 +2717,51 @@ RULES: tuple[Rule, ...] = (
         summary="a demotion leaves at least one live, unbarred `owner` grant standing",
         implemented_by="app.api.berechtigungen.services.find_letzter_inhaber_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestTheLastOwner",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-008",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen · PATCH /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="an address a request not yet lapsed is about takes no second request, nor the act it asks for",
+        implemented_by="app.api.berechtigungen.antraege.find_antrag_offen_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestOneRequestPerAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-009",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request is approved by neither the address it is about nor the administrator who made it",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-010",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request for an owner's access is decided by another owner alone, signed in since becoming one",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-011",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung · DELETE /berechtigungen/antraege/{antrag_id}",
+        aggregate="Berechtigung",
+        summary="a request is decided by an administrator whose grant, an owner's tier for a promotion, took effect before it",
+        implemented_by="app.api.berechtigungen.antraege.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestWhoMayDecide",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-012",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen/antraege/{antrag_id}/genehmigung",
+        aggregate="Berechtigung",
+        summary="a request is approved only while its requester holds, unbarred and since before it, the tier it asks for",
+        implemented_by="app.api.berechtigungen.antraege.find_antrag_verfallen_refusal",
+        tested_by="tests/api/test_berechtigungen_antraege_execution.py::TestARequestOutlivesNoRequester",
     ),
     Rule(
         code="REQ-EINLADUNG-001",
@@ -3172,7 +3222,7 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /adresswechsel/bestaetigung · POST /adresswechsel/bestaetigung/stopp · POST /adresswechsel/ansicht"
             " · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
-            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung · POST /konto/adresswechsel/freigabe"
         ),
         aggregate="Adresswechsel",
         summary="a change that ended, or a link already answered, takes no further answer, re-send, discard or approval",
@@ -3184,6 +3234,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.GONE,
         operation=(
             "POST /adresswechsel/bestaetigung · POST /konto/adresswechsel/freigabe · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen"
         ),
         aggregate="Adresswechsel",
         summary=("a step whose deadline has passed -- a link, the address on file's approval, a grant's approval -- moves nothing"),
@@ -3309,6 +3360,15 @@ RULES: tuple[Rule, ...] = (
         summary="a change takes no effect moving a grant onto an address holding one",
         implemented_by="app.api.adresswechsel.services.find_neue_berechtigt_refusal",
         tested_by="tests/api/test_adresswechsel_execution.py::TestTheMovedGrant",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-017",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change is approved by an administrator holding their access, an owner's change their tier, since before it started",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheAdministratorFollowsTheirMove",
     ),
     Rule(
         code="REQ-BERICHT-006",

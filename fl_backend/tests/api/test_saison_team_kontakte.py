@@ -607,7 +607,8 @@ class TestTheReadsTokenIsWhatTheWriteAccepts:
         """
 
         async def body(database: AsyncDatabase) -> Any:
-            served = FLTeamMembership.model_validate(await row_now(database))
+            # With the key the read composes after it (`app/api/teams/services.py :: mit_adresswechseln`), never stored.
+            served = FLTeamMembership.model_validate({**await row_now(database), "adresswechsel": None})
 
             await write_kontakte(database, NEW_KONTAKTE, stand=served.kontakte_stand)
 

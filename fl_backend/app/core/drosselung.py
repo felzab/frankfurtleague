@@ -160,6 +160,26 @@ async def erase_counts_in_session(
     return erased.deleted_count
 
 
+async def carry_counts_in_session(*, drosselung_collection: AsyncCollection, alt: str, neu: str, session: AsyncClientSession) -> int:
+    """Move every day's count the pseudonym `alt` holds onto `neu`, added to any `neu` holds, answering how many moved.
+
+    An address change re-keys the person's pseudonym; left behind, every count would start afresh at each effect.
+    """
+
+    moved = await drosselung_collection.find(build_counts_filter(alt), session=session).to_list(length=None)
+    for row in moved:
+        await drosselung_collection.update_one(
+            {"_id": str(row["_id"]).replace(f":{alt}:", f":{neu}:", 1)},
+            {"$inc": {"n": row["n"]}, "$setOnInsert": {"ablauf": row["ablauf"]}},
+            upsert=True,
+            session=session,
+        )
+    if moved:
+        await drosselung_collection.delete_many({"_id": {"$in": [row["_id"] for row in moved]}}, session=session)
+
+    return len(moved)
+
+
 def build_counts_filter(pseudonym: str, funktionen: Iterable[Zaehler] = ZAEHLER_BUDGETS) -> Mapping[str, Any]:
     """Every count `pseudonym` holds of `funktionen`, each day of each."""
 

@@ -146,9 +146,9 @@ ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
 ADRESSWECHSEL_WARTEZEIT_TAGE: Final = 7
 
-# How long a change moving a grant waits from its start on another administrator's approval: a week, so an approver
-# away for a weekend is no reason to start it again.
-ADRESSWECHSEL_GENEHMIGUNG_TAGE: Final = 7
+# How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
+# approver away for a weekend is no reason to start it again.
+GENEHMIGUNG_TAGE: Final = 7
 
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
 ADRESSWECHSEL_NACHLAUF_TAGE: Final = 30

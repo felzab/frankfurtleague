@@ -15,7 +15,8 @@ from app.api.adresswechsel.crud import (
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
 )
-from app.api.aktionen.crud import redact_address_in_images
+from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
+from app.api.berechtigungen.antraege import erase_antraege_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
@@ -457,22 +458,11 @@ async def unattribute_in_session(
     """
 
     as_person = await unattribute_pseudonym_in_session(aktionen_collection=aktionen_collection, pseudonym=pseudonym, session=session)
-
-    # Read first and written by id, so the update walks the `_id` index: nothing indexes `actor.email`, which every
-    # recorded write would pay for. Folded, as `app/core/security.py :: bind_actor` stores every actor's address.
-    candidates = await aggregate_many_from_db(
-        collection=aktionen_collection,
-        pipeline=[{"$match": {"actor.email": sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
-        session=session,
-    )
-    as_administrator = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter={"_id": {"$in": [row["_id"] for row in candidates]}},
-        update={"$set": {"actor.email": ERASED_ACTOR_MARKER}},
-        session=session,
+    as_administrator = await reattribute_administrator_in_session(
+        aktionen_collection=aktionen_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
     )
 
-    return as_person + as_administrator.modified_count
+    return as_person + as_administrator
 
 
 async def unattribute_pseudonym_in_session(*, aktionen_collection: AsyncCollection, pseudonym: str, session: AsyncClientSession) -> int:
@@ -532,7 +522,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(
-        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe=None, run=end_the_address_changes_in_session
+        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.ADRESSWECHSEL_POSTAUSGANG, Collection.AKTIONEN}),
+        personengruppe=None,
+        run=end_the_address_changes_in_session,
     ),
     ErasureStep(
         reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
@@ -561,6 +553,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe="spieler", run=end_an_emptied_change_in_session
     ),
+    # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
+    ErasureStep(reaches=frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}), personengruppe=None, run=erase_antraege_in_session),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
     ErasureStep(
@@ -621,6 +615,8 @@ async def erase_everything(
     sperrliste_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
@@ -683,6 +679,7 @@ async def erase_everything(
     if _runs(end_the_address_changes_in_session, scope):
         adresswechsel = await end_the_address_changes_in_session(
             adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             aktionen_collection=aktionen_collection,
             identifier=identifier,
             rows=subject.adresswechsel,
@@ -766,6 +763,12 @@ async def erase_everything(
             session=session,
         )
 
+    berechtigungen_antraege = 0
+    if _runs(erase_antraege_in_session, scope):
+        berechtigungen_antraege = await erase_antraege_in_session(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, session=session
+        )
+
     berechtigungen = 0
     if _runs(erase_grants_and_authorship_in_session, scope):
         berechtigungen = (
@@ -811,6 +814,7 @@ async def erase_everything(
         registrierungen=registrierungen,
         adresswechsel=adresswechsel,
         berechtigungen=berechtigungen,
+        berechtigungen_antraege=berechtigungen_antraege,
         drosselung=drosselung,
     )
 
@@ -990,6 +994,8 @@ async def erase_if_still_due(
     sperrliste_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     schluessel: SecretStr,
     stamp: str,
@@ -1058,6 +1064,8 @@ async def erase_if_still_due(
         sperrliste_collection=sperrliste_collection,
         adressanker_collection=adressanker_collection,
         adresswechsel_collection=adresswechsel_collection,
+        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.
         geaendert_von=SYSTEM_ACTOR_EMAIL,

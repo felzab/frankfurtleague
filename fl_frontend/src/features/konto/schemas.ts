@@ -181,6 +181,8 @@ export type FLAdresswechselGenehmigungStand = z.infer<typeof FLAdresswechselGene
  * backend, whole where the person typed it and masked where the league did, and rendered as it comes.
  */
 export const FLKontoAdresswechselOffenSchema = z.object({
+  // What the approval names, so a tab drawn before a later start approves nothing it never showed.
+  id: CustomObjectIdStringSchema,
   email: z.string(),
   weg: FLAdresswechselWegSchema,
   wartet_auf: FLAdresswechselWartetAufSchema,
@@ -220,6 +222,12 @@ export const FLKontoAdresswechselMintResponseSchema = BaseAPIResponseSchema.exte
   genehmiger: z.array(z.string()),
 });
 export type FLKontoAdresswechselMintResponse = z.infer<typeof FLKontoAdresswechselMintResponseSchema>;
+
+/** Mirrors `FLKontoAdresswechselFreigabePayload`: the change the page showed, which a later start replaces. */
+export const FLKontoAdresswechselFreigabePayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLKontoAdresswechselFreigabePayload = z.infer<typeof FLKontoAdresswechselFreigabePayloadSchema>;
 
 /** Mirrors `FLKontoAdresswechselFreigabeResponse`: the approval mints the new mailbox's link, for its mail alone. */
 export const FLKontoAdresswechselFreigabeResponseSchema = BaseAPIResponseSchema.extend({

@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -135,7 +136,10 @@ LAPSED = f"{int(SAISON_ID) - 1}"
 
 
 def _seed(url: str, *, ban_until: str | None) -> None:
-    """One row per read, each written by `BARRED` while they held a grant; `ban_until` bans them afterwards, through that season."""
+    """One row per read, each written by `BARRED` while they held a grant; `ban_until` bans them afterwards, through that season.
+
+    The grants' list reads two, a grant and a request, whose requester is withheld as a grant's granter is.
+    """
 
     client: MongoClient = MongoClient(url)
     try:
@@ -151,6 +155,16 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                     "erteilt_am": datetime(2026, 4, 1, tzinfo=UTC),
                 },
             ]
+        )
+        # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
+        database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+            compose_antrag(
+                adresse="antrag.verwalterin@beispielschule.de",
+                verwaltung="administration",
+                berechtigung_id=None,
+                gestartet_von=BARRED,
+                now=datetime.now(UTC),
+            )
         )
         database[Collection.SPERRLISTE].insert_many(
             [

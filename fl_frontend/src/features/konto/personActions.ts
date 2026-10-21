@@ -18,7 +18,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { beantrageKontoAdresswechsel, eraseEigeneDaten, gibKontoAdresswechselFrei, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
 import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
-import { FLKontoAdresswechselPayloadSchema } from "./schemas";
+import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
@@ -169,9 +169,15 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
   });
 }
 
-/** The address on file's approval of a change an administrator started without a reason: only now does the new address get its link. */
-export async function gibAdresswechselFreiAction(): Promise<AdresswechselGesendet | StepUpRequired> {
+/**
+ * The address on file's approval of the change its page showed, one an administrator started without a reason: only
+ * now does the new address get its link. A later start replaced the shown one, and the press then approves nothing.
+ */
+export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Promise<AdresswechselGesendet | StepUpRequired> {
   return runPersonRecordMutation("gibAdresswechselFreiAction", async (subject) => {
+    const validated = FLKontoAdresswechselFreigabePayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: VALIDATION_FAILED };
+
     // The approval hands the records over as a start does, so it is held to the same window.
     if (!(await istFrischBestaetigt())) {
       refresh();
@@ -180,7 +186,7 @@ export async function gibAdresswechselFreiAction(): Promise<AdresswechselGesende
 
     let freigabe;
     try {
-      freigabe = await gibKontoAdresswechselFrei();
+      freigabe = await gibKontoAdresswechselFrei(validated.data);
     } catch (error) {
       const refusal = mapKontoFreigabeRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };

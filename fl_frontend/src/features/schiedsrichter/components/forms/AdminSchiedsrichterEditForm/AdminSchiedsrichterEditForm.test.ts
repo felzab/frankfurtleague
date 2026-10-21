@@ -10,6 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE } from "@/features/schiedsrichter/constants.ts";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -88,6 +89,52 @@ describe("the confirmation panel inside the referee's editor", () => {
 
     const send = screen.getByRole("button", { name: "Bestätigungslink senden" });
     assert.notEqual(send.getAttribute("aria-disabled"), "true", "the send is closed on a row holding an address");
+  });
+});
+
+/* A confirmed referee's address moves only by an address change, and the save refuses one typed here
+   (`REQ-SCHIEDSRICHTER-011`): a box for it offers the administrator a press that can only be turned away. */
+describe("a confirmed referee's address inside the editor", () => {
+  const confirmedEditor = (adresswechselId: string | null) =>
+    underNext(
+      h(AdminSchiedsrichterEditForm, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...RECORD,
+          kontakt: { telefon: null, email: "anna.koerner@schule.de" },
+          einwilligung: {
+            umfang: "intern",
+            datum: "2026-09-22",
+            bestaetigt_am: "2026-09-22",
+            text_version: "2026-09-schiedsrichterseite",
+            medien: false,
+            nachweis: { umfang: null, medien: null },
+          },
+          adresswechsel_id: adresswechselId,
+        },
+        isRetired: false,
+        pageHeader: { title: RECORD.name },
+      }),
+      { router: nextRouter(), search: "saison_id=2526" },
+    );
+
+  it("is read out, with no box to type another into", () => {
+    render(confirmedEditor(null));
+
+    assert.equal(screen.queryAllByRole("textbox", { name: "E-Mail" }).length, 0, "a confirmed referee's address is offered for typing");
+    assert.ok(screen.getByText("anna.koerner@schule.de"), "the stored address is not read out");
+  });
+
+  /* The pupil editor's layout (`FormAdresseSection.tsx`): the readout's own field pair, and the pending change's
+     line under it at the panel's width rather than squeezed into the cell beside the telephone. */
+  it("stands in a row of its own, the pending change's line at full width", () => {
+    render(confirmedEditor("68c1f0a2b3c4d5e6f7a8b9e0"));
+
+    const readout = screen.getByText("anna.koerner@schule.de").closest("dl");
+    assert.equal(readout?.className, FIELD_PAIR_CLASSES, "the readout has no field pair of its own");
+    assert.equal(readout?.contains(screen.getByRole("textbox", { name: "Telefon" })), false, "the telephone shares the readout's row");
+    const hinweis = screen.getByText(/Für diese Adresse läuft eine Änderung/);
+    assert.ok(hinweis.closest('[class~="sm:grid-cols-2"]') === null, "the pending change's line sits in a half-width grid cell");
   });
 });
 

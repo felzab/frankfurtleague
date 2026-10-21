@@ -20,12 +20,13 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.schemas import FLAdresswechselMitteilung
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
     FLAdresswechselEndeArt,
     build_address_filter,
     compose_end_update,
+    compose_genehmigung_widerrufen_update,
+    compose_postausgang,
     deckt,
     find_abgelaufen_refusal,
     find_bestaetigung_gesperrt_refusal,
@@ -34,9 +35,12 @@ from app.api.adresswechsel.services import (
     find_nicht_gedeckt_refusal,
     find_vergeben_refusal,
 )
-from app.api.aktionen.crud import redact_images_in_session
-from app.api.berechtigungen.crud import grant_in_session, revoke_in_session
-from app.api.berechtigungen.services import lebendige_adresse
+from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
+from app.api.aktionen.services import IMAGE_ADDRESSES
+from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
+from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
+from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import eigene_sitze, ist_eigener_schiedsrichter, namen_aus
@@ -56,7 +60,8 @@ from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.drosselung import carry_counts_in_session
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
@@ -204,9 +209,9 @@ async def end_the_change_in_session(
     # The address on file too, where its records are gone and no erasure's address pass follows.
     ohne_adresse: bool = False,
 ) -> Mapping[str, Any]:
-    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I693`).
+    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I704`, `:: I816`).
 
-    Its images keep their instants and hashes, never the address nobody proved, nor its reason.
+    Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
     """
 
     stored = await patch_one_in_db(
@@ -218,7 +223,7 @@ async def end_the_change_in_session(
     )
 
     # After the patch, so it reaches the image the patch filed. An effect keeps the new address, which the person's records
-    # hold and their erasure finds, and drops the replaced one, which nothing holds for an erasure to find.
+    # hold and their erasure finds, and drops the replaced one, which no record holds for an erasure to find.
     redacted = ("adresse",) if art == "wirksam" else ("email", "grund", *(("adresse",) if ohne_adresse else ()))
     await redact_images_in_session(
         aktionen_collection=aktionen_collection,
@@ -319,6 +324,9 @@ class Urteil:
     ursache: FLAdresswechselUrsache | None
     leer: bool
     wartet: bool
+    # The approval given does not stand: its approver lost the grant, the tier or their standing since, so the change
+    # waits on another (`app/api/berechtigungen/services.py :: genehmigung_steht`).
+    widerrufen: bool = False
 
 
 async def judge_the_effect_in_session(
@@ -327,6 +335,7 @@ async def judge_the_effect_in_session(
     bestand: Bestand,
     spieler_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
     sperrliste: BanList,
     massgebliche_saison_id: Saison,
     # The link's own deadline, judged second: a press on a lapsed link to a barred address names the ban.
@@ -367,7 +376,22 @@ async def judge_the_effect_in_session(
     if await live_grant_of(sign_in_identifier(neue), berechtigungen_collection=berechtigungen_collection, session=session) is not None:
         return Urteil(ursache="neue_berechtigt", leer=False, wartet=False)
 
-    return Urteil(ursache=None, leer=False, wartet=isinstance(genehmigung, Mapping) and genehmigung.get("genehmigt_am") is None)
+    assert isinstance(genehmigung, Mapping)
+    if genehmigung.get("genehmigt_am") is None:
+        return Urteil(ursache=None, leer=False, wartet=True)
+
+    # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
+    # leaves no approval standing (`docs/backend/spec.md :: I844`).
+    von = genehmigung.get("genehmigt_von")
+    steht = genehmigung_steht(
+        betroffen=alte,
+        genehmigung=genehmigung,
+        grants=await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session),
+        announced=await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session),
+        gesperrt=await adressen_gesperrt(sperrliste, [von], session=session) if isinstance(von, str) else set(),
+    )
+
+    return Urteil(ursache=None, leer=False, wartet=not steht, widerrufen=not steht)
 
 
 def refusal_of(ursache: FLAdresswechselUrsache | None) -> WriteRefusal | None:
@@ -406,6 +430,11 @@ async def take_effect_in_session(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
@@ -415,8 +444,8 @@ async def take_effect_in_session(
     abgelaufen: bool = False,
     # False for a confirmation that starts a waiting time: judged as the effect will be, and moving nothing yet.
     jetzt: bool = True,
-) -> tuple[Urteil, FLAdresswechselMitteilung | None]:
-    """Judge the change and move it where nothing refuses it or is owed, answering the notice to mail.
+) -> tuple[Urteil, bool]:
+    """Judge the change and move it where nothing refuses it or is owed, answering whether it took effect.
 
     A change finding nothing to move ends discarded; a refusal, an owed approval and a waiting time write nothing
     (`Urteil.wartet`).
@@ -430,15 +459,25 @@ async def take_effect_in_session(
         bestand=bestand,
         spieler_collection=spieler_collection,
         berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
         sperrliste=sperrliste,
         massgebliche_saison_id=massgebliche_saison_id,
         abgelaufen=abgelaufen,
         session=session,
     )
+    if urteil.widerrufen:
+        # Taken off the record, so the administrators page offers the approval again and the pass finds it due nowhere.
+        await patch_one_in_db(
+            collection=adresswechsel_collection,
+            db_filter={"_id": record["_id"], **LIVE_TERMS},
+            update=compose_genehmigung_widerrufen_update(),
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
     if urteil.ursache is not None or urteil.wartet:
-        return urteil, None
+        return urteil, False
     if not jetzt and not urteil.leer:
-        return Urteil(ursache=None, leer=False, wartet=True), None
+        return Urteil(ursache=None, leer=False, wartet=True), False
 
     stamp = log_stamp(now)
     if urteil.leer:
@@ -455,9 +494,9 @@ async def take_effect_in_session(
         journal.note(
             ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
         )
-        return urteil, None
+        return urteil, False
 
-    mitteilung = await move_the_address_in_session(
+    beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
         sperrliste=sperrliste,
@@ -471,15 +510,23 @@ async def take_effect_in_session(
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        einladungen_collection=einladungen_collection,
+        sperrliste_collection=sperrliste_collection,
+        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+        drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
         adressanker_collection=adressanker_collection,
         schluessel=schluessel,
         now=now,
         session=session,
     )
+    # The refusal's own line for each request the effect ended, so a restore from before it does not bring one back.
+    for antrag in beendet:
+        journal.note(abgelehnt_line(antrag=antrag, am=stamp, schluessel=schluessel))
     journal.note(wirksam_line(record=record, now=now, schluessel=schluessel))
 
-    return urteil, mitteilung
+    return urteil, True
 
 
 async def move_the_address_in_session(
@@ -497,12 +544,17 @@ async def move_the_address_in_session(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     session: AsyncClientSession,
-) -> FLAdresswechselMitteilung:
+) -> list[Mapping[str, Any]]:
     """Move everything `bestand` holds to the change's address in the caller's transaction, then end it as taken effect.
 
     One patch per row, never a fan-out, so each row's own history keeps the write that moved it (`docs/backend/spec.md :: I40`).
@@ -600,13 +652,80 @@ async def move_the_address_in_session(
         session=session,
     )
 
+    # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
+    beendet = await end_the_antraege_about_in_session(
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        adresse=bestand.identifier,
+        session=session,
+    )
+
+    # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
+    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I845`).
+    alt, neu = bestand.identifier, sign_in_identifier(neue)
+    # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
+    # decisions included: the starter of a change stays excluded from approving it.
+    await carry_authorship_in_session(
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        registrierungen_collection=registrierungen_collection,
+        einladungen_collection=einladungen_collection,
+        sperrliste_collection=sperrliste_collection,
+        alt=alt,
+        neue=neu,
+        session=session,
+    )
+    await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
+    await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
+    await carry_the_replaced_address_in_images(
+        aktionen_collection=aktionen_collection, alt=alt, neue=neu, collections=tuple(IMAGE_ADDRESSES), stamp=stamp, session=session
+    )
+    # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
+    await carry_counts_in_session(
+        drosselung_collection=drosselung_collection,
+        alt=akteur_pseudonym(alt, schluessel=schluessel),
+        neu=akteur_pseudonym(neu, schluessel=schluessel),
+        session=session,
+    )
+    # An earlier effect's notice still queued carries its account to where the person is now, and an erasure there finds it.
+    queued = await aggregate_many_from_db(
+        collection=adresswechsel_postausgang_collection,
+        pipeline=[{"$match": {"email": alt}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+    if queued:
+        await patch_many_in_db(
+            collection=adresswechsel_postausgang_collection,
+            db_filter={"_id": {"$in": [row["_id"] for row in queued]}},
+            update={"$set": {"email": neu}},
+            session=session,
+        )
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I846`). Both
+    # addresses folded, as every stored address is, so an erasure's equality finds the row.
+    await post_one_to_db(
+        collection=adresswechsel_postausgang_collection,
+        document=compose_postausgang(
+            art="wirksam",
+            bisherige_email=alt,
+            email=neu,
+            # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
+            vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
+            weg=record["weg"],
+            now=now,
+        ),
+        session=session,
+    )
+
     # The effect writes the address onto rows the start never wrote (`docs/backend/spec.md :: I719`), and moves every
     # record of the one replaced: a record committed there meanwhile, which this read never saw, would stay behind.
     await anchor_the_addresses(
         [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
 
-    return FLAdresswechselMitteilung(bisherige_email=bestand.identifier, email=neue, vorname=bestand.vorname, weg=record["weg"])
+    # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I857`).
+    return beendet
 
 
 async def _move_the_grant(
@@ -739,7 +858,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     # Each clause its index's, or the `$or` scans the collection: the key's type stated for `build_address_filter`'s reason.
     return [
         {"$match": {**LIVE_TERMS, "$or": [{"adresse": {"$eq": folded, "$type": "string"}}, {"email": folded}]}},
-        {"$project": {"adresse": 1, "email": 1}},
+        {"$project": {"adresse": 1, "email": 1, "token_hash": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -750,12 +869,19 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
     return [row for row in rows if row.get("adresse") != identifier]
 
 
+def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The ones whose link reached the new mailbox (`docs/backend/spec.md :: I794`): a request awaiting approval has not."""
+
+    return [row for row in rows if row.get("token_hash") is not None]
+
+
 _GENEHMIGUNG_AKTEURE: Final = ("genehmigung.gestartet_von", "genehmigung.genehmigt_von")
 
 
 async def end_the_address_changes_in_session(
     *,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     identifier: str,
     # The subject's rows, read before the erasure's first write.
@@ -781,17 +907,46 @@ async def end_the_address_changes_in_session(
             session=session,
         )
 
-    # After the endings, which took the approval off every change they ended. Folded, as
-    # `app/core/security.py :: bind_actor` stores every administrator's address.
-    for path in _GENEHMIGUNG_AKTEURE:
-        await patch_many_in_db(
-            collection=adresswechsel_collection,
-            db_filter={**LIVE_TERMS, path: sign_in_identifier(identifier)},
-            update={"$set": {path: ERASED_ACTOR_MARKER}},
-            session=session,
+    # Read after the endings, which took the approval off every change they ended.
+    await _reattribute_the_changes(adresswechsel_collection, identifier, ERASED_ACTOR_MARKER, session=session)
+
+    # A notice still owed to the erased person goes undelivered: by id, imageless, as a delivered one is removed. Every
+    # address the outbox stores is folded, so an equality finds them.
+    owed = await aggregate_many_from_db(
+        collection=adresswechsel_postausgang_collection,
+        pipeline=[{"$match": {"$or": [{"bisherige_email": identifier}, {"email": identifier}]}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+    if owed:
+        await erase_many_from_db(
+            collection=adresswechsel_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in owed]}}, session=session
         )
 
     return len(rows)
+
+
+async def _reattribute_the_changes(
+    adresswechsel_collection: AsyncCollection, identifier: str, value: str, *, session: AsyncClientSession
+) -> None:
+    """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address.
+
+    Read, then written by id: the log keeps a fan-out's filter as text, address and all.
+    """
+
+    for path in _GENEHMIGUNG_AKTEURE:
+        # Folded, as `app/core/security.py :: bind_actor` stores every administrator's address.
+        named = await aggregate_many_from_db(
+            collection=adresswechsel_collection,
+            pipeline=[{"$match": {**LIVE_TERMS, path: sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
+            session=session,
+        )
+        if named:
+            await patch_many_in_db(
+                collection=adresswechsel_collection,
+                db_filter={"_id": {"$in": [row["_id"] for row in named]}},
+                update={"$set": {path: value}},
+                session=session,
+            )
 
 
 async def end_an_emptied_change_in_session(

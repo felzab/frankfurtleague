@@ -6,6 +6,8 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
+import { GENEHMIGUNG_JUENGER } from "@/features/adresswechsel/refusals";
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -24,7 +26,31 @@ const VERWEHRT: Readonly<Record<NonNullable<FLBerechtigungAdresswechsel["verwehr
   eigene: "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung.",
   gestartet: "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung.",
   inhaber: "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
+  juenger: GENEHMIGUNG_JUENGER,
 };
+
+/**
+ * Who started the change and how, which is what a pretext hides: the starter is absent where the row withholds them
+ * from a non-owner, the backend deciding that rather than this panel.
+ */
+function begonnen(adresswechsel: FLBerechtigungAdresswechsel): string {
+  if (adresswechsel.weg === "konto") return "Die Person hat die Änderung selbst in ihrem Konto angefragt.";
+
+  const von =
+    adresswechsel.gestartet_von === null && !adresswechsel.gestartet_von_gesperrt
+      ? "Aus der Verwaltung begonnen"
+      : `Begonnen von ${vonOderGesperrt(adresswechsel.gestartet_von, adresswechsel.gestartet_von_gesperrt)}`;
+  const weg = adresswechsel.weg === "freigabe" ? "mit Freigabe durch die bisherige Adresse" : "ohne die bisherige Adresse";
+
+  return `${von}, ${weg}.${adresswechsel.grund === null ? "" : ` Grund: ${adresswechsel.grund}`}`;
+}
+
+/** The new address, or why the row withholds it. */
+function neueAdresse(adresswechsel: FLBerechtigungAdresswechsel): string {
+  if (adresswechsel.email !== null) return adresswechsel.email;
+
+  return adresswechsel.email_gesperrt ? vonOderGesperrt(null, true) : "nur für Inhaberinnen und Inhaber sichtbar";
+}
 
 /**
  * The approval of a grant holder's change, on the grant it moves: four eyes on the change that hands a grant to
@@ -61,10 +87,11 @@ export function AdminBerechtigungGenehmigenPanel({
   return (
     <div className="flex w-full flex-col gap-3">
       <p className="fluid-sm text-pretty text-foreground">
-        Neue Adresse für diesen Zugang: {adresswechsel.email}.{" "}
+        Neue Adresse für diesen Zugang: {neueAdresse(adresswechsel)}.{" "}
         {adresswechsel.bestaetigt ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis{" "}
         {adresswechselZeitpunkt(adresswechsel.bis)}.
       </p>
+      <p className="fluid-sm text-pretty text-foreground">{begonnen(adresswechsel)}</p>
 
       {isConfirming && (
         <ConfirmReveal>
@@ -84,7 +111,7 @@ export function AdminBerechtigungGenehmigenPanel({
             reason={adresswechsel.verwehrt === null ? null : VERWEHRT[adresswechsel.verwehrt]}
             resting={AENDERUNG_GENEHMIGEN}
             // Named by its row, so each control in the list is one a screen reader can tell from the next.
-            restingName={`${AENDERUNG_GENEHMIGEN}: ${adresse ?? adresswechsel.email}`}
+            restingName={`${AENDERUNG_GENEHMIGEN}: ${adresse ?? neueAdresse(adresswechsel)}`}
             armed="Ja, Adressänderung genehmigen"
             running="Genehmigt..."
             icon={

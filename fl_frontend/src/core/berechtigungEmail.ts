@@ -34,12 +34,21 @@ const OHNE_VERWALTUNG = "Diese Änderung wurde nicht in der Verwaltung vorgenomm
 /** What a reader does with the notice, and the whole of why every holder is sent it. */
 const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort bei den anderen Administratorinnen und Administratoren.";
 
+/** A request's own heading and subject: it changes nobody's access, and asks its reader to decide it. */
+const ANTRAG_UEBERSCHRIFT = "Antrag auf Zugang zur Verwaltung";
+const ANTRAG_BETREFF = `${ANTRAG_UEBERSCHRIFT} der ${BRAND_NAME}`;
+
+/** What the approver does, and the check their approval stands for. */
+const ANTRAG_AUFGABE =
+  "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person diesen Zugang bekommen soll.";
+
 /** Why a grant's address is withheld, the notice naming neither a barred address nor an erased person's. */
 export type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
 
 /** One change as the notice states it. */
 export type Zugangsaenderung = {
-  readonly art: "erteilt" | "geaendert" | "entzogen";
+  // `beantragt`: a grant or a promotion asked for, sent to whoever could approve it.
+  readonly art: "erteilt" | "geaendert" | "entzogen" | "beantragt";
   readonly adresse: string | Vorenthalten;
   // The `owner` tier the grant holds now, or held until it ended.
   readonly inhaber: boolean;
@@ -91,6 +100,10 @@ function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => s
       return aenderung.inhaber
         ? `${subjekt} ist jetzt ${INHABER} der Verwaltung.`
         : `${subjekt} ist nicht mehr ${INHABER} der Verwaltung und behält den Zugang.`;
+    case "beantragt":
+      return aenderung.inhaber
+        ? `Für ${subjekt} ist beantragt, ${INHABER} der Verwaltung zu werden.`
+        : `Für ${subjekt} ist ein Zugang zur Verwaltung beantragt.`;
   }
 }
 
@@ -102,11 +115,11 @@ function urheberName(von: string | null, wer: (adresse: string) => string): stri
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
-function urheberSatz(urheber: Urheber, wer: (adresse: string) => string): string {
+function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = "Geändert"): string {
   if (urheber === null) return OHNE_VERWALTUNG;
 
   const von = urheberName(urheber.von, wer);
-  return urheber.am === null ? `Geändert von ${von}.` : `Geändert von ${von} am ${wer(zeitText(urheber.am))}.`;
+  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
 }
 
 /**
@@ -121,14 +134,19 @@ export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRo
   const { adresse } = aenderungRoh;
   const aenderung: Zugangsaenderung = { ...aenderungRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
   const urheber: Urheber = urheberRoh === null || urheberRoh.von === null ? urheberRoh : { ...urheberRoh, von: einzeilig(urheberRoh.von) };
+  // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
+  const antrag = aenderung.art === "beantragt";
+  const ueberschrift = antrag ? ANTRAG_UEBERSCHRIFT : UEBERSCHRIFT;
+  const verb = antrag ? "Beantragt" : "Geändert";
+  const schluss = antrag ? ANTRAG_AUFGABE : WARNSATZ;
 
   const html = renderKarte({
-    titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    ueberschrift: escapeHtml(UEBERSCHRIFT),
+    titel: `${BRAND_NAME}: ${ueberschrift}`,
+    ueberschrift: escapeHtml(ueberschrift),
     bloecke: [
       paragraph(aenderungsSatz(aenderung, (value) => strong(escapeHtml(value)))),
-      paragraph(escapeHtml(urheberSatz(urheber, (value) => value))),
-      paragraph(escapeHtml(WARNSATZ), "0", ASIDE_TEXT),
+      paragraph(escapeHtml(urheberSatz(urheber, (value) => value, verb))),
+      paragraph(escapeHtml(schluss), "0", ASIDE_TEXT),
     ],
     aktionen: [{ href: ziel, label: ZIEL_LABEL, ton: "primary" }],
     fuss: ANTWORT_SATZ_HTML,
@@ -136,17 +154,17 @@ export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRo
   });
 
   const oben = [
-    `${BRAND_NAME}: ${UEBERSCHRIFT}`,
+    `${BRAND_NAME}: ${ueberschrift}`,
     "",
     aenderungsSatz(aenderung, (value) => value),
     "",
-    urheberSatz(urheber, (value) => value),
+    urheberSatz(urheber, (value) => value, verb),
     "",
     `${ZIEL_LABEL}: ${ziel}`,
     "",
-    WARNSATZ,
+    schluss,
   ];
   const text = [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 
-  return { subject: BETREFF, html: html, text: text };
+  return { subject: antrag ? ANTRAG_BETREFF : BETREFF, html: html, text: text };
 }

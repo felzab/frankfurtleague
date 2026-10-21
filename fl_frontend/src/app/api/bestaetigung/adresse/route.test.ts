@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleSendMail } from "@/core/mailDouble.ts";
@@ -16,19 +17,54 @@ const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 const ANSICHT = "/adresswechsel/bestaetigung/ansicht";
 const ANTWORT = "/adresswechsel/bestaetigung";
 const STOPP = "/adresswechsel/bestaetigung/stopp";
+const CLAIM = "/adresswechsel/sweep/postausgang";
+const STAMP = "/adresswechsel/sweep/postausgang/zugestellt";
 
 let antwortet: () => unknown;
 let stoppt: () => unknown;
 let liest: () => unknown;
+/** What the outbox holds for the next claim, emptied by it: the drain claims until a claim holds nothing. */
+let owed: unknown[];
+
+const claim = () => {
+  const mitteilungen = owed;
+  owed = [];
+  return { acknowledged: 1, beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
+};
+
+const ABGLEICH = "/berechtigungen/abgleich";
+const NOTHING_ANNOUNCED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 const calls = doubleApiClient(({ endpoint }, schema) => {
-  const antwort = endpoint === STOPP ? stoppt() : endpoint === ANSICHT ? liest() : antwortet();
+  const antwort =
+    endpoint === ABGLEICH
+      ? NOTHING_ANNOUNCED
+      : endpoint === STOPP
+        ? stoppt()
+        : endpoint === ANSICHT
+          ? liest()
+          : endpoint === CLAIM
+            ? claim()
+            : endpoint === STAMP
+              ? { acknowledged: 1, zugestellt: 1, ignoriert: 0 }
+              : antwortet();
   if (antwort instanceof Error) throw antwort;
   return schema.parse(antwort);
 });
 const mail = doubleSendMail();
 
-doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
+/** Work the real `after` would run behind the response, collected so a case runs it once the answer is read. */
+const deferred: (() => unknown)[] = [];
+
+doublePublicRouteRequest({
+  modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG },
+  specifiers: {
+    "next/server": {
+      NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
+      after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)),
+    },
+  },
+});
 
 const { POST } = await import("./route.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
@@ -39,17 +75,17 @@ const TOKEN = "abc123";
 
 const ANSWER_OPERATION = "POST /adresswechsel/bestaetigung";
 
+/** A confirmation that took effect: its notice is in the outbox the effect wrote, never in this answer. */
+const WIRKSAM = { acknowledged: 1, antwort: "bestaetigt", wirksam: true, wirksam_ab: null, genehmigung_offen: false };
+
 /**
- * A confirmation that took effect, the change made because the mailbox is lost: no account moves on that way, so the
- * notice is this handler's one effect (the move is held in `features/adresswechsel/notifications.test.ts`).
+ * The notice that effect owes, the change made because the mailbox is lost: no account moves on that way, so the notice
+ * is the drain's one effect here (the move is held in `features/adresswechsel/notifications.test.ts`).
  */
-const WIRKSAM = {
-  acknowledged: 1,
-  antwort: "bestaetigt",
-  wirksam_ab: null,
-  genehmigung_offen: false,
-  mitteilung: { bisherige_email: BISHER, email: NEU, vorname: "Lena", weg: "wartezeit" },
-};
+const OWED_ID = "68c1f0a2b3c4d5e6f7a8b9e1";
+const OWED = { id: OWED_ID, art: "wirksam", bisherige_email: BISHER, email: NEU, vorname: null, weg: "wartezeit", aufgegeben: false };
+
+const stamped = () => calls.filter(({ endpoint }) => endpoint === STAMP).map(({ body: sent }) => JSON.parse(String(sent)) as unknown);
 
 function aRequest(body: unknown) {
   return { headers: new Headers(), json: async () => body } as unknown as Parameters<typeof POST>[0];
@@ -62,29 +98,40 @@ const sentTo = () => calls.map(({ endpoint, body: sent }) => [endpoint, JSON.par
 
 beforeEach(() => {
   calls.length = 0;
+  deferred.length = 0;
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
+  owed = [OWED];
   antwortet = () => WIRKSAM;
   stoppt = () => ({ acknowledged: 1, gestoppt: true });
   liest = () => ({ acknowledged: 1, ansicht: { seite: "neu", zustand: "beendet", art: "abgelehnt" } });
 });
 
 describe("the address page's handler", () => {
-  /* The public answer's one widening: the replaced address reaches this handler alone, which mails the notice. */
-  it("mails the replaced address its completion notice, and answers the browser without either address or the name", async () => {
+  /* The answer carries no address: the replaced one is read from the outbox behind the response, by this server alone. */
+  it("answers the browser at once, then delivers the outbox's completion notice behind the response and stamps it", async () => {
     const body = await bodyOf({ token: TOKEN, antwort: "bestaetigt" });
 
     assert.deepEqual(body, { success: true, antwort: "bestaetigt", wirksam: true, wirksam_ab: null, genehmigung_offen: false });
+    assert.deepEqual(mail.sent, [], "the answer waited on the notice");
+
+    for (const task of deferred) await task();
+
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
       [BISHER],
     );
-    assert.doesNotMatch(JSON.stringify(body), /alt\.example|neu\.example|Lena/, "the browser's answer carries what only the handler may read");
+    assert.deepEqual(stamped(), [{ beanspruchung: "claim-1", ids: [OWED_ID] }]);
+    // A grant the effect moved is announced behind the answer too, not at the next five-minute pass.
+    assert.ok(
+      calls.some(({ endpoint }) => endpoint === ABGLEICH),
+      "the confirmation left a moved grant's announcement to the next pass",
+    );
   });
 
-  /* Best effort, as the notice at the start is: the change stands whatever the provider answered. */
-  it("answers the effect as done where the completion notice did not leave", async () => {
-    mail.answerWith(() => "refused");
+  /* The change stands whatever the provider answered; the notice waits for the next claim once this one's lease lapses. */
+  it("answers the effect as done where the completion notice did not leave, and leaves the notice unstamped", async () => {
+    mail.answerWith(() => "unsent");
 
     assert.deepEqual(await bodyOf({ token: TOKEN, antwort: "bestaetigt" }), {
       success: true,
@@ -93,33 +140,38 @@ describe("the address page's handler", () => {
       wirksam_ab: null,
       genehmigung_offen: false,
     });
+    for (const task of deferred) await task();
+
+    assert.deepEqual(stamped(), []);
   });
 
   for (const [stand, antwort, expected] of [
     [
       "started a waiting time, naming its end",
-      { acknowledged: 1, antwort: "bestaetigt", wirksam_ab: "2026-10-28T12:30:00Z", genehmigung_offen: false, mitteilung: null },
+      { acknowledged: 1, antwort: "bestaetigt", wirksam: false, wirksam_ab: "2026-10-28T12:30:00Z", genehmigung_offen: false },
       { wirksam: false, wirksam_ab: "2026-10-28T12:30:00Z", genehmigung_offen: false },
     ],
     [
       "waits for the Verwaltung's approval",
-      { acknowledged: 1, antwort: "bestaetigt", wirksam_ab: null, genehmigung_offen: true, mitteilung: null },
+      { acknowledged: 1, antwort: "bestaetigt", wirksam: false, wirksam_ab: null, genehmigung_offen: true },
       { wirksam: false, wirksam_ab: null, genehmigung_offen: true },
     ],
   ] as const) {
-    it(`mails nobody where the confirmation ${stand}`, async () => {
+    it(`drains nothing where the confirmation ${stand}`, async () => {
       antwortet = () => antwort;
 
       assert.deepEqual(await bodyOf({ token: TOKEN, antwort: "bestaetigt" }), { success: true, antwort: "bestaetigt", ...expected });
+      assert.deepEqual(deferred, []);
       assert.deepEqual(mail.sent, []);
     });
   }
 
-  it("sends the stop through its own endpoint with the token alone, and mails nobody", async () => {
+  it("sends the stop through its own endpoint with the token alone, and drains nothing", async () => {
     const body = await bodyOf({ token: TOKEN, antwort: "gestoppt" });
 
     assert.deepEqual(body, { success: true, antwort: "gestoppt", wirksam: false, wirksam_ab: null, genehmigung_offen: false });
     assert.deepEqual(sentTo(), [[STOPP, { token: TOKEN }]]);
+    assert.deepEqual(deferred, []);
     assert.deepEqual(mail.sent, []);
   });
 
@@ -130,7 +182,7 @@ describe("the address page's handler", () => {
   });
 
   it("sends the new mailbox's answer to its endpoint, never to the stop's", async () => {
-    antwortet = () => ({ acknowledged: 1, antwort: "abgelehnt", wirksam_ab: null, genehmigung_offen: false, mitteilung: null });
+    antwortet = () => ({ acknowledged: 1, antwort: "abgelehnt", wirksam: false, wirksam_ab: null, genehmigung_offen: false });
 
     await bodyOf({ token: TOKEN, antwort: "abgelehnt" });
 

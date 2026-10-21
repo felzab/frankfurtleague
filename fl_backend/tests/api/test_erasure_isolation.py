@@ -11,7 +11,7 @@ once the erasure has answered.
 import functools
 import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -178,16 +178,39 @@ async def a_league(database: AsyncDatabase) -> None:
 
 
 async def a_grant(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """Granted by an administrator nobody else could approve beside: the league holds no other grant, so it takes effect at once."""
+
     return await post_berechtigung(
         berechtigung_data=FLPostBerechtigungPayload(email=TYPED),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         erteilt_von=ADMINISTRATORS[0],
         now=NOW,
+    )
+
+
+async def a_request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """A grant of the address asked for where colleagues could approve it, so it waits as a request (`docs/backend/spec.md :: I848`)."""
+
+    await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+
+    return await post_berechtigung(
+        berechtigung_data=FLPostBerechtigungPayload(email=TYPED),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        db=client,
+        erteilt_von=ADMINISTRATORS[0],
+        # On the real clock: the request lapses a week after it, and the TTL monitor removes a lapsed one.
+        now=datetime.now(UTC),
     )
 
 
@@ -368,6 +391,7 @@ async def a_corrected_referee_address(database: AsyncDatabase, client: AsyncMong
 # Each writer an address enters a record through from a payload, with the count the erasure's answer files it under.
 WRITERS: dict[str, tuple[Rival, str]] = {
     "a grant": (a_grant, "berechtigungen"),
+    "a request for a grant": (a_request, "berechtigungen_antraege"),
     "a contact seat on a season row": (a_seat_on_the_season_row, "kontakt_sitze"),
     "a contact seat on an application": (a_seat_on_the_application, "kontakt_sitze"),
     "a contact seat filled on an application": (a_seat_filled_on_the_application, "kontakt_sitze"),

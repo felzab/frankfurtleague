@@ -405,9 +405,10 @@ _ADRESSWECHSEL_ENDE_ARTEN = ["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "
 # The approval a change moving a grant waits on. Its two addresses are administrators', as `erteilt_von` is.
 _ADRESSWECHSEL_GENEHMIGUNG = _object(
     nullable=True,
-    required=("verwaltung", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
+    required=("verwaltung", "angefragt_am", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
     properties={
         "verwaltung": {"bsonType": "string", "enum": ["owner", "administration"]},
+        "angefragt_am": {"bsonType": "date"},
         "bis": {"bsonType": "date"},
         "gestartet_von": {"bsonType": "string"},
         "genehmigt_am": {"bsonType": ["date", "null"]},
@@ -532,7 +533,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
-_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
@@ -1453,6 +1454,58 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "art",
+                "bisherige_email",
+                "email",
+                "vorname",
+                "weg",
+                "erfasst_am",
+                "beansprucht_bis",
+                "beanspruchung",
+                "versuche",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "art": {"bsonType": "string", "enum": ["wirksam", "verworfen"]},
+                # The effect's notice names both addresses and whom it greets; a refusal's names the new address alone.
+                "bisherige_email": {"bsonType": _STRING_OR_NULL},
+                "email": {"bsonType": "string"},
+                "vorname": {"bsonType": _STRING_OR_NULL},
+                "weg": {"bsonType": _STRING_OR_NULL, "enum": [*_ADRESSWECHSEL_WEGE, None]},
+                "erfasst_am": {"bsonType": "date"},
+                # Required as keys and null until a pass claims the row, for `berechtigungen_postausgang`'s reason.
+                "beansprucht_bis": {"bsonType": ["date", "null"]},
+                "beanspruchung": {"bsonType": _STRING_OR_NULL},
+                "versuche": {"bsonType": "int"},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_ANTRAEGE: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "berechtigung_id", "genehmigung"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # Folded, as a grant's: the key `uniq_berechtigung_antrag_adresse` judges.
+                "adresse": {"bsonType": "string"},
+                "berechtigung_id": {"bsonType": ["objectId", "null"]},
+                # The address change's approval block, less the approval itself, which writes the grant and removes the row.
+                "genehmigung": _object(
+                    required=("verwaltung", "angefragt_am", "bis", "gestartet_von"),
+                    properties={
+                        "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                        "angefragt_am": {"bsonType": "date"},
+                        # A date, or `berechtigungen_antraege_bis` expires nothing.
+                        "bis": {"bsonType": "date"},
+                        "gestartet_von": {"bsonType": "string"},
+                    },
+                ),
+            },
+        )
+    },
 }
 
 
@@ -1569,6 +1622,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one live change per address",
         partial_filter={"beendet": {"$type": "null"}, "adresse": {"$type": "string"}},
     ),
+    # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
+    # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
+    UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
 )
 
 
@@ -1896,6 +1952,14 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         "beendet.am",
         ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
+    ),
+    # Zero: a lapsed request decides nothing, and every read already treats it as gone (`docs/backend/spec.md :: I851`).
+    TTLIndex(
+        Collection.BERECHTIGUNGEN_ANTRAEGE,
+        "berechtigungen_antraege_bis",
+        "genehmigung.bis",
+        0,
+        "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
 )
 
@@ -2413,6 +2477,13 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.ADRESSWECHSEL: {
         "verschickt_am": _DAY,
+    },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "versuche": _COUNT,
+    },
+    Collection.BERECHTIGUNGEN_ANTRAEGE: {
+        "adresse": _NON_EMPTY,
+        "genehmigung.gestartet_von": _NON_EMPTY,
     },
     Collection.SPIELER: {
         "einwilligung.datum": _DAY,

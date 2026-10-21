@@ -444,7 +444,7 @@ def compose_sitze_selbst(
 
 
 def build_selbst_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending application whose seats may name the address, `eigene_sitze` deciding as on a season row."""
+    """Every pending application with a seat at the address, `eigene_sitze` then keeping the confirmed ones as on a season row."""
 
     return [
         {"$match": build_eigene_bewerbung_filter(identifier)},
@@ -495,7 +495,7 @@ def compose_bewerbungssitze_selbst(
 
 
 def build_selbst_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending registration that may be the address's, `ist_eigene_registrierung` deciding as the gate's does."""
+    """Every pending registration at the address, `ist_eigene_registrierung` then keeping the confirmed ones as the gate does."""
 
     return [
         {"$match": build_eigene_registrierung_filter(identifier)},

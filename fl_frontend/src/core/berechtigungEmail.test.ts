@@ -105,6 +105,31 @@ describe("the notice a change to who administers sends", () => {
     }
   });
 
+  /* A request changes nobody's access: it is asked of its reader, under its own subject, and closes on what to do. */
+  it("asks for a request's decision, naming who asked and when, for a grant and a promotion alike", () => {
+    const zugang = buildBerechtigungEmail(
+      { art: "beantragt", adresse: "neu@schule.de", inhaber: false },
+      { von: "vorstand@schule.de", am: AM },
+      ORIGIN,
+    );
+    const ernennung = buildBerechtigungEmail(
+      { art: "beantragt", adresse: "kasse@schule.de", inhaber: true },
+      { von: "vorstand@schule.de", am: AM },
+      ORIGIN,
+    );
+
+    assert.equal(zugang.subject, "Antrag auf Zugang zur Verwaltung der Frankfurt League");
+    for (const part of [zugang.text, zugang.html]) {
+      assert.ok(part.includes("Für "), part);
+      assert.ok(part.includes("neu@schule.de"));
+      assert.ok(part.includes("ist ein Zugang zur Verwaltung beantragt."));
+      assert.ok(part.includes("Beantragt von vorstand@schule.de am 15. Januar 2026"), "the part names nobody, or not as a request");
+      assert.ok(part.includes("Genehmige oder lehne den Antrag in der Verwaltung"), "the part says not what to do");
+      assert.ok(!part.includes("Geändert von"), "a request reads as a change made");
+    }
+    assert.ok(ernennung.text.includes("Für kasse@schule.de ist beantragt, Inhaberin oder Inhaber der Verwaltung zu werden."));
+  });
+
   /* The application grants no `owner`, so one is a change in the database, and the one a holder most
      needs told as such. */
   it("names an `owner` grant as the owner's, barred or not", () => {

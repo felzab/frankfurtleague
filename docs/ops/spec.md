@@ -119,8 +119,9 @@ still running skips with one line rather than overlapping it. The clocks that wr
 select on dates or on season statuses and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
-([`docs/backend/spec.md`](../backend/spec.md) I156). The removal of a lapsed pending address is the
-pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the timer
+([`docs/backend/spec.md`](../backend/spec.md) I156). Ending an address change whose step lapsed is the
+pass's alone, and so, but for an approval pressed after it, is making one take effect once its
+waiting time ends: each happens only while `BEWERBUNG_SWEEP` arms the timer
 ([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
 pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
 its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
