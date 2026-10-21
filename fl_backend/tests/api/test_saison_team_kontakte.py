@@ -1049,10 +1049,14 @@ class TestWhomTheSaveTakesOffTheRow:
 
     @staticmethod
     def leaving(stored: Any, sent: Any) -> list[tuple[list[FLKontaktRolle], str]]:
+        return [(abgang.rollen, abgang.email) for abgang in TestWhomTheSaveTakesOffTheRow.abgaenge(stored, sent)]
+
+    @staticmethod
+    def abgaenge(stored: Any, sent: Any) -> list[Any]:
         kontakte = compose_kontakte_herkunft(kontakte=sent, stored=stored)
         owed = links_owed(kontakte=kontakte, stored=stored)
 
-        return [(abgang.rollen, abgang.email) for abgang in departing_holders(stored=stored, kontakte=kontakte, owed=owed, schule=TEAM_NAME)]
+        return departing_holders(stored=stored, kontakte=kontakte, owed=owed, schule=TEAM_NAME)
 
     def test_a_seat_handed_to_another_person_answers_the_mailbox_it_held(self):
         handed = {**RESAVED_AS_RENDERED, "stellvertretung": person("Lea")}
@@ -1089,9 +1093,18 @@ class TestWhomTheSaveTakesOffTheRow:
 
         unpaired = {**NEW_KONTAKTE, "ansprechperson": person("Jonas"), "trainer_ist_zugleich": None}
 
-        assert self.leaving(NEW_KONTAKTE, unpaired) == [(["ansprechperson"], "lea@example.com")]
+        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, unpaired)] == [
+            (["ansprechperson"], "lea@example.com", ["trainer"])
+        ]
 
     def test_a_trainer_keeping_the_paired_seat_alone_is_told_of_the_trainer_seat(self):
         handed = {**NEW_KONTAKTE, "trainer": person("Jonas"), "trainer_ist_zugleich": None}
 
-        assert self.leaving(NEW_KONTAKTE, handed) == [(["trainer"], "lea@example.com")]
+        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, handed)] == [
+            (["trainer"], "lea@example.com", ["ansprechperson"])
+        ]
+
+    def test_a_mailbox_leaving_the_row_is_told_it_keeps_no_seat(self):
+        """The other arm: a notice saying a seat stays would leave a mailbox off the row waiting on links that died."""
+
+        assert [abgang.bleibt_als for abgang in self.abgaenge(NEW_KONTAKTE, None)] == [[], []]

@@ -206,18 +206,24 @@ type EingetragenVonOption = {
   readonly label: string;
 };
 
+// Keyed by every member, so a member the enum gains fails the type check here rather than rendering as nothing.
+const EINGETRAGEN_VON_LABELS = {
+  bewerbung: "Mit der Bewerbung eingetragen",
+  liga: "Von der Liga eingetragen",
+} as const satisfies Record<FLKontaktKenntnisnahme["eingetragen_von"], string>;
+
 /**
  * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
  * or the league. The person's own answer is the confirmation stamp's to say, never this one's.
  */
 export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
-  { value: "bewerbung", label: "Mit der Bewerbung eingetragen" },
-  { value: "liga", label: "Von der Liga eingetragen" },
+  { value: "bewerbung", label: EINGETRAGEN_VON_LABELS.bewerbung },
+  { value: "liga", label: EINGETRAGEN_VON_LABELS.liga },
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
 export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
-  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "";
+  return EINGETRAGEN_VON_LABELS[von];
 }
 
 /**

@@ -10,13 +10,15 @@ import { SPIELER_UMFANG_FRAGE } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_UMFANG_FRAGE } from "@/features/schiedsrichter/constants.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
+import type { ReactNode } from "react";
+
 const { schiedsrichterWorte, sitzTitel, sitzWorte, spielerWorte } = await import("./kontoWorte.tsx");
 const { renderTree } = await import("@/shared/testing/renderTest.ts");
 
 /** The media floor every record is served at today. */
 const BODEN = { medien_mindestalter: 18 };
 
-const gerendert = (node: unknown): string => textOf(renderTree(h(Fragment, null, node as never)));
+const gerendert = (node: ReactNode): string => textOf(renderTree(h(Fragment, null, node)));
 
 describe("the account page's controls drawn from the served wording", () => {
   it("names the pupil's chips and switch by the running wording's own controls, and posts that wording's label", () => {

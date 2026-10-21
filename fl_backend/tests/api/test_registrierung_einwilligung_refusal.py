@@ -18,6 +18,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_MEDIEN_ALTER,
+    REGISTRIERUNG_OHNE_GEBURTSDATUM,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     REGISTRIERUNG_WAHLEN_UNPASSEND,
@@ -33,6 +34,7 @@ from app.api.registrierungen.services import (
     find_alter_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
+    find_ohne_geburtsdatum_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
     gespeichertes_geburtsdatum,
@@ -135,7 +137,7 @@ class TestTheLookupAndItsProjections:
         """An EQUALITY, not a subset.
 
         A field added to the model reaches a caller holding nothing but a token, and every other case
-        here would still pass: a stored birthdate or choice above all, which the view says only exists.
+        here would still pass: a stored birthdate or choice above all, which the view never serves.
         """
 
         assert set(FLRegistrierungBestaetigungAnsichtResponse.model_fields) == {
@@ -547,6 +549,22 @@ class TestTheBirthdateAPageTakesAsGiven:
 
         assert gespeichertes_geburtsdatum(seite=seite, person_raw=person) == taken
 
+    @pytest.mark.parametrize(
+        ("seite", "gespeichert", "refused"),
+        [
+            pytest.param(SEITE_WIEDERKEHREND, None, True, id="the returning page, no date stored"),
+            pytest.param(SEITE_WIEDERKEHREND, "2009-05-09", False, id="the returning page, a date stored"),
+            pytest.param(SEITE_NEU, None, False, id="the new pupil's page, which asks its own"),
+        ],
+    )
+    def test_the_returning_page_refuses_a_person_holding_no_date(self, seite: Any, gespeichert: Any, refused: bool):
+        """The first case is the load-bearing one: a refusal reopening the link would loop, the page holding no field to fill."""
+
+        refusal = find_ohne_geburtsdatum_refusal(seite=seite, gespeichert=gespeichert)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
+
 
 class TestTheChoicesThePageAsks:
     """`REQ-REGISTRIERUNG-017`: both choices and a date on the new pupil's page, none of them on the returning pupil's."""
@@ -569,9 +587,7 @@ class TestTheChoicesThePageAsks:
 
         # Each page's own date half answered as it asks, so the choices alone decide.
         neu = seite == SEITE_NEU
-        refusal = find_wahlen_refusal(
-            seite=seite, umfang=umfang, medien=medien, geburtsdatum="2009-05-09" if neu else None, gespeichert=None if neu else "2009-05-09"
-        )
+        refusal = find_wahlen_refusal(seite=seite, umfang=umfang, medien=medien, geburtsdatum="2009-05-09" if neu else None)
 
         assert (refusal is not None) == refused
         assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
@@ -594,7 +610,6 @@ class TestTheChoicesThePageAsks:
             umfang="intern" if neu else None,
             medien=False if neu else None,
             geburtsdatum=geburtsdatum,
-            gespeichert=None if neu else "2009-05-09",
         )
 
         assert (refusal is not None) == refused

@@ -31,7 +31,7 @@ const FORFEIT_LABEL_ID = "nichtantreten-ergebnis";
 const STUFEN_LABEL_ID = "erlaubte-stufen";
 
 /** Where a drawn season stands against the window the Spielplan's draw and its undraw both run in. */
-export type SpielplanWindowState = "open" | "recorded" | "closed";
+export type SpielplanWindowState = "open" | "recorded" | "berichtet" | "closed";
 
 /**
  * Three states and not two: the window shuts on a recorded fact and on the season starting, and only
@@ -44,6 +44,9 @@ const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
   // What counts as entered is the Spielplan panel's own list, stated there in full on exactly this
   // state: a second copy would put one sentence on the page twice.
   recorded: `Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt. Im Abschnitt ${SPIELPLAN_ABSCHNITT} steht, was dazu zählt.`,
+  // No page takes a report back, so the freeze names no way out of it.
+  berichtet:
+    "Solange für diese Saison ein Spielbericht vorliegt, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt.",
   // The freeze stated rather than left conditional: nothing returns a season to `future`
   // (`docs/backend/spec.md :: I18`), so a way out worded here would name one nobody can reach.
   closed:

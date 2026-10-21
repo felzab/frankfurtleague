@@ -1,11 +1,12 @@
 import json
 import math
+import posixpath
 import re
 import string
 from bisect import bisect_right
 from collections.abc import Callable, Iterator
 from itertools import product
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Final, NamedTuple, get_args
 
 import email_validator
@@ -349,14 +350,31 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
     assert mirror.python in _declared_bounds(), f"{mirror.python} is declared nowhere in bounds.py, so its mirror is compared to nothing"
 
 
-# A product of factors at most, the one arithmetic a unit conversion writes, each an integer or a
-# constant the same module declares the same way.
+# A product of factors at most, the one arithmetic a unit conversion writes, each an integer, a
+# constant the same module declares the same way, or one it imports by name from the module the unit lives in.
 _FACTOR = r"(?:\d+|[A-Z][A-Z0-9_]*)"
 _PRODUCT = rf"{_FACTOR}(?: \* {_FACTOR})*"
+_NAMED_IMPORT = re.compile(r'^import \{([^}]*)\} from "(\.{1,2}/[^"]+|@/[^"]+)";$', re.MULTILINE)
 
 
-def _integer_constant(source: str, name: str, *, exported: bool, reading: frozenset[str] = frozenset()) -> int | None:
-    """The value `source` declares `name` as, its named factors resolved in the same module; `None` for any other shape."""
+def _imported_module(source: str, module: str, name: str) -> str | None:
+    """The frontend module `source`, the text of `module`, imports `name` from by a named import, or `None`."""
+
+    for names, spec in _NAMED_IMPORT.findall(source):
+        if name in {entry.strip() for entry in names.split(",")}:
+            target = spec[2:] if spec.startswith("@/") else posixpath.normpath(PurePosixPath(module).parent / spec)
+            return f"{target}.ts"
+
+    return None
+
+
+def _integer_constant(
+    source: str, name: str, *, exported: bool, reading: frozenset[str] = frozenset(), module: str | None = None
+) -> int | None:
+    """The value `source` declares `name` as, its named factors resolved in it or, given `module`, in what it imports them from.
+
+    `None` for any other shape.
+    """
 
     if name in reading:
         return None
@@ -368,7 +386,13 @@ def _integer_constant(source: str, name: str, *, exported: bool, reading: frozen
 
     value = 1
     for factor in found[1].split(" * "):
-        resolved = int(factor) if factor.isdigit() else _integer_constant(source, factor, exported=False, reading=reading | {name})
+        if factor.isdigit():
+            value *= int(factor)
+            continue
+        resolved = _integer_constant(source, factor, exported=False, reading=reading | {name}, module=module)
+        home = None if resolved is not None or module is None else _imported_module(source, module, factor)
+        if home is not None:
+            resolved = _integer_constant(_source(home), factor, exported=True, reading=reading | {name}, module=home)
         if resolved is None:
             return None
         value *= resolved
@@ -400,7 +424,7 @@ def test_the_number_reader_resolves_a_named_factor_and_refuses_what_it_cannot_re
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
     """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
-    value = _integer_constant(_source(mirror.module), mirror.typescript, exported=True)
+    value = _integer_constant(_source(mirror.module), mirror.typescript, exported=True, module=mirror.module)
 
     assert value is not None, f"{mirror.module} no longer exports {mirror.typescript} as a product of integers and of its own such constants"
     assert value == _declared_bounds()[mirror.python] * mirror.scale, f"{mirror.typescript} disagrees with {mirror.python}"

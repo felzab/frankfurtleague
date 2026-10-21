@@ -294,10 +294,7 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
 
 class TestThePopulation:
     def test_it_names_the_pupils_the_rule_makes_due_and_no_other(self, mongo_replica_set_url: str):
-        """Each pupil stands for one arm of the rule; a kept one appearing names the arm that broke.
-
-        An addressless pupil is never read: nothing erases by a name.
-        """
+        """Each pupil stands for one arm of the rule; a kept one appearing names the arm that broke."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[str]:
             await a_league_of_every_kind(database)

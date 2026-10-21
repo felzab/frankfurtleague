@@ -5,6 +5,8 @@ import { inspect } from "node:util";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 
+import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
+
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
  * so nothing outside the process has to agree with it.
@@ -393,7 +395,7 @@ describe("the tags one message rides out with", () => {
 });
 
 describe("an application holding a seat no message reaches", () => {
-  const trail = (stand: string | null) => ({
+  const trail = (stand: FLBewerbungZustellstand | null) => ({
     verschickt_am: "2026-09-01",
     erinnert_am: null,
     abgelehnt_am: null,
@@ -401,9 +403,9 @@ describe("an application holding a seat no message reaches", () => {
   });
 
   it("is marked for any of the three states no further message beats", () => {
-    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"]) {
+    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
       assert.equal(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } } as never),
+        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
         true,
         `${stand} left the row unmarked`,
       );
@@ -411,9 +413,9 @@ describe("an application holding a seat no message reaches", () => {
   });
 
   it("is not marked while the trouble can still clear, or before anything is known", () => {
-    for (const stand of ["angenommen", "zugestellt", "verzoegert", null]) {
+    for (const stand of ["angenommen", "zugestellt", "verzoegert", null] as const) {
       assert.equal(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } } as never),
+        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
         false,
         `${String(stand)} marked the row`,
       );

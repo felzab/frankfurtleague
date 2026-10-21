@@ -979,8 +979,26 @@ class TestAReturningRegistration:
 
         assert admitted == person["_id"] == stored_id
         assert person["einwilligung"] == self.HELD
-        # The rest of the admission still lands on the person: the registration's birthdate and address.
         assert (person["geburtsdatum"], person["email"]) == (GEBURTSDATUM, FOLDED_EMAIL)
+
+    def test_an_administrators_correction_of_the_birthdate_made_since_stands(self, mongo_replica_set_url: str):
+        """The registration holds the date its page took from the person; written back, it would undo the correction unseen."""
+
+        stored_id = ObjectId()
+        corrected = "2009-06-14"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
+            registrierung_id = await seed(database, registrierung_document(confirmed=False))
+            await confirm_as_returning(database, client)
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"geburtsdatum": corrected}})
+            await admit(database, client, registrierung_id, spieler_id=stored_id)
+
+            return (await persons(database))[0]
+
+        person = on_a_league(mongo_replica_set_url, body)
+
+        assert (person["geburtsdatum"], person["email"]) == (corrected, FOLDED_EMAIL)
 
     def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
         """The page opened while media stood on, the account page withdrew it, the page was pressed, the team admitted.

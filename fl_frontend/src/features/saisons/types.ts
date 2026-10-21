@@ -142,6 +142,8 @@ export type SaisonSpielplanContext = {
   schedule: readonly FLSaisonPhaseSchedule[];
   /** What a confirmed replace would destroy, and what `REQ-SPIELPLAN-005` weighs against it. */
   bestand: SpielplanBestand;
+  /** How many of the season's fixtures hold a submitted report, which `REQ-SPIELPLAN-007` keeps the Spielplan for. */
+  eingereichteBerichte: number;
 };
 
 /**

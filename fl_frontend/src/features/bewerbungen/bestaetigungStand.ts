@@ -193,22 +193,6 @@ export function adressenAndererPersonen(staende: readonly SitzBestaetigung[], si
 }
 
 /**
- * Every seat one re-sent link answers for, in the label table's order. Mirrors
- * `fl_backend/app/api/bewerbungen/services.py :: paired_seat`, whose `seat_stands` half is why a
- * seat missing either of its two blocks drops out of the pair.
- */
-export function gepaarteSitze(bewerbung: BewerbungSitze, rolle: KontaktRolle): KontaktRolle[] {
-  const { bestaetigungen, kontakte } = bewerbung;
-  const zugleich = kontakte.trainer_ist_zugleich;
-
-  const andere = zugleich === null ? null : rolle === "trainer" ? zugleich : rolle === zugleich ? "trainer" : null;
-
-  if (andere === null || kontakte[andere] === null || bestaetigungen[andere] === null) return [rolle];
-
-  return KONTAKT_ROLLEN.map(({ value }) => value).filter((value) => value === rolle || value === andere);
-}
-
-/**
  * In `annehmen_bewerbung`'s own order, `REQ-BEWERBUNG-002` before `REQ-BEWERBUNG-013`: the reason
  * under the closed control is the one the write would answer with. Four sentences, because each
  * names a different way out — and an erasure is the only one with none.

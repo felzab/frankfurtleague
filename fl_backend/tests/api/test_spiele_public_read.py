@@ -10,9 +10,9 @@ from httpx2 import Response
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
+from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
 from app.api.spiele.schemas import (
     FLSpiel,
-    FLSpieleActionRequiredResponse,
     FLSpieleAdminListResponse,
     FLSpieleListResponse,
     FLSpielJoined,
@@ -458,7 +458,7 @@ class TestTheTwoListShapes:
     def test_the_action_required_list_keeps_it_whole_too(self):
         """The other admin list, whose cards open a modal printing the referee's name."""
 
-        response = FLSpieleActionRequiredResponse.model_validate({"spiele": [joined_document()], "bracket_faults": []})
+        response = FLSpieleActionRequiredResponse.model_validate({"spiele": [joined_document()], "bracket_faults": [], "spielberichte": []})
 
         assert response.spiele[0].schiedsrichter is not None
         assert response.spiele[0].schiedsrichter.name == SCHIEDSRICHTER_NAME

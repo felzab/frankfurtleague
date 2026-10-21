@@ -321,16 +321,14 @@ describe("the referee's page", () => {
     assert.ok(textOf(markup, " ").includes("Mara Okafor"), "the referee's own data is not what renders");
   });
 
-  /* The section's empty state is drawn only for an empty list: one drawn unconditionally passes the second half alone. */
-  it("shows a booked fixture rather than the empty state, and the empty state where none is booked", async () => {
+  /* The page's wiring alone: the view's own suite holds the empty state an empty list draws, so the page handing the
+     section no list would pass there and fail here. */
+  it("shows a booked fixture rather than the empty state", async () => {
     const { EINSAETZE_LEER } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
 
     const gebucht = textOf((await refereePage([EINSATZ])).markup, " ");
     assert.ok(gebucht.includes("Ernst-Reuter-Schule gegen Goethe-Gymnasium"), "the booked fixture does not render");
     assert.ok(!gebucht.includes(EINSAETZE_LEER), "a referee booked on a fixture is told they are booked on none");
-
-    const frei = textOf((await refereePage([])).markup, " ");
-    assert.ok(frei.includes(EINSAETZE_LEER) && frei.includes("Mara Okafor"), "the empty state does not stand beside the referee's data");
   });
 
   /* The row went between the page's check and the backend's: the page's own turn-away, reached late, by either read. */

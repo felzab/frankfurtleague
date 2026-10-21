@@ -3,6 +3,7 @@ import "server-only";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { revalidateOverLoopback } from "@/core/revalidation";
+import { HOUR_MS } from "@/core/timeUnits";
 
 import { loeschungLaufen } from "./loeschung";
 import { postLoeschungLauf } from "./mutations";
@@ -11,7 +12,7 @@ import { postLoeschungLauf } from "./mutations";
  * One hour, as the other sweeps': a due pupil stays only until the next pass, and the rule selects on season statuses,
  * so a shorter interval only asks the backend more often.
  */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend
