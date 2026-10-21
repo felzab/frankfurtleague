@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.adresswechsel.crud import einsehbare_adressen
+from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_address_filter
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
@@ -94,14 +94,14 @@ async def get_schiedsrichter_by_id(
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
     lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
-    beside whether the tool opens it for this administrator.
+    beside why the tool refuses it this administrator, null where it opens it.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
     email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
     identifier = sign_in_identifier(email) if isinstance(email, str) else None
     offen = None if identifier is None else await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1})
-    einsehbar = await einsehbare_adressen(
+    verwehrt = await verwehrte_adressen(
         [] if offen is None or identifier is None else [identifier],
         akteur=sign_in_identifier(operator),
         auth_time=auth_time,
@@ -114,5 +114,5 @@ async def get_schiedsrichter_by_id(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
         bestaetigung_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
         adresswechsel_id=None if offen is None else offen["_id"],
-        adresswechsel_einsehbar=bool(einsehbar),
+        adresswechsel_einsehbar_verwehrt=None if identifier is None else verwehrt.get(identifier),
     )

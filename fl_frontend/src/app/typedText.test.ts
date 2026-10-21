@@ -167,7 +167,7 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
         einwilligung: bestaetigteEinwilligung(),
         email: "ada@example.com",
         adresswechsel_id: null,
-        adresswechsel_einsehbar: false,
+        adresswechsel_einsehbar_verwehrt: null,
         memberships: [{ ...KADER_ZEILE, saison_id: "2026", team_id: OBJECT_ID }],
       },
     ],

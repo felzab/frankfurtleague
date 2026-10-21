@@ -46,7 +46,7 @@ const EIGENE = {
   bestaetigt: false,
   bis: "2026-10-27T11:30:00Z",
   verwehrt: null,
-  einsehbar: true,
+  einsehbar_verwehrt: null,
 };
 
 function shown(adresswechsel: typeof EIGENE | Record<string, unknown>): string {

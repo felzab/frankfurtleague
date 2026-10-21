@@ -44,11 +44,12 @@ from app.api.aktionen.crud import (
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -972,7 +973,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     ]
 
 
-async def einsehbare_adressen(
+async def verwehrte_adressen(
     adressen: Iterable[str],
     *,
     akteur: str,
@@ -980,23 +981,24 @@ async def einsehbare_adressen(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     session: AsyncClientSession | None,
-) -> set[str]:
-    """Which of these folded addresses' changes the address tool opens for this administrator.
+) -> dict[str, FLAdresswechselEinsehbarVerwehrt]:
+    """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
 
-    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar`; the grants are read only where an address is
-    asked, most reads serving no change.
+    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
+    address is asked, most reads serving no change.
     """
 
     gefragt = set(adressen)
     if not gefragt:
-        return set()
+        return {}
     grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
 
     return {
-        adresse
+        adresse: grund
         for adresse in gefragt
-        if adresswechsel_einsehbar(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
+        if (grund := adresswechsel_einsehbar_verwehrt(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced))
+        is not None
     }
 
 

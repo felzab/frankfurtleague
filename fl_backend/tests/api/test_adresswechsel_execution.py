@@ -1314,11 +1314,12 @@ class TestTheContactsEditorsRead:
 
 
 class TestEveryLinkIntoTheToolSaysWhetherItOpens:
-    """A page links a change's id into the address tool; a link the tool refuses its reader is a dead end."""
+    """A page links a change's id into the address tool; a link the tool refuses its reader is a dead end, worded by why."""
 
     @pytest.mark.parametrize(
         ("reader", "grant"),
         [
+            pytest.param(EMAIL, True, id="a grant holder's own change, read by them: the tool refuses -003"),
             pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator: the tool refuses -005"),
             pytest.param(OWNER, True, id="a grant holder's change, read by an owner: the tool opens it"),
             pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator: the tool opens it"),
@@ -1333,10 +1334,9 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             minted = await start(database, client)
             try:
                 await tool_read(database, client, adresswechsel_id=minted.id, operator=reader)
-                opens = True
+                verwehrt = None
             except WriteRefusalException as refused:
-                assert refused.error_code == VERWALTUNG_ADRESSE
-                opens = False
+                verwehrt = {EIGENE_ADRESSE: "eigene", VERWALTUNG_ADRESSE: "verwaltung"}[refused.error_code]
 
             pupils = await call(get_spieler_memberships, database, client, operator=reader)
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
@@ -1348,28 +1348,31 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
                 get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAnsichtPayload(email=NEW_EMAIL), operator=reader
             )
             served = {
-                "pupils": [(player.adresswechsel_id, player.adresswechsel_einsehbar) for player in pupils.spieler if player.id == SPIELER_OID],
-                "referee": (referee.adresswechsel_id, referee.adresswechsel_einsehbar),
-                "seats": (seats.ansprechperson, seats.einsehbar),
-                "reveal": [(row.adresswechsel_id, row.einsehbar) for row in reveal.adresswechsel],
+                "pupils": [
+                    (player.adresswechsel_id, player.adresswechsel_einsehbar_verwehrt) for player in pupils.spieler if player.id == SPIELER_OID
+                ],
+                "referee": (referee.adresswechsel_id, referee.adresswechsel_einsehbar_verwehrt),
+                "seats": (seats.ansprechperson, seats.einsehbar_verwehrt.model_dump()),
+                "reveal": [(row.adresswechsel_id, row.einsehbar_verwehrt) for row in reveal.adresswechsel],
             }
             if grant:
                 listed = await call(get_berechtigungen, database, client, operator=reader)
                 waiting = {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
-                served["approval"] = None if waiting is None else (waiting.id, waiting.einsehbar)
-            return minted.id, opens, served
+                served["approval"] = None if waiting is None else (waiting.id, waiting.einsehbar_verwehrt)
+            return minted.id, verwehrt, served
 
-        minted, opens, served = on_a_person(mongo_replica_set_url, body)
+        minted, verwehrt, served = on_a_person(mongo_replica_set_url, body)
 
-        assert opens is (reader == OWNER or not grant)
+        assert verwehrt == {EMAIL: "eigene", ADMIN: "verwaltung" if grant else None, OWNER: None}[reader]
         expected = {
-            "pupils": [(minted, opens)],
-            "referee": (minted, opens),
-            "seats": (minted, ["ansprechperson"] if opens else []),
-            "reveal": [(minted, opens)],
+            "pupils": [(minted, verwehrt)],
+            "referee": (minted, verwehrt),
+            # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
+            "seats": (minted, {"trainer": None, "ansprechperson": verwehrt, "stellvertretung": None}),
+            "reveal": [(minted, verwehrt)],
         }
         if grant:
-            expected["approval"] = (minted, opens)
+            expected["approval"] = (minted, verwehrt)
         assert served == expected
 
 

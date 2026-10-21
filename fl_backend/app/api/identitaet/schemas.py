@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
-from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLUtcInstant, FLVerwaltung
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
@@ -330,8 +330,8 @@ class FLErasureAnsichtAdresswechsel(BaseModel):
     """Another address's live change naming this one as its new address: the change ends, its address's records standing."""
 
     adresswechsel_id: CustomObjectId
-    # Whether the address tool opens it for this administrator, where the page links them to discard it.
-    einsehbar: bool
+    # Why the address tool refuses it this administrator, null where it opens it: the page links them there to discard it.
+    einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
 class FLErasureAnsicht(BaseModel):

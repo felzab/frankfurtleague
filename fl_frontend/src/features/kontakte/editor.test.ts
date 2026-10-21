@@ -547,7 +547,12 @@ describe("the editor's shape", () => {
     await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
     await user.paste("erika@example.org");
 
-    storedAdresswechsel = { trainer: null, ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0", stellvertretung: null, einsehbar: ["ansprechperson"] };
+    storedAdresswechsel = {
+      trainer: null,
+      ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0",
+      stellvertretung: null,
+      einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+    };
     try {
       rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
       // The control: the refresh reached the editor, or the kept draft below proves nothing.
@@ -725,7 +730,12 @@ describe("the editor's shape", () => {
   it("shows a change pending at one seat's address as the line linking to the address tool, on that seat alone", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
     const html = editorTree(
-      sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null, einsehbar: ["ansprechperson"] }),
+      sectionElement(BLOCK, true, true, null, {
+        trainer: null,
+        ansprechperson: id,
+        stellvertretung: null,
+        einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+      }),
       BLOCK,
     );
 
@@ -745,7 +755,12 @@ describe("the editor's shape", () => {
         true,
         true,
         null,
-        { trainer: null, ansprechperson: id, stellvertretung: null, einsehbar: ["ansprechperson"] },
+        {
+          trainer: null,
+          ansprechperson: id,
+          stellvertretung: null,
+          einsehbar_verwehrt: { trainer: null, ansprechperson: null, stellvertretung: null },
+        },
         {},
         getippt,
       ),
