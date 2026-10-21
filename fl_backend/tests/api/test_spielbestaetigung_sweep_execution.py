@@ -585,13 +585,16 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
             pytest.param({}, {}, days_after(day=NEXT_WEEK, days=1), "spiel_vergangen", id="its day gone by"),
         ],
     )
-    def test_the_pass_closing_the_agreement_ends_the_discard_and_tells_nobody(
+    def test_the_pass_closing_the_agreement_ends_the_discard_and_tells_what_its_closing_owes(
         self, mongo_replica_set_url: str, saison_team: dict[str, Any], spiel: dict[str, Any], today: str, grund: str
     ):
-        """Kept, the discard alone would read the fixture provisional where two agreements read null; ended, it owes no notice."""
+        """Kept, the discard alone would read the fixture provisional where two agreements read null.
+
+        Ended, it owes what its closing owes, as the agreement beside it does: a call-off tells the discarded club too.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await alphas_discard_beside_betas_agreement(database, client)
+            discarded = await alphas_discard_beside_betas_agreement(database, client)
             if saison_team:
                 await database[Collection.SAISON_TEAMS].update_one({"team_id": BETA, "saison_id": SAISON_ID}, {"$set": saison_team})
             if spiel:
@@ -599,15 +602,19 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
             before = await verdict(database)
             answer = await sweep(database, client, today=today)
 
-            return before, answer, await verdict(database), await rows(database)
+            return discarded, before, answer, await verdict(database), await rows(database)
 
-        before, answer, after, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+        discarded, before, answer, after, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
         assert (before, after) == (True, None)
         # Both clubs' rows and the referee's, the discard among them.
         assert (len(stored), {row["geschlossen"]["grund"] for row in stored}) == (3, {grund})
         # The referee's notice among them: a club's ended discard is neither a move nor a referee change.
         assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen, answer.schiedsrichter_gewechselt) == ([], [], [])
+        told = {notice.spielbestaetigung_id for notice in [*answer.spiel_abgesagt, *answer.schiedsrichter_spiel_abgesagt]}
+        # By row, the discarded club's named: the call-off's notices go to every party it closed a mailed row of.
+        assert told == ({row["_id"] for row in stored} if grund == "abgesagt" else set())
+        assert (discarded in told) is (grund == "abgesagt")
 
     def test_a_discard_about_an_ansetzung_the_fixture_left_ends_once_its_day_has_passed(self, mongo_replica_set_url: str):
         """The move keeps it, the club's answer to that Ansetzung; kept past its day it would be read by every pass for good."""
@@ -1323,7 +1330,7 @@ def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str]]:
 
 
 class TestALaterStepFailingAnswersWhatCommitted:
-    """`docs/backend/spec.md :: I753`: the close's notices committed, so a later step's failure is no error."""
+    """`docs/backend/spec.md :: I753`: the notice step's notices committed, so a later step's failure is no error."""
 
     def test_the_notices_are_answered_and_the_day_is_not_stamped(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1846,9 +1853,6 @@ class TestAnErasedContactIsNotToldTheirFixtureMoved:
         assert address(ALPHA, "ansprechperson") in told
         return told
 
-    def test_the_close_runs_again_and_leaves_the_erased_trainer_out_of_the_notice(self, mongo_replica_set_url: str):
-        assert address(ALPHA, "trainer") not in self._told(mongo_replica_set_url, ThenTheRivalAfterTheFirstSessionRead, serially=1)
-
     def test_the_notice_step_runs_again_and_leaves_the_erased_trainer_out(self, mongo_replica_set_url: str):
         """The erasure lands after the close committed, at the notice step's own read: only its anchor conflicts with it."""
 
@@ -2199,7 +2203,7 @@ class ConfirmationsRunningARivalAtTheErasuresRead(InterleavedCollection):
 class TestATakenOffRefereesErasureAndTheCloseCross:
     """The close and the notice step each write the very row the erasure removes, so the two conflict and one runs again."""
 
-    def test_an_erasure_landing_inside_the_close_leaves_nobody_told(self, mongo_replica_set_url: str):
+    def test_an_erasure_landing_inside_the_notice_step_leaves_nobody_told(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await told_and_taken_off(database, client)
 
@@ -2213,8 +2217,9 @@ class TestATakenOffRefereesErasureAndTheCloseCross:
 
         interleaved, answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
-        # Serially the erased referee's row is gone before the notice step reads any address, so it reads none.
-        interleaved.assert_landed_inside(serially=0)
+        # The close reads no referee, so the first read is the notice step's. Serially the erased referee's row is gone
+        # before it reads any address, and the mint reads the newly booked referee once.
+        interleaved.assert_landed_inside(serially=1)
         assert answer.schiedsrichter_gewechselt == []
         assert [row["partei"]["schiedsrichter_id"] for row in stored] == [OTHER_SCHIEDSRICHTER]
 

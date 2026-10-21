@@ -1855,8 +1855,12 @@ class TestTheRefereesOwnRows:
         assert plan == "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }", plan
 
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
-        """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's."""
+        """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's.
 
+        An open booking dated after an agreed one leads it: by day alone it would sit below.
+        """
+
+        open_later_spiel, open_later = a_booking(ObjectId("6890a1b2c3d4e5f607d50020"), ObjectId("6890a1b2c3d4e5f607d50068"), "2027-05-27")
         later_spiel, later = a_booking(
             ObjectId("6890a1b2c3d4e5f607d50016"), ObjectId("6890a1b2c3d4e5f607d50064"), "2027-05-20", antwort=ZUGESAGT
         )
@@ -1873,12 +1877,13 @@ class TestTheRefereesOwnRows:
         eintraege = on_a_refereed_fixture(
             mongo_replica_set_url,
             body,
-            rows=[referee_row(), later, long_ago, lately],
-            spiele=[later_spiel, long_ago_spiel, lately_spiel],
+            rows=[referee_row(), later, long_ago, lately, open_later],
+            spiele=[later_spiel, long_ago_spiel, lately_spiel, open_later_spiel],
         )
 
         assert [(eintrag.id, eintrag.vergangen) for eintrag in eintraege] == [
             (REFEREE_ROW, False),
+            (open_later["_id"], False),
             (later["_id"], False),
             (lately["_id"], True),
             (long_ago["_id"], True),
