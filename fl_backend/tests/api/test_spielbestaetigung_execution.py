@@ -1556,6 +1556,55 @@ class TestARefereesDeclineReturnsTheFixture:
         assert on_a_refereed_fixture(mongo_replica_set_url, body) == 0
 
 
+# Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
+OTHER_REFEREES_ROWS = 2000
+
+REFEREE_INDEX_SCAN = "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }"
+
+
+def reads_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
+    """The panel's aggregate and the erasure's, each matching the referee's id first."""
+
+    stages = command.get("pipeline") or [{}]
+    return collection == Collection.SPIELBESTAETIGUNGEN and "partei.schiedsrichter_id" in (stages[0].get("$match") or {})
+
+
+class TestARefereesOwnRowsAreReadThroughTheirIndex:
+    """`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`'s referee index, which nothing else would keep the planner on."""
+
+    @pytest.mark.parametrize(
+        "read",
+        [
+            pytest.param(lambda watched, watching: eigene(watched, watching), id="the panel"),
+            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT), id="the erasure"),
+        ],
+    )
+    def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(
+        self, mongo_replica_set_url: str, read: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+    ):
+        others = [
+            documents.spielbestaetigung_document(
+                fixture(ObjectId(), spiel_nr=100 + position),
+                partei={"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+                kontakte=None,
+            )
+            for position in range(OTHER_REFEREES_ROWS)
+        ]
+
+        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(others)
+            _, sent = await plans_of_sent_reads(mongo_replica_set_url, database, read, reads_a_referees_rows)
+
+            return sent
+
+        sent = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        # The premise: the read was sent, or the plan below would pass vacuously.
+        assert sent, "the read sent no aggregate matching the referee's id"
+        for _, plan in sent:
+            assert plan == REFEREE_INDEX_SCAN, plan
+
+
 async def book_ute(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].update_one(
         {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": UTE, "name": "Ute Lang", "payment": 20}}}

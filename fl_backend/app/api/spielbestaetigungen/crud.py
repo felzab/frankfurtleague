@@ -365,9 +365,9 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a close read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
+    """Write the season rows the notice step read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
 
-    An erasure or a Widerspruch empties the seat on that row and writes nothing the close writes.
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the notice step writes.
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
@@ -380,9 +380,9 @@ async def anchor_the_referees_told(
     # REQUIRED: committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a mint writes a row for (`docs/backend/spec.md :: I760`), as a fixture's save anchors the referee it books.
+    """Write the referees a step tells: the mint's and the reminder's (`docs/backend/spec.md :: I760`), the notice step's (`:: I762`).
 
-    A referee's erasure deletes the rows its snapshot holds, never one inserted beside it.
+    A referee's erasure deletes only the rows its snapshot holds, never the mint's insert beside it, so this write conflicts.
     """
 
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)

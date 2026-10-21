@@ -658,7 +658,11 @@ def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwort
 
 
 def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
-    """These referees' rows in these seasons, open, answered or closed; the season leads, so the read walks `(saison_id, spiel_id)`."""
+    """These referees' rows in these seasons, open, answered or closed, walked through the referee-leading index.
+
+    The season-leading one would walk every fixture's rows of the season
+    (`tests/api/test_spielbestaetigung_execution.py :: TestARefereesOwnRowsAreReadThroughTheirIndex`).
+    """
 
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
 
