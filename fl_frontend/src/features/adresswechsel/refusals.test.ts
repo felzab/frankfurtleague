@@ -7,6 +7,7 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
 import {
   mapAdresswechselAnsichtRefusal,
   mapAdresswechselPresseRefusal,
+  mapGenehmigungRefusal,
   mapVerwaltungLinkRefusal,
   mapVerwaltungStartRefusal,
 } from "./refusals.ts";
@@ -60,6 +61,22 @@ describe("what the tool's start says where the change it would end has ended", (
     assert.deepEqual(mapVerwaltungStartRefusal(refusedOn(START, "DB-COMMON-001")), {
       error: mapVerwaltungLinkRefusal(refusedOn(RESEND, "DB-COMMON-001")),
     });
+  });
+});
+
+describe("what the tool says where nobody could approve, and what an approval says past a deadline", () => {
+  /* An administration-tier grant needs another administrator, never an owner: the sentence names both ways out. */
+  it("names another administrator as well as another owner where nobody could approve a grant's move", () => {
+    const answered = mapVerwaltungStartRefusal(refusedOn("POST /adresswechsel", "REQ-ADRESSWECHSEL-011"));
+
+    assert.match(answered?.error ?? "", /gib einer weiteren Person Zugang zur Verwaltung/);
+  });
+
+  /* `-003` covers a lapsed link as well as the approval's week, so the sentence names neither deadline. */
+  it("says the change lapsed, never which deadline, where the approval meets -003", () => {
+    const answered = mapGenehmigungRefusal(refusedOn("POST /adresswechsel/{adresswechsel_id}/genehmigung", "REQ-ADRESSWECHSEL-003"));
+
+    assert.ok(answered?.startsWith("Diese Änderung ist abgelaufen"), answered ?? "no sentence");
   });
 });
 

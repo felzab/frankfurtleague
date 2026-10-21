@@ -3177,6 +3177,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.GONE,
         operation=(
             "POST /adresswechsel/bestaetigung · POST /konto/adresswechsel/freigabe · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen"
         ),
         aggregate="Adresswechsel",
         summary=("a step whose deadline has passed -- a link, the address on file's approval, a grant's approval -- moves nothing"),

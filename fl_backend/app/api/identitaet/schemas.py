@@ -149,7 +149,7 @@ class FLErasure(BaseModel):
     # Per seat and never per row, as both reveals name them: one row seats one person twice.
     kontakt_sitze: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
+    # Another address's pending change naming this one, ended alone: the records it would move stay that address's.
     adresswechsel: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
     berechtigungen: int = Field(ge=0)
@@ -207,7 +207,7 @@ class FLSelbstErasureAnsicht(BaseModel):
     sitze: list[FLSelbstErasureSitz]
     bewerbungen: list[FLSelbstErasureBewerbung]
     registrierungen: list[FLSelbstErasureRegistrierung]
-    # A count and no name: each is a pending change on another address's referee or pupil row.
+    # A count and no name: each is another address's pending change whose link reached this mailbox.
     adresswechsel: int = Field(ge=0)
 
 
