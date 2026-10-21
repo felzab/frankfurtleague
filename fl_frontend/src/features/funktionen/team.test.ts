@@ -67,7 +67,7 @@ const TEAM_LAYOUTS = filesUnder(TEAM_DIR, (name) => name === "layout.tsx", 1);
 /** Team A's address this season, which the person below holds nothing on. */
 const HELD_BY_NOBODY = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
 
-/** The landing as the team area mounts it at one address: under its layout, whose guard runs first. */
+/** The landing as the team area mounts it at one address: under its layout, whose hold runs first. */
 const landingAt = (teamId: string, saisonId: string) => {
   const params = Promise.resolve({ team_id: teamId, saison_id: saisonId });
 
@@ -107,18 +107,14 @@ const wayOutsIn = (markup: string): { href: string; text: string }[] =>
 
 const FORBIDDEN_BADGE = "Tribüne";
 
-describe("the guard over a team's area", () => {
-  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
-     redirect would pass this case with the layout's gone. */
-  it("sends a request with no person's session to sign in", async () => {
+describe("a team's area layout", () => {
+  /* The layout itself redirects nobody (`docs/frontend/spec.md :: I834`), so the page under it is what
+     sends a lapsed session on: its redirect must reach the walk through every part holding the page slot. */
+  it("lets the page under it send a request with no person's session to sign in", async () => {
     setSubject(null);
-    const layoutAlone = () =>
-      h(TeamLayout, { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), children: h("p", null, "Seite") });
-    const { thrown } = await callPage(layoutAlone, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
+    const { thrown } = await callPage(landingAt(TEAM_A, "2526"), { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
 
-    // Every part reading the session turns the request away alike, each slot of the frame and the guard.
-    assert.ok(thrown.length > 0, "the layout turns nobody away");
-    assert.deepEqual([...new Set(thrown.map(redirectTarget))], ["/signin"]);
+    assert.deepEqual(thrown.map(redirectTarget), ["/signin"]);
   });
 });
 

@@ -39,7 +39,6 @@ doubleEveryAction();
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
-const { FunktionenGuard } = await import("@/features/funktionen/components/providers/FunktionenGuard.tsx");
 const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
 const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
@@ -67,7 +66,7 @@ async function redirectsOf(Page: () => unknown): Promise<string[]> {
   return thrown.flatMap((error) => redirectTarget(error) ?? []);
 }
 
-/** The landing as the person area mounts it: under its layout, whose guard runs first. */
+/** The landing as the person area mounts it: under its layout, whose hold runs first. */
 const landingUnderItsLayout = () => h(PersoenlichLayout, { children: h(PersoenlichStartPage) });
 
 /** The `href` of every link the landing's switch offers. */
@@ -86,23 +85,13 @@ async function renderedAlone(Page: () => ReactNode | Promise<ReactNode>): Promis
   return { markup: markup, reads: readsOf(steps).map(({ endpoint }) => endpoint) };
 }
 
-describe("the guard over the person area", () => {
-  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
-     redirect would pass this case with the layout's gone. */
-  it("sends a request with no person's session to sign in", async () => {
-    setSubject(null);
-    const redirects = await redirectsOf(() => h(PersoenlichLayout, { children: h("p", null, "Seite") }));
-
-    // Every part reading the session turns the request away alike, each slot of the frame and the guard.
-    assert.ok(redirects.length > 0, "the layout turns nobody away");
-    assert.deepEqual([...new Set(redirects)], ["/signin"]);
-  });
-
-  /* The guard alone, which both lanes' layouts mount around the page slot, beside a frame that paints without it. */
-  it("turns a missing session away before anything under it renders", async () => {
+describe("the person area's layout", () => {
+  /* The layout itself redirects nobody (`docs/frontend/spec.md :: I834`), so the page under it is what
+     sends a lapsed session on: its redirect must reach the walk through every part holding the page slot. */
+  it("lets the page under it send a request with no person's session to sign in", async () => {
     setSubject(null);
 
-    assert.deepEqual(await redirectsOf(() => h(FunktionenGuard, { children: h("p", null, "Seite") })), ["/signin"]);
+    assert.deepEqual(await redirectsOf(landingUnderItsLayout), ["/signin"]);
   });
 
   /* A layout above does not rerun on a soft navigation, so a nested one entered on a lapsed session is
@@ -469,18 +458,15 @@ describe("the bare /bereich/admin", () => {
 /** A page answered with the team area's own parameters, which every other page ignores. */
 const PAGE_PARAMS = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
 
-/** A segment matching what no sibling route does, whose page answers not-found for everyone. */
-const CATCH_ALL = /^\[\.\.\..+\]$/;
-
-/** Every person and team page, read off the tree so a page added tomorrow answers to the case below. */
+/** Every person and team page, the catch-alls among them, read off the tree so a page added tomorrow answers to the case below. */
 const PERSON_PAGES = [
   ...filesUnder(path.join(APP_DIR, "bereich", "(persoenlich)"), (name) => name === "page.tsx", 3),
   ...filesUnder(path.join(APP_DIR, "bereich", "team"), (name) => name === "page.tsx", 1),
-].filter((file) => !CATCH_ALL.test(path.basename(path.dirname(file))));
+];
 
 describe("every person page's subject", () => {
-  /* A layout does not rerun on a soft navigation, so a lapsed session meets its redirect in the page.
-     Called alone: the harness walks a page only where its layout returns it, which Next does not. */
+  /* No layout turns a lapsed session away (`docs/frontend/spec.md :: I834`), and a soft navigation reruns
+     none: the page is the one turn-away. Called alone, as the harness walks a page only where its layout returns it. */
   it("sends a request with no person's session to sign in from the page itself", async () => {
     setSubject(null);
 
@@ -510,7 +496,7 @@ async function layoutsDownTo(dir: string): Promise<Layout[]> {
   return Promise.all(chain.map(async (file) => ((await import(pathToFileURL(file).href)) as { default: Layout }).default));
 }
 
-/** Around the page, recording that the walk got past every guard to it. */
+/** Around the page, recording that the walk got past every layout to it. */
 let reached = false;
 const Probe = ({ children }: { children: ReactNode }) => {
   reached = true;
@@ -533,9 +519,9 @@ async function readsUnder(dir: string): Promise<number> {
 }
 
 describe("an admin render's subject reads", () => {
-  /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
-     alone. A real admin page under every layout above it, which is where a guard added too high lands. */
-  it("runs no person guard", async () => {
+  /* The person's session read sits in the person's layouts only, so an administrator's request runs
+     `getAdminSession` alone. A real admin page under every layout above it, which is where a read added too high lands. */
+  it("runs no person session read", async () => {
     setSession({ user: { email: "pia@example.org" } }, "/bereich");
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 

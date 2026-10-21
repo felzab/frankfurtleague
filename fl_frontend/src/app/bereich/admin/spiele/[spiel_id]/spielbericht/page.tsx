@@ -34,7 +34,7 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Read whatever the switch says: the admin read is where a session the guard missed is turned away, and an unknown
+  // Read whatever the switch says: the admin read is where a refused session is turned away, and an unknown
   // fixture answers its 404 before any closed state names it.
   let lesen;
   try {
