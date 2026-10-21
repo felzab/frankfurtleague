@@ -76,11 +76,13 @@ NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)
 
 
 def a_live_change(*, lapsed: bool, bestaetigt: bool = False) -> dict[str, Any]:
-    return {
-        "gueltig_bis": NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1),
-        "bestaetigt_am": NOW - timedelta(days=1) if bestaetigt else None,
-        "genehmigung": None,
-    }
+    """`lapsed`: its link's deadline passed, or, once confirmed, which drops that deadline, its grant's approval week."""
+
+    if bestaetigt:
+        bis = NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(days=1)
+        return {"gueltig_bis": None, "bestaetigt_am": NOW - timedelta(days=1), "genehmigung": {"bis": bis, "genehmigt_am": None}}
+
+    return {"gueltig_bis": NOW - timedelta(minutes=1) if lapsed else NOW + timedelta(hours=1), "bestaetigt_am": None, "genehmigung": None}
 
 
 class TestTheNewMailboxsState:
@@ -92,7 +94,14 @@ class TestTheNewMailboxsState:
             pytest.param(a_live_change(lapsed=True), True, False, "gesperrt", id="a ban ranks ahead of the deadline"),
             pytest.param(a_live_change(lapsed=True), False, True, "abgelaufen", id="every unconfirmable cause reads alike behind it"),
             pytest.param(a_live_change(lapsed=False), False, True, "nicht_bestaetigbar", id="an unconfirmable cause inside it"),
-            pytest.param(a_live_change(lapsed=True, bestaetigt=True), True, True, "bestaetigt", id="a confirmed change waits on no link"),
+            pytest.param(a_live_change(lapsed=False, bestaetigt=True), True, True, "bestaetigt", id="a confirmed change waits on no link"),
+            pytest.param(
+                a_live_change(lapsed=True, bestaetigt=True),
+                True,
+                True,
+                "abgelaufen",
+                id="a confirmed change's lapsed approval week ranks first",
+            ),
         ],
     )
     def test_the_view_ranks_the_states_as_the_press_refuses(

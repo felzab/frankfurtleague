@@ -241,15 +241,16 @@ def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
 
 
 def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
-    """The live changes of these folded addresses whose grant's approval is owed, inside its week: what the administrators page offers.
+    """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
 
-    Past the week the approval is refused and the pass ends the change, which `build_parked_terms` then leaves unparked.
+    A lapsed one is refused `-003`, so the reload that refusal asks for must not offer it.
     """
 
     return {
         **build_addresses_filter(adressen),
         "genehmigung.genehmigt_am": {"$type": "null"},
-        "genehmigung.bis": {"$type": "date", "$gt": now},
+        # `ist_abgelaufen`'s judgement, negated: one lapse rule for the press, the pass and this list.
+        "$nor": build_lapsed_terms(now)["$or"],
     }
 
 
@@ -377,7 +378,8 @@ def neu_zustand(record: Mapping[str, Any], *, now: datetime, gesperrt: bool, nic
     """
 
     if record.get("bestaetigt_am") is not None:
-        return "bestaetigt"
+        # Never `bestaetigt` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
+        return "abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
 
     if gesperrt:
         return "gesperrt"

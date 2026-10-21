@@ -79,7 +79,7 @@ const EIN_EINTRAG_JE_ART = {
   registrierungen: [
     { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
   ],
-  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0" }],
+  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar: true }],
   verwaltung: "owner",
   gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;

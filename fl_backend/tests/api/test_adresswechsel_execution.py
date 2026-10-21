@@ -48,14 +48,16 @@ from app.api.berechtigungen.services import signed_in_since
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.admin_router import erase_auf_anfrage
+from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.schemas import FLErasurePayload
+from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.services import EIGENE_ADRESSE, VERWALTUNG_ADRESSE
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN, compose_ablehnung_update, erinnerung_is_due
+from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
+from app.api.spieler.admin_router import get_spieler_memberships
 from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
 from app.core.adressanker import adressanker_id
@@ -89,6 +91,7 @@ from .adresswechsel_harness import (
     OTHER_OID,
     OWNER,
     PENDING_OID,
+    REFEREE_OID,
     ROW_OID,
     SAISON_ID,
     SECOND_ADMIN,
@@ -183,6 +186,22 @@ class TestTheAccountPagesRead:
 
         assert seen.offen is not None and seen.offen.email == "l•••@n•••.org"
         assert (NEW_EMAIL in served, "lenore.q" in served, "neupost" in served) == (False, False, False)
+
+    @pytest.mark.parametrize("step", ["link", "genehmigung"])
+    def test_a_lapsed_step_reads_lapsed_until_the_pass_ends_the_change(self, mongo_replica_set_url: str, step: str):
+        """Its press is refused `-003`, so a page reading it unmarked offers that press until the pass."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if step == "genehmigung":
+                await granted(database)
+            minted = await start(database, client)
+            if step == "genehmigung":
+                await answer(database, client, minted.token)
+            later = AFTER_THE_DEADLINE if step == "link" else AFTER_THE_WEEK
+            seen = [(await read(database, client, germany_now=at)).offen for at in (NOW, later)]
+            return [offen is not None and offen.abgelaufen for offen in seen]
+
+        assert on_a_person(mongo_replica_set_url, body) == [False, True]
 
 
 class TestThePersonsStart:
@@ -371,6 +390,19 @@ class TestTheLinks:
 
         assert (before.zustand, before.genehmigung_offen) == ("gueltig", None)
         assert (after.zustand, after.genehmigung_offen) == ("bestaetigt", True)
+
+    def test_a_confirmed_link_whose_approval_week_lapsed_reads_lapsed(self, mongo_replica_set_url: str):
+        """The pass ends it unapproved, so the page must not still promise it takes effect once approved."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            return (await view(database, client, minted.token, germany_now=AFTER_THE_WEEK)).ansicht
+
+        seen = on_a_person(mongo_replica_set_url, body)
+
+        assert (seen.zustand, seen.genehmigung_offen) == ("abgelaufen", None)
 
     @pytest.mark.parametrize(
         ("cause", "refused"),
@@ -1182,6 +1214,18 @@ class TestTheApproval:
 
         assert on_a_person(mongo_replica_set_url, body) is None
 
+    def test_a_change_whose_link_lapsed_unconfirmed_is_offered_to_nobody(self, mongo_replica_set_url: str):
+        """Refused `-003` as a lapsed week is, so the reload that refusal asks for must not offer it again."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            refused = await refused_code(approve(database, client, minted.id, operator=SECOND_ADMIN, germany_now=AFTER_THE_DEADLINE))
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN, now=AFTER_THE_DEADLINE)
+            return refused, {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+
+        assert on_a_person(mongo_replica_set_url, body) == (ADRESSWECHSEL_ABGELAUFEN, None)
+
     def test_an_owner_s_grant_is_approved_by_no_administrator(self, mongo_replica_set_url: str):
         assert self.refused_approval(mongo_replica_set_url, approver=ADMIN, verwaltung="owner") == (ADRESSWECHSEL_GENEHMIGUNG_INHABER, None)
 
@@ -1260,6 +1304,66 @@ class TestTheContactsEditorsRead:
 
         assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, None)
         assert ended is not None and (ended.trainer, ended.ansprechperson, ended.stellvertretung) == (None, None, None)
+
+
+class TestEveryLinkIntoTheToolSaysWhetherItOpens:
+    """A page links a change's id into the address tool; a link the tool refuses its reader is a dead end."""
+
+    @pytest.mark.parametrize(
+        ("reader", "grant"),
+        [
+            pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator: the tool refuses -005"),
+            pytest.param(OWNER, True, id="a grant holder's change, read by an owner: the tool opens it"),
+            pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator: the tool opens it"),
+        ],
+    )
+    def test_each_read_serving_a_change_s_id_serves_the_tool_s_own_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
+        """The pupils list, the referee editor, the contacts editor, the erasure's reveal and, for a grant, the approval row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if grant:
+                await granted(database)
+            minted = await start(database, client)
+            try:
+                await tool_read(database, client, adresswechsel_id=minted.id, operator=reader)
+                opens = True
+            except WriteRefusalException as refused:
+                assert refused.error_code == VERWALTUNG_ADRESSE
+                opens = False
+
+            pupils = await call(get_spieler_memberships, database, client, operator=reader)
+            referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
+            teams = await call(get_team_memberships, database, client, today=TODAY, operator=reader)
+            [seats] = [
+                row.adresswechsel for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
+            ]
+            reveal = await call(
+                get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAnsichtPayload(email=NEW_EMAIL), operator=reader
+            )
+            served = {
+                "pupils": [(player.adresswechsel_id, player.adresswechsel_einsehbar) for player in pupils.spieler if player.id == SPIELER_OID],
+                "referee": (referee.adresswechsel_id, referee.adresswechsel_einsehbar),
+                "seats": (seats.ansprechperson, seats.einsehbar),
+                "reveal": [(row.adresswechsel_id, row.einsehbar) for row in reveal.adresswechsel],
+            }
+            if grant:
+                listed = await call(get_berechtigungen, database, client, operator=reader)
+                waiting = {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+                served["approval"] = None if waiting is None else (waiting.id, waiting.einsehbar)
+            return minted.id, opens, served
+
+        minted, opens, served = on_a_person(mongo_replica_set_url, body)
+
+        assert opens is (reader == OWNER or not grant)
+        expected = {
+            "pupils": [(minted, opens)],
+            "referee": (minted, opens),
+            "seats": (minted, ["ansprechperson"] if opens else []),
+            "reveal": [(minted, opens)],
+        }
+        if grant:
+            expected["approval"] = (minted, opens)
+        assert served == expected
 
 
 class TestAGrantEndedBeforeTheApproval:

@@ -1,3 +1,4 @@
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -18,6 +19,7 @@ from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
+from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -160,7 +162,13 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
         listed = await get_spieler(
             spieler_collection=database[Collection.SPIELER], saisons_collection=database[Collection.SAISONS], filters=FLSpielerFilterParams()
         )
-        memberships = await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
+        memberships = await get_spieler_memberships(
+            spieler_collection=database[Collection.SPIELER],
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            operator=ADMINISTRATORS[0],
+            auth_time=int(time.time()),
+        )
 
         return [row.id for row in listed.spieler], [row.id for row in memberships.spieler]
 

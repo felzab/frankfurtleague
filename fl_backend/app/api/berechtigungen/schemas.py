@@ -93,6 +93,8 @@ class FLBerechtigungAdresswechsel(BaseModel):
     bis: FLUtcInstant
     # Why the reader may not approve it, or null where they may.
     verwehrt: FLGenehmigungVerwehrt | None
+    # Whether the address tool opens it for the reader, where a refused approval sends them to discard it.
+    einsehbar: bool
 
 
 class FLBerechtigungZeile(BaseModel):

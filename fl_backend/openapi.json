@@ -2235,7 +2235,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,\nbeside whether the tool opens it for this administrator.",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -3317,7 +3317,7 @@
     "/api/v0/teams/memberships": {
       "get": {
         "summary": "Every team with its season memberships",
-        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows.",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\n`GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live\nchange of each seat's address, which the address tool shows, and the seats whose change the tool opens for this\nadministrator.",
         "operationId": "get_team_memberships_api_v0_teams_memberships_get",
         "responses": {
           "200": {
@@ -4421,7 +4421,7 @@
     "/api/v0/spieler/memberships": {
       "get": {
         "summary": "Every Spieler with their squad rows",
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\n`adresswechsel_id` names the live change of the pupil's address, which the address tool shows.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\n`adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and\n`adresswechsel_einsehbar` whether the tool opens it for this administrator.",
         "operationId": "get_spieler_memberships_api_v0_spieler_memberships_get",
         "responses": {
           "200": {
@@ -6160,7 +6160,7 @@
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
         "summary": "Show what an erasure of an address would remove",
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; every request for a grant about the address or made by it,\nwhich goes; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing, beside whether the address tool opens that change for this administrator. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; every request for a grant about the address or made by it,\nwhich goes; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
         "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
@@ -6478,7 +6478,7 @@
     "/api/v0/berechtigungen": {
       "get": {
         "summary": "List who may enter the administration",
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`). An owner's change withholds its new address, starter and reason from\nthat non-owner, as the address tool refuses them an owner's address; a barred new address or starter is withheld as on a\ngrant's row.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
+        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and whether the address tool opens it for them (`einsehbar`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
         "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
         "responses": {
           "200": {
@@ -8255,7 +8255,7 @@
     "/api/v0/adresswechsel/bestaetigung/ansicht": {
       "post": {
         "summary": "What one address link opens",
-        "description": "Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in\na body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's\nlinks answer `beendet` and how it ended for as long as its record is kept.\n\nThe new mailbox's side is served in a state: `bestaetigt` once pressed; else `gesperrt` wherever the ban list holds the\naddress the link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for\nthe address on file's sake, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\n`nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and\nuntil when, and never whether it could be confirmed: the stop is refused nothing.",
+        "description": "Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in\na body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's\nlinks answer `beendet` and how it ended for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `bestaetigt`, or `abgelaufen` where its approval week\nlapsed unapproved; else `gesperrt` wherever the ban list holds the\naddress the link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for\nthe address on file's sake, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\n`nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and\nuntil when, and never whether it could be confirmed: the stop is refused nothing.",
         "operationId": "get_adresswechsel_ansicht_api_v0_adresswechsel_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -10722,7 +10722,7 @@
     "/api/v0/konto/adresswechsel": {
       "get": {
         "summary": "Whether a signed-in person may change their address",
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on.",
+        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on;\n`abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "get_adresswechsel_api_v0_konto_adresswechsel_get",
         "responses": {
           "200": {
@@ -13527,6 +13527,10 @@
               }
             ],
             "title": "Verwehrt"
+          },
+          "einsehbar": {
+            "type": "boolean",
+            "title": "Einsehbar"
           }
         },
         "type": "object",
@@ -13540,7 +13544,8 @@
           "grund",
           "bestaetigt",
           "bis",
-          "verwehrt"
+          "verwehrt",
+          "einsehbar"
         ],
         "title": "FLBerechtigungAdresswechsel",
         "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides (`docs/backend/spec.md :: I858`, `:: I859`)."
@@ -17625,11 +17630,16 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Adresswechsel Id"
+          },
+          "einsehbar": {
+            "type": "boolean",
+            "title": "Einsehbar"
           }
         },
         "type": "object",
         "required": [
-          "adresswechsel_id"
+          "adresswechsel_id",
+          "einsehbar"
         ],
         "title": "FLErasureAnsichtAdresswechsel",
         "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing."
@@ -19194,6 +19204,10 @@
                 "type": "null"
               }
             ]
+          },
+          "abgelaufen": {
+            "type": "boolean",
+            "title": "Abgelaufen"
           }
         },
         "type": "object",
@@ -19204,7 +19218,8 @@
           "wartet_auf",
           "gueltig_bis",
           "wirksam_ab",
-          "genehmigung"
+          "genehmigung",
+          "abgelaufen"
         ],
         "title": "FLKontoAdresswechselOffen",
         "description": "The address's live change as its own account page reads it."
@@ -23816,13 +23831,26 @@
               }
             ],
             "title": "Stellvertretung"
+          },
+          "einsehbar": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Einsehbar"
           }
         },
         "type": "object",
         "required": [
           "trainer",
           "ansprechperson",
-          "stellvertretung"
+          "stellvertretung",
+          "einsehbar"
         ],
         "title": "FLSaisonTeamAdresswechsel",
         "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs."
@@ -24928,13 +24956,18 @@
               }
             ],
             "title": "Adresswechsel Id"
+          },
+          "adresswechsel_einsehbar": {
+            "type": "boolean",
+            "title": "Adresswechsel Einsehbar"
           }
         },
         "type": "object",
         "required": [
           "schiedsrichter",
           "bestaetigung_abgelaufen",
-          "adresswechsel_id"
+          "adresswechsel_id",
+          "adresswechsel_einsehbar"
         ],
         "title": "FLSchiedsrichterSingleResponse"
       },
@@ -30158,6 +30191,10 @@
             ],
             "title": "Adresswechsel Id"
           },
+          "adresswechsel_einsehbar": {
+            "type": "boolean",
+            "title": "Adresswechsel Einsehbar"
+          },
           "memberships": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerMembership"
@@ -30176,6 +30213,7 @@
           "einwilligung",
           "email",
           "adresswechsel_id",
+          "adresswechsel_einsehbar",
           "memberships"
         ],
         "title": "FLSpielerWithMemberships",

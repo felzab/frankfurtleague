@@ -223,6 +223,8 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     bestaetigung_abgelaufen: bool
     # The live change of the referee's address, which the address tool shows; null where none stands.
     adresswechsel_id: CustomObjectId | None
+    # Whether the address tool opens that change for this administrator; false where none stands.
+    adresswechsel_einsehbar: bool
 
 
 class FLSchiedsrichterSelbst(BaseModel):

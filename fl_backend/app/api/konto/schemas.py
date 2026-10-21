@@ -155,6 +155,8 @@ class FLKontoAdresswechselOffen(BaseModel):
     gueltig_bis: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
     genehmigung: FLAdresswechselGenehmigungStand | None
+    # Judged as the hourly pass ends one, so the page closes a lapsed step's press without a clock of its own.
+    abgelaufen: bool
 
 
 class FLKontoAdresswechselResponse(BaseAPIResponse):

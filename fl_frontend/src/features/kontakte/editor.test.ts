@@ -547,7 +547,7 @@ describe("the editor's shape", () => {
     await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
     await user.paste("erika@example.org");
 
-    storedAdresswechsel = { trainer: null, ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0", stellvertretung: null };
+    storedAdresswechsel = { trainer: null, ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0", stellvertretung: null, einsehbar: ["ansprechperson"] };
     try {
       rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
       // The control: the refresh reached the editor, or the kept draft below proves nothing.
@@ -724,7 +724,10 @@ describe("the editor's shape", () => {
      editors show, linking to the address tool by the change's id. */
   it("shows a change pending at one seat's address as the line linking to the address tool, on that seat alone", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
-    const html = editorTree(sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }), BLOCK);
+    const html = editorTree(
+      sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null, einsehbar: ["ansprechperson"] }),
+      BLOCK,
+    );
 
     assert.equal(html.split("läuft eine Änderung.").length - 1, 1, "the line shows on other than the one seat");
     assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
@@ -737,7 +740,15 @@ describe("the editor's shape", () => {
     const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
     const getippt = { ...BLOCK, ansprechperson: { ...grace, email: "neu@example.org" } };
     const html = editorTree(
-      sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }, {}, getippt),
+      sectionElement(
+        BLOCK,
+        true,
+        true,
+        null,
+        { trainer: null, ansprechperson: id, stellvertretung: null, einsehbar: ["ansprechperson"] },
+        {},
+        getippt,
+      ),
       BLOCK,
     );
 

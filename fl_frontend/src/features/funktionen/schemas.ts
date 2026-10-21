@@ -101,8 +101,11 @@ export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungS
   status: FLRegistrierungSchema.shape.status,
 });
 
-/** Another address's pending change naming this one as its new address, which names no person to show. */
-export const FLErasureAnsichtAdresswechselSchema = z.object({ adresswechsel_id: CustomObjectIdStringSchema });
+/**
+ * Another address's pending change naming this one as its new address, which names no person to show; `einsehbar` says
+ * whether the address tool opens it for this administrator.
+ */
+export const FLErasureAnsichtAdresswechselSchema = z.object({ adresswechsel_id: CustomObjectIdStringSchema, einsehbar: z.boolean() });
 
 /**
  * Mirrors `FLErasureAnsichtResponse`: every record the erasure would reach, by kind, name and id, and never the

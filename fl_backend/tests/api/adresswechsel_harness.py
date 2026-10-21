@@ -291,8 +291,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
     return handler(**supplied)
 
 
-def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EMAIL) -> Awaitable[Any]:
-    return call(get_adresswechsel, database, client, identifier=identifier)
+def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EMAIL, **given: Any) -> Awaitable[Any]:
+    return call(get_adresswechsel, database, client, identifier=identifier, **given)
 
 
 def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Awaitable[Any]:
@@ -314,9 +314,9 @@ def administrator_starts(
     return call(post_adresswechsel_verwaltung, database, client, adresswechsel_data=payload, **given)
 
 
-def tool_read(database: AsyncDatabase, client: AsyncMongoClient, **key: Any) -> Awaitable[Any]:
+def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
     payload = FLAdresswechselVerwaltungAnsichtPayload.model_validate(key)
-    return call(get_adresswechsel_verwaltung_ansicht, database, client, ansicht_data=payload)
+    return call(get_adresswechsel_verwaltung_ansicht, database, client, ansicht_data=payload, operator=operator)
 
 
 def resend(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:

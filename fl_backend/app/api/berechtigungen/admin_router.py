@@ -54,6 +54,7 @@ from app.api.berechtigungen.services import (
     lebendige,
     stand_of,
 )
+from app.api.identitaet.services import adresswechsel_einsehbar
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.adressanker import anchor_the_addresses
@@ -119,9 +120,10 @@ async def get_berechtigungen(
     `adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
     started (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve
     it, where they may not: their own, one they started, or an owner's without an owner's power
-    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`). An owner's change withholds its new address, starter and reason from
-    that non-owner, as the address tool refuses them an owner's address; a barred new address or starter is withheld as on a
-    grant's row.
+    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and whether the address tool opens it for them (`einsehbar`). An
+    owner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an
+    owner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is
+    left out: its approval is refused, and the next hourly pass ends it.
 
     `antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:
     the address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since
@@ -180,7 +182,9 @@ async def get_berechtigungen(
                 erteilt_am=grant.erteilt_am,
                 adresswechsel=None
                 if record is None
-                else _adresswechsel_zeile(record, akteur=akteur, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel),
+                else _adresswechsel_zeile(
+                    record, akteur=akteur, auth_time=auth_time, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel
+                ),
             )
         )
 
@@ -197,6 +201,7 @@ def _adresswechsel_zeile(
     record: Mapping[str, Any],
     *,
     akteur: str,
+    auth_time: int,
     inhaber: bool,
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
@@ -223,6 +228,7 @@ def _adresswechsel_zeile(
         bestaetigt=record.get("bestaetigt_am") is not None,
         bis=genehmigung["bis"],
         verwehrt=verwehrt,
+        einsehbar=adresswechsel_einsehbar(record["adresse"], akteur=akteur, auth_time=auth_time, grants=grants, announced=announced),
     )
 
 

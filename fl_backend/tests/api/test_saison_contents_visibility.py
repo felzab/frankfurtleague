@@ -1,3 +1,4 @@
+import time
 from collections.abc import Awaitable, Callable, Iterator
 from typing import Any
 
@@ -20,6 +21,7 @@ from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from tests import documents
+from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
 
@@ -374,7 +376,12 @@ class TestTheAdminTierStillReadsThePlannedSeason:
     def test_the_planned_membership_is_listed(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
             return await get_team_memberships(
-                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+                teams_collection=database[Collection.TEAMS],
+                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
             )
 
         response = on_a_league(seeded_league, body)
@@ -388,7 +395,13 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         """
 
         async def body(database: AsyncDatabase) -> Any:
-            return await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
+            return await get_spieler_memberships(
+                spieler_collection=database[Collection.SPIELER],
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
+            )
 
         response = on_a_league(seeded_league, body)
         planned = {person.vorname for person in response.spieler for membership in person.memberships if membership.saison_id == PLANNED}

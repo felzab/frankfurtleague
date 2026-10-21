@@ -324,7 +324,9 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
     def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_id": None, "memberships": []})
+        parsed = FLSpielerWithMemberships.model_validate(
+            {**stored, "adresswechsel_id": None, "adresswechsel_einsehbar": False, "memberships": []}
+        )
 
         assert parsed.einwilligung is not None
         assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == ("liga-2026-03", True)

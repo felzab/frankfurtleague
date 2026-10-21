@@ -1,3 +1,4 @@
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -50,6 +51,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
+from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import eigene_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
@@ -594,6 +596,10 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                     today=TODAY,
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    operator=ADMINISTRATORS[0],
+                    auth_time=int(time.time()),
                 )
                 answers.append("answered")
             except DocumentNotFoundException:

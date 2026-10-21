@@ -190,6 +190,8 @@ export const FLKontoAdresswechselOffenSchema = z.object({
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   genehmigung: FLAdresswechselGenehmigungStandSchema.nullable(),
+  // Judged as the hourly pass ends a change, so the page closes a lapsed step's press without a clock of its own.
+  abgelaufen: z.boolean(),
 });
 export type FLKontoAdresswechselOffen = z.infer<typeof FLKontoAdresswechselOffenSchema>;
 

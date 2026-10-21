@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.adresswechsel.crud import einsehbare_adressen
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
@@ -38,6 +39,8 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    BerechtigungenAngekuendigtCollection,
+    BerechtigungenCollection,
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -48,8 +51,9 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -86,21 +90,41 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
-async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSpielerMembershipsResponse:
+async def get_spieler_memberships(
+    spieler_collection: SpielerCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
+) -> FLSpielerMembershipsResponse:
     """
     Every player, retired ones included, each with every squad row they hold.
 
     `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
     without one a player with no live row has `nummer` and `position` null.
 
-    `adresswechsel_id` names the live change of the pupil's address, which the address tool shows.
+    `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
+    `adresswechsel_einsehbar` whether the tool opens it for this administrator.
     """
 
     spieler_raw = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
     )
+    einsehbar = await einsehbare_adressen(
+        (str(spieler["email"]) for spieler in spieler_raw if spieler.get("adresswechsel_id") is not None),
+        akteur=sign_in_identifier(operator),
+        auth_time=auth_time,
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        session=None,
+    )
 
-    return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
+    return FLSpielerMembershipsResponse(
+        spieler=[
+            FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar": spieler.get("email") in einsehbar})
+            for spieler in spieler_raw
+        ]
+    )
 
 
 @router.get(
