@@ -46,6 +46,7 @@ from app.api.aktionen.services import IMAGE_ADDRESSES
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
@@ -348,6 +349,35 @@ class Urteil:
     widerrufen: bool = False
 
 
+async def queue_the_approval_notice_in_session(
+    *,
+    adresswechsel_id: ObjectId,
+    gestartet_von: str,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Tell whoever could approve the change's grant move that it waits, through the grants' outbox, in the caller's transaction.
+
+    Its recipients are read when a pass claims it (`app/api/berechtigungen/sweep_router.py :: post_berechtigungen_abgleich`),
+    so a change approved, ended or lapsed by then mails nobody, and a lost answer loses no notice.
+    """
+
+    await post_one_to_db(
+        collection=berechtigungen_postausgang_collection,
+        document=compose_berechtigung_postausgang(
+            berechtigung_id=adresswechsel_id,
+            art="adresswechsel",
+            jetzt=None,
+            vorher=None,
+            geaendert_von=gestartet_von,
+            now=now,
+            gesperrt=(),
+        ),
+        session=session,
+    )
+
+
 async def judge_the_effect_in_session(
     *,
     record: Mapping[str, Any],
@@ -492,6 +522,14 @@ async def take_effect_in_session(
             update=compose_genehmigung_widerrufen_update(),
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+        # The approvers are asked again: nobody else knows the approval they saw given no longer stands.
+        await queue_the_approval_notice_in_session(
+            adresswechsel_id=record["_id"],
+            gestartet_von=str(record["genehmigung"]["gestartet_von"]),
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            now=now,
+            session=session,
         )
     if urteil.ursache is not None or urteil.wartet:
         return urteil, False

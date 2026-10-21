@@ -21,6 +21,9 @@ import type { MemoryDB } from "better-auth/adapters/memory";
    backend and the mailer are the doubles. */
 let requestHeaders: Headers | undefined;
 
+/** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
+const deferred: (() => unknown)[] = [];
+
 const mail = registerAuthDoubles({
   core: {
     logging: { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } },
@@ -29,6 +32,7 @@ const mail = registerAuthDoubles({
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
+    "next/server": { after: (task: () => unknown) => void deferred.push(task) },
     "@better-auth/mongo-adapter": { mongodbAdapter: () => insertOrderedAdapter(store as unknown as MemoryDB) },
   },
 });
@@ -40,6 +44,9 @@ const NEU = "lena@neu.example";
 const CARRIER = "6890a1b2c3d4e5f607800002";
 
 const ADRESSWECHSEL = "/api/v0/konto/adresswechsel";
+/** The grants' outbox, which tells an address change's approvers (`docs/backend/spec.md :: I862`). */
+const ABGLEICH = "/api/v0/berechtigungen/abgleich";
+let abgleiche = 0;
 const FREIGABE = "/api/v0/konto/adresswechsel/freigabe";
 
 /** Who is told an approval waits: none for an address holding no grant. */
@@ -64,6 +71,12 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   const method = init?.method ?? "GET";
   if (path.startsWith("/api/v0/zustellung")) return Promise.resolve(Response.json({ acknowledged: 1, angewendet: true }));
+  if (path === ABGLEICH) {
+    abgleiche += 1;
+    return Promise.resolve(
+      Response.json({ acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 }),
+    );
+  }
   if (path === ADRESSWECHSEL || path === FREIGABE) {
     writes.push({
       method: method,
@@ -102,6 +115,8 @@ beforeEach(() => {
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
   genehmiger = [];
+  deferred.length = 0;
+  abgleiche = 0;
   startAnswer = () => Response.json(mint());
   freigabeAnswer = () => Response.json({ acknowledged: 1, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU });
   cacheCalls.length = 0;
@@ -145,20 +160,22 @@ describe("the person's own start of an address change", () => {
     assert.deepEqual(gesperrt, gesendet);
   });
 
-  /* A grant moves only once another administrator approves: each is told one waits, and the person that it does. */
-  it("tells the approvers an approval waits where a grant moves, and the person that the old address signs in meanwhile", async () => {
+  /* A grant moves only once another administrator approves: the approvers are told once, by the grants' outbox the
+     start queued, and the person that the old address signs in meanwhile. */
+  it("leaves the approvers to the grants' outbox, drained behind the answer, and tells the person the old address signs in meanwhile", async () => {
     genehmiger = ["anna@verwaltung.example", "ben@verwaltung.example"];
     await angemeldet();
 
     const answer = await starteAdresswechselAction({ email: NEU });
 
     assert.deepEqual(
-      ["anna@verwaltung.example", "ben@verwaltung.example"].map((to) => an(to)[0]?.subject),
-      ["Eine Adressänderung wartet auf Deine Genehmigung", "Eine Adressänderung wartet auf Deine Genehmigung"],
+      ["anna@verwaltung.example", "ben@verwaltung.example"].flatMap((to) => an(to)),
+      [],
+      "the action mailed an approver whom the outbox mails too",
     );
-    for (const to of ["anna@verwaltung.example", "ben@verwaltung.example"]) {
-      assert.doesNotMatch(an(to)[0]?.text ?? "", /neu\.example|schule\.example/, "an approver's notice names an address");
-    }
+    assert.equal(deferred.length, 1, "the start scheduled other work behind the answer than the outbox's drain");
+    for (const task of deferred) await task();
+    assert.equal(abgleiche, 1, "the outbox holding the approvers' notice was not drained");
     assert.match(
       answer.success ? (answer.message ?? "") : "",
       /muss außerdem eine andere Person aus der Verwaltung zustimmen\. Bis dahin meldest Du Dich weiter mit dieser Adresse an\./,
@@ -171,6 +188,7 @@ describe("the person's own start of an address change", () => {
     const answer = await starteAdresswechselAction({ email: NEU });
 
     assert.deepEqual(mail.sent.map(({ to }) => to).sort(), [BISHER, NEU].sort());
+    assert.deepEqual(deferred, [], "a start moving no grant drained the grants' outbox");
     assert.doesNotMatch(answer.success ? (answer.message ?? "") : "", /Verwaltung/);
   });
 

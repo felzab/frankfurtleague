@@ -330,7 +330,7 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     vorname: str | None
     # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
     adresse_belegt: bool
-    # Whom the frontend's server tells an approval waits; empty where no grant moves.
+    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
     genehmiger: list[str]
 
 

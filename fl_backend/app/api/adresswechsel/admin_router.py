@@ -12,6 +12,7 @@ from app.api.adresswechsel.crud import (
     adresse_belegt,
     end_the_change_in_session,
     ending_line,
+    queue_the_approval_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -275,6 +276,7 @@ async def post_adresswechsel_verwaltung(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
     adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
@@ -291,7 +293,8 @@ async def post_adresswechsel_verwaltung(
     `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
     address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
     mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
-    this one's, and `genehmiger` names whom the caller tells. The address's live change ends replaced.
+    this one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
+    The address's live change ends replaced.
     `adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.
 
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
@@ -365,6 +368,14 @@ async def post_adresswechsel_verwaltung(
             journal=journal,
             session=session,
         )
+        if record["genehmigung"] is not None:
+            await queue_the_approval_notice_in_session(
+                adresswechsel_id=adresswechsel_id,
+                gestartet_von=akteur,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                now=germany_now,
+                session=session,
+            )
 
         return FLAdresswechselVerwaltungMintResponse(
             id=adresswechsel_id,

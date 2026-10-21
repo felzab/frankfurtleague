@@ -45,6 +45,7 @@ from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigunge
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
+from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.admin_router import erase_auf_anfrage
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
@@ -62,7 +63,7 @@ from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.drosselung import build_counts_filter
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import Actor, PersonActor, actor_var
+from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
@@ -93,6 +94,7 @@ from .adresswechsel_harness import (
     SECOND_TEAM_OID,
     SPIELER_OID,
     TEAM_OID,
+    THIRD_ADMIN,
     TODAY,
     TYPED,
     UNCONFIRMED_REG_LINK,
@@ -892,7 +894,35 @@ class TestTheTool:
         assert [(line.art, line.record_id) for line in journal] == [("adresswechsel_verworfen", later)]
 
 
+async def approvers_told(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> list[list[str] | None]:
+    """Whom the grants' pass mails each address change's approval notice it claims, as the system actor claims."""
+
+    token = actor_var.set(SYSTEM_ACTOR)
+    try:
+        answer = await call(post_berechtigungen_abgleich, database, client, now=now)
+    finally:
+        actor_var.reset(token)
+
+    return [None if row.an is None else sorted(row.an) for row in answer.aenderungen if row.art == "adresswechsel"]
+
+
 class TestTheApproval:
+    def test_its_approvers_are_told_once_through_the_grants_outbox_and_nobody_once_it_is_given(self, mongo_replica_set_url: str):
+        """Read at the claim, so a retry after the approval mails nobody; queued in the start's transaction, its answer carrying none."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            first = await approvers_told(database, client)
+            await approve(database, client, minted.id, operator=ADMIN)
+            # The lease lapsed, the row unstamped, as a failed delivery leaves it.
+            return minted.genehmiger, first, await approvers_told(database, client, now=NOW + timedelta(minutes=11))
+
+        genehmiger, first, after = on_a_person(mongo_replica_set_url, body)
+
+        assert first == [sorted(genehmiger)]
+        assert after == [[]]
+
     def test_an_approval_before_the_confirmation_lets_the_confirmation_take_effect(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
@@ -1196,7 +1226,9 @@ class TestTheMovedGrant:
         assert list(grants) == [NEW_EMAIL]
         moved = grants[NEW_EMAIL]
         assert (moved["verwaltung"], moved["erteilt_von"], moved["_id"] != old_grant) == ("administration", SECOND_ADMIN, True)
-        assert [(row["art"], (row["jetzt"] or row["vorher"])["adresse"], row["geaendert_von"]) for row in outbox] == [
+        assert [(row["art"], (row["jetzt"] or row["vorher"] or {}).get("adresse"), row["geaendert_von"]) for row in outbox] == [
+            # The start's word to its approvers, naming no grant, its starter carried to their new address.
+            ("adresswechsel", None, NEW_EMAIL),
             # The paste no comparison has seen yet is announced first, as a revoke announces one.
             ("erteilt", EMAIL, None),
             ("entzogen", EMAIL, SECOND_ADMIN),
@@ -1368,14 +1400,17 @@ class TestTheAdministratorFollowsTheirMove:
             answered = await answer(database, client, minted.token)
             waiting = await change(database, minted.id), await everything(database)
             listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
+            told = await approvers_told(database, client)
             approved = await approve(database, client, minted.id, operator=SECOND_ADMIN)
-            return answered, waiting, listed, approved
+            return answered, waiting, listed, told, approved
 
-        answered, (record, rows), listed, approved = on_a_person(mongo_replica_set_url, body)
+        answered, (record, rows), listed, told, approved = on_a_person(mongo_replica_set_url, body)
 
         assert (answered.wirksam, answered.genehmigung_offen) == (False, True)
         assert (record["genehmigung"]["genehmigt_am"], record["genehmigung"]["genehmigt_von"], rows["pupil"]["email"]) == (None, None, EMAIL)
         assert {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL] is not None
+        # Asked again: the start's notice and the one the withdrawal queued, each read for whoever could approve it now.
+        assert told == [sorted([OWNER, SECOND_ADMIN, THIRD_ADMIN])] * 2
         assert approved.wirksam
 
     def test_an_administrator_granted_after_the_request_approves_nothing_of_it(self, mongo_replica_set_url: str):

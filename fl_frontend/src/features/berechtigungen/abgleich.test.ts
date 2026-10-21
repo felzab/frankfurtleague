@@ -102,6 +102,32 @@ beforeEach(() => {
 });
 
 describe("one pass over the claimed changes", () => {
+  /* An address change waiting on an approval is told to whoever could give it alone, naming nobody, once per claim. */
+  it("mails an address change's approval notice to its own recipients alone, naming no address, then stamps it", async () => {
+    claim = claimOf([
+      aenderung({ art: "adresswechsel", jetzt: null, vorher: null, geaendert_von: "lena@schule.de", an: ["inhaber@schule.de"] }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map(({ to, subject }) => [to, subject]),
+      [["inhaber@schule.de", "Eine Adressänderung wartet auf Deine Genehmigung"]],
+    );
+    assert.doesNotMatch(`${mail.sent[0]?.text}${mail.sent[0]?.html}`, /lena@schule\.de/, "the notice names who started the change");
+    assert.ok(mail.sent[0]?.text.includes("http://localhost:3000/bereich/admin/administratoren"), "the notice leads elsewhere");
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  it("stamps an address change's notice that nobody could approve any more, mailing nobody", async () => {
+    claim = claimOf([aenderung({ art: "adresswechsel", jetzt: null, vorher: null, an: [] })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent, []);
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
   /* Mail, then stamp: stamping first would mark as told a change nobody was told of. */
   it("mails every holder and the address granted once each, then stamps the row under the claim", async () => {
     claim = claimOf([aenderung({ jetzt: { adresse: "vorstand@schule.de", verwaltung: "administration" } })]);

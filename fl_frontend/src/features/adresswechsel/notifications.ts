@@ -3,7 +3,6 @@ import "server-only";
 import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
 import {
   buildAdresswechselEmail,
-  buildAdresswechselGenehmigungEmail,
   buildAdresswechselHinweisEmail,
   buildAdresswechselNichtWirksamEmail,
   buildAdresswechselWirksamEmail,
@@ -75,15 +74,6 @@ export async function mailAdresswechsel({
   ]);
 
   return { weg: mint.weg, link: link, hinweis: hinweis };
-}
-
-/**
- * Tells each other holder of the administration that a grant holder's change waits for an approval, best effort:
- * the change lapses unapproved, and the administrators page lists it whether or not the mail arrived.
- */
-export async function mailGenehmigungWartet({ operation, genehmiger }: { operation: string; genehmiger: readonly string[] }): Promise<void> {
-  const mail = buildAdresswechselGenehmigungEmail({ origin: frontend_config.AUTH_URL });
-  for (const adresse of genehmiger) await sendeHinweis(adresse, mail, "adresswechsel.genehmigung_hinweis_failed", operation);
 }
 
 /**
