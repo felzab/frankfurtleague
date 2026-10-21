@@ -200,7 +200,9 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     pipeline.append(
         {
             "$project": {
-                "_id": 1,
+                # Named to drop it, `$project` keeping `_id` otherwise: the person's own id would tie every
+                # squad row of a pupil whose name is withheld together (`READ-PUPIL-005`).
+                "_id": 0,
                 **PUBLIC_PERSON,
                 "position": f"${AS_NAME}.position",
                 "nummer": f"${AS_NAME}.nummer",

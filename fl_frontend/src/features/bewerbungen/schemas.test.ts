@@ -662,7 +662,12 @@ describe("the squad question asks for one level in both halves", () => {
 });
 
 describe("the one field of a submitted application an administrator may move", () => {
-  const CORRECTION = { id: "6890a1b2c3d4e5f607190001", rolle: "ansprechperson" as const, email: "erika@schule.de" };
+  const CORRECTION = {
+    id: "6890a1b2c3d4e5f607190001",
+    rolle: "ansprechperson" as const,
+    email: "erika@schule.de",
+    bisherige_email: "erika.alt@schule.de",
+  };
 
   const refusalFor = (payload: unknown): Record<string, string> => {
     const parsed = FLBewerbungKontaktEmailPayloadSchema.safeParse(payload);
@@ -670,9 +675,14 @@ describe("the one field of a submitted application an administrator may move", (
     return parsed.success ? {} : toFieldErrors(parsed.error);
   };
 
-  it("takes an application, a seat and an address, and refuses any other key", () => {
+  it("takes an application, a seat, an address and the address the page showed, and refuses any other key", () => {
     assert.deepEqual(refusalFor(CORRECTION), {});
-    assert.deepEqual(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, vorname: "Erika" })), ["id", "rolle", "email"]);
+    assert.deepEqual(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, vorname: "Erika" })), [
+      "id",
+      "rolle",
+      "email",
+      "bisherige_email",
+    ]);
   });
 
   /* One address is judged alike wherever it is typed: a sentence of this schema's own would tell an

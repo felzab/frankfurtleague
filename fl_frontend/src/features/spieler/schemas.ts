@@ -85,7 +85,6 @@ export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
  * letter read as they would from a whole surname.
  */
 export const FLSpielerPublicSchema = z.object({
-  id: CustomObjectIdStringSchema,
   // Both names arrive `null` for a person the publication gate withholds (`READ-PUPIL-003`), so a
   // non-empty rule here would refuse the answer the API is entitled to give.
   vorname: z.string().nullable(),

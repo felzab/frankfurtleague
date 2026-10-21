@@ -367,6 +367,14 @@ describe("the line a failed admin action writes", () => {
     assert.deepEqual(loggedErrorCodes(), ["FE-ACT-001"]);
   });
 
+  /* Whatever an action calls may throw with the submitted address in its message: a sign-in store or library call left uncaught. */
+  it("hands the log nothing of an untyped throw, whose message may carry the submitted address", async () => {
+    await runAdminMutation("probeAction", () => Promise.reject(new Error("no account for quillhilde@example.com")));
+
+    assert.equal(loggedErrorCodes().length, 1, "the failure wrote no line");
+    assert.doesNotMatch(JSON.stringify(loggedLines), /quillhilde/, "the address reached the log stream");
+  });
+
   /* The trace is the one the call sent, which the backend's own line of the failure carries. */
   it("files an API failure under the error's own code, status, server code and trace", async () => {
     const failed = new APIBadStatusError({ ...SENT, message: "failed", statusCode: 500, serverErrorCode: "DB-FAIL-001" });
@@ -375,6 +383,7 @@ describe("the line a failed admin action writes", () => {
 
     assert.deepEqual(lineOf("Admin mutation failed: probeAction"), {
       error_code: "FE-API-001",
+      name: "APIBadStatusError",
       status: 500,
       server_error_code: "DB-FAIL-001",
       trace_id: SENT.traceId,
@@ -390,6 +399,7 @@ describe("the line a failed admin action writes", () => {
     assert.equal("stepUp" in answer && answer.stepUp, true);
     assert.deepEqual(lineOf("Admin mutation refused for want of a confirmation: probeAction"), {
       error_code: "FE-API-001",
+      name: "APIBadStatusError",
       status: 403,
       server_error_code: "REQ-AUTH-009",
       trace_id: SENT.traceId,

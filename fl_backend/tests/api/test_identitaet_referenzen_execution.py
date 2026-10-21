@@ -75,8 +75,8 @@ INHABERIN = "olga.inhaberin@schule.de"
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
 
-# One pass's batch, as the sweep sends it, one address in it twice. The past seat and the registration
-# store theirs as typed, and the retired pupil is asked in capitals against a row storing the fold.
+# One pass's batch, as the sweep sends it, one address in it twice. The retired pupil is asked in
+# capitals against a row storing the fold, as every record stores it.
 ASKED = [
     SITZ_VERGANGEN,
     SITZ_VERGANGEN_OFFEN,

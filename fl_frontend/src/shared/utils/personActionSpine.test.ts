@@ -211,6 +211,7 @@ describe("the person spine's record entry", () => {
     const line = loggedLines.find(({ message }) => message === "Person mutation refused for want of a confirmation: probeAction");
     assert.deepEqual(line?.meta, {
       error_code: "FE-API-001",
+      name: "APIBadStatusError",
       status: refused.statusCode,
       server_error_code: "REQ-AUTH-009",
       trace_id: refused.traceId,

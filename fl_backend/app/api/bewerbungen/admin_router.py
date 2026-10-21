@@ -32,6 +32,7 @@ from app.api.bewerbungen.services import (
     find_kontakt_gesperrt_refusal,
     find_new_club_refusal,
     find_reseat_refusal,
+    find_sitz_inhaber_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
@@ -425,7 +426,8 @@ async def korrigiere_kontakt_email(
     deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
     for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
     write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
-    — the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this
+    — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
+    caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
     application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
     no seat is a 404.
     """
@@ -451,6 +453,8 @@ async def korrigiere_kontakt_email(
         kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
         refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+        # After the answered check, which names an emptied seat more plainly than a holder that moved would.
+        refuse(find_sitz_inhaber_refusal(kontakte=kontakte, seat=rolle, bisherige_email=email_data.bisherige_email))
 
         other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)

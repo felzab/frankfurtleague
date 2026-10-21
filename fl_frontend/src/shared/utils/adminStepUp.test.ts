@@ -428,8 +428,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await draw({ id: SAISON_ID }), refused, "a stale session was refused a first draw");
   });
 
-  /* The save mints where it moves a referee's address, a consent link before their answer and an
-     address link after it, and only there: a fee changed on a stale session asks nothing. */
+  /* The save asks where it moves a referee's address, which mints an unanswered referee a consent link and is refused
+     an answered one, and only there: a fee changed on a stale session asks nothing. */
   it("refuses a referee's save only where it mints a new link", async () => {
     const save = await action("patchSchiedsrichterAction");
     const payload = (email: string) => ({
@@ -594,7 +594,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown;
   },
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
     name: "kontaktEmailKorrigierenAction",
-    payload: { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "berta@example.de" },
+    payload: { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "berta@example.de", bisherige_email: "anna@example.de" },
   },
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}": {
     name: "besetzeKontaktSitzAction",

@@ -310,6 +310,23 @@ describe("the address correction", () => {
     assert.equal(ran("kontaktEmailKorrigierenAction"), 0, "an address another person holds reaches the write");
   });
 
+  /* The address this page showed, never one the action reads again: a seat another person took since is refused rather
+     than handed the address typed for the one who left. */
+  it("sends the address the seat showed beside the corrected one", async () => {
+    const user = userEvent.setup();
+    renderStrip();
+
+    await correctClara(user, "clara.neu@schule.example{Enter}");
+
+    assert.deepEqual(
+      calls
+        .filter((call) => call.action === "kontaktEmailKorrigierenAction")
+        .map((call) => (call.payload as { bisherige_email: string }).bisherige_email),
+      ["clara@schule.example"],
+    );
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara.neu@schule.example.", versand: "gesendet" }));
+  });
+
   /* The seat's own mirror is the same person, whose address is no other person's. */
   it("takes the address the seat's own mirror holds", async () => {
     const user = userEvent.setup();

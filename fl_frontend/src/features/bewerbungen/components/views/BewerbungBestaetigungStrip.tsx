@@ -495,7 +495,7 @@ function AdresseKorrigieren({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
-  const payload = { id: bewerbungId, rolle: rolle, email: email };
+  const payload = { id: bewerbungId, rolle: rolle, email: email, bisherige_email: gespeicherteAdresse ?? "" };
 
   useForgiveFixed({ korrektur: payload });
 

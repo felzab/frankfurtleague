@@ -170,11 +170,13 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
             auth_time=int(time.time()),
         )
 
-        return [row.id for row in listed.spieler], [row.id for row in memberships.spieler]
+        # By forename on the public list, which serves no record id (`READ-PUPIL-005`): the person's
+        # record publishes theirs, and the sentinel stores none.
+        return [row.vorname for row in listed.spieler], [row.id for row in memberships.spieler]
 
     listed, memberships = on_a_league(mongo_replica_set_url, body)
 
-    assert listed == [PERSON_OID]
+    assert listed == ["Quillhilde"]
     assert memberships == [PERSON_OID]
 
 

@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "f870e77d4b7e2432f5f65705178a9d0ce09936d325f3b69d48557d8437ed733c" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "66bd9e496f45ebba8480c052968b3f300780610426ef05f348317c8472761b61" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -371,7 +371,7 @@ describe("the privacy notice's retention table", () => {
   it("says the account goes on its own once the address holds none of the records and grants that keep it", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
-        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung",
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung. Gilt eine neue Adresse, die Dein Konto mitnimmt, löschen wir es unter der bisherigen erst, wenn wir es umgetragen oder das Umtragen aufgegeben haben",
       ),
     );
   });

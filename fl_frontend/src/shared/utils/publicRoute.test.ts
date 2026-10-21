@@ -19,7 +19,15 @@ const PACKAGE_DOUBLES = {
 };
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/** Every error an error line was handed, whose message and stack the real logger writes. */
+const attachedErrors: unknown[] = [];
+const LOGGING = {
+  logger: {
+    info: inert,
+    warn: inert,
+    error: (_message: string, attached: unknown) => void (attached !== undefined && attachedErrors.push(attached)),
+  },
+};
 
 registerDoubles({ modules: { "core/logging.ts": LOGGING }, specifiers: PACKAGE_DOUBLES });
 
@@ -177,6 +185,17 @@ describe("a throw of the route's own code", () => {
     });
 
     assert.equal(body.outcome, "unknown");
+  });
+
+  /* Whatever a route calls may throw with the submitted address in its message: a sign-in store or library call left uncaught. */
+  it("hands the log nothing of the throw, whose message may carry the submitted address", async () => {
+    attachedErrors.length = 0;
+
+    await answeredFor(async () => {
+      throw new Error("no account for quillhilde@example.com");
+    });
+
+    assert.deepEqual(attachedErrors, []);
   });
 
   /* Judged by what the request sent, never by the route's own method: nothing left, so nothing stands. */

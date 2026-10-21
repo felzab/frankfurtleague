@@ -166,7 +166,7 @@ export function SpielsucheView({
                 bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
               }>
               {bestaetigungen === null
-                ? "Die Karten zeigen deshalb keine Antworten der Teams. Lade die Seite neu."
+                ? "Die Karten zeigen deshalb keine Antworten, weder der Teams noch ihrer Schiedsrichterin oder ihres Schiedsrichters. Lade die Seite neu."
                 : "Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. Einer Karte kann deshalb die Absage ihrer Schiedsrichterin oder ihres Schiedsrichters fehlen."}
             </Callout>
           </div>

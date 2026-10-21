@@ -516,12 +516,12 @@ describe("a fan-out that cannot reach everyone", () => {
 describe("what the administrator is told", () => {
   it("names nobody where every message arrived", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Zusage ging an 2 Kontaktpersonen.",
     );
     // Its own arm: German counts nothing and one with words rather than with a figure.
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Absage ging an eine Kontaktperson.",
     );
   });
@@ -531,6 +531,7 @@ describe("what the administrator is told", () => {
       delivered: ["a@schule.de"],
       unreachable: ["b@schule.de", "c@schule.de"],
       withheld: [],
+      ungewiss: [],
       gesperrt: 0,
     });
 
@@ -539,19 +540,34 @@ describe("what the administrator is told", () => {
     assert.match(report, /Melde Dich selbst bei ihnen/, "the report names nobody's remedy");
   });
 
+  /* A refused send and one broken off unanswered are two facts: the second may have arrived, and neither drops the other. */
+  it("names an address in doubt apart from one it could not reach", () => {
+    assert.equal(
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], ungewiss: ["b@schule.de"], gesperrt: 0 }),
+      "Die Zusage konnte an niemanden verschickt werden. Nicht erreicht wurden: a@schule.de. " +
+        "Ob die Zusage bei b@schule.de ankam, ist unklar. Melde Dich selbst bei ihnen.",
+    );
+  });
+
   /* Pinned whole, not by a fragment: the noun is a German one and the sentence supplies its own
      article, so lower-casing it renders „ging die absage“ where a fragment match sees nothing. */
   it("says so where the application named no address at all", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die Absage an niemanden raus.",
     );
   });
 
   /* Two different failures, and the words part company: nothing arrived, against some of it did. */
   it("tells a total failure apart from a partial one", () => {
-    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
-    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
+    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], ungewiss: [], gesperrt: 0 });
+    const partial = describeBewerbungMail("Zusage", {
+      delivered: ["b@schule.de"],
+      unreachable: ["a@schule.de"],
+      withheld: [],
+      ungewiss: [],
+      gesperrt: 0,
+    });
 
     assert.match(nothing, /an niemanden verschickt/);
     assert.notEqual(nothing, partial);
@@ -563,21 +579,21 @@ describe("what the administrator is told", () => {
      application does hold, and a count is all the report may carry (`docs/frontend/spec.md :: I542`). */
   it("says the ban list kept the decision from every address, naming none", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], gesperrt: 2 }),
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 2 }),
       "Die Zusage ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht.",
     );
   });
 
   it("counts a barred address beside the ones that were sent, rather than as one to chase", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 1 }),
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 }),
       "Die Absage ging an eine Kontaktperson. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.",
     );
   });
 
   it("reports a fan-out this deployment withheld in the deployment's words, naming nobody to chase", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], gesperrt: 0 }),
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], ungewiss: [], gesperrt: 0 }),
       ZURUECKGEHALTEN,
     );
   });

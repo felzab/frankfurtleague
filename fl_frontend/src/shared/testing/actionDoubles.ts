@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { withoutStoredValues } from "@/core/logFormat.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { judging } from "@/core/verdicts.ts";
 import { srcPathOf } from "@/shared/testing/actionLanes.ts";
@@ -178,8 +179,17 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
-/** One line an action logged: its level, its message, and the fields beside them. */
-export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown };
+/** One line an action logged: its level, its message, the fields beside them, and an error line's attached error. */
+export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
+
+/**
+ * What the real logger writes of an attached error (`fl_frontend/src/core/logFormat.ts :: serializeError`): its message
+ * and stack are where a submitted address reaches the log, so a suite's address check over these lines reads them too.
+ */
+function writtenOf(attached: unknown): unknown {
+  const error = withoutStoredValues(attached);
+  return error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error;
+}
 
 /**
  * Every line logged since the case began, `doubleActionRequest` emptying it before each case. Recorded
@@ -208,6 +218,8 @@ const logAt =
   (message: string, ...rest: unknown[]): void => {
     // `error` takes the thrown value before its fields, the other three their fields alone.
     const line: LoggedLine = { level, message, meta: level === "error" ? rest[1] : rest[0] };
+    // Only where one was attached, so a line handed none equals its fields alone.
+    if (level === "error" && rest[0] !== undefined) line.attached = writtenOf(rest[0]);
     traceOfLine.set(line, requestTraceId());
     loggedLines.push(line);
   };
