@@ -1797,8 +1797,8 @@ refuses a moment naming no offset, a restore's end no later than the snapshot, a
 the export wrote no file for. Each line is listed by its act and its record, never by its person:
 
 - **An erasure** is followed by every collection, document and field holding its address, or by
-  "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
-  or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
+  "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
+  database is not read, an account whose
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
   the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
   day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
