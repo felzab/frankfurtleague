@@ -1788,6 +1788,41 @@ class TestTheRefereesOwnRows:
 
         assert [(eintrag.id, eintrag.zustand, eintrag.ansetzung.datum) for eintrag in eintraege] == [(REFEREE_ROW, "gueltig", DATUM)]
 
+    def test_a_moved_row_still_its_fixtures_newest_names_the_slot_it_asked_about(self, mongo_replica_set_url: str):
+        """Moved past the answer window, so no fresh request exists: the card shows what the referee was asked, not the new slot."""
+
+        other_ground = ObjectId("6890a1b2c3d4e5f607d50032")
+        asked = referee_row()["ansetzung"]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELORTE].insert_one(
+                {
+                    "_id": other_ground,
+                    "name": "Halle West",
+                    "address": dict(documents.ADDRESS),
+                    "maps_link": "Halle West, Frankfurt",
+                    "default_mietpreis": 40,
+                    "inactive_since": None,
+                }
+            )
+            await database[Collection.SPIELE].update_one(
+                {"_id": SPIEL},
+                {
+                    "$set": {
+                        "datum": "2027-07-01",
+                        "uhrzeit": "19:30:00",
+                        "ort": {"spielort_id": other_ground, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 40},
+                    }
+                },
+            )
+            return (await eigene(database, client)).spielbestaetigungen
+
+        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        assert (eintrag.zustand, eintrag.ansetzung.datum, eintrag.ansetzung.uhrzeit) == ("ungueltig", asked["datum"], asked["uhrzeit"])
+        assert eintrag.ansetzung.spielort is not None
+        assert eintrag.ansetzung.spielort.name == "Halle Ost"
+
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
         """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's."""
 
