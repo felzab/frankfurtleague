@@ -52,7 +52,6 @@ const wartezeit = {
   bisherige_email: BISHER,
   // None on the lost-mailbox way, whose address on file may be a stranger's by now.
   vorname: null as string | null,
-  adresse_belegt: false,
   genehmiger_anzahl: 0,
 };
 /** A start without one: nothing goes to the new mailbox before the address on file approves. */
@@ -216,16 +215,6 @@ describe("an administrator's start of a change", () => {
     );
   });
 
-  /* The administrator's one sign of a pretext's target: the person's own start answers alike whatever the address holds. */
-  it("warns the administrator where the new address already holds records of its own", async () => {
-    antwort[START] = () => ({ ...wartezeit, adresse_belegt: true });
-
-    const res = await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
-
-    assert.equal(res.success && res.adresseBelegt, true);
-    assert.match(message(res), /Unter der neuen Adresse stehen schon Einträge bei der Liga\./);
-  });
-
   /* A grant holder's change waits on another administrator, told once, by the grants' outbox the start queued. */
   it("mails no approver itself and drains the grants' outbox behind the answer", async () => {
     antwort[START] = () => ({ ...wartezeit, genehmiger_anzahl: 1 });
@@ -300,16 +289,6 @@ describe("the waiting change's two controls", () => {
     assert.match(message(res), /Der vorherige Link gilt nicht mehr\./);
   });
 
-  /* The re-send's own read: records may have reached the new address since the start warned of none. */
-  it("warns on a re-send where the new address now holds records of its own", async () => {
-    antwort[RESEND] = () => ({ ...erneut, adresse_belegt: true });
-
-    const res = await einladeAdresswechselAction({ id: ADRESSWECHSEL_ID });
-
-    assert.equal(res.success && res.adresseBelegt, true);
-    assert.match(message(res), /Unter der neuen Adresse stehen schon Einträge bei der Liga\./);
-  });
-
   it("discards by the change's id and mails nobody", async () => {
     const res = await verwirfAdresswechselAction({ id: ADRESSWECHSEL_ID });
 
@@ -356,7 +335,6 @@ describe("another administrator's approval", () => {
         email: NEU,
         vorname: null,
         weg: "wartezeit",
-        adresse_belegt: false,
         aufgegeben: false,
       },
     ];

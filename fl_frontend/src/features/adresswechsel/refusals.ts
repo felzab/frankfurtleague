@@ -50,12 +50,13 @@ export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPres
       return { zustand: "abgelaufen" };
     case "REQ-ADRESSWECHSEL-004":
       return { zustand: "gesperrt" };
-    // The replaced address barred, the new one another pupil's or the administration's, or a grant the approval does
-    // not cover: one panel, so the link's holder learns nothing about who holds an address.
+    // The replaced address barred, the new one another pupil's, the administration's or holding entries of its own, or a
+    // grant the approval does not cover: one panel, so the link's holder learns nothing about who holds an address.
     case "REQ-ADRESSWECHSEL-005":
     case "REQ-ADRESSWECHSEL-006":
     case "REQ-ADRESSWECHSEL-015":
     case "REQ-ADRESSWECHSEL-016":
+    case "REQ-ADRESSWECHSEL-018":
     case "DB-COMMON-002":
       return { zustand: "nicht_bestaetigbar" };
     default:
@@ -153,6 +154,12 @@ const ADRESSE_BELEGT = "Mit dieser Adresse meldet sich schon eine andere Spieler
 
 const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
 
+/** The new address holds entries of its own (`REQ-ADRESSWECHSEL-018`): moving these onto it would join two people's. */
+const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Liga.";
+
+/** No page here joins two addresses' entries, so the administrator is told it is a task by hand rather than sent to one. */
+const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.";
+
 /** The tool's start, or `null`: a refusal of either value stands on its box, which is the way out. */
 export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   // Published for the start, though no path of it answers 404 now: a lost race there is a retried write conflict.
@@ -171,6 +178,8 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
       return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     case "REQ-ADRESSWECHSEL-006":
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
+    case "REQ-ADRESSWECHSEL-018":
+      return { error: `${EINTRAEGE_DA} ${NUR_VON_HAND}`, fieldErrors: { email: EINTRAEGE_DA } };
     case "REQ-ADRESSWECHSEL-011":
       return {
         error:
@@ -205,6 +214,9 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
     // The panel has no box, so the sentence names the way out it does hold.
     case "REQ-ADRESSWECHSEL-006":
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
+    // Entries reached the new address since the start: a fresh link would be refused on its press.
+    case "REQ-ADRESSWECHSEL-018":
+      return `${EINTRAEGE_DA} Verwirf die Änderung. ${NUR_VON_HAND}`;
     // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
     case "REQ-ADRESSWECHSEL-003":
       return "Die Frist für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
@@ -277,6 +289,7 @@ const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<s
   ),
   "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
   "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
+  "REQ-ADRESSWECHSEL-018": ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", verwehrt),
 });
 
 /**

@@ -53,29 +53,28 @@ const ANFRAGE_TITEL: VersandTitel = {
 
 /**
  * An address change's toast: its link's, and a warning titled for the notice where that failed or may
- * have (`docs/frontend/spec.md :: I679`). With no link the notice titles the toast. Records at the new address
- * warn whatever the messages did.
+ * have (`docs/frontend/spec.md :: I679`). With no link the notice titles the toast.
  */
 export function meldeAdresswechselVersand(
-  { versand, hinweis, adresseBelegt = false }: { versand: LinkVersand | null; hinweis?: HinweisVersand | null; adresseBelegt?: boolean },
+  { versand, hinweis }: { versand: LinkVersand | null; hinweis?: HinweisVersand | null },
   description: string,
 ): void {
   if (versand === null) {
     if (hinweis === "ungewiss") appToast.warning("Unklar, ob die Anfrage verschickt wurde", { description });
-    else meldeLinkVersand(hinweis ?? "fehlgeschlagen", ANFRAGE_TITEL, description, adresseBelegt);
+    else meldeLinkVersand(hinweis ?? "fehlgeschlagen", ANFRAGE_TITEL, description);
     return;
   }
 
   const titel = hinweis === "ungewiss" ? LINK_HINWEIS_UNKLAR_TITEL : LINK_OHNE_HINWEIS_TITEL;
 
   if (hinweisFehlt(hinweis)) appToast.warning(titel[versandGrad(versand)], { description });
-  else meldeLinkVersand(versand, LINK_TITEL, description, adresseBelegt);
+  else meldeLinkVersand(versand, LINK_TITEL, description);
 }
 
-/** The toast of a write that landed and sent a link: a success only where the link went out and nothing else warns (`docs/frontend/spec.md :: I725`). */
-export function meldeLinkVersand(versand: LinkVersand, titel: VersandTitel, description: string, warnt = false): void {
+/** The toast of a write that landed and sent a link: a success only where the link went out (`docs/frontend/spec.md :: I725`). */
+export function meldeLinkVersand(versand: LinkVersand, titel: VersandTitel, description: string): void {
   const grad = versandGrad(versand);
-  const raise = grad === "gesendet" && !warnt ? appToast.success : appToast.warning;
+  const raise = grad === "gesendet" ? appToast.success : appToast.warning;
 
   raise(titel[grad], { description });
 }

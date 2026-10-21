@@ -93,9 +93,10 @@ describe("the new mailbox's side of the address page", () => {
     assert.doesNotMatch(words(OFFEN), /eine Woche/);
   });
 
-  /* Told alike whatever the address holds: a sentence for an address holding records would answer a stranger whether it is known. */
-  it("warns every open link that records already under the address join the sign-in", () => {
-    assert.match(words(OFFEN), /Bestätige nur, wenn Du diese Änderung selbst angefragt hast\. Stehen unter dieser Adresse schon Einträge/);
+  /* An address already holding entries of its own is refused at the confirmation, so no open link promises them a join. */
+  it("asks for the confirmation only of whoever asked for the change, and promises no join of entries", () => {
+    assert.match(words(OFFEN), /Bestätige nur, wenn Du diese Änderung selbst angefragt hast\./);
+    assert.doesNotMatch(words(OFFEN), /Einträge|einer Anmeldung/);
   });
 
   /* The decline outlives the deadline and the ban (`docs/frontend/spec.md :: I630`): the address goes whatever stands. */
@@ -133,13 +134,6 @@ describe("the new mailbox's side of the address page", () => {
       words(bestaetigt),
       /gilt ab 28\. Oktober 2026 um 13:30 ?\..*Bis dahin meldest Du Dich mit der bisherigen an\..*Passkeys gelten weiter/,
     );
-    // No account is carried onto an address holding records of its own, so the passkeys' promise names that case.
-    for (const weg of ["konto", "freigabe"] as const) {
-      assert.match(
-        words({ ...bestaetigt, weg: weg }),
-        /Stand unter der neuen Adresse schon etwas bei uns, meldest Du Dich dort mit einem Code an und richtest einen neuen Passkey ein\./,
-      );
-    }
     assert.match(words({ ...bestaetigt, wirksamAb: null, genehmigungOffen: true }), /gilt, sobald die Verwaltung die Änderung genehmigt hat/);
     assert.match(words({ ...bestaetigt, genehmigungOffen: true }), /frühestens ab 28\. Oktober 2026 um 13:30 ?, und erst wenn die Verwaltung/);
 

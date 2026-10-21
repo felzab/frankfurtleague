@@ -1417,7 +1417,7 @@ const LANDINGS: Record<string, Landing> = {
   /* The start closes the box it was pressed in, so the focus returns to the control that opened it. */
   "a change started in the address tool, on the control the box opened from": {
     answers: {
-      beantrageAdresswechselAction: { success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet", adresseBelegt: false },
+      beantrageAdresswechselAction: { success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet" },
       readAdresswechselAnsichtAction: { success: true, ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } },
     },
     before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),

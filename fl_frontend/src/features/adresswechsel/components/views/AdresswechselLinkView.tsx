@@ -116,12 +116,8 @@ const PASSKEY_SATZ =
 
 /** What the new mailbox's holder does once the change takes effect, told before it does. */
 const DANACH: Readonly<Record<FLAdresswechselWeg, string>> = {
-  // Both cases in one sentence: the page cannot say which applies without telling a bare link holder that the new
-  // address holds records, and none is carried onto those (`docs/backend/spec.md :: I860`).
-  konto:
-    "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter. Stand unter der neuen Adresse schon etwas bei uns, meldest Du Dich dort mit einem Code an und richtest einen neuen Passkey ein.",
-  freigabe:
-    "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter. Stand unter der neuen Adresse schon etwas bei uns, meldest Du Dich dort mit einem Code an und richtest einen neuen Passkey ein.",
+  konto: "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter.",
+  freigabe: "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter.",
   wartezeit:
     "Bis dahin gilt die bisherige Adresse. Danach meldest Du Dich mit einem Code an die neue an. Passkeys der bisherigen gelten dann nicht mehr: Richte in Deinem Konto einen neuen ein.",
 };
@@ -218,12 +214,7 @@ function AntwortPanel({ gueltigBis, weg, antwort }: { gueltigBis: string; weg: F
       <p className={ABSATZ_CLASSES}>
         Bis dahin gilt die bisherige Adresse. Der Link gilt bis <Wert>{adresswechselZeitpunkt(gueltigBis)}</Wert>.
       </p>
-      {/* One warning whatever the address holds: telling this mailbox it holds records of its own would
-          answer a stranger whether an address is known here. */}
-      <p className={ABSATZ_CLASSES}>
-        Bestätige nur, wenn Du diese Änderung selbst angefragt hast. Stehen unter dieser Adresse schon Einträge bei uns, gehören danach alle zu
-        einer Anmeldung.
-      </p>
+      <p className={ABSATZ_CLASSES}>Bestätige nur, wenn Du diese Änderung selbst angefragt hast.</p>
       <div className={AKTIONEN_CLASSES}>
         <Button
           type="button"
