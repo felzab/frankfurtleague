@@ -57,8 +57,8 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
     );
   }
 
-  // The write's refusals the fixture already shows, stated before a whole report is typed, as the referee's page does. A
-  // report may stand from before the fixture moved or was called off, so the hints say when it is edited, never that none exists.
+  // The write's refusals the fixture already shows, stated before a whole report is typed, as on the referee's page. A
+  // report may predate the move or call-off, so the hints say when it is edited, never that none exists.
   const sperre = berichtSperre(lesen.spiel, getGermanTodayStr());
   if (sperre === "abgesagt") {
     return (

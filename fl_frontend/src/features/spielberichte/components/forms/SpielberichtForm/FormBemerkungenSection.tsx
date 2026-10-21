@@ -57,7 +57,7 @@ export function FormBemerkungenSection({
           />
           <FieldError className={FIELD_ERROR_CLASSES}>{status?.error}</FieldError>
           {/* Under the box rather than behind a press: the reader it has to reach is the one already typing a name. Both
-              writers are told who reads it: the referee booked now reads what an administrator or an earlier referee wrote. */}
+              writers learn who reads it: the referee booked now reads what an administrator or an earlier referee wrote. */}
           <Hint
             mode="field"
             text={`Lesen können sie nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Verwaltung der Liga. Schreib hier, was kein Feld oben erfasst, etwa einen Vorfall oder einen Protest. Den Grund einer Karte wählst Du bei der Karte. Nenne keine Namen, auch keinen Spielernamen: Eine Spielerin oder einen Spieler beschreibst Du mit der Rückennummer.`}

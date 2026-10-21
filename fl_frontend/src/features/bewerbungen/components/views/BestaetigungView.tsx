@@ -249,7 +249,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
                 Bewerbung, löschen wir sie mit allen Angaben, wenn sie bis dahin nicht alle Bestätigungen hat.
               </p>
               <p className={ABSATZ_CLASSES}>
-                Einen neuen Link bekommst Du, wenn Deine Schule Dich in einer Bewerbung neu einträgt; für einen Platz in einem Team schickt ihn
+                Einen neuen Link bekommst Du, wenn Deine Schule Dich in einer Bewerbung neu einträgt. Für einen Platz in einem Team schickt ihn
                 Dir die Verwaltung der Liga auf Wunsch.
               </p>
             </>

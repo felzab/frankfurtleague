@@ -61,13 +61,13 @@ describe("the confirmation page for a seat on a team's season row", () => {
     assert.match(page({ zustand: "abgelaufen", quelle: "bewerbung" }), /Kam er mit einer Bewerbung, löschen wir sie mit allen Angaben/);
   });
 
-  /* An unknown link names no source, and a team seat whose link was voided reads unknown: what it says holds for that
-     seat as for an application's, and it reads as an application's dead link does, so a guessed link learns nothing. */
+  /* An unknown link names no source, and a team seat's voided link reads unknown: its remedy holds for that seat as for
+     an application's, and it reads as an application's dead link does, so a guessed link learns nothing. */
   it("words an unknown link's remedy for a team seat as for an application", () => {
     const unbekannt = page({ zustand: "ungueltig" });
     const ohneTitel = (text: string) => text.slice(text.indexOf("Dieser Link ist ungültig"));
 
-    assert.match(unbekannt, /für einen Platz in einem Team schickt ihn Dir die Verwaltung der Liga auf Wunsch\./);
+    assert.match(unbekannt, /Für einen Platz in einem Team schickt ihn Dir die Verwaltung der Liga auf Wunsch\./);
     assert.doesNotMatch(unbekannt, /Eine Bewerbung, die bis dahin|Wird Deine Schule neu eingetragen/);
     assert.equal(ohneTitel(unbekannt), ohneTitel(page({ zustand: "abgelaufen", quelle: "bewerbung" })));
   });
