@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -94,6 +95,11 @@ TRAILING_SLASH: Final = "/"
 
 # No request URI starts with `@`, so a named location answers an internal redirect alone.
 NAMED: Final = "@"
+
+# The http-level file beside the server body, whose maps a variable `error_page` target is read through.
+NGINX_HTTP_CONF: Final = "http.conf"
+
+VARIABLE: Final = "$"
 
 
 @dataclass(frozen=True)
@@ -385,7 +391,19 @@ def refusing(directive: Directive, block: tuple[Directive, ...], limits: frozens
     return Location(True, directive.args[1], limits, directive.line, refuses=True)
 
 
-def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
+def map_values(tree: tuple[Directive, ...]) -> dict[str, frozenset[str]]:
+    """Each `map`'s variable beside every value it can take, its default among them.
+
+    An `error_page` naming a variable sends to whichever value the map gives it, so each is a target.
+    """
+    return {
+        directive.args[-1]: frozenset(entry.args[-1] for entry in directive.block if entry.args)
+        for directive in tree
+        if directive.name == "map" and directive.block is not None and directive.args
+    }
+
+
+def locations(tree: tuple[Directive, ...], source: str, maps: Mapping[str, frozenset[str]] | None = None) -> tuple[Location, ...]:
     """Every `location` of the one level that declares any.
 
     That level is a server body: the top of `nginx/shared/site.conf`, which each entry file includes
@@ -406,7 +424,12 @@ def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
     block = tree if top else (serving[0].block or ())
     # The redirect's target is an `error_page`'s last argument; a location declaring one of its own
     # is nested, which `read_location` refuses before this could matter.
-    redirected = frozenset(child.args[-1] for child in block if child.name == "error_page" and child.args)
+    redirected = frozenset(
+        target
+        for child in block
+        if child.name == "error_page" and child.args
+        for target in _targets(child.args[-1], maps or {}, source, child.line)
+    )
     read = (read_location(child, source, redirected) for child in block if child.name == "location")
     found = tuple(location for location in read if location is not None)
     named = {child.args[0] for child in block if child.name == "location" and len(child.args) == 1}
@@ -415,6 +438,26 @@ def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
         raise NginxSyntax(f"{source}: an error_page sends to {dangling[0]!r}, which no named location declares")
     _declared_once(found, source)
     return found
+
+
+def edge_locations(conf_path: Path) -> tuple[Location, ...]:
+    """The server body's locations, its variable `error_page` targets read through the http level beside it.
+
+    Bytes, so no platform's newline translation reaches a path this reader then compares.
+    """
+    http_path = conf_path.parent / NGINX_HTTP_CONF
+    maps = map_values(parse(http_path.read_bytes().decode("utf-8"), http_path.name))
+    return locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name, maps)
+
+
+def _targets(target: str, maps: Mapping[str, frozenset[str]], source: str, line: int) -> frozenset[str]:
+    """Where one `error_page` sends: its target, or every value of the map a variable target names."""
+    if not target.startswith(VARIABLE):
+        return frozenset({target})
+    if target not in maps:
+        # Refused rather than read as reaching nothing: every named location would then read as dead.
+        raise NginxSyntax(f"{source}:{line}: an error_page sends to {target}, which no map at the http level defines")
+    return maps[target]
 
 
 def _declared_once(found: tuple[Location, ...], source: str) -> None:
@@ -904,8 +947,7 @@ def main() -> int:
         # The source tree the App Router tree sits in, `fl_frontend/src`, holds every module minting a link.
         mints = minted(app_dir.parent)
         served = metadata(app_dir)
-        # Bytes, so no platform's newline translation reaches a path this reader then compares.
-        where = locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name)
+        where = edge_locations(conf_path)
     except (NginxSyntax, RouteShape) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was accounted for, so this is a refusal rather than a verdict on the routes.", file=sys.stderr)

@@ -228,7 +228,9 @@ class TestWhatAReopenedLinkShows:
             pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
-            pytest.param({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"),
+            pytest.param(
+                {"geschlossen": {"am": TODAY, "grund": "spiel_vergangen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"
+            ),
             pytest.param(
                 {"geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
                 {},
@@ -345,6 +347,10 @@ SITUATIONS = [
 STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
 
 
+def called_off(situation: dict[str, Any]) -> bool:
+    return situation.get("spiel_overrides", {}).get("sonderereignis") in ("ausgefallen", "annulliert")
+
+
 class TestTheLinkAndTheCloseReadOneVerdict:
     """The view, the answer and the pass's close judge an open row alike: a link shows and refuses only what the close would record."""
 
@@ -352,8 +358,10 @@ class TestTheLinkAndTheCloseReadOneVerdict:
     def test_the_view_shows_the_state_the_answer_refuses_with(self, situation: dict[str, Any], today: str):
         refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today)
         shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, gesperrt=False, vorschlag_offen=None)
+        # A call-off refuses with a decision's code, on which the page reads the view again, and the view names it.
+        expected = "abgesagt" if called_off(situation) else STATE_OF_CODE[None if refusal is None else refusal.error_code]
 
-        assert shown == STATE_OF_CODE[None if refusal is None else refusal.error_code]
+        assert shown == expected
 
     @pytest.mark.parametrize("antwort", [None, ANSWERED], ids=["unanswered", "answered"])
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
@@ -388,7 +396,8 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
 
-        assert before == after == "abgelehnt"
+        # A call-off reads as one ahead of every answer, the discarded decline's too.
+        assert before == after == ("abgesagt" if called_off(situation) else "abgelehnt")
 
 
 class TestWhatTheViewStatesOfTheFixture:

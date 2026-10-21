@@ -157,12 +157,17 @@ CALLERS: dict[str, frozenset[str]] = {
     ),
     # The confirmation pass's mint, which reads the seats it mints links for off season rows every seat write writes.
     "anchor_the_seats_minted": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: mint"}),
-    # The mint and the reminder telling an Einteilung again, for the referees the rows name, whose erasure deletes those rows.
+    # The mint and the reminder telling an Einteilung again, for the referees the rows name, whose erasure deletes those
+    # rows; and the notice step, for the referees whose address it read, which an address change moves.
     "anchor_the_referees_told": frozenset(
-        {"app/api/spielbestaetigungen/sweep_router.py :: mint", "app/api/spielbestaetigungen/sweep_router.py :: remind"}
+        {
+            "app/api/spielbestaetigungen/sweep_router.py :: mint",
+            "app/api/spielbestaetigungen/sweep_router.py :: remind",
+            "app/api/spielbestaetigungen/sweep_router.py :: tell",
+        }
     ),
-    # The pass's close, which reads its notices' mailboxes off season rows an erasure empties.
-    "anchor_the_mailboxes_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: close"}),
+    # The pass's notice step, which reads its notices' mailboxes off season rows an erasure empties.
+    "anchor_the_mailboxes_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: tell"}),
     # Both writers of a report, for every pupil they newly name.
     "anchor_the_pupils_named": frozenset(
         {"app/api/spielberichte/person_router.py :: write_the_report", "app/api/spielberichte/admin_router.py :: write_the_report"}

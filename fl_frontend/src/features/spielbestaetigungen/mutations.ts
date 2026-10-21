@@ -6,6 +6,7 @@ import {
   FLSpielbestaetigungEintragenResponseSchema,
   FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
   FLSpielbestaetigungSweepAngefragtResponseSchema,
+  FLSpielbestaetigungSweepMitgeteiltResponseSchema,
   FLSpielbestaetigungSweepResponseSchema,
   FLSpielbestaetigungSweepSaisonsResponseSchema,
   FLSpielbestaetigungVerwerfenResponseSchema,
@@ -22,6 +23,8 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
   FLSpielbestaetigungSweepAngefragtResponse,
+  FLSpielbestaetigungSweepMitgeteiltPayload,
+  FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
   FLSpielbestaetigungVerwerfenPayload,
@@ -97,6 +100,22 @@ export async function postSpielbestaetigungSweepAngefragt(
   return apiClient<FLSpielbestaetigungSweepAngefragtResponse>(
     `/spielbestaetigungen/sweep/${saisonId}/angefragt`,
     FLSpielbestaetigungSweepAngefragtResponseSchema,
+    {
+      method: "POST",
+      authType: "system",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** Stamps the rows whose notices went, after they went: a notice no stamp names is answered again by the next pass. */
+export async function postSpielbestaetigungSweepMitgeteilt(
+  saisonId: string,
+  payload: FLSpielbestaetigungSweepMitgeteiltPayload,
+): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> {
+  return apiClient<FLSpielbestaetigungSweepMitgeteiltResponse>(
+    `/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`,
+    FLSpielbestaetigungSweepMitgeteiltResponseSchema,
     {
       method: "POST",
       authType: "system",
