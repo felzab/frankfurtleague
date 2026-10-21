@@ -276,12 +276,6 @@ export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.
 });
 export type FLSchiedsrichterBestaetigungResponse = z.infer<typeof FLSchiedsrichterBestaetigungResponseSchema>;
 
-/** Mirrors `FLSchiedsrichterKontext`: the first part of the one stored name, cut as the confirmation page cuts it. */
-export const FLSchiedsrichterKontextSchema = z.object({
-  vorname: z.string().nullable(),
-});
-export type FLSchiedsrichterKontext = z.infer<typeof FLSchiedsrichterKontextSchema>;
-
 /**
  * Mirrors `FLSchiedsrichterSelbst`, the person tier's own read of the stored data: no link bookkeeping,
  * which is the administration's, and no consent, which is the account page's entry's.

@@ -3,7 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLAdresswechselWartetAufSchema, FLAdresswechselWegSchema } from "@/features/adresswechsel/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
-import { FLSchiedsrichterKontextSchema, FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
+import { FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
 import {
   FLEinwilligungSchema,
   FLEinwilligungStandSchema,
@@ -151,7 +151,6 @@ export const FLKontoSchiedsrichterEinwilligungSchema = FLSchiedsrichterSelbstSch
   medien_angeboten: z.boolean(),
   mindestalter: z.number().int(),
   medien_mindestalter: MedienMindestalterSchema,
-  kontext: FLSchiedsrichterKontextSchema,
 });
 export type FLKontoSchiedsrichterEinwilligung = z.infer<typeof FLKontoSchiedsrichterEinwilligungSchema>;
 

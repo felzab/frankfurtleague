@@ -297,7 +297,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "medien": True,
         "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        "kontext": {"vorname": "Wiltrudis", "team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
+        "kontext": {"team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",

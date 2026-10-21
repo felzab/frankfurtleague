@@ -363,7 +363,7 @@ const REGISTRIERUNG = {
   nachweis_stand: { umfang: null, medien: null },
   mindestalter: 16,
   medien_mindestalter: 18,
-  kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
+  kontext: { team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
   vorname: "Nele",
   nachname: "Brandt",
   geburtsdatum: "2008-02-14",
@@ -445,7 +445,7 @@ describe("the account page's consent section", () => {
      agreement as a literal slot does, so the words stay out and the control stands. */
   it("leaves the confirmed words out where a slot they need is served empty, and keeps the control", async () => {
     setSubject(OHNE_FUNKTION);
-    answeringKonto({ spieler: { ...SPIELER, kontext: { vorname: "Alina", team: null, schule: null, saison: null } } });
+    answeringKonto({ spieler: { ...SPIELER, kontext: { team: null, schule: null, saison: null } } });
 
     assert.equal(await disclosures(), 0);
     assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));

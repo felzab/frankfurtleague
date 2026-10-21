@@ -36,7 +36,7 @@ export const spielerSelbst = () => ({
 export const spielerKonto = () => ({
   ...spielerSelbst(),
   ...einwilligungsTeil("kader_oeffentlich", "2026-10-spielerseite-5"),
-  kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
+  kontext: { team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
 });
 
 /** A referee's stored data as their own page reads it, their fee stored. */
@@ -53,5 +53,4 @@ export const schiedsrichterSelbst = () => ({
 export const schiedsrichterKonto = () => ({
   ...schiedsrichterSelbst(),
   ...einwilligungsTeil("intern", "2026-10-schiedsrichterseite-4"),
-  kontext: { vorname: "Mara" },
 });

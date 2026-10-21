@@ -18909,9 +18909,6 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
-          },
-          "kontext": {
-            "$ref": "#/components/schemas/FLSchiedsrichterKontext"
           }
         },
         "type": "object",
@@ -18928,8 +18925,7 @@
           "erteilbar",
           "medien_angeboten",
           "mindestalter",
-          "medien_mindestalter",
-          "kontext"
+          "medien_mindestalter"
         ],
         "title": "FLKontoSchiedsrichterEinwilligung",
         "description": "One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons."
@@ -23921,27 +23917,6 @@
         "title": "FLSchiedsrichterBestaetigungResponse",
         "description": "What the person just recorded, read back off the updated document.\n\nBounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a\ncaller holding a leaked token learns nothing it did not already post."
       },
-      "FLSchiedsrichterKontext": {
-        "properties": {
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          }
-        },
-        "type": "object",
-        "required": [
-          "vorname"
-        ],
-        "title": "FLSchiedsrichterKontext",
-        "description": "What the referee confirmation page's slots name for this record today: the one stored name's first part."
-      },
       "FLSchiedsrichterListResponse": {
         "properties": {
           "acknowledged": {
@@ -28624,11 +28599,6 @@
       },
       "FLSpielerKontext": {
         "properties": {
-          "vorname": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Vorname"
-          },
           "team": {
             "anyOf": [
               {
@@ -28665,7 +28635,6 @@
         },
         "type": "object",
         "required": [
-          "vorname",
           "team",
           "schule",
           "saison"
