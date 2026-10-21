@@ -359,7 +359,8 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "adoption and holds no rule over the fixture, and a report corrected since, or written about other clubs, is "
             "left unadopted rather than refusing the save; that save's undo puts the adoption it replaced back, in the "
             "replay's transaction and only while the report still stands at the version stamped; and a confirmed replace "
-            "or an undraw removes the season's reports with its fixtures. What is held is a rule over this "
+            "or an undraw is refused while any of the season's reports holds a block (`REQ-SPIELPLAN-007`), removing with "
+            "its fixtures only report documents holding none. What is held is a rule over this "
             "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
         ),
     ),
@@ -3412,7 +3413,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbericht",
         summary=(
             "a yellow or a second yellow card names its reason, unless the stored report holds that card, by side, pupil "
-            "and colour, with its reason stripped at the season's end"
+            "and colour, with its reason stripped at the end of the season after the match"
         ),
         implemented_by="app.api.spielberichte.services.find_grund_fehlt_refusal",
         tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyANewCautionOwesItsReason",

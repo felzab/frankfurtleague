@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -13,6 +14,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
+    pull_beendete_saison_ids,
     pull_bericht_lage,
     pull_genannt,
     write_bericht,
@@ -63,6 +65,10 @@ router = APIRouter(
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
 
+# What the referee's list shows of a fixture, in the order it lists them.
+PERSON_EINTRAG_FIELDS = ["datum", "uhrzeit", "team1.name", "team2.name"]
+SPIELE_NEUESTE_ZUERST = [("datum", -1), ("uhrzeit", -1), ("_id", 1)]
+
 
 @router.get("/person", response_model=FLSpielberichtePersonResponse, summary="The fixtures a signed-in referee reports on")
 async def get_spielberichte_person(
@@ -78,10 +84,12 @@ async def get_spielberichte_person(
     The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.
 
     Booked to any confirmed, live referee record of the address, each with when its report was first sent, null where
-    none stands.
+    none stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is
+    `active`.
 
-    A fixture called off or struck out is left out, having no report. Empty while no season is `active`. Refused
-    `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.
+    `fruehere` holds every dated fixture of an ended season booked to those records now on which a report stands,
+    newest first: its page shows the report read-only. Refused `REQ-FUNKTION-001` where the address holds no
+    confirmed, live referee record.
     """
 
     # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
@@ -89,44 +97,62 @@ async def get_spielberichte_person(
     async with db.start_session(snapshot=True) as session:
         subjekt = await funktionen_of(identifier, records, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
+        gebucht = {"schiedsrichter.schiedsrichter_id": {"$in": [record.schiedsrichter_id for record in subjekt.schiedsrichter]}}
 
         saison_id = await pull_massgebliche_saison_id(saisons_collection, session=session)
-        if saison_id is None:
-            return FLSpielberichtePersonResponse(spiele=[])
-
-        spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={
-                "saison_id": saison_id,
-                "schiedsrichter.schiedsrichter_id": {"$in": [record.schiedsrichter_id for record in subjekt.schiedsrichter]},
-                "datum": {"$lte": today},
-                "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-            },
-            sort_by=[("datum", -1), ("uhrzeit", -1), ("_id", 1)],
-            projection=["datum", "uhrzeit", "team1.name", "team2.name"],
-            session=session,
+        laufende = (
+            []
+            if saison_id is None
+            else await pull_many_from_db(
+                collection=spiele_collection,
+                db_filter={
+                    "saison_id": saison_id,
+                    **gebucht,
+                    "datum": {"$lte": today},
+                    "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
+                },
+                sort_by=SPIELE_NEUESTE_ZUERST,
+                projection=PERSON_EINTRAG_FIELDS,
+                session=session,
+            )
         )
+
+        beendete = await pull_beendete_saison_ids(saisons_collection=saisons_collection, session=session)
+        fruehere = (
+            []
+            if not beendete
+            else await pull_many_from_db(
+                collection=spiele_collection,
+                db_filter={"saison_id": {"$in": beendete}, **gebucht, "datum": {"$ne": None}},
+                sort_by=SPIELE_NEUESTE_ZUERST,
+                projection=PERSON_EINTRAG_FIELDS,
+                session=session,
+            )
+        )
+
         berichte = await pull_many_from_db(
             collection=spielberichte_collection,
-            db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in spiele]}, "bericht": {"$ne": None}},
+            db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in (*laufende, *fruehere)]}, "bericht": {"$ne": None}},
             projection=["spiel_id", "bericht.eingereicht_am"],
             session=session,
         )
 
     eingereicht = {bericht["spiel_id"]: bericht["bericht"]["eingereicht_am"] for bericht in berichte}
 
+    def eintrag(spiel: Mapping[str, Any]) -> FLSpielberichtPersonEintrag:
+        return FLSpielberichtPersonEintrag(
+            spiel_id=spiel["_id"],
+            datum=spiel["datum"],
+            uhrzeit=spiel.get("uhrzeit"),
+            team1_name=(spiel.get("team1") or {}).get("name"),
+            team2_name=(spiel.get("team2") or {}).get("name"),
+            eingereicht_am=eingereicht.get(spiel["_id"]),
+        )
+
     return FLSpielberichtePersonResponse(
-        spiele=[
-            FLSpielberichtPersonEintrag(
-                spiel_id=spiel["_id"],
-                datum=spiel["datum"],
-                uhrzeit=spiel.get("uhrzeit"),
-                team1_name=(spiel.get("team1") or {}).get("name"),
-                team2_name=(spiel.get("team2") or {}).get("name"),
-                eingereicht_am=eingereicht.get(spiel["_id"]),
-            )
-            for spiel in spiele
-        ]
+        spiele=[eintrag(spiel) for spiel in laufende],
+        # An ended season's fixture holding no report has nothing for its read-only page to show.
+        fruehere=[eintrag(spiel) for spiel in fruehere if spiel["_id"] in eingereicht],
     )
 
 
@@ -237,20 +263,21 @@ async def put_spielbericht_bericht(
     `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
     another version would replace a report its sender never saw.
 
-    Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
-    (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
-    (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
-    `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
-    or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
-    proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
-    live squad of the season, a pupil the report already named on that side staying while the side fields the club it
-    did (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a
-    seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal
-    after the first but `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's
-    records included, so a write landing on what was judged before that second asking refuses the report rather than
-    letting it stand, and one landing after it stands beside the report; a write of the report itself landing mid-press
-    conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no
-    report: the later is refused.
+    Refuses, in this order, each writing nothing: a write past the person's ceiling for the German day
+    (`REQ-DROSSELUNG-001`); an address holding no confirmed, live referee record (`REQ-FUNKTION-001`); a fixture that
+    does not exist (`DB-COMMON-001`); one booked to none of its records (`REQ-BERICHT-002`); one whose season has
+    ended, whose report its referee only reads (`REQ-BERICHT-007`); a `bericht_stand` other than the version standing
+    now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is still to come
+    (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a group-phase fixture
+    (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
+    the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); a yellow
+    or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the
+    booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal but the ceiling's and
+    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
+    a write landing on what was judged before that second asking refuses the report rather than letting it stand, and
+    one landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this
+    one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+    refused.
     """
 
     payload = bericht_data.bericht

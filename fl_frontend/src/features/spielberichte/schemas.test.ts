@@ -40,8 +40,8 @@ describe("what a report's mirror refuses before the backend does", () => {
     assert.deepEqual(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor, { ...tor, spieler_id: null, minute: "90+3" }])), {});
   });
 
-  /* The form's own rule, the backend judging the wire against the stored report (`REQ-BERICHT-008`): the season's end
-     strips every reason, and a correction after it resends those cautions without one. */
+  /* The form's own rule, the backend judging the wire against the stored report (`REQ-BERICHT-008`): the strip once
+     the season after the match ends takes every reason, and a correction after it resends those cautions without one. */
   it("asks a new yellow for its reason, and neither a red nor a caution stored stripped of it", () => {
     const karte = { seite: "team1", spieler_id: SPIELER, minute: "30", farbe: "gelb", grund: null };
     const formFehler = (bestand: (typeof karte)[], karten: unknown[]) => {
@@ -86,9 +86,9 @@ describe("what a report's mirror refuses before the backend does", () => {
     );
   });
 
-  /* The season's end strips every card's reason and the remarks: the rule is a write's, so the read of a stripped report
-     opens on both readers' pages where a caution without its reason would otherwise fail the parse. */
-  it("reads a report the season's end stripped, on the referee's form and on the administrator's panel", () => {
+  /* The season-end strip takes every card's reason and the remarks: the rule is a write's, so the read of a stripped
+     report opens on both readers' pages where a caution without its reason would otherwise fail the parse. */
+  it("reads a report stripped of its reasons and remarks, on the referee's form and on the administrator's panel", () => {
     const gelesen = spielberichtReadFixture();
     const gestrippt = {
       ...gelesen,

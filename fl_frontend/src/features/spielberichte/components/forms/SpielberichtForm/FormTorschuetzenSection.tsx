@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { card } from "@/shared/components/ui/card";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FIELD_ERROR_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -10,7 +12,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 
 import { TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
-import { EntfernenButton, GeleertHinweis, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
+import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -43,6 +45,7 @@ export function FormTorschuetzenSection({
   istNichtantreten: boolean;
 }) {
   const panel = formPanel();
+  const titelId = useId();
   const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.torschuetzen");
 
   const update = (key: number, change: Partial<TorschuetzeDraft>) =>
@@ -81,64 +84,74 @@ export function FormTorschuetzenSection({
               const optionen = personOptionen(kontext, eintrag.seite, eintrag.spieler === UNBEKANNT ? "" : eintrag.spieler);
 
               return (
-                <li
-                  key={eintrag.key}
-                  className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
-                  <div className="flex w-full flex-row items-center justify-between gap-3">
-                    <span className="fluid-xs font-bold text-foreground">{wofuer}</span>
-                    <EntfernenButton
-                      wofuer={wofuer}
-                      onPress={() => onChange(eintraege.filter((other) => other.key !== eintrag.key))}
-                    />
-                  </div>
+                <li key={eintrag.key}>
+                  {/* Each entry repeats „Team“, „Minute“ and the rest: a group named by its title qualifies them (W3C ARIA17). */}
+                  <div
+                    role="group"
+                    aria-labelledby={`${titelId}-${String(eintrag.key)}`}
+                    className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+                    <div className="flex w-full flex-row items-center justify-between gap-3">
+                      <span
+                        id={`${titelId}-${String(eintrag.key)}`}
+                        className="fluid-xs font-bold text-foreground">
+                        {wofuer}
+                      </span>
+                      <EntfernenButton
+                        wofuer={wofuer}
+                        onPress={() => onChange(eintraege.filter((other) => other.key !== eintrag.key))}
+                      />
+                    </div>
 
-                  <div className={FIELD_PAIR_CLASSES}>
-                    <AuswahlSelect<FLSpielberichtSeite>
-                      name={`${pfad}.seite`}
-                      label="Team"
-                      placeholder="Team wählen"
-                      value={eintrag.seite}
-                      options={seitenOptionen(kontext)}
-                      // Another side's squad names other pupils, so a person picked for the first does not survive the switch.
-                      onChange={(seite) =>
-                        update(eintrag.key, seite === eintrag.seite ? {} : { seite, spieler: eintrag.spieler === UNBEKANNT ? UNBEKANNT : "" })
-                      }
-                      error={fieldErrors[`${pfad}.seite`]}
-                    />
-                    <AuswahlSelect<string>
-                      name={`${pfad}.spieler_id`}
-                      label="Spielerin oder Spieler"
-                      placeholder={eintrag.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
-                      value={eintrag.spieler === "" ? null : eintrag.spieler}
-                      options={[{ id: UNBEKANNT, label: TORSCHUETZE_UNBEKANNT_LABEL }, ...optionen]}
-                      onChange={(spieler) => update(eintrag.key, { spieler })}
-                      error={fieldErrors[`${pfad}.spieler_id`]}
-                    />
-                  </div>
-                  {geleert.has(eintrag.key) && eintrag.spieler === "" && <GeleertHinweis />}
-                  {ohneKader(kontext, eintrag.seite) && (
-                    <p className="muted-hint">Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein.</p>
-                  )}
+                    <div className={FIELD_PAIR_CLASSES}>
+                      <AuswahlSelect<FLSpielberichtSeite>
+                        name={`${pfad}.seite`}
+                        label="Team"
+                        placeholder="Team wählen"
+                        value={eintrag.seite}
+                        options={seitenOptionen(kontext)}
+                        // Another side's squad names other pupils, so a person picked for the first does not survive the switch.
+                        onChange={(seite) =>
+                          update(eintrag.key, seite === eintrag.seite ? {} : { seite, spieler: eintrag.spieler === UNBEKANNT ? UNBEKANNT : "" })
+                        }
+                        error={fieldErrors[`${pfad}.seite`]}
+                      />
+                      <AuswahlSelect<string>
+                        name={`${pfad}.spieler_id`}
+                        label="Spielerin oder Spieler"
+                        placeholder={eintrag.seite === null ? "Zuerst das Team wählen" : "Person wählen"}
+                        value={eintrag.spieler === "" ? null : eintrag.spieler}
+                        options={[{ id: UNBEKANNT, label: TORSCHUETZE_UNBEKANNT_LABEL }, ...optionen]}
+                        onChange={(spieler) => update(eintrag.key, { spieler })}
+                        error={fieldErrors[`${pfad}.spieler_id`]}
+                        hint={personHinweis({
+                          geleert: geleert.has(eintrag.key) && eintrag.spieler === "",
+                          ohneKaderSatz: ohneKader(kontext, eintrag.seite)
+                            ? "Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein."
+                            : null,
+                        })}
+                      />
+                    </div>
 
-                  <div className={FIELD_PAIR_CLASSES}>
-                    <MinuteField
-                      name={`${pfad}.minute`}
-                      value={eintrag.minute}
-                      onChange={(minute) => update(eintrag.key, { minute })}
-                      onBlur={() => onValidateFields([`${pfad}.minute`])}
-                    />
-                    {/* The shared `Switch`: HeroUI's checkbox has no stylesheet in this tree and would render unstyled. */}
-                    <div className="flex w-full flex-col justify-end">
-                      <Switch
-                        isSelected={eintrag.eigentor}
-                        onChange={(eigentor) => update(eintrag.key, { eigentor })}>
-                        <Switch.Content className={panel.switchContent()}>
-                          Eigentor
-                          <Switch.Control className={panel.switchControl()}>
-                            <Switch.Thumb />
-                          </Switch.Control>
-                        </Switch.Content>
-                      </Switch>
+                    <div className={FIELD_PAIR_CLASSES}>
+                      <MinuteField
+                        name={`${pfad}.minute`}
+                        value={eintrag.minute}
+                        onChange={(minute) => update(eintrag.key, { minute })}
+                        onBlur={() => onValidateFields([`${pfad}.minute`])}
+                      />
+                      {/* The shared `Switch`: HeroUI's checkbox has no stylesheet in this tree and would render unstyled. */}
+                      <div className="flex w-full flex-col justify-end">
+                        <Switch
+                          isSelected={eintrag.eigentor}
+                          onChange={(eigentor) => update(eintrag.key, { eigentor })}>
+                          <Switch.Content className={panel.switchContent()}>
+                            Eigentor
+                            <Switch.Control className={panel.switchControl()}>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch.Content>
+                        </Switch>
+                      </div>
                     </div>
                   </div>
                 </li>

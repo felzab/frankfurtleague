@@ -41,4 +41,24 @@ describe("the referee's panel", () => {
     assert.ok(text.includes("Deine Spielberichte ließen sich gerade nicht lesen."), text);
     assert.ok(text.includes("Deine Einsätze"), "the fixtures to answer went down with the report list");
   });
+
+  /* The read-only view of a report after its season is reached from here alone, so the read's second list reaches the
+     section. */
+  it("lists the reports of ended seasons the report read serves", async () => {
+    const frueher = {
+      spiel_id: "68c1f0a2b3c4d5e6f7a8b9e4",
+      datum: "2025-05-14",
+      uhrzeit: "15:00:00",
+      team1_name: "Goethe-Gymnasium",
+      team2_name: "Lessing-Gymnasium",
+      eingereicht_am: "2025-05-14T18:00:00Z",
+    };
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === BERICHTE_ENDPOINT ? { acknowledged: 1, spiele: [], fruehere: [frueher] } : EMPTIEST_ANSWER(endpoint, schema, params),
+    );
+
+    const text = textOf(await renderPage(underNext(h(PersoenlichSchiedsrichterPage))), " ");
+
+    assert.ok(text.includes("Frühere Saisons") && text.includes("Goethe-Gymnasium gegen Lessing-Gymnasium"), text);
+  });
 });

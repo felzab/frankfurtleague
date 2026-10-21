@@ -29,7 +29,7 @@ const PRIOR_BERICHT = {
   uebernommene_version: null,
 };
 
-const { calls, answered } = doubleActions({
+const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spiele/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [], priorBericht: PRIOR_BERICHT }),
   payloadOf: (args) => args,
@@ -155,6 +155,26 @@ describe("adopting a report whose proposal the fixture already holds", () => {
 
     const undo = calls.find(({ action }) => action === "undoAdminSpielEditAction") ?? assert.fail("the offer sent no undo");
     assert.deepEqual((undo.payload as readonly { bericht?: unknown }[])[0]?.bericht, PRIOR_BERICHT, "the undo left the adoption standing");
+  });
+
+  /* The referee corrected the report between the seed and the save: the save lands and stamps nothing (I811), so the
+     result saved is the older proposal, and a plain „saved“ would leave the administrator believing it adopted. */
+  it("says the report was not adopted where the save lands without the stamp", async () => {
+    const user = userEvent.setup();
+    render(editor());
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
+    answerWith(() => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [], priorBericht: null }));
+    raised.length = 0;
+
+    await user.click(
+      screen.getAllByRole<HTMLButtonElement>("button", { name: "Speichern" }).find((button) => button.type === "submit") ??
+        assert.fail("the editor has no save"),
+    );
+    await act(answered);
+
+    const toast = await waitFor(() => raised.find((raisedToast) => raisedToast.options?.actionProps !== undefined) ?? assert.fail("no toast"));
+    assert.equal(toast.variant, "warning", "a save that lost its adoption reads as a plain success");
+    assert.match(String(toast.description), /^Spiel gespeichert\. Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen\./);
   });
 
   /* The goals still hold the proposal, but for another club: the report is about the clubs it was written for, so the
