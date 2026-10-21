@@ -72,7 +72,7 @@ router = APIRouter(
 
 # Sized on the commands a due change moving a pupil row and a referee row sends, inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer one meets that deadline (`docs/backend/spec.md :: I322`).
-ADRESSWECHSEL_PER_PASS: Final = 7
+ADRESSWECHSEL_PER_PASS: Final = 5
 
 
 def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]:

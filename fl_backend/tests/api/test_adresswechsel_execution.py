@@ -1138,6 +1138,35 @@ class TestTheAdministratorFollowsTheirMove:
 
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
 
+    def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
+        """Their grant ended before the change, so they hold none at the effect: what they made while holding it names them still.
+
+        A grant they made, its image and its log row, and the image of their own grant; the database revoke queues nothing.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            own = await granted(database)
+            await database[Collection.BERECHTIGUNGEN].insert_one(
+                {**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": FOREIGN_EMAIL, "erteilt_von": EMAIL}
+            )
+            for operator, grant in ((EMAIL, {"adresse": FOREIGN_EMAIL}), (ADMIN, {"_id": own})):
+                await as_administrator(
+                    operator,
+                    patch_one_in_db(
+                        collection=database[Collection.BERECHTIGUNGEN],
+                        db_filter=grant,
+                        update={"$set": {"gesehen_am": NOW}},
+                        return_document=ReturnDocument.BEFORE,
+                    ),
+                )
+            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": own})
+            await confirmed_and_moved(database, client)
+            await erased(database, client, NEW_EMAIL)
+            return await where_held(database, EMAIL, folded=True)
+
+        # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
+
     def test_an_approval_whose_approver_lost_their_grant_since_is_taken_off_and_asked_again(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)

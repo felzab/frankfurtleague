@@ -38,7 +38,7 @@ from app.api.adresswechsel.services import (
 from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
 from app.api.aktionen.services import IMAGE_ADDRESSES
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.erasure import carry_authorship_in_session, carry_decisions_in_session
+from app.api.berechtigungen.erasure import carry_authorship_in_session
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
@@ -648,32 +648,24 @@ async def move_the_address_in_session(
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
     # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I837`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
-    if bestand.berechtigung is not None:
-        # Who made a record is the person, whatever their address: the starter of a change stays excluded from approving it.
-        await carry_authorship_in_session(
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            einladungen_collection=einladungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            alt=alt,
-            neue=neu,
-            session=session,
-        )
-        await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
-        await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    else:
-        # A seat holder declines a registration under their own address, as an administrator does.
-        await carry_decisions_in_session(registrierungen_collection=registrierungen_collection, alt=alt, neue=neu, session=session)
-    await carry_the_replaced_address_in_images(
-        aktionen_collection=aktionen_collection,
+    # Who made a record is the person, whatever their address: the starter of a change stays excluded from approving it.
+    # Whatever they hold now, too: a grant since revoked left its records, a seat holder declines a registration under
+    # their own address, and only a carry reaches either from an erasure at the new address.
+    await carry_authorship_in_session(
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        registrierungen_collection=registrierungen_collection,
+        einladungen_collection=einladungen_collection,
+        sperrliste_collection=sperrliste_collection,
         alt=alt,
         neue=neu,
-        # Only an administrator wrote as one; every person may have started a change, and declined a registration, before.
-        collections=tuple(IMAGE_ADDRESSES) if bestand.berechtigung is not None else (Collection.ADRESSWECHSEL, Collection.REGISTRIERUNGEN),
-        stamp=stamp,
         session=session,
+    )
+    await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
+    await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
+    await carry_the_replaced_address_in_images(
+        aktionen_collection=aktionen_collection, alt=alt, neue=neu, collections=tuple(IMAGE_ADDRESSES), stamp=stamp, session=session
     )
     # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
     await carry_counts_in_session(
