@@ -14,6 +14,7 @@ import {
   holdsDrawnSpiele,
   holdsUndatierteSpieltage,
 } from "@/features/saisons/utils";
+import { getSpielberichteZustaende } from "@/features/spielberichte/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
@@ -71,27 +72,33 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   // season the activation closes.
   const presentsRollover = outgoingSaisonId !== null && saison.status === "future";
 
-  const [spieltageRes, outgoingSpieleRes, loeschungRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes] = await Promise.all([
-    getAdminSpieltage({ saison_id: saison.id }),
-    presentsRollover ? getAdminSpiele({ saison_id: outgoingSaisonId }) : Promise.resolve(null),
-    // Degraded rather than awaited whole: a count the press does not need takes down no page it is pressed from.
-    presentsRollover
-      ? runWithIncomingTrace(() =>
-          getLoeschungVorschau(saison.id).catch((error: unknown) => nullUnlessContractBreak(error) ?? ("unlesbar" as const)),
-        )
-      : Promise.resolve(null),
-    // `include_inactive` because an admin picker hiding a retired club that still holds a junction
-    // row would make a swap the endpoint accepts look impossible.
-    getAdminTeams({ saison_id: saison.id, include_inactive: true }),
-    // `playoffs` is exactly the set `REQ-SWAP-002` counts, so the page asks the endpoint's own
-    // question rather than filtering a whole season here.
-    getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
-    // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
-    getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
-    // The league-wide read, for the replacement's incoming side alone: a club arriving into this
-    // season is by definition in none of its reads. Skipped where `REQ-REPLACE-001` closes the panel.
-    saison.status === "past" ? Promise.resolve(null) : getTeamMemberships(),
-  ]);
+  const [spieltageRes, outgoingSpieleRes, loeschungRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes, berichteRes] =
+    await Promise.all([
+      getAdminSpieltage({ saison_id: saison.id }),
+      presentsRollover ? getAdminSpiele({ saison_id: outgoingSaisonId }) : Promise.resolve(null),
+      // Degraded rather than awaited whole: a count the press does not need takes down no page it is pressed from.
+      presentsRollover
+        ? runWithIncomingTrace(() =>
+            getLoeschungVorschau(saison.id).catch((error: unknown) => nullUnlessContractBreak(error) ?? ("unlesbar" as const)),
+          )
+        : Promise.resolve(null),
+      // `include_inactive` because an admin picker hiding a retired club that still holds a junction
+      // row would make a swap the endpoint accepts look impossible.
+      getAdminTeams({ saison_id: saison.id, include_inactive: true }),
+      // `playoffs` is exactly the set `REQ-SWAP-002` counts, so the page asks the endpoint's own
+      // question rather than filtering a whole season here.
+      getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
+      // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
+      getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
+      // The league-wide read, for the replacement's incoming side alone: a club arriving into this
+      // season is by definition in none of its reads. Skipped where `REQ-REPLACE-001` closes the panel.
+      saison.status === "past" ? Promise.resolve(null) : getTeamMemberships(),
+      // The reports `REQ-SPIELPLAN-007` counts, for the planned season alone: any other closes both controls already.
+      // Degraded, as an unread count closes nothing and the press meets the refusal's own sentence.
+      saison.status === "future"
+        ? runWithIncomingTrace(() => getSpielberichteZustaende({ saison_id: saison.id }).catch(nullUnlessContractBreak))
+        : Promise.resolve(null),
+    ]);
 
   /**
    * Listed so `REQ-ACTIVATE-001` blocks actionably rather than as a 409, which means "unfinished"
@@ -132,6 +139,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     // Its `erfasst` half must keep mirroring `holds_a_recorded_fact`: too wide closes a replace
     // `REQ-SPIELPLAN-005` allows, too narrow offers one it refuses.
     bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
+    eingereichteBerichte: berichteRes?.spielberichte.length ?? 0,
   };
 
   /**

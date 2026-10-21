@@ -30,7 +30,6 @@ import type { FLActionUrgency } from "../../utils";
 
 // Module scope, so a failed read keeps one identity across renders and the memos below hold.
 const KEINE_BESTAETIGUNGEN: readonly FLSpielbestaetigung[] = [];
-const KEINE_BERICHTE: readonly FLSpielberichtZustandEintrag[] = [];
 
 /**
  * In the URL and not `useState`: the App Router keeps an admin tree alive between navigations, so a
@@ -71,8 +70,8 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
-  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads; `null` where the read failed, which the page says. */
-  spielberichte: readonly FLSpielberichtZustandEintrag[] | null;
+  /** The season's reports and their states, served with the list whatever `SPIELBERICHT_EINGABE` reads. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;
 }) {
@@ -80,25 +79,24 @@ export function AdminSpieleActionRequiredView({
   const searchParams = useSearchParams();
   // Grouped once for the categories, the notes and the cards alike.
   const saison = useMemo(() => saisonBestaetigungen(bestaetigungen ?? KEINE_BESTAETIGUNGEN, bracketFaults), [bestaetigungen, bracketFaults]);
-  const berichte = spielberichte ?? KEINE_BERICHTE;
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: saison, spielberichte: berichte }),
-    [overviewSpiele, today, bracketFaults, saison, berichte],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: saison, spielberichte }),
+    [overviewSpiele, today, bracketFaults, saison, spielberichte],
   );
 
   // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
   const berichtChipsBySpielId = useMemo(
     () =>
       new Map(
-        berichte.flatMap((eintrag) => {
+        spielberichte.flatMap((eintrag) => {
           const chip = berichtChip(eintrag);
           return chip === null ? [] : [[eintrag.spiel_id, chip] as const];
         }),
       ),
-    [berichte],
+    [spielberichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
@@ -214,18 +212,9 @@ export function AdminSpieleActionRequiredView({
               bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
             }>
             {bestaetigungen === null
-              ? "Die Kategorien zu Terminvorschlägen und Bestätigungen sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu."
+              ? // Every category the rows fill, the referee's decline among them: its tab would read a cleared zero.
+                `Die Kategorien zu Terminvorschlägen, Bestätigungen und „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu.`
               : `Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ kann deshalb Spiele auslassen.`}
-          </Callout>
-        </div>
-      )}
-
-      {spielberichte === null && (
-        <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
-          <Callout
-            severity="warning"
-            title="Die Spielberichte ließen sich gerade nicht lesen">
-            {`Die Kategorie „${ACTION_REQUIRED_LABELS.ergebnis_vorschlag.name}“ ist deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu.`}
           </Callout>
         </div>
       )}

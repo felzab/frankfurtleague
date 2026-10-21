@@ -1335,6 +1335,18 @@ describe("the contact person's own two choices", () => {
     );
   });
 
+  /* A seat kept from before choices carried their own evidence stands on its confirmation alone: „Nicht bestätigt“ under
+     a choice the person confirmed would tell the administrator the league may not use it. */
+  it("reads a confirmed seat's choice with no evidence of its own as standing on the confirmation", () => {
+    const html = sectionMarkup({
+      ...BLOCK,
+      trainer: { ...ADA, einwilligung: { ...ADA.einwilligung, nachweis: { umfang: null, medien: null } } },
+    });
+
+    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a confirmed seat's choice reads as standing on nothing");
+    assert.ok(!html.includes("Nicht bestätigt"), "a confirmed seat's choice reads as unconfirmed");
+  });
+
   /* The other arm of each: a readout saying „erlaubt“ for every seat would have the league write to
      someone on WhatsApp who never allowed it. */
   it("reads a seat that allows no WhatsApp as not allowed, and a given media consent as given", () => {

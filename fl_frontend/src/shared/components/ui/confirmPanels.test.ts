@@ -99,6 +99,7 @@ const UNDRAWN = {
   ],
   gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
 };
@@ -107,6 +108,7 @@ const DRAWN = {
   spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
   spieltageCount: 5,
   bestand: { spiele: 15, erfasst: 0, angesetzt: 4 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: true,
 };
 

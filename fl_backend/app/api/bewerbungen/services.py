@@ -540,7 +540,6 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
-    "eingereicht_am": 1,
     "schule.team_name": 1,
     "team_id": 1,
     # Suppressed here alone: an inclusion projection answers `_id` unasked, and only the answer's
@@ -558,7 +557,6 @@ EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
-    "eingereicht_am": 1,
 }
 
 

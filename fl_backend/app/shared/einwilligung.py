@@ -506,7 +506,7 @@ _SPIELERSEITE_WIEDERKEHREND_3: Final[Mapping[str, str]] = MappingProxyType(
         **_SPIELERSEITE_WIEDERKEHREND_2,
         "geburtsdatum": (
             "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: "
-            "Kennen wir es schon, prüfen wir das gespeicherte, sonst trägst Du es hier ein. Ein falsches Geburtsdatum "
+            "Kennen wir es schon, prüfen wir das gespeicherte. Ein falsches Geburtsdatum "
             "beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons "
             "keine neue Registrierung möglich."
         ),

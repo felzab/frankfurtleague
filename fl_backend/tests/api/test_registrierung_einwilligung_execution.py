@@ -17,6 +17,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
     REGISTRIERUNG_MEDIEN_ALTER,
+    REGISTRIERUNG_OHNE_GEBURTSDATUM,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     REGISTRIERUNG_WAHLEN_UNPASSEND,
@@ -416,6 +417,20 @@ class TestWhatAConfirmationWrites:
         assert code == REGISTRIERUNG_ALTER
         assert document == registrierung_document()
 
+    def test_a_returning_pupil_whose_person_holds_no_date_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        """Only a hand edit leaves a person undated, and the page has no field to fill: a refusal reopening the link would loop."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
+
+            return (refused.value.error_code, refused.value.status_code), await stored(database)
+
+        code, document = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID, geburtsdatum=None)])
+
+        assert code == (REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
+        assert document == registrierung_document()
+
     def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
         """A response re-read off the updated document would widen this page's answer to everything a registration holds."""
 
@@ -501,7 +516,7 @@ class TestTheChoicesThePageAsks:
                 [spieler_document(SPIELER_OID)],
                 RETURNING_LABEL,
                 {"umfang": None, "medien": None},
-                id="the returning page, sent a date where one is stored",
+                id="the returning page, sent a date",
             ),
             pytest.param([], THIS_SEASONS_LABEL, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
         ],
