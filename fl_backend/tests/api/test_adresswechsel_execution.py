@@ -410,6 +410,8 @@ class TestTheLinks:
             ("vergeben", ADRESSWECHSEL_VERGEBEN),
             ("nicht_gedeckt", ADRESSWECHSEL_NICHT_GEDECKT),
             ("neue_berechtigt", ADRESSWECHSEL_NEUE_BERECHTIGT),
+            # Nothing left to move: the press ends the change discarded and answers `-002`.
+            ("leer", ADRESSWECHSEL_BEENDET),
         ],
     )
     def test_a_link_its_press_would_refuse_for_the_address_on_file_s_sake_offers_no_confirmation(
@@ -420,8 +422,11 @@ class TestTheLinks:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if cause == "neue_berechtigt":
                 await granted(database)
-            minted = await start(database, client)
-            if cause == "vergeben":
+            minted = await start(database, client, identifier=OTHER_EMAIL) if cause == "leer" else await start(database, client)
+            if cause == "leer":
+                # Its one pupil row erased by a database edit, which ends no change as the erasure route would.
+                await database[Collection.SPIELER].delete_one({"_id": OTHER_OID})
+            elif cause == "vergeben":
                 await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
             elif cause == "nicht_gedeckt":
                 await granted(database)
