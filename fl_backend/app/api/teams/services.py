@@ -919,7 +919,7 @@ def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
     )
 
 
-def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any]) -> list[dict[str, Any]]:
+def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], einsehbar: Set[str]) -> list[dict[str, Any]]:
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
     An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identitaet/services.py ::
@@ -936,8 +936,12 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
     def je_sitz(row: Mapping[str, Any]) -> dict[str, Any] | None:
         if not isinstance(row.get("kontakte"), Mapping):
             return None
+        ids = {seat: gesehen(row, seat) for seat in KONTAKT_ROLLEN}
 
-        return {seat: gesehen(row, seat) for seat in KONTAKT_ROLLEN}
+        return {
+            **ids,
+            "einsehbar": [seat for seat in KONTAKT_ROLLEN if ids[seat] is not None and _seat_identifier(row, seat) in einsehbar],
+        }
 
     return [{**team, "memberships": [{**row, "adresswechsel": je_sitz(row)} for row in team.get("memberships", [])]} for team in teams]
 

@@ -133,6 +133,8 @@ export const FLSpielerWithMembershipsSchema = z.object({
   email: z.string(),
   // The change pending at that address, one for every record the address holds, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
+  // Whether the address tool opens that change for this administrator; false where none stands.
+  adresswechsel_einsehbar: z.boolean(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;

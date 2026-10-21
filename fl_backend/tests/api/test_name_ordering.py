@@ -5,6 +5,7 @@ twice over -- an umlaut that belongs beside its base letter, and a lower-case in
 beside its capital.
 """
 
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -19,6 +20,7 @@ from app.api.spielorte.router import get_spielorte
 from app.api.spielorte.schemas import FLSpielorteFilterParams
 from app.api.teams.admin_router import get_team_memberships
 from app.core.collections import Collection
+from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import spieler_document
 from tests.worker import worker_database
@@ -148,7 +150,12 @@ class TestEveryNameListIsOrderedAsGermanReads:
     def test_the_club_memberships_read_in_german(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             response = await get_team_memberships(
-                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+                teams_collection=database[Collection.TEAMS],
+                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
             )
 
             return [team.name for team in response.teams]
@@ -157,7 +164,13 @@ class TestEveryNameListIsOrderedAsGermanReads:
 
     def test_the_squad_memberships_read_in_german(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_memberships(spieler_collection=database[Collection.SPIELER])
+            response = await get_spieler_memberships(
+                spieler_collection=database[Collection.SPIELER],
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
+            )
 
             return [spieler.vorname for spieler in response.spieler]
 

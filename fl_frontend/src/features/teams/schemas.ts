@@ -464,6 +464,8 @@ export const FLSaisonTeamAdresswechselSchema = z.object({
   trainer: CustomObjectIdStringSchema.nullable(),
   ansprechperson: CustomObjectIdStringSchema.nullable(),
   stellvertretung: CustomObjectIdStringSchema.nullable(),
+  // The seats among these whose change the address tool opens for this administrator.
+  einsehbar: z.array(z.enum(["ansprechperson", "stellvertretung", "trainer"])),
 });
 export type FLSaisonTeamAdresswechsel = z.infer<typeof FLSaisonTeamAdresswechselSchema>;
 

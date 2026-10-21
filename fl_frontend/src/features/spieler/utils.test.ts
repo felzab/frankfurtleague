@@ -33,6 +33,7 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   einwilligung: bestaetigteEinwilligung(),
   email: "x@example.com",
   adresswechsel_id: null,
+  adresswechsel_einsehbar: false,
   memberships: [MEMBERSHIP],
 } satisfies FLSpielerWithMemberships);
 

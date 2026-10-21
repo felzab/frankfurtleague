@@ -287,6 +287,8 @@ class FLSaisonTeamAdresswechsel(BaseModel):
     trainer: CustomObjectId | None
     ansprechperson: CustomObjectId | None
     stellvertretung: CustomObjectId | None
+    # The seats among these whose change the address tool opens for this administrator.
+    einsehbar: list[FLKontaktRolle]
 
 
 def _project_seat(value: Any) -> Any:

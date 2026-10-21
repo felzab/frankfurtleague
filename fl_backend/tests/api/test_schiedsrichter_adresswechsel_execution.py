@@ -5,6 +5,7 @@ The change itself, its links and its effect are `tests/api/test_adresswechsel_ex
 read beside a change standing on the referee's address.
 """
 
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -29,7 +30,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.config import grants_for_the_suite
+from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -150,6 +151,10 @@ async def read(database: AsyncDatabase) -> Any:
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         adresswechsel_collection=database[Collection.ADRESSWECHSEL],
         today=TODAY,
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        operator=ADMINISTRATORS[0],
+        auth_time=int(time.time()),
     )
 
 
@@ -232,6 +237,10 @@ class TestTheEditorsRead:
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                 adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                 today="2026-04-16",
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
             )
             return answered.bestaetigung_abgelaufen, answered.adresswechsel_id
 

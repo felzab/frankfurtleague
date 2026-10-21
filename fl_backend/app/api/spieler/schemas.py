@@ -312,6 +312,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
     # rather than hiding a change as none.
     adresswechsel_id: CustomObjectId | None
+    # Whether the address tool opens that change for this administrator; false where none stands.
+    adresswechsel_einsehbar: bool
     memberships: list[FLSpielerMembership]
 
 

@@ -136,6 +136,8 @@ export const FLSchiedsrichterSingleResponseSchema = BaseAPIResponseSchema.extend
   bestaetigung_abgelaufen: z.boolean(),
   // The change pending at the stored address, one for every record the address holds, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
+  // Whether the address tool opens that change for this administrator; false where none stands.
+  adresswechsel_einsehbar: z.boolean(),
 });
 export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSingleResponseSchema>;
 

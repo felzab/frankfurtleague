@@ -314,9 +314,9 @@ def administrator_starts(
     return call(post_adresswechsel_verwaltung, database, client, adresswechsel_data=payload, **given)
 
 
-def tool_read(database: AsyncDatabase, client: AsyncMongoClient, **key: Any) -> Awaitable[Any]:
+def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
     payload = FLAdresswechselVerwaltungAnsichtPayload.model_validate(key)
-    return call(get_adresswechsel_verwaltung_ansicht, database, client, ansicht_data=payload)
+    return call(get_adresswechsel_verwaltung_ansicht, database, client, ansicht_data=payload, operator=operator)
 
 
 def resend(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:

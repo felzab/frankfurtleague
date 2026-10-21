@@ -1,4 +1,5 @@
 import json
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -11,6 +12,7 @@ from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
+from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_team_document, team_document
 from tests.worker import worker_database
@@ -92,7 +94,13 @@ def read_the_links(
             )
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
             return roh, await get_team_memberships(
-                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL], today=TODAY
+                teams_collection=database[Collection.TEAMS],
+                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                today=TODAY,
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                operator=ADMINISTRATORS[0],
+                auth_time=int(time.time()),
             )
 
     roh, response = on_the_seed_loop(run())

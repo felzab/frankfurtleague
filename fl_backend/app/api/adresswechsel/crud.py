@@ -10,7 +10,7 @@ Invariants:
   new address and the reason on every end but the effect, the replaced address on the effect.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Literal
@@ -48,7 +48,7 @@ from app.api.berechtigungen.services import compose_postausgang as compose_berec
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -962,6 +962,34 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
         {"$project": {"adresse": 1, "email": 1, "token_hash": 1}},
         {"$sort": {"_id": 1}},
     ]
+
+
+async def einsehbare_adressen(
+    adressen: Iterable[str],
+    *,
+    akteur: str,
+    auth_time: int,
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    session: AsyncClientSession | None,
+) -> set[str]:
+    """Which of these folded addresses' changes the address tool opens for this administrator.
+
+    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar`; the grants are read only where an address is
+    asked, most reads serving no change.
+    """
+
+    gefragt = set(adressen)
+    if not gefragt:
+        return set()
+    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+    announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+
+    return {
+        adresse
+        for adresse in gefragt
+        if adresswechsel_einsehbar(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
+    }
 
 
 def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:

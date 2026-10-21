@@ -36,6 +36,8 @@ export const FLBerechtigungAdresswechselSchema = z.object({
   bestaetigt: z.boolean(),
   bis: z.string(),
   verwehrt: FLGenehmigungVerwehrtSchema.nullable(),
+  // Whether the address tool opens the change for this administrator, where a refused approval sends them to discard it.
+  einsehbar: z.boolean(),
 });
 export type FLBerechtigungAdresswechsel = z.infer<typeof FLBerechtigungAdresswechselSchema>;
 

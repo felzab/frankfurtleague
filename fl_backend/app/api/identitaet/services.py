@@ -238,6 +238,7 @@ def compose_erasure_ansicht_auf_anfrage(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
+    einsehbar: AbstractSet[str],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
@@ -279,7 +280,7 @@ def compose_erasure_ansicht_auf_anfrage(
                 {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": [{"adresswechsel_id": row["_id"]} for row in adresswechsel_rows],
+            "adresswechsel": [{"adresswechsel_id": row["_id"], "einsehbar": row.get("adresse") in einsehbar} for row in adresswechsel_rows],
         }
     )
 
@@ -557,6 +558,23 @@ def find_verwaltung_adresse_refusal(
         error_code=VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
         message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
+    )
+
+
+def adresswechsel_einsehbar(
+    identifier: str, *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Whether the address tool opens this address's change for this administrator: refused neither `REQ-PURGE-003` nor `-005`.
+
+    Served beside every change id a page links into the tool, so no link leads to the refusal.
+    """
+
+    return (
+        find_eigene_adresse_refusal(identifier=identifier, akteur=akteur) is None
+        and find_verwaltung_adresse_refusal(
+            identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
+        )
+        is None
     )
 
 

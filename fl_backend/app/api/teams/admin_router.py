@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.adresswechsel.crud import einsehbare_adressen
 from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
@@ -107,6 +108,8 @@ from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
     AktionenCollection,
+    BerechtigungenAngekuendigtCollection,
+    BerechtigungenCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
@@ -126,6 +129,7 @@ from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
     bind_actor,
+    get_actor_auth_time,
     get_actor_email,
     get_step_up_check,
     verify_access_admin,
@@ -180,13 +184,20 @@ async def _rewrite_the_outgoing_clubs_sides(
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
 async def get_team_memberships(
-    teams_collection: TeamsCollection, adresswechsel_collection: AdresswechselCollection, today: str = Depends(get_german_date_str)
+    teams_collection: TeamsCollection,
+    adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    today: str = Depends(get_german_date_str),
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
 ) -> FLTeamsMembershipsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
     `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
-    change of each seat's address, which the address tool shows.
+    change of each seat's address, which the address tool shows, and the seats whose change the tool opens for this
+    administrator.
     """
 
     teams_raw = await aggregate_many_from_db(
@@ -204,9 +215,19 @@ async def get_team_memberships(
         if adressen
         else {}
     )
+    einsehbar = await einsehbare_adressen(
+        live,
+        akteur=sign_in_identifier(operator),
+        auth_time=auth_time,
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        session=None,
+    )
 
     return FLTeamsMembershipsResponse(
-        teams=FLTeamWithMembershipsListAdapter.validate_python(mit_adresswechseln(mit_abgelaufen(teams_raw, today=today), live=live))
+        teams=FLTeamWithMembershipsListAdapter.validate_python(
+            mit_adresswechseln(mit_abgelaufen(teams_raw, today=today), live=live, einsehbar=einsehbar)
+        )
     )
 
 

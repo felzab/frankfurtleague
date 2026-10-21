@@ -330,6 +330,8 @@ class FLErasureAnsichtAdresswechsel(BaseModel):
     """Another address's live change naming this one as its new address: the change ends, its address's records standing."""
 
     adresswechsel_id: CustomObjectId
+    # Whether the address tool opens it for this administrator, where the page links them to discard it.
+    einsehbar: bool
 
 
 class FLErasureAnsicht(BaseModel):

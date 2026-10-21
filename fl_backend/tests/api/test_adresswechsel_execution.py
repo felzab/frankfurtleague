@@ -48,14 +48,16 @@ from app.api.berechtigungen.services import signed_in_since
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.admin_router import erase_auf_anfrage
+from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.schemas import FLErasurePayload
+from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.services import EIGENE_ADRESSE, VERWALTUNG_ADRESSE
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN, compose_ablehnung_update, erinnerung_is_due
+from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
+from app.api.spieler.admin_router import get_spieler_memberships
 from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
 from app.core.adressanker import adressanker_id
@@ -89,6 +91,7 @@ from .adresswechsel_harness import (
     OTHER_OID,
     OWNER,
     PENDING_OID,
+    REFEREE_OID,
     ROW_OID,
     SAISON_ID,
     SECOND_ADMIN,
@@ -1301,6 +1304,66 @@ class TestTheContactsEditorsRead:
 
         assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, None)
         assert ended is not None and (ended.trainer, ended.ansprechperson, ended.stellvertretung) == (None, None, None)
+
+
+class TestEveryLinkIntoTheToolSaysWhetherItOpens:
+    """A page links a change's id into the address tool; a link the tool refuses its reader is a dead end."""
+
+    @pytest.mark.parametrize(
+        ("reader", "grant"),
+        [
+            pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator: the tool refuses -005"),
+            pytest.param(OWNER, True, id="a grant holder's change, read by an owner: the tool opens it"),
+            pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator: the tool opens it"),
+        ],
+    )
+    def test_each_read_serving_a_change_s_id_serves_the_tool_s_own_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
+        """The pupils list, the referee editor, the contacts editor, the erasure's reveal and, for a grant, the approval row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if grant:
+                await granted(database)
+            minted = await start(database, client)
+            try:
+                await tool_read(database, client, adresswechsel_id=minted.id, operator=reader)
+                opens = True
+            except WriteRefusalException as refused:
+                assert refused.error_code == VERWALTUNG_ADRESSE
+                opens = False
+
+            pupils = await call(get_spieler_memberships, database, client, operator=reader)
+            referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
+            teams = await call(get_team_memberships, database, client, today=TODAY, operator=reader)
+            [seats] = [
+                row.adresswechsel for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
+            ]
+            reveal = await call(
+                get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAnsichtPayload(email=NEW_EMAIL), operator=reader
+            )
+            served = {
+                "pupils": [(player.adresswechsel_id, player.adresswechsel_einsehbar) for player in pupils.spieler if player.id == SPIELER_OID],
+                "referee": (referee.adresswechsel_id, referee.adresswechsel_einsehbar),
+                "seats": (seats.ansprechperson, seats.einsehbar),
+                "reveal": [(row.adresswechsel_id, row.einsehbar) for row in reveal.adresswechsel],
+            }
+            if grant:
+                listed = await call(get_berechtigungen, database, client, operator=reader)
+                waiting = {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+                served["approval"] = None if waiting is None else (waiting.id, waiting.einsehbar)
+            return minted.id, opens, served
+
+        minted, opens, served = on_a_person(mongo_replica_set_url, body)
+
+        assert opens is (reader == OWNER or not grant)
+        expected = {
+            "pupils": [(minted, opens)],
+            "referee": (minted, opens),
+            "seats": (minted, ["ansprechperson"] if opens else []),
+            "reveal": [(minted, opens)],
+        }
+        if grant:
+            expected["approval"] = (minted, opens)
+        assert served == expected
 
 
 class TestAGrantEndedBeforeTheApproval:
