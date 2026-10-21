@@ -2,6 +2,7 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLAdresswechselWartetAufSchema, FLAdresswechselWegSchema } from "@/features/adresswechsel/schemas";
+import { FLVerwaltungSchema } from "@/features/berechtigungen/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
 import {
@@ -170,7 +171,7 @@ export type FLKontoEinwilligungenResponse = z.infer<typeof FLKontoEinwilligungen
 /** Mirrors `FLAdresswechselGenehmigungStand`: the approval an administrator's change waits for besides its link. */
 export const FLAdresswechselGenehmigungStandSchema = z.object({
   // The tier the moved grant holds: an owner's change is approved by another owner alone.
-  verwaltung: z.enum(["owner", "administration"]),
+  verwaltung: FLVerwaltungSchema,
   genehmigt: z.boolean(),
   bis: z.string(),
 });

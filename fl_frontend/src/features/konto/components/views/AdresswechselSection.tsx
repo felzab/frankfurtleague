@@ -1,4 +1,5 @@
 import { getKontoSession } from "@/core/auth";
+import { verwaltungOf } from "@/core/verwaltung";
 
 import { getKontoAdresswechsel } from "../../queries";
 import { readSicherheit } from "../../sicherheit";
@@ -13,10 +14,15 @@ export async function AdresswechselSection() {
   const served = await getKontoSession();
   if (served === null) return null;
 
-  const [adresswechsel, sicherheit] = await Promise.all([getKontoAdresswechsel(), readSicherheit(served)]);
+  // The tier off the subject read the page's guard already made for this address, so no second backend call.
+  const [adresswechsel, sicherheit, { verwaltung }] = await Promise.all([
+    getKontoAdresswechsel(),
+    readSicherheit(served),
+    verwaltungOf(served.user.email),
+  ]);
   if (!adresswechsel.moeglich) return null;
 
-  const { freshUntil, enrolmentUntil, servedAt, verwaltung, inhaberId, inhaberAdresse } = sicherheit;
+  const { freshUntil, enrolmentUntil, servedAt, inhaberId, inhaberAdresse } = sicherheit;
   return (
     <AdresswechselPanel
       adresswechsel={adresswechsel}

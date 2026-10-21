@@ -5,6 +5,7 @@ import { refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts"
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
 
 import {
+  GENEHMIGUNG_VERWEHRT,
   mapAdresswechselAnsichtRefusal,
   mapAdresswechselPresseRefusal,
   mapGenehmigungRefusal,
@@ -15,6 +16,28 @@ import {
 const ANSWER_OPERATION = "POST /adresswechsel/bestaetigung";
 const STOP_OPERATION = "POST /adresswechsel/bestaetigung/stopp";
 const VIEW_OPERATION = "POST /adresswechsel/bestaetigung/ansicht";
+
+describe("an approval refused for who presses it", () => {
+  const APPROVAL = "POST /adresswechsel/{adresswechsel_id}/genehmigung";
+
+  /* The closed press on the grant's row and the refused press say one reason alike, whichever the page showed first. */
+  it("says the refusal in the closed press's own words", () => {
+    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014")), GENEHMIGUNG_VERWEHRT.inhaber);
+    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-017")), GENEHMIGUNG_VERWEHRT.juenger);
+  });
+
+  /* An owner promoted after signing in holds no owner's power yet: told only that an owner approves, they read it as false. */
+  it("names the sign-in again to an owner refused for want of an owner's power", () => {
+    assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014")) ?? "", /melde Dich neu an\./);
+  });
+
+  /* The codes name no tier, so each sentence naming an approver names both: an owner's change is another owner's. */
+  for (const code of ["REQ-ADRESSWECHSEL-013", "REQ-ADRESSWECHSEL-017"] as const) {
+    it(`names an owner's approver as well on ${code}`, () => {
+      assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, code)) ?? "", /Inhaberin oder (ein anderer )?Inhaber/);
+    });
+  }
+});
 
 describe("what one refused press asks the link page to show", () => {
   /* One panel for every refusal that would tell the link's holder who holds an address. */

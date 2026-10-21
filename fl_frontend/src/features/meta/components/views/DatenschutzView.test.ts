@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "7e4004c2c4a41d71cc39997534aacf70aa643a6e5009522f39bf79f6ec63e0e4" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "0d87fd0ca7bbcacac8761c7c8625ffc82224d73f1220d739ca23b8792c90dda9" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -225,10 +225,13 @@ describe("the privacy notice's retention table", () => {
     assert.ok(
       ANGABEN.has(
         "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
-          "Widerspruchs als Kontaktperson oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres " +
+          "Widerspruchs als Kontaktperson, des Endes eines Antrags auf einen Zugang zur Verwaltung für Deine Adresse ohne " +
+          "Genehmigung, weil er abgelehnt oder zurückgezogen wird oder Deine Adresse wechselt, oder, bei einer Änderung Deiner " +
+          "E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres " +
           "Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder " +
           "der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung " +
-          "Deine als drei solche Schlüssel, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, " +
+          "Deine als drei solche Schlüssel, bei einem Antrag die Adresse, für die er gestellt war, als einer, bei einer Änderung " +
+          "die neue Adresse als einer, auch wenn sie jemand anderem gehört, " +
           "und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den " +
           "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
           "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
@@ -272,7 +275,8 @@ describe("the privacy notice's retention table", () => {
           "sie gilt",
       ),
       "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie " +
-        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein " +
+        "verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht " +
+        "werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein " +
         "Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
         `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem ` +
         "Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die " +
@@ -303,7 +307,8 @@ describe("the privacy notice's retention table", () => {
       "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
         "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
         "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
-        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
+        "gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt, bei einem Zugang als Inhaberin oder Inhaber eine " +
+        `andere Inhaberin oder ein anderer Inhaber; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
         "nach ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch " +
         "anmelden, gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht " +
         `mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +
@@ -683,14 +688,22 @@ describe("the privacy notice states the registration, referee-link and ban clock
   });
 
   // The request waits as long as an address change's approval does, so the week is read off that one constant.
-  it("keeps a request for access until it is decided or withdrawn, a week at most", () => {
+  /* Every way a request ends is named: an address change ends one about its address, and an erasure of either person. */
+  it("keeps a request for access until it is decided, withdrawn, its address changes or a person's data is erased, a week at most", () => {
     const frist =
       ANGABEN.get(
         "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
       ) ?? "";
 
     assert.equal(GENEHMIGUNG_TAGE, 7);
-    assert.ok(frist.includes("längstens eine Woche; danach löschen wir ihn."), frist);
+    assert.ok(
+      frist.startsWith(
+        "Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, " +
+          "die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht " +
+          "werden, längstens eine Woche; danach löschen wir ihn.",
+      ),
+      frist,
+    );
   });
 
   // Held here because this file owns the count words: the create form's hint and the ban list's

@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
-import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
+import { kontakteEditorKey, resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getMedienFragen } from "@/features/spieler/medienFragen";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -65,7 +65,7 @@ async function AdminKontakteEditContent({
   return (
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminKontakteEditView
-      key={JSON.stringify({ team, saison })}
+      key={kontakteEditorKey(team, saison)}
       laufendesLabel={laufendesLabel}
       medienFragen={medienFragen}
       team={{ id: team.id, name: team.name, shorthand: team.shorthand, inactive_since: team.inactive_since }}

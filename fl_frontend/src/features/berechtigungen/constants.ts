@@ -72,6 +72,12 @@ export const ZUGANG_ERTEILT = "Zugang erteilt";
  */
 export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.";
 
+/**
+ * Who decides about a promotion, closing every sentence that names who decides about a request: another
+ * administrator decides a grant, another owner alone a promotion (`docs/backend/spec.md :: I848`).
+ */
+const ERNENNUNG_GENEHMIGT = "eine Ernennung eine andere Inhaberin oder ein anderer Inhaber";
+
 /** Why the revoke is closed to a session holding no owner's power, and the backend's `-005` in the same words. */
 export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
@@ -192,15 +198,17 @@ export const ERNENNUNG_BEANTRAGT_MESSAGE = `Eine andere Inhaberin oder ein ander
  * the refused one say it alike. The requester's own (`gestartet`) closes the approval alone: they withdraw it.
  */
 export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLGenehmigungVerwehrt, "gestartet">, string>> = {
-  eigene: "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung.",
+  eigene: `Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über ${ERNENNUNG_GENEHMIGT}.`,
   inhaber: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
   juenger:
     "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte, über eine Ernennung nur, wer schon vorher Inhaberin oder Inhaber war.",
 };
 
 /** The requester's own request, which they withdraw rather than approve. */
-export const EIGENER_ANTRAG =
-  "Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung. Zurückziehen kannst Du ihn.";
+export const EIGENER_ANTRAG = `Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung, ${ERNENNUNG_GENEHMIGT}. Zurückziehen kannst Du ihn.`;
+
+/** The approval's refusal of its own requester or subject, the backend's one code naming either. */
+export const ANTRAG_EIGENE_ODER_GESTELLT = `Einen Antrag, den Du gestellt hast oder der Dich betrifft, genehmigt eine andere Person aus der Verwaltung, ${ERNENNUNG_GENEHMIGT}.`;
 
 /** A request whose requester has lost, since asking, the tier it asks for: nobody approves it, and a refusal clears the address. */
 export const ANTRAG_VERFALLEN =

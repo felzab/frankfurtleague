@@ -417,7 +417,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": { beantrageAdresswechselAction: "one-press" },
   "features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
     einladeAdresswechselAction: "one-press",
-    verwirfAdresswechselAction: "one-press",
+    verwirfAdresswechselAction: "two-press",
   },
   "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx": { patchAdminSpielberichtAction: "one-press" },
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
