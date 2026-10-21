@@ -242,10 +242,10 @@
 # 1394-1481 ms; a `db` shard pays the backend's listing and plan, 797-815 ms, and the frontend's
 # lister, plan and `--literal` together, 2962-3004 ms. `pnpm exec node -e ""` alone took 1345-1388 ms
 # over six rounds, against 155-187 ms for `--literal` and 530-555 ms for the lister run by the
-# pinned node directly, so most of each node step is pnpm's start on Windows, which a Linux runner
-# pays less of. A `db` shard's planning, under 4 s, is far below the half of the tiers it no longer
-# runs, so the parent's spans still bound it. `frontend-units` also gained `actions/setup-python`,
-# whose lookup is timed only by CI.
+# pinned node directly, so most of each node step is pnpm's start on Windows; a runner's is timed
+# only by CI, as is the `actions/setup-python` lookup `frontend-units` gained. A `db` shard's
+# planning, under 4 s, is far below the half of the tiers it leaves to the other shard, so the
+# parent's spans still bound it.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
