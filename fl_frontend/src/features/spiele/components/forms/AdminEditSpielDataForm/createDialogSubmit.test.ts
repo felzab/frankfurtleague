@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { pickerTrigger } from "@/shared/testing/pickerTrigger.ts";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas.ts";
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
@@ -109,16 +110,6 @@ async function renderEditor(
     ),
   );
   await user.type(screen.getByRole("textbox", { name: "Notiz zum Spiel" }), "Halle getauscht");
-}
-
-/** The picker's trigger group, whose own click toggles the list: HeroUI wraps the select's button in it. */
-function pickerTrigger(label: string): HTMLElement {
-  const button = [...document.querySelectorAll<HTMLElement>('button[aria-haspopup="listbox"]')].find((candidate) =>
-    (candidate.getAttribute("aria-labelledby") ?? "")
-      .split(" ")
-      .some((id) => document.getElementById(id)?.textContent?.trim().startsWith(label) === true),
-  );
-  return button?.closest<HTMLElement>('[data-slot="autocomplete-trigger"]') ?? assert.fail(`no picker trigger labelled ${label}`);
 }
 
 async function openVenueDialog(user: ReturnType<typeof userEvent.setup>, create: RegExp): Promise<HTMLElement> {

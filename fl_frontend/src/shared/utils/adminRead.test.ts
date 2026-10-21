@@ -84,7 +84,7 @@ describe("an admin-tier read's scope", () => {
   });
 
   /* Redirected rather than thrown to the error boundary: every admin page reaches this with such a
-     session, its layout's guard stopping none of them. */
+     session, its layout's hold handing every one of them on. */
   for (const refused of ["signIn", "noGrant", "grantGone"] as const) {
     it(`sends a session refused as ${refused} to the sign-in landing, the read never running`, async () => {
       store.refused = refused;

@@ -84,6 +84,7 @@ function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME)
     underNext(
       h(AdminBewerbungView, {
         neubesetzung: laufendeNeubesetzung(),
+        medienFragen: {},
         bewerbung,
         fristAbgelaufen: false,
         teamName,

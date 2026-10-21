@@ -5,7 +5,7 @@ import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
-import { bestaetigungOf } from "@/features/spieler/nachweis";
+import { bestaetigungOf, medienBestaetigungOf } from "@/features/spieler/nachweis";
 import {
   eingetragenVonLabel,
   KONTAKT_ROLLEN,
@@ -29,6 +29,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { ReactNode } from "react";
 
 /**
@@ -83,11 +84,14 @@ export function BewerbungAngabenPanel({
   bewerbung,
   teamName,
   staende,
+  medienFragen,
 }: {
   bewerbung: FLBewerbung;
   teamName: string | null;
   /** Each seat's state, as `bestaetigungsStand` reads it. */
   staende: readonly SitzBestaetigung[];
+  /** Whether each seat's confirmation page asked the media choice, read by the page off the registry. */
+  medienFragen: MedienFragen;
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
   const herkunft = bewerbungHerkunft(bewerbung);
@@ -238,7 +242,7 @@ export function BewerbungAngabenPanel({
                           {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
                           <Beleg
                             nachweis={person.einwilligung.nachweis.medien}
-                            bestaetigung={bestaetigungOf(person.einwilligung)}
+                            bestaetigung={medienBestaetigungOf(person.einwilligung, medienFragen)}
                           />
                         </Angabe>
                       </>

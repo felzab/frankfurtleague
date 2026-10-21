@@ -46,8 +46,8 @@ needs a shown chain or a named bundle file.
 
 S3. **Protected route coverage.** The required table per route segment: intended protection |
 proxy-matcher coverage | data-layer or in-page guard | gap. Probe the matcher for holes (variants,
-redirects evaluated before the proxy, and the page segments, route handlers and actions a
-layout's guard does not stop). **Probe the proxy's prefix test as a second surface**: the matcher
+redirects evaluated before the proxy, and the page segments, route handlers and actions that no
+layout turns away, each answering for its own session check). **Probe the proxy's prefix test as a second surface**: the matcher
 admits a path, then the `/bereich` prefix test inside the proxy decides whether a request carrying no
 session cookie is turned away, and it reads the path raw and decoded. A spelling the matcher admits
 and the prefix test misses — an encoded segment, a doubled or trailing slash, a case variant, a

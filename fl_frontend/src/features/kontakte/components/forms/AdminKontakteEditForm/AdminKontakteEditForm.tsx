@@ -40,6 +40,7 @@ import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -62,12 +63,14 @@ const OHNE_NACHSTAND = buildRefusal({
  */
 export function AdminKontakteEditForm({
   laufendesLabel,
+  medienFragen,
   teamId,
   saison,
   pageHeader,
 }: {
   /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
   laufendesLabel: string | null;
+  medienFragen: MedienFragen;
   teamId: string;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
@@ -247,6 +250,7 @@ export function AdminKontakteEditForm({
           }>
           <FormKontakteSection
             laufendesLabel={laufendesLabel}
+            medienFragen={medienFragen}
             value={kontakte}
             stored={storedKontakte}
             bestaetigungen={storedMembership?.bestaetigungen ?? null}

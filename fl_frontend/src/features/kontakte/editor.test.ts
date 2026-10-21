@@ -12,7 +12,7 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
@@ -48,6 +48,7 @@ import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
+import type { MedienFragen } from "@/features/spieler/nachweis.ts";
 import type {
   FLAustritt,
   FLKontaktperson,
@@ -197,9 +198,11 @@ const sectionElement = (
   nimmtLinks = true,
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
   adresswechsel: FLSaisonTeamAdresswechsel | null = null,
+  medienFragen: MedienFragen = {},
 ): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
+    medienFragen,
     value: kontakte,
     stored: kontakte,
     bestaetigungen,
@@ -215,6 +218,12 @@ const sectionElement = (
     isDirty: false,
     onValidateSelection: () => undefined,
   });
+
+/** The seats with the Trainer confirmed on `textVersion` and no evidence of either choice, its page's questions `medienFragen`. */
+const ohneNachweis = (textVersion: string, medienFragen: MedienFragen): string => {
+  const trainer = { ...ADA, einwilligung: { ...ADA.einwilligung, text_version: textVersion, nachweis: { umfang: null, medien: null } } };
+  return editorTree(sectionElement({ ...BLOCK, trainer }, true, true, null, null, medienFragen), { ...BLOCK, trainer });
+};
 
 /** The seats as the admin meets them, in the state each case names. */
 const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): string =>
@@ -234,6 +243,7 @@ const viewElement = (
 ): ReactNode =>
   h(AdminKontakteEditView, {
     laufendesLabel,
+    medienFragen: {},
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
@@ -438,6 +448,24 @@ describe("the editor's shape", () => {
       assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
     } finally {
       seitenAntwort = undefined;
+    }
+  });
+
+  /* Off each stored seat's own confirmed label: the readout files the media choice against a confirmation only where
+     that label's page asked it, and a label the registry does not hold is left for the readout to say nobody checked. */
+  it("hands the editor whether each stored seat's page asked the media choice", async () => {
+    const vorDerFrage = "2026-09-bestaetigungsseite-6";
+    const mitDerFrage = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+    const bestaetigtAuf = (textVersion: string): FLKontaktperson => ({
+      ...ADA,
+      einwilligung: { ...ADA.einwilligung, text_version: textVersion },
+    });
+    storedBlock = { ...BLOCK, trainer: bestaetigtAuf(vorDerFrage), ansprechperson: bestaetigtAuf(mitDerFrage), stellvertretung: ADA };
+    try {
+      const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
+      assert.deepEqual((body.props as { medienFragen: unknown }).medienFragen, { [vorDerFrage]: false, [mitDerFrage]: true });
+    } finally {
+      storedBlock = BLOCK;
     }
   });
 
@@ -1338,13 +1366,29 @@ describe("the contact person's own two choices", () => {
   /* A seat kept from before choices carried their own evidence stands on its confirmation alone: „Nicht bestätigt“ under
      a choice the person confirmed would tell the administrator the league may not use it. */
   it("reads a confirmed seat's choice with no evidence of its own as standing on the confirmation", () => {
-    const html = sectionMarkup({
-      ...BLOCK,
-      trainer: { ...ADA, einwilligung: { ...ADA.einwilligung, nachweis: { umfang: null, medien: null } } },
-    });
+    const html = ohneNachweis("1", { 1: true });
 
-    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a confirmed seat's choice reads as standing on nothing");
+    assert.equal(
+      html.split("seit der Bestätigung am 14.03.2026, Fassung 1").length - 1,
+      2,
+      "a confirmed seat's choice reads as standing on nothing",
+    );
     assert.ok(!html.includes("Nicht bestätigt"), "a confirmed seat's choice reads as unconfirmed");
+  });
+
+  /* A seat kept through the reset from a page that never asked the media choice holds the "false" the server wrote for
+     it: filed against the confirmation, the readout would present a choice nobody was offered as the person's own. */
+  it("reads a media choice the confirmed seat's page never asked as not asked", () => {
+    const vorDerFrage = "2026-09-bestaetigungsseite-6";
+    const html = ohneNachweis(vorDerFrage, { [vorDerFrage]: Object.hasOwn(publishedFassung(vorDerFrage).bedienelemente, "medien") });
+
+    assert.ok(html.includes(`Bei der Bestätigung am 14.03.2026 nicht gefragt (Fassung ${vorDerFrage})`), "the media choice reads as asked");
+    // The WhatsApp switch, which that page did ask.
+    assert.equal(
+      html.split(`seit der Bestätigung am 14.03.2026, Fassung ${vorDerFrage}`).length - 1,
+      1,
+      "either choice stands on the confirmation",
+    );
   });
 
   /* The other arm of each: a readout saying „erlaubt“ for every seat would have the league write to

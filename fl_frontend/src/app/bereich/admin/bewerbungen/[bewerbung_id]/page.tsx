@@ -9,6 +9,7 @@ import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
 import { bewerbungTeamName } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
+import { getMedienFragen } from "@/features/spieler/medienFragen";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -47,9 +48,10 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
 
   // The admin-tier season read, because this season is still planned — which is the only state a
   // team is taken into (`REQ-ENTER-001`) and the one the base read withholds.
-  const [saisonsRes, teamsRes, neubesetzung] = await Promise.all([
+  const [saisonsRes, teamsRes, medienFragen, neubesetzung] = await Promise.all([
     getAdminSaisons(),
     getTeamMemberships(),
+    runWithIncomingTrace(() => getMedienFragen(bewerbung.kontakte)),
     // `null` where either registry read failed: the reseat alone needs them, so it closes and the
     // decision above it stands. Words it cannot key reach the error boundary (`docs/frontend/spec.md :: I649`).
     runWithIncomingTrace(() =>
@@ -82,6 +84,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
       teamName={bewerbungTeamName(bewerbung, teamsRes.teams)}
       saisonStatus={saison?.status ?? null}
       neubesetzung={neubesetzung}
+      medienFragen={medienFragen}
       gruppeOffer={
         saison === null
           ? []

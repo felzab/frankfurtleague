@@ -417,6 +417,7 @@ const FORMS: Record<string, FormCase> = {
       const editor = (kontakte: FLSaisonTeamKontakte | null) =>
         h(AdminKontakteEditForm, {
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+          medienFragen: {},
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",

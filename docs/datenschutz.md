@@ -321,7 +321,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   standing today all the same.** A referee entered through the confirmation link stays until an
   erasure ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the rows standing today
   go in the reset, by the steps of
-  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log).
+  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log).
 
 ## 4. What is published, and on what basis
 
@@ -1199,7 +1199,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   empties the action log's images of them, those of their fixtures whole where an erasure repoints
   the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
-  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
+  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)).
   Nothing informs these people under Art. 14: a row holding no address of its own is
   never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
   real address is mailed its link only when an administrator's write mints one

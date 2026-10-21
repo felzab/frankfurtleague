@@ -577,7 +577,7 @@ describe("the guard across one render pass", () => {
   /* First, so a scope that failed to take fails here rather than under the count below. */
   itOpensAScopeThatMemoizes();
 
-  /* A layout's guard runs before any scope opens and records nothing; the read opening the render's
+  /* A layout's frame reader runs before any scope opens and records nothing; the read opening the render's
      scope afterwards is answered from the memo, and still has to name the person. */
   it("records its actor in a scope opened after its memo was filled, reading the session once", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
@@ -591,7 +591,7 @@ describe("the guard across one render pass", () => {
     assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
   });
 
-  /* The admin shell's guard runs in its layout before any read opens the scope an admin-tier call is
+  /* The admin layout's hold runs before any read opens the scope an admin-tier call is
      sent from; that read is answered from the memo and must still name the administrator. */
   it("records the administrator's actor in a scope opened after the admin guard's memo was filled", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -653,7 +653,7 @@ describe("the guard across one render pass", () => {
     assert.ok((await getSubjectSession()) !== first, "a second request was handed the first one's subject");
   });
 
-  /* Outside any scope, as a layout's guard runs, where only the render's memo answers: the scope's own
+  /* Outside any scope, as a layout's frame reader runs, where only the render's memo answers: the scope's own
      memo holds every count inside one. */
   it("hands every call of the administrator's guard in one render pass the one session it judged", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -686,7 +686,7 @@ describe("the guard across one render pass", () => {
     assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
   });
 
-  /* The admin shell's guard, its switcher and the administrators page each read the grant or the
+  /* The admin layout's hold, its switcher and the administrators page each read the grant or the
      records, and the lookup is what they share: without its memo an admin render asks three times. */
   it("asks the backend once for the admin guard, the switcher and the page of one render pass", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);

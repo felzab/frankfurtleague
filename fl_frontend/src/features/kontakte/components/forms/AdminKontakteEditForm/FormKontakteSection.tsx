@@ -14,7 +14,7 @@ import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
-import { bestaetigungOf } from "@/features/spieler/nachweis";
+import { bestaetigungOf, medienBestaetigungOf } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import {
   eingetragenVonLabel,
@@ -50,6 +50,7 @@ import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type {
   FLSaisonTeamAdresswechsel,
@@ -100,6 +101,7 @@ function toCalendarDate(stored: string): CalendarDate | null {
  */
 export function FormKontakteSection({
   laufendesLabel,
+  medienFragen,
   value,
   stored,
   bestaetigungen,
@@ -117,6 +119,8 @@ export function FormKontakteSection({
 }: {
   /** The label the application form runs, read by the page per request: a seat opened blank stamps it. `null` where the read failed. */
   laufendesLabel: string | null;
+  /** Whether each stored seat's confirmation page asked the media choice, read by the page off the registry. */
+  medienFragen: MedienFragen;
   value: SaisonTeamKontakteDraft | null;
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
@@ -230,6 +234,7 @@ export function FormKontakteSection({
             link={bestaetigungen?.[rolle] ?? null}
             adresswechselId={adresswechsel?.[rolle] ?? null}
             kannLeerOeffnen={laufendesLabel !== null}
+            medienFragen={medienFragen}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
              what that seat's boxes then read. */
@@ -304,6 +309,7 @@ function KontaktpersonFields({
   link,
   adresswechselId,
   kannLeerOeffnen,
+  medienFragen,
   isMirrored,
   zugleich,
   einladen,
@@ -321,6 +327,7 @@ function KontaktpersonFields({
   adresswechselId: string | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
+  medienFragen: MedienFragen;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
@@ -374,6 +381,7 @@ function KontaktpersonFields({
             rolle={rolle}
             label={label}
             person={person}
+            medienFragen={medienFragen}
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
@@ -404,6 +412,7 @@ function KontaktpersonInputs({
   rolle,
   label,
   person,
+  medienFragen,
   isMirrored,
   onChange,
   onFieldLeft,
@@ -411,6 +420,7 @@ function KontaktpersonInputs({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
+  medienFragen: MedienFragen;
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -570,7 +580,7 @@ function KontaktpersonInputs({
             </TextField>
             <Beleg
               nachweis={person.einwilligung.nachweis.medien}
-              bestaetigung={bestaetigungOf(person.einwilligung)}
+              bestaetigung={medienBestaetigungOf(person.einwilligung, medienFragen)}
             />
           </div>
         </div>

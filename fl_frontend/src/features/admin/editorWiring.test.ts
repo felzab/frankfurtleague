@@ -378,6 +378,7 @@ const EDITORS: Record<string, Editor> = {
       return renderEditor(
         h(AdminKontakteEditForm, {
           laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+          medienFragen: {},
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",

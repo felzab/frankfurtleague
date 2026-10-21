@@ -51,6 +51,8 @@ MOVED_SPEC: Final = "docs/ui/spec.md"
 UMLAUT_PAGE: Final = "docs/prüfung.md"
 ROADMAP: Final = "docs/_roadmap/items.md"
 ENTRYPOINT: Final = "nginx/entrypoint.sh"
+# An nginx configuration, whose quoted values the comment reader has to see past.
+NGINX_CONF: Final = "nginx/site.conf"
 TOML: Final = "fl_backend/pyproject.toml"
 # A yaml manifest, the kind a package manager reads and a comment in it cites from like any other.
 WORKSPACE: Final = "fl_frontend/pnpm-workspace.yaml"
@@ -347,6 +349,7 @@ def _corpus() -> dict[str, str]:
         ),
         OPENAPI: json.dumps({"paths": {"/read": {"get": {"description": PUBLISHED_TEXT}}}}, indent=2) + "\n",
         ENTRYPOINT: _page(HASH + "!/bin/sh", "exec true"),
+        NGINX_CONF: _page("server {", "    listen 80;", "}"),
         TOML: _page("[tool.sample]", "key = 1"),
         WORKSPACE: _page("packages: []"),
         PLAIN: _page("plain text outside every scanned suffix"),
@@ -617,6 +620,33 @@ def test_a_hex_colour_in_a_stylesheet_comment_names_no_issue() -> None:
         _reset()
     assert STYLES in data["additions"]
     assert _findings(data) == [("fail", "comment-citation", STYLES, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_a_hash_inside_a_quoted_nginx_value_is_text_and_the_comment_after_it_is_read() -> None:
+    """A colour in a quoted value is text on every line the value spans, one opening on it.
+
+    The issue number in the comment below is the evidence the check read the file at all.
+    """
+    _reset()
+    _append(
+        NGINX_CONF,
+        "location = /x {",
+        "    return 429 '<style>",
+        "body { color: " + HEX + "; }",
+        HEX + " { margin: 0; }",
+        # Past INC-9's bound, which a comment run read off the raw lines would measure.
+        HEX + " " + " ".join(["swatch"] * 45) + " {}",
+        "</style>';",
+        '    add_header X-Swatch "' + HEX + '";',
+        "}",
+        HASH + " as " + ISSUE_REF + " says",
+    )
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert NGINX_CONF in data["additions"]
+    assert _findings(data) == [_issue_fail(NGINX_CONF)]
 
 
 def test_a_hex_colour_in_a_module_comment_is_an_issue_number_until_it_is_quoted() -> None:

@@ -46,7 +46,7 @@ serveServerReactTo((parentURL) => MEMOIZING.some((tail) => parentURL.endsWith(ta
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
-const { auth, getAdminSession, getKontoSession, getPasskeyStep } = await import("@/core/auth.ts");
+const { auth, getAdminSession, getKontoSession, getPasskeyStep, judgeAdminRequest } = await import("@/core/auth.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 const { readSicherheit } = await import("@/features/konto/sicherheit.ts");
@@ -130,18 +130,19 @@ describe("the administrator's session across one render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
 
-  /* The admin layout wraps the shell's season slot and the page segment in a guard each, and both
-     run in one render pass: `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
-  it("reads the store once for both of the layout's guards", async () => {
+  /* The admin layout's hold, season slot and switcher each read the session, all in one render pass:
+     `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
+  it("reads the store once for the frame's three readers", async () => {
     requestHeaders = await signInAsAdministrator();
 
     beginRenderPass();
     const before = sessionReads.length;
-    const [slot, page] = await Promise.all([getAdminSession(), getAdminSession()]);
+    const [hold, slot, switcher] = await Promise.all([judgeAdminRequest(), getAdminSession(), getAdminSession()]);
 
-    assert.equal(slot?.user.email, ADMIN_EMAIL, "the guard refused the administrator, so the count below counts a refusal");
-    assert.equal(page?.user.email, ADMIN_EMAIL);
-    assert.equal(sessionReads.length - before, 1, "the two guards of one render pass each read the session store");
+    assert.ok("session" in hold, "the hold refused the administrator, so the count below counts a refusal");
+    assert.equal(slot?.user.email, ADMIN_EMAIL);
+    assert.equal(switcher?.user.email, ADMIN_EMAIL);
+    assert.equal(sessionReads.length - before, 1, "the frame's readers of one render pass each read the session store");
 
     // The control: the next request is a new pass and reads again, so the counter counts reads.
     beginRenderPass();

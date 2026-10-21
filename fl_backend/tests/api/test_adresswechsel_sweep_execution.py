@@ -8,7 +8,7 @@ refused, the refused one's new address answered alone. The share's sizing is `te
 import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -187,11 +187,12 @@ async def live(database: AsyncDatabase) -> list[ObjectId]:
     return await database[Collection.ADRESSWECHSEL].distinct("_id", {"beendet": None})
 
 
-def stored_before_its_validator(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image stored before its validator required `trace_id`, which refuses the redaction's update."""
+def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
+    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2026-04-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(collection),
@@ -201,6 +202,7 @@ def stored_before_its_validator(collection: Collection, row: Mapping[str, Any]) 
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 
@@ -376,13 +378,13 @@ class TestOneChangeHoldsBackNoOther:
         assert (level, re.fullmatch(ended, line) is not None) == ("ERROR", True), line
 
     def test_a_refused_end_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A log image stored before its validator required `trace_id` refuses the redaction's update. Remove the catch and the call fails."""
+        """A log image refusing the redaction's update. Remove the catch and the call fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first, second = a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_YESTERDAY)
             await database[Collection.ADRESSWECHSEL].insert_many([first, second])
             await database[Collection.AKTIONEN].insert_one(
-                stored_before_its_validator(Collection.ADRESSWECHSEL, first), bypass_document_validation=True
+                refusing_its_redaction(Collection.ADRESSWECHSEL, first), bypass_document_validation=True
             )
             answer = await sweep(database, client)
 
@@ -406,7 +408,7 @@ class TestOneChangeHoldsBackNoOther:
             changes = [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in failing]
             await database[Collection.ADRESSWECHSEL].insert_many(changes)
             await database[Collection.AKTIONEN].insert_many(
-                [stored_before_its_validator(Collection.ADRESSWECHSEL, change) for change in changes], bypass_document_validation=True
+                [refusing_its_redaction(Collection.ADRESSWECHSEL, change) for change in changes], bypass_document_validation=True
             )
             await database[Collection.ADRESSWECHSEL].insert_one(a_change(last, minted=MINTED_TO_LAPSE_YESTERDAY))
             answers = await a_pass(database, client)

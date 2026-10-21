@@ -150,7 +150,7 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
 
   const { answer, wrote, tags, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
-  // A write that may have ended its caller's session renders no page again, its area guard unmounting the frame;
+  // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
   // the page leaves by a document load (`docs/frontend/spec.md :: I831`). No such write declares a tag to drop.
   if (endsOwnSession) return answer;
 
