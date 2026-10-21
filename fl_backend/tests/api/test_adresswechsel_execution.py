@@ -1738,7 +1738,7 @@ class TestTheAdministratorFollowsTheirMove:
     def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
         """A grant they made, its image and log row, their own change's starter and their revoked grant's image named it.
 
-        The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
+        The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1761,7 +1761,7 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
     def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_erasure(self, mongo_replica_set_url: str):
         """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
@@ -1788,8 +1788,8 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
     def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
         """Their grant ended before the change: what they made while holding it names them still.
@@ -1938,15 +1938,11 @@ class TestTheRequestsForAGrantAnEffectMeets:
             left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
             return carried["genehmigung"]["gestartet_von"], left, await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end keeps the address until the reconciliation, unrun here, has told the administrators.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (
-            NEW_EMAIL,
-            0,
-            {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]},
-        )
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (NEW_EMAIL, 0, {EMAIL: []})
 
     def test_a_request_about_the_replaced_address_ends_as_a_refusal_ends_it(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Approved, it would grant an address nobody holds; its refusal's own journal line keeps a restore from bringing it back."""
+        """Approved, it would grant an address nobody holds; its end's own journal line keeps a restore from bringing it back."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
@@ -1959,7 +1955,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
 
         assert antrag is None
         assert [(line.art, line.record_id) for line in journal] == [("antrag_beendet", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
-        # The refusal's own line, keyed as a refusal keys it, by the address the request was about.
+        # Keyed as a refusal's line is, by the address the request was about.
         assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
 
     def test_the_end_tells_the_requester_in_the_effects_own_write(self, mongo_replica_set_url: str):
@@ -1986,8 +1982,39 @@ class TestTheRequestsForAGrantAnEffectMeets:
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
-        # The refusal's notice to its requester keeps the address until the reconciliation, unrun here, has told them.
-        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        # The refusal's notice to its requester withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
+
+    @pytest.mark.parametrize("request_", ["none", "refused before the change", "ended by the change", "moved on again"])
+    def test_an_erasure_at_the_new_address_withholds_the_replaced_one_in_every_queued_notice(self, mongo_replica_set_url: str, request_: str):
+        """`docs/backend/spec.md :: I659`: the grant's announcement, the move's revoke and a request's end name the old address.
+
+        A second move carries their stamp on to the address erased.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            if request_ != "none":
+                await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
+            if request_ == "refused before the change":
+                await call(delete_antrag, database, client, antrag_id=ANTRAG_OID, operator=SECOND_ADMIN)
+            minted = await start(database, client)
+            await approve(database, client, minted.id, operator=SECOND_ADMIN)
+            await answer(database, client, minted.token)
+            erased_at = NEW_EMAIL
+            if request_ == "moved on again":
+                onward = await start(database, client, identifier=NEW_EMAIL, email=THIRD_EMAIL)
+                await approve(database, client, onward.id, operator=SECOND_ADMIN)
+                await answer(database, client, onward.token)
+                erased_at = THIRD_EMAIL
+            naming = [row["art"] async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find({}) if EMAIL in str(row)]
+            await erased(database, client, erased_at)
+            return naming, await where_held(database, EMAIL, folded=True)
+
+        naming, held = on_a_person(mongo_replica_set_url, body, records=False)
+
+        assert naming, "no queued notice named the replaced address, so the withholding below holds of nothing"
+        assert held == {EMAIL: []}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:
@@ -2063,7 +2090,7 @@ class TestTheDecline:
 
 
 class TestTheReplayTellsTheNewMailboxAgain:
-    """`docs/backend/spec.md :: I869`: a restore takes back the notice an end queued, and the replay of its line queues it again."""
+    """`docs/backend/spec.md :: I870`: a restore takes back the notice an end queued, and the replay of its line queues it again."""
 
     @pytest.mark.parametrize(
         ("end", "expected"),

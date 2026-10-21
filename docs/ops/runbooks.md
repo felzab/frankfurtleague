@@ -1850,7 +1850,7 @@ person nor the journal's token, and a second run writes nothing. **An end that t
 queues its notice again**: a request's refusal or its end by an address change tells its requester,
 and the hourly pass's or an approval's discard of a confirmed change tells its new mailbox, so a
 notice the lost database had already mailed goes out a second time
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I869). **A record left for review is
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I870). **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
 going on to name it since its hash matches nothing the record holds. Four things a line restores in part or not at all:
 

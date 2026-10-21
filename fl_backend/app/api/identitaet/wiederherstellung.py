@@ -401,7 +401,7 @@ async def _plan_adresswechsel(
             stamp=log_stamp(now),
             session=session,
         )
-        # The notice the end queued went with the restore (`docs/backend/spec.md :: I869`).
+        # The notice the end queued went with the restore (`docs/backend/spec.md :: I870`).
         if line.art == "adresswechsel_verworfen_mitgeteilt":
             await queue_the_refusal_notice_in_session(
                 record, adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], now=now, session=session

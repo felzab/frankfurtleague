@@ -837,7 +837,7 @@ class TestTheRefusalIsJournalled:
 
 
 class TestTheReplayTellsTheRequesterAgain:
-    """`docs/backend/spec.md :: I869`: a restore takes back the requester's notice with the end, and the replay queues it again."""
+    """`docs/backend/spec.md :: I870`: a restore takes back the requester's notice with the end, and the replay queues it again."""
 
     @pytest.mark.parametrize(
         ("end", "expected"),

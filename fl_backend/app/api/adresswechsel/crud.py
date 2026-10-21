@@ -45,7 +45,7 @@ from app.api.aktionen.crud import (
 )
 from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.erasure import carry_authorship_in_session, stamp_the_successor_in_session
 from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht, lebendige_adresse
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
@@ -805,6 +805,11 @@ async def move_the_address_in_session(
         alt=alt,
         neue=neu,
         session=session,
+    )
+    # After the grant's move and the requests' ends queued theirs: a notice announcing the replaced address keeps it, and
+    # names the new one beside it for an erasure there (`docs/backend/spec.md :: I659`).
+    await stamp_the_successor_in_session(
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection, alt=alt, neue=neu, session=session
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
