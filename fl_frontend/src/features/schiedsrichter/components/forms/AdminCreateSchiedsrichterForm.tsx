@@ -36,14 +36,18 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
 export function AdminCreateSchiedsrichterForm({
   onClose,
   onCreated,
-  successMessage = "Schiedsrichter angelegt",
+  unbooked,
 }: {
   onClose: () => void;
   // The displayed shape rather than the stored one: a record created here carries a validated name,
   // which is what lets a picker that must render a name take it without a null case.
   onCreated?: (created: FLSchiedsrichterAngezeigt) => void;
-  /** A clean create's toast title, a literal at each call site for `EntityForm`'s `successMessage` reason. */
-  successMessage?: string;
+  /**
+   * Why a caller's picker stays empty under the toast: a clean create's title, and the sentence a warning adds after
+   * the link's, its own title graded for the link (`docs/frontend/spec.md :: I725`). Literals, for `EntityForm`'s
+   * `successMessage` reason.
+   */
+  unbooked?: { title: string; addendum: string };
 }) {
   return (
     <EntityForm<SchiedsrichterDraft, SchiedsrichterDraft, { versand: LinkVersand }>
@@ -79,9 +83,9 @@ export function AdminCreateSchiedsrichterForm({
       marksRequired
       // The create mails the new referee their confirmation link.
       stepUp
-      successMessage={successMessage}
+      successMessage={unbooked?.title ?? "Schiedsrichter angelegt"}
       // Saved whatever the link did: one that did not go out leaves the referee no way to confirm.
-      warning={{ title: "Mit Folgen angelegt", when: (saved) => versandWarnt(saved.versand) }}
+      warning={{ title: "Mit Folgen angelegt", when: (saved) => versandWarnt(saved.versand), addendum: unbooked?.addendum }}
       onClose={onClose}
     />
   );

@@ -19,7 +19,7 @@ import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 import type { FLSpielort } from "@/features/spielorte/schemas.ts";
 
 // One answer serves a venue create and a match save alike, so a save the dialog set off would be answered and seen.
-const { calls, answered } = doubleActions({
+const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spiele/actions.ts", "/src/features/spielorte/actions.ts", "/src/features/schiedsrichter/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", priorPaarungen: [], created_id: "6890a1b2c3d4e5f607800099" }),
 });
@@ -118,6 +118,21 @@ async function openVenueDialog(user: ReturnType<typeof userEvent.setup>, create:
   return screen.findByRole("dialog", { name: "Spielort anlegen" });
 }
 
+/** The referee dialog opened from the picker, filled in and saved, its create answered with how its link ended. */
+async function createReferee(user: ReturnType<typeof userEvent.setup>, versand: string, message: string): Promise<void> {
+  await user.click(pickerTrigger("Schiedsrichter"));
+  await user.click(await screen.findByRole("button", { name: /Neuen Schiedsrichter anlegen/ }));
+  const dialog = await screen.findByRole("dialog", { name: "Schiedsrichter anlegen" });
+  await user.type(within(dialog).getByRole("textbox", { name: "Name" }), CREATED_REFEREE);
+  await user.type(within(dialog).getByRole("textbox", { name: "E-Mail" }), "jonas.weber@example.org");
+  await user.type(within(dialog).getByRole("textbox", { name: "Standard-Honorar" }), "20");
+  answerWith(() => Promise.resolve({ success: true, message, created_id: "6890a1b2c3d4e5f607800099", versand }));
+  calls.length = 0;
+  toasts.length = 0;
+
+  await user.click(within(dialog).getByRole("button", { name: "Speichern" }));
+}
+
 async function fillVenue(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement): Promise<void> {
   const field = (name: string) => within(dialog).getByRole("textbox", { name });
   await user.type(field("Name"), CREATED_VENUE);
@@ -188,16 +203,7 @@ describe("a create dialog the match editor opens", () => {
   it("lists a referee it creates as not yet confirmed, and books none", async () => {
     const user = userEvent.setup();
     await renderEditor(user, { schiedsrichter: [REFEREE] });
-    await user.click(pickerTrigger("Schiedsrichter"));
-    await user.click(await screen.findByRole("button", { name: /Neuen Schiedsrichter anlegen/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Schiedsrichter anlegen" });
-    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), CREATED_REFEREE);
-    await user.type(within(dialog).getByRole("textbox", { name: "E-Mail" }), "jonas.weber@example.org");
-    await user.type(within(dialog).getByRole("textbox", { name: "Standard-Honorar" }), "20");
-    calls.length = 0;
-    toasts.length = 0;
-
-    await user.click(within(dialog).getByRole("button", { name: "Speichern" }));
+    await createReferee(user, "gesendet", "Der Bestätigungslink ging an jonas.weber@example.org.");
 
     assert.deepEqual(await sent(), ["postSchiedsrichterAction"], "the referee dialog's submit sent the match editor's save as well");
     assert.ok(!pickerTrigger("Schiedsrichter").textContent?.includes(CREATED_REFEREE), "the created referee is booked on the fixture");
@@ -209,6 +215,26 @@ describe("a create dialog the match editor opens", () => {
     assert.deepEqual(
       toasts.map(({ variant, title }) => [variant, title]),
       [["success", "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat."]],
+    );
+  });
+
+  /* A link that did not go out titles the toast for itself, and every stack that mails nothing withholds it: the
+     reason the picker stays empty is said after the link's sentence rather than dropped with the clean title. */
+  it("says why it booked none when the link did not go out", async () => {
+    const user = userEvent.setup();
+    await renderEditor(user, { schiedsrichter: [REFEREE] });
+    await createReferee(user, "zurueckgehalten", "Die Nachricht wurde nur abgelegt.");
+
+    assert.deepEqual(await sent(), ["postSchiedsrichterAction"], "the referee dialog's submit sent the match editor's save as well");
+    assert.deepEqual(
+      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      [
+        [
+          "warning",
+          "Mit Folgen angelegt",
+          "Die Nachricht wurde nur abgelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat.",
+        ],
+      ],
     );
   });
 
