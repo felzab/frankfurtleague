@@ -1788,8 +1788,8 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
 class TestAnErasedContactIsNotToldTheirFixtureMoved:
     """`docs/backend/spec.md :: I762`: a seat holding no link on the closed row is one the erasure's void writes nothing for."""
 
-    def test_the_close_runs_again_and_leaves_the_erased_trainer_out_of_the_notice(self, mongo_replica_set_url: str):
-        erased_address = address(ALPHA, "trainer")
+    def _told(self, url: str, interleaving: Callable[[Any, Callable[[], Awaitable[None]]], Any], serially: int) -> set[str]:
+        """The addresses the move's notice went to, the trainer erased at the pass's read `interleaving` names."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
@@ -1799,20 +1799,28 @@ class TestAnErasedContactIsNotToldTheirFixtureMoved:
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
 
             async def erase_the_trainer() -> None:
-                await erased(database, client, erased_address, germany_now=NOW)
+                await erased(database, client, address(ALPHA, "trainer"), germany_now=NOW)
 
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], erase_the_trainer)
+            interleaved = interleaving(database[Collection.SAISON_TEAMS], erase_the_trainer)
             answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer
 
-        interleaved, answer = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+        interleaved, answer = on_a_league(url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
-        interleaved.assert_landed_inside(serially=1)
-        # The premise: ALPHA's row was closed and its notice went to its other seats.
+        interleaved.assert_landed_inside(serially=serially)
         told = {empfaenger.address for notice in answer.neue_ansetzungen for empfaenger in notice.empfaenger}
+        # The premise: ALPHA's row was closed and its notice went to its other seats.
         assert address(ALPHA, "ansprechperson") in told
-        assert erased_address not in told
+        return told
+
+    def test_the_close_runs_again_and_leaves_the_erased_trainer_out_of_the_notice(self, mongo_replica_set_url: str):
+        assert address(ALPHA, "trainer") not in self._told(mongo_replica_set_url, ThenTheRivalAfterTheFirstSessionRead, serially=1)
+
+    def test_the_notice_step_runs_again_and_leaves_the_erased_trainer_out(self, mongo_replica_set_url: str):
+        """The erasure lands after the close committed, at the notice step's own read: only its anchor conflicts with it."""
+
+        assert address(ALPHA, "trainer") not in self._told(mongo_replica_set_url, ThenTheRivalAfterTheSecondSessionRead, serially=2)
 
 
 # Eight and ten days out: each row's deadline is one of today's reminder days.
