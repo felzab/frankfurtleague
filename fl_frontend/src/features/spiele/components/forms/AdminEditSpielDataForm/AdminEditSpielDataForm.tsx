@@ -69,6 +69,10 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
 
+const SPIELDATEN_AKTUALISIERT = "Die Spieldaten wurden aktualisiert.";
+const BERICHT_NICHT_UEBERNOMMEN =
+  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
+
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
  *
@@ -462,6 +466,10 @@ export function AdminEditSpielDataForm({
 
         // Built BEFORE leaving: these are this render's props and the toast outlives the page.
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
+        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same
+        // (`docs/backend/spec.md :: I811`): the result it saved is the older proposal.
+        const nichtUebernommen = uebernimmtBericht !== null && (res.priorBericht ?? null) === null;
+        const gespeichert = res.message ?? SPIELDATEN_AKTUALISIERT;
 
         offerUndo({
           // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
@@ -472,9 +480,9 @@ export function AdminEditSpielDataForm({
               bericht: res.priorBericht ?? null,
               saison_id: spielData.saison_id,
             }),
-          message: res.message,
-          fallback: "Die Spieldaten wurden aktualisiert.",
-          warn: affected.length > 0,
+          message: nichtUebernommen ? `${gespeichert} ${BERICHT_NICHT_UEBERNOMMEN}` : res.message,
+          fallback: SPIELDATEN_AKTUALISIERT,
+          warn: affected.length > 0 || nichtUebernommen,
           router,
         });
 
