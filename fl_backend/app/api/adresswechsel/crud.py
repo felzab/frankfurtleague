@@ -380,7 +380,7 @@ async def judge_the_effect_in_session(
         return Urteil(ursache=None, leer=False, wartet=True)
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing (`docs/backend/spec.md :: I836`).
+    # leaves no approval standing (`docs/backend/spec.md :: I837`).
     von = genehmigung.get("genehmigt_von")
     steht = genehmigung_steht(
         betroffen=alte,
@@ -646,7 +646,7 @@ async def move_the_address_in_session(
     )
 
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I837`).
+    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I838`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
     # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
     # decisions included: the starter of a change stays excluded from approving it.
@@ -686,7 +686,7 @@ async def move_the_address_in_session(
             update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I838`). Both
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I839`). Both
     # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,

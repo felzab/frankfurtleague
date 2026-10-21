@@ -853,7 +853,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I838`, `:: I480`); an
+  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I839`, `:: I480`); an
   erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an

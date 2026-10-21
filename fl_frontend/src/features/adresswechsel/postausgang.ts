@@ -17,7 +17,7 @@ let nochmal = false;
 
 /**
  * Delivers every notice an address change's end still owes, claimed from the outbox the end wrote
- * (`docs/backend/spec.md :: I838`). Settles rather than throws: a confirmation and an approval run it behind their
+ * (`docs/backend/spec.md :: I839`). Settles rather than throws: a confirmation and an approval run it behind their
  * response, the hourly pass after its calls.
  */
 export async function runAdresswechselPostausgang(): Promise<void> {
