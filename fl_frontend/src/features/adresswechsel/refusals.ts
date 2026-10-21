@@ -7,6 +7,7 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
+import type { FLGenehmigungVerwehrt } from "@/features/berechtigungen/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { AdresswechselLinkZustand } from "./link";
 
@@ -217,17 +218,34 @@ const ohneGenehmigung = (grund: string): string =>
     where: ADRESSWECHSEL_EINTRAG.label,
   });
 
-/** An approver whose access, or owner's tier, is younger than the request: the press and the row's reason say it alike. */
-export const GENEHMIGUNG_JUENGER = "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte.";
+/**
+ * Who approves an owner's change, closing every sentence that names who approves one: another administrator approves
+ * a change, another owner alone an owner's (`docs/backend/spec.md :: I817`).
+ */
+const INHABER_GENEHMIGT = "die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber";
+
+/**
+ * Why this administrator may not approve, one sentence per reason for the closed press on the grant's row and the
+ * refused one alike, as a request's are (`fl_frontend/src/features/berechtigungen/constants.ts ::
+ * ANTRAG_ENTSCHEIDEN_VERWEHRT`). Each covers both tiers: the backend's codes name none.
+ */
+export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLGenehmigungVerwehrt, string>> = {
+  eigene: `Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
+  gestartet: `Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
+  // An owner whose session predates their promotion holds no owner's power yet, and would read the bare rule as false.
+  inhaber: `Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
+  juenger:
+    "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur, wer schon vorher Inhaberin oder Inhaber war.",
+};
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
-  "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_JUENGER,
+  "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_VERWEHRT.juenger,
   "REQ-ADRESSWECHSEL-002": BEENDET,
   "REQ-ADRESSWECHSEL-012": buildRefusal({ reason: "Diese Änderung wartet auf keine Genehmigung mehr", repair: LADE_DIE_SEITE_NEU }),
-  "REQ-ADRESSWECHSEL-013": "Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt jemand anderes.",
-  "REQ-ADRESSWECHSEL-014":
-    "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
+  // One code for both of the press's own two reasons, so the one sentence naming both.
+  "REQ-ADRESSWECHSEL-013": `Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
+  "REQ-ADRESSWECHSEL-014": GENEHMIGUNG_VERWEHRT.inhaber,
   "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
   // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
   // stands unapproved until it is discarded or lapses.

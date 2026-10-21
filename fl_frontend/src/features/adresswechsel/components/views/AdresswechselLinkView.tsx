@@ -254,7 +254,7 @@ function stoppSatz(zustand: FLAdresswechselBisherigZustand, weg: FLAdresswechsel
     return "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen. Sie gilt nur, wenn Du sie in Deinem Konto freigibst: Melde Dich dazu mit dieser Adresse an. Gib sie nur frei, wenn Du das selbst angefragt hast, und stoppe die Änderung sonst hier.";
   }
   if (zustand === "genehmigung") {
-    return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn eine andere Person aus der Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
+    return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
   }
   if (zustand === "wartezeit" && wirksamAb !== null) {
     return (

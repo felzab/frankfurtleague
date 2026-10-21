@@ -4,6 +4,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import {
   ADRESSE_GESPERRT,
+  ANTRAG_EIGENE_ODER_GESTELLT,
   ANTRAG_ENTSCHEIDEN_VERWEHRT,
   ANTRAG_OFFEN,
   ANTRAG_VERFALLEN,
@@ -91,7 +92,7 @@ const ENTSCHEIDEN_WORTE: Readonly<Record<string, string>> = {
  */
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   ...ENTSCHEIDEN_WORTE,
-  "REQ-BERECHTIGUNG-009": "Einen Antrag, den Du gestellt hast oder der Dich betrifft, genehmigt eine andere Person aus der Verwaltung.",
+  "REQ-BERECHTIGUNG-009": ANTRAG_EIGENE_ODER_GESTELLT,
   "REQ-BERECHTIGUNG-012": ANTRAG_VERFALLEN,
   "REQ-BERECHTIGUNG-001": "Diese Adresse hat inzwischen Zugang zur Verwaltung, deshalb ist nichts genehmigt. Lehne den Antrag ab.",
   "REQ-BERECHTIGUNG-003":

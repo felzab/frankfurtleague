@@ -31,9 +31,11 @@ import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { pruefeInhaberAction } from "../../../actions";
+import { genehmigerText } from "../../../genehmiger";
 import { CodeConfirmation } from "../../ui/CodeConfirmation";
 
-import type { FLAdresswechselGenehmigungStand, FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
+import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
@@ -69,17 +71,11 @@ const wantsStepUp = (result: { success: boolean }): result is ActionFailure & { 
 /** What the panel asks a confirmation with, read on the server off the session the page was drawn for. */
 export type AdresswechselBestaetigung = ConfirmedUntil & {
   readonly hasPasskey: boolean;
-  /** An administrator's address, whose confirmation is a passkey's alone (`docs/frontend/spec.md :: I422`). */
-  readonly verwaltung: boolean;
+  /** The tier the address's grant holds, which names who must approve; a grant's confirmation is a passkey's alone. */
+  readonly verwaltung: FLVerwaltung | null;
   readonly inhaberId: string;
   readonly inhaberAdresse: string;
 };
-
-/** Who else must agree where the address holds a grant: an owner's change is another owner's to approve. */
-const genehmigerText = (genehmigung: FLAdresswechselGenehmigungStand): string =>
-  genehmigung.verwaltung === "owner"
-    ? "eine andere Inhaberin oder ein anderer Inhaber der Verwaltung"
-    : "eine andere Person aus der Verwaltung";
 
 /**
  * The pending change's sentence, by the step it waits on. The address is the backend's string, whole where this
@@ -92,7 +88,7 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   const zugang =
     genehmigung === null || genehmigung.genehmigt
       ? ""
-      : ` Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang.`;
+      : ` Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang.`;
 
   if (offen.wartet_auf === "freigabe") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
@@ -233,10 +229,10 @@ export function AdresswechselPanel({
             bestätigst, den wir an sie schicken. Bis dahin bleibt diese in Kraft.
           </p>
           {/* Said before the start: the grant moves with the address only once another administrator agrees. */}
-          {bestaetigung.verwaltung && (
+          {bestaetigung.verwaltung !== null && (
             <p className="muted-hint text-pretty">
-              Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen. Bis dahin meldest Du
-              Dich weiter mit dieser Adresse an.
+              Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem {genehmigerText(bestaetigung.verwaltung)} zustimmen. Bis dahin meldest
+              Du Dich weiter mit dieser Adresse an.
             </p>
           )}
 
@@ -347,7 +343,7 @@ export function AdresswechselPanel({
           hasPasskey={bestaetigung.hasPasskey}
           codeHalf={
             // A code goes to the address on file, which is the holder the change asks (`docs/frontend/spec.md :: I422`).
-            bestaetigung.verwaltung ? null : (
+            bestaetigung.verwaltung !== null ? null : (
               <CodeConfirmation
                 address={bestaetigung.inhaberAdresse}
                 istInhaber={istInhaber}

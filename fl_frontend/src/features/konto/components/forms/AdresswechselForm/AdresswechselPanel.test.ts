@@ -52,7 +52,7 @@ const offen = (teil: Partial<NonNullable<FLKontoAdresswechselResponse["offen"]>>
 });
 
 /** The page's figures as the server read them: confirmed `vor` minutes ago, so inside the enrolment window or past it. */
-const bestaetigung = (vor: number | null, verwaltung = false) => {
+const bestaetigung = (vor: number | null, verwaltung: "owner" | "administration" | null = null) => {
   const jetzt = Date.now();
   return {
     freshUntil: vor === null ? null : jetzt - vor * MINUTE_MS + 2 * 60 * MINUTE_MS,
@@ -65,7 +65,7 @@ const bestaetigung = (vor: number | null, verwaltung = false) => {
   };
 };
 
-const panel = (adresswechsel: FLKontoAdresswechselResponse, vor: number | null, verwaltung = false) =>
+const panel = (adresswechsel: FLKontoAdresswechselResponse, vor: number | null, verwaltung: "owner" | "administration" | null = null) =>
   underNext(h(AdresswechselPanel, { adresswechsel: adresswechsel, bestaetigung: bestaetigung(vor, verwaltung) }));
 
 beforeEach(() => {
@@ -173,15 +173,20 @@ describe("the account page's address control", () => {
     assert.doesNotMatch(document.body.textContent, /zustimmen/);
   });
 
-  it("tells a grant holder before the start that another administrator must agree", () => {
-    const { unmount } = render(panel(OHNE, null, true));
+  /* An owner told that any administrator may approve asks one, whose press is closed: the tier names the approver. */
+  it("tells a grant holder before the start who must agree, by the tier the grant holds", () => {
+    const { unmount } = render(panel(OHNE, null, "administration"));
     assert.match(
       document.body.textContent,
       /Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen/,
     );
     unmount();
 
-    render(panel(OHNE, null, false));
+    const owner = render(panel(OHNE, null, "owner"));
+    assert.match(document.body.textContent, /muss außerdem eine andere Inhaberin oder ein anderer Inhaber der Verwaltung zustimmen/);
+    owner.unmount();
+
+    render(panel(OHNE, null, null));
     assert.doesNotMatch(document.body.textContent, /Zugang zur Verwaltung/);
   });
 

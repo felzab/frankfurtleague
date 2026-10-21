@@ -286,7 +286,7 @@ describe("who is offered the tier change", () => {
 });
 
 describe("who is offered an address change's approval", () => {
-  const wartend = (verwehrt: "eigene" | "gestartet" | "inhaber" | null) => ({
+  const wartend = (verwehrt: "eigene" | "gestartet" | "inhaber" | "juenger" | null) => ({
     ...VORSTAND,
     adresswechsel: {
       id: "68c1f0a2b3c4d5e6f7a8b9e0",
@@ -320,9 +320,23 @@ describe("who is offered an address change's approval", () => {
 
   /* The backend refuses each of these: the press stands closed, saying why in its refusal's words. */
   for (const [verwehrt, satz] of [
-    ["eigene", "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung."],
-    ["gestartet", "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung."],
-    ["inhaber", "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber."],
+    [
+      "eigene",
+      "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
+    [
+      "gestartet",
+      "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
+    // An owner signed in before their promotion is refused too, and is told the repair.
+    [
+      "inhaber",
+      "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
+    ],
+    [
+      "juenger",
+      "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur, wer schon vorher Inhaberin oder Inhaber war.",
+    ],
   ] as const) {
     it(`closes the press where the read says ${verwehrt}, saying why`, async () => {
       zeilen = [INHABER, wartend(verwehrt)];
@@ -400,7 +414,10 @@ describe("the grants and promotions waiting on a second administrator", () => {
 
   /* The backend refuses both presses to each of these readers: each stands closed, saying why in its refusal's words. */
   for (const [verwehrt, satz] of [
-    ["eigene", "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung."],
+    [
+      "eigene",
+      "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
     ["inhaber", "Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber."],
     ["juenger", "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte"],
   ] as const) {
@@ -422,7 +439,11 @@ describe("the grants and promotions waiting on a second administrator", () => {
 
     assert.deepEqual(antragNamen(markup), ["Antrag genehmigen: neu@schule.de", "Antrag zurückziehen: neu@schule.de"]);
     assert.deepEqual(geschlossen(markup), ["Antrag genehmigen: neu@schule.de"]);
-    assert.ok(textOf(markup, " ").includes("Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung."));
+    assert.ok(
+      textOf(markup, " ").includes(
+        "Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung, eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+      ),
+    );
   });
 
   /* A request outlives no revoke, demotion or ban of who made it: nobody approves it, and its refusal clears the address. */

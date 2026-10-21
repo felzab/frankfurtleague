@@ -742,7 +742,7 @@ const kontoAnmeldung = (offen: Parameters<typeof AdresswechselPanel>[0]["adressw
               enrolmentUntil: jetzt + 4 * 60 * 1000,
               servedAt: jetzt,
               hasPasskey: true,
-              verwaltung: false,
+              verwaltung: null,
               inhaberId: "inhaber",
               inhaberAdresse: "lena@schule.example",
             },

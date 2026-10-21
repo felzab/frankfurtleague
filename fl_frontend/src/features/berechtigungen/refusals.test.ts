@@ -107,11 +107,11 @@ describe("a request's decision refused", () => {
   it("tells the approval's own reader apart from the refusal's", () => {
     assert.equal(
       mapAntragGenehmigungRefusal(refusedOn(APPROVE, "REQ-BERECHTIGUNG-009")),
-      "Einen Antrag, den Du gestellt hast oder der Dich betrifft, genehmigt eine andere Person aus der Verwaltung.",
+      "Einen Antrag, den Du gestellt hast oder der Dich betrifft, genehmigt eine andere Person aus der Verwaltung, eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
     );
     assert.equal(
       mapAntragAblehnungRefusal(refusedOn(REFUSE, "REQ-BERECHTIGUNG-009")),
-      "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung.",
+      "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
     );
   });
 

@@ -336,7 +336,7 @@ describe("the stop side of the address page", () => {
   it("says a change waiting on an administrator's approval still signs in with this address", () => {
     assert.match(
       words({ zustand: "genehmigung", gueltigBis: null, wirksamAb: null, weg: "konto", token: "stopp-1" }),
-      /andere Person aus der Verwaltung die Änderung genehmigt hat\. Bis dahin meldest Du Dich weiter mit dieser Adresse an/,
+      /Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat\. Bis dahin meldest Du Dich weiter mit dieser Adresse an/,
     );
   });
 
