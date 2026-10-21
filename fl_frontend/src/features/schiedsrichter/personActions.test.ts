@@ -32,7 +32,7 @@ const LANDED = {
     umfang: "kader_oeffentlich",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
-    text_version: "2026-09-schiedsrichterseite-3",
+    text_version: "2026-10-schiedsrichterseite-4",
     medien: true,
     nachweis: { umfang: null, medien: null },
   },

@@ -93,7 +93,7 @@ BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607850019")
 ELSEWHERE = IDENTIFIER.replace("@schule.de", "@anderswo.de")
 ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f60785001a")
 
-CONFIRMATION_LABEL = "2026-09-schiedsrichterseite-3"
+CONFIRMATION_LABEL = "2026-10-schiedsrichterseite-4"
 
 # A fixture the referee leads, embedding their name: the copy a withdrawal would be fanned out onto.
 SPIEL = spiel_document(

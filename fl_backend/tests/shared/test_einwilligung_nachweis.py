@@ -20,7 +20,7 @@ WITHDRAWN_AT: Final = "2026-05-02T07:00:00+00:00"
 LATER: Final = "2026-07-04T12:00:00+00:00"
 
 # The label a person confirmed under, and the label of an account control a later press is given under.
-CONFIRMED_LABEL: Final = "2026-09-schiedsrichterseite-3"
+CONFIRMED_LABEL: Final = "2026-10-schiedsrichterseite-4"
 ACCOUNT_LABEL: Final = "2026-10-schiedsrichterkonto"
 
 # A referee's record as their confirmation left it: both choices granted, each with its evidence.
@@ -152,11 +152,11 @@ REGISTERED: Final[Mapping[str, Any]] = {
     "umfang": "intern",
     "datum": "2026-04-15",
     "bestaetigt_am": "2026-04-15",
-    "text_version": "2026-09-spielerseite-3",
+    "text_version": "2026-10-spielerseite-5",
     "medien": True,
     "nachweis": {
-        "umfang": {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"},
-        "medien": {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3"},
+        "umfang": {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
+        "medien": {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5"},
     },
 }
 
@@ -176,7 +176,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert "einwilligung.medien" not in update and "einwilligung.nachweis.medien" not in update
         assert (update["einwilligung.umfang"], update["einwilligung.nachweis.umfang"]) == (
             "intern",
-            {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3", "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
+            {"am": REGISTERED_AT, "text_version": "2026-10-spielerseite-5", "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
         )
 
     def test_every_field_but_the_choices_is_renewed(self):
@@ -187,7 +187,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert {key: update[f"einwilligung.{key}"] for key in ("datum", "bestaetigt_am", "text_version")} == {
             "datum": "2026-04-15",
             "bestaetigt_am": "2026-04-15",
-            "text_version": "2026-09-spielerseite-3",
+            "text_version": "2026-10-spielerseite-5",
         }
 
     def test_a_tie_keeps_what_is_stored(self):
@@ -241,7 +241,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
                     "umfang": "intern",
                     "datum": "2026-10-01",
                     "bestaetigt_am": "2026-10-01",
-                    "text_version": "2026-09-spielerseite-3",
+                    "text_version": "2026-10-spielerseite-5",
                     "medien": False,
                 },
                 am="2026-10-01T08:00:00+00:00",
@@ -255,7 +255,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 
         stamp = {
             "am": "2026-10-01T08:00:00+00:00",
-            "text_version": "2026-09-spielerseite-3",
+            "text_version": "2026-10-spielerseite-5",
             "erteilt_zuvor": {"am": "2025-09-01T08:00:00+00:00", "text_version": "2025-09"},
         }
         assert {key: value for key, value in gesetzt.items() if key.startswith("einwilligung.")} == {
@@ -263,7 +263,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             "einwilligung.medien": False,
             "einwilligung.datum": "2026-10-01",
             "einwilligung.bestaetigt_am": "2026-10-01",
-            "einwilligung.text_version": "2026-09-spielerseite-3",
+            "einwilligung.text_version": "2026-10-spielerseite-5",
             "einwilligung.nachweis.umfang": stamp,
             "einwilligung.nachweis.medien": stamp,
         }

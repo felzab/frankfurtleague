@@ -105,7 +105,7 @@ MOVING_PUPIL = "lenore@schule.de"
 MOVING_REFEREE = "baldur@schule.de"
 ADMIN = "verwaltung@frankfurtleague.de"
 
-CONFIRMED_LABEL = "2026-09-schiedsrichterseite-3"
+CONFIRMED_LABEL = "2026-10-schiedsrichterseite-4"
 SEAT_LABEL = "2026-09-bestaetigungsseite-6"
 
 ROW_LINK = "the-season-rows-link"

@@ -62,7 +62,7 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, bestaetigt_am: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    stored = eigene_einwilligung_document(text_version="2026-09-spielerseite", bestaetigt_am=MAILED_ON_THE_MARK)
+    stored = eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=MAILED_ON_THE_MARK)
 
     return {**stored, "bestaetigt_am": bestaetigt_am}
 

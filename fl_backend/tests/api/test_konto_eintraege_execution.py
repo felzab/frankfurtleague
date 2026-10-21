@@ -121,7 +121,7 @@ def _person(email: str) -> SignedActor:
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite-3", bestaetigt_am="2026-09-02", **fields)
+    return eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", bestaetigt_am="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:

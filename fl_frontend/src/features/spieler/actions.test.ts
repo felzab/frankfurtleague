@@ -85,7 +85,7 @@ const PAGE_DOUBLES = {
     istFassungBekannt: async () => {
       if (pageAnswers.registerFehlt === true) throw new Error("backend unreachable");
       if (pageAnswers.registerFehlt === "vertragsbruch") {
-        throw new ContractBreakError("the backend's words for 2026-09-spielerseite break their schema (trace 0)");
+        throw new ContractBreakError("the backend's words for 2026-10-spielerseite-5 break their schema (trace 0)");
       }
       return true;
     },

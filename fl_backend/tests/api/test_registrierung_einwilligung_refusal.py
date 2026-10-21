@@ -63,7 +63,7 @@ TOMORROW = "2026-04-02"
 RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 
-A_LABEL = "2026-09-spielerseite"
+A_LABEL = "2026-10-spielerseite-5"
 AM = "2026-04-01T08:00:00+00:00"
 
 

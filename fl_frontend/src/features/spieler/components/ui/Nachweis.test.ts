@@ -13,7 +13,7 @@ const fassung = (textVersion: string, istBekannt: boolean | null): string => tex
 /* One component for the pupil's, the referee's and a contact seat's readout: a drift here moves all three. */
 describe("the stored label a consent readout shows", () => {
   it("shows a known label as its key alone", () => {
-    assert.equal(fassung("2026-09-spielerseite", true).trim(), "2026-09-spielerseite");
+    assert.equal(fassung("2026-10-spielerseite-5", true).trim(), "2026-10-spielerseite-5");
   });
 
   /* The key stays beside the mark: whoever repairs the mismatch needs the key that resolved to nothing. */
@@ -22,7 +22,7 @@ describe("the stored label a consent readout shows", () => {
   });
 
   it("marks a label the registry could not be asked about as unchecked, never as unknown", () => {
-    assert.equal(fassung("2026-09-spielerseite", null).replace(/\s+/g, " ").trim(), "2026-09-spielerseite Nicht geprüft");
+    assert.equal(fassung("2026-10-spielerseite-5", null).replace(/\s+/g, " ").trim(), "2026-10-spielerseite-5 Nicht geprüft");
   });
 });
 

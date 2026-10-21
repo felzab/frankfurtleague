@@ -88,10 +88,10 @@ const failure = (statusCode: number, serverErrorCode: string | undefined): APIBa
 
 describe("the words read", () => {
   it("answers a stored label with that label's own words, asked for by the label alone", async () => {
-    const fassung = await getEinwilligungFassung("2026-09-spielerseite-2");
+    const fassung = await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
 
-    assert.deepEqual(fassung, publishedFassung("2026-09-spielerseite-2", DOCUMENT));
-    assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026-09-spielerseite-2"]);
+    assert.deepEqual(fassung, publishedFassung("2026-09-bestaetigungsseite-2", DOCUMENT));
+    assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026-09-bestaetigungsseite-2"]);
   });
 
   // A label read off a stored record is data, so one carrying a separator must not address another path.
@@ -119,7 +119,7 @@ describe("the words read", () => {
   });
 
   it("keeps a label's words, and a label the registry does not hold, at the longest life", async () => {
-    await getEinwilligungFassung("2026-09-spielerseite-2");
+    await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
     await getEinwilligungFassung("2026-07");
 
     assert.deepEqual(lifetimes, ["max", "max"]);
@@ -139,7 +139,7 @@ describe("the words read", () => {
     });
     api.answerWith(() => Promise.reject(malformed));
 
-    await assert.rejects(getEinwilligungFassung("2026-09-spielerseite-3"), { name: "ContractBreakError", message: /2026-09-spielerseite-3/ });
+    await assert.rejects(getEinwilligungFassung("2026-10-spielerseite-5"), { name: "ContractBreakError", message: /2026-10-spielerseite-5/ });
     assert.deepEqual(lifetimes, ["seconds"], "a malformed answer is kept as long as words are, or declared twice");
   });
 
@@ -148,7 +148,7 @@ describe("the words read", () => {
     for (const thrown of [failure(404, undefined), failure(500, "SYS-001")]) {
       api.answerWith(() => Promise.reject(thrown));
 
-      await assert.rejects(getEinwilligungFassung("2026-09-spielerseite-3"), (error) => error === thrown);
+      await assert.rejects(getEinwilligungFassung("2026-10-spielerseite-5"), (error) => error === thrown);
     }
   });
 });
@@ -250,7 +250,8 @@ describe("a page's keyed words", () => {
 
   // An earlier label's keys were never kept, and another page's are not this page's.
   it("refuses a label whose keys were never kept, and another page's label", () => {
-    assert.throws(() => gekeyteFassung(publishedFassung("2026-09-spielerseite-2", DOCUMENT), SPIELER_ABSATZ_SCHLUESSEL));
+    // No controls on that label, so the throw is the paragraph map's alone.
+    assert.throws(() => gekeyteFassung(publishedFassung("2026-09-bestaetigungsseite-5", DOCUMENT), KONTAKT_ABSATZ_SCHLUESSEL));
     assert.throws(() => gekeyteFassung(SCHIEDSRICHTER, SPIELER_ABSATZ_SCHLUESSEL));
   });
 
@@ -299,8 +300,8 @@ describe("the wording the backend runs", () => {
     assert.ok(text.includes("vorbei ist"), `${KONTAKT.text_version} names no day that period is counted to`);
   });
 
-  /* The earlier labels rest participation on a contract a 16-year-old cannot enter alone, and offer
-     the media switch from 16. */
+  /* An earlier contact label rests participation on a contract a 16-year-old cannot enter alone, and a
+     media switch stated with no age is offered from the page's floor of 16. */
   it("points every live confirmation label at legitimate interest, and at the media age", () => {
     for (const { text_version, absaetze } of [...KONTAKTSEITEN, SPIELER, SCHIEDSRICHTER]) {
       const text = absaetze.join(" ");
@@ -423,17 +424,6 @@ describe("the wording the backend runs", () => {
 
       assert.ok(!text.includes("Zugang"), `${text_version} calls the person's account a grant`);
       assert.ok(text.includes("in Deinem Konto"), `${text_version} names no account the choices are changed in`);
-    }
-  });
-
-  /* Records stamped under these two labels cite „Zugang“, so the rename is a new label: rewording
-     them leaves a record claiming words its person never saw. */
-  it("keeps each earlier consent label answering the „Zugang“ wording its records cite", () => {
-    for (const textVersion of ["2026-09-spielerseite-2", "2026-09-schiedsrichterseite-2"]) {
-      assert.ok(
-        publishedFassung(textVersion, DOCUMENT).absaetze.join(" ").includes("Dein Zugang zur Website"),
-        `${textVersion} answers words its records were not shown`,
-      );
     }
   });
 

@@ -35,7 +35,7 @@ export const spielerSelbst = () => ({
 /** The same pupil on the account page, the registration's team, school and season served. */
 export const spielerKonto = () => ({
   ...spielerSelbst(),
-  ...einwilligungsTeil("kader_oeffentlich", "2026-09-spielerseite-3"),
+  ...einwilligungsTeil("kader_oeffentlich", "2026-10-spielerseite-5"),
   kontext: { vorname: "Alina", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
 });
 
@@ -52,6 +52,6 @@ export const schiedsrichterSelbst = () => ({
 /** The same referee on the account page. */
 export const schiedsrichterKonto = () => ({
   ...schiedsrichterSelbst(),
-  ...einwilligungsTeil("intern", "2026-09-schiedsrichterseite-3"),
+  ...einwilligungsTeil("intern", "2026-10-schiedsrichterseite-4"),
   kontext: { vorname: "Mara" },
 });
