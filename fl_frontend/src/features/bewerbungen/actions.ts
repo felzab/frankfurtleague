@@ -12,8 +12,9 @@ import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
+import { logActionFailure } from "@/shared/utils/actionFailure";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { explainsItself, logCodedFailure } from "@/shared/utils/degradedRead";
+import { explainsItself } from "@/shared/utils/degradedRead";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -123,8 +124,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
-    if (!explainsItself(failed))
-      logCodedFailure("An application's collision read failed and its refusal takes the shared words", failed, "FE-ACT-001");
+    if (!explainsItself(failed)) logActionFailure("An application's collision read failed and its refusal takes the shared words", failed);
     return null;
   });
 

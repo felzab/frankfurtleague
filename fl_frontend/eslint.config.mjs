@@ -1068,7 +1068,8 @@ const LOGGED_ERROR = {
   exempt: [
     // Next's hook for a crash no code caught, whose stack is the only account of it.
     "src/core/instrumentation.ts",
-    // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form.
+    // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form: its
+    // logging helper is private, and an action's or a route's failure logs through `actionFailure.ts`, under this ban.
     "src/shared/utils/degradedRead.ts",
   ],
 };
