@@ -198,25 +198,50 @@ describe("the new mailbox's side of the address page", () => {
     });
   }
 
-  /* The link died between the open and the press: its panel replaces the answers, never a toast, and the decline stays on offer. */
-  it("turns a link that lapsed under the press into the lapsed panel, keeping the token for the decline", async () => {
-    const { sent } = answerEveryFetch({ success: false, zustand: "abgelaufen" });
+  /* The link closed between the open and the press: its panel replaces the answers, never a toast, and the decline stays on
+     offer with the token, or the route refuses it as a link opened without one (`docs/frontend/spec.md :: I630`). */
+  for (const [zustand, panel] of [
+    ["abgelaufen", /Dieser Link ist abgelaufen/],
+    ["nicht_bestaetigbar", /kann nicht mehr bestätigt werden/],
+  ] as const) {
+    it(`turns a link ${zustand} under the press into that panel, keeping the token for the decline`, async () => {
+      const { sent } = answerEveryFetch({ success: false, zustand });
+
+      render(h(AdresswechselLinkView, { start: OFFEN }));
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+      await act(fetchMock.answered);
+      await waitFor(() => assert.match(document.body.textContent, panel));
+      assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
+      assert.deepEqual(toasts, []);
+
+      await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
+      await act(fetchMock.answered);
+
+      assert.deepEqual(sent, [
+        { token: "abc123", antwort: "bestaetigt" },
+        { token: "abc123", antwort: "abgelehnt" },
+      ]);
+    });
+  }
+
+  /* The decline unmounts from under its press as the first answer's did, so its result takes the focus as well. */
+  it("hands the focus to the result of a second answer, as to the first", async () => {
+    const antworten = [{ success: false, zustand: "abgelaufen" }, gedrueckt("abgelehnt")];
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antworten.shift()), { status: 200 })));
 
     render(h(AdresswechselLinkView, { start: OFFEN }));
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
     await act(fetchMock.answered);
     await waitFor(() => assert.match(document.body.textContent, /Dieser Link ist abgelaufen/));
-    assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
-    assert.deepEqual(toasts, []);
 
     await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
     await act(fetchMock.answered);
 
-    assert.deepEqual(sent, [
-      { token: "abc123", antwort: "bestaetigt" },
-      { token: "abc123", antwort: "abgelehnt" },
-    ]);
+    await waitFor(() => assert.match(document.body.textContent, /Diese Adresse ist aus der Änderung entfernt/));
+    const ergebnis = screen.getByRole("status");
+    assert.ok(document.activeElement === ergebnis, `the focus is on <${document.activeElement?.tagName.toLowerCase() ?? "none"}>`);
   });
 
   /* A refusal the handler words is the toast's sentence: the generic one would hide what the page can tell its holder. */
