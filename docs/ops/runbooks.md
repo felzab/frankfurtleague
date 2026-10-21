@@ -1832,9 +1832,9 @@ going on to name it since its hash matches nothing the record holds. Four things
   from its line, moving every record again; **one started inside the window** reads `left for
 review`, the restored database holding no change to move: ask the person to start it again on their
   account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **The
-  sign-in store is not restored**, so the account and its passkeys stay at the new address while the
-  records stand at the replaced one: the person signs in at the replaced address by code to start
-  again, and once the new mailbox confirms, the new address signs in to the account it kept. A
+  sign-in store comes back with the cluster** (the last bullet below), so the account and its
+  passkeys stand at the replaced address again beside the records: the person signs in there to
+  start again, and the new change's effect moves the account with the records, as a replayed one does. A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
   (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
