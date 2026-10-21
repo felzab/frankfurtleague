@@ -29,6 +29,7 @@ from app.api.spiele.schemas import (
     FLSpielCommon,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
+    FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
     FLSpielOrtField,
     FLSpielOrtFieldPayload,
@@ -1192,6 +1193,11 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None,
     )
 
 
+# A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it
+# (`docs/backend/spec.md :: READ-REFEREE-006`).
+type BookedFixture = FLSpiel | FLSpielJoinedAdmin
+
+
 @dataclass(frozen=True)
 class BookedReferences:
     """A fixture's venue and referee, each `None` where the question this answers leaves that reference out."""
@@ -1200,7 +1206,7 @@ class BookedReferences:
     schiedsrichter_id: CustomObjectId | None
 
 
-def _chosen_references(spiel: FLSpielCommon | FLPatchSpielDataPayload | FLSpielSlotHolder) -> BookedReferences:
+def _chosen_references(spiel: BookedFixture | FLPatchSpielDataPayload | FLSpielSlotHolder) -> BookedReferences:
     return BookedReferences(
         spielort_id=spiel.ort.spielort_id if spiel.ort is not None else None,
         schiedsrichter_id=spiel.schiedsrichter.schiedsrichter_id if spiel.schiedsrichter is not None else None,
@@ -1323,7 +1329,7 @@ class SlotClaim:
     uhrzeit: str
 
 
-def find_slot_claims(spiel: FLSpielCommon | FLPatchSpielDataPayload) -> list[SlotClaim]:
+def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[SlotClaim]:
     """Every venue and referee `REQ-CLASH-001` judges on this fixture, asked of a payload and of the fixture it replaces alike."""
 
     # The same partition the read of the other fixtures filters on: an event that frees the slot cannot
@@ -1347,7 +1353,7 @@ def find_slot_claims(spiel: FLSpielCommon | FLPatchSpielDataPayload) -> list[Slo
     return claims
 
 
-def find_claims_made(stored: FLSpielCommon, payload: FLPatchSpielDataPayload) -> list[SlotClaim]:
+def find_claims_made(stored: BookedFixture, payload: FLPatchSpielDataPayload) -> list[SlotClaim]:
     """Every claim this payload makes that the stored fixture did not already make.
 
     The one set `REQ-CLASH-001` judges and the save anchors, so neither covers a claim the other misses.
@@ -1541,7 +1547,7 @@ def find_double_entries(spiele: Sequence[FLSpielCommon]) -> list[FLBracketFaultS
 
 
 def find_retired_bookings(
-    spiele: Sequence[FLSpielCommon],
+    spiele: Sequence[BookedFixture],
     *,
     retired_venues: Mapping[CustomObjectId, str],
     retired_referees: Mapping[CustomObjectId, str],
@@ -1584,7 +1590,7 @@ def find_retired_bookings(
     return faults
 
 
-def find_double_bookings(spiele: Sequence[FLSpielCommon], holders: Sequence[FLSpielSlotHolder]) -> list[FLBracketFaultClash]:
+def find_double_bookings(spiele: Sequence[BookedFixture], holders: Sequence[FLSpielSlotHolder]) -> list[FLBracketFaultClash]:
     """`REQ-CLASH-001`'s state wherever stored; `holders` is every fixture of any season claiming one of these rows.
 
     Each fixture is judged as a save of it would be, so the report names the match that 409 names.

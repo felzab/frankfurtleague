@@ -37,8 +37,9 @@ FLSpielbestaetigungGrund = Literal[
 ]
 
 # What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag` is a
-# link still answerable while the other club's decline proposes another date for the same Ansetzung.
-FLSpielbestaetigungZustand = Literal["gueltig", "vorschlag", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "gesperrt"]
+# link still answerable while the other club's decline proposes another date, and `abgesagt` one whose fixture
+# was called off, whatever its party answered.
+FLSpielbestaetigungZustand = Literal["gueltig", "vorschlag", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "abgesagt", "gesperrt"]
 
 FLSpielbestaetigungSeite = Literal["team1", "team2"]
 
@@ -294,7 +295,7 @@ class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
 # referee answers until the fixture's day, which the Einteilung states.
 
 # Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
-FLSpielbestaetigungSchiedsrichterZustand = Literal["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]
+FLSpielbestaetigungSchiedsrichterZustand = Literal["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "abgesagt"]
 
 
 class FLSpielbestaetigungSelbst(BaseModel):
@@ -310,6 +311,9 @@ class FLSpielbestaetigungSelbst(BaseModel):
     begruendung: CustomNonEmptyString | None
     # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.
     eingetragen: bool
+    # Whether the Ansetzung's day lies before today in Europe/Berlin, which the panel lists apart: judged here, so a
+    # page rendered around midnight agrees with the order the read answered.
+    vergangen: bool
 
 
 class FLSpielbestaetigungenSelbstResponse(BaseAPIResponse):
@@ -428,8 +432,30 @@ class FLSpielbestaetigungSweepSchiedsrichterGewechselt(BaseModel):
     address: str
 
 
+class FLSpielbestaetigungSweepSpielAbgesagt(BaseModel):
+    """A team row closed because its fixture was called off after its request went out: the slot it was asked about."""
+
+    spielbestaetigung_id: CustomObjectId
+    spiel_id: CustomObjectId
+    team1_name: str
+    team2_name: str
+    alt: FLSpielbestaetigungTermin
+    empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
+
+
+class FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt(BaseModel):
+    """The same for a referee row whose Einteilung went out: one address, no seat."""
+
+    spielbestaetigung_id: CustomObjectId
+    spiel_id: CustomObjectId
+    team1_name: str
+    team2_name: str
+    alt: FLSpielbestaetigungTermin
+    address: str
+
+
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
-    """One season's pass: the requests still to stamp, the reminders already stamped, and the void notices."""
+    """One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp."""
 
     saison_id: str
     # Unstamped until `/angefragt` names them, so a send that failed leaves a row visibly never asked.
@@ -440,9 +466,17 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     neue_ansetzungen: list[FLSpielbestaetigungSweepNeueAnsetzung]
     schiedsrichter_neue_ansetzungen: list[FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung]
     schiedsrichter_gewechselt: list[FLSpielbestaetigungSweepSchiedsrichterGewechselt]
+    spiel_abgesagt: list[FLSpielbestaetigungSweepSpielAbgesagt]
+    schiedsrichter_spiel_abgesagt: list[FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt]
     geschlossen: int
     fehlgeschlagen: int
+    # Notices this pass stopped owing unsent: handed out as often as the cap allows, or about a day gone by.
+    mitteilungen_aufgegeben: int
 
+
+# The notices one pass answers. Answered from rows holding them, so a share past it waits for the next pass rather than
+# for a stamp list it would outrun.
+MITTEILUNGEN_PER_PASS: Final = 25
 
 # Three commands a row beside the call's other 3
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
@@ -462,3 +496,17 @@ class FLSpielbestaetigungSweepAngefragtResponse(BaseAPIResponse):
     saison_id: str
     angefragt: int
     fehlgeschlagen: int
+
+
+class FLSpielbestaetigungSweepMitgeteiltPayload(BaseModel):
+    """Which rows' notices went: each stops being owed, so no later pass answers it again."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spielbestaetigung_ids: list[CustomObjectId] = Field(max_length=MITTEILUNGEN_PER_PASS)
+
+
+class FLSpielbestaetigungSweepMitgeteiltResponse(BaseAPIResponse):
+    saison_id: str
+    # The named rows still owing their notice, now owing none; a row stamped already, or of another season, is not counted.
+    mitgeteilt: int
