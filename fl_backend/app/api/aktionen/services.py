@@ -111,7 +111,7 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
 def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple[ImageAddress, ...]:
     """What an effect writes over the replaced address in these images: who acted carries to the new address.
 
-    A record's own subject's address goes, as the erasure takes it (`docs/backend/spec.md :: I841`).
+    A record's own subject's address goes, as the erasure takes it (`docs/backend/spec.md :: I842`).
     """
 
     return tuple(

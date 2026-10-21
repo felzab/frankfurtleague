@@ -2,7 +2,7 @@
 API · the grants' requests: a grant or a promotion to owner waiting on a second administrator's approval
 
 Every read filters on `bis`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
-removed or a restore has put back (`docs/backend/spec.md :: I847`).
+removed or a restore has put back (`docs/backend/spec.md :: I848`).
 """
 
 from collections.abc import Mapping, Sequence, Set
@@ -52,7 +52,7 @@ def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId |
 
 
 def build_offen_filter(now: datetime) -> dict[str, Any]:
-    """The requests not yet lapsed, the term every read carries: a row's presence says nothing (`docs/backend/spec.md :: I847`)."""
+    """The requests not yet lapsed, the term every read carries: a row's presence says nothing (`docs/backend/spec.md :: I848`)."""
 
     return {"genehmigung.bis": {"$gt": now.astimezone(UTC)}}
 
@@ -66,7 +66,7 @@ def antrag_steht(
 ) -> bool:
     """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
 
-    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too (`docs/backend/spec.md :: I846`).
+    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too (`docs/backend/spec.md :: I847`).
     """
 
     genehmigung = antrag["genehmigung"]
@@ -134,7 +134,7 @@ async def remove_the_antrag_in_session(
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
     # Its queued notice goes too, imageless as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`), and by the id
-    # alone, as an erasure's filter is: only that notice holds the request's id. One a pass holds asks nobody (`:: I852`).
+    # alone, as an erasure's filter is: only that notice holds the request's id. One a pass holds asks nobody (`:: I853`).
     await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 

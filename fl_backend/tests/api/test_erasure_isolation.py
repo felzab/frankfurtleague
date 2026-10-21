@@ -195,7 +195,7 @@ async def a_grant(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
 
 
 async def a_request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """A grant of the address asked for where colleagues could approve it, so it waits as a request (`docs/backend/spec.md :: I844`)."""
+    """A grant of the address asked for where colleagues could approve it, so it waits as a request (`docs/backend/spec.md :: I845`)."""
 
     await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
 

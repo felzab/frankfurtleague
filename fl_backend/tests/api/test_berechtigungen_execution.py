@@ -180,7 +180,7 @@ async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
         writes_sent_var.reset(sent_token)
 
 
-# Who approves a grant each administrator asks for, as four eyes require (`docs/backend/spec.md :: I844`): the first
+# Who approves a grant each administrator asks for, as four eyes require (`docs/backend/spec.md :: I845`): the first
 # colleague holding a grant since before the request.
 APPROVER = {ANNA: BERND, BERND: ANNA, OWNER: BERND}
 

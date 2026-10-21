@@ -133,7 +133,7 @@ async function sweepAdresswechsel(): Promise<void> {
   }
 
   // Whatever the calls came to: every notice an end queued, this pass's and any whose answer a confirmation or an
-  // approval lost, is delivered from the outbox (`docs/backend/spec.md :: I842`).
+  // approval lost, is delivered from the outbox (`docs/backend/spec.md :: I843`).
   await runAdresswechselPostausgang();
 }
 

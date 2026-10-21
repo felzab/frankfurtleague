@@ -224,7 +224,7 @@ async def _make_the_due_change_take_effect(
             )
 
         # Read in this transaction before the end nulled it, and queued in it: never why, never the address on file, greeting
-        # nobody (`docs/backend/spec.md :: I827`, `:: I842`).
+        # nobody (`docs/backend/spec.md :: I827`, `:: I843`).
         await post_one_to_db(
             collection=adresswechsel_postausgang_collection,
             document=compose_postausgang(art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, now=now),

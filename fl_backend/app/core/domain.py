@@ -301,7 +301,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
             "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
             "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
-            "(`docs/backend/spec.md :: I844`)."
+            "(`docs/backend/spec.md :: I845`)."
         ),
     ),
     Aggregate(

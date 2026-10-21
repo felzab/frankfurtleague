@@ -493,7 +493,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   mailed to every holder and to the address it names, carrying that address and the administrator who
   made it; a barred address it names by its state alone, and an erased person's not at all
   (`docs/frontend/spec.md :: I455`). A request goes only to whoever could approve it
-  (`docs/backend/spec.md :: I852`). A revoke removes the grant and its announced row
+  (`docs/backend/spec.md :: I853`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
   takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or
@@ -512,10 +512,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   in plain.** `berechtigungen_antraege` holds the address it is for and the asking administrator's,
   served to every administrator, until a second administrator approves or refuses it, its requester
   withdraws it, or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
-GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I847`).
+GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I848`).
   A decided request's image stays in the log for its twelve months, as every administrator's write
   does; an erasure of either address removes the request whole and takes the address out of those
-  images (`:: I850`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
+  images (`:: I851`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
 - **The administrator's own email stays on every log row they wrote until their own erasure.** The
   log exists to say who did what, so no redaction of a document's images reaches it
@@ -861,7 +861,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I847`
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I842`, `:: I480`); an
+  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I843`, `:: I480`); an
   erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an

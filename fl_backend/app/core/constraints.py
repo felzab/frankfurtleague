@@ -1953,7 +1953,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
-    # Zero: a lapsed request decides nothing, and every read already treats it as gone (`docs/backend/spec.md :: I847`).
+    # Zero: a lapsed request decides nothing, and every read already treats it as gone (`docs/backend/spec.md :: I848`).
     TTLIndex(
         Collection.BERECHTIGUNGEN_ANTRAEGE,
         "berechtigungen_antraege_bis",

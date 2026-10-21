@@ -444,11 +444,11 @@ administration is shut while it is down. Each of these is easy to get wrong:
   its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
   five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
 - **A grant waits as a request wherever another administrator could approve it, and a promotion
-  wherever another owner could** (`docs/backend/spec.md :: I844`): it takes effect once that person
+  wherever another owner could** (`docs/backend/spec.md :: I845`): it takes effect once that person
   approves it on the same page, someone who held their own grant since before the request
-  (`:: I845`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
-  colleague: a request nobody decides lapses after a week (`:: I847`), and one whose requester was
-  revoked, demoted or barred since is approved by nobody and waits for a refusal (`:: I846`).
+  (`:: I846`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
+  colleague: a request nobody decides lapses after a week (`:: I848`), and one whose requester was
+  revoked, demoted or barred since is approved by nobody and waits for a refusal (`:: I847`).
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
@@ -741,7 +741,7 @@ seat, registration and grant the address holds, so one sign-in stays whole
   neither the changed address nor whoever started the change gives it
   (`docs/backend/spec.md :: I817`, `:: I818`). Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere
-  (`docs/backend/spec.md :: I843`). The tool starts a grant holder's change for an owner
+  (`docs/backend/spec.md :: I844`). The tool starts a grant holder's change for an owner
   alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address
   (`docs/backend/spec.md :: I819`). On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant (`docs/backend/spec.md :: I820`).
@@ -1893,7 +1893,7 @@ undid the erasures, and which nothing re-runs:
   is made again. The record of each is the mail every change sent every administrator
   (`docs/backend/spec.md :: I439`).
 - **A request refused or withdrawn inside the window replays from its line** and is removed again
-  (`docs/backend/spec.md :: I848`). One approved inside the window is back as a request beside the
+  (`docs/backend/spec.md :: I849`). One approved inside the window is back as a request beside the
   grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
   asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again

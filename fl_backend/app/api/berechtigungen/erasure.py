@@ -132,7 +132,7 @@ async def carry_authorship_in_session(
     """Re-key every record and queued notice the person made to the new address, whatever they hold now.
 
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write
-    (`docs/backend/spec.md :: I841`).
+    (`docs/backend/spec.md :: I842`).
     """
 
     carried = await _set_authored(berechtigungen_collection, "erteilt_von", alt, neue, session)
