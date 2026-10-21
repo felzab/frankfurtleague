@@ -19,6 +19,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.schemas import FLAdresswechselAdressePayload
 from app.api.adresswechsel.services import (
     ADRESSWECHSEL_ABGELAUFEN,
     ADRESSWECHSEL_BEENDET,
@@ -42,6 +43,7 @@ from app.api.adresswechsel.services import (
     build_addresses_filter,
     compose_postausgang,
 )
+from app.api.adresswechsel.sweep_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
@@ -63,16 +65,19 @@ from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
 from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.drosselung import build_counts_filter
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.main import create_app
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
+from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import build_test_config, grants_for_the_suite
+from tests.config import SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -129,6 +134,7 @@ from .adresswechsel_harness import (
     view,
 )
 from .adresswechsel_harness import on_a_person as _on_a_person
+from .conftest import config_for
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db
@@ -500,6 +506,81 @@ class TestTheLinks:
 
         assert (seen.ansicht.zustand, seen.ansicht.gueltig_bis, seen.ansicht.wirksam_ab is not None) == ("bestaetigt", None, True)
         assert pressed == ADRESSWECHSEL_BEENDET
+
+
+def the_new_address(database: AsyncDatabase, client: AsyncMongoClient, **key: Any) -> Awaitable[Any]:
+    """What the frontend's server asks before a press, a link's view or an approval reads its sign-in store."""
+
+    return call(get_adresswechsel_adresse, database, client, adresse_data=FLAdresswechselAdressePayload.model_validate(key))
+
+
+class TestTheSystemsReadOfTheNewAddress:
+    def test_a_live_change_answers_its_new_address_folded_by_its_link_and_by_its_id(self, mongo_replica_set_url: str):
+        """Confirmed and waiting too: its approval still reads the sign-in store at the address it would move to."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            started = await administrator_starts(database, client, grund=GRUND, email="Lenore.Q@NeuPost.example.org")
+            before = [
+                await the_new_address(database, client, token=started.token),
+                await the_new_address(database, client, adresswechsel_id=started.id),
+            ]
+            await answer(database, client, started.token)
+            after = [
+                await the_new_address(database, client, token=started.token),
+                await the_new_address(database, client, adresswechsel_id=started.id),
+            ]
+            return [answered.email for answered in (*before, *after)]
+
+        assert on_a_person(mongo_replica_set_url, body) == [NEW_EMAIL] * 4
+
+    def test_a_row_holding_another_spelling_is_answered_folded(self, mongo_replica_set_url: str):
+        """Every start stores the fold, the validator no spelling: a row written by hand still names the account's key."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            await database[Collection.ADRESSWECHSEL].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
+            return (await the_new_address(database, client, adresswechsel_id=minted.id)).email
+
+        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
+
+    def test_a_key_naming_no_live_change_answers_null(self, mongo_replica_set_url: str):
+        """Never a 404: a lapsed or answered link costs the page no error, and the stop link never names the new mailbox."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            stopped = await start(database, client)
+            await stop_by_link(database, client, stopped.stopp_token)
+            live = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
+            asked = [
+                {"token": live.stopp_token},
+                {"token": "nobody-minted-this"},
+                {"adresswechsel_id": ObjectId()},
+                {"token": stopped.token},
+                {"adresswechsel_id": stopped.id},
+            ]
+            return [(await the_new_address(database, client, **key)).email for key in asked]
+
+        assert on_a_person(mongo_replica_set_url, body) == [None] * 5
+
+    def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, capfd: pytest.CaptureFixture[str]):
+        """Read off the process's own output, which the app's build points its handlers at, so the request's line itself is held."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
+                capfd.readouterr()
+                response = await http.post(
+                    f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=SYSTEM_AUTH, json={"token": minted.token}
+                )
+                written = capfd.readouterr()
+            return response.status_code, response.json(), written.out + written.err
+
+        status, answered, written = on_a_person(mongo_replica_set_url, body)
+
+        assert (status, answered["email"]) == (200, NEW_EMAIL)
+        assert "/adresswechsel/sweep/adresse -> 200" in written, (
+            "the request's own line was not captured, so the absence below holds of nothing"
+        )
+        assert NEW_EMAIL not in written.lower()
 
 
 class TestTheConfirmation:
