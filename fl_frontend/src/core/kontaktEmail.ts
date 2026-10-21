@@ -212,6 +212,8 @@ export interface KontaktAbgangData {
   bleibtText: string | null;
   schule: string;
   saisonId: string;
+  /** Whose seat it was: a seat in an application was never asked about a fixture, so it held its confirmation's link alone. */
+  quelle: "saison" | "bewerbung";
 }
 
 // The two links that die with the seat, never "every link": the team's registration link stays live for the contacts who
@@ -219,18 +221,21 @@ export interface KontaktAbgangData {
 const ABGANG_FOLGE =
   "Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
 
+const ABGANG_FOLGE_BEWERBUNG = "Der Link zum Bestätigen dieses Eintrags funktioniert nicht mehr. Du musst nichts tun.";
+
 /** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
-export function buildKontaktAbgangEmail({ origin, rollenText, bleibtText, schule, saisonId }: KontaktAbgangData): KontaktEmail {
+export function buildKontaktAbgangEmail({ origin, rollenText, bleibtText, schule, saisonId, quelle }: KontaktAbgangData): KontaktEmail {
   const site = mailOrigin(origin);
   const fakten = { rollen: einzeilig(rollenText), schule: einzeilig(schule), saisonId: einzeilig(saisonId) };
   // A mailbox keeping a paired seat keeps that seat's links, so neither the heading nor the dead links are its.
   const bleibt = bleibtText === null ? null : einzeilig(bleibtText);
   const ueberschrift = bleibt === null ? ABGANG_UEBERSCHRIFT : `Nicht mehr als ${fakten.rollen} eingetragen`;
+  const tot = quelle === "bewerbung" ? ABGANG_FOLGE_BEWERBUNG : ABGANG_FOLGE;
   const folge = (markup: boolean): string =>
     bleibt === null
       ? markup
-        ? escapeHtml(ABGANG_FOLGE)
-        : ABGANG_FOLGE
+        ? escapeHtml(tot)
+        : tot
       : `Als ${markup ? escapeHtml(bleibt) : bleibt} bleibst Du für ${markup ? strong(escapeHtml(fakten.schule)) : fakten.schule} eingetragen, dafür ändert sich nichts. Du musst nichts tun.`;
 
   const abgang = (markup: boolean): string => {

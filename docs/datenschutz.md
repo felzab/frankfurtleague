@@ -302,7 +302,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   team's registration link stays the team's, shared with the contacts who remain; a club's replacement, an erasure, a
   Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I807`). Ruled 2026-10-20.
   An administrator's correction of an application seat's address tells the mailbox its link leaves
-  the same, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
+  the same, naming its confirmation link alone, since an application's seat is asked about no
+  fixture, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
   Ruled 2026-10-20.
 
 ## 3. The current pupil records are reset once

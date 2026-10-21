@@ -230,6 +230,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       bleibtText: null,
       schule: "Ernst-Reuter-Schule",
       saisonId: "2627",
+      quelle: "saison",
     }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),

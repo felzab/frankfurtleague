@@ -1171,6 +1171,8 @@ describe("the corrected contact address", () => {
     const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
     assert.deepEqual(notice?.tags, { kontakt_abgang: "hinweis" }, "the mailbox the link left was not told on its lane");
     assert.match(notice?.text ?? "", new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
+    // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
+    assert.doesNotMatch(notice?.text ?? "", /Spielterminen/, "the application's seat is told of fixture links it never held");
     assert.doesNotMatch(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, new RegExp(PERSON.vorname), "the notice names the person");
     assert.deepEqual(
       mailed.map(({ to }) => to).sort(),

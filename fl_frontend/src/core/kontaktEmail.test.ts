@@ -181,7 +181,14 @@ describe("no value can open a line of its own in the text part", () => {
 describe("the leaving notice's values", () => {
   const FORGED_OPENER = "Startgeld: 500 Euro";
   const wert = `Wert\n${FORGED_OPENER}`;
-  const abgang = { origin: ORIGIN, rollenText: "Ansprechperson", bleibtText: null, schule: "Ernst-Reuter-Schule", saisonId: "2627" };
+  const abgang = {
+    origin: ORIGIN,
+    rollenText: "Ansprechperson",
+    bleibtText: null,
+    schule: "Ernst-Reuter-Schule",
+    saisonId: "2627",
+    quelle: "saison",
+  } as const;
 
   it("folds every value it prints onto one line, in the text part and the subject", () => {
     for (const [feld, daten] of [
@@ -206,6 +213,16 @@ describe("the leaving notice's values", () => {
     ]) {
       assert.ok(!buildKontaktAbgangEmail(daten).html.includes("<script>"), `a value reached the markup unescaped: ${JSON.stringify(daten)}`);
     }
+  });
+
+  /* A seat in an application was never asked about a fixture: told its fixture links died, its reader looks for links they
+     never had. A season row's seat may hold both, and is told both died. */
+  it("names the fixture links a seat may have held only on a team's season row", () => {
+    const tot = (quelle: "saison" | "bewerbung") => buildKontaktAbgangEmail({ ...abgang, quelle }).text;
+
+    assert.ok(tot("saison").includes("die Links zum Bestätigen von Spielterminen"), "a season seat is not told its fixture links died");
+    assert.ok(tot("bewerbung").includes("Der Link zum Bestätigen dieses Eintrags funktioniert nicht mehr."), tot("bewerbung"));
+    assert.ok(!tot("bewerbung").includes("Spielterminen"), "an application's seat is told of fixture links it never held");
   });
 });
 
