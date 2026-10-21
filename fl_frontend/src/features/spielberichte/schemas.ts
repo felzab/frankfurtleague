@@ -116,7 +116,10 @@ export type FLSpielberichtTorschuetze = z.infer<typeof FLSpielberichtTorschuetze
 export const FLSpielberichtKarteSchema = karte(CustomObjectIdStringSchema);
 export type FLSpielberichtKarte = z.infer<typeof FLSpielberichtKarteSchema>;
 
-/** A card as a write sends it: its caution's reason is judged against the stored report (`REQ-BERICHT-008`). */
+/**
+ * A card as a write sends it, built as the stored card is: the backend's write model differs only in refusing unknown
+ * keys, and the pairing (`fl_frontend/src/core/apiContract.test.ts`) asks a mirror of every published component.
+ */
 export const FLSpielberichtKartePayloadSchema = karte(CustomObjectIdStringSchema);
 
 export const FLSpielberichtVonSchiedsrichterSchema = z.object({
