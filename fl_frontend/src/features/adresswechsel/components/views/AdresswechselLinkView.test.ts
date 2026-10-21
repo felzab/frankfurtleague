@@ -133,6 +133,13 @@ describe("the new mailbox's side of the address page", () => {
       words(bestaetigt),
       /gilt ab 28\. Oktober 2026 um 13:30 ?\..*Bis dahin meldest Du Dich mit der bisherigen an\..*Passkeys gelten weiter/,
     );
+    // No account is carried onto an address holding records of its own, so the passkeys' promise names that case.
+    for (const weg of ["konto", "freigabe"] as const) {
+      assert.match(
+        words({ ...bestaetigt, weg: weg }),
+        /Stand unter der neuen Adresse schon etwas bei uns, meldest Du Dich dort mit einem Code an und richtest einen neuen Passkey ein\./,
+      );
+    }
     assert.match(words({ ...bestaetigt, wirksamAb: null, genehmigungOffen: true }), /gilt, sobald die Verwaltung die Änderung genehmigt hat/);
     assert.match(words({ ...bestaetigt, genehmigungOffen: true }), /frühestens ab 28\. Oktober 2026 um 13:30 ?, und erst wenn die Verwaltung/);
 
