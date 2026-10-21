@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
 import {
-  ADRESSWECHSEL_GENEHMIGUNG_TAGE,
   ADRESSWECHSEL_GUELTIG_STUNDEN,
   ADRESSWECHSEL_NACHLAUF_TAGE,
   ADRESSWECHSEL_WARTEZEIT_TAGE,
+  GENEHMIGUNG_TAGE,
 } from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
@@ -301,7 +301,7 @@ describe("the privacy notice's retention table", () => {
       "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
         "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
         "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
-        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(ADRESSWECHSEL_GENEHMIGUNG_TAGE)} ` +
+        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
         "nach ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch " +
         "anmelden, gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht " +
         `mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +

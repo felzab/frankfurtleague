@@ -271,7 +271,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   a recorded reason, for one whose mailbox there is lost, holding its effect a week past its
   confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
-  start (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The address
+  start (`fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE`). The address
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
@@ -838,7 +838,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   restarts it, the stop link lasting as long as the change stands; a change an administrator
   started with a reason takes effect a week after its confirmation (`:: ADRESSWECHSEL_WARTEZEIT_TAGE`),
   and one waiting on another administrator's approval lapses a week after its start
-  (`:: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
+  (`:: GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
   address taken out of the record and its log images. **An ended change's record holds no address
   and no reason, only its links' check values, so each link answers how the change ended; the
   database deletes it thirty days after its end** (`:: ADRESSWECHSEL_NACHLAUF_TAGE`). A confirmed

@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 from app.api.berechtigungen.schemas import FLGenehmigungVerwehrt
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
-from app.shared.schemas.bounds import ADRESSWECHSEL_GENEHMIGUNG_TAGE, ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE
+from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
 
 # How the change takes effect: the person's own start, an administrator's start the address on file approves, and an
 # administrator's start with a recorded reason that waits after its confirmation.
@@ -85,7 +85,7 @@ def compose_genehmigung(*, verwaltung: str, gestartet_von: str, now: datetime) -
         "verwaltung": verwaltung,
         # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
         "angefragt_am": now.astimezone(UTC),
-        "bis": now.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE),
+        "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
         # Folded, as `erteilt_von` stores an administrator: the one compared with the approver.
         "gestartet_von": gestartet_von,
         "genehmigt_am": None,
