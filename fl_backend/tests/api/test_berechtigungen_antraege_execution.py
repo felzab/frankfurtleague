@@ -1078,3 +1078,15 @@ class TestTheRequestersNoticeReadsItsRecipientAtTheClaim:
 
     def test_a_requester_revoked_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
         assert told_after(mongo_replica_set_url, annas_grant_revoked) == [("antrag_abgelehnt", NEU, "administration", ANNA, [])]
+
+    def test_a_requester_who_moved_before_the_claim_is_told_at_the_new_address(self, mongo_replica_set_url: str):
+        """Their own address change carries the queued notice with their grant (`docs/backend/spec.md :: I866`), on the real clock."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
+            antrag_id = await asked_for(database, client, als=EMAIL, now=since(ASKED_AN_HOUR_AGO))
+            await refuse(database, client, antrag_id, als=SECOND_ADMIN, now=since(2 * MOVED_AGO - 60))
+            await move(database, client, at=since(MOVED_AGO))
+            return told(await claimed(database, client, now=since(60)))
+
+        assert on_a_person(mongo_replica_set_url, DATABASE_NAME, body) == [("antrag_abgelehnt", NEU, "administration", NEW_EMAIL, [NEW_EMAIL])]

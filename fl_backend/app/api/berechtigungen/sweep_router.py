@@ -308,7 +308,10 @@ def _genehmiger(
 
 
 def _antragsteller(row: Mapping[str, Any], holders: Set[str]) -> list[str]:
-    """A request's end goes to its requester, read now: nobody once they are erased, barred, revoked or moved off the address."""
+    """A request's end goes to its requester, read now: nobody once they are erased, barred or revoked.
+
+    One who moved is told at the address their own change carried the row to (`docs/backend/spec.md :: I866`).
+    """
 
     von = row.get("geaendert_von")
 
