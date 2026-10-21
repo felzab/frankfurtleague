@@ -11125,7 +11125,7 @@
     "/api/v0/spielberichte/person": {
       "get": {
         "summary": "The fixtures a signed-in referee reports on",
-        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands.\n\nA fixture called off or struck out is left out, having no report. Empty while no season is `active`. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record.",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`fruehere` holds every dated fixture of an ended season booked to those records now on which a report stands,\nnewest first: its page shows the report read-only. Refused `REQ-FUNKTION-001` where the address holds no\nconfirmed, live referee record.",
         "operationId": "get_spielberichte_person_api_v0_spielberichte_person_get",
         "responses": {
           "200": {
@@ -27678,13 +27678,22 @@
             },
             "type": "array",
             "title": "Spiele"
+          },
+          "fruehere": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
+            },
+            "type": "array",
+            "title": "Fruehere"
           }
         },
         "type": "object",
         "required": [
-          "spiele"
+          "spiele",
+          "fruehere"
         ],
-        "title": "FLSpielberichtePersonResponse"
+        "title": "FLSpielberichtePersonResponse",
+        "description": "`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."
       },
       "FLSpielberichteSaisonResponse": {
         "properties": {

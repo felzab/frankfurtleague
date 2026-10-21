@@ -303,7 +303,10 @@ class FLSpielberichtPersonEintrag(BaseModel):
 
 
 class FLSpielberichtePersonResponse(BaseAPIResponse):
+    """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
+
     spiele: list[FLSpielberichtPersonEintrag]
+    fruehere: list[FLSpielberichtPersonEintrag]
 
 
 class FLSpielberichtZustandEintrag(BaseModel):

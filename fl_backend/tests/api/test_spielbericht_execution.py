@@ -755,7 +755,7 @@ class TestTheReads:
             before = await listed()
             await put(database, client, bericht())
             after = await listed()
-            # Past, the last season running: the list is of the running season, never the newest one.
+            # Past, the last season running: `spiele` is of the running season, never the newest one.
             await end_the_season(database)
             return before, after, await listed()
 
@@ -764,6 +764,48 @@ class TestTheReads:
         assert [(spiel.spiel_id, spiel.eingereicht_am) for spiel in before.spiele] == [(SPIEL, None), (frueher, None)]
         assert after.spiele[0].eingereicht_am is not None
         assert ohne_saison.spiele == []
+
+    def test_the_referee_s_list_holds_the_reports_of_ended_seasons_apart(self, mongo_replica_set_url: str):
+        """Of an ended season, only a fixture booked to them now and holding a report: its page shows that report read-only.
+
+        The season before's report stands; its unreported fixture, the other referee's and the running season's do not
+        reach `fruehere`.
+        """
+
+        unberichtet, anderer = ObjectId(), ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_the_season_before(database)
+            await database[Collection.SPIELE].insert_many(
+                [
+                    fixture(spiel_id=unberichtet, spiel_nr=21, saison_id=VORSAISON_ID, datum="2026-05-07"),
+                    fixture(
+                        spiel_id=anderer,
+                        spiel_nr=22,
+                        saison_id=VORSAISON_ID,
+                        schiedsrichter={"schiedsrichter_id": ANDERER, "name": "Ella Engel", "payment": 20},
+                    ),
+                ]
+            )
+            await database[Collection.SPIELBERICHTE].insert_one(
+                documents.spielbericht_document(fixture(spiel_id=anderer, saison_id=VORSAISON_ID))
+            )
+            await put(database, client, bericht())
+
+            return await get_spielberichte_person(
+                identifier=REFEREE_EMAIL,
+                spiele_collection=database[Collection.SPIELE],
+                saisons_collection=database[Collection.SAISONS],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                records=record_collections(database),
+                db=client,
+                today=TODAY,
+            )
+
+        listed = on_the_league(mongo_replica_set_url, body)
+
+        assert [spiel.spiel_id for spiel in listed.spiele] == [SPIEL]
+        assert [(spiel.spiel_id, spiel.eingereicht_am is not None) for spiel in listed.fruehere] == [(VORJAHRESSPIEL, True)]
 
 
 async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> None:
