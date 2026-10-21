@@ -20,6 +20,7 @@ from typing import Final
 
 import pytest
 from conftest import BASH, WINDOWS, base_env, copy_scripts, declared, lift_function, new_root, write_shell
+from test_check_gate_budget import budget as gate_budget
 from test_check_gate_budget import committed, job_bodies
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
@@ -756,6 +757,12 @@ def test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts(tmp_path: 
 PRE_STEP_S: Final = 108
 
 
+def _instance_of(name: str) -> str | None:
+    """The matrix job a row names an instance of, read by the budget check's own pattern."""
+    instance = gate_budget.INSTANCE.match(name)
+    return None if instance is None else instance.group(1)
+
+
 def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     """A job its timeout ends names no unit, so a stall starting as late as the job's budget is named inside it.
 
@@ -783,9 +790,11 @@ def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
         for scope in (scope for scope in SCOPE_RUN_RE.findall(body) if scope in pooled):
             timeout = TIMEOUT_RE.search(body)
             assert timeout is not None, f"`{job}` sets no timeout-minutes of its own, so this case cannot read when GitHub ends it"
-            assert job in rows, f"`{job}` has no row in .github/gate-wall-clock.tsv to read its budget from"
+            # A matrix job's rows are its instances', and the widest instance's budget bounds them all.
+            own = [row for name, row in rows.items() if name == job or _instance_of(name) == job]
+            assert own, f"`{job}` has no row in .github/gate-wall-clock.tsv to read its budget from"
             # Nothing bounds the green span of a job carrying no budget, so its timeout alone is held.
-            budget = rows[job].budget if rows[job].budget is not None else 0
+            budget = max(row.budget if row.budget is not None else 0 for row in own)
             # A pytest unit is named this much later than any other: its dump restarts the silence.
             dump = faulthandler if pooled[scope] & dumping else 0
             named = PRE_STEP_S + budget + dump + silent
