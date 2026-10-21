@@ -143,6 +143,14 @@ describe("what a spent link's page carries", () => {
     assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "ungueltig" })), { zustand: "ungueltig" });
   });
 
+  /* The date the league kept and nothing else of the fixture: the panel's sentence points at it, the mail having named it. */
+  it("hands the verworfen state the date it kept and nothing else", async () => {
+    assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "verworfen" })), {
+      zustand: "verworfen",
+      termin: { datum: ANSICHT.ansetzung.datum, uhrzeit: ANSICHT.ansetzung.uhrzeit },
+    });
+  });
+
   /* The seat is a role and never a person, and it is what tells the club's other two seats who answered. */
   for (const zustand of ["zugesagt", "abgelehnt"] as const) {
     it(`hands the ${zustand} state the seat that answered and nothing else`, async () => {

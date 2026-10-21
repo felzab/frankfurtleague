@@ -36,10 +36,12 @@ FLSpielbestaetigungGrund = Literal[
     "spiel_vergangen",
 ]
 
-# What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag` is a
-# link still answerable while the other club's decline proposes another date, and `abgesagt` one whose fixture
-# was called off, whatever its party answered.
-FLSpielbestaetigungZustand = Literal["gueltig", "vorschlag", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "abgesagt", "gesperrt"]
+# What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag`: the other
+# club's decline proposes another date; `abgesagt`: the fixture was called off, whatever was answered;
+# `verworfen`: the league discarded this decline's proposal.
+FLSpielbestaetigungZustand = Literal[
+    "gueltig", "vorschlag", "zugesagt", "abgelehnt", "verworfen", "abgelaufen", "ungueltig", "abgesagt", "gesperrt"
+]
 
 FLSpielbestaetigungSeite = Literal["team1", "team2"]
 
@@ -443,6 +445,17 @@ class FLSpielbestaetigungSweepSpielAbgesagt(BaseModel):
     empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
 
 
+class FLSpielbestaetigungSweepVorschlagVerworfen(BaseModel):
+    """A club's decline whose proposed date the administrator discarded: the slot it was asked about, which stands."""
+
+    spielbestaetigung_id: CustomObjectId
+    spiel_id: CustomObjectId
+    team1_name: str
+    team2_name: str
+    alt: FLSpielbestaetigungTermin
+    empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
+
+
 class FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt(BaseModel):
     """The same for a referee row whose Einteilung went out: one address, no seat."""
 
@@ -476,6 +489,7 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     schiedsrichter_gewechselt: list[FLSpielbestaetigungSweepSchiedsrichterGewechselt]
     spiel_abgesagt: list[FLSpielbestaetigungSweepSpielAbgesagt]
     schiedsrichter_spiel_abgesagt: list[FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt]
+    vorschlag_verworfen: list[FLSpielbestaetigungSweepVorschlagVerworfen]
     geschlossen: int
     fehlgeschlagen: int
     # Answered on every pass until `/mitgeteilt` stamps them, as the notices are: a lost answer loses no give-up.

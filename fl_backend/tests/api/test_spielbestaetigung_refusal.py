@@ -18,6 +18,7 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_TOKEN_UNKNOWN,
     ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
+    ansetzung_stand_of,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
     clubs_without_a_season_row,
@@ -385,7 +386,10 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
     def test_a_discard_shows_the_same_state_once_the_close_ends_it(self, situation: dict[str, Any], today: str):
-        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`."""
+        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`.
+
+        Standing about the fixture as it is, it reads `verworfen`, the league having kept the date.
+        """
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
@@ -396,8 +400,9 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
 
+        standing = grund is None and ansetzung_stand_of(situated.spiel) == discarded["ansetzung"]["stand"]
         # A call-off reads as one ahead of every answer, the discarded decline's too.
-        assert before == after == ("abgesagt" if called_off(situation) else "abgelehnt")
+        assert before == after == ("abgesagt" if called_off(situation) else "verworfen" if standing else "abgelehnt")
 
 
 class TestWhatTheViewStatesOfTheFixture:

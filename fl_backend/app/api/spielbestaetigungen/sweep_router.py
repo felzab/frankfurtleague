@@ -33,6 +33,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
     FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
     FLSpielbestaetigungSweepSpielAbgesagt,
+    FLSpielbestaetigungSweepVorschlagVerworfen,
     FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
@@ -46,6 +47,7 @@ from app.api.spielbestaetigungen.services import (
     build_held_filter,
     build_holding_filter,
     build_mitteilung_filter,
+    build_void_notice_held_filter,
     compose_closing_update,
     compose_erinnerung_update,
     compose_seats_update,
@@ -61,6 +63,7 @@ from app.api.spielbestaetigungen.services import (
     parteien_of,
     seite_of,
     vereinsnamen_of,
+    void_notice_held,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
@@ -103,10 +106,17 @@ WHAT: Final = "Confirmation"
 
 CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am", "geschlossen"]
 
-# Each notice per closing reason that owes one (`app/api/spielbestaetigungen/services.py :: notice_owed`), by the party's kind.
-TEAM_NOTICES: Final[Mapping[str, type[FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt]]] = {
+# Each notice per closing reason that owes one (`app/api/spielbestaetigungen/services.py :: notice_owed`, and
+# `:: verwerfen_owes_a_notice` for the discard's), by the party's kind.
+TEAM_NOTICES: Final[
+    Mapping[
+        str,
+        type[FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt | FLSpielbestaetigungSweepVorschlagVerworfen],
+    ]
+] = {
     "ansetzung_geaendert": FLSpielbestaetigungSweepNeueAnsetzung,
     "abgesagt": FLSpielbestaetigungSweepSpielAbgesagt,
+    "verworfen": FLSpielbestaetigungSweepVorschlagVerworfen,
 }
 SCHIEDSRICHTER_NOTICES: Final[
     Mapping[
@@ -130,6 +140,7 @@ type _Notice = (
     | FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung
     | FLSpielbestaetigungSweepSchiedsrichterGewechselt
     | FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt
+    | FLSpielbestaetigungSweepVorschlagVerworfen
 )
 
 
@@ -368,7 +379,8 @@ async def sweep_spielbestaetigungen(
     notice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the
     mailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in
     `schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`
-    and `schiedsrichter_spiel_abgesagt`. A notice is answered on every pass until the caller stamps it through
+    and `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in
+    `vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through
     `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
     allows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture
     and its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until
@@ -387,7 +399,8 @@ async def sweep_spielbestaetigungen(
     out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
     newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
     `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
-    on the pass whose close shuts them, so the notice that their links are void goes out first.
+    once the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier
+    one, so that notice goes out first.
 
     The reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away
     (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the
@@ -428,6 +441,7 @@ async def sweep_spielbestaetigungen(
             schiedsrichter_gewechselt=[],
             spiel_abgesagt=[],
             schiedsrichter_spiel_abgesagt=[],
+            vorschlag_verworfen=[],
             geschlossen=0,
             fehlgeschlagen=0,
             mitteilungen_aufgegeben=[],
@@ -639,22 +653,33 @@ async def sweep_spielbestaetigungen(
         if not spiele:
             return _Minted(anfragen=[], einteilungen=[], written=0, inserted=[], fresh={})
 
-        holding = await pull_many_from_db(
+        spiel_ids = [spiel["_id"] for spiel in spiele]
+        # One read for both, a second command taking the worst call past its deadline
+        # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_OTHER_COMMANDS`).
+        read = await pull_many_from_db(
             collection=spielbestaetigungen_collection,
-            db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]),
+            db_filter={
+                "$or": [
+                    build_held_filter(saison_id=saison_id, spiel_ids=spiel_ids),
+                    build_void_notice_held_filter(saison_id=saison_id, spiel_ids=spiel_ids),
+                ]
+            },
             limit=LIST_LIMIT_MAX + 1,
             session=session,
         )
         # A cut read would mint a second row for a party that already answered: raised, so the failure
         # halves the page (`app/core/transactions.py :: isolate`) until each half's rows fit one read.
-        if len(holding) > LIST_LIMIT_MAX:
+        if len(read) > LIST_LIMIT_MAX:
             raise ValueError(f"season {saison_id}'s window holds more held confirmations than one read answers")
-        held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in holding}
+        held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in read if not void_notice_held(row)}
         stande = {spiel["_id"]: ansetzung_stand_of(spiel) for spiel in spiele}
-        # A fixture holding rows about an Ansetzung it left waits for the close to shut them, a share's overflow or
-        # a move since the close: their "link is void" notice goes out ahead of the fresh request (`docs/backend/spec.md :: I769`).
+        # Waits on a row about an Ansetzung the fixture left while it is unclosed or holds a notice this pass did not
+        # answer; one answered now is mailed ahead of the request (`docs/backend/spec.md :: I769`).
         waiting = {
-            row["spiel_id"] for row in holding if row.get("geschlossen") is None and row["ansetzung"]["stand"] != stande[row["spiel_id"]]
+            row["spiel_id"]
+            for row in read
+            if row["ansetzung"]["stand"] != stande[row["spiel_id"]]
+            and (row.get("geschlossen") is None or (void_notice_held(row) and row["_id"] not in angekuendigt))
         }
 
         junctions = await _junctions(
@@ -961,6 +986,10 @@ async def sweep_spielbestaetigungen(
     schiedsrichter_gewechselt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterGewechselt)]
     spiel_abgesagt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSpielAbgesagt)]
     schiedsrichter_spiel_abgesagt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt)]
+    vorschlag_verworfen = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepVorschlagVerworfen)]
+    mitteilungen_aufgegeben = [notice for answered in told for notice in answered.aufgegeben]
+    # The rows whose notice this answer carries, mailed or given up: the mint asks their fixture beside them.
+    angekuendigt = {notice.spielbestaetigung_id for notice in [*notices, *mitteilungen_aufgegeben]}
     owed = bool(notices)
 
     anfragen: list[FLSpielbestaetigungSweepAnfrage] = []
@@ -1043,9 +1072,10 @@ async def sweep_spielbestaetigungen(
         schiedsrichter_gewechselt=schiedsrichter_gewechselt,
         spiel_abgesagt=spiel_abgesagt,
         schiedsrichter_spiel_abgesagt=schiedsrichter_spiel_abgesagt,
+        vorschlag_verworfen=vorschlag_verworfen,
         geschlossen=sum(closed),
         fehlgeschlagen=fehlgeschlagen,
-        mitteilungen_aufgegeben=[notice for answered in told for notice in answered.aufgegeben],
+        mitteilungen_aufgegeben=mitteilungen_aufgegeben,
     )
 
 

@@ -105,6 +105,7 @@ export const SCHIEDSRICHTER_REPLAY_REFUSALS: Readonly<Record<string, string>> = 
   "REQ-SCHIEDSRICHTER-007":
     "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
   "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-  // Confirmed between the save and its undo: the address the replay would write back moves only by a change.
-  "REQ-SCHIEDSRICHTER-011": `Die Person hat inzwischen bestätigt. Ihre Adresse ändert sie jetzt selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“.`,
+  // Both causes, as `BESTAETIGTE_ADRESSE` names them: an address change landing inside the undo window refuses the
+  // replay of a referee confirmed throughout, who would otherwise read as having just confirmed.
+  "REQ-SCHIEDSRICHTER-011": `Seit dem Speichern hat die Person bestätigt oder ihre Adresse hat sich geändert. Ihre Adresse ändert sie jetzt selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“.`,
 };

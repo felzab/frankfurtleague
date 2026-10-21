@@ -54,12 +54,18 @@ export type SpielbestaetigungAbschluss =
   | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungTermin }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt"> };
+  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
+  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> };
 
 /** The route's answer: the echo of what was stored, or a refusal naming the link's state where the link died. */
 export type SpielbestaetigungAntwort =
   | { success: true; zustand: "zugesagt" | "abgelehnt"; vorschlag: FLSpielbestaetigungTermin | null }
-  | (PublicEnvelope & { success: false; zustand?: SpielbestaetigungLinkZustand; beantwortet_von?: FLSpielbestaetigungVon });
+  | (PublicEnvelope & {
+      success: false;
+      zustand?: SpielbestaetigungLinkZustand;
+      beantwortet_von?: FLSpielbestaetigungVon;
+      termin?: FLSpielbestaetigungTermin;
+    });
 
 /** The proposal mid-entry: `""` is a box nobody filled in, which the payload's schema then refuses. */
 type Entwurf = { datum: string; uhrzeit: string; begruendung: string };
@@ -87,7 +93,13 @@ const toCalendarDate = (stored: string): CalendarDate | null => (stored === "" ?
 const toTime = (stored: string): Time | null => (stored === "" ? null : parseTime(stored));
 
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
-function spentAbschluss(zustand: SpielbestaetigungLinkZustand, beantwortetVon: FLSpielbestaetigungVon | undefined): SpielbestaetigungAbschluss {
+function spentAbschluss(
+  zustand: SpielbestaetigungLinkZustand,
+  beantwortetVon: FLSpielbestaetigungVon | undefined,
+  termin: FLSpielbestaetigungTermin | undefined,
+): SpielbestaetigungAbschluss {
+  // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
+  if (zustand === "verworfen") return termin === undefined ? { zustand: "ungueltig" } : { zustand: zustand, termin: termin };
   if (zustand !== "zugesagt" && zustand !== "abgelehnt") return { zustand: zustand };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
   return beantwortetVon === undefined ? { zustand: "ungueltig" } : { zustand: zustand, beantwortet_von: beantwortetVon };
@@ -135,7 +147,7 @@ export function SpielbestaetigungFormPanel({
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss(spentAbschluss(zustand, antwort.beantwortet_von)),
+          onZustand: (zustand) => onAbschluss(spentAbschluss(zustand, antwort.beantwortet_von, antwort.termin)),
           // The hook owns the press's one toast: none where a box shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(

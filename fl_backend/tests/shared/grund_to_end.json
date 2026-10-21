@@ -16,7 +16,19 @@
   { "fall": "a club's row once another referee is booked", "zeile": {}, "anders": { "schiedsrichter": "anderer" }, "grund": null },
   { "fall": "a lone goal count", "zeile": {}, "anders": { "tore": 2 }, "grund": "spiel_entschieden" },
   { "fall": "a lone shoot-out", "zeile": {}, "anders": { "elfmeterschiessen": { "team1": 4, "team2": 3 } }, "grund": "spiel_entschieden" },
-  { "fall": "a no-show", "zeile": {}, "anders": { "sonderereignis": "nichtantreten_team1" }, "grund": "spiel_entschieden" },
+  { "fall": "a no-show entered before the day", "zeile": {}, "anders": { "sonderereignis": "nichtantreten_team1" }, "grund": "abgesagt" },
+  {
+    "fall": "a no-show entered on the day",
+    "zeile": {},
+    "anders": { "tage": 0, "sonderereignis": "nichtantreten_team2" },
+    "grund": "spiel_entschieden"
+  },
+  {
+    "fall": "a no-show entered before the fixture's day as it stands, the row about a day gone by",
+    "zeile": {},
+    "anders": { "tage": -1, "datum_tage": 3, "sonderereignis": "nichtantreten_team1" },
+    "grund": "abgesagt"
+  },
   { "fall": "abandoned", "zeile": {}, "anders": { "sonderereignis": "abgebrochen" }, "grund": "spiel_entschieden" },
   { "fall": "called off", "zeile": {}, "anders": { "sonderereignis": "ausgefallen" }, "grund": "abgesagt" },
   { "fall": "annulled", "zeile": {}, "anders": { "sonderereignis": "annulliert" }, "grund": "abgesagt" },

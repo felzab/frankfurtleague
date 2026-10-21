@@ -93,11 +93,13 @@ function grundZumSchliessen(
   { austritte, today }: { austritte: ReadonlyMap<string, string>; today: string },
 ): FLSpielbestaetigungGrund | null {
   const { ansetzung, partei } = zeile;
+  // On the fixture's day as it stands, or the row's where the fixture lost its date.
+  const tag = spiel.datum ?? ansetzung.datum;
+  // Ahead of the decision a no-show records: entered before the day, nobody is due at the ground.
+  if (today < tag && (spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2")) return "abgesagt";
   if (hasTakenPlace(spiel)) return "spiel_entschieden";
   if (spiel.sonderereignis !== null) return "abgesagt";
 
-  // On the fixture's day as it stands, or the row's where the fixture lost its date.
-  const tag = spiel.datum ?? ansetzung.datum;
   const ausgetreten = [ansetzung.team1_id, ansetzung.team2_id].some((teamId) => {
     const austritt = austritte.get(teamId);
     return austritt !== undefined && austritt <= tag;
@@ -249,6 +251,8 @@ export type SpielbestaetigungAnsicht =
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
+  // The date the league kept, which its sentence points at: the link's mail named it already.
+  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
   | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "abgesagt" | "gesperrt" };
 

@@ -251,7 +251,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
   of birth on that page and nobody answers for them. The public fixture read joins that record at
   every read and copies it nowhere: the name is served only where the record publishes it, and a
-  referee asked about a fixture only once they agreed (`docs/backend/spec.md :: READ-REFEREE-004`,
+  referee on a fixture only once they agreed to it (`docs/backend/spec.md :: READ-REFEREE-004`,
   `:: READ-REFEREE-005`, [section 4](#4-what-is-published-and-on-what-basis)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
@@ -354,8 +354,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   off every fixture page at the fixture list's next read. The gate is the pupils' own predicate,
   read off the referee's record when the fixture is read
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
-  a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
-  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
+  a referee is shown on a fixture only once they agreed to it, the league's own entry of an
+  agreement counting, so a booking nobody has asked them about yet shows no referee
+  (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
   referee's record id, which would link every fixture of a referee whose name is withheld
   (`:: READ-REFEREE-006`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
@@ -983,11 +984,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
 - **A fixture's parties are mailed about it at the address on file when each message goes, and no
   message names a person.** A club's seats receive the request and its reminders, a booked referee the
   Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
-  longer books them, and every party mailed when it is called off (`docs/backend/spec.md :: I780`,
-  `:: I836`). A notice still owed is held on its closed row as a count of attempts and never as an
-  address (`:: I835`), so it needs no erasure step of its own: the address is read as each pass
-  sends, and a referee's erasure removes their rows. The taken-off and called-off notices ruled
-  2026-10-20.
+  longer books them, every party mailed when it is called off, a no-show entered before its day
+  included, and a club whose proposed date the league discarded that the date stands
+  (`docs/backend/spec.md :: I780`, `:: I836`, `:: I867`). A notice still owed is held on its closed
+  row as a count of attempts and never as an address (`:: I835`), so it needs no erasure step of its
+  own: the address is read as each pass sends, and a referee's erasure removes their rows. The
+  taken-off and called-off notices ruled 2026-10-20, the discard's 2026-10-21.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the remarks and every

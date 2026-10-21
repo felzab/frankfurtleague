@@ -262,10 +262,9 @@ def _referee_lookup() -> Mapping[str, Any]:
 
 
 def _einsatz_bestaetigt() -> Mapping[str, Any]:
-    """Three-valued as `_ansetzung_bestaetigt`: `None` where the booked referee holds no unclosed row nor a latest decline.
+    """`True` only where the booked referee's open rows, else their latest answer, agree to the Ansetzung as it stands.
 
-    A row about an Ansetzung the fixture left counts as not agreed, as a club's does; so does their decline until they
-    answer afresh.
+    Never three-valued: a booking the pass has not reached would publish its referee (`docs/backend/spec.md :: I781`).
     """
 
     own_rows = {
@@ -281,14 +280,17 @@ def _einsatz_bestaetigt() -> Mapping[str, Any]:
     }
     open_rows = {"$filter": {"input": "$$own_rows", "cond": {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]}}}
     answered = {"$filter": {"input": "$$own_rows", "cond": {"$ne": [{"$ifNull": ["$$this.antwort.art", None]}, None]}}}
-    agreed = {"$and": [f"$$this.{_AKTUELL}", {"$eq": ["$$this.antwort.art", "zugesagt"]}]}
+
+    def agreed(row: str) -> Mapping[str, Any]:
+        # `$ifNull` on both: no latest answer leaves `$$latest` missing, which must read as not agreed, never as null.
+        return {"$and": [{"$ifNull": [f"{row}.{_AKTUELL}", False]}, {"$eq": [{"$ifNull": [f"{row}.antwort.art", None]}, "zugesagt"]}]}
 
     # Open rows first: the decline closes its own row, and a fresh one is minted only after, so an open row is newer.
     judged = {
         "$cond": [
             {"$gt": [{"$size": "$$open_rows"}, 0]},
-            {"$allElementsTrue": [{"$map": {"input": "$$open_rows", "in": agreed}}]},
-            {"$cond": [{"$eq": [{"$ifNull": ["$$latest.antwort.art", None]}, "abgelehnt"]}, False, None]},
+            {"$allElementsTrue": [{"$map": {"input": "$$open_rows", "in": agreed("$$this")}}]},
+            agreed("$$latest"),
         ]
     }
 
