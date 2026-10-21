@@ -277,6 +277,9 @@ async def edited(database: AsyncDatabase, collection: Collection, document_id: A
 THEIR_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b1")
 OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
 OWED_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
+# The request for a grant of their address, and the one they asked for another's.
+ANTRAG_FOR_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e1")
+ANTRAG_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e2")
 THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
 
 
@@ -480,14 +483,21 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await records_they_made_holding_no_grant(database)
     # A grant asked for their address and one they asked for another's, neither decided: a request outlives neither person.
+    # Fixed ids, for the owed notice's reason below: the log keeps the erasure's filter by id.
     await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_many(
         [
-            compose_antrag(
-                adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von="quillhilde@example.com", now=FAR_OFF
-            ),
-            compose_antrag(
-                adresse="neu.kollegin@example.com", verwaltung="administration", berechtigung_id=None, gestartet_von=IDENTIFIER, now=FAR_OFF
-            ),
+            {
+                "_id": ANTRAG_FOR_THEM_OID,
+                **compose_antrag(
+                    adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von="quillhilde@example.com", now=FAR_OFF
+                ),
+            },
+            {
+                "_id": ANTRAG_BY_THEM_OID,
+                **compose_antrag(
+                    adresse="neu.kollegin@example.com", verwaltung="administration", berechtigung_id=None, gestartet_von=IDENTIFIER, now=FAR_OFF
+                ),
+            },
         ]
     )
     await database[Collection.SPIELER].insert_one(
