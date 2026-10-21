@@ -68,8 +68,8 @@ describe("what the address tool reads", () => {
     unmount();
   });
 
-  /* A person who can still sign in changes the address on their account page: the tool's box invites nobody else. Said as
-     their word, the tool's first way asking the address on file, which approves only where someone still signs in there. */
+  /* A person who can still sign in changes it on their account page. Said as their word: the tool's first way asks the
+     address on file, which approves only where someone still signs in there. */
   it("asks for the address of a person who says they can no longer sign in with it, as its menu entry does", () => {
     tool();
 
