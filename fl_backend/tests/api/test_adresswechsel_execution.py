@@ -1745,6 +1745,18 @@ class TestTheRequestsForAGrantAnEffectMeets:
         # The refusal's own line, keyed as a refusal keys it, by the address the request was about.
         assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
 
+    def test_the_end_tells_the_requester_in_the_effects_own_write(self, mongo_replica_set_url: str):
+        """Queued by the effect's transaction, naming the address the requester asked about, never the one it moved to."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            rows = database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find({"berechtigung_id": ANTRAG_OID})
+            return [(queued["art"], queued["jetzt"]["adresse"], queued["geaendert_von"]) async for queued in rows]
+
+        assert on_a_person(mongo_replica_set_url, body) == [("antrag_beendet", EMAIL, ADMIN)]
+
     def test_a_decided_request_about_the_person_keeps_no_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
         """Its row is gone, so only its kept image names them, which the erasure at the new address reaches by address alone."""
 
@@ -1757,7 +1769,8 @@ class TestTheRequestsForAGrantAnEffectMeets:
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
-        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
+        # The refusal's notice to its requester keeps the address until the reconciliation, unrun here, has told them.
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:

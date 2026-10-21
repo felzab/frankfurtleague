@@ -734,7 +734,9 @@ async def move_the_address_in_session(
     beendet = await end_the_antraege_about_in_session(
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        sperrliste=sperrliste,
         adresse=bestand.identifier,
+        now=now,
         session=session,
     )
 

@@ -533,7 +533,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
-_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel", "antrag_abgelehnt", "antrag_beendet"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 

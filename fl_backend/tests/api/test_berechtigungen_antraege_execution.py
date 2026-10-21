@@ -31,14 +31,17 @@ from app.api.berechtigungen.admin_router import (
     post_berechtigung,
 )
 from app.api.berechtigungen.antraege import (
+    ANTRAG_ENDEN,
     BERECHTIGUNG_ANTRAG_OFFEN,
     BERECHTIGUNG_ANTRAG_VERFALLEN,
     BERECHTIGUNG_GENEHMIGUNG_INHABER,
     BERECHTIGUNG_GENEHMIGUNG_JUENGER,
     BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
     compose_antrag,
+    end_the_antraege_about_in_session,
     erase_antraege_in_session,
 )
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
 from app.api.berechtigungen.services import BERECHTIGUNG_GESPERRT, BERECHTIGUNG_VORHANDEN
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
@@ -48,7 +51,7 @@ from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import admin_judge
 from app.core.transactions import actor_judge_var, transaction_session
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
@@ -875,3 +878,161 @@ class TestTheAddressMoveIsNoNewGrant:
         moved, rows = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
 
         assert (EMAIL in moved, moved.get(NEW_EMAIL), rows) == (False, "administration", [])
+
+
+def told(answer: Any) -> list[tuple[str, str | None, str | None, str | None, list[str] | None]]:
+    """Each claimed request's end: its kind, the address and tier it asked for, its requester and its recipients."""
+
+    return [
+        (
+            row.art,
+            None if row.jetzt is None else row.jetzt.adresse,
+            None if row.jetzt is None else row.jetzt.verwaltung,
+            row.geaendert_von,
+            row.an,
+        )
+        for row in answer.aenderungen
+        if row.art in ANTRAG_ENDEN
+    ]
+
+
+async def ended(database: AsyncDatabase, client: AsyncMongoClient, adresse: str) -> list[Mapping[str, Any]]:
+    """The address change's step ending every request about `adresse`, on its own transaction as the effect runs it."""
+
+    async def step(session: AsyncClientSession) -> list[Mapping[str, Any]]:
+        return await end_the_antraege_about_in_session(
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            sperrliste=ban_list(database),
+            adresse=adresse,
+            now=NOW,
+            session=session,
+        )
+
+    async with transaction_session(client) as session:
+        return await session.with_transaction(step)
+
+
+async def erased_whole(database: AsyncDatabase, client: AsyncMongoClient, identifier: str) -> None:
+    """The erasure's grants step for `identifier`, which withholds them in every notice still queued."""
+
+    async def step(session: AsyncClientSession) -> Any:
+        return await erase_grants_and_authorship_in_session(
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            einladungen_collection=database[Collection.EINLADUNGEN],
+            sperrliste_collection=database[Collection.SPERRLISTE],
+            sperrliste=ban_list(database),
+            identifier=identifier,
+            geaendert_von=OWNER,
+            now=NOW,
+            session=session,
+        )
+
+    async with transaction_session(client) as session:
+        await session.with_transaction(step)
+
+
+class TestTheRequesterIsToldHowItEnded:
+    """`docs/backend/spec.md :: I865`: a refusal and an address change's end tell the requester, naming nobody who acted."""
+
+    def test_a_refusal_queues_its_requester_a_notice_beside_the_removal(self, mongo_replica_set_url: str):
+        """Queued after the removal took the request's own notice, and naming the requester, never Bernd who refused it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            await refuse(database, client, antrag_id, als=BERND)
+            rows = await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find({"berechtigung_id": antrag_id}).to_list()
+            return [(row["art"], row["urheber"], row["geaendert_von"]) for row in rows], told(await claimed(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            [("antrag_abgelehnt", "anwendung", ANNA)],
+            [("antrag_abgelehnt", NEU, "administration", ANNA, [ANNA])],
+        )
+
+    def test_a_promotions_refusal_tells_its_requester_the_tier_it_asked(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await tier(database, client, BERND_ID)
+            (antrag,) = await antraege(database)
+            await refuse(database, client, antrag["_id"], als=ANNA)
+            return told(await claimed(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == [("antrag_abgelehnt", BERND, "owner", OWNER, [OWNER])]
+
+    def test_a_withdrawal_tells_nobody(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse(database, client, await asked_for(database, client), als=ANNA)
+            return await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"art": {"$in": sorted(ANTRAG_ENDEN)}})
+
+        assert on_a_league(mongo_replica_set_url, body) == 0
+
+    def test_an_address_changes_end_tells_the_requester_of_an_open_request_alone(self, mongo_replica_set_url: str):
+        """A request lapsed before the change ended when it lapsed, so the change is no news of it to anybody."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_for(database, client)
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(
+                    adresse="dritte@beispielschule.de",
+                    verwaltung="administration",
+                    berechtigung_id=None,
+                    gestartet_von=BERND,
+                    now=NOW - timedelta(days=GENEHMIGUNG_TAGE + 1),
+                )
+            )
+            removed = [len(await ended(database, client, adresse)) for adresse in (NEU, "dritte@beispielschule.de")]
+            return removed, await antraege(database), told(await claimed(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body) == ([1, 1], [], [("antrag_beendet", NEU, "administration", ANNA, [ANNA])])
+
+    def test_an_address_barred_since_the_request_is_withheld_as_the_notice_is_queued(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(NEU, bis=STANDING))
+            await refuse(database, client, antrag_id, als=BERND)
+            row = await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find_one({"art": "antrag_abgelehnt"})
+            assert row is not None
+            return row["jetzt"], row["vorenthalten"], told(await claimed(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            {"adresse": None, "verwaltung": "administration"},
+            "gesperrt",
+            [("antrag_abgelehnt", None, "administration", ANNA, [ANNA])],
+        )
+
+
+def told_after(url: str, since_the_refusal: Racer) -> Any:
+    """Bernd refuses Anna's request, `since_the_refusal` runs, then the pass claims: the requester's notice as answered."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        antrag_id = await asked_for(database, client)
+        await refuse(database, client, antrag_id, als=BERND)
+        await since_the_refusal(database, client, antrag_id)
+        return told(await claimed(database, client))
+
+    return on_a_league(url, body, grants=[*THREE, grant_document(CARLA_ID, CARLA, "administration")])
+
+
+async def anna_erased_whole(database: AsyncDatabase, client: AsyncMongoClient, _: ObjectId) -> None:
+    await erased_whole(database, client, ANNA)
+
+
+async def anna_barred(database: AsyncDatabase, client: AsyncMongoClient, _: ObjectId) -> None:
+    await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
+
+
+class TestTheRequestersNoticeReadsItsRecipientAtTheClaim:
+    """`docs/backend/spec.md :: I865`: the requester is read as the claim finds them, so one who left the administration hears nothing."""
+
+    def test_a_requester_erased_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
+        expected = [("antrag_abgelehnt", NEU, "administration", ERASED_ACTOR_MARKER, [])]
+        assert told_after(mongo_replica_set_url, anna_erased_whole) == expected
+
+    def test_a_requester_barred_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
+        assert told_after(mongo_replica_set_url, anna_barred) == [("antrag_abgelehnt", NEU, "administration", None, [])]
+
+    def test_a_requester_revoked_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
+        assert told_after(mongo_replica_set_url, annas_grant_revoked) == [("antrag_abgelehnt", NEU, "administration", ANNA, [])]

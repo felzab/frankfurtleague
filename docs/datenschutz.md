@@ -491,12 +491,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
   `berechtigungen_postausgang` holds a changed or requested grant's address, and the acting
-  administrator's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
+  administrator's, or a refused or ended request's address and its requester's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
   still queued (`docs/backend/spec.md :: I462`), and so does an erasure (`:: I659`). Each change is
   mailed to every holder and to the address it names, carrying that address and the administrator who
   made it; a barred address it names by its state alone, and an erased person's not at all
   (`docs/frontend/spec.md :: I455`). A request goes only to whoever could approve it
-  (`docs/backend/spec.md :: I856`). A revoke removes the grant and its announced row
+  (`docs/backend/spec.md :: I856`). Its refusal, or its end by a change of the address it is for, goes
+  to its requester alone while they still administer, naming the address and tier they asked for and
+  nobody who refused it; a withdrawal tells nobody (`docs/backend/spec.md :: I865`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
   takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or

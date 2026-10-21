@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.services import LIVE_TERMS, als_utc
-from app.api.berechtigungen.antraege import antrag_steht, read_the_antraege
+from app.api.berechtigungen.antraege import ANTRAG_ENDEN, antrag_steht, read_the_antraege
 from app.api.berechtigungen.crud import (
     pull_the_list_to_judge,
     read_berechtigungen,
@@ -105,7 +105,9 @@ async def post_berechtigungen_abgleich(
     it, the tier it asks for. An `adresswechsel` row is an address change moving a grant, keyed by the change, that waits on
     an approval: it goes to its own `an` too, whoever could approve it now as `POST /adresswechsel/{adresswechsel_id}/genehmigung`
     judges them, and nobody where the change is approved, ended or past its week, or its address now holds no grant.
-    `an` is null on every other row.
+    An `antrag_abgelehnt` row is a request an administrator refused, and an `antrag_beendet` row one an address change ended,
+    each keyed by the request and naming its requester as `geaendert_von`: it goes to its own `an` as well, that requester alone
+    while they hold a live, unbarred grant, and nobody otherwise. `an` is null on every other row.
     """
 
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
@@ -198,6 +200,7 @@ async def post_berechtigungen_abgleich(
             )
 
         recipients = [str(row["adresse"]) for row in live if row["adresse"] not in barred]
+        holders = frozenset(recipients)
         # Barred addresses queued before a ban are withheld at the answer, not only at the queueing.
         claimed_addresses = {
             adresse
@@ -237,9 +240,7 @@ async def post_berechtigungen_abgleich(
             _answered(
                 row,
                 barred,
-                an=_genehmiger(row, offene, grants=grants, announced=announced, barred=barred)
-                if row["art"] != "adresswechsel"
-                else _adresswechsel_genehmiger(wechsel.get(row["berechtigung_id"]), grants=grants, announced=announced, barred=barred, now=now),
+                an=_an(row, offene, wechsel, holders=holders, grants=grants, announced=announced, barred=barred, now=now),
             )
             for row in claimable
         ]
@@ -256,6 +257,27 @@ async def post_berechtigungen_abgleich(
         empfaenger=recipients,
         uebersprungen=uebersprungen,
     )
+
+
+def _an(
+    row: Mapping[str, Any],
+    offene: Mapping[Any, Mapping[str, Any]],
+    wechsel: Mapping[Any, Mapping[str, Any]],
+    *,
+    holders: Set[str],
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    barred: Set[str],
+    now: datetime,
+) -> list[str] | None:
+    """Who one claimed row goes to in `empfaenger`'s place, by its kind; `None` for every change to a grant."""
+
+    if row["art"] == "adresswechsel":
+        return _adresswechsel_genehmiger(wechsel.get(row["berechtigung_id"]), grants=grants, announced=announced, barred=barred, now=now)
+    if row["art"] in ANTRAG_ENDEN:
+        return _antragsteller(row, holders)
+
+    return _genehmiger(row, offene, grants=grants, announced=announced, barred=barred)
 
 
 def _genehmiger(
@@ -283,6 +305,14 @@ def _genehmiger(
         gesperrt=barred,
         vor=genehmigung["angefragt_am"],
     )
+
+
+def _antragsteller(row: Mapping[str, Any], holders: Set[str]) -> list[str]:
+    """A request's end goes to its requester, read now: nobody once they are erased, barred, revoked or moved off the address."""
+
+    von = row.get("geaendert_von")
+
+    return [von] if isinstance(von, str) and von in holders else []
 
 
 def _adresswechsel_genehmiger(
