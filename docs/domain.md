@@ -41,7 +41,7 @@ model holds; read this for the shape those tables are stating.
   season's rules and the clubs entered into it.
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
-  fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee (`spielberichte`),
+  fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
   one change of the address a person signs in on (`adresswechsel`) and the notice its end still owes
   (`adresswechsel_postausgang`), one barred address (`sperrliste`), one address's access to the
   administration (`berechtigungen`), what the administrators have been told of it
@@ -321,7 +321,8 @@ makes rather than the addresses. Two obligations are not caught, because no chec
 
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks
-  inward from a validator, so an id field nobody declared is invisible.
+  inward from a validator, so an id field nobody declared is invisible. A match report's scorer and card
+  ids declare none, an accepted gap (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
 - **A field that is not plainly editable** owes a `FieldPolicy`. The one place this closes mechanically is
   `inactive_since`, which every collection whose validator declares it must account for; where the
   editability is a judgement, nothing can do the same.

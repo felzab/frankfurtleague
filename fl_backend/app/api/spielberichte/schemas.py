@@ -84,7 +84,7 @@ class FLSpielberichtTorschuetze(BaseModel):
 
 
 class FLSpielberichtKarte(BaseModel):
-    """One card as stored, its reason null on a red card and on every card once its season's end strips the reasons."""
+    """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
     seite: FLSpielberichtSeite
     spieler_id: CustomObjectId
@@ -96,7 +96,7 @@ class FLSpielberichtKarte(BaseModel):
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
     """One card as a write sends it.
 
-    A caution's reason is judged against the stored block, never here: a correction after the season's end resends the
+    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
     cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
     """
 

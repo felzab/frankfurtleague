@@ -81,11 +81,12 @@ async def get_spielberichte(
     """
     Every report of one season holding a block, each with its state against its fixture and what it proposes.
 
-    For the triage. Scoped to `saison_id`, the active season when none is named, which answers 404 while no season is
-    active.
+    What the season editor counts before an undraw or a replace, which a submitted report refuses
+    (`REQ-SPIELPLAN-007`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
+    season is active.
     """
 
-    # Resolved as the triage's own fixture read resolves it, so the two answer about one season.
+    # Resolved as every other admin read resolves an omitted season: the season selector sends none for the running one.
     if saison_id is None:
         saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
 
@@ -177,7 +178,7 @@ async def patch_spielbericht(
     still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
     group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
     (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
-    side, pupil and colour, stripped of its reason at the season's end (`REQ-BERICHT-008`); and remarks naming a seat
+    side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat
     holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
     `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
     mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
@@ -232,7 +233,7 @@ async def patch_spielbericht(
         )
         judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
-        # The correction's own answer, read back into its form: the squads it picks from.
+        # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
         return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
 
     # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).

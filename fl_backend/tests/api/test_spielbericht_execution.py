@@ -723,7 +723,10 @@ class TestTheReads:
         assert sorted((spieler.spieler_id, spieler.nachname) for spieler in after.genannt) == [(LINA, "Krause"), (MIA, "Westphal")]
 
     def test_the_referee_s_list_holds_their_played_fixtures_and_whether_a_report_stands(self, mongo_replica_set_url: str):
-        """Each clause of the filter has a fixture failing it alone, and no running season lists none; the earlier played fixture holds the order."""
+        """Each clause of the filter has a fixture failing it alone, and no running season lists none.
+
+        The earlier played fixture holds the order.
+        """
 
         frueher, anderer, morgen, abgesagt, vorjahr = (ObjectId() for _ in range(5))
 

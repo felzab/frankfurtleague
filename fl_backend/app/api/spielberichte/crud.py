@@ -248,10 +248,10 @@ async def strip_the_seasons_reports(
     aktionen_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
-    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every report's remarks and card reasons, on the reports and in their log images."""
+    """Once the season after `saison_id` has ended, every report's remarks and card reasons, on the reports and in their log images."""
 
     await patch_many_in_db(
         collection=spielberichte_collection,

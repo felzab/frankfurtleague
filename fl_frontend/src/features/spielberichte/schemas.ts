@@ -89,8 +89,8 @@ export type KartenSchluessel = {
 };
 
 /**
- * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the stored report holds stripped at the
- * season's end excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
+ * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the season-end strip left reasonless in the
+ * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
   const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
