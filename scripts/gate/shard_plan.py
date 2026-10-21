@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import io
 import re
 import sys
 from pathlib import Path
@@ -25,11 +26,6 @@ from checker_kernel import EXIT_OK, EXIT_REFUSED, REPO_ROOT, UNREADABLE, run
 
 SHARD: Final = re.compile(r"^([1-9][0-9]*)/([1-9][0-9]*)$")
 COST: Final = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
-
-# What opens a glob construct. `node --test` reads every path it is named as a pattern, so
-# `[spiel_id]` is a character class matching nothing; a class holding the one character is literal. A
-# path a glob still misreads matches nothing, which `fl_frontend/scripts/case-count-reporter.mjs` refuses.
-GLOB_SPECIAL: Final = frozenset("*?[{")
 
 
 class Refused(Exception):
@@ -78,11 +74,6 @@ def plan(candidates: list[str], costs: dict[str, float], count: int) -> list[lis
     return [sorted(shard) for shard in shards]
 
 
-def glob_literal(path: str) -> str:
-    """The path as a glob matching itself alone."""
-    return "".join(f"[{char}]" if char in GLOB_SPECIAL else char for char in path)
-
-
 BACKEND: Final = REPO_ROOT / "fl_backend"
 
 
@@ -106,8 +97,10 @@ def main() -> int:
     parser.add_argument("--list-db-modules", action="store_true", help="print the backend's db-tier modules, relative to fl_backend, and stop")
     parser.add_argument("--table", metavar="PATH", help="the committed cost table, repository-relative")
     parser.add_argument("--shard", metavar="I/N", help="this shard's index, counting from 1, and the count")
-    parser.add_argument("--glob-literal", action="store_true", help="write each path as a glob matching itself, for `node --test`")
     args = parser.parse_args()
+    # The gate splits what this prints at `\n` alone, so a Windows python's CRLF would end every path in `\r`.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(newline="\n")
     if args.list_db_modules:
         try:
             modules = db_modules()
@@ -145,7 +138,7 @@ def main() -> int:
         # A notice, never a refusal: an added file is placed at the mean, and the run says how many.
         print(f"      {len(unpriced)} of {len(candidates)} file(s) have no row in {args.table} and cost its mean", file=sys.stderr)
     for path in plan(candidates, costs, count)[index - 1]:
-        print(glob_literal(path) if args.glob_literal else path)
+        print(path)
     return EXIT_OK
 
 

@@ -368,10 +368,13 @@ do_frontend_db() {
 # the files at the shard's positions in the sorted list whatever they cost.
 FRONTEND_COSTS=.github/shard-costs/frontend.tsv
 BACKEND_DB_COSTS=.github/shard-costs/backend-db.tsv
+# The runner reads each path it is named as a glob, so a planned path goes back through the lister to
+# be written as one matching that file alone: `[spiel_id]` would match no file, or another.
 plan_frontend_shard() { # $1 the package.json script whose files are cut, $2 <index>/<count>
-  local listed
+  local listed planned
   listed="$( cd fl_frontend && pnpm exec node scripts/shard-files.mjs "$1" )" || return
-  printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$FRONTEND_COSTS" --shard "$2" --glob-literal
+  planned="$(printf '%s\n' "$listed" | "$PY" scripts/gate/shard_plan.py --table "$FRONTEND_COSTS" --shard "$2")" || return
+  printf '%s\n' "$planned" | ( cd fl_frontend && pnpm exec node scripts/shard-files.mjs --literal )
 }
 plan_backend_db_shard() { # $1 <index>/<count>
   local listed

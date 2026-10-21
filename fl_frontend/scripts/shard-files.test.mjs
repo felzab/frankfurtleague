@@ -9,17 +9,24 @@ import { pathToFileURL } from "node:url";
 import { filesOf, patternsOf } from "./shard-files.mjs";
 
 const FRONTEND = path.join(import.meta.dirname, "..");
+const SHARD_FILES = path.join(import.meta.dirname, "shard-files.mjs");
 const SCRIPTS = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8")).scripts;
 
 const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-shard-files-"));
 after(() => rmSync(SCRATCH, { recursive: true, force: true }));
 
 const CASE = 'import { it } from "node:test";\nit("runs", () => {});\n';
-// Every shape the two tiers' patterns part or skip: a db file, a route folder's spelling, both kinds of `node_modules`.
+// Each path a glob would misread, beside the file its misreading would select instead: a route
+// folder's brackets read as a class, a brace set, an extglob.
+const MISREAD = ["(public)/[saison_id]/page.test.mjs", "a{b,c}/page.test.mjs", "+(x)/page.test.mjs"];
+// Every shape the two tiers' patterns part or skip: a db file, route folders, both kinds of `node_modules`.
 const TREE = [
   "unit.test.mjs",
   "store.db.test.mjs",
-  "(public)/[saison_id]/page.test.mjs",
+  ...MISREAD,
+  "(public)/s/page.test.mjs",
+  "ab/page.test.mjs",
+  "x/page.test.mjs",
   "lib/helper-test.mjs",
   "test/inside.mjs",
   "node_modules/dependency.test.mjs",
@@ -69,5 +76,19 @@ describe("the files a sharded tier is planned over", () => {
   it("are read from no script that does not hand its patterns to test:base", () => {
     assert.equal(patternsOf("node --test"), null);
     assert.equal(patternsOf(undefined), null);
+  });
+});
+
+describe("a planned path handed back to the runner", () => {
+  it("selects exactly its own file, however a glob would read it", () => {
+    // Through the command line the gate pipes the plan into, the plan's lines ending as a Windows python writes them.
+    const done = spawnSync(process.execPath, [SHARD_FILES, "--literal"], { input: MISREAD.join("\r\n") + "\r\n", encoding: "utf8" });
+    assert.equal(done.status, 0, done.stderr);
+    const globs = done.stdout.split("\n").filter(Boolean);
+
+    assert.deepEqual(
+      globs.map((glob) => runnerFiles([glob])),
+      MISREAD.map((file) => [file]),
+    );
   });
 });

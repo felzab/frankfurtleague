@@ -65,12 +65,6 @@ def test_ties_fall_to_the_path_and_then_the_lower_shard():
     assert plan_of(costs, ["d", "c", "b", "a"], 2) == plan_of(costs, ["a", "b", "c", "d"], 2) == [["a", "c"], ["b", "d"]]
 
 
-def test_a_path_a_glob_misreads_is_written_as_itself():
-    """`node --test` reads every path as a pattern, and Next's route folders spell brackets."""
-    assert shard_plan.glob_literal("src/app/[spiel_id]/page.test.ts") == "src/app/[[]spiel_id]/page.test.ts"
-    assert shard_plan.glob_literal("src/app/(public)/page.test.ts") == "src/app/(public)/page.test.ts"
-
-
 @pytest.mark.parametrize(
     ("text", "reason"),
     [
@@ -114,7 +108,7 @@ def test_a_plan_it_cannot_make_exits_2_and_names_no_file(shard: str, stdin: str,
 
 
 def test_the_backend_db_tier_is_planned_whole_over_its_shards():
-    """The committed table and the tier's own reader, as the gate runs them: every module once, the table naming no other."""
+    """The committed table and the tier's own reader, as the gate runs them: every module once, and nothing else."""
     listed = run_planner("--list-db-modules", stdin="")
     assert listed.returncode == 0, listed.stderr
     modules = listed.stdout.splitlines()
