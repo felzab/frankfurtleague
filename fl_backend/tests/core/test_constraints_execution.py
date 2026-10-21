@@ -1,3 +1,4 @@
+import contextlib
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -7,6 +8,7 @@ import pytest
 from bson import ObjectId
 from pydantic import SecretStr
 from pymongo import ASCENDING, AsyncMongoClient, monitoring
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -14,7 +16,12 @@ from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
+from app.api.registrierungen.crud import nummern_rows
+from app.api.registrierungen.public_router import _live_squad_filter
 from app.api.registrierungen.services import compose_confirmation_update
+from app.api.spielberichte.crud import pull_bericht_lage
+from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.person_router import _read_the_squad
 from app.api.teams.schemas import FLGruppenNames
 from app.core import constraints
 from app.core.collections import Collection
@@ -31,6 +38,7 @@ from app.core.constraints import (
     report_unservable_values,
     report_violations,
 )
+from app.core.exceptions import WriteRefusalException
 from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -1404,8 +1412,11 @@ def test_every_declared_support_index_is_built(mongo_url: str):
 
     async def body(database: AsyncDatabase) -> int:
         for index in SUPPORT_INDEXES:
-            names = [existing["name"] async for existing in await database[index.collection].list_indexes()]
-            assert index.name in names, f"{index.name} missing from {index.collection}: {names}"
+            built = {existing["name"]: existing async for existing in await database[index.collection].list_indexes()}
+            assert index.name in built, f"{index.name} missing from {index.collection}: {sorted(built)}"
+            # Read back too: one built under another collation serves none of the reads it is declared for.
+            locale = (built[index.name].get("collation") or {}).get("locale")
+            assert locale == (index.collation or {}).get("locale"), f"{index.name} is built under {locale}, declared {index.collation}"
         return len(SUPPORT_INDEXES)
 
     built = on_the_shipped_schema(mongo_url, body)
@@ -1597,6 +1608,172 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     # The `$sort` is what makes the planner reach for an index at all, and it is free only while one
     # provides the order: without `aktionen_facets` the same stage sorts the log in memory instead.
     assert "SORT" not in stages, f"counting {db_filter or 'the whole log'} blocks on an in-memory sort: {stages}"
+
+
+PLAIN_SQUAD_INDEX = "saison_spieler_saison_id_team_id"
+GERMAN_SQUAD_INDEX = "saison_spieler_saison_id_team_id_de"
+
+# The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
+SQUAD_TEAMS = 10
+SQUAD_SEASONS = ("2024", "2025", SAISON_ID)
+
+Issued = tuple[list[Mapping[str, Any]], Mapping[str, Any] | None]
+
+
+def count_pipeline(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """The pipeline `count_documents` sends for `db_filter`."""
+
+    return [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}]
+
+
+class _SentSquadReads:
+    """A squad collection keeping each aggregate and count a call site sends, with its collation, so the read is explained as sent."""
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.sent: list[Issued] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, pipeline: list[Mapping[str, Any]], *, collation: Mapping[str, Any] | None = None, **kwargs: Any) -> Any:
+        self.sent.append((pipeline, collation))
+        return await self._collection.aggregate(pipeline, collation=collation, **kwargs)
+
+    async def count_documents(self, db_filter: Mapping[str, Any], **kwargs: Any) -> int:
+        self.sent.append((count_pipeline(db_filter), kwargs.get("collation")))
+        return await self._collection.count_documents(db_filter, **kwargs)
+
+
+async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSession], Awaitable[Any]]) -> Issued:
+    """The one squad read `read` sends; a refusal it answers after the read is beside the point here."""
+
+    squad = _SentSquadReads(database[Collection.SAISON_SPIELER])
+    async with database.client.start_session() as session:
+        with contextlib.suppress(WriteRefusalException):
+            await read(squad, session)
+    [issued] = squad.sent
+    return issued
+
+
+async def the_report_squads(database: AsyncDatabase) -> Issued:
+    await database[Collection.SPIELE].insert_one(
+        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"})
+    )
+
+    return await sent_by(
+        database,
+        lambda squad, session: pull_bericht_lage(
+            spiele_collection=database[Collection.SPIELE],
+            saisons_collection=database[Collection.SAISONS],
+            saison_spieler_collection=squad,
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            spiel_id=SPIEL_OID,
+            session=session,
+        ),
+    )
+
+
+async def the_squad_page(database: AsyncDatabase) -> Issued:
+    return await sent_by(
+        database,
+        lambda squad, session: _read_the_squad(saison_spieler_collection=squad, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
+    )
+
+
+async def the_squad_cap(database: AsyncDatabase) -> Issued:
+    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
+
+    return await sent_by(
+        database,
+        lambda squad, session: refuse_a_full_squad(
+            saison_spieler_collection=squad,
+            saisons_collection=database[Collection.SAISONS],
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            spieler_id=SPIELER_OID,
+            session=session,
+        ),
+    )
+
+
+async def the_captaincy(database: AsyncDatabase) -> Issued:
+    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
+
+    return await sent_by(
+        database,
+        lambda squad, session: refuse_a_taken_rolle(
+            saison_spieler_collection=squad,
+            saisons_collection=database[Collection.SAISONS],
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            spieler_id=SPIELER_OID,
+            rolle="kapitaen",
+            session=session,
+        ),
+    )
+
+
+async def the_registrations_numbers(database: AsyncDatabase) -> Issued:
+    return await sent_by(
+        database, lambda squad, session: nummern_rows(saison_spieler_collection=squad, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
+    )
+
+
+async def the_registrations_squad_count(_: AsyncDatabase) -> Issued:
+    """Its filter alone: both of the registration's counts send it bare from inside an endpoint reached through a live invitation."""
+
+    return count_pipeline(_live_squad_filter(saison_id=SAISON_ID, team_id=TEAM_OID)), None
+
+
+def index_names(node: Any) -> list[str]:
+    """Every index a plan walks, at any depth: a `$lookup` or an exploded `$in` nests its scans past `inputStage`."""
+
+    if isinstance(node, Mapping):
+        return [*([node["indexName"]] if "indexName" in node else []), *(name for value in node.values() for name in index_names(value))]
+    if isinstance(node, list):
+        return [name for value in node for name in index_names(value)]
+    return []
+
+
+@pytest.mark.parametrize(
+    ("issue", "index"),
+    [
+        pytest.param(the_report_squads, GERMAN_SQUAD_INDEX, id="the-report-s-squads"),
+        pytest.param(the_squad_page, GERMAN_SQUAD_INDEX, id="the-squad-page"),
+        pytest.param(the_squad_cap, PLAIN_SQUAD_INDEX, id="the-squad-cap"),
+        pytest.param(the_captaincy, PLAIN_SQUAD_INDEX, id="the-captaincy"),
+        pytest.param(the_registrations_squad_count, PLAIN_SQUAD_INDEX, id="the-registration-s-squad-count"),
+        pytest.param(the_registrations_numbers, PLAIN_SQUAD_INDEX, id="the-registrations-numbers"),
+    ],
+)
+def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
+    mongo_url: str, issue: Callable[[AsyncDatabase], Awaitable[Issued]], index: str
+):
+    """An index serves only a read of its own collation: the two name-sorted reads take the German one, the counts the plain one."""
+
+    async def body(database: AsyncDatabase) -> tuple[list[str], list[str], Mapping[str, Any] | None]:
+        await database[Collection.SAISON_SPIELER].insert_many(
+            [
+                valid_document("saison_spieler", _id=ObjectId(), spieler_id=ObjectId(), saison_id=saison, team_id=team)
+                for saison in SQUAD_SEASONS
+                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(SQUAD_TEAMS - 2)))
+                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (SQUAD_TEAMS * len(SQUAD_SEASONS)))
+            ]
+        )
+        pipeline, collation = await issue(database)
+        command: dict[str, Any] = {"aggregate": str(Collection.SAISON_SPIELER), "pipeline": pipeline, "cursor": {}}
+        if collation is not None:
+            command["collation"] = collation
+        explained = await database.command({"explain": command, "verbosity": "queryPlanner"})
+        planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
+
+        return counted_stages(explained), index_names(planner["winningPlan"]), collation
+
+    stages, indexes, collation = on_the_shipped_schema(mongo_url, body)
+
+    assert "COLLSCAN" not in stages, f"read under {collation} scans the squads: {stages}"
+    assert indexes == [index], f"read under {collation} walked {indexes}, not {index}"
 
 
 class _SentUpdates(monitoring.CommandListener):

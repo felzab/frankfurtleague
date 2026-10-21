@@ -38,7 +38,7 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   // fixture answers its 404 before any closed state names it.
   let lesen;
   try {
-    lesen = await getAdminSpielbericht(spielId);
+    lesen = await getAdminSpielbericht(spielId, { kader: true });
   } catch (error) {
     if (isRecordMissing(error)) notFound();
     throw error;

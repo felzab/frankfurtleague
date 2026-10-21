@@ -2302,10 +2302,18 @@ class TestTheSeasonsEndStripsItsReports:
             "this season, no remarks": a_report(SAISON_ID, bemerkungen=None, rot_grund=None),
             "next season": a_report(NEXT_SAISON_ID),
         }
+        # Removed by an undraw, so their images sit in one log row's list: the shape a path naming no index cannot reach.
+        undrawn = [a_report(SAISON_ID), a_report(SAISON_ID, bemerkungen=None)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             berichte = database[Collection.SPIELBERICHTE]
-            await berichte.insert_many([dict(report) for report in reports.values()])
+            await berichte.insert_many([dict(report) for report in (*reports.values(), *undrawn)])
+            async with client.start_session() as session:
+                await session.with_transaction(
+                    lambda session: delete_many_from_db(
+                        collection=berichte, db_filter={"_id": {"$in": [report["_id"] for report in undrawn]}}, session=session
+                    )
+                )
             for report in reports.values():
                 # A logged write, so an image holds the remarks and reasons too.
                 await patch_one_in_db(
@@ -2326,14 +2334,19 @@ class TestTheSeasonsEndStripsItsReports:
                 ]
                 for name, report in reports.items()
             }
+            removal = await database[Collection.AKTIONEN].find_one({"collection": "spielberichte", "operation": "delete_many"})
 
-            return response, stored, images, redacted
+            return response, stored, images, (removal or {})["before"], redacted
 
-        response, stored, images, redacted = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, stored, images, removed, redacted = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert response.fehlgeschlagen == 0
-        # The two images this season's strip redacted join the pass's count beside every other clock's.
-        assert redacted["reports"] == 2
+        # The three log rows this season's strip redacted, the undraw's among them, join the pass's count beside every
+        # other clock's.
+        assert redacted["reports"] == 3
+        assert [(image["bericht"]["bemerkungen"], [karte["grund"] for karte in image["bericht"]["karten"]]) for image in removed] == [
+            (None, [None, None])
+        ] * len(undrawn)
         assert response.redigierte_aktionen == redacted["reports"] + redacted["others"]
         for name in ("this season", "this season, no remarks"):
             kept = reports[name]["bericht"]

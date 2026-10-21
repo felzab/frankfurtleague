@@ -55,6 +55,37 @@ describe("what a report's mirror refuses before the backend does", () => {
     assert.ok(formFehler([karte], [{ ...karte, farbe: "gelb_rot" }])["bericht.karten.0.grund"], "another colour is a new card");
   });
 
+  /* Counted as the backend counts: one stored card excuses one caution, so the second equal one owes its reason, and a
+     reason on the first leaves the stored card to the second. */
+  it("lets one stripped caution excuse one equal caution and no more", () => {
+    const karte = { seite: "team1", spieler_id: SPIELER, minute: "30", farbe: "gelb", grund: null };
+    const formFehler = (karten: unknown[]) => {
+      const parsed = spielberichtFormSchema([karte]).safeParse(bericht({ team1_tore: 0, team2_tore: 0 }, [], karten));
+      return parsed.success ? {} : toFieldErrors(parsed.error);
+    };
+
+    assert.deepEqual(formFehler([karte, { ...karte, minute: "70" }]), {
+      "bericht.karten.1.grund": "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
+    });
+    assert.deepEqual(
+      formFehler([
+        { ...karte, grund: "foulspiel" },
+        { ...karte, minute: "70" },
+      ]),
+      {},
+    );
+    // Judged over the list, yet beside another card's untouched picker: both faults show at the one press.
+    assert.deepEqual(
+      Object.keys(
+        formFehler([
+          { ...karte, spieler_id: "", grund: "foulspiel" },
+          { ...karte, seite: "team2" },
+        ]),
+      ).sort(),
+      ["bericht.karten.0.spieler_id", "bericht.karten.1.grund"],
+    );
+  });
+
   /* The season's end strips every card's reason and the remarks: the rule is a write's, so the read of a stripped report
      opens on both readers' pages where a caution without its reason would otherwise fail the parse. */
   it("reads a report the season's end stripped, on the referee's form and on the administrator's panel", () => {

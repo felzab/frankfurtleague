@@ -20,11 +20,14 @@ import type {
 
 /**
  * One fixture's report as the administrator reads it, remarks and reasons included, with its state. Uncached: an
- * admin-tier read.
+ * admin-tier read. Both squads come only with `kader`, for a form picking from them; without it they read empty.
  */
-export async function getAdminSpielbericht(spielId: string): Promise<FLSpielberichtAdminResponse> {
+export async function getAdminSpielbericht(spielId: string, params: { kader?: boolean } = {}): Promise<FLSpielberichtAdminResponse> {
   return runAdminRead(() =>
-    apiClient<FLSpielberichtAdminResponse>(`/spielberichte/${spielId}/admin`, FLSpielberichtAdminResponseSchema, { authType: "admin" }),
+    apiClient<FLSpielberichtAdminResponse>(`/spielberichte/${spielId}/admin`, FLSpielberichtAdminResponseSchema, {
+      authType: "admin",
+      params,
+    }),
   );
 }
 

@@ -17,6 +17,8 @@ import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
+import type { FLTeam } from "@/features/teams/schemas.ts";
+
 /** What the save answers it stamped over: no adoption before this one. */
 const PRIOR_BERICHT = {
   spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2",
@@ -54,11 +56,11 @@ const VERSION = 3;
 const lesen = spielberichtReadFixture({ zustand: "abweichend" });
 const SPIELBERICHT = FLSpielberichtAdminResponseSchema.parse({ ...lesen, bericht: { ...lesen.bericht, version: VERSION } });
 
-const editor = () =>
+const editor = (teams: FLTeam[] = []) =>
   underNext(
     h(AdminEditSpielDataForm, {
       spielData: SCHON_ERGEBNIS,
-      teams: [],
+      teams,
       spielorte: [],
       schiedsrichter: [],
       saisonSpiele: [SCHON_ERGEBNIS],
@@ -73,6 +75,46 @@ const editor = () =>
     }),
     { search: "saison_id=2026" },
   );
+
+const GOETHE = "68c1f0a2b3c4d5e6f7a8b9a1";
+const LESSING = "68c1f0a2b3c4d5e6f7a8b9a2";
+const SCHILLER = "68c1f0a2b3c4d5e6f7a8b9a3";
+
+const ADRESSE = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
+
+const verein = (id: string, name: string, shorthand: string): FLTeam => ({
+  id,
+  name,
+  gruppe: "A",
+  statistik: {
+    anzahl_gespielte_spiele: 0,
+    siege: 0,
+    niederlagen: 0,
+    unentschieden: 0,
+    tore_geschossen: 0,
+    tore_kassiert: 0,
+    punkte: 0,
+    anzahl_abgesagte_spiele: 0,
+  },
+  austritt: null,
+  shorthand,
+  description: "",
+  full_name: name,
+  website_url: null,
+  address: ADRESSE,
+  schulform: null,
+  inactive_since: null,
+});
+
+/** The picker's trigger group, whose own click toggles the list: HeroUI wraps the select's button in it. */
+function pickerTrigger(label: string): HTMLElement {
+  const button = [...document.querySelectorAll<HTMLElement>('button[aria-haspopup="listbox"]')].find((candidate) =>
+    (candidate.getAttribute("aria-labelledby") ?? "")
+      .split(" ")
+      .some((id) => document.getElementById(id)?.textContent?.trim().startsWith(label) === true),
+  );
+  return button?.closest<HTMLElement>('[data-slot="autocomplete-trigger"]') ?? assert.fail(`no picker trigger labelled ${label}`);
+}
 
 afterEach(cleanup);
 
@@ -122,5 +164,41 @@ describe("adopting a report whose proposal the fixture already holds", () => {
 
     const undo = calls.find(({ action }) => action === "undoAdminSpielEditAction") ?? assert.fail("the offer sent no undo");
     assert.deepEqual((undo.payload as readonly { bericht?: unknown }[])[0]?.bericht, PRIOR_BERICHT, "the undo left the adoption standing");
+  });
+
+  /* The goals still hold the proposal, but for another club: the report is about the clubs it was written for, so the
+     seed vouches for nothing once a side leaves them, and the backend would stamp nothing either. */
+  it("claims no adoption once a side of the draft is no longer the report's club", async () => {
+    const user = userEvent.setup();
+    const before = calls.length;
+    render(
+      editor([verein(GOETHE, "Goethe-Gymnasium", "GG"), verein(LESSING, "Lessing-Gymnasium", "LG"), verein(SCHILLER, "Schiller-Schule", "SS")]),
+    );
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
+    assert.ok(screen.getByText("Eingesetzt"), "the premise: the seed took");
+
+    await user.click(pickerTrigger("Team 1"));
+    await user.click(screen.getByRole("option", { name: "Schiller-Schule" }));
+    assert.equal(screen.queryAllByText("Eingesetzt").length, 0, "the panel vouches for a seed on a draft fielding another club");
+
+    await user.click(
+      screen.getAllByRole<HTMLButtonElement>("button", { name: "Speichern" }).find((button) => button.type === "submit") ??
+        assert.fail("the editor has no save"),
+    );
+    await act(answered);
+    const trotzdem = screen.queryAllByRole("button", { name: "Trotzdem speichern" })[0];
+    if (trotzdem !== undefined) {
+      await user.click(trotzdem);
+      await act(answered);
+    }
+
+    assert.deepEqual(
+      calls
+        .slice(before)
+        .filter(({ action }) => action === "patchAdminSpielDataAction")
+        .map(({ payload }) => (payload as readonly unknown[])[2]),
+      [null],
+      "the save named the report's version on a draft the report is not about",
+    );
   });
 });

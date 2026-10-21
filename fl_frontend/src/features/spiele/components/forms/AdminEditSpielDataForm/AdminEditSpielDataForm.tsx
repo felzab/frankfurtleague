@@ -209,10 +209,14 @@ export function AdminEditSpielDataForm({
   // knockout-cancellation warning cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
-  // Adopted only while every seeded atom holds what the press set: a hand edit since is the administrator's own
-  // result, which the save's stamp must not name as the report's. Derived before the status, which reads it.
+  // Adopted only while the seeded atoms hold what the press set and both sides field the report's clubs: otherwise the
+  // result is the administrator's own, which the save's stamp must not name as the report's. Derived before the status.
+  const berichtSeiten = spielbericht?.lesen.bericht?.seiten;
   const uebernimmtBericht =
-    eingesetzt !== null && haeltVorschlag(eingesetzt.vorschlag, { team1: team1Payload, team2: team2Payload, elfmeterschiessen, sonderereignis })
+    eingesetzt !== null &&
+    berichtSeiten !== undefined &&
+    uebernahmeGesperrt(berichtSeiten, { team1: team1Payload, team2: team2Payload }) === null &&
+    haeltVorschlag(eingesetzt.vorschlag, { team1: team1Payload, team2: team2Payload, elfmeterschiessen, sonderereignis })
       ? eingesetzt.version
       : null;
 

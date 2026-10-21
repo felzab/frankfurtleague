@@ -43,11 +43,15 @@ async function rendered(): Promise<{ text: string; reads: string[] }> {
   return { text: textOf(markup, " "), reads: readsOf(steps).map(({ endpoint }) => endpoint) };
 }
 
+/** The read as the backend answers it: both squads only where the read asks `kader`, empty otherwise. */
+const gelesenWie = (params: Record<string, unknown>) => {
+  const gelesen = spielberichtReadFixture();
+  return params.kader === true ? gelesen : { ...gelesen, kader: { team1: [], team2: [] } };
+};
+
 beforeEach(() => {
   eingabe = "off";
-  answerReadsWith((endpoint, schema, params) =>
-    endpoint === ENDPOINT ? spielberichtReadFixture() : EMPTIEST_ANSWER(endpoint, schema, params),
-  );
+  answerReadsWith((endpoint, schema, params) => (endpoint === ENDPOINT ? gelesenWie(params) : EMPTIEST_ANSWER(endpoint, schema, params)));
 });
 
 describe("the administrator's report correction page", () => {
@@ -90,5 +94,7 @@ describe("the administrator's report correction page", () => {
     for (const wert of ["Goethe-Gymnasium gegen Lessing-Gymnasium", "Tor hinzufügen", "Karte hinzufügen", "Bemerkungen zum Spiel"]) {
       assert.ok(text.includes(wert), `„${wert}“ is missing`);
     }
+    // The form picks from both squads, which the read serves only where it asks for them.
+    assert.ok(!text.includes("kein Kader hinterlegt"), "the correction opened on squads its read left empty");
   });
 });

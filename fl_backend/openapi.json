@@ -7041,7 +7041,7 @@
     "/api/v0/spielberichte/{spiel_id}/admin": {
       "get": {
         "summary": "One fixture's report, whole, for an administrator",
-        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture, both clubs' live squads of the season and the pupils the report names outside them. The\nreport and its state are null where no report stands; `DB-COMMON-001` only for a fixture that does not exist.",
+        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with\n`kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture\nholding no report serves none. The report and its state are null where no report stands; `DB-COMMON-001` only for\na fixture that does not exist.",
         "operationId": "get_spielbericht_admin_api_v0_spielberichte__spiel_id__admin_get",
         "security": [
           {
@@ -7058,6 +7058,18 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "kader",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Serve both clubs' live squads of the season, for a form picking from them",
+              "default": false,
+              "title": "Kader"
+            },
+            "description": "Serve both clubs' live squads of the season, for a form picking from them"
           }
         ],
         "responses": {
@@ -26096,7 +26108,7 @@
           "zustand"
         ],
         "title": "FLSpielberichtAdminResponse",
-        "description": "The administrator's panel, with the state the report reads in. Null exactly where no block stands."
+        "description": "The administrator's panel, with the state the report reads in, null exactly where no block stands.\n\nBoth squads empty unless the read asks `kader`, the correction's form; a write answers them always."
       },
       "FLSpielberichtBericht": {
         "properties": {
