@@ -323,10 +323,16 @@ export const FLSpielberichtPersonEintragSchema = z.object({
 });
 export type FLSpielberichtPersonEintrag = z.infer<typeof FLSpielberichtPersonEintragSchema>;
 
+/** An ended season's fixture keeps its report when its date is cleared after it, so its date may be null. */
+export const FLSpielberichtPersonFruehererEintragSchema = FLSpielberichtPersonEintragSchema.extend({
+  datum: CustomDateStringSchema.nullable(),
+});
+export type FLSpielberichtPersonFruehererEintrag = z.infer<typeof FLSpielberichtPersonFruehererEintragSchema>;
+
 /** `fruehere`: fixtures of ended seasons holding a report, which the referee reads and writes no more. */
 export const FLSpielberichtePersonResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielberichtPersonEintragSchema),
-  fruehere: z.array(FLSpielberichtPersonEintragSchema),
+  fruehere: z.array(FLSpielberichtPersonFruehererEintragSchema),
 });
 export type FLSpielberichtePersonResponse = z.infer<typeof FLSpielberichtePersonResponseSchema>;
 

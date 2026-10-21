@@ -60,4 +60,13 @@ describe("the referee panel's reports", () => {
     );
     assert.equal(screen.queryAllByText(/^(Gesendet|Offen)$/).length, 0, "an ended season's report wears the running season's badge");
   });
+
+  /* A date cleared after the report leaves the report standing, so its card stays and says the date is missing. */
+  it("lists an ended season's report whose date was cleared, saying the date is missing", () => {
+    const frueher = { ...eintrag("68c1f0a2b3c4d5e6f7a8b9e5", "2025-05-14"), datum: null, eingereicht_am: "2025-05-14T18:00:00Z" };
+    render(underNext(h(SchiedsrichterSpielberichteSection, { spiele: { spiele: [], fruehere: [frueher] } })));
+
+    assert.ok(screen.getByText("Termin nicht hinterlegt, 15:00 Uhr"));
+    assert.ok(screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium, Termin nicht hinterlegt" }));
+  });
 });
