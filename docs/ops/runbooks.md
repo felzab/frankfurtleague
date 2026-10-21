@@ -1351,7 +1351,7 @@ report.
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
 ending the address changes whose step lapsed and making the due ones take effect, then draining the
 outbox those ends wrote: each replaced address gets its completion notice and the new address of a
-change refused at its due time a notice naming nobody. It writes one line per pass holding its
+confirmed change refused at its due time or lapsed unapproved a notice naming nobody. It writes one line per pass holding its
 counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, which a
 `LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due; a half that threw files
 `adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
@@ -1365,8 +1365,9 @@ nobody can be named afterwards, so repair the refusal while those lines stand:
 
     docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
 
-A `konto_nicht_umgezogen` line at `WARN` reading `grund: "belegt"` needs no repair: the new address
-held an account of its own, and the person signs in there anew.
+A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
+held an account of its own, and reading `grund: "adresse_belegt"`, records of its own
+(`docs/backend/spec.md :: I860`); either way the person signs in there anew.
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
@@ -1848,7 +1849,9 @@ review`, the restored database holding no change to move: ask the person to star
   account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **The
   sign-in store comes back with the cluster** (the last bullet below), so the account and its
   passkeys stand at the replaced address again beside the records: the person signs in there to
-  start again, and the new change's effect moves the account with the records, as a replayed one does. A
+  start again, and the new change's effect moves the account with the records, as a replayed one does,
+  unless the new address holds records or an account of its own (`docs/backend/spec.md :: I860`,
+  `FE-AUTH-013`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
   (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
