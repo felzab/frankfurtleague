@@ -1031,8 +1031,8 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
         assert passes == 1
 
 
-# How long the removal below holds its commit for the report's write. The hold lets go the moment the report's anchor
-# meets the removal's season write, which is the crossing the case proves, so this bounds only a run that never meets it.
+# How long the removal holds its commit for the report's write. The hold lets go once the report's anchor meets the
+# removal's season write, the crossing proved, so this bounds only a run that never crosses.
 HOLD_S = 2.0
 
 # The race cases' fixture is played the day before their report is written.
@@ -1111,10 +1111,9 @@ class CountedRows:
 
 
 class ReportsAnchorMeetingTheRemoval:
-    """The report's season collection, counting each time its anchor met a write the removal holds open, and saying so.
+    """Counts each time the report's season anchor meets a write the removal holds open, and says so.
 
-    The meeting is the crossing itself: a report reaching the season only after the removal committed meets nothing,
-    and passes every other assertion for a reason the case is not about.
+    That meeting is the crossing: a report arriving after the removal's commit meets nothing, yet passes every other assertion.
     """
 
     def __init__(self, collection: Any, *, met: asyncio.Event) -> None:

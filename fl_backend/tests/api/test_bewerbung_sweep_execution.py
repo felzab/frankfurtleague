@@ -1148,8 +1148,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
     ):
         """`docs/backend/spec.md :: I154`: remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
 
-        Planned below a season that has ended, so the call's own read finds both clocks due. The two strips run after
-        the activation committed and judge the season again in their own transactions, so each keeps its rows too.
+        Planned below a season that has ended, so the call's own read finds both clocks due.
         """
 
         accepted = {"status": "angenommen", "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None}}
@@ -1165,6 +1164,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
             await database[Collection.SPIELE].insert_one(
                 spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
             )
+            # Both strips run after the activation committed and judge the season again in their own transactions.
             await database[Collection.SPIELBERICHTE].insert_one(report)
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(declined)
 
