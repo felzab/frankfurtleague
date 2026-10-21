@@ -128,10 +128,9 @@ describe("the announcement a change schedules", () => {
   }
 });
 
-/* A request changes nobody's access, so it announces nothing: a pass behind it would mail every administrator a change
-   that has not happened. */
+/* A request is the pass's to mail, to whoever could approve it, so it is scheduled behind the answer as a grant is. */
 describe("a grant or a promotion another administrator must approve", () => {
-  it("answers the grant as a request and schedules no announcement", async () => {
+  it("answers the grant as a request and schedules the pass that mails it", async () => {
     beantragt = true;
 
     assert.deepEqual(await postBerechtigungAction({ email: "neu@schule.de" }), {
@@ -140,10 +139,10 @@ describe("a grant or a promotion another administrator must approve", () => {
       beantragt: true,
       message: ZUGANG_BEANTRAGT_MESSAGE,
     });
-    assert.deepEqual(deferred, []);
+    assert.equal(deferred.length, 1, "the request scheduled no pass, or more than one");
   });
 
-  it("answers the promotion as a request and schedules no announcement", async () => {
+  it("answers the promotion as a request and schedules the pass that mails it", async () => {
     beantragt = true;
 
     assert.deepEqual(await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" }), {
@@ -151,7 +150,7 @@ describe("a grant or a promotion another administrator must approve", () => {
       beantragt: true,
       message: ERNENNUNG_BEANTRAGT_MESSAGE,
     });
-    assert.deepEqual(deferred, []);
+    assert.equal(deferred.length, 1, "the request scheduled no pass, or more than one");
   });
 });
 

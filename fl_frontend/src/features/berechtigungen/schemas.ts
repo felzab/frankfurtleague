@@ -159,7 +159,8 @@ export const FLBerechtigungAenderungSchema = z.object({
   // The outbox row's own id, which is what the stamp names; never the grant's.
   id: CustomObjectIdStringSchema,
   berechtigung_id: CustomObjectIdStringSchema,
-  art: z.enum(["erteilt", "entzogen", "geaendert"]),
+  // `beantragt` is a grant or a promotion asked for, which no grant has yet: it is told to `an` alone.
+  art: z.enum(["erteilt", "entzogen", "geaendert", "beantragt"]),
   // Where the change came from, read here and never off a null actor, which a barred administrator also is.
   urheber: z.enum(["anwendung", "datenbank"]),
   jetzt: FLBerechtigungStandSchema.nullable(),
@@ -175,6 +176,9 @@ export const FLBerechtigungAenderungSchema = z.object({
   // Counted by the backend on the row (`docs/backend/spec.md :: I480`), so a restart of this process never
   // hands a notice a second budget of passes.
   aufgegeben: z.boolean(),
+  // A request's own recipients, in `empfaenger`'s place: whoever could approve it now, none once nobody can.
+  // Null on every change to a grant.
+  an: z.array(z.string()).nullable(),
 });
 export type FLBerechtigungAenderung = z.infer<typeof FLBerechtigungAenderungSchema>;
 

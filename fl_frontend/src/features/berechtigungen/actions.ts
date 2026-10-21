@@ -70,15 +70,12 @@ export async function postBerechtigungAction(
     }
 
     const { created_id, beantragt } = postOperation;
-    // Another administrator could approve it, so a request waits: it changes nobody's access, and announcing it would
-    // mail every administrator a grant that has not happened.
-    if (beantragt) return { success: true, created_id, beantragt, message: ZUGANG_BEANTRAGT_MESSAGE };
-
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
-    // grant's own time on every request (`docs/frontend/spec.md :: I470`).
+    // grant's own time on every request (`docs/frontend/spec.md :: I470`). A request is the pass's too, which mails it
+    // to whoever could approve it.
     ankuendigenNachDerAntwort();
 
-    return { success: true, created_id, beantragt, message: ZUGANG_ERTEILT };
+    return { success: true, created_id, beantragt, message: beantragt ? ZUGANG_BEANTRAGT_MESSAGE : ZUGANG_ERTEILT };
   });
 }
 
@@ -135,10 +132,10 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    // A promotion another owner could approve moved no tier, so there is nothing to announce.
-    if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
-
+    // A promotion's request as well as a tier moved: the pass mails the request to the owners who could approve it.
     ankuendigenNachDerAntwort();
+
+    if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
     return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
