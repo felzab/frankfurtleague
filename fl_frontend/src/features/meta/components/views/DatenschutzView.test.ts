@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "f7ed7fca6f3581a1cb49fed222d4902dcfae1287be7a29e4caa3485366325333" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "92574968e3864c5f104b851f223d16d75533f01fc0d64f00b62c5957493e3e58" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -789,6 +789,20 @@ describe("the privacy notice's publication and retention rows keep their ruled b
       ),
       "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
     );
+  });
+
+  /* The fixture read serves a booked referee only once agreed, asked or not: a sentence bound to having been asked leaves
+     the referee nobody asked yet reading that they are shown. */
+  it("shows a referee at a fixture only once they or the league entered their agreement", () => {
+    assert.equal(
+      vorkommen("Ein Spiel steht erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat."),
+      1,
+    );
+  });
+
+  /* The report form takes an optional reason on a red card as well, so a reason stored on one is in the notice too. */
+  it("names the card reason the report form takes on every colour", () => {
+    assert.equal(vorkommen("die Farbe und einen Grund aus einer festen Liste, der bei Rot freiwillig ist."), 1);
   });
 
   // A deadline rather than „zeitnah“: Art. 12(3) DSGVO bounds the answer at a month.
