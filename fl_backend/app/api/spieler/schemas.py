@@ -97,7 +97,7 @@ class FLSpielerPublic(_SpielerPerson):
     # An ALLOW-LIST: every field is one this surface needs. Deriving it by subtracting what looks
     # sensitive puts each later addition to the document on the wire until somebody notices -- which
     # is how a consent record came to be published.
-    #
+
     # No record id (`READ-PUPIL-005`): it outlives every season and team, so it would tie together
     # each squad row of a pupil whose name is withheld. The table keys its rows by their place.
 

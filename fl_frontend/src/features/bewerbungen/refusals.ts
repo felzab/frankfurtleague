@@ -174,7 +174,7 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "REQ-BEWERBUNG-019":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
-    // A Widerspruch and a reseat since the page was read: the address typed was meant for someone no longer seated.
+    // A Widerspruch and a reseat since the page was read: the address typed was meant for the person replaced.
     case "REQ-BEWERBUNG-021":
       return {
         error: buildRefusal({

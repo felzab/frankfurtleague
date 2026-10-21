@@ -80,8 +80,8 @@ export type FLEinwilligung = z.infer<typeof FLEinwilligungSchema>;
 
 /**
  * Mirrors `FLSpielerPublic` — an ALLOW-LIST: every field is one the squad table renders. `nachname`
- * arrives as an INITIAL carrying its own dot (`READ-PUPIL-001`), and no record id arrives at all
- * (`READ-PUPIL-005`), so a joined name and an avatar letter read as they would from a whole surname.
+ * arrives as an INITIAL carrying its own dot (`READ-PUPIL-001`), so a joined name and an avatar
+ * letter read as they would from a whole surname.
  */
 export const FLSpielerPublicSchema = z.object({
   // Both names arrive `null` for a person the publication gate withholds (`READ-PUPIL-003`), so a

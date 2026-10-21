@@ -1210,10 +1210,9 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
 
 
 def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, bisherige_email: str) -> WriteRefusal | None:
-    """Why this correction, composed against the seat holding `bisherige_email`, may not land on the seat as it stands, or `None`.
+    """Why this correction may not land, or `None`.
 
-    A Widerspruch and a reseat between the page's read and the press leave the seat with someone else, and the
-    correction would give them the address typed for the person who left.
+    A Widerspruch and a reseat since the page's read hand the seat to someone the address was not typed for.
     """
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}

@@ -950,10 +950,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
     @pytest.mark.parametrize("sort_by", get_args(FLSpielerSortOptions))
     def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str, sort_by: str):
-        places = {
-            corpus: self._served_names(sort_oracle_url, corpus, sort_by).index(None)
-            for corpus in WITHHELD_FORENAMES
-        }
+        places = {corpus: self._served_names(sort_oracle_url, corpus, sort_by).index(None) for corpus in WITHHELD_FORENAMES}
 
         assert places["first"] == places["last"]
 

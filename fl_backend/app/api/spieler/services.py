@@ -196,11 +196,12 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
 
     # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
     # page's payload whether rendered or not, so the consent record, the `stufe` (`READ-PUPIL-002`),
-    # the squad flags, the joined ids and the person's own id (`READ-PUPIL-005`) are not projected:
-    # `$project` keeps `_id` unless told otherwise.
+    # the squad flags and the joined ids are not projected.
     pipeline.append(
         {
             "$project": {
+                # Named to drop it, `$project` keeping `_id` otherwise: the person's own id would tie every
+                # squad row of a pupil whose name is withheld together (`READ-PUPIL-005`).
                 "_id": 0,
                 **PUBLIC_PERSON,
                 "position": f"${AS_NAME}.position",

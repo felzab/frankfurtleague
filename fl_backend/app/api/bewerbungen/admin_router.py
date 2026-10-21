@@ -426,7 +426,7 @@ async def korrigiere_kontakt_email(
     deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
     for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
     write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
-    — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat no longer holding `bisherige_email`, the address the
+    — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
     caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
     application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
     no seat is a 404.
