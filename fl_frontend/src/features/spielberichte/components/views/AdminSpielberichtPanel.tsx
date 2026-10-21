@@ -112,7 +112,8 @@ function BerichtInhalt({
         <>
           <p className="muted-meta">
             {[
-              `Eingereicht am ${berlinZeitpunkt(bericht.eingereicht_am)}`,
+              // The save's own word, the first one's day: a report the league wrote first was never sent by anyone.
+              `Erstmals gespeichert am ${berlinZeitpunkt(bericht.eingereicht_am)}`,
               `Geändert am ${berlinZeitpunkt(bericht.geaendert_am)}`,
               ...(bericht.uebernommen_am === null ? [] : [`Übernommen am ${berlinZeitpunkt(bericht.uebernommen_am)}`]),
             ].join(" · ")}
@@ -184,7 +185,6 @@ function BerichtInhalt({
           <BerichtEintraege
             lesen={lesen}
             bericht={bericht}
-            bemerkungenTitel="Bemerkungen (nur für die Verwaltung)"
           />
         </>
       )}

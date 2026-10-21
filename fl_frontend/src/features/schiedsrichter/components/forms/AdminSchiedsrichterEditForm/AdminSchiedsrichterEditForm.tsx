@@ -58,7 +58,7 @@ const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
  * address at all, which may not be written back.
  */
 const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
-  reason: "Vor dem Speichern war zu diesem Eintrag keine echte E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
+  reason: "Vor dem Speichern war zu diesem Eintrag keine E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
   repair: "Öffne den Eintrag erneut, wenn die neue Adresse falsch ist",
 });
 

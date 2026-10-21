@@ -15,6 +15,7 @@ import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { KontaktAbgangData } from "@/core/kontaktEmail";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLKontaktAbgang, FLKontaktMint } from "./schemas";
@@ -74,10 +75,12 @@ export async function mailKontaktAbgang({
   operation,
   saisonId,
   abgang,
+  quelle,
 }: {
   operation: string;
   saisonId: string;
   abgang: FLKontaktAbgang;
+  quelle: KontaktAbgangData["quelle"];
 }): Promise<void> {
   try {
     // A cut or a lost answer here is this notice's own doubt, never the saved write's (`docs/frontend/spec.md :: I372`).
@@ -90,6 +93,7 @@ export async function mailKontaktAbgang({
           bleibtText: abgang.bleibt_als.length === 0 ? null : rollenText(abgang.bleibt_als),
           schule: abgang.schule,
           saisonId: saisonId,
+          quelle: quelle,
         }),
         tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
         // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day

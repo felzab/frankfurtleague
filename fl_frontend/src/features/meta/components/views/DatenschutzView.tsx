@@ -616,8 +616,8 @@ export function DatenschutzView() {
           </p>
           <p className={ABSATZ_CLASSES}>
             Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und
-            die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und bei Gelb und Gelb-Rot einen Grund aus einer
-            festen Liste. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
+            die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und einen Grund aus einer festen Liste, der bei
+            Rot freiwillig ist. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
             Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Die
             Administratorinnen und Administratoren der Liga können den Spielbericht berichtigen oder selbst eintragen. Den Spielbericht sehen
             nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga; veröffentlicht
@@ -657,9 +657,9 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst. Hast Du der Veröffentlichung zugestimmt, steht an
             einem Spiel davon der erste Namensteil und vom nächsten nur der Anfangsbuchstabe, sonst steht dort „{SCHIEDSRICHTER_ANONYM_LABEL}“.
-            Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine
-            Zusage eingetragen hat. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein
-            einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
+            Ein Spiel steht erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat. Bei einem
+            Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein einzelner Name eingetragen, steht
+            dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern trägt die Verwaltung Name und Kontaktdaten ein, dazu die Schule, wenn es eine gibt, so

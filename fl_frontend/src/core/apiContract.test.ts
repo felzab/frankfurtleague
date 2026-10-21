@@ -359,9 +359,6 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
   return entry ? [{ component, node, mirror, entry }] : [];
 });
 
-// Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 425;
-
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
     assert.ok(
@@ -376,6 +373,8 @@ describe("the published document", () => {
 });
 
 describe("every shape is paired or recorded", () => {
+  /* The pairing and dead-exemption cases fix the pairs as every component outside `BACKEND_ONLY`, so a pair dropping out
+     fails here by name; a pinned count adds no failure and collides between branches each adding a mirror. */
   it("pairs every published component with a Zod mirror, or records why none exists", () => {
     const unpaired = Object.keys(components).filter((name) => !mirrors.has(NAME_ALIASES[name] ?? name) && !(name in BACKEND_ONLY));
 
@@ -461,14 +460,6 @@ describe("every shape is paired or recorded", () => {
       [],
       `These exempted enum aliases appear at no published use site, so nothing compares their members:\n  ${uncompared.join("\n  ")}\n` +
         `Either the backend dropped the field, or the exemption's reason no longer describes what happens.`,
-    );
-  });
-
-  it("compares the number of pairs it is meant to", () => {
-    assert.equal(
-      pairs.length,
-      EXPECTED_PAIRS,
-      `${pairs.length} pairs compared, expected ${EXPECTED_PAIRS}. If a mirror was added or removed on purpose, update EXPECTED_PAIRS.`,
     );
   });
 

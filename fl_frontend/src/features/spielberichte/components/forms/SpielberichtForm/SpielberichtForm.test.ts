@@ -253,6 +253,35 @@ describe("the referee's report form", () => {
     assert.equal(screen.queryAllByText(/trägst Du keine Tore ein/).length, 0, "the administrator is addressed as the referee");
   });
 
+  /* The referee booked now reads the remarks too, what an administrator or an earlier referee wrote included: a hint
+     naming the administration alone would have each writer trust a readership the report does not have. */
+  it("tells both writers that the fixture's referee and the administration read the remarks", () => {
+    const gelesen = FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture());
+    const leser = "Lesen können sie nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Verwaltung der Liga.";
+
+    for (const [rolle, kontext] of [
+      ["schiedsrichter", kontextOf(LESEN)],
+      ["admin", kontextOf(gelesen)],
+    ] as const) {
+      const { unmount } = render(
+        underNext(
+          h(SpielberichtForm, {
+            leser: rolle,
+            spielId: BERICHT_SPIEL_ID,
+            kontext,
+            stored: null,
+            header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+            zurueckHref: "/bereich",
+          }),
+          { router: nextRouter() },
+        ),
+      );
+
+      assert.ok(screen.getByText(new RegExp(`^${leser}`)), `the ${rolle}'s remarks hint names another readership`);
+      unmount();
+    }
+  });
+
   /* The press reads „Speichern“ and the request went out, so the failure is the success negated, never „nicht gesendet“. */
   it("titles a refused save as not saved", async () => {
     const user = userEvent.setup();

@@ -67,12 +67,18 @@ describe("the administrator's report correction page", () => {
 
   /* The write refuses each of these (`REQ-BERICHT-001`, `-004`), so the page says so before a whole report is typed, as
      the referee's page does. */
-  for (const [fall, spiel, satz] of [
-    ["called off", { sonderereignis: "ausgefallen" }, "Das Spiel ist als ausgefallen oder annulliert eingetragen."],
-    ["undated", { datum: null }, "Das Spiel hat noch kein Datum."],
-    ["still to come", { datum: "2999-05-14" }, "Das Spiel hat noch nicht stattgefunden."],
+  for (const [fall, spiel, satz, hinweis] of [
+    [
+      "called off",
+      { sonderereignis: "ausgefallen" },
+      "Das Spiel ist als ausgefallen oder annulliert eingetragen.",
+      "Den Spielbericht bearbeitest Du, sobald Du das Sonderereignis im Spiel entfernst.",
+    ],
+    ["undated", { datum: null }, "Das Spiel hat noch kein Datum.", "Den Spielbericht bearbeitest Du ab dem Spieltag."],
+    ["still to come", { datum: "2999-05-14" }, "Das Spiel hat noch nicht stattgefunden.", "Den Spielbericht bearbeitest Du ab dem Spieltag."],
   ] as const) {
-    it(`states a fixture ${fall} and offers no form`, async () => {
+    // The read holds a stored report: one written before the fixture moved or was called off stands, so no hint says none exists.
+    it(`states a fixture ${fall} and offers no form, saying when the stored report is edited`, async () => {
       eingabe = "on";
       const gelesen = spielberichtReadFixture();
       answerReadsWith((endpoint, schema, params) =>
@@ -82,6 +88,7 @@ describe("the administrator's report correction page", () => {
       const { text } = await rendered();
 
       assert.ok(text.includes(satz), text);
+      assert.ok(text.includes(hinweis), text);
       assert.ok(!text.includes("Tor hinzufügen"), `the correction renders for a fixture ${fall}`);
     });
   }

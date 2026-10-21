@@ -90,6 +90,7 @@ export async function patchSaisonTeamKontakteAction(
           operation: "patchSaisonTeamKontakteAction",
           saisonId: saisonTeam.saison_id,
           abgang: abgang,
+          quelle: "saison",
         }),
       ),
     );
@@ -166,6 +167,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
           operation: "undoAdminKontakteEditAction",
           saisonId: operation.saison_id,
           abgang: abgang,
+          quelle: "saison",
         }),
       ),
     );

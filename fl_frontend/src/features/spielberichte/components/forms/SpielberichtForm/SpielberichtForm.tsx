@@ -200,7 +200,6 @@ export function SpielberichtForm({
             />
 
             <FormBemerkungenSection
-              leser={leser}
               bemerkungen={draft.bemerkungen}
               onChange={(bemerkungen) => change({ bemerkungen })}
               onValidateFields={validateFields}

@@ -62,10 +62,11 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    */
   successMessage: string | ((saved: Saved<TSaved>) => string);
   /**
-   * A save that stood but cost something: `when` reads the caller's own answer, and `title` replaces
-   * `successMessage` at the warning variant, a literal for `successMessage`'s reason.
+   * A save that stood at a cost, read off the caller's answer by `when`: `title`, a literal for `successMessage`'s
+   * reason, replaces it, and `addendum` follows the action's sentence, keeping what `successMessage` said beyond the
+   * outcome.
    */
-  warning?: { title: string; when: (saved: Saved<TSaved>) => boolean };
+  warning?: { title: string; when: (saved: Saved<TSaved>) => boolean; addendum?: string };
   onClose: () => void;
   /**
    * The required asterisks, and only a form that creates something sets it. It governs the marks alone: the
@@ -120,9 +121,12 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
           setDraft(initialDraft);
           // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
           // the title: an action with nothing to add sends the title's own words.
-          const warnTitle = warning !== undefined && warning.when(res) ? warning.title : null;
-          const title = warnTitle ?? (typeof successMessage === "string" ? successMessage : successMessage(res));
-          (warnTitle === null ? appToast.success : appToast.warning)(title, { description: res.message === title ? undefined : res.message });
+          const warns = warning !== undefined && warning.when(res);
+          const title = warns ? warning.title : typeof successMessage === "string" ? successMessage : successMessage(res);
+          const body = res.message === title ? undefined : res.message;
+          // The addendum after the server's sentence, never over it (`docs/frontend/spec.md` §1.12).
+          const description = warns && warning.addendum !== undefined ? [body, warning.addendum].filter(Boolean).join(" ") : body;
+          (warns ? appToast.warning : appToast.success)(title, { description });
           onClose();
         });
       }),

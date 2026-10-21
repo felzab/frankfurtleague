@@ -186,6 +186,15 @@ describe("categorizeActionRequired", () => {
     );
   });
 
+  /* The section's description is what tells a reader why a card stands here, so it names every state the section files:
+     one about other teams carries no score to adopt and would otherwise read as filed by mistake. */
+  it("describes each report state the proposal section files, the one about other teams included", () => {
+    const { desc } = ACTION_REQUIRED_LABELS.ergebnis_vorschlag;
+
+    for (const fall of ["noch nicht übernommen", "seit der Übernahme geändert", "für andere Teams geschrieben"])
+      assert.ok(desc.includes(fall), `the description leaves out the report ${fall}`);
+  });
+
   it("leaves the category empty when no fault names a match in the list", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY, [
       { reason: "same_team", spiel_id: "6890a1b2c3d4e5f607182999", spiel_nr: 29 },

@@ -487,6 +487,7 @@ export async function kontaktEmailKorrigierenAction(
             saisonId: bewerbung.saison_id,
             // Every seat the person held moves with the address, and no other person shares a mailbox with them.
             abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
+            quelle: "bewerbung",
           });
 
     const zustellung = await sendeBestaetigungErneut({

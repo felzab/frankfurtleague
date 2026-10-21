@@ -49,3 +49,16 @@ describe("a write composed on a report that has changed since", () => {
     assert.match(admin?.error ?? "", /von der Schiedsrichterin oder dem Schiedsrichter/);
   });
 });
+
+describe("a referee's write on a fixture called off since the page opened", () => {
+  /* A report may stand from before the call-off, so the refusal says the fixture takes none, never that none exists, and
+     sends the referee to the reload that shows the fixture as it is. */
+  it("says the fixture takes no report, and how to see it as it stands", () => {
+    const answer = mapSpielberichtRefusal(refusedOn("PUT /spielberichte/{spiel_id}/bericht", "REQ-BERICHT-004"), "schiedsrichter");
+
+    assert.equal(
+      answer?.error,
+      "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an. Lade die Seite neu.",
+    );
+  });
+});

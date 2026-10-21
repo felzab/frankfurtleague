@@ -92,7 +92,10 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   ergebnis_vorschlag: {
     name: "Ergebnis vorgeschlagen",
     short: "Bericht",
-    desc: "Spiele mit einem Spielbericht, dessen Ergebnis noch nicht übernommen ist oder der sich seit der Übernahme geändert hat",
+    // Each state the section files, `teams_geaendert` among them: a card chipped „Bericht zu anderen Teams“ files here.
+    desc:
+      "Spiele mit einem Spielbericht, dessen Ergebnis noch nicht übernommen ist, der sich seit der Übernahme geändert hat " +
+      "oder der für andere Teams geschrieben wurde, als jetzt im Spiel stehen",
     urgency: "results",
   },
   datum_missing: {

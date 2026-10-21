@@ -10,16 +10,7 @@ import type { FLSpielberichtAnsicht, FLSpielberichtBericht, FLSpielberichtSeite 
  * A stored report's scorers, cards and remarks, read-only, for the administrator's panel and the referee's view after
  * the season alike: both name a person and a side the same way.
  */
-export function BerichtEintraege({
-  lesen,
-  bericht,
-  bemerkungenTitel,
-}: {
-  lesen: FLSpielberichtAnsicht;
-  bericht: FLSpielberichtBericht;
-  /** Who the remarks are for, in the reader's words. */
-  bemerkungenTitel: string;
-}) {
+export function BerichtEintraege({ lesen, bericht }: { lesen: FLSpielberichtAnsicht; bericht: FLSpielberichtBericht }) {
   const { spiel } = lesen;
 
   // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
@@ -73,7 +64,7 @@ export function BerichtEintraege({
 
       {bericht.bemerkungen !== null && (
         <div className="flex w-full flex-col gap-y-1">
-          <p className="fluid-xs font-bold text-foreground">{bemerkungenTitel}</p>
+          <p className="fluid-xs font-bold text-foreground">Bemerkungen</p>
           <p className="fluid-sm whitespace-pre-line text-foreground">{bericht.bemerkungen}</p>
         </div>
       )}

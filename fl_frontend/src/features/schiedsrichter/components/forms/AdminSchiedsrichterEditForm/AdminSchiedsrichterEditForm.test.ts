@@ -180,7 +180,8 @@ describe("the undo a referee's save offers", () => {
 
     const refusal = toasts.at(-1);
     assert.equal(refusal?.title, "Änderung nicht zurückgenommen", "the undo was dispatched rather than refused");
-    assert.match(String(refusal?.description), /keine echte E-Mail-Adresse hinterlegt/);
+    // No „echte“: a referee's record holds no placeholder address for the word to tell a real one from.
+    assert.match(String(refusal?.description), /^Vor dem Speichern war zu diesem Eintrag keine E-Mail-Adresse hinterlegt,/);
   });
 
   // Without it an offer refusing every undo passes the case above.

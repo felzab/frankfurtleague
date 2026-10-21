@@ -14,6 +14,7 @@ import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -182,6 +183,15 @@ describe("what the editor shows about a referee's own confirmation", () => {
 
   it("says in words where the record holds no birthdate", () => {
     assert.match(words({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: null }), /Geburtsdatum Nicht hinterlegt/);
+  });
+
+  /* A stamp a hand edit blanked reads as none (`docs/backend/spec.md :: I387`): a state of the record, never a value the
+     panel holds no copy of, which „Nicht hinterlegt“ would claim. */
+  it("reads a record whose confirmation stamp is blanked as not confirmed", () => {
+    const overrides = { bestaetigung: BLOCK, einwilligung: { ...BESTAETIGT, bestaetigt_am: null } };
+
+    assertLeerMarkup(renderTree(panel(overrides)), "Nicht bestätigt");
+    assert.match(words(overrides), /Bestätigt am Nicht bestätigt/, "the stamp's row reads otherwise");
   });
 
   /* A live row with no confirmed record can be booked onto no fixture, so the panel says that rather than how a

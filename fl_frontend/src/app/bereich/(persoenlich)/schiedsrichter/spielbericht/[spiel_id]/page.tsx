@@ -62,14 +62,20 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
   const { spiel } = read;
   // The backend's two refusals a page can foresee from the fixture it serves, stated before any press meets them.
   const sperre = berichtSperre(spiel, getGermanTodayStr());
+  // A report may stand from before the fixture moved or was called off, so neither sentence says none exists.
   if (sperre === "abgesagt") {
-    return <SpielberichtZustandView title="Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht." />;
+    return (
+      <SpielberichtZustandView
+        title="Dieses Spiel ist ausgefallen oder annulliert."
+        hint="Den Spielbericht dazu kannst Du nicht eintragen oder ändern."
+      />
+    );
   }
   if (sperre !== null) {
     return (
       <SpielberichtZustandView
         title={sperre === "undatiert" ? "Dieses Spiel hat noch kein Datum." : "Dieses Spiel hat noch nicht stattgefunden."}
-        hint="Den Spielbericht trägst Du ab dem Spieltag ein."
+        hint={read.bericht === null ? "Den Spielbericht trägst Du ab dem Spieltag ein." : "Den Spielbericht änderst Du ab dem Spieltag."}
       />
     );
   }

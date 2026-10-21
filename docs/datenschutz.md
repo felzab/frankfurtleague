@@ -302,7 +302,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   team's registration link stays the team's, shared with the contacts who remain; a club's replacement, an erasure, a
   Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I807`). Ruled 2026-10-20.
   An administrator's correction of an application seat's address tells the mailbox its link leaves
-  the same, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
+  the same, naming its confirmation link alone, since an application's seat is asked about no
+  fixture, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
   Ruled 2026-10-20.
 
 ## 3. The current pupil records are reset once
@@ -708,6 +709,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
   a name written otherwise, or a person outside the fixture, stays in them until the end of the season
   after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
+  The league's administrators and the referee booked on the fixture when they open it read them, so a
+  referee booked after the report reads what an earlier referee or an administrator wrote
+  (`fl_backend/app/api/spielberichte/services.py :: find_nicht_geleitet_refusal`).
   The writer describes a pupil by shirt number instead, as the remarks box asks, and with the team and
   the fixture the number identifies them: such a remark is that pupil's data, which an access request
   answers ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it))

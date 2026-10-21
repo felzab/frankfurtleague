@@ -108,6 +108,28 @@ describe("the referee's report page", () => {
     }
   });
 
+  /* A report stands from before its fixture was moved or called off, so neither page may say there is none. */
+  it("never says a report is missing where one is stored on a fixture taking none now", async () => {
+    eingabe = "on";
+
+    for (const [spiel, bericht, satz] of [
+      [
+        { ...LESEN.spiel, sonderereignis: "ausgefallen" as const },
+        LESEN.bericht,
+        "Den Spielbericht dazu kannst Du nicht eintragen oder ändern.",
+      ],
+      [{ ...LESEN.spiel, datum: null }, LESEN.bericht, "Den Spielbericht änderst Du ab dem Spieltag."],
+      [{ ...LESEN.spiel, datum: "2099-01-01" }, LESEN.bericht, "Den Spielbericht änderst Du ab dem Spieltag."],
+      [{ ...LESEN.spiel, datum: "2099-01-01" }, null, "Den Spielbericht trägst Du ab dem Spieltag ein."],
+    ] as const) {
+      answering({ ...LESEN, spiel, bericht });
+      const { text } = await rendered();
+
+      assert.ok(text.includes(satz), text);
+      assert.ok(!text.includes("keinen Spielbericht"), text);
+    }
+  });
+
   /* After the fixture's season the backend refuses the referee's write and serves no squad: a form would offer pickers
      with nobody in them and a save that is refused. */
   it("shows the report read-only once the fixture's season has ended", async () => {

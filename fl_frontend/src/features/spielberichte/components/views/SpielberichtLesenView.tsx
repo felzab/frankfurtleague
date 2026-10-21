@@ -54,7 +54,6 @@ export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsr
                 <BerichtEintraege
                   lesen={lesen}
                   bericht={bericht}
-                  bemerkungenTitel="Bemerkungen"
                 />
               </>
             )}

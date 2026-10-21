@@ -13,7 +13,7 @@ import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@
 import { SPIELBERICHT_GESCHLOSSEN } from "../../constants";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtPersonEintrag } from "../../schemas";
+import type { FLSpielberichtPersonFruehererEintrag } from "../../schemas";
 import type { SchiedsrichterSpielberichte } from "../../types";
 
 const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";
@@ -89,9 +89,9 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
 }
 
 /** One fixture's card; `gesendet` null on an ended season's, whose report stands and only opens to be read. */
-function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonEintrag; gesendet: boolean | null }) {
+function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonFruehererEintrag; gesendet: boolean | null }) {
   const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} gegen ${spiel.team2_name ?? PLACEHOLDER.slot}`;
-  const datum = formatSpielDatum(spiel.datum);
+  const datum = spiel.datum === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.datum);
   const worte = gesendet === false ? "Spielbericht eintragen" : "Spielbericht ansehen";
 
   return (
@@ -102,13 +102,14 @@ function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonEintrag; g
           {`${datum}, ${spiel.uhrzeit === null ? nichtHinterlegt("Anpfiff") : `${formatUhrzeit(spiel.uhrzeit)} Uhr`}`}
         </span>
       </div>
-      {gesendet !== null && <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gesendet" : "Offen"}</span>}
+      {/* „Gespeichert“, the save's own word: the report may be the league's, which the referee never sent. */}
+      {gesendet !== null && <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gespeichert" : "Offen"}</span>}
       <Link
         href={`${SCHIEDSRICHTER_HREF}/spielbericht/${spiel.spiel_id}`}
         prefetch={false}
         // The words first, which speech input says, then what tells the cards apart: one pairing can
         // meet twice, in its group and in a knockout round (WCAG 2.5.3).
-        aria-label={benannt(worte, `${paarung} am ${datum}`)}
+        aria-label={benannt(worte, spiel.datum === null ? `${paarung}, ${datum}` : `${paarung} am ${datum}`)}
         className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
         {worte}
       </Link>
