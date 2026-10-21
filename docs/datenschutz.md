@@ -272,8 +272,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
   approved, every session of it ended, unless the new address holds an account of its own, where the
-  old account keeps its sessions until the account sweep. A new address holding entries of its own
-  refuses the change (`docs/backend/spec.md :: I860`): no change joins two people's records. After
+  old account keeps its sessions until the account sweep. A new address that any entry names,
+  confirmed or not, a pending grant request among them, refuses the change
+  (`docs/backend/spec.md :: I860`), so no change joins two people's records, but for one case: a
+  sign-in account standing at an address no record names (one the hourly account sweep has not yet
+  removed, or one a code sign-in made before the carry) lets the change take effect, no passkey
+  moves, and the person's records join that account
+  ([frontend spec §4](frontend/spec.md#4-known-open)). After
   a change started on a recorded reason, or onto such an address, the person signs in anew at the
   new address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.

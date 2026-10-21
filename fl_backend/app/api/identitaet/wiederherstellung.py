@@ -30,7 +30,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.crud import adresse_belegt, end_the_change_in_session, move_the_address_in_session, read_the_bestand
+from app.api.adresswechsel.crud import Belegung, adresse_belegt, end_the_change_in_session, move_the_address_in_session, read_the_bestand
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
 from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
@@ -485,10 +485,14 @@ async def _plan_adresswechsel_wirksam(
         )
     ):
         return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
-    # As the effect refuses it: replayed onto entries of its own, it would join two people's records.
-    if await adresse_belegt(
-        str(record["email"]), records=records, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session
-    ):
+    # As the effect refuses it: replayed onto an address an entry names, it would join two people's records.
+    belegung = Belegung(
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        now=now,
+    )
+    if await adresse_belegt(str(record["email"]), records=records, belegung=belegung, session=session):
         return Plan("left for review", detail="the new address holds entries of its own in the restored database")
 
     async def rewrite_the_effect(session: AsyncClientSession) -> Any:

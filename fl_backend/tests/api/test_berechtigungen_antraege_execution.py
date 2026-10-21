@@ -875,3 +875,45 @@ class TestTheAddressMoveIsNoNewGrant:
         moved, rows = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
 
         assert (EMAIL in moved, moved.get(NEW_EMAIL), rows) == (False, "administration", [])
+
+
+MOVER_ID = ObjectId("6890a1b2c3d4e5f607920005")
+# On the real clock, as the tenure cases are: the actor's session, a minute old, postdates the grant the move makes.
+MOVED_AGO = 1800
+
+
+async def move(database: AsyncDatabase, client: AsyncMongoClient, *, at: datetime) -> None:
+    minted = await start_the_change(database, client, germany_now=at)
+    await approve_the_change(database, client, minted.id, germany_now=at)
+    await answer_the_change(database, client, minted.token, germany_now=at)
+
+
+class TestAMovedAdministratorKeepsTheirStanding:
+    """`docs/backend/spec.md :: I866`: the four-eyes rule dates the person, so their own address change keeps their since-when.
+
+    `EMAIL`'s grant predates the request asked an hour ago; the move half an hour ago grants `NEW_EMAIL` afresh after it.
+    """
+
+    def test_they_are_asked_for_and_approve_a_request_made_before_their_move(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
+            # Found by a pass before the request, or the claim below would date every pasted grant from its own find.
+            await claimed(database, client, now=since(2 * ASKED_AN_HOUR_AGO))
+            antrag_id = await asked_for(database, client, als=SECOND_ADMIN, now=since(ASKED_AN_HOUR_AGO))
+            await move(database, client, at=since(MOVED_AGO))
+            ((_, _, an),) = asked(await claimed(database, client, now=since(60)))
+            approved = await outcome(approve(database, client, antrag_id, als=NEW_EMAIL, now=since(60)))
+            return an, approved, NEU in await tiers(database)
+
+        an, approved, granted_now = on_a_person(mongo_replica_set_url, DATABASE_NAME, body)
+
+        assert (NEW_EMAIL in an, EMAIL in an, approved, granted_now) == (True, False, COMMITTED, True)
+
+    def test_their_own_request_made_before_their_move_stays_approvable(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))
+            antrag_id = await asked_for(database, client, als=EMAIL, now=since(ASKED_AN_HOUR_AGO))
+            await move(database, client, at=since(MOVED_AGO))
+            return await outcome(approve(database, client, antrag_id, als=SECOND_ADMIN, now=since(60))), NEU in await tiers(database)
+
+        assert on_a_person(mongo_replica_set_url, DATABASE_NAME, body) == (COMMITTED, True)

@@ -340,6 +340,31 @@ def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, 
     return {"_id": berechtigung_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
 
 
+def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, verwaltung: str) -> datetime | None:
+    """Since when the four-eyes rule counts this grant's holder as holding `verwaltung`'s tier.
+
+    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced (`docs/backend/spec.md :: I866`).
+    """
+
+    seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, angekuendigt)
+    getragen = (row.get("fortgefuehrt") or {}).get("inhaber_seit" if verwaltung == OWNER else "berechtigt_seit")
+    # A promotion since the move dates an owner's tier afresh, as a demotion took the carried one.
+    if seit is None or getragen is None or (verwaltung == OWNER and row.get("ernannt_am") is not None):
+        return seit
+
+    return min(seit, as_utc(getragen))
+
+
+def compose_fortgefuehrt(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """What a grant moved to its holder's new address carries of the row it replaces: both tiers' since-whens, carried on."""
+
+    administration = vier_augen_seit(row, angekuendigt, verwaltung="administration")
+    if administration is None:
+        return None
+
+    return {"berechtigt_seit": administration, "inhaber_seit": vier_augen_seit(row, angekuendigt, verwaltung=OWNER)}
+
+
 def haelt_seit(
     adresse: str, *, verwaltung: str, vor: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> bool:
@@ -352,7 +377,7 @@ def haelt_seit(
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
-    seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, record)
+    seit = vier_augen_seit(row, record, verwaltung=verwaltung)
 
     return seit is not None and seit <= as_utc(vor)
 

@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import (
+    Belegung,
     end_the_change_in_session,
     ending_line,
     judge_the_effect_in_session,
@@ -104,6 +105,8 @@ async def get_adresswechsel_ansicht(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAdresswechselAnsichtResponse:
@@ -160,6 +163,12 @@ async def get_adresswechsel_ansicht(
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             sperrliste=sperrliste,
             massgebliche_saison_id=await sperrliste_saison(sperrliste),
+            belegung=Belegung(
+                berechtigungen_collection=berechtigungen_collection,
+                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                now=germany_now,
+            ),
             abgelaufen=False,
             session=None,
         )
@@ -232,9 +241,9 @@ async def post_adresswechsel_antwort(
     an address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address
     the ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one
     moving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval
-    does not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address holds
-    entries of its own (`-018`): moving these onto it would join two people's records. **A decline is refused none of
-    these**: it removes an address nobody proved, out of every log image of the change too.
+    does not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address any entry
+    names, confirmed or not, an open grant request among them (`-018`): moving the person onto it would join two people's
+    records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the change too.
 
     A change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past
     `-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.

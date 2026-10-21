@@ -498,7 +498,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
-  code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
+  code, or brings them along on an address change the new mailbox confirmed while nothing named it
+  and no grant was asked for it (`docs/backend/spec.md :: I860`), the same authority an
+  administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
   session older than the grant administers nothing (`docs/frontend/spec.md :: I470`). Grant an
   address only where its mailbox is trusted as an administrator's.
@@ -760,8 +762,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
   signing in on the new address where a pupil row moves (`docs/backend/spec.md :: I702`), an address
   holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
-  (`REQ-PURGE-003`), which you change on your own account page, and a new address holding entries
-  of its own (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
+  (`REQ-PURGE-003`), which you change on your own account page, and a new address any entry names,
+  confirmed or not (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be

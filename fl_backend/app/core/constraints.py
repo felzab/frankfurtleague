@@ -1291,6 +1291,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "gesehen_am": {"bsonType": ["date", "null"]},
                 # Out of `required` too: a pasted `owner` row holds the tier from its grant's own date.
                 "ernannt_am": {"bsonType": ["date", "null"]},
+                # An address change's move alone writes it (`docs/backend/spec.md :: I866`).
+                "fortgefuehrt": _object(
+                    required=("berechtigt_seit", "inhaber_seit"),
+                    properties={"berechtigt_seit": {"bsonType": "date"}, "inhaber_seit": {"bsonType": ["date", "null"]}},
+                    nullable=True,
+                ),
             },
         )
     },

@@ -52,6 +52,14 @@ FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
 
 
+class FLBerechtigungFortgefuehrt(BaseModel):
+    """The since-whens a grant moved by its holder's own address change carries of the row it replaced."""
+
+    berechtigt_seit: datetime
+    # Null where the replaced row held no owner's power.
+    inhaber_seit: datetime | None
+
+
 class FLBerechtigung(BaseModel):
     """One grant as the collection stores it, read only once `app/shared/folding.py :: is_stored_identifier` has passed its address."""
 
@@ -73,6 +81,9 @@ class FLBerechtigung(BaseModel):
     # When the row last became `owner` by a promotion, written by the tier change and by a comparison
     # finding one made in the database: an older session holds no owner's power (`docs/backend/spec.md :: I534`).
     ernannt_am: datetime | None = None
+    # Written by an address change's move alone, read by the four-eyes rule and never by a session's check
+    # (`docs/backend/spec.md :: I866`).
+    fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
 
 
 class FLBerechtigungAdresswechsel(BaseModel):

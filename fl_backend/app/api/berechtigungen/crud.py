@@ -275,6 +275,8 @@ async def grant_in_session(
     berechtigungen_postausgang_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
+    # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_fortgefuehrt`).
+    fortgefuehrt: Mapping[str, Any] | None = None,
 ) -> ObjectId:
     """Write a grant, its announced row and its outbox row, answering its id.
 
@@ -291,6 +293,7 @@ async def grant_in_session(
         # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
         # than a fresh paste (`docs/backend/spec.md :: I529`).
         "gesehen_am": now,
+        **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
     }
     created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
 

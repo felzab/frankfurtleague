@@ -132,7 +132,7 @@ describe("the new mailbox's side of the address page", () => {
 
     assert.match(
       words(bestaetigt),
-      /gilt ab 28\. Oktober 2026 um 13:30 ?\..*Bis dahin meldest Du Dich mit der bisherigen an\..*Passkeys gelten weiter/,
+      /gilt ab 28\. Oktober 2026 um 13:30 ?\..*Bis dahin meldest Du Dich mit der bisherigen an\..*Klappt die Anmeldung mit Deinem bisherigen Passkey nicht/,
     );
     assert.match(words({ ...bestaetigt, wirksamAb: null, genehmigungOffen: true }), /gilt, sobald die Verwaltung die Änderung genehmigt hat/);
     assert.match(words({ ...bestaetigt, genehmigungOffen: true }), /frühestens ab 28\. Oktober 2026 um 13:30 ?, und erst wenn die Verwaltung/);
