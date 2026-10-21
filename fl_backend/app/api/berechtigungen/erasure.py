@@ -129,7 +129,7 @@ async def carry_authorship_in_session(
     neue: str,
     session: AsyncClientSession,
 ) -> int:
-    """Re-key every record and queued notice the person made from the replaced address to the new, whatever they hold now.
+    """Re-key every record and queued notice the person made to the new address, whatever they hold now.
 
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write
     (`docs/backend/spec.md :: I837`).

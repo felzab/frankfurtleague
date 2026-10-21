@@ -1139,9 +1139,9 @@ class TestTheAdministratorFollowsTheirMove:
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
 
     def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
-        """Their grant ended before the change, so they hold none at the effect: what they made while holding it names them still.
+        """Their grant ended before the change: what they made while holding it names them still.
 
-        A grant they made, its image and its log row, and the image of their own grant; the database revoke queues nothing.
+        A grant they made, its image and log row, and their own grant's image; a database revoke queues nothing.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

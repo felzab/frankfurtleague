@@ -648,9 +648,8 @@ async def move_the_address_in_session(
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
     # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I837`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
-    # Who made a record is the person, whatever their address: the starter of a change stays excluded from approving it.
-    # Whatever they hold now, too: a grant since revoked left its records, a seat holder declines a registration under
-    # their own address, and only a carry reaches either from an erasure at the new address.
+    # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
+    # decisions included: the starter of a change stays excluded from approving it.
     await carry_authorship_in_session(
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,

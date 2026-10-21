@@ -70,8 +70,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Sized on the commands a due change moving a pupil row and a referee row sends, inside
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer one meets that deadline (`docs/backend/spec.md :: I322`).
+# The largest share whose dearest change, moving a pupil row and a referee row, finishes inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`); the arithmetic is
+# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, failing when a command is added; a dearer change meets the deadline.
 ADRESSWECHSEL_PER_PASS: Final = 5
 
 
