@@ -603,9 +603,11 @@ account page, and a request for one by mail is answered by pointing them there (
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
-**Every request arrives at the league's mailbox**
+**Every request arrives at the league's address**
 (`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
-reader to), and the answer goes back from it. There is no ticket system: the mail thread is the
+reader to), which Cloudflare forwards to the personal mailboxes of the members who answer it, and
+the answer goes back from the answering member's own address
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)). There is no ticket system: the mail thread is the
 record, and the action log records the writes you make rather than the request that asked for them.
 
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
@@ -919,7 +921,7 @@ already mailed to the address stops confirming at once**, however long ago it we
 (`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
 (`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
 already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spec.md :: I516`). A
-contact person's Widerspruch then reaches the league's mailbox, as the withdrawal bullet above says.
+contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
 its deadline open on its form again. Nothing else refuses on the list, so a person reading the
 queue is still what keeps a barred address out of everything a sign-up does not cover. **The ban

@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "20. Oktober 2026", digest: "ac2d4d690bdccd591b2c49da30af928dd44c7de2291dd35b6a1d37b5bba7390b" } as const;
+const FASSUNG = { stand: "25. Oktober 2026", digest: "fb2ec509ef60c32e03ec92f3a6eb121657b9e9050f67b802f07386d3663d6fdb" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -387,19 +387,64 @@ describe("the privacy notice states the sign-in's session figures at the constan
 /* A transfer resting on the standard clauses says where a copy is had, and one resting on an adequacy
    decision names it, each at every statement: a reader meets one section, not the page. */
 describe("the privacy notice's transfer statements", () => {
+  // Cloudflare's for the website and for the league's mail, and Resend's.
   it("offers a copy of the clauses wherever a transfer falls back on them", () => {
-    assert.equal(vorkommen("Standardvertragsklauseln der Europäischen Kommission"), 2);
-    assert.equal(vorkommen(`Eine Kopie der Klauseln schicken wir Dir auf Anfrage an ${KONTAKT_EMAIL} .`), 2);
+    assert.equal(vorkommen("Standardvertragsklauseln der Europäischen Kommission"), 3);
+    assert.equal(vorkommen(`Eine Kopie der Klauseln schicken wir Dir auf Anfrage an ${KONTAKT_EMAIL} .`), 3);
   });
 
   it("names the adequacy decision each prose statement rests on", () => {
-    assert.equal(vorkommen("Durchführungsbeschluss (EU) 2023/1795, Art. 45 DSGVO"), 2);
-    assert.equal(vorkommen("Die Schweiz gilt als Land mit einem angemessenen Datenschutzniveau (Entscheidung 2000/518/EG"), 1);
+    assert.equal(vorkommen("Durchführungsbeschluss (EU) 2023/1795, Art. 45 DSGVO"), 3);
   });
 
-  // Adopted under the directive, the Swiss decision stands under the GDPR only through Art. 45(9).
-  it("names the article the Swiss decision stands under", () => {
-    assert.equal(vorkommen("(Entscheidung 2000/518/EG der Europäischen Kommission, fortgeltend nach Art. 45 Abs. 9 DSGVO)"), 1);
+  // Adopted under the directive, the Swiss decision stands under the GDPR only through Art. 45(9), so any citation of it names that article.
+  it("names the article the Swiss decision stands under wherever it is cited", () => {
+    assert.equal(
+      vorkommen("2000/518/EG"),
+      vorkommen("(Entscheidung 2000/518/EG der Europäischen Kommission, fortgeltend nach Art. 45 Abs. 9 DSGVO)"),
+    );
+  });
+});
+
+/* Mail to the league's domain lands at Cloudflare's Email Routing, which only forwards it to members' personal
+   mailboxes (`docs/datenschutz.md` §7): the notice names Cloudflare as the receiver and no league mailbox, and a
+   reply leaves from the member's own address. */
+describe("the privacy notice's account of mail sent to the league", () => {
+  it("says Cloudflare receives and forwards it, and on which agreement and transfer basis", () => {
+    rendert(
+      "Ein eigenes Postfach hat die Liga nicht. E-Mails an die Liga nimmt Cloudflare, Inc. an und leitet sie an die privaten " +
+        "Postfächer der Mitglieder weiter, die sie beantworten. Den Inhalt einer E-Mail speichert Cloudflare nach eigener Angabe " +
+        "nicht; Absender, Empfänger und Betreff jeder E-Mail zeigt Cloudflare uns 31 Tage lang in seiner Übersicht an, und wie " +
+        "lange es selbst Angaben dazu aufbewahrt, legt Cloudflare fest. Grundlage ist die Standardvereinbarung zur " +
+        "Auftragsverarbeitung, die Cloudflare in seine Nutzungsbedingungen einbezieht. Die Übermittlung in die Vereinigten " +
+        "Staaten stützt sich auf den Angemessenheitsbeschluss zum EU-US Data Privacy Framework (Durchführungsbeschluss (EU) " +
+        "2023/1795, Art. 45 DSGVO); entfällt Cloudflares Zertifizierung, gelten die Standardvertragsklauseln der Europäischen " +
+        `Kommission (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie der Klauseln schicken wir Dir auf Anfrage an ${KONTAKT_EMAIL} .`,
+    );
+  });
+
+  it("says the private mailboxes carry no processing agreement and the reply leaves from a member's own address", () => {
+    rendert(
+      "Diese privaten Postfächer liegen bei den E-Mail-Anbietern, die die Mitglieder privat nutzen. Unsere Antwort kommt deshalb " +
+        "von der privaten Adresse des Mitglieds, das Dir schreibt. Für private Konten besteht kein Auftragsverarbeitungsvertrag, " +
+        "weil ein privates Konto keinen vorsieht.",
+    );
+  });
+
+  // Art. 13(1)(e) asks for the recipients: Cloudflare's card carries the mail, and one card stands for every member's provider.
+  it("lists the forwarded mail under Cloudflare and the members' private mailboxes as one recipient", () => {
+    assert.ok(
+      SEITE.includes(
+        "dazu jede E-Mail an eine Adresse der Liga, die Cloudflare an die privaten Postfächer der Mitglieder weiterleitet (Abschnitt 7)",
+      ),
+    );
+    assert.ok(
+      SEITE.includes(
+        "Private Postfächer der Mitglieder Rolle Anbieter der privaten E-Mail-Konten, an die Cloudflare die Post der Liga " +
+          "weiterleitet Was dorthin gelangt Jede E-Mail an eine Adresse der Liga und jede Antwort darauf Wo Je nach Anbieter; " +
+          "nicht festgelegt Vereinbarung Keiner, weil ein privates Konto keinen vorsieht",
+      ),
+    );
   });
 });
 
@@ -527,6 +572,10 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
       "Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage nennt, kann ein Name darin " +
       "stehen und bleibt dann mit dem Eintrag stehen.",
   },
+  // The league holds no mailbox: Cloudflare forwards every message to members' personal ones.
+  { weg: "Das Postfach der Liga liegt bei der Proton AG", statt: "Ein eigenes Postfach hat die Liga nicht." },
+  { weg: "Anbieter des Postfachs der Liga", statt: "Private Postfächer der Mitglieder" },
+  { weg: "Einzelne Mitglieder der Liga lesen Liga-Post in ihren privaten Gmail-Konten" },
 ];
 
 describe("the privacy notice's account of the site's own protection", () => {
