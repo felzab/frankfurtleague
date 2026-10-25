@@ -84,7 +84,7 @@ const EMPFAENGER = [
   // `docs/datenschutz.md` §7 records the ones known on the day it was read.
   {
     name: "Private Postfächer der Organisation",
-    rolle: "Anbieter der privaten E-Mail-Konten, an die Cloudflare die Post der Liga weiterleitet",
+    rolle: "Anbieter der privaten E-Mail-Konten, an die Cloudflare die E-Mails an die Liga weiterleitet",
     inhalt: "Jede E-Mail an eine Adresse der Liga und jede Antwort darauf",
     ort: "Je nach Anbieter, auch außerhalb der EU; nicht festgelegt",
     vereinbarung: "Keiner, weil ein privates Konto keinen vorsieht",
@@ -492,15 +492,16 @@ export function DatenschutzView() {
               selbst Angaben dazu aufbewahrt, legt Cloudflare fest. Grundlage ist die Standardvereinbarung zur Auftragsverarbeitung, die
               Cloudflare in seine Nutzungsbedingungen einbezieht. Cloudflare, Inc. hat seinen Sitz in den Vereinigten Staaten, und Deine E-Mail
               kann auch außerhalb der EU verarbeitet werden. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf den
-              Angemessenheitsbeschluss zum EU-US Data Privacy Framework (Durchführungsbeschluss (EU) 2023/1795, Art. 45 DSGVO). Nach diesem
-              Framework ist Cloudflare zertifiziert; entfällt die Zertifizierung, gelten die Standardvertragsklauseln der Europäischen
-              Kommission (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie der Klauseln schicken wir Dir auf Anfrage an <MailLink />.
+              Angemessenheitsbeschluss der Europäischen Kommission zum EU-US Data Privacy Framework (Durchführungsbeschluss (EU) 2023/1795, Art.
+              45 DSGVO). Nach diesem Framework ist Cloudflare zertifiziert; entfällt die Zertifizierung, gelten die Standardvertragsklauseln der
+              Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie der Klauseln schicken wir Dir auf Anfrage an <MailLink />.
             </li>
             <li className={ABSATZ_CLASSES}>
               Diese privaten Postfächer liegen bei den E-Mail-Anbietern, die diese Personen privat nutzen. Unsere Antwort kommt deshalb von der
               privaten Adresse der Person aus der Organisation, die Dir schreibt. Für private Konten besteht kein Auftragsverarbeitungsvertrag,
-              weil ein privates Konto keinen vorsieht. Ein solches Postfach kann auch außerhalb der EU liegen; geeignete Garantien für diese
-              Übermittlung haben wir dann nicht, weil ein privates Konto keine vorsieht.
+              weil ein privates Konto keinen vorsieht. Ein solches Postfach kann auch außerhalb der EU liegen. Besteht für dieses Land kein
+              Angemessenheitsbeschluss der Europäischen Kommission, haben wir für diese Übermittlung keine geeigneten Garantien, weil ein
+              privates Konto keine vorsieht.
             </li>
             <li className={ABSATZ_CLASSES}>
               WhatsApp ist kein Kanal der Liga. Wir schreiben dort nur einzelnen Personen, die uns ihre Nummer dafür gegeben haben, etwa mit dem
@@ -789,7 +790,8 @@ export function DatenschutzView() {
             bleiben sie bis zu etwa acht Tage länger, weil eine Sicherung nicht einzeln geändert werden kann; danach laufen die Kopien von
             selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen. Auch die Kopien unserer
             E-Mails beim Versanddienst Resend und die Angaben zu Deinen E-Mails an uns bei Cloudflare erreicht eine Löschung nicht. Wie lange
-            sie dort bleiben, steht in Abschnitt 13.
+            sie dort bleiben, steht in Abschnitt 13. Deine E-Mails an uns löschen die Personen aus der Organisation auf Deinen Wunsch aus ihren
+            privaten Postfächern; was deren Anbieter danach noch in eigenen Sicherungen aufbewahren, können wir nicht beeinflussen.
           </p>
           <p className={ABSATZ_CLASSES}>
             Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
