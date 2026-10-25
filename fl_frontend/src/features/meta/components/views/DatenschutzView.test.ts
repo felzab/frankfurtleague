@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "25. Oktober 2026", digest: "fb2ec509ef60c32e03ec92f3a6eb121657b9e9050f67b802f07386d3663d6fdb" } as const;
+const FASSUNG = { stand: "25. Oktober 2026", digest: "83b1e7c096ee15843354208bfc58fb770ef6c6bc63d87b20289266a46df522bc" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -282,14 +282,15 @@ describe("the privacy notice's retention table", () => {
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
-  /* No erasure reaches the mail provider's copies, every message the league sent among them, and they outlive the
-     backups (`docs/datenschutz.md` §7): a person told only of the backups is told the shorter of the two. */
-  it("tells a person an erasure leaves every copy at the mail provider, where the deletion is explained and in the provider's row", () => {
+  /* No erasure reaches the mail provider's copies or Cloudflare's record of mail sent to us, and both outlive the
+     backups (`docs/datenschutz.md` §7): a person told only of the backups is told the shortest of the three. */
+  it("tells a person an erasure leaves the mail provider's copies and Cloudflare's record, where the deletion is explained and in each row", () => {
     const absatz = ABSAETZE.find((text) => text.startsWith("Was eine Löschung erreicht und was nicht:")) ?? "";
 
     assert.ok(
       absatz.endsWith(
-        "Auch die Kopien unserer E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.",
+        "Auch die Kopien unserer E-Mails beim Versanddienst Resend und die Angaben zu Deinen E-Mails an uns bei Cloudflare erreicht " +
+          "eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.",
       ),
       absatz,
     );
@@ -297,6 +298,11 @@ describe("the privacy notice's retention table", () => {
       ANGABEN.get("E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand"),
       "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: " +
         "Sie bleiben bei Resend bis dahin bestehen",
+    );
+    assert.equal(
+      ANGABEN.get("E-Mails an die Liga bei Cloudflare: Absender, Empfänger und Betreff"),
+      "31 Tage in der Übersicht von Cloudflare; wie lange Cloudflare selbst Angaben dazu aufbewahrt, legt Cloudflare fest. Eine " +
+        "Löschung bei uns erreicht diese Angaben nicht",
     );
   });
 
@@ -406,43 +412,48 @@ describe("the privacy notice's transfer statements", () => {
   });
 });
 
-/* Mail to the league's domain lands at Cloudflare's Email Routing, which only forwards it to members' personal
-   mailboxes (`docs/datenschutz.md` §7): the notice names Cloudflare as the receiver and no league mailbox, and a
-   reply leaves from the member's own address. */
+/* Mail to the league's domain lands at Cloudflare's Email Routing, which only forwards it to the organisers' personal
+   mailboxes (`docs/datenschutz.md` §7): the notice names Cloudflare as receiver, no league mailbox, and the
+   organiser's own address as a reply's sender. */
 describe("the privacy notice's account of mail sent to the league", () => {
+  // Cloudflare's seat and certification are stated here as in section 3: a reader meets one section, not the page.
   it("says Cloudflare receives and forwards it, and on which agreement and transfer basis", () => {
     rendert(
       "Ein eigenes Postfach hat die Liga nicht. E-Mails an die Liga nimmt Cloudflare, Inc. an und leitet sie an die privaten " +
-        "Postfächer der Mitglieder weiter, die sie beantworten. Den Inhalt einer E-Mail speichert Cloudflare nach eigener Angabe " +
-        "nicht; Absender, Empfänger und Betreff jeder E-Mail zeigt Cloudflare uns 31 Tage lang in seiner Übersicht an, und wie " +
-        "lange es selbst Angaben dazu aufbewahrt, legt Cloudflare fest. Grundlage ist die Standardvereinbarung zur " +
-        "Auftragsverarbeitung, die Cloudflare in seine Nutzungsbedingungen einbezieht. Die Übermittlung in die Vereinigten " +
-        "Staaten stützt sich auf den Angemessenheitsbeschluss zum EU-US Data Privacy Framework (Durchführungsbeschluss (EU) " +
-        "2023/1795, Art. 45 DSGVO); entfällt Cloudflares Zertifizierung, gelten die Standardvertragsklauseln der Europäischen " +
-        `Kommission (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie der Klauseln schicken wir Dir auf Anfrage an ${KONTAKT_EMAIL} .`,
+        "Postfächer der Personen aus der Organisation weiter, die sie beantworten. Den Inhalt einer E-Mail speichert Cloudflare " +
+        "nach eigener Angabe nicht; Absender, Empfänger und Betreff jeder E-Mail zeigt Cloudflare uns 31 Tage lang in seiner " +
+        "Übersicht an, und wie lange es selbst Angaben dazu aufbewahrt, legt Cloudflare fest. Grundlage ist die " +
+        "Standardvereinbarung zur Auftragsverarbeitung, die Cloudflare in seine Nutzungsbedingungen einbezieht. Cloudflare, Inc. " +
+        "hat seinen Sitz in den Vereinigten Staaten, und Deine E-Mail kann auch außerhalb der EU verarbeitet werden. Das ist eine " +
+        "Übermittlung in ein Drittland. Sie stützt sich auf den Angemessenheitsbeschluss zum EU-US Data Privacy Framework " +
+        "(Durchführungsbeschluss (EU) 2023/1795, Art. 45 DSGVO). Nach diesem Framework ist Cloudflare zertifiziert; entfällt die " +
+        "Zertifizierung, gelten die Standardvertragsklauseln der Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO). Eine Kopie " +
+        `der Klauseln schicken wir Dir auf Anfrage an ${KONTAKT_EMAIL} .`,
     );
   });
 
-  it("says the private mailboxes carry no processing agreement and the reply leaves from a member's own address", () => {
+  // Art. 13(1)(f): a private mailbox may sit outside the EU with no safeguard, and the notice says so without naming a provider.
+  it("says the private mailboxes carry no agreement, may lie outside the EU without a safeguard, and send the reply", () => {
     rendert(
-      "Diese privaten Postfächer liegen bei den E-Mail-Anbietern, die die Mitglieder privat nutzen. Unsere Antwort kommt deshalb " +
-        "von der privaten Adresse des Mitglieds, das Dir schreibt. Für private Konten besteht kein Auftragsverarbeitungsvertrag, " +
-        "weil ein privates Konto keinen vorsieht.",
+      "Diese privaten Postfächer liegen bei den E-Mail-Anbietern, die diese Personen privat nutzen. Unsere Antwort kommt deshalb " +
+        "von der privaten Adresse der Person aus der Organisation, die Dir schreibt. Für private Konten besteht kein " +
+        "Auftragsverarbeitungsvertrag, weil ein privates Konto keinen vorsieht. Ein solches Postfach kann auch außerhalb der EU " +
+        "liegen; geeignete Garantien für diese Übermittlung haben wir dann nicht, weil ein privates Konto keine vorsieht.",
     );
   });
 
-  // Art. 13(1)(e) asks for the recipients: Cloudflare's card carries the mail, and one card stands for every member's provider.
-  it("lists the forwarded mail under Cloudflare and the members' private mailboxes as one recipient", () => {
+  // Art. 13(1)(e) asks for the recipients: Cloudflare's card carries the mail, and one card stands for every organiser's provider.
+  it("lists the forwarded mail under Cloudflare and the organisers' private mailboxes as one recipient", () => {
     assert.ok(
       SEITE.includes(
-        "dazu jede E-Mail an eine Adresse der Liga, die Cloudflare an die privaten Postfächer der Mitglieder weiterleitet (Abschnitt 7)",
+        "dazu jede E-Mail an eine Adresse der Liga, die Cloudflare an die privaten Postfächer der Personen aus der Organisation weiterleitet (Abschnitt 7)",
       ),
     );
     assert.ok(
       SEITE.includes(
-        "Private Postfächer der Mitglieder Rolle Anbieter der privaten E-Mail-Konten, an die Cloudflare die Post der Liga " +
-          "weiterleitet Was dorthin gelangt Jede E-Mail an eine Adresse der Liga und jede Antwort darauf Wo Je nach Anbieter; " +
-          "nicht festgelegt Vereinbarung Keiner, weil ein privates Konto keinen vorsieht",
+        "Private Postfächer der Organisation Rolle Anbieter der privaten E-Mail-Konten, an die Cloudflare die Post der Liga " +
+          "weiterleitet Was dorthin gelangt Jede E-Mail an eine Adresse der Liga und jede Antwort darauf Wo Je nach Anbieter, " +
+          "auch außerhalb der EU; nicht festgelegt Vereinbarung Keiner, weil ein privates Konto keinen vorsieht",
       ),
     );
   });
@@ -572,9 +583,9 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
       "Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage nennt, kann ein Name darin " +
       "stehen und bleibt dann mit dem Eintrag stehen.",
   },
-  // The league holds no mailbox: Cloudflare forwards every message to members' personal ones.
+  // The league holds no mailbox: Cloudflare forwards every message to the organisers' personal ones.
   { weg: "Das Postfach der Liga liegt bei der Proton AG", statt: "Ein eigenes Postfach hat die Liga nicht." },
-  { weg: "Anbieter des Postfachs der Liga", statt: "Private Postfächer der Mitglieder" },
+  { weg: "Anbieter des Postfachs der Liga", statt: "Private Postfächer der Organisation" },
   { weg: "Einzelne Mitglieder der Liga lesen Liga-Post in ihren privaten Gmail-Konten" },
 ];
 

@@ -605,8 +605,8 @@ this section.
 
 **Every request arrives at the league's address**
 (`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
-reader to), which Cloudflare forwards to the personal mailboxes of the members who answer it, and
-the answer goes back from the answering member's own address
+reader to), which Cloudflare forwards to the personal mailboxes of the organisers who answer it, and
+the answer goes back from the answering organiser's own address
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)). There is no ticket system: the mail thread is the
 record, and the action log records the writes you make rather than the request that asked for them.
 

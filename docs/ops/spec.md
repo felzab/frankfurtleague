@@ -1397,9 +1397,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   when the hostname was added, so the zone holds no record naming the origin's address.
 - **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
   records name Cloudflare's routing servers, and each league address forwards to the personal
-  mailboxes of the members who answer it, the league holding no mailbox. The published privacy
-  notice says exactly that ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)),
-  so a route aimed at a hosted mailbox changes that notice in the same step.
+  mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
+  notice says exactly that
+  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: EMPFAENGER`), so a route
+  aimed at a hosted mailbox changes that notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
