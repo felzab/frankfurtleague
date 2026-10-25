@@ -539,7 +539,9 @@ def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path
     """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
     script = tmp_path / "moving.py"
     script.write_bytes(MOVING.encode("utf-8"))
-    result = _drive((*STALLING, f"run_pool(('moving', (sys.executable, {str(script)!r})))"), tmp_path)
+    # The silence clock runs from spawn, and a loaded machine held this fresh interpreter silent past one
+    # second before its first beat; two stays below the unit's 2.4 s, so it still runs past the bound.
+    result = _drive((*STALLING, "gate_pool.STALL_S = 2.0", f"run_pool(('moving', (sys.executable, {str(script)!r})))"), tmp_path)
     assert result.returncode == 0, result.stderr
     assert "has written nothing" not in result.stderr, result.stderr
 
