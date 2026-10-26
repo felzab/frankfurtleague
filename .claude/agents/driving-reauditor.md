@@ -75,8 +75,9 @@ in a fresh worktree to fail a page breaking Next's route types.
 - Hooks run from the coordinator's checkout: `.claude/hooks/` always, and `.githooks/` while the
   shared `core.hooksPath` is an absolute path into it. A plant in either is driven by invoking your
   worktree's copy directly.
-- The machine is not per worktree: never run `./scripts/ops/local.sh`; the database tier refuses a
-  second concurrent run on the machine -- report the refusal, never retry it in a loop.
+- The machine is not per worktree: never run `./scripts/ops/local.sh`; the database tier starts its
+  own containers for each run and refuses none beside another agent's, so a failure you suspect a
+  concurrent run caused is reported as that, never retried in a loop.
 - A test run carries a memory ceiling and a timeout.
 - No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's
   included, whose calls carry no timeout. What a person sees is the owner's browser pass; you drive
