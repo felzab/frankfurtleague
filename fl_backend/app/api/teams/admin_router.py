@@ -8,6 +8,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.adresswechsel.crud import verwehrte_adressen
+from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
@@ -65,6 +67,7 @@ from app.api.teams.services import (
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
+    departing_holders,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakt_sitz_gesperrt_refusal,
@@ -81,6 +84,8 @@ from app.api.teams.services import (
     links_owed,
     mint_answer,
     mit_abgelaufen,
+    mit_adresswechseln,
+    seated_identifiers,
     seats_one_link_answers,
     voids_a_live_link,
 )
@@ -101,7 +106,10 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
     AktionenCollection,
+    BerechtigungenAngekuendigtCollection,
+    BerechtigungenCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
@@ -121,6 +129,7 @@ from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
     bind_actor,
+    get_actor_auth_time,
     get_actor_email,
     get_step_up_check,
     verify_access_admin,
@@ -174,18 +183,52 @@ async def _rewrite_the_outgoing_clubs_sides(
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
-async def get_team_memberships(teams_collection: TeamsCollection, today: str = Depends(get_german_date_str)) -> FLTeamsMembershipsResponse:
+async def get_team_memberships(
+    teams_collection: TeamsCollection,
+    adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    today: str = Depends(get_german_date_str),
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
+) -> FLTeamsMembershipsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join.
+    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
+    administrator.
     """
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
     )
+    adressen = seated_identifiers(teams_raw)
+    live = (
+        {
+            row["adresse"]: row["_id"]
+            for row in await aggregate_many_from_db(
+                collection=adresswechsel_collection,
+                pipeline=[{"$match": build_addresses_filter(adressen)}, {"$project": {"adresse": 1}}],
+            )
+        }
+        if adressen
+        else {}
+    )
+    verwehrt = await verwehrte_adressen(
+        live,
+        akteur=sign_in_identifier(operator),
+        auth_time=auth_time,
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        session=None,
+    )
 
-    return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(mit_abgelaufen(teams_raw, today=today)))
+    return FLTeamsMembershipsResponse(
+        teams=FLTeamWithMembershipsListAdapter.validate_python(
+            mit_adresswechseln(mit_abgelaufen(teams_raw, today=today), live=live, verwehrt=verwehrt)
+        )
+    )
 
 
 # Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
@@ -453,10 +496,9 @@ async def post_saison_team(
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
-            # Required by the validator and by `FLTeam`, so a row without it is unreadable.
+            # These three required by the validator and by `FLTeamMembership`, so a row without one
+            # is unreadable; entry carries no departure, kit or people yet.
             "austritt": None,
-            # Written as nulls although the validator does not require the keys: entry carries
-            # neither, and a row that states so is easier to read back than one that omits them.
             "trikot_farbe": None,
             "kontakte": None,
             # Copied rather than joined on read (`docs/backend/spec.md :: I95`): once the season is
@@ -564,9 +606,8 @@ async def patch_saison_team(
         async with transaction_session(db) as session:
             existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
-    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
-    # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
-    # still refuses, a keyword being validated like any other value.
+    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block. A
+    # block in a shape this model cannot describe refuses, a keyword being validated like any other value.
 
     # Assembled after the commit rather than inside the callback, so such a block answers 500 for a
     # write that landed rather than aborting a correct move over a field this endpoint never touches.
@@ -578,7 +619,7 @@ async def patch_saison_team(
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
-        kontakte=updated_raw.get("kontakte"),
+        kontakte=updated_raw["kontakte"],
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
     )
@@ -623,6 +664,10 @@ async def patch_saison_team_kontakte(
     link is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying
     or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
     is; a save doing none of these is not.
+
+    **Each mailbox the save takes off a seat is answered in `abgaenge`** for the caller to tell, with every seat it
+    lost, a mailbox still holding another seat of the row included. A mailbox the save mints a link is not one: that
+    link's mail names the seats it holds now.
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -743,6 +788,8 @@ async def patch_saison_team_kontakte(
             # its token is the precondition an undo of this save replays against.
             kontakte=updated_raw["kontakte"],
             bestaetigungen=links,
+            # Off the block read in this transaction, as the void is: a retry after a conflict tells whom the winner's block seated.
+            abgaenge=departing_holders(stored=stored.get("kontakte"), kontakte=kontakte, owed=owed, schule=str(stored.get("name") or "")),
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,

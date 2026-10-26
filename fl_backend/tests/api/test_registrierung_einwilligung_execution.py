@@ -1,5 +1,6 @@
+import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung import services as einwilligung_services
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload
@@ -17,6 +19,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_ALTER,
     REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
     REGISTRIERUNG_MEDIEN_ALTER,
+    REGISTRIERUNG_OHNE_GEBURTSDATUM,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     REGISTRIERUNG_WAHLEN_UNPASSEND,
@@ -28,12 +31,14 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
+
+from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths
 
 # Module level, as the application's confirmation suite marks its own: every test below reaches a
 # real mongod.
@@ -67,8 +72,7 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
 
-# Unfolded, as the payload stores it. `spieler.email` holds the fold of it, which is what the person join asks on.
-TYPED_EMAIL = "Quillhilde@Example.com"
+# Folded, as every address payload stores it, the registration's and the person's alike.
 FOLDED_EMAIL = "quillhilde@example.com"
 
 # Against `TODAY`, `2010-04-01` is 16 to the day and `2010-04-02` is 15 years and 364 days.
@@ -83,6 +87,9 @@ THIS_SEASONS_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
 # The returning pupil's page's, which asks no choice.
 RETURNING_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"]
 AN_OLDER_LABEL = "2025-09-spielerseite"
+# An older version of the returning pupil's page, built for the case: the registry holds only the version a
+# stored record can cite, and an older one is what a page loaded before a deploy names.
+EARLIER_RETURNING_LABEL = "2026-01-spielerseite-wiederkehrend"
 
 
 def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any]:
@@ -90,19 +97,15 @@ def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
-    return {
-        "umfang": "intern",
-        "erteilt_von": "volljaehrig",
-        "datum": "2025-09-02",
-        "bestaetigt_am": "2025-09-02",
-        "text_version": AN_OLDER_LABEL,
-        "medien": True,
-        **overrides,
-    }
+    """The returning pupil's record as their own confirmation of an earlier season left it."""
+
+    stored = documents.eigene_einwilligung_document(text_version=AN_OLDER_LABEL, bestaetigt_am="2025-09-02", umfang="intern", medien=True)
+
+    return {**stored, **overrides}
 
 
 def spieler_document(spieler_id: ObjectId, **overrides: Any) -> dict[str, Any]:
-    """One person the league already holds, whose record a returning pupil's page shows back."""
+    """One person the league already holds, whose link opens the returning pupil's page."""
 
     person = documents.spieler_document(
         spieler_id, "Quillhilde", "Brackenmoor", geburtsdatum=A_RETURNING_PUPILS_BIRTHDATE, einwilligung=einwilligung(), email=FOLDED_EMAIL
@@ -123,7 +126,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "status": "eingereicht",
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
-        "email": TYPED_EMAIL,
+        "email": FOLDED_EMAIL,
         "position": "Abwehr",
         "nummer": "7",
         "stufe": "Q1",
@@ -166,12 +169,12 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None) -> Any:
     return await get_bestaetigung_ansicht(
         ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
-        spieler_collection=database[Collection.SPIELER],
+        spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
         sperrliste=ban_list(database),
         today=TODAY,
     )
@@ -228,59 +231,41 @@ class TestWhatALinkOpens:
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
         assert registration["vorname"] not in rendered and registration["nachname"] not in rendered
-        assert TYPED_EMAIL not in rendered and FOLDED_EMAIL not in rendered
+        assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
-    def test_a_first_timer_is_asked_rather_than_shown(self, mongo_replica_set_url: str):
+    def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
 
-        assert (response.seite, response.geburtsdatum, response.umfang, response.medien) == (SEITE_NEU, None, None, None)
+        assert response.seite == SEITE_NEU
 
     @pytest.mark.parametrize(
         "person",
         [spieler_document(SPIELER_OID), spieler_document(SPIELER_OID, inactive_since="2025-07-01")],
         ids=("a person in the league", "a person who left it"),
     )
-    def test_a_returning_pupil_is_shown_what_the_league_already_holds(self, mongo_replica_set_url: str, person: dict[str, Any]):
-        """A returning pupil gets one short page: the two choices shown as they stand, and the birthdate shown rather than asked for."""
+    def test_a_returning_pupil_is_told_a_date_is_stored_and_shown_none_of_it(self, mongo_replica_set_url: str, person: dict[str, Any]):
+        """A returning pupil's page asks neither a choice nor the stored birthdate, and the link serves none of the three."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[person])
 
-        assert (response.seite, response.geburtsdatum) == (SEITE_WIEDERKEHREND, A_RETURNING_PUPILS_BIRTHDATE)
-        assert (response.umfang, response.medien) == ("intern", True)
-
-    def test_a_returning_pupil_with_no_stored_birthdate_is_asked_for_one(self, mongo_replica_set_url: str):
-        """The page is still the returning one: what makes a pupil returning is a confirmed record, never a stored date."""
-
-        undated = spieler_document(SPIELER_OID, geburtsdatum=None)
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[undated])
-
-        assert (response.seite, response.geburtsdatum, response.umfang) == (SEITE_WIEDERKEHREND, None, "intern")
+        assert response.seite == SEITE_WIEDERKEHREND
+        assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
 
     def test_a_record_nobody_confirmed_makes_no_returning_pupil(self, mongo_replica_set_url: str):
-        """The returning page says the choices stand as the pupil gave them; an unconfirmed record holds choices nobody gave."""
+        """The returning page says the choices stand as the pupil gave them; a stamp a hand edit blanked holds choices nobody gave."""
 
-        unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=None))
+        unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
 
-        assert (response.seite, response.geburtsdatum, response.umfang, response.medien) == (SEITE_NEU, None, None, None)
+        assert response.seite == SEITE_NEU
 
-    def test_the_join_asks_on_the_folded_address(self, mongo_replica_set_url: str):
-        """The registration stores the address unfolded; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
-
-        capitalised = spieler_document(SPIELER_OID, email="QUILLHILDE@EXAMPLE.COM")
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
-
-        assert (response.seite, response.geburtsdatum) == (SEITE_NEU, None)
-
-    def test_a_differently_named_pupil_at_the_same_mailbox_is_shown_nothing(self, mongo_replica_set_url: str):
+    def test_a_differently_named_pupil_at_the_same_mailbox_is_asked_for_their_own_date(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
 
-        On the address alone this pupil is shown the stored person's birthdate, and the form then
-        stores it onto their own registration, the date being rendered read-only.
+        On the address alone this pupil's page takes the stored person's birthdate as given, and the
+        press then stores it onto their own registration.
         """
 
         sibling = registrierung_document(vorname="Bramblewick")
@@ -288,7 +273,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[sibling], spieler=held)
 
-        assert (response.seite, response.geburtsdatum, response.umfang, response.medien) == (SEITE_NEU, None, None, None)
+        assert response.seite == SEITE_NEU
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
@@ -329,6 +314,27 @@ class TestWhatALinkOpens:
                 await ansicht(database, RAW)
 
         on_a_league(mongo_replica_set_url, body, registrierungen=[orphan])
+
+
+# What the view resolves off the person its address holds: the name it matches and the stamp the page turns on. Never a
+# choice, which this page neither shows nor asks.
+PERSON_ANSICHT_RESOLVES = frozenset({"_id", "vorname", "nachname", "geburtsdatum", "einwilligung.bestaetigt_am"})
+
+
+class TestWhatTheLinksPersonReadLoads:
+    """Holds the narrowing alone: the returning page's cases drive each field the read resolves."""
+
+    def test_the_view_never_holds_the_person_beyond_what_it_judges(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            recorder = ReadsRecorded(database[Collection.SPIELER])
+            await ansicht(database, RAW, spieler_collection=recorder)
+
+            return [document for _, document in recorder.answered if document is not None]
+
+        loaded = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
+
+        assert loaded, "the person read found nobody, so nothing below is judged"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= PERSON_ANSICHT_RESOLVES
 
 
 class TestWhatAConfirmationWrites:
@@ -396,13 +402,14 @@ class TestWhatAConfirmationWrites:
         assert (record["umfang"], record["medien"]) == ("intern", False)
 
     def test_a_returning_pupils_press_stores_the_stamp_and_the_label_alone(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I557`: the page asked no choice, so none is stored, and the person's record is untouched."""
+        """`docs/backend/spec.md :: I557`: the page asked no choice and no date, so the stored date is written and echoed nowhere.
+
+        The person's record is untouched.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             held = await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
-            response = await answer(
-                database, client, RAW, geburtsdatum=A_RETURNING_PUPILS_BIRTHDATE, umfang=None, medien=None, text_version=RETURNING_LABEL
-            )
+            response = await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
 
             return response, await stored(database), held, await database[Collection.SPIELER].find_one({"_id": SPIELER_OID})
 
@@ -410,25 +417,59 @@ class TestWhatAConfirmationWrites:
 
         assert document["einwilligung"] == {"bestaetigt_am": TODAY, "text_version": RETURNING_LABEL}
         assert document["geburtsdatum"] == A_RETURNING_PUPILS_BIRTHDATE
-        assert (response.ergebnis, response.umfang, response.medien) == ("bestaetigt", None, None)
+        assert (response.ergebnis, response.geburtsdatum, response.umfang, response.medien) == ("bestaetigt", None, None, None)
         assert person == held
+
+    def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        """The stored date is judged as a typed one is: taken as given, it is never taken unchecked."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
+
+            return refused.value.error_code, await stored(database)
+
+        too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(medien=False))
+        code, document = on_a_league(mongo_replica_set_url, body, spieler=[too_young])
+
+        assert code == REGISTRIERUNG_ALTER
+        assert document == registrierung_document()
+
+    def test_a_returning_pupil_whose_person_holds_no_date_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        """Only a hand edit leaves a person undated, and the page has no field to fill: a refusal reopening the link would loop."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
+
+            return (refused.value.error_code, refused.value.status_code), await stored(database)
+
+        code, document = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID, geburtsdatum=None)])
+
+        assert code == (REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
+        assert document == registrierung_document()
 
     def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
         """A response re-read off the updated document would widen this page's answer to everything a registration holds."""
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
 
-        assert registrierung_document()["nachname"] not in rendered and TYPED_EMAIL not in rendered
+        assert registrierung_document()["nachname"] not in rendered and FOLDED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
 
 
 class TestTheLabelAPressNames:
     """`REQ-EINWILLIGUNG-001`: a new acceptance names the running label of the page the link opens and nothing else."""
 
+    @pytest.fixture(autouse=True)
+    def _an_earlier_version_of_the_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        earlier = dataclasses.replace(FASSUNGEN[RETURNING_LABEL], gilt_ab=date(2026, 1, 1))
+        monkeypatch.setattr(einwilligung_services, "FASSUNGEN", {**FASSUNGEN, EARLIER_RETURNING_LABEL: earlier})
+
     @pytest.mark.parametrize(
         "genannt",
         [
-            pytest.param("2026-09-spielerseite-2", id="a superseded label of the pupil page"),
+            pytest.param(EARLIER_RETURNING_LABEL, id="a superseded label of the returning pupil's page"),
             pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"], id="the referee page's running label"),
             pytest.param(AN_OLDER_LABEL, id="the label the returning pupil's stored record names"),
             pytest.param(THIS_SEASONS_LABEL, id="the new pupil page's running label, on the returning pupil's link"),
@@ -455,7 +496,7 @@ class TestTheLabelAPressNames:
         [
             pytest.param([spieler_document(SPIELER_OID)], THIS_SEASONS_LABEL, {}, id="new page shown, the person confirmed since"),
             pytest.param(
-                [spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=None))],
+                [spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))],
                 RETURNING_LABEL,
                 {"umfang": None, "medien": None},
                 id="returning page shown, the record unconfirmed since",
@@ -494,6 +535,13 @@ class TestTheChoicesThePageAsks:
             pytest.param(
                 [spieler_document(SPIELER_OID)], RETURNING_LABEL, {"umfang": None, "medien": True}, id="the returning page, sent a media grant"
             ),
+            pytest.param(
+                [spieler_document(SPIELER_OID)],
+                RETURNING_LABEL,
+                {"umfang": None, "medien": None},
+                id="the returning page, sent a date",
+            ),
+            pytest.param([], THIS_SEASONS_LABEL, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
         ],
     )
     def test_a_body_not_matching_its_page_is_refused_and_writes_nothing(

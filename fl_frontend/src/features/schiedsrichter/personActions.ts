@@ -32,8 +32,8 @@ export async function patchSchiedsrichterEinwilligungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
-    // Ahead of the fixture read joining this record, which will serve the referee's name by its scope and
-    // is cached for hours: the consent is written on the referee's row alone, so no write of it drops that read.
+    // The fixture read serves the referee's name by this record's scope and is cached for hours: the
+    // consent is written on the referee's row alone, so no write of it drops that read.
     invalidatesOnWrite("spiele");
     let antwort;
     try {

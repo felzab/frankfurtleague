@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, run_shell, write_shell
+from conftest import BASH, base_env, run_shell, step_script, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
@@ -249,30 +249,7 @@ def test_the_step_searches_for_every_shape_its_dockerignore_promises_to_exclude(
 
 CHECK_STEP: Final = "Check both images before either is pushed"
 SAME_STEP: Final = "Refuse a pushed image other than the one checked"
-STEP_NAME_RE: Final = re.compile(r"^      - name: (.+)$")
-RUN_BLOCK_RE: Final = re.compile(r"^        run: \|$")
 JOB_ENV_RE: Final = re.compile(r"^      ((?:FRONTEND|BACKEND)_(?:IMAGE|CHECKED)): (\S+)$", re.MULTILINE)
-# What `shell: bash` expands to on the runner, less the two flags that only skip start-up files.
-RUNNER_SHELL: Final = "set -eo pipefail\n"
-
-
-def _run_block(workflow: str, name: str) -> str:
-    """The `run: |` text of the step `name`, dedented to the margin."""
-    lines = workflow.splitlines()
-    starts = [i for i, line in enumerate(lines) if (found := STEP_NAME_RE.match(line)) and found[1] == name]
-    assert len(starts) == 1, f"publish.yml names {len(starts)} steps {name!r}, where the case reads exactly one"
-    block: list[str] = []
-    opened = False
-    for line in lines[starts[0] + 1 :]:
-        if STEP_NAME_RE.match(line) or (line and not line.startswith("        ")):
-            break
-        if opened:
-            block.append(line.removeprefix("          "))
-        opened = opened or RUN_BLOCK_RE.match(line) is not None
-    text = "\n".join(block).strip("\n") + "\n"
-    # An expression would reach the runner substituted and this case unsubstituted.
-    assert "${{" not in text, f"{name!r} interpolates an expression into its script"
-    return text
 
 
 @dataclass(frozen=True)
@@ -320,7 +297,7 @@ def test_the_publish_workflow_checks_and_compares_the_images_it_pushes() -> None
         if case.only is not None:
             environment[ONLY_VAR] = case.only
         with tempfile.TemporaryDirectory() as scratch:
-            script = write_shell(Path(scratch) / "step.sh", RUNNER_SHELL + _run_block(workflow, case.step))
+            script = write_shell(Path(scratch) / "step.sh", step_script(PUBLISH, case.step))
             # The repository root, where the runner's checkout leaves a step.
             done = run_shell(BASH, script, env=_stubbed(scratch, environment), cwd=REPO_ROOT)
         output = done.stdout + done.stderr

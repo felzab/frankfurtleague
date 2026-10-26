@@ -2,6 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -33,13 +34,6 @@ FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 # confirmed on the last valid day still sees that they did. `gesperrt` ranks first
 # (`docs/backend/spec.md :: I515`).
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
-
-# What an address link shows. No `bestaetigt`: an answer removes the block the link opens.
-# `nicht_bestaetigbar`, a barred REPLACED address, is named apart from `gesperrt` so the new mailbox
-# learns nothing of the ban.
-FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
-
-FLSchiedsrichterAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
 # referee's own: one `mint_token` spells every confirmation link this application hands out.
@@ -106,30 +100,6 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
-class FLSchiedsrichterAdresswechsel(BaseModel):
-    """A confirmed referee's address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
-
-    Kept off the wire for `FLSchiedsrichterBestaetigung`'s reason.
-    """
-
-    email: str
-    verschickt_am: CustomDateString
-    # Stored for `FLSchiedsrichterBestaetigung.frist`'s reason.
-    frist: CustomDateString
-    zustellung: FLBewerbungZustellung | None = None
-
-
-class FLSchiedsrichterAdresswechselMint(FLSchiedsrichterMint):
-    """A freshly minted address link, answered once, with the address the change was asked from.
-
-    The caller tells the stored address that a change was asked, so a change nobody wanted is
-    noticed by the person still holding the record.
-    """
-
-    # Null only where the row holds no address to tell.
-    bisherige_email: str | None
-
-
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
@@ -141,14 +111,12 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # All three defaulted, and on no payload. The ghost carries none of them, and every row entered
-    # before this flow carries none either, so a read refusing an absent key would 500 the list.
+    # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
+    # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
+    # Refusing an absent key would 500 the list.
     bestaetigung: FLSchiedsrichterBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
-    # Defaulted and on no payload, for the three above's reasons: only a confirmed referee whose
-    # address an administrator moved carries one.
-    adresswechsel: FLSchiedsrichterAdresswechsel | None = None
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -181,9 +149,6 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
     # the mailbox nobody reads.
     bestaetigung: FLSchiedsrichterMint | None = None
-    # Null unless the save moved a CONFIRMED referee's address, which waits on the new mailbox.
-    # Never both: a referee is confirmed or not.
-    adresswechsel: FLSchiedsrichterAdresswechselMint | None = None
 
 
 class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
@@ -200,43 +165,6 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
     bestaetigung: FLSchiedsrichterMint
 
 
-class FLSchiedsrichterAdresswechselMintResponse(BaseAPIResponse):
-    """The address link's re-send answer. Never null: where no change is pending a 404 answers instead."""
-
-    adresswechsel: FLSchiedsrichterAdresswechselMint
-
-
-class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-
-
-class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
-    """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
-
-    A state and a deadline: never a name, either address, the school, the fee or the id.
-    """
-
-    zustand: FLSchiedsrichterAdresswechselZustand
-    frist: CustomDateString
-
-
-class FLSchiedsrichterAdresswechselPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-    # Required rather than defaulted: a page that omitted it would have the model answer for the
-    # person whether a mailbox is theirs.
-    antwort: FLSchiedsrichterAdresswechselAntwort
-
-
-class FLSchiedsrichterAdresswechselResponse(BaseAPIResponse):
-    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
-
-    antwort: FLSchiedsrichterAdresswechselAntwort
-
-
 class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -250,9 +178,6 @@ class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     """
 
     zustand: FLSchiedsrichterBestaetigungZustand
-    # The wording the stored record cites, so a reopened link shows the version answered under
-    # rather than the one the page would show today.
-    text_version: CustomOptionalString
     mindestalter: int
     # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
@@ -287,23 +212,20 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """The referee as a retirement or a discarded address change leaves them."""
+    """The referee as a retirement leaves them."""
 
     updated_document: FLSchiedsrichter
 
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
-    # Whether each link's deadline has passed today, judged by the rule its press refuses on, so the
+    # Whether the link's deadline has passed today, judged by the rule its press refuses on, so the
     # editor reads no day of its own; false where the row holds no such link.
     bestaetigung_abgelaufen: bool
-    adresswechsel_abgelaufen: bool
-
-
-class FLSchiedsrichterKontext(BaseModel):
-    """What the referee confirmation page's slots name for this record today: the one stored name's first part."""
-
-    vorname: str | None
+    # The live change of the referee's address, which the address tool shows; null where none stands.
+    adresswechsel_id: CustomObjectId | None
+    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
+    adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
 class FLSchiedsrichterSelbst(BaseModel):
@@ -338,19 +260,3 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
     einwilligung: FLEinwilligung
     # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand
-
-
-class FLAdresswechselSweepParams(BaseModel):
-    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
-
-    nach: CustomObjectId | None = None
-
-
-class FLSchiedsrichterAdresswechselSweepResponse(BaseAPIResponse):
-    """One call's share of the pending addresses whose link lapsed, a referee's or a pupil's: how many went, and how many are still due."""
-
-    entfernt: int
-    # A change whose removal failed among them: it stays due, so a caller looping on this alone never ends.
-    verbleibend: int
-    # The last row this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None

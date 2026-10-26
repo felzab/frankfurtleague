@@ -238,12 +238,20 @@ export function AdminSaisonEditForm({
     hasDrawnSpiele,
     spieltageCount: spielplan.spieltageCount,
     erfassteSpieleCount: spielplan.bestand.erfasst,
+    eingereichteBerichteCount: spielplan.eingereichteBerichte,
   };
 
   // One expression for both repairs, through the undraw's own reason rather than beside it: the
   // redraw the qualifiers ride is held to the same window (`blockedReasons.ts :: isReplaceWindowOpen`).
   const spielplanWindow: SpielplanWindowState =
-    spielplanUndrawBlockedReason(undrawInput) === null ? "open" : saison.status === "future" ? "recorded" : "closed";
+    spielplanUndrawBlockedReason(undrawInput) === null
+      ? "open"
+      : saison.status !== "future"
+        ? "closed"
+        : // The undraw's own order: a recorded fact names its way back first.
+          spielplan.bestand.erfasst === 0 && spielplan.eingereichteBerichte > 0
+          ? "berichtet"
+          : "recorded";
 
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));

@@ -57,8 +57,8 @@ const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields
   const fassung = record.text_version === "" ? nichtHinterlegt("Fassung") : `Fassung ${record.text_version}`;
   const datum = record.datum === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.datum)}`;
 
-  // Who seated the person, where the record says: a new seat's is the save's to stamp, and a seat
-  // seated before the field names nobody, so neither is guessed.
+  // Who seated the person, where the record says: a new seat's is the save's to stamp, so it is
+  // never guessed.
   return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eingetragenVonLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
 };
 

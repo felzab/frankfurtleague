@@ -1,8 +1,9 @@
 """
 API · the erasure's grants step: a person's grants, and their address on every record they made
 
-Every match is the sign-in fold's, the pattern only narrowing the read: a Playground paste, or an
-actor stored before `app/core/security.py :: bind_actor` folded it, keeps the case it was typed in.
+Every match is the sign-in fold's, the pattern only narrowing the read: a Playground paste keeps the
+case it was typed in, and is the one writer of a grant no fold reaches, so this step alone keeps a
+case-blind read where every other record is read by equality.
 """
 
 from collections.abc import Mapping, Sequence
@@ -22,9 +23,11 @@ from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
-# The sites of an outbox row naming an address: the grant's own, before and after, and its actor's.
+# The sites of an outbox row naming an address: the grant's own, before and after, and its actor's; and where a grant
+# address's person moved to since, which their erasure at the new address reads (`docs/backend/spec.md :: I659`).
 _GRANT_SITES = ("jetzt", "vorher")
-_QUEUED_SITES = (*(f"{site}.adresse" for site in _GRANT_SITES), "geaendert_von")
+_SUCCESSOR_SITES = tuple(f"nachfolge.{site}" for site in _GRANT_SITES)
+_QUEUED_SITES = (*(f"{site}.adresse" for site in _GRANT_SITES), "geaendert_von", *_SUCCESSOR_SITES)
 
 
 @dataclass(frozen=True)
@@ -80,9 +83,11 @@ def _withholding(row: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 
     update: dict[str, Any] = {}
     for site in _GRANT_SITES:
-        if _names(_held_at(row, f"{site}.adresse"), identifier):
+        if _names(_held_at(row, f"{site}.adresse"), identifier) or _names(_held_at(row, f"nachfolge.{site}"), identifier):
             update[f"{site}.adresse"] = None
             update["vorenthalten"] = "geloescht"
+        if _names(_held_at(row, f"nachfolge.{site}"), identifier):
+            update[f"nachfolge.{site}"] = None
     if _names(row.get("geaendert_von"), identifier):
         update["geaendert_von"] = ERASED_ACTOR_MARKER
 
@@ -115,16 +120,75 @@ async def _withhold_queued(collection: AsyncCollection, identifier: str, session
     return len(rows)
 
 
-async def _mark_authored(collection: AsyncCollection, field: str, identifier: str, session: AsyncClientSession) -> int:
-    """Give every record this person made the marker in `field`, by id, so the log keeps the ids and no address."""
+async def carry_authorship_in_session(
+    *,
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
+    bewerbungen_collection: AsyncCollection,
+    registrierungen_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    # Both folded (`app/shared/folding.py :: sign_in_identifier`).
+    alt: str,
+    neue: str,
+    session: AsyncClientSession,
+) -> int:
+    """Re-key every record and queued notice the person made to the new address, whatever they hold now.
+
+    Each collection named by its own parameter, as the erasure names them, so the traces resolve every write
+    (`docs/backend/spec.md :: I845`).
+    """
+
+    carried = await _set_authored(berechtigungen_collection, "erteilt_von", alt, neue, session)
+    carried += await _set_authored(bewerbungen_collection, "entscheidung.von", alt, neue, session)
+    carried += await _set_authored(registrierungen_collection, "entscheidung.von", alt, neue, session)
+    carried += await _set_authored(sperrliste_collection, "erstellt_von", alt, neue, session)
+    carried += await _set_authored(einladungen_collection, "erstellt_von", alt, neue, session)
+    carried += await _set_authored(berechtigungen_postausgang_collection, "geaendert_von", alt, neue, session)
+    # A moved requester's request stays theirs, approvable as before (`docs/backend/spec.md :: I866`): carried so it holds no
+    # address an erasure at the new one misses.
+    carried += await _set_authored(berechtigungen_antraege_collection, "genehmigung.gestartet_von", alt, neue, session)
+
+    return carried
+
+
+async def stamp_the_successor_in_session(
+    *, berechtigungen_postausgang_collection: AsyncCollection, alt: str, neue: str, session: AsyncClientSession
+) -> int:
+    """Stamp the new address beside every queued grant address the moving person holds, carrying an earlier stamp on.
+
+    The notice keeps announcing the replaced address; an erasure at the new one withholds it by the stamp.
+    """
+
+    rows = await _rows_naming(
+        berechtigungen_postausgang_collection, (*(f"{site}.adresse" for site in _GRANT_SITES), *_SUCCESSOR_SITES), alt, session
+    )
+    by_update: dict[tuple[tuple[str, str], ...], list[ObjectId]] = {}
+    for row in rows:
+        update = tuple(
+            (f"nachfolge.{site}", neue)
+            for site in _GRANT_SITES
+            if _names(_held_at(row, f"{site}.adresse"), alt) or _names(_held_at(row, f"nachfolge.{site}"), alt)
+        )
+        by_update.setdefault(update, []).append(row["_id"])
+
+    for update, ids in by_update.items():
+        await patch_many_in_db(
+            collection=berechtigungen_postausgang_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session
+        )
+
+    return len(rows)
+
+
+async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:
+    """Put `value` in `field` of every record this person made, by id, so the log keeps the ids and no address."""
 
     ids = [row["_id"] for row in await _rows_naming(collection, (field,), identifier, session)]
     if not ids:
         return 0
 
-    marked = await patch_many_in_db(
-        collection=collection, db_filter={"_id": {"$in": ids}}, update={"$set": {field: ERASED_ACTOR_MARKER}}, session=session
-    )
+    marked = await patch_many_in_db(collection=collection, db_filter={"_id": {"$in": ids}}, update={"$set": {field: value}}, session=session)
 
     return marked.modified_count
 
@@ -214,11 +278,12 @@ async def erase_grants_and_authorship_in_session(
 
     withheld = await _withhold_queued(berechtigungen_postausgang_collection, identifier, session)
 
-    marked = await _mark_authored(berechtigungen_collection, "erteilt_von", identifier, session)
-    marked += await _mark_authored(bewerbungen_collection, "entscheidung.von", identifier, session)
-    marked += await _mark_authored(registrierungen_collection, "entscheidung.von", identifier, session)
-    marked += await _mark_authored(sperrliste_collection, "erstellt_von", identifier, session)
-    marked += await _mark_authored(einladungen_collection, "erstellt_von", identifier, session)
+    # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/erasure.py :: carry_authorship_in_session`).
+    marked = await _set_authored(berechtigungen_collection, "erteilt_von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(bewerbungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(registrierungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(sperrliste_collection, "erstellt_von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(einladungen_collection, "erstellt_von", identifier, ERASED_ACTOR_MARKER, session)
 
     return ErasedGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),

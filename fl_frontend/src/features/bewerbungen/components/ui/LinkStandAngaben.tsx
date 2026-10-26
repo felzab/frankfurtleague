@@ -1,3 +1,4 @@
+import { formatAktionZeitpunkt } from "@/features/aktionen/utils";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -9,6 +10,13 @@ import type { ReactNode } from "react";
 /** Beside the deadline rather than among the delivery facts, which say what became of the message. */
 const LINK_ABGELAUFEN_LABEL = "abgelaufen";
 
+/** An instant in the action log's words, the administrator's other reading of one. */
+export function zeitpunktText(instant: string): string {
+  const { datum, uhrzeit } = formatAktionZeitpunkt(instant);
+
+  return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
+}
+
 /**
  * One confirmation link's sent day, deadline and delivery, as every administrator editor showing a
  * link reads them out, so one state is one word on each.
@@ -16,12 +24,15 @@ const LINK_ABGELAUFEN_LABEL = "abgelaufen";
 export function LinkStandAngaben({
   verschicktAm,
   frist,
+  fristArt = "tag",
   istAbgelaufen,
   zustellung,
   vorZustellung,
 }: {
   verschicktAm: string;
   frist: string;
+  /** `zeitpunkt` for a link lapsing at an instant rather than at a day's end, stated to the minute in Berlin. */
+  fristArt?: "tag" | "zeitpunkt";
   /** The read's judgement of the deadline, never this browser's day; false where a lapse costs nothing. */
   istAbgelaufen: boolean;
   zustellung: FLBewerbungZustellung | null;
@@ -34,7 +45,7 @@ export function LinkStandAngaben({
     <>
       <Angabe label="Link gesendet am">{formatSpielDatum(verschicktAm)}</Angabe>
       <Angabe label="Gültig bis">
-        {formatSpielDatum(frist)}
+        {fristArt === "tag" ? formatSpielDatum(frist) : zeitpunktText(frist)}
         {istAbgelaufen && <span className={`${labelBadge("warning")} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>}
       </Angabe>
       {vorZustellung}

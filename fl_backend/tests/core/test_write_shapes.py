@@ -7,7 +7,7 @@ from typing import Any, get_type_hints
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact
-from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS
 from app.api.spiele.services import apply_payload_to_spiel
 from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
@@ -71,6 +71,7 @@ COMPOSED_KEY = "<composed at run time>"
 # `app/api/system/` declares none.
 SERVICE_PACKAGES: frozenset[str] = frozenset(
     {
+        "adresswechsel",
         "aktionen",
         "berechtigungen",
         "bewerbungen",
@@ -84,6 +85,7 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
         "schiedsrichter",
         "sperrliste",
         "spielbestaetigungen",
+        "spielberichte",
         "spiele",
         "spieler",
         "spielorte",
@@ -320,6 +322,7 @@ class TestWhatARemovalFilterMayName:
             str(Collection.EINLADUNGEN),
             str(Collection.REGISTRIERUNGEN),
             str(Collection.SPIELBESTAETIGUNGEN),
+            str(Collection.SPIELBERICHTE),
         }
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):
@@ -470,7 +473,7 @@ class TestEveryFieldAPatchWritesIsWeighedOrNamed:
 
         # The floor, and a cross-check on the reader: this is the `include=` set `patch_spiel_data`
         # dumps into its `$set`, so a key the sweep missed shows up here rather than passing.
-        assert written == set(FLPatchSpielDataPayload.model_fields) | {"ergebnis"}
+        assert written == SPIEL_PATCH_WRITTEN_FIELDS | {"ergebnis"}
 
         # The head of each path: the projection reads `team1.tore`, and what a payload writes is
         # `team1` whole.
@@ -679,10 +682,22 @@ class TestEveryReadInsideATransactionCarriesIt:
 HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
     "app/api/saisons/admin_router.py :: judge_and_write_the_rules hands movable_figures": ("session", "None"),
     "app/api/saisons/admin_router.py :: judge_and_roll_the_league_over hands the_targets_status": ("session", "None"),
+    # A season's submitted reports, which a report's write adds without writing anything a replace or an undraw writes.
+    "app/api/saisons/admin_router.py :: draw_the_whole_season hands count_eingereichte_berichte": ("session", "None"),
+    "app/api/saisons/admin_router.py :: undraw_the_whole_season hands count_eingereichte_berichte": ("session", "None"),
+    # The fixture a discarded decline is about, which the discard reads and never writes.
+    "app/api/spielbestaetigungen/admin_router.py :: discard_the_proposal hands judged": ("session", "None"),
     # The fixture a confirmation answers about, which the answer reads and never writes.
     "app/api/spielbestaetigungen/router.py :: answer_for_the_seat hands pull_ansetzung_lage": ("session", "None"),
     # Every refusal past the ban, over the clubs, matchday and bookings the answer reads and never writes.
     "app/api/spielbestaetigungen/router.py :: answer_for_the_seat hands judge": ("session", "None"),
+    # The fixture a referee accepts, which the acceptance reads and never writes.
+    "app/api/spielbestaetigungen/person_router.py :: answer hands pull_ansetzung_lage": ("session", "None"),
+    # The fixture, squads and season rows a report is judged against, which its write never writes.
+    "app/api/spielberichte/admin_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
+    "app/api/spielberichte/person_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
+    # The referee's records, which a retirement writes and the report never does, through a session no transaction holds.
+    "app/api/spielberichte/person_router.py :: write_the_report hands funktionen_of": ("session", "ausserhalb"),
 }
 
 

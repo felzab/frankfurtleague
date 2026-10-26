@@ -1,7 +1,14 @@
 import { SAISONS_EINTRAG } from "@/features/admin/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants";
+import {
+  GRUPPEN_OFF_RULES,
+  RECORDED_FACTS_NONE,
+  REGELN_ABSCHNITT,
+  SPIELBERICHTE_HALTEN_DEN_SPIELPLAN,
+  SPIELPLAN_ABSCHNITT,
+  SPIELTAGE_UNDATED,
+} from "./constants";
 import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -150,6 +157,8 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
         `Ein Spielplan lässt sich nur für eine geplante Saison neu anlegen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
         "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
       );
+    case "REQ-SPIELPLAN-007":
+      return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
     // The code says which numbers were judged, and so which panel repairs them: `-001`, `-007` and
     // `-013` the three this request carried, their twins `-014`, `-015` and `-018` the stored rules.
     case "REQ-RULES-001":
@@ -244,12 +253,13 @@ export function mapSwapRefusal(error: unknown): string | null {
 }
 
 /**
- * `null` where the refusal is something else. The panel closes the control for both halves, so this
- * arriving means the season moved under a page still offering the press. A reload returns to that
- * panel, which names any way out.
+ * `null` for another refusal. The panel closes the control for both halves of `-006`, so it arriving means the season
+ * moved under a page still offering the press; a reload returns to that panel, which names any way out.
  */
 export function mapUndrawRefusal(error: unknown): string | null {
-  if (!isRefusal(error) || error.serverErrorCode !== "REQ-SPIELPLAN-006") return null;
+  if (!isRefusal(error)) return null;
+  if (error.serverErrorCode === "REQ-SPIELPLAN-007") return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
+  if (error.serverErrorCode !== "REQ-SPIELPLAN-006") return null;
 
   return (
     `Ein Spielplan lässt sich nur für eine geplante Saison zurücknehmen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +

@@ -111,7 +111,8 @@ class TestWhyARowCloses:
             pytest.param(TEAM, {"ort": None}, {}, "ansetzung_geaendert", id="the ground gone"),
             pytest.param(TEAM, {"ergebnis": "1:0", "uhrzeit": "19:00:00"}, {}, "spiel_entschieden", id="decided and moved"),
             pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, "abgesagt", id="called off"),
-            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "spiel_entschieden", id="a no-show is played"),
+            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "abgesagt", id="a no-show entered before the day"),
+            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2", "datum": TODAY}, {}, "spiel_entschieden", id="a no-show on the day"),
             pytest.param(TEAM, {"uhrzeit": "19:00:00"}, {BETA: TODAY}, "austritt", id="the opponent gone, ahead of the move"),
             pytest.param(REFEREE, {"schiedsrichter": None}, {}, "schiedsrichter_gewechselt", id="the referee taken off"),
             pytest.param(
@@ -226,7 +227,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 27
+SWEEP_OTHER_COMMANDS = 36
 ANGEFRAGT_OTHER_COMMANDS = 3
 
 # A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
@@ -235,12 +236,13 @@ ANGEFRAGT_OTHER_COMMANDS = 3
 SWEEP_GET_MORES = 14
 
 
-# Each call's per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
+# Each call's per-command cost, the widest of its whole passes at a full share timed locally: the sweep's thirty
+# closes and reminders on 2026-10-21, `/angefragt`'s fifteen on 2026-10-20.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
         pytest.param(
-            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00148, 0.036, id="the sweep"
+            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00154, 0.037, id="the sweep"
         ),
         pytest.param(ANFRAGEN_LISTED_PER_PASS, ANGEFRAGT_OTHER_COMMANDS, 0.00132, 0.038, id="/angefragt"),
     ],

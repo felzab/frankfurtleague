@@ -7,17 +7,19 @@ import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
+import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
+import { logActionFailure } from "@/shared/utils/actionFailure";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { explainsItself, logCodedFailure } from "@/shared/utils/degradedRead";
+import { explainsItself } from "@/shared/utils/degradedRead";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { gepaarteSitze } from "./bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
@@ -103,11 +105,15 @@ async function notifyBewerbung({
 
   const benanntesTeam = teamName;
 
-  const outcome = await sendBewerbungMail({
-    operation: operation,
-    recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
-    buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
-  });
+  // The decision has committed: a send broken off is worded in the report's own sentence, never as the request's doubt,
+  // which would drop the sentence naming whom to tell by hand (`docs/frontend/spec.md :: I372`).
+  const outcome = await runAnsweringOwnCut(() =>
+    sendBewerbungMail({
+      operation: operation,
+      recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
+      buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
+    }),
+  );
 
   return describeBewerbungMail(betreff, outcome);
 }
@@ -123,8 +129,7 @@ async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<
     // A redirect the read's admin guard threw is a navigation, never a failed read.
     unstable_rethrow(failed);
     // Logged and settled, a contract break included: only the refusal's wording rests on this read.
-    if (!explainsItself(failed))
-      logCodedFailure("An application's collision read failed and its refusal takes the shared words", failed, "FE-ACT-001");
+    if (!explainsItself(failed)) logActionFailure("An application's collision read failed and its refusal takes the shared words", failed);
     return null;
   });
 
@@ -299,8 +304,8 @@ type Zustellung = { versand: LinkVersand; message: string };
 const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschlagen", message: message });
 
 /**
- * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
- * that stands: a refused send is a message to try again rather than a write that did not happen.
+ * The token is minted and the deadline moved by the time this runs, so it never throws and each ANSWER reports a
+ * write that stands: a refused send is a message to try again.
  */
 async function sendeBestaetigungErneut({
   operation,
@@ -310,6 +315,7 @@ async function sendeBestaetigungErneut({
   benanntesTeam,
   sitze,
   token,
+  frist,
   ohneLink,
 }: {
   /** The press this send belongs to, which every failure line below names. */
@@ -321,34 +327,14 @@ async function sendeBestaetigungErneut({
   /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
   sitze: readonly KontaktRolle[];
   token: string;
+  /**
+   * The deadline the write's own answer set, never the page's read: a frontend clock reckoning fourteen days itself
+   * would disagree with the server across midnight.
+   */
+  frist: string;
   /** What the calling press cost where no message went out, in that press's own words. */
   ohneLink: string;
 }): Promise<Zustellung> {
-  let frist: string | null;
-
-  try {
-    // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
-    // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
-    const gelesen = await getBewerbungById(bewerbungId);
-    if (gelesen === null) return nichtVerschickt(ohneLink);
-
-    frist = gelesen.bewerbung.bestaetigungsfrist;
-  } catch (error) {
-    // Name only, never the error, and never the token (`docs/logging/spec.md :: L9`).
-    logger.error("bewerbung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
-      name: error instanceof Error ? error.name : undefined,
-      operation: operation,
-    });
-
-    return nichtVerschickt(ohneLink);
-  }
-
-  // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
-  // token, so an application answering none afterwards is a broken contract and not a state an
-  // administrator has anything to do about.
-  if (frist === null) throw new Error("the re-send answered no Bestätigungsfrist for the application it had just written");
-
   const fristText = formatSpielDatum(frist);
   const origin = frontend_config.AUTH_URL;
 
@@ -435,6 +421,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       benanntesTeam: benanntesTeam,
       sitze: erneutOperation.rollen,
       token: erneutOperation.token,
+      frist: erneutOperation.bestaetigungsfrist,
       ohneLink: KEIN_LINK_VERSCHICKT,
     });
 
@@ -489,31 +476,35 @@ export async function kontaktEmailKorrigierenAction(
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    let zustellung;
-    try {
-      zustellung = await sendeBestaetigungErneut({
-        operation: "kontaktEmailKorrigierenAction",
-        bewerbungId: validated.data.id,
-        saisonId: bewerbung.saison_id,
-        // The address the write just stored, never the one the read still holds: the message the
-        // administrator asked for is the one going to the corrected mailbox.
-        person: { vorname: person.vorname, email: validated.data.email },
-        benanntesTeam: benanntesTeam,
-        sitze: gepaarteSitze(bewerbung, validated.data.rolle),
-        token: korrekturOperation.token,
-        ohneLink: KORREKTUR_OHNE_LINK,
-      });
-    } catch (error) {
-      // The address is stored by the time this runs, so a throw escaping here would answer a
-      // correction that stands with „nicht korrigiert“. Name only, never the error or the token
-      // (`docs/logging/spec.md :: L9`).
-      logger.error("bewerbung.mail_failed", undefined, {
-        error_code: "FE-MAIL-002",
-        name: error instanceof Error ? error.name : undefined,
-        operation: "kontaktEmailKorrigierenAction",
-      });
-      zustellung = nichtVerschickt(KORREKTUR_OHNE_LINK);
-    }
+    // The mailbox the write took a live link from, told as a contacts save tells one it takes off a seat: read off the
+    // write's own answer, and never returned, so the browser holds no address the correction replaced.
+    const { abgang_email: abgangEmail } = korrekturOperation;
+    const abgang =
+      abgangEmail === null
+        ? Promise.resolve()
+        : mailKontaktAbgang({
+            operation: "kontaktEmailKorrigierenAction",
+            saisonId: bewerbung.saison_id,
+            // Every seat the person held moves with the address, and no other person shares a mailbox with them.
+            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
+            quelle: "bewerbung",
+          });
+
+    const zustellung = await sendeBestaetigungErneut({
+      operation: "kontaktEmailKorrigierenAction",
+      bewerbungId: validated.data.id,
+      saisonId: bewerbung.saison_id,
+      // The address the write just stored, never the one the read still holds nor the one typed: the message the
+      // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
+      person: { vorname: person.vorname, email: korrekturOperation.email },
+      benanntesTeam: benanntesTeam,
+      // The seats the WRITE answered, as the leaving notice above names them, never a pairing read before it.
+      sitze: korrekturOperation.rollen,
+      token: korrekturOperation.token,
+      frist: korrekturOperation.bestaetigungsfrist,
+      ohneLink: KORREKTUR_OHNE_LINK,
+    });
+    await abgang;
 
     return { success: true, ...zustellung };
   });
@@ -557,31 +548,19 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    let zustellung;
-    try {
-      zustellung = await sendeBestaetigungErneut({
-        operation: "besetzeKontaktSitzAction",
-        bewerbungId: validated.data.id,
-        saisonId: gelesen.bewerbung.saison_id,
-        person: { vorname: validated.data.vorname, email: validated.data.email },
-        benanntesTeam: benanntesTeam,
-        // The WRITE's own answer, never `gepaarteSitze`: that helper mirrors `paired_seat`, which
-        // drops an emptied seat from the pair, and every seat this write filled was emptied.
-        sitze: sitzOperation.rollen,
-        token: sitzOperation.token,
-        ohneLink: BESETZUNG_OHNE_LINK,
-      });
-    } catch (error) {
-      // The person is seated by the time this runs, so a throw escaping here would answer a write
-      // that stands with „nicht besetzt“. Name only, never the error or the token
-      // (`docs/logging/spec.md :: L9`).
-      logger.error("bewerbung.mail_failed", undefined, {
-        error_code: "FE-MAIL-002",
-        name: error instanceof Error ? error.name : undefined,
-        operation: "besetzeKontaktSitzAction",
-      });
-      zustellung = nichtVerschickt(BESETZUNG_OHNE_LINK);
-    }
+    const zustellung = await sendeBestaetigungErneut({
+      operation: "besetzeKontaktSitzAction",
+      bewerbungId: validated.data.id,
+      saisonId: gelesen.bewerbung.saison_id,
+      // As stored, never as typed: the form its delivery events name.
+      person: { vorname: validated.data.vorname, email: sitzOperation.email },
+      benanntesTeam: benanntesTeam,
+      // The WRITE's own answer: `paired_seat` drops an emptied seat from the pair, and every seat this write filled was emptied.
+      sitze: sitzOperation.rollen,
+      token: sitzOperation.token,
+      frist: sitzOperation.bestaetigungsfrist,
+      ohneLink: BESETZUNG_OHNE_LINK,
+    });
 
     return { success: true, ...zustellung };
   });

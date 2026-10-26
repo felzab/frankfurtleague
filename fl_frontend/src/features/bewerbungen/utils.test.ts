@@ -134,13 +134,13 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     team_id: null,
     schule: SCHOOL,
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
-    trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: null },
+    trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: "rot" },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
-    stufengroesse: null,
+    stufengroesse: 96,
     wunschgegner: null,
     entscheidung: null,
-    bestaetigungen: null,
-    bestaetigungsfrist: null,
+    bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+    bestaetigungsfrist: "2026-05-15",
   };
 }
 
@@ -615,7 +615,6 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     schule: "Ernst-Reuter",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: mindestalter,
     medien_mindestalter: 18,

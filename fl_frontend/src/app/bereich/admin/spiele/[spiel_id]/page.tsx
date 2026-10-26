@@ -5,12 +5,17 @@ import { connection } from "next/server";
 import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
+import { getAdminSpielbericht } from "@/features/spielberichte/queries";
+import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import type { SpielberichtStand } from "@/features/spielberichte/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -33,13 +38,29 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
-  // cache entry hours old. `null` is "no such fixture"; everything else throws.
-  const spielRes = await getAdminSpiel(spielId);
+  const [spielRes, berichtRes] = await Promise.all([
+    // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
+    // cache entry hours old. `null` is "no such fixture"; everything else throws.
+    getAdminSpiel(spielId),
+    // Uncached for the same reason: „Vorschlag übernehmen“ seeds from the report version standing now. A failed read
+    // is `null`, which the panel says, as the confirmations' panel says its own.
+    runWithIncomingTrace(() => getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained)),
+  ]);
+  const eingabeOffen = frontend_config.SPIELBERICHT_EINGABE === "on";
+  // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
+  // here clears it. Closed, a fixture with no report shows no panel, and a standing one offers no correction.
+  const spielbericht: SpielberichtStand | null | undefined =
+    berichtRes === null ? null : eingabeOffen || berichtRes.bericht !== null ? { lesen: berichtRes, korrigierbar: eingabeOffen } : undefined;
 
   if (!spielRes) {
     notFound();
   }
+
+  // Behind `connection()` with the fixture's, so a prefetch carries neither. Degraded rather than awaited whole: the
+  // editor is how a fixture is repaired, and stands when its confirmations cannot be read.
+  const bestaetigungenRes = await runWithIncomingTrace(() =>
+    getSpielbestaetigungen({ saison_id: spielRes.spiel.saison_id, spiel_id: spielRes.spiel.id }).catch(nullAfterLoggingUnexplained),
+  );
 
   return (
     // The fixture's OWN season, not the current one: the pickers must offer the teams and feeder
@@ -54,6 +75,12 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         today={getGermanTodayStr()}
         // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
         isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
+        bestaetigungen={
+          bestaetigungenRes === null
+            ? null
+            : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
+        }
+        spielbericht={spielbericht}
       />
     </AdminContextWrapper>
   );

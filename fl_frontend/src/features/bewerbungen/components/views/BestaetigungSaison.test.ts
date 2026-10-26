@@ -19,6 +19,7 @@ import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "../../schemas.ts";
 import type { BestaetigungStart } from "./BestaetigungView.tsx";
 
 const fetchMock = doubleFetch();
@@ -32,16 +33,15 @@ const KONTAKT = laufendeKontaktSaisonFassung();
 /** Every sentence a page about an application says and a season row's seat must not: nobody applied, nothing is deleted with an application. */
 const NUR_BEWERBUNG = /Bewerbung|eingereicht|Wird Deine Schule neu eingetragen/;
 
-const ANSICHT = {
-  acknowledged: 1 as const,
-  zustand: "gueltig" as const,
-  quelle: "saison" as const,
-  zeile: "offen" as const,
+const ANSICHT: FLBewerbungEinwilligungAnsichtResponse = {
+  acknowledged: 1,
+  zustand: "gueltig",
+  quelle: "saison",
+  zeile: "offen",
   saison_id: "2627",
   schule: "Lessing-Kolleg",
-  rolle: "ansprechperson" as const,
-  zugleich_rolle: "trainer" as const,
-  text_version: KONTAKT.textVersion,
+  rolle: "ansprechperson",
+  zugleich_rolle: "trainer",
   laufende_fassung: KONTAKT.textVersion,
   mindestalter: VERTRETUNG_MIN_ALTER,
   medien_mindestalter: MEDIEN_MIN_ALTER,
@@ -57,9 +57,19 @@ describe("the confirmation page for a seat on a team's season row", () => {
 
     assert.match(tot, /Einen neuen Link schickt Dir die Verwaltung der Liga auf Wunsch\./);
     assert.doesNotMatch(tot, NUR_BEWERBUNG);
-    // The control: an application's dead link keeps the application's two sentences.
-    assert.match(page({ zustand: "abgelaufen", quelle: "bewerbung" }), /Eine Bewerbung, die bis dahin nicht alle Bestätigungen hat/);
-    assert.match(page({ zustand: "ungueltig" }), /Wird Deine Schule neu eingetragen/);
+    // The control: an application's dead link keeps the application's deletion.
+    assert.match(page({ zustand: "abgelaufen", quelle: "bewerbung" }), /Kam er mit einer Bewerbung, löschen wir sie mit allen Angaben/);
+  });
+
+  /* An unknown link names no source, and a team seat's voided link reads unknown: its remedy holds for that seat as for
+     an application's, and it reads as an application's dead link does, so a guessed link learns nothing. */
+  it("words an unknown link's remedy for a team seat as for an application", () => {
+    const unbekannt = page({ zustand: "ungueltig" });
+    const ohneTitel = (text: string) => text.slice(text.indexOf("Dieser Link ist ungültig"));
+
+    assert.match(unbekannt, /Für einen Platz in einem Team schickt ihn Dir die Verwaltung der Liga auf Wunsch\./);
+    assert.doesNotMatch(unbekannt, /Eine Bewerbung, die bis dahin|Wird Deine Schule neu eingetragen/);
+    assert.equal(ohneTitel(unbekannt), ohneTitel(page({ zustand: "abgelaufen", quelle: "bewerbung" })));
   });
 
   it("says an earlier Widerspruch emptied the entry, never an application", () => {

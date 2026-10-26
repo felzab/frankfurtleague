@@ -20,6 +20,7 @@ import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } 
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
@@ -103,6 +104,7 @@ const {
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
+const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -286,18 +288,22 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
-  stufengroesse: null,
+  stufengroesse: 96,
   wunschgegner: null,
   entscheidung: null,
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: {
+    trainer: null,
+    ansprechperson: { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null },
+    stellvertretung: null,
+  },
+  bestaetigungsfrist: "2026-09-15",
 });
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
@@ -328,7 +334,7 @@ const DECISIONS = [
 
 /** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
 const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
-const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: PERSON.email } as const;
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
@@ -343,7 +349,6 @@ const SITZ = {
 const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/erneut`;
 const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
 const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
-const MINTS: readonly string[] = [ERNEUT_PATH, KORREKTUR_PATH, SITZ_PATH];
 
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
@@ -353,17 +358,6 @@ const KORREKTUR_OHNE_LINK =
   "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
 const BESETZUNG_OHNE_LINK =
   "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
-
-/**
- * The application read, answering `before` until a repair's write has landed and `after` from then
- * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
- */
-function readAcrossTheWrite(before: unknown, after: unknown): void {
-  readWith(() => {
-    const answer = requestsOf(writes).some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
-    return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
-  });
-}
 
 /** The re-send's answer to each state it cannot compose a message from. */
 async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
@@ -391,18 +385,20 @@ const erneutGeschrieben = (overrides: object = {}) => ({
   ...overrides,
 });
 
-/** What the correction's write answers where it lands. */
-const korrigiert = () => ({
+/** What the correction's write answers where it lands: by default over an address the fold calls the same mailbox. */
+const korrigiert = (abgangEmail: string | null = null) => ({
   acknowledged: 1,
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
   token: "token-korrektur",
   bestaetigungsfrist: "2026-09-18",
+  abgang_email: abgangEmail,
 });
 
-/** What the reseat's write answers where it lands, for the seats it filled. */
+/** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
   acknowledged: 1,
+  email: SITZ.email,
   rollen: rollen,
   token: "token-sitz",
   bestaetigungsfrist: "2026-09-18",
@@ -448,7 +444,12 @@ describe("the application's writes", () => {
       { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
       report(3),
-      { endpoint: `${bewerbung}/kontakte/ansprechperson/email`, method: "POST", body: { email: KORREKTUR.email } },
+      // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
+      {
+        endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
+        method: "POST",
+        body: { email: KORREKTUR.email, bisherige_email: PERSON.email },
+      },
       report(4),
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
       report(5),
@@ -525,6 +526,24 @@ describe("the message that follows a decision", () => {
 
       assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
       assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`), `${where} drops the delivery report`);
+    }
+  });
+
+  /* A send broken off unanswered may have arrived: answered as the request's doubt, the decision would read as perhaps
+     unsaved and the sentence naming whom to tell by hand would go (`docs/frontend/spec.md :: I372`). */
+  it("reports the decision as taken where a send broke off unanswered, naming the address in doubt", async () => {
+    answerMailWith(() => "lost");
+
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} answered a committed decision as of unknown outcome`);
+      assert.ok(
+        answerOf(result).endsWith(` Ob die ${betreff} bei ${PERSON.email} ankam, ist unklar. Melde Dich selbst bei ihnen.`),
+        `${where} drops the address in doubt`,
+      );
     }
   });
 
@@ -871,28 +890,28 @@ describe("the re-sent confirmation link", () => {
     );
   });
 
-  /* The token is minted and the deadline moved by the time the message is composed, so the read that
-     carries the new deadline has to come after the write rather than from the page's own copy. */
+  /* The token is minted and the deadline moved by the time the message is composed, so the deadline it
+     states is the write's own answer rather than the page's copy, read before the write. */
   it("mails nothing where the write is refused, and states the deadline the write set", async () => {
     answerWith(() => Promise.reject(refusedOn(ERNEUT_OPERATION, publishedRefusals(ERNEUT_OPERATION)[0] ?? "")));
 
     assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, false, "the re-send was not refused, so nothing is judged");
     assert.equal(mailed.length, 0, "the re-send mailed a link the backend refused to mint");
 
-    // The refused write is recorded too, and the read below tells before from after by the writes.
-    writes.length = 0;
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-18" } });
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    // Each press that mints a link, its write answering a deadline the page's read does not hold.
+    for (const [where, press, answer, to] of [
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben(), PERSON.email],
+      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), korrigiert(), KORREKTUR.email],
+      ["the reseat", () => besetzeKontaktSitzAction(SITZ), besetzt(), SITZ.email],
+    ] as const) {
+      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+      answerWith(() => Promise.resolve(answer));
 
-    assert.equal(
-      (await einwilligungErneutSendenAction(ERNEUT)).success,
-      true,
-      "the re-send mailed nothing, so the deadline is judged on nothing",
-    );
-    assert.ok(
-      mailed[0]?.text.includes(formatSpielDatum("2026-09-18")),
-      "the message states the deadline the page held, not the one the write set",
-    );
+      assert.equal((await press()).success, true, `${where} did not land, so its deadline is judged on nothing`);
+      const text = mailed.findLast((mail) => mail.to === to)?.text ?? "";
+      assert.ok(text.includes(formatSpielDatum("2026-09-18")), `${where}'s message states no deadline the write set`);
+      assert.ok(!text.includes(formatSpielDatum("2026-09-01")), `${where}'s message states the deadline the page held`);
+    }
   });
 
   /* Judged before the mint, because `compose_erneut_update` replaces the seat's entry whole: a press
@@ -988,39 +1007,13 @@ describe("the re-sent confirmation link", () => {
   /* A message that did not go leaves the mint standing: the seat's old link is spent and its deadline
      moved, which the page shows. */
   it("refreshes the page after a re-send whose message did not go", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, null);
+    answerMailWith(() => "refused");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
     assert.equal(result.success && result.versand, "fehlgeschlagen", "the message went, so the refresh below is judged on nothing");
-    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
-  });
-
-  /* The endpoint writes the deadline in the same update that mints the token, so an application
-     answering none afterwards is a contract broken rather than a state to word for an administrator. */
-  it("throws where the write it has just made answers no deadline", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-    const thrown = logged.find(([line]) => line === "Admin mutation failed: einwilligungErneutSendenAction")?.[1];
-
-    assert.equal(result.success, false);
-    assert.ok(
-      thrown instanceof Error && /Bestätigungsfrist/.test(thrown.message),
-      "a missing deadline is worded for an administrator rather than thrown",
-    );
-    assert.deepEqual(mailed, [], "a message went out stating no deadline");
-  });
-
-  /* The throw above lands after the mint, which stands behind it as behind a refused send. */
-  it("refreshes the page after a re-send that threw after the mint", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    await einwilligungErneutSendenAction(ERNEUT);
-
     assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
   });
 
@@ -1040,15 +1033,30 @@ describe("the re-sent confirmation link", () => {
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
   });
 
+  /* The API stores the fold of what was typed, and the message goes where its delivery events are
+     matched back: the address the write answers, never the one in the box. */
+  it("mails a corrected and a seated person at the address the write stored, never as typed", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+
+    answerWith(() => Promise.resolve(korrigiert()));
+    await kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" });
+    answerWith(() => Promise.resolve(besetzt()));
+    await besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" });
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email, SITZ.email],
+    );
+  });
+
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", async () => {
     const token = "token-geheim";
     const results: unknown[] = [];
 
-    // Every path a minted token is in scope on that answers or logs: a landed send, a refused one,
-    // a failed read after the write, and each repair's caught throw.
-    readAcrossTheWrite(VOR_DER_REPARATUR, VOR_DER_REPARATUR);
+    // Every path a minted token is in scope on that answers or logs: a landed send, and each repair's refused one.
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
     results.push(await einwilligungErneutSendenAction(ERNEUT));
     assert.ok(
@@ -1058,18 +1066,15 @@ describe("the re-sent confirmation link", () => {
 
     answerMailWith(() => "refused");
     results.push(await einwilligungErneutSendenAction(ERNEUT));
-    answerMailWith(() => "accepted");
-
-    writes.length = 0;
-    readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
-    results.push(await einwilligungErneutSendenAction(ERNEUT));
 
     for (const [press, answer] of [
-      [() => kontaktEmailKorrigierenAction(KORREKTUR), { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"] }],
-      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
+      [
+        () => kontaktEmailKorrigierenAction(KORREKTUR),
+        { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null },
+      ],
+      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, email: SITZ.email, rollen: ["ansprechperson"] }],
     ] as const) {
       writes.length = 0;
-      readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
       answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
       results.push(await press());
     }
@@ -1109,7 +1114,7 @@ describe("the corrected contact address", () => {
     await assertEachAnswered({
       operation: KORREKTUR_OPERATION,
       refuseWith: answerWith,
-      act: () => kontaktEmailKorrigierenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" }),
+      act: () => kontaktEmailKorrigierenAction(KORREKTUR),
       mapped: mapKontaktEmailRefusal,
     });
   });
@@ -1144,37 +1149,72 @@ describe("the corrected contact address", () => {
     assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the report is not the correction's own");
   });
 
-  /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
-     throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
-     written, with the seat's previous link already dead. */
-  it("catches a message that threw, the address being stored before it is composed", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    assert.equal(result.success, true, "a throw from the send escapes the correction as a write that did not happen");
-    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen");
-    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the caught throw answers with something other than no link sent");
-  });
-
-  /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
-     the message names both or a reader goes looking for a second link that will never come. */
-  it("names every seat of a mirrored pair in the message it sends", async () => {
-    readWith(() =>
-      Promise.resolve({
-        bewerbung: {
-          ...VOR_DER_REPARATUR.bewerbung,
-          kontakte: { trainer: PERSON, ansprechperson: PERSON, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" },
-          bestaetigungen: { trainer: { bestaetigt_am: null }, ansprechperson: { bestaetigt_am: null }, stellvertretung: null },
-        },
-      }),
-    );
-    answerWith(() => Promise.resolve(korrigiert()));
+  /* One press writes every seat the person holds, and only the write knows which: a pairing read before it can have
+     moved since, and the message then names a set the link does not answer for. */
+  it("names the seats the write itself answered rather than the pairing its read held", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve({ ...korrigiert(), rollen: ["trainer", "ansprechperson"] }));
 
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names one seat of a mirrored pair");
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
+  });
+
+  /* The old link may have reached its mailbox and opened until the write, so that mailbox is told it now opens nothing, on
+     the leaving notice's lane; the browser gets nothing naming it. */
+  it("tells the mailbox the write took the link from, nameless, and hands the browser none of its address", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
+
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
+    assert.deepEqual(notice?.tags, { kontakt_abgang: "hinweis" }, "the mailbox the link left was not told on its lane");
+    assert.match(notice?.text ?? "", new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
+    // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
+    assert.doesNotMatch(notice?.text ?? "", /Spielterminen/, "the application's seat is told of fixture links it never held");
+    assert.doesNotMatch(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, new RegExp(PERSON.vorname), "the notice names the person");
+    assert.deepEqual(
+      mailed.map(({ to }) => to).sort(),
+      ["anna.alt@example.de", KORREKTUR.email].sort(),
+      "the correction mailed someone beyond the two mailboxes it moved the link between",
+    );
+    assert.doesNotMatch(JSON.stringify(result), /anna\.alt@/);
+  });
+
+  /* The correction is stored before either message, so the request's deadline cutting the leaving notice alone leaves
+     that notice in doubt and the correction answered by its own link (`docs/frontend/spec.md :: I372`). */
+  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async (t) => {
+    // The request's clock, which its deadline was set on as the press began.
+    let clock = 0;
+    t.mock.method(performance, "now", () => clock);
+    answerMailWith(async ({ to }): Promise<MailOutcome> => {
+      if (to !== "anna.alt@example.de") return "accepted";
+      // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
+      clock = REQUEST_DEADLINE_MS - 1;
+      const bound = boundCall(REQUEST_DEADLINE_MS);
+      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
+      bound.clear();
+      return "lost";
+    });
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
+
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.deepEqual(result, { success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
+  });
+
+  it("tells nobody where the corrected address is the same mailbox", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert(null)));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email],
+    );
   });
 
   it("moves no tag", async () => {
@@ -1241,8 +1281,8 @@ describe("the person seated where one stepped out", () => {
     assert.deepEqual(writes, [], "the reseat seated a person behind a message nobody could compose");
   });
 
-  /* `gepaarteSitze` mirrors `paired_seat`, which drops a seat missing either half — and every seat
-     this write fills was emptied, so a message composed from it names one seat of a pair. */
+  /* A pair recomputed from the page's read mirrors `paired_seat`, which drops a seat missing either half — and every
+     seat this write fills was emptied, so a message composed from it would name one seat of a pair. */
   it("names the seats the write itself answered rather than recomputing the pair", async () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
@@ -1255,24 +1295,16 @@ describe("the person seated where one stepped out", () => {
   /* The person IS seated whatever the message did, so a failure arm here would tell the
      administrator to seat somebody who is already in the application. */
   it("reports a filled seat whose message did not go as a seat that stands", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
-    answerWith(() => Promise.resolve(besetzt()));
-    const thrown = await besetzeKontaktSitzAction(SITZ);
-
-    writes.length = 0;
     answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    const refused = await besetzeKontaktSitzAction(SITZ);
+    answerWith(() => Promise.resolve(besetzt()));
 
-    for (const [how, result] of [
-      ["a throw from the send", thrown],
-      ["a refused send", refused],
-    ] as const) {
-      assert.equal(result.success, true, `${how} reports the seat as one that was never filled`);
-      assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", `${how} reports a link on its way`);
-      // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
-      assert.equal(answerOf(result), BESETZUNG_OHNE_LINK, `${how} is reported as something other than the reseat's own`);
-    }
+    const result = await besetzeKontaktSitzAction(SITZ);
+
+    assert.equal(result.success, true, "a refused send reports the seat as one that was never filled");
+    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", "a refused send reports a link on its way");
+    // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
+    assert.equal(answerOf(result), BESETZUNG_OHNE_LINK, "a refused send is reported as something other than the reseat's own");
   });
 
   it("moves no tag", async () => {
@@ -1306,15 +1338,6 @@ describe("the failure lines of the three repairs' shared send", () => {
       await press();
 
       assert.deepEqual(failedUnder(), [operation], "the refused send logs under another press");
-    });
-
-    it(`names ${operation} where the read after its write failed`, async () => {
-      readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
-      answerWith(() => Promise.resolve(wrote()));
-
-      await press();
-
-      assert.deepEqual(failedUnder(), [operation], "the failed read logs under another press");
     });
   }
 });

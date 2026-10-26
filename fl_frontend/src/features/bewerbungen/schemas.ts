@@ -1,6 +1,5 @@
 import z from "zod";
 
-import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
@@ -90,7 +89,7 @@ export type FLBewerbungSchule = z.infer<typeof FLBewerbungSchuleSchema>;
  */
 export const FLBewerbungTrikotSchema = z.object({
   vorhandener_satz: z.string(),
-  wunschfarbe: FLTrikotFarbeSchema.nullable(),
+  wunschfarbe: FLTrikotFarbeSchema,
 });
 export type FLBewerbungTrikot = z.infer<typeof FLBewerbungTrikotSchema>;
 
@@ -123,8 +122,8 @@ export const FLBewerbungBestaetigungSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   erinnert_am: CustomDateStringSchema.nullable(),
   abgelehnt_am: CustomDateStringSchema.nullable(),
-  // Null on a seat no message has been accepted for, which is every seat stored before this block
-  // shipped: an absent state is "nothing is known", never "delivered".
+  // Null on a seat no message has been accepted for, every fresh entry among them: an absent state
+  // is "nothing is known", never "delivered".
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLBewerbungBestaetigung = z.infer<typeof FLBewerbungBestaetigungSchema>;
@@ -156,17 +155,13 @@ export const FLBewerbungSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
-  // Null on an application stored before the box shipped, as `bestaetigungen` is: an absent number
-  // is one nobody was asked for, where a zero would read as an Abi-Jahrgang with nobody in it.
-  stufengroesse: z.int().nullable(),
+  stufengroesse: z.int(),
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
   // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
   entscheidung: FLBewerbungEntscheidungZeileSchema.nullable(),
-  // Null on an application stored before the confirmation flow shipped, which is what keeps such an
-  // application acceptable: an absent block is "nothing to confirm" rather than three open seats.
-  bestaetigungen: FLBewerbungBestaetigungenSchema.nullable(),
-  bestaetigungsfrist: CustomDateStringSchema.nullable(),
+  bestaetigungen: FLBewerbungBestaetigungenSchema,
+  bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbung = z.infer<typeof FLBewerbungSchema>;
 
@@ -385,12 +380,6 @@ export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktp
 export { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 
 /**
- * Whether a correction leaves the delivery target where it was, as every send compares two mailboxes.
- * Never `gleicheAdresse`, whose fold reads a local part's corrected case as no change.
- */
-export const gleichesPostfach = (a: string, b: string): boolean => mailboxKey(a.trim()) === mailboxKey(b.trim()) && a.trim() !== "";
-
-/**
  * Asked instead of zod's default, which skips a refinement once any check in the block aborts — the consent switch
  * left off is one — so a shared address would wait for a second press.
  */
@@ -486,9 +475,6 @@ export const FLBewerbungTrikotPayloadSchema = z.object({
     .max(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, {
       error: `Die Beschreibung darf höchstens ${String(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-  // Answered, unlike the stored field this becomes: a wish is one of the offered colours and the
-  // school has one. `FLBewerbungTrikot` stays nullable, where an unanswered older record still reads and
-  // where the administrator's assignment is a different field.
   wunschfarbe: FLTrikotFarbeSchema,
 });
 export type FLBewerbungTrikotPayload = z.infer<typeof FLBewerbungTrikotPayloadSchema>;
@@ -622,7 +608,6 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   rolle: FLKontaktRolleSchema,
   // The second seat one answer on this link writes, where the same person holds two; null otherwise.
   zugleich_rolle: FLKontaktRolleSchema.nullable(),
-  text_version: z.string().nullable(),
   // The label whose words the page renders and whose name the answer sends back: the backend picks the
   // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
   laufende_fassung: z.string(),
@@ -779,6 +764,9 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
+  // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
+  // person took since, which a fresh read would hand the address typed for the one who left (`REQ-BEWERBUNG-021`).
+  bisherige_email: KontaktEmailSchema,
 });
 export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
 
@@ -791,6 +779,7 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
   rollen: z.array(FLKontaktRolleSchema),
   token: z.string(),
   bestaetigungsfrist: CustomDateStringSchema,
+  abgang_email: z.string().nullable(),
 });
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
 
@@ -814,6 +803,7 @@ export type FLBewerbungKontaktSitzPayload = z.infer<typeof FLBewerbungKontaktSit
 
 /** Mirrors `FLBewerbungKontaktSitzResponse`. `rollen` for the correction's reason: one press fills every seat that person holds. */
 export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend({
+  email: z.string(),
   rollen: z.array(FLKontaktRolleSchema),
   token: z.string(),
   bestaetigungsfrist: CustomDateStringSchema,

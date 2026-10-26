@@ -23,12 +23,10 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
-import { FormAdresseSection, istAndereAdresse } from "./FormAdresseSection";
-import { FormAdresswechselSection } from "./FormAdresswechselSection";
+import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
@@ -57,8 +55,7 @@ type SpielerUndoPayloads = {
 
 type AdminSpielerEditFormProps = {
   spieler: AdminSpielerStored;
-  /** `null` for a person stored before consent was collected. */
-  einwilligung: FLEinwilligung | null;
+  einwilligung: FLEinwilligung;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
@@ -68,44 +65,18 @@ type AdminSpielerEditFormProps = {
   pageHeader: EditPageHeaderContent;
 };
 
-/**
- * Holds what outlives a save, as the season editor's holder does: the address box's typing, which no save
- * writes, and the save's exit waiting over it. The editor below is keyed by the stored state its drafts mirror.
- */
+/** The editor, keyed by the stored state its drafts mirror, so a save's refresh remounts it on the saved values. */
 export function AdminSpielerEditForm(props: AdminSpielerEditFormProps) {
-  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
-  const [isSaveExitAsked, setSaveExitAsked] = useState(false);
-
   return (
     <SpielerEditForm
       key={JSON.stringify({ spieler: props.spieler, saison: props.saison })}
       {...props}
-      adresseEntwurf={adresseEntwurf}
-      onAdresseEntwurfChange={setAdresseEntwurf}
-      isSaveExitAsked={isSaveExitAsked}
-      onSaveExitAskedChange={setSaveExitAsked}
     />
   );
 }
 
 /** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
-function SpielerEditForm({
-  spieler,
-  einwilligung,
-  istFassungBekannt,
-  saison,
-  teams,
-  pageHeader,
-  adresseEntwurf,
-  onAdresseEntwurfChange,
-  isSaveExitAsked,
-  onSaveExitAskedChange,
-}: AdminSpielerEditFormProps & {
-  adresseEntwurf: string | null;
-  onAdresseEntwurfChange: (next: string | null) => void;
-  isSaveExitAsked: boolean;
-  onSaveExitAskedChange: (asked: boolean) => void;
-}) {
+function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, teams, pageHeader }: AdminSpielerEditFormProps) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
@@ -169,16 +140,11 @@ function SpielerEditForm({
   };
 
   const status = deriveSpielerDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors, teams });
-  const isDraftDirty = status.isDirty && !hasSaved;
+  const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the revalidated player arrives and the two agree — left latched, every
   // later edit on a restored tree reads as not-dirty.
   if (hasSaved && !status.isDirty) setHasSaved(false);
-
-  // The address box's typing is unsaved work like the draft's, though no save carries it: every way off
-  // the page asks over it, and every write here re-keying the editor refuses over it.
-  const adresseGetippt = adresseEntwurf !== null && spieler.email !== null && istAndereAdresse(adresseEntwurf, spieler.email);
-  const isDirty = isDraftDirty || adresseGetippt;
 
   useUnsavedChangesWarning(isDirty);
 
@@ -235,17 +201,10 @@ function SpielerEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/bereich/admin/spieler"),
     isDirty,
-    // The box too: it is left, like the draft, on a tree the router keeps.
-    resetDraftToStored: () => {
-      resetDraftToStored();
-      onAdresseEntwurfChange(null);
-    },
+    resetDraftToStored,
   });
 
-  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
-
-  // The draft alone: typing in the address box leaves the save nothing to write.
-  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // Only the halves this press writes: judging an untouched half refuses a save over a field nobody sends.
@@ -356,10 +315,7 @@ function SpielerEditForm({
         // AFTER the undo payloads are built: leaving with typed values still in state lets a
         // save-then-undo reopen on values the player does not hold.
         resetDraftToStored();
-        // Asked rather than left over a typed new address, and held above this editor's key: the refresh this
-        // save ends on remounts the editor, which would close a dialog of its own.
-        if (adresseGetippt) onSaveExitAskedChange(true);
-        else leavePage();
+        leavePage();
       });
     });
   };
@@ -387,31 +343,11 @@ function SpielerEditForm({
             onFieldLeft={validatePersonFields}
           />
 
-          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
-              change's panel away, and the focus lands on the address panel's heading rather than the page's
-              (`docs/frontend/spec.md :: I536`). */}
-          <div
-            className="contents"
-            {...focusSection("adresse")}>
-            {/* The draft alone, never the box's own typing, which is what this press sends. */}
-            <FormAdresseSection
-              spielerId={spieler.id}
-              email={spieler.email}
-              isDirty={isDraftDirty}
-              entwurf={adresseEntwurf}
-              onEntwurfChange={onAdresseEntwurfChange}
-            />
-
-            {/* Beside the address it would replace, and only while one waits. */}
-            {spieler.adresswechsel !== null && (
-              <FormAdresswechselSection
-                spielerId={spieler.id}
-                adresswechsel={spieler.adresswechsel}
-                istAbgelaufen={spieler.adresswechsel_abgelaufen}
-                isDirty={isDirty}
-              />
-            )}
-          </div>
+          <FormAdresseSection
+            email={spieler.email}
+            adresswechselId={spieler.adresswechsel_id}
+            adresswechselVerwehrt={spieler.adresswechsel_einsehbar_verwehrt}
+          />
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}
@@ -469,16 +405,10 @@ function SpielerEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isDiscardOpen}
-          onClose={() => {
-            closeDiscard();
-            onSaveExitAskedChange(false);
-          }}
-          onDiscard={() => {
-            onSaveExitAskedChange(false);
-            discardAndLeave();
-          }}
-          changeCount={(isDraftDirty ? status.changed.length : 0) + (adresseGetippt ? 1 : 0)}
+          isOpen={isConfirmingDiscard}
+          onClose={closeDiscard}
+          onDiscard={discardAndLeave}
+          changeCount={status.changed.length}
         />
       )}
 

@@ -1,5 +1,5 @@
 """
-API · a commit refused or its answer lost: the journal of the erasures and of a person's press, and each sweep's unanswered line
+API · a commit refused or its answer lost: the erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -30,6 +30,11 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
+from . import test_spiele_write_execution as fixture_saves
+from .test_adresswechsel_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_change, with_history
+from .test_adresswechsel_sweep_execution import numbered as change_numbered
+from .test_adresswechsel_sweep_execution import on_a_league as on_the_changes_league
+from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
 from .test_erasure_auf_anfrage import journal_lines
@@ -42,10 +47,6 @@ from .test_loeschung_sweep import a_due_pupil, seeded
 from .test_loeschung_sweep import numbered as pupil_numbered
 from .test_loeschung_sweep import on_a_league as on_the_pupils_league
 from .test_loeschung_sweep import run as a_deletion_call
-from .test_schiedsrichter_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_referee
-from .test_schiedsrichter_sweep_execution import numbered as referee_numbered
-from .test_schiedsrichter_sweep_execution import on_a_league as on_the_referees_league
-from .test_schiedsrichter_sweep_execution import sweep as an_address_change_call
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -371,24 +372,22 @@ class TestTheSweepsNameACommitTheyCannotRead:
             )
         ]
 
-    def test_the_address_change_sweep_names_the_referee_whose_removal_went_unanswered(
+    def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].insert_many(
-                [a_referee(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
-            )
+            await with_history(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
 
             return await _first_commit_unanswered(mongo_replica_set_url, database, client, an_address_change_call)
 
         with caplog.at_level(logging.WARNING):
-            commits = on_the_referees_league(mongo_replica_set_url, body)
+            commits = on_the_changes_league(mongo_replica_set_url, body)
 
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
             (
                 UNKNOWN_OUTCOME,
-                f"Database deadline passed at the lapsed address change of referee {referee_numbered(1)}, its removal unanswered: "
+                f"Database deadline passed at the lapsed address change {change_numbered(1)}, its end unanswered: "
                 "the call stops, and the rest stay due",
             )
         ]
@@ -404,7 +403,7 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
     def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
+        """The notices were answered first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
 
         Its rows hold links nobody was mailed, so the next pass asks each again (`:: I765`), a fresh link a seat beside the first.
         """
@@ -415,8 +414,9 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
             await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
+            # The close's and the notice step's commits pass; the mint's, the next one this client sends, lands and loses
+            # its answer.
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 2}, data=UNANSWERED)
             try:
                 answer = await confirmations.sweep(losing[database.name], losing)
             finally:
@@ -437,8 +437,8 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
                 mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
             )
 
-        # The premise first: the close committed, and the mint's commit landed with its answer lost.
-        assert commits == [None, MAX_TIME_EXPIRED]
+        # The premise first: the close and the notice step committed, and the mint's commit landed with its answer lost.
+        assert commits == [None, None, MAX_TIME_EXPIRED]
         assert (len(answer.neue_ansetzungen), len(answer.schiedsrichter_neue_ansetzungen)) == (2, 1)
         assert (answer.anfragen, answer.einteilungen) == ([], [])
         # Each side's fresh row and the referee's, about the moved Ansetzung, none recorded as sent.
@@ -462,3 +462,55 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
             row["_id"] for row in standing if row["partei"]["art"] == "schiedsrichter"
         ]
         assert {len(entry["token_hashes"]) for row in asked if row["kontakte"] is not None for entry in row["kontakte"].values()} == {2}
+
+
+# The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.
+NO_SUCH_TRANSACTION = 251
+
+
+@pytest.mark.db
+class TestAFixtureSaveRefusedAtItsCommit:
+    def test_takes_the_adoption_stamp_back_with_the_fixture(self, mongo_replica_set_url: str):
+        """Catches a stamp written off the save's session: every rule passes, so only the commit can refuse this save."""
+
+        spiele, reports = fixture_saves.a_bracket_with_reports(quarter_final_at=fixture_saves.SEEDED_VERSION)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await fixture_saves.with_reports(database, reports)
+            spiel_data = await fixture_saves.payload_for(
+                database,
+                fixture_saves.VIERTELFINALE,
+                team1=fixture_saves.side(fixture_saves.ALPHA, 3),
+                team2=fixture_saves.side(fixture_saves.BETA, 1),
+            )
+            commits = _Commits()
+            refusing = AsyncMongoClient(
+                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
+            )
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": NO_SUCH_TRANSACTION,
+                "errorLabels": [],
+            }
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+            try:
+                with pytest.raises(PyMongoError):
+                    await fixture_saves.call_patch(
+                        refusing[database.name],
+                        refusing,
+                        fixture_saves.VIERTELFINALE,
+                        spiel_data,
+                        uebernimmt_bericht=fixture_saves.SEEDED_VERSION,
+                    )
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await refusing.close()
+
+            return commits.answered, await fixture_saves.spiele_now(database), before, await fixture_saves.reports_now(database)
+
+        commits, spiele, before, after = fixture_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        # The premise first: one commit, refused, and the fixture it carried not written.
+        assert (commits, spiele[fixture_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
+        assert after[fixture_saves.VIERTELFINALE] == before[fixture_saves.VIERTELFINALE], "a save that never committed adopted the report"

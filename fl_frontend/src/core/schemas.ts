@@ -147,6 +147,7 @@ export const FLErasureResponseSchema = BaseAPIResponseSchema.extend({
   registrierungen: z.int(),
   adresswechsel: z.int(),
   berechtigungen: z.int(),
+  berechtigungen_antraege: z.int(),
   drosselung: z.int(),
 });
 export type FLErasureResponse = z.infer<typeof FLErasureResponseSchema>;

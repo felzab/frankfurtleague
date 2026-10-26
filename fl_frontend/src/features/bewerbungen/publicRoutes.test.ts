@@ -45,14 +45,14 @@ import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
-import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
+import { FASSUNG_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
 import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
 import type { ReactElement, ReactNode } from "react";
 import type { BestaetigungStart } from "./components/views/BestaetigungView.tsx";
-import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
+import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
@@ -257,7 +257,6 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         schule: "Lessing-Kolleg",
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
-        text_version: KONTAKT_LABEL,
         laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
         medien_mindestalter: MEDIEN_MIN_ALTER,
@@ -936,11 +935,10 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
-  } as const;
+  } as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
   const OWN_VALUES = ["Lessing-Kolleg", "2026", "Ansprechperson"];
@@ -1347,6 +1345,25 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
     unmount();
   });
 
+  /* Words changed since the page opened: the generic retry resends the stale version the route refuses
+     again, where the refusal's own sentence sends the visitor to the mail's link. */
+  it("announces a refusal's own sentence as the failure toast's description", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, error: FASSUNG_NEU_OEFFNEN }))));
+    const { user, unmount } = renderBestaetigung();
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+        [["Antwort nicht gespeichert", FASSUNG_NEU_OEFFNEN]],
+      ),
+    );
+    unmount();
+  });
+
   /* The route marks a write whose commit went unanswered, and its sentence is the administrator's
      reload-and-check, which a page whose token is gone from the address cannot follow. */
   it("titles an answer of unknown outcome as unclear, and tells the visitor to reopen the link", async () => {
@@ -1419,11 +1436,10 @@ const OFFEN = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  text_version: KONTAKT_LABEL,
   laufende_fassung: KONTAKT_LABEL,
   mindestalter: BEWERBUNG_MIN_ALTER,
   medien_mindestalter: MEDIEN_MIN_ALTER,
-} as const;
+} as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
 describe("what a link to a barred address opens on", () => {
   it("is the shared barred page and nothing beside it", () => {
@@ -1533,11 +1549,10 @@ describe("the words the two contact pages are handed", () => {
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
-  } as const;
+  } as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
   /**
    * Every read answered as the backend would: `laufend` overriding each page's running label, `ansichtNennt` and

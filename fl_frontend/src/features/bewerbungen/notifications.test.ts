@@ -92,7 +92,7 @@ function person(email: string): FLKontaktperson {
     email: email,
     telefon: "0151 12345678",
     geburtsdatum: "1990-04-01",
-    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" }),
+    einwilligung: kenntnisnahme({ text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" }),
   };
 }
 
@@ -174,27 +174,18 @@ describe("who a decision is sent to", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(null, null, null)), []);
   });
 
-  /* Stored unfolded, its local part as typed: the local part of an address belongs to the mailbox owner. */
-  it("keeps an address as it was stored", () => {
+  /* The public route hands the seats as typed: the message goes to the fold the API stored, which is
+     the address its delivery events are matched back to. */
+  it("mails the fold the API stores, whatever was typed", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), [
-      { address: "Trainer@Schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
+      { address: "trainer@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
-  /* A domain is case-insensitive by definition, so two seats spelling one differently name one
-     mailbox, which would otherwise receive the decision twice. */
-  it("mails one mailbox spelled with two domain cases once", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@Schule.de", "trainer@schule.de", null)), [
+  /* Two seats typed in two cases are one stored address, which would otherwise receive the decision twice. */
+  it("mails one mailbox typed in two cases once", () => {
+    assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@Schule.de", "trainer@schule.de", null)), [
       { address: "trainer@schule.de", rollen: ["ansprechperson", "trainer"], rollenText: "Ansprechperson und Trainerin oder Trainer" },
-    ]);
-  });
-
-  /* And a local part is not: `Trainer` and `trainer` are the destination host's to tell apart, so
-     dropping either would leave a person unnotified over an assumption nobody here may make. */
-  it("keeps two local parts differing only in case apart", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@schule.de", "trainer@schule.de", null)), [
-      { address: "trainer@schule.de", rollen: ["ansprechperson"], rollenText: "Ansprechperson" },
-      { address: "Trainer@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
@@ -363,21 +354,20 @@ describe("which mailbox is sent which link", () => {
     assert.deepEqual(seatsByMailbox(kontakte, {}), []);
   });
 
-  /* The dedupe is `collectSeats`'s, unchanged: the local part byte for byte under a domain compared
-     without case. A grouping of its own would answer differently for exactly these two. */
+  /* The dedupe is `collectSeats`'s, unchanged: one fold is one mailbox. A grouping of its own would
+     answer differently for the first pair. */
   it("groups by the mailbox rule the decision fan-out already uses", () => {
     const geteilt = {
-      trainer: benannt("Info@SCHULE.de", "Jonas"),
-      ansprechperson: benannt("Info@schule.de", "Erika"),
-      stellvertretung: null,
-    };
-    const getrennt = {
-      trainer: benannt("INFO@schule.de", "Jonas"),
+      trainer: benannt("INFO@SCHULE.de", "Jonas"),
       ansprechperson: benannt("info@schule.de", "Erika"),
       stellvertretung: null,
     };
+    const getrennt = {
+      trainer: benannt("info@schule.de", "Jonas"),
+      ansprechperson: benannt("sekretariat@schule.de", "Erika"),
+      stellvertretung: null,
+    };
 
-    // One domain in two cases is one mailbox; the local part's case is two people.
     assert.equal(seatsByMailbox(geteilt, { ansprechperson: "L-A", trainer: "L-T" }).length, 1);
     assert.equal(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length, 2);
   });
@@ -526,12 +516,12 @@ describe("a fan-out that cannot reach everyone", () => {
 describe("what the administrator is told", () => {
   it("names nobody where every message arrived", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Zusage ging an 2 Kontaktpersonen.",
     );
     // Its own arm: German counts nothing and one with words rather than with a figure.
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Absage ging an eine Kontaktperson.",
     );
   });
@@ -541,6 +531,7 @@ describe("what the administrator is told", () => {
       delivered: ["a@schule.de"],
       unreachable: ["b@schule.de", "c@schule.de"],
       withheld: [],
+      ungewiss: [],
       gesperrt: 0,
     });
 
@@ -549,19 +540,34 @@ describe("what the administrator is told", () => {
     assert.match(report, /Melde Dich selbst bei ihnen/, "the report names nobody's remedy");
   });
 
+  /* A refused send and one broken off unanswered are two facts: the second may have arrived, and neither drops the other. */
+  it("names an address in doubt apart from one it could not reach", () => {
+    assert.equal(
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], ungewiss: ["b@schule.de"], gesperrt: 0 }),
+      "Die Zusage konnte an niemanden verschickt werden. Nicht erreicht wurden: a@schule.de. " +
+        "Ob die Zusage bei b@schule.de ankam, ist unklar. Melde Dich selbst bei ihnen.",
+    );
+  });
+
   /* Pinned whole, not by a fragment: the noun is a German one and the sentence supplies its own
      article, so lower-casing it renders „ging die absage“ where a fragment match sees nothing. */
   it("says so where the application named no address at all", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], gesperrt: 0 }),
+      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
       "Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die Absage an niemanden raus.",
     );
   });
 
   /* Two different failures, and the words part company: nothing arrived, against some of it did. */
   it("tells a total failure apart from a partial one", () => {
-    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
-    const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
+    const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], ungewiss: [], gesperrt: 0 });
+    const partial = describeBewerbungMail("Zusage", {
+      delivered: ["b@schule.de"],
+      unreachable: ["a@schule.de"],
+      withheld: [],
+      ungewiss: [],
+      gesperrt: 0,
+    });
 
     assert.match(nothing, /an niemanden verschickt/);
     assert.notEqual(nothing, partial);
@@ -573,21 +579,21 @@ describe("what the administrator is told", () => {
      application does hold, and a count is all the report may carry (`docs/frontend/spec.md :: I542`). */
   it("says the ban list kept the decision from every address, naming none", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], gesperrt: 2 }),
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 2 }),
       "Die Zusage ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht.",
     );
   });
 
   it("counts a barred address beside the ones that were sent, rather than as one to chase", () => {
     assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], gesperrt: 1 }),
+      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 }),
       "Die Absage ging an eine Kontaktperson. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.",
     );
   });
 
   it("reports a fan-out this deployment withheld in the deployment's words, naming nobody to chase", () => {
     assert.equal(
-      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], gesperrt: 0 }),
+      describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], ungewiss: [], gesperrt: 0 }),
       ZURUECKGEHALTEN,
     );
   });

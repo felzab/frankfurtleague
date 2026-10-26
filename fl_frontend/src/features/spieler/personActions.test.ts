@@ -111,10 +111,9 @@ const EINWILLIGUNG_LANDED = {
   spieler_id: KEY.spieler_id,
   einwilligung: {
     umfang: "intern",
-    erteilt_von: "volljaehrig",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
-    text_version: "2026-09-spielerseite-3",
+    text_version: "2026-10-spielerseite-5",
     medien: false,
     nachweis: { umfang: null, medien: null },
   },

@@ -3,11 +3,13 @@
 `scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
 early is held here too, because none of it runs on the machine this suite runs on. Every case
-drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s reason.
+running the module runs it in a process of its own, for `scripts/tests/conftest.py :: withdraw`'s
+reason; the cases reading the gate's own text run nothing.
 """
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import subprocess
@@ -18,6 +20,8 @@ from typing import Final
 
 import pytest
 from conftest import BASH, WINDOWS, base_env, copy_scripts, declared, lift_function, new_root, write_shell
+from test_check_gate_budget import budget as gate_budget
+from test_check_gate_budget import committed, job_bodies
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
@@ -668,20 +672,142 @@ def test_a_named_thread_s_stalled_frame_survives_the_notice_s_tail(tmp_path: Pat
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 # A `do_<check>` body's opening, whichever shape `scripts/tests/conftest.py :: lift_function` reads.
 BODY_RE: Final = re.compile(r"^(do_\w+)\(\) +\{", re.MULTILINE)
+DUMPS: Final = '-o "faulthandler_timeout=${FAULTHANDLER_S}"'
+
+
+def _faulthandler_s(text: str) -> int:
+    assigned = re.search(r"^FAULTHANDLER_S=([0-9]+)$", text, re.MULTILINE)
+    assert assigned is not None, "scripts/gate/verify.sh no longer assigns FAULTHANDLER_S a whole number of seconds"
+    return int(assigned.group(1))
 
 
 def test_every_gate_pytest_dumps_a_stalled_case_s_stack_before_the_pool_names_its_step() -> None:
     """Two bounds in order: a dump later than the notice leaves the notice carrying no stack, and a step without one carries none ever."""
     text = VERIFY.read_text(encoding="utf-8")
-    assigned = re.search(r"^FAULTHANDLER_S=([0-9]+)$", text, re.MULTILINE)
-    assert assigned is not None, "scripts/gate/verify.sh no longer assigns FAULTHANDLER_S a whole number of seconds"
-    faulthandler = int(assigned.group(1))
+    faulthandler = _faulthandler_s(text)
     assert faulthandler < float(declared(POOL, "STALL_S")), "the stack would be dumped after the notice that should carry it"
     bodies = [lift_function(VERIFY, name) for name in BODY_RE.findall(text)]
     running = [body for body in bodies if "-m pytest" in body]
     assert len(running) >= 3, "the scripts, backend and db pytest bodies are no longer found, so nothing below is checked"
-    bare = [body.splitlines()[0] for body in running if '-o "faulthandler_timeout=${FAULTHANDLER_S}"' not in body]
+    bare = [body.splitlines()[0] for body in running if DUMPS not in body]
     assert not bare, f"a gate pytest dumps no stack when a case stalls: {bare}"
+
+
+WORKFLOW: Final = SCRIPTS.parent / ".github" / "workflows" / "verify.yml"
+# A scope's pooled checks, each named bare or through one of the lists `verify.sh` declares.
+STARTS_RE: Final = re.compile(r"\bstart_steps --([a-z-]+) ([^;\n]+)")
+LIST_RE: Final = re.compile(r"^([A-Z_]+)=\(([^)]*)\)$", re.MULTILINE)
+LISTED_RE: Final = re.compile(r'^"\$\{([A-Z_]+)\[@\]\}"$')
+UNIT_RE: Final = re.compile(r"^[a-z_]+$")
+SCOPE_RUN_RE: Final = re.compile(r"^        run: \./scripts/gate/verify\.sh --([a-z-]+)$", re.MULTILINE)
+TIMEOUT_RE: Final = re.compile(r"^    timeout-minutes: ([0-9]+)$", re.MULTILINE)
+
+
+def _pooled_units(text: str) -> dict[str, set[str]]:
+    """Each scope that starts checks through a pool, against every check it starts there."""
+    lists = {name: members.split() for name, members in LIST_RE.findall(text)}
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    pooled: dict[str, set[str]] = {}
+    for scope, named in STARTS_RE.findall(code):
+        for word in named.split():
+            listed = LISTED_RE.match(word)
+            if listed is not None:
+                assert listed[1] in lists, f"start_steps --{scope} expands {listed[1]}, which verify.sh declares on no line of its own"
+                pooled.setdefault(scope, set()).update(lists[listed[1]])
+            else:
+                assert UNIT_RE.match(word), f"start_steps --{scope} names `{word}`, which this reader cannot resolve to a check"
+                pooled.setdefault(scope, set()).add(word)
+    return pooled
+
+
+def _silent() -> float:
+    """The longest a unit's last write precedes its notice, at the gate's own bounds.
+
+    The first poll after the write marks it, and the notice comes at the first poll `STALL_S` past that.
+    """
+    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
+    return poll + math.ceil(stall / poll) * poll
+
+
+# The watcher on a clock each poll advances by its own wait, a write just before the first poll, at the
+# gate's own bounds: what it names and when, with no machine's scheduling in the figure.
+TICKING: Final[tuple[str, ...]] = (
+    "clock = [0.0]",
+    "gate_pool.time.monotonic = lambda: clock[0]",
+    "class Ticking:",
+    "    def wait(self, timeout):",
+    "        clock[0] += timeout",
+    "        return clock[0] > 2 * BOUND",
+    "named = []",
+    "running = pool()",
+    "running.live['quiet'] = None",
+    "(Path(DIRECTORY) / 'quiet.out').write_bytes(b'last words')",
+    "gate_pool.watch_stalls(running, Ticking(), lambda notice: named.append(clock[0]), None)",
+    "assert named, 'a unit silent for twice the bound was never named'",
+    "assert named[0] <= BOUND, f'named {named[0]:g} s after its last write, past the {BOUND:g} s the timeout case counts'",
+)
+
+
+def test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts(tmp_path: Path) -> None:
+    """The timeout case below models the watcher's timing rather than running it, so a watcher naming a unit later passes it."""
+    result = _drive((f"BOUND = {_silent()!r}", *TICKING), tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+# The widest wait yet seen from a job's start to its first step, which the budget's span leaves out,
+# over 2,235 verify jobs from 2026-09-26 to 2026-10-02: an observation, not a bound.
+PRE_STEP_S: Final = 108
+
+
+def _instance_of(name: str) -> str | None:
+    """The matrix job a row names an instance of, read by the budget check's own pattern."""
+    instance = gate_budget.INSTANCE.match(name)
+    return None if instance is None else instance.group(1)
+
+
+def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
+    """A job its timeout ends names no unit, so a stall starting as late as the job's budget is named inside it.
+
+    GitHub documents neither when that clock starts nor how long a job waits for its first step.
+    """
+    text = VERIFY.read_text(encoding="utf-8")
+    faulthandler = _faulthandler_s(text)
+    silent = _silent()
+    pooled = _pooled_units(text)
+    started = set().union(*pooled.values())
+    dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
+    assert dumping <= started, f"a gate pytest runs where no notice reaches its stack: {sorted(dumping - started)}"
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    # A shape the two readers skip is a scope or a timeout read as absent, which passes; a step's own
+    # timeout ends the job naming no unit, earlier than the job's.
+    code = [line for line in workflow.splitlines() if not line.lstrip().startswith("#")]
+    runs = [line.strip() for line in code if "verify.sh" in line and not SCOPE_RUN_RE.match(line)]
+    assert not runs, f"the gate runs in a shape this case cannot read, so its scope's timeout goes unchecked: {runs}"
+    timeouts = [line.strip() for line in code if "timeout-minutes" in line and not TIMEOUT_RE.match(line)]
+    assert not timeouts, f"a timeout this case cannot read, which may end a job before its stall is named: {timeouts}"
+    rows = committed()
+    held: set[str] = set()
+    late: list[str] = []
+    for job, body in job_bodies(workflow).items():
+        for scope in (scope for scope in SCOPE_RUN_RE.findall(body) if scope in pooled):
+            timeout = TIMEOUT_RE.search(body)
+            assert timeout is not None, f"`{job}` sets no timeout-minutes of its own, so this case cannot read when GitHub ends it"
+            # A matrix job's rows are its instances', and the widest instance's budget bounds them all.
+            own = [row for name, row in rows.items() if name == job or _instance_of(name) == job]
+            assert own, f"`{job}` has no row in .github/gate-wall-clock.tsv to read its budget from"
+            # Nothing bounds the green span of a job carrying no budget, so its timeout alone is held.
+            budget = max(row.budget if row.budget is not None else 0 for row in own)
+            # A pytest unit is named this much later than any other: its dump restarts the silence.
+            dump = faulthandler if pooled[scope] & dumping else 0
+            named = PRE_STEP_S + budget + dump + silent
+            if named >= int(timeout[1]) * 60:
+                late.append(
+                    f"`{job}`: wait {PRE_STEP_S} s + budget {budget} s + dump {dump} s + silence {silent:g} s = {named:g} s,"
+                    f" against {timeout[1]} minutes"
+                )
+            held.add(scope)
+    assert held == set(pooled), f"scopes that pool and that no job runs, so nothing here read their timeout: {sorted(set(pooled) - held)}"
+    assert not late, "a stall would be ended by the job's timeout before it is named:\n" + "\n".join(late)
 
 
 # The default full run's shape, the db scope one worker of several: its tier has a case past
@@ -700,7 +826,7 @@ def test_a_db_case_that_stalls() -> None:
 """
 SHORTENED: Final = (
     ("gate/verify.sh", "FAULTHANDLER_S=180\n", "FAULTHANDLER_S=1\n"),
-    ("gate/gate_pool.py", "STALL_S: Final = 300.0\n", "STALL_S: Final = 1.0\n"),
+    ("gate/gate_pool.py", "STALL_S: Final = 185.0\n", "STALL_S: Final = 1.0\n"),
     ("gate/gate_pool.py", "STALL_POLL_S: Final = 5.0\n", "STALL_POLL_S: Final = 0.1\n"),
 )
 # Above the stalled case's own 60 s, so a notice that never came fails here rather than hanging.

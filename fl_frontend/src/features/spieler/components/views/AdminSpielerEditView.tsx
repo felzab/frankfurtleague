@@ -28,7 +28,7 @@ export function AdminSpielerEditView({
   teams,
 }: {
   spieler: AdminSpielerStored;
-  einwilligung: FLEinwilligung | null;
+  einwilligung: FLEinwilligung;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;
   saison: SpielerSaisonMembership;
@@ -45,9 +45,6 @@ export function AdminSpielerEditView({
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielerEditForm
-        // The player and the stored address the box's typing is measured against, never the whole record: a save moves
-        // the record, and keyed by it the typing and the save's pending exit would go with the refresh.
-        key={JSON.stringify({ id: spieler.id, email: spieler.email })}
         spieler={spieler}
         einwilligung={einwilligung}
         istFassungBekannt={istFassungBekannt}

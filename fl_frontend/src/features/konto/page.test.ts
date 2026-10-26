@@ -15,8 +15,7 @@ import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/Ei
 import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
-// The shells hand a sign-out action to the bar. Every argument recorded, so a case reads what a control's
-// action was bound to as well as what it sends.
+// Every argument recorded, so a case reads what a control's action was bound to as well as what it sends.
 const { calls: actionCalls } = doubleEveryAction({ payloadOf: (args) => args });
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -84,7 +83,9 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null, loeschung: null }));
+    const html = renderTree(
+      h(KontoPanel, { email: "pia@example.org", adresswechsel: null, sicherheit: null, einwilligung: null, loeschung: null }),
+    );
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
@@ -355,13 +356,13 @@ const REGISTRIERUNG = {
   team_id: SITZ_TEAM_ID,
   team_name: "Lessing Lions",
   saison_id: "2627",
-  bestaetigt_text_version: "2026-09-spielerseite-3",
+  bestaetigt_text_version: "2026-10-spielerseite-5",
   umfang: "kader_oeffentlich",
   medien: true,
   nachweis_stand: { umfang: null, medien: null },
   mindestalter: 16,
   medien_mindestalter: 18,
-  kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
+  kontext: { team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
   vorname: "Nele",
   nachname: "Brandt",
   geburtsdatum: "2008-02-14",
@@ -420,9 +421,9 @@ describe("the account page's consent section", () => {
       { sitze: [SITZ] },
       ["Jonas", "Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
-    ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
-    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
-    ["a registering pupil", { registrierungen: [REGISTRIERUNG] }, ["Lessing Lions", "Lessing-Gymnasium", "Nele"]],
+    ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium"]],
+    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, [FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
+    ["a registering pupil", { registrierungen: [REGISTRIERUNG] }, ["Lessing Lions", "Lessing-Gymnasium"]],
   ] as const) {
     it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
       setSubject(OHNE_FUNKTION);
@@ -443,7 +444,7 @@ describe("the account page's consent section", () => {
      agreement as a literal slot does, so the words stay out and the control stands. */
   it("leaves the confirmed words out where a slot they need is served empty, and keeps the control", async () => {
     setSubject(OHNE_FUNKTION);
-    answeringKonto({ spieler: { ...SPIELER, kontext: { vorname: "Alina", team: null, schule: null, saison: null } } });
+    answeringKonto({ spieler: { ...SPIELER, kontext: { team: null, schule: null, saison: null } } });
 
     assert.equal(await disclosures(), 0);
     assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));
@@ -773,7 +774,7 @@ describe("the account page's consent section", () => {
 
   /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
   it("fails the render for a slot nothing maps", () => {
-    assert.throws(() => bestaetigteWorte(publishedFassung("2026-09-spielerseite-3"), {}), /has no value for/);
+    assert.throws(() => bestaetigteWorte(publishedFassung("2026-10-spielerseite-5"), {}), /has no value for/);
   });
 });
 

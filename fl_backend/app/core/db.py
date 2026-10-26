@@ -291,3 +291,27 @@ async def get_spielbestaetigungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.SPIELBESTAETIGUNGEN]
+
+
+async def get_spielberichte_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.SPIELBERICHTE]
+
+
+async def get_adresswechsel_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.ADRESSWECHSEL]
+
+
+async def get_adresswechsel_postausgang_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.ADRESSWECHSEL_POSTAUSGANG]
+
+
+async def get_berechtigungen_antraege_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN_ANTRAEGE]

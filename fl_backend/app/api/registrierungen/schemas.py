@@ -24,7 +24,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -96,6 +96,8 @@ class FLRegistrierungEinwilligung(FLEinwilligung):
     datum: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
     medien: bool | None = None
+    # Empty on a returning pupil's record, which evidences no choice it never asked.
+    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
 class FLRegistrierung(BaseModel):
@@ -115,8 +117,6 @@ class FLRegistrierung(BaseModel):
     status: FLRegistrierungStatus
     vorname: CustomNonEmptyString
     nachname: CustomNonEmptyString
-    # UNFOLDED, where a person's own `email` is stored folded: the address is what the confirmation
-    # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
     # defaulted.
@@ -209,8 +209,8 @@ class FLPostRegistrierungResponse(BaseAPIResponse):
     # team and season without taking either from a body anyone holding the link could type.
     team: CustomNonEmptyString
     saison_id: str
-    # Echoed so the page can name the address the link went to, which is what a pupil checks when no
-    # mail arrives.
+    # The confirmation mail's recipient, for the frontend server alone and never the browser: a replayed key answers the
+    # stored address, which an address change may have moved since the replayer typed theirs.
     email: CustomNonEmptyString
 
 
@@ -273,8 +273,8 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    # Served rather than left to the page to infer from the three below: a stored person with no
-    # birthdate is a returning pupil all the same, and the press refuses the other page's label.
+    # Served rather than left to the page to infer: the press refuses the other page's label, and the
+    # returning pupil's takes the stored person's birthdate rather than asking one.
     seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
@@ -282,24 +282,17 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
     medien_mindestalter: int = Field(gt=0)
-    # The returning pupil's stored answers, all three null on the new pupil's page; the birthdate is
-    # null on the returning one too where the stored person has none.
-    geburtsdatum: CustomOptionalDateString
-    umfang: FLRegistrierungUmfang | None
-    # Null is "not shown back" and never "off": a stored `True` re-presented as off misstates a
-    # consent the page says still stands.
-    medien: bool | None
 
 
 class FLRegistrierungBestaetigungPayload(BaseModel):
-    """One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."""
+    """One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents."""
 
     model_config = ConfigDict(extra="forbid")
 
     token: CustomRegistrierungToken
-    # Unbounded here -- the age is a 422 carrying its own code, never a `REQ-VAL-001`, so the page
-    # marks its one field and keeps the date the pupil typed.
-    geburtsdatum: CustomDateString
+    # Unbounded: the age is a 422 with its own code, never a `REQ-VAL-001`, so the page marks its one
+    # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
+    geburtsdatum: CustomOptionalDateString
     # Both set on the new pupil's page and both null on the returning pupil's (`REQ-REGISTRIERUNG-017`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
@@ -316,8 +309,9 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
     # One member: this page has no Widerspruch door. A pupil who does not want to be registered lets
     # the link expire, and the sweep takes the row.
     ergebnis: Literal["bestaetigt"]
-    geburtsdatum: CustomDateString
-    # Null on a returning pupil's press, which posted none: the panel states the view's stored pair.
+    # Null where the press posted none, the stored date standing: an echo of it would serve it.
+    geburtsdatum: CustomOptionalDateString
+    # Null on a returning pupil's press, which posted none.
     umfang: FLRegistrierungUmfang | None
     medien: bool | None
 
@@ -418,17 +412,6 @@ class FLRegistrierungPerson(BaseModel):
     weicht_ab: bool
 
 
-class FLRegistrierungVorschlag(BaseModel):
-    """The one stored person holding no address whose name is the registration's: proposed, never resolved.
-
-    "A typed name is a weaker key than a shorthand", so a name only ever proposes.
-    """
-
-    spieler_id: CustomObjectId
-    vorname: CustomNonEmptyString
-    nachname: str | None
-
-
 class FLOffeneRegistrierung(BaseModel):
     """One pending registration as the team deciding it reads it."""
 
@@ -442,12 +425,9 @@ class FLOffeneRegistrierung(BaseModel):
     # Whether the pupil answered their own link, which is what makes the row one the team may admit.
     aufnehmbar: bool
     nummer_doppelt: bool
-    # Both empty on an unconfirmed row: its address is unproven, and resolving it would show the team
+    # Empty on an unconfirmed row: its address is unproven, and resolving it would show the team
     # whoever stands behind an address anybody typed into the form.
     person: FLRegistrierungPerson | None
-    # One or none, never a list: no birthdate is served, so two namesakes read identically and the
-    # team would be guessing between them.
-    vorschlag: FLRegistrierungVorschlag | None
 
 
 class FLOffeneRegistrierungenResponse(BaseAPIResponse):
@@ -509,7 +489,7 @@ class FLRegistrierungAblehnungResponse(BaseAPIResponse):
     # The junction row's name, which the mail addresses the pupil by.
     team: CustomNonEmptyString
     vorname: CustomNonEmptyString
-    # As typed, the address the confirmation link was sent to: the one recipient this decline has.
+    # The address the confirmation link was sent to: the one recipient this decline has.
     email: CustomNonEmptyString
     # Whether that address was ever proven. An unproven one is anybody's typing, and a mail to it
     # tells a stranger about a team's decision.

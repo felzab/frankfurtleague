@@ -7,7 +7,6 @@ import {
   adressenAndererPersonen,
   bestaetigungsStand,
   endstand,
-  gepaarteSitze,
   istOffen,
   linkAngebot,
   loeschungsSatz,
@@ -32,7 +31,6 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
     telefon: "069 1234567",
     geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
     einwilligung: kenntnisnahme({
-      erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
       text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
       bestaetigt_am: bestaetigtAm,
@@ -358,12 +356,6 @@ describe("the reason the Zusage is closed", () => {
     assert.equal(zusageHindernis(standsOf2(allSeats), TEAM), null);
   });
 
-  /* An application stored before the flow reaches no per-seat state, and closing the acceptance on
-     that absence would make every queued application undecidable in the deploy that shipped it. */
-  it("closes nothing where the application carries no confirmation block", () => {
-    assert.equal(zusageHindernis(null, TEAM), null);
-  });
-
   /* The reseat replaces the entry the Widerspruch wrote into, so the seated person's own stamp
      stands beside a null `abgelehnt_am` and the Absage is not the only decision left. */
   it("opens again once the seated person has confirmed", () => {
@@ -400,31 +392,6 @@ describe("the two seats one person holds", () => {
     });
 
     assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
-  });
-
-  /* The message names both, because the answer covers both: a reader told only „Trainerin oder
-     Trainer“ would look for a second link for the seat they also hold. */
-  it("are both named by the link either row mints", () => {
-    assert.deepEqual(gepaarteSitze(PAAR, "trainer"), ["ansprechperson", "trainer"]);
-    assert.deepEqual(gepaarteSitze(PAAR, "ansprechperson"), ["ansprechperson", "trainer"]);
-    assert.deepEqual(gepaarteSitze(PAAR, "stellvertretung"), ["stellvertretung"]);
-  });
-
-  /* `paired_seat`'s `seat_stands` half: a dotted `$set` under a null slot aborts the transaction,
-     so the backend drops such a partner and the message must not name it either. */
-  it("fall apart where the partner seat has been emptied", () => {
-    const halfAnswered = seatsOf({
-      ansprechperson: null,
-      trainer: twinned,
-      zugleich: "ansprechperson",
-      bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
-    });
-
-    assert.deepEqual(gepaarteSitze(halfAnswered, "trainer"), ["trainer"]);
-  });
-
-  it("are one seat where no claim was made", () => {
-    assert.deepEqual(gepaarteSitze(seatsOf(), "trainer"), ["trainer"]);
   });
 });
 
@@ -556,7 +523,6 @@ describe("what the strip says of an incomplete application's deadline", () => {
   /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
   it("says nothing where the deletion clock does not reach the application", () => {
     assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, istAbgelaufen: false }), null);
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, frist: null, istAbgelaufen: false }), null);
 
     const allSeats = standsOf2(
       seatsOf({
@@ -585,13 +551,5 @@ describe("the addresses a correction may not take", () => {
     const stands = standsOf2(ERASED);
 
     assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "trainer")), ["bernd@schule.example"]);
-  });
-});
-
-describe("an application stored before the confirmation flow", () => {
-  /* An absent block is „nothing to confirm“ rather than three open seats, which is what keeps every
-     queued application acceptable in the deploy that shipped the flow. */
-  it("reaches no per-seat state at all", () => {
-    assert.equal(bestaetigungsStand(seatsOf({ bestaetigungen: null })), null);
   });
 });

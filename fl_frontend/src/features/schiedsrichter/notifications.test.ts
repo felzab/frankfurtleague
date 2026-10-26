@@ -15,9 +15,8 @@ registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: OR
 const mail = doubleSendMail();
 doubleApiAnswers(() => Promise.resolve({ acknowledged: 1, angewendet: true }));
 
-const { mailSchiedsrichterAdresswechsel, mailSchiedsrichterLink } = await import("./notifications.ts");
+const { mailSchiedsrichterLink } = await import("./notifications.ts");
 const { schiedsrichterBestaetigungsLink } = await import("@/core/schiedsrichterEmail.ts");
-const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 const TOKEN = "abc123";
 
@@ -55,43 +54,4 @@ describe("the link the referee's minter mails", () => {
 
     assert.equal(versand, "gesperrt");
   });
-});
-
-/* The notice to the address in force is sent alone, beside the fan-out, and ends in the fan-out's own words. */
-describe("the notice an address change sends the address in force", () => {
-  const BISHER = "anna@alt.example";
-  const NEU = "anna@neu.example";
-  const sendeWechsel = () =>
-    mailSchiedsrichterAdresswechsel({
-      operation: "PATCH /schiedsrichter/{schiedsrichter_id}",
-      schiedsrichterId: "6890a1b2c3d4e5f607190003",
-      name: "Anna Beispiel",
-      mint: { token: TOKEN, frist: "2026-10-05", email: NEU, bisherige_email: BISHER },
-      anlass: "empfang",
-    });
-
-  /* It may have landed, and it is a courtesy beside a saved write: its own answer says so, and the request's outcome
-     stays the write's and the link's (`docs/frontend/spec.md :: I372`). */
-  it("ends as unclear where its send broke off unanswered, leaving the request's outcome unmarked", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "lost" : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
-
-    const [versand, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
-      const ended = await sendeWechsel();
-      return [ended, requestOutcomeUnknown()] as const;
-    });
-
-    assert.deepEqual(versand, { link: "gesendet", hinweis: "ungewiss" });
-    assert.equal(markedUnknown, false, "a notice that may have landed answered the whole request as of unknown outcome");
-  });
-
-  for (const [outcome, hinweis] of [
-    ["barred", "gesperrt"],
-    ["withheld", "zurueckgehalten"],
-  ] as const) {
-    it(`ends as ${hinweis} where the mailer answered ${outcome}`, async () => {
-      mail.answerWith(({ to }) => (to === BISHER ? outcome : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
-
-      assert.equal((await sendeWechsel()).hinweis, hinweis);
-    });
-  }
 });

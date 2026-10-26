@@ -59,6 +59,7 @@ const UNDRAWN: SpielplanProps = {
   ],
   gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
 };
@@ -69,6 +70,7 @@ const DRAWN: SpielplanProps = {
   spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
   spieltageCount: 5,
   bestand: { spiele: 15, erfasst: 0, angesetzt: 4 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: true,
 };
 
@@ -254,7 +256,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
   it("sends the undraw once picked, after reading out what it deletes, and disarms when the pick moves", async () => {
     const user = userEvent.setup();
     // Counts apart from the watermark's, so the rows can only be read off what the season holds now.
-    render(panel({ ...DRAWN, spieltageCount: 6, bestand: { spiele: 17, erfasst: 0, angesetzt: 3 } }));
+    render(panel({ ...DRAWN, spieltageCount: 6, bestand: { spiele: 17, erfasst: 0, angesetzt: 3 }, eingereichteBerichte: 0 }));
 
     await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
     assert.ok(screen.queryByRole("button", { name: /^Gruppen/ }) === null, "the undraw offers numbers it never sends");
@@ -282,7 +284,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
     await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
 
-    rerender(panel({ ...DRAWN, bestand: { spiele: 15, erfasst: 2, angesetzt: 4 } }));
+    rerender(panel({ ...DRAWN, bestand: { spiele: 15, erfasst: 2, angesetzt: 4 }, eingereichteBerichte: 0 }));
     assert.equal(screen.queryAllByRole("button", { description: /./ }).length, 0, "the running press is covered by a refusal");
     // Something entered makes the draw the operation on offer; the write running is still the undraw.
     const held = screen.getByRole("button", { name: "Nimmt zurück..." });

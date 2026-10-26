@@ -98,13 +98,17 @@ export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
 });
 export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsrichterFieldPayloadSchema>;
 
-/** The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason. */
+/**
+ * The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason, and the record's id for the
+ * name's (`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic`).
+ */
 export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
-  schiedsrichter_id: CustomObjectIdStringSchema,
   // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
   // list over one erased person; what a reader is shown instead is
   // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
   name: z.string().nonempty().nullable(),
+  // Whether the referee's own consent lets the name stand; the name is null where it does not.
+  name_is_public: z.boolean(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
@@ -225,7 +229,17 @@ export const FLSpielSchema = z.object({
   // today, and only `false` is provisional (`docs/backend/spec.md :: I763`).
   ansetzung_bestaetigt: z.boolean().nullable(),
 });
-export type FLSpiel = z.infer<typeof FLSpielSchema>;
+/**
+ * A fixture of either tier, as every reader taking one types it: the referee's `name_is_public` is the base tier's
+ * alone and `schiedsrichter_id` the admin tier's, so each is optional here where its own parse requires it.
+ */
+export type FLSpiel = Omit<z.infer<typeof FLSpielSchema>, "schiedsrichter"> & {
+  schiedsrichter: {
+    schiedsrichter_id?: string;
+    name: FLSpielSchiedsrichterFieldPublic["name"];
+    name_is_public?: FLSpielSchiedsrichterFieldPublic["name_is_public"];
+  } | null;
+};
 
 /**
  * The same fixture for the admin editor, carrying the two figures the base tier withholds. A second
@@ -318,6 +332,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   // The same `$set` reason, and nullable rather than optional: dropping the event is how a fixture
   // goes back on, so "no event" has to travel as a value.
   sonderereignis: FLSonderereignisSchema.nullable(),
+
+  // The referee the editor was served, never one it picked: the save is refused where the fixture books another or
+  // none since (`REQ-BOOKING-003`), so a referee's own decline is not undone by an editor opened before it.
+  schiedsrichter_stand: CustomObjectIdStringSchema.nullable(),
 });
 
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;
@@ -579,11 +597,32 @@ export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
 export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
 
+// German though no person types these: the undo answers a body it cannot read with its own sentence.
+export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin", { error: "Die Übernahme nennt keinen gültigen Urheber." }) });
+
+/**
+ * The Spielbericht adoption a save stamped over, as the save answers it and its undo sends it back untouched. The
+ * instant stays the wire's string: parsed here, it would come back in another spelling of the same moment.
+ */
+export const FLSpielPriorBerichtSchema = z.object({
+  spiel_id: CustomObjectIdStringSchema,
+  version: z.int({ error: "Der Stand des Spielberichts fehlt." }).min(1, { error: "Der Stand des Spielberichts fehlt." }),
+  uebernommen_am: z.string().nullable(),
+  uebernommen_von: FLSpielPriorBerichtVonSchema.nullable(),
+  uebernommene_version: z
+    .int({ error: "Die frühere Übernahme nennt keinen Stand." })
+    .min(1, { error: "Die frühere Übernahme nennt keinen Stand." })
+    .nullable(),
+});
+export type FLSpielPriorBericht = z.infer<typeof FLSpielPriorBerichtSchema>;
+
 /** Every fixture one save moved, in the order it reported them — one request, and one transaction behind it. */
 export const FLPatchSpielePaarungenPayloadSchema = z.object({
   // Never empty: the report this replays leads with the fixture the save named, so an empty list is
   // a body no save produced and a replay over it would answer as a restore having written nothing.
   paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1).max(PAARUNGEN_MAX),
+  // The save's `prior_bericht`, null where it stamped nothing: the report it adopted reads adopted until this goes back.
+  bericht: FLSpielPriorBerichtSchema.nullable(),
 });
 
 export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;
@@ -603,6 +642,7 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   // The three above are what an admin READS; this is what the undo SENDS. One entry per fixture, so
   // a fixture both of the first two name is restored once rather than twice.
   prior_paarungen: z.array(FLSpielPriorPaarungSchema),
+  prior_bericht: FLSpielPriorBerichtSchema.nullable(),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
@@ -618,17 +658,3 @@ export const FLPatchSpielePaarungenResponseSchema = BaseAPIResponseSchema.extend
 });
 
 export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarungenResponseSchema>;
-
-/**
- * `spiele` carries the filter's matches plus every match a fault names, so the client always holds
- * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which is unique within one
- * season only.
- */
-export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
-  // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the
-  // referee's name, which the base tier serves reduced.
-  spiele: z.array(FLSpielAdminSchema),
-  bracket_faults: z.array(FLBracketFaultSchema),
-});
-
-export type FLSpieleActionRequiredResponse = z.infer<typeof FLSpieleActionRequiredResponseSchema>;

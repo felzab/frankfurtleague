@@ -27,7 +27,6 @@ const LIVE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 /**
@@ -97,21 +96,11 @@ describe("the referee row's copy control", () => {
     );
   });
 
-  /* The placeholder a row without an address holds reaches nobody: shown as the row's address and
-     copied onto the clipboard, it reads as a way to write to the person. */
-  it("shows the placeholder address as none, and offers nothing to copy for it", () => {
-    const html = table([
-      { ...OHNE_KONTAKT, id: "6890a1b2c3d4e5f607800005", kontakt: { telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" } },
-    ]);
+  it("shows a row holding no address as the gap it is", () => {
+    const html = table([OHNE_KONTAKT]);
 
-    assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
-    assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding the placeholder does not say it holds no address");
+    assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding no address does not say it holds none");
     assertLeerMarkup(html, "E-Mail nicht hinterlegt");
-    assert.deepEqual(
-      accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
-      [],
-      "the row holding only the placeholder offers to copy it as a contact detail",
-    );
   });
 
   /* The rest of the row survives an empty one, so a change that dropped every control would pass the

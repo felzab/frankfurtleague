@@ -156,7 +156,8 @@ class TestTheCommittedDocument:
     def test_a_word_changed_in_the_document_alone_is_named_as_drift(self):
         built = build_document()
         edited = deepcopy(built)
-        edited["fassungen"]["2026-09-spielerseite-3"]["schalter"] += "!"
+        label = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
+        edited["fassungen"][label]["schalter"] += "!"
 
         assert edited != built
-        assert "fassungen['2026-09-spielerseite-3'].schalter" in describe_drift(edited, built)
+        assert f"fassungen['{label}'].schalter" in describe_drift(edited, built)

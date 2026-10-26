@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
+import { AdresswechselSection } from "@/features/konto/components/views/AdresswechselSection";
 import { EinwilligungSection } from "@/features/konto/components/views/EinwilligungSection";
 import { KontoLoeschenSection } from "@/features/konto/components/views/KontoLoeschenSection";
 import { SicherheitSection } from "@/features/konto/components/views/SicherheitSection";
@@ -15,12 +16,13 @@ export default async function KontoPage() {
   // A granted address whose administrator verdict lapsed owes a fresh sign-in or its passkey step
   // before its passkeys, as the landing sends it (`docs/frontend/spec.md :: I426`); here the section
   // stands empty.
-  // eslint-disable-next-line local/admin-link -- the admin layout's guard or `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead` turns it away before any season is read
+  // eslint-disable-next-line local/admin-link -- `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead` turns it away before any season is read
   if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
 
   return (
     <KontoPanel
       email={subject.email}
+      adresswechsel={<AdresswechselSection />}
       sicherheit={<SicherheitSection />}
       einwilligung={<EinwilligungSection />}
       loeschung={<KontoLoeschenSection />}

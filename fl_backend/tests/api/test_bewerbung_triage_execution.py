@@ -1,7 +1,7 @@
 import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Final, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -38,6 +38,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
+    BEWERBUNG_SITZ_ANDERS_BESETZT,
     BEWERBUNG_SUBJECT_UNRESOLVED,
     BEWERBUNG_TOKEN_UNKNOWN,
     bestaetigungsfrist_from,
@@ -66,7 +67,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
@@ -114,17 +115,14 @@ NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZX"
 RULES: Mapping[str, Any] = rules_document(number_of_groups=2, teams_per_group=2)
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
@@ -159,8 +157,7 @@ def bewerbung_document(
 ) -> dict[str, Any]:
     """One submitted application, undecided. Every field the validator requires, and nothing the triage writes.
 
-    No `bestaetigungen` block unless a case adds one: the seeded corpus is an application stored
-    before the confirmation flow, which acceptance is not held to.
+    Every seat is confirmed by its own person, so acceptance is not held back by `REQ-BEWERBUNG-013` unless a case opens one.
     """
 
     stored = documents.bewerbung_document(
@@ -352,12 +349,8 @@ class TestAnAcceptanceEntersTheSchool:
         # The club's name as it stands TODAY, copied at entry rather than joined on read.
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
-    def test_the_three_people_reach_the_junction_row_without_a_date_no_seat_of_theirs_stamped(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads.
-
-        The seeded corpus is a pre-flow application, whose dates its applicant gave for three other
-        people.
-        """
+    def test_the_three_people_reach_the_junction_row_as_they_confirmed(self, mongo_replica_set_url: str):
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
@@ -369,23 +362,7 @@ class TestAnAcceptanceEntersTheSchool:
         submitted, entered = on_a_league(mongo_replica_set_url, body)
 
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
-        # Spelled out: unstamped, and the stored speaker dropped, since no write names who answered.
-        assert submitted == KONTAKTE
-        assert entered == {
-            slot: (
-                {
-                    **seat,
-                    "geburtsdatum": None,
-                    "einwilligung": {
-                        **{field: value for field, value in seat["einwilligung"].items() if field != "erfasst_von"},
-                        "bestaetigt_am": None,
-                    },
-                }
-                if isinstance(seat, dict)
-                else seat
-            )
-            for slot, seat in KONTAKTE.items()
-        }
+        assert submitted == entered == KONTAKTE
 
     def test_who_seated_each_person_reaches_the_junction_row_unchanged(self, mongo_replica_set_url: str):
         """It decides which page a seat's link opens once the application is gone, so a stamped seat and an unstamped one carry it alike.
@@ -402,7 +379,6 @@ class TestAnAcceptanceEntersTheSchool:
                     "$set": {
                         **{f"kontakte.{slot}.einwilligung.eingetragen_von": von for slot, von in seated.items()},
                         # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
-                        "kontakte.trainer.einwilligung.erfasst_von": "person",
                         "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
                     }
                 },
@@ -588,15 +564,16 @@ BESTAETIGUNGEN = compose_bestaetigungen(
 def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
     """The seeded people with every seat confirmed by its own person, or one of them left open."""
 
-    block = {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()}
+    block = dict(KONTAKTE)
     for slot in ("trainer", "ansprechperson", "stellvertretung"):
         stamped = slot != open_seat
-        block[slot]["geburtsdatum"] = "1980-05-04" if stamped else None
-        block[slot]["einwilligung"] = {
-            **block[slot]["einwilligung"],
-            "erfasst_von": "person" if stamped else "administrativ",
-            "bestaetigt_am": "2026-02-10" if stamped else None,
-        }
+        block[slot] = kontaktperson_document(
+            KONTAKTE[slot]["vorname"],
+            bestaetigt_am="2026-02-10" if stamped else None,
+            einwilligung=SEATED,
+            telefon="+49 69 1234567",
+            geburtsdatum="1980-05-04" if stamped else None,
+        )
 
     return block
 
@@ -1272,11 +1249,29 @@ STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 
 
-async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *, email: str = CORRECTED_EMAIL) -> Any:
+async def shown_on(database: AsyncDatabase, bewerbung_id: ObjectId, seat: str) -> str:
+    """The address a page read now shows on the seat, which a correction sends back as the one it was composed against."""
+
+    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": bewerbung_id}, {"kontakte": 1})
+    slot = ((stored or {}).get("kontakte") or {}).get(seat)
+    # A seat holding nobody, or none of that name, shows no address; the refusals ahead of the holder's answer it.
+    return str(slot["email"]) if isinstance(slot, Mapping) else "niemand@example.com"
+
+
+async def correct(
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    seat: str,
+    *,
+    email: str = CORRECTED_EMAIL,
+    bewerbung_id: ObjectId = CORRECTION_BEWERBUNG,
+    bisherige_email: str | None = None,
+) -> Any:
+    shown = bisherige_email if bisherige_email is not None else await shown_on(database, bewerbung_id, seat)
     return await korrigiere_kontakt_email(
-        bewerbung_id=CORRECTION_BEWERBUNG,
+        bewerbung_id=bewerbung_id,
         seat=seat,
-        email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
+        email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email, "bisherige_email": shown}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
@@ -1372,24 +1367,19 @@ class TestCorrectingOneContactAddress:
         # The raw token exists in the answer and in the mail; the document keeps its hash alone.
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
-    def test_a_correction_the_sign_in_fold_calls_unmoved_is_written(self, mongo_replica_set_url: str):
-        """The local part's case alone, which the editor opens its press for, the delivery target moving.
-
-        The endpoint has to write it too, or the tiers disagree.
-        """
-
-        stored = "Sekretariat@zorbanax.example.de"
+    def test_the_mailbox_the_link_leaves_is_answered_and_the_same_mailbox_retyped_is_not(self, mongo_replica_set_url: str):
+        """The old link may have arrived and opens until this write, so its reader is told that it now opens nothing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
-            await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": CORRECTION_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.email": stored}}
-            )
-            await correct(database, client, "ansprechperson")
+            old = (await stored_bewerbung(database, CORRECTION_BEWERBUNG))["kontakte"]["ansprechperson"]["email"]
+            moved = await correct(database, client, "ansprechperson")
 
-            return (await stored_bewerbung(database, CORRECTION_BEWERBUNG))["kontakte"]["ansprechperson"]["email"]
+            return old, moved, await correct(database, client, "ansprechperson", email=CORRECTED_EMAIL.capitalize())
 
-        assert on_a_league(mongo_replica_set_url, body) == CORRECTED_EMAIL
+        old, moved, retyped = on_a_league(mongo_replica_set_url, body)
+
+        assert (moved.abgang_email, retyped.abgang_email) == (old, None)
 
     def test_the_refusal_recorded_against_the_old_address_goes_with_the_entry(self, mongo_replica_set_url: str):
         """Left standing it would hold the application back from the deadline for ever, on a mailbox this seat has stopped naming."""
@@ -1680,7 +1670,9 @@ class TestAResendRacingAnAnswer:
                 await korrigiere_kontakt_email(
                     bewerbung_id=ERNEUT_BEWERBUNG,
                     seat="ansprechperson",
-                    email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
+                    email_data=FLBewerbungKontaktEmailPayload.model_validate(
+                        {"email": CORRECTED_EMAIL, "bisherige_email": await shown_on(database, ERNEUT_BEWERBUNG, "ansprechperson")}
+                    ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     sperrliste=ban_list(database),
                     adressanker_collection=database[Collection.ADRESSANKER],
@@ -1776,6 +1768,9 @@ RESEAT_PERSON: Mapping[str, Any] = {
     "email": "wilburga.dringenhoff@example.de",
     "telefon": "+49 69 7654321",
 }
+
+# The address the seeded Ansprechperson held before their Widerspruch emptied the seat.
+LEFT_THE_SEAT = str(confirmed_kontakte(open_seat="ansprechperson")["ansprechperson"]["email"])
 
 # The application form's running label, the only one a reseat is admitted under.
 RESEAT_TEXT_VERSION = LAUFENDE_FASSUNGEN["bewerbung"]
@@ -1911,6 +1906,37 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert response.bestaetigungsfrist == stored["bestaetigungsfrist"]
         # Two would leave the new person standing in the seat beside the link its last holder was sent.
         assert rows_written == 1
+
+    def test_a_correction_composed_against_the_seats_last_holder_leaves_the_person_seated_since(self, mongo_replica_set_url: str):
+        """A page read before the Widerspruch and the reseat would hand the new holder the address typed for the one who left."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await reseat(database, client, "ansprechperson")
+            reseated = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await correct(database, client, "ansprechperson", bewerbung_id=RESEAT_BEWERBUNG, bisherige_email=LEFT_THE_SEAT)
+
+            return refused.value.error_code, reseated, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, reseated, after = on_a_league(mongo_replica_set_url, body)
+
+        assert reseated["kontakte"]["ansprechperson"]["email"] == RESEAT_PERSON["email"], "the reseat this case races never landed"
+        assert code == BEWERBUNG_SITZ_ANDERS_BESETZT
+        assert after == reseated
+
+    def test_a_correction_composed_against_the_person_seated_since_lands(self, mongo_replica_set_url: str):
+        """The control: the same press sent from a page showing the new holder is the correction it always was."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await reseat(database, client, "ansprechperson")
+            await correct(database, client, "ansprechperson", bewerbung_id=RESEAT_BEWERBUNG, bisherige_email=RESEAT_PERSON["email"])
+
+            return await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["ansprechperson"]["email"] == CORRECTED_EMAIL
 
     def test_the_link_the_seats_last_holder_was_sent_opens_nothing_afterwards(self, mongo_replica_set_url: str):
         """A credential left live on a seat somebody else now holds is one the league cannot take back."""

@@ -322,7 +322,9 @@ class TestTheRouterAnswersInTheEnvelope:
                 if re.fullmatch(template_pattern(document, other), url)
                 for method in operations
             }
-            response = client().put(url)
+            # A method the target serves under no template, which a probe always sending one method meets on some path.
+            unserved = next(method for method in ("PUT", "DELETE", "PATCH", "POST") if method not in expected)
+            response = client().request(unserved, url)
             answered = set(response.headers.get("allow", "").split(", "))
             if response.status_code != 405 or answered != expected:
                 short[url] = (response.status_code, sorted(answered), sorted(expected))
@@ -482,6 +484,9 @@ def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
 
     for route in api_routes(APP):
         for status, response in route.responses.items():
+            # A declared success, such as a PUT's 201 on a create, refuses nothing; a refusal skipped with it publishes no code.
+            if HTTPStatus(int(status)).is_success:
+                continue
             for method in route.methods or ():
                 declared.setdefault(f"{method} {route.path_format}", {}).setdefault(str(status), set()).update(
                     narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])
@@ -740,7 +745,7 @@ class TestErrorCodeLogging:
 
 # The values the two reports below carry. Distinctive, so absence from a whole log document is
 # evidence rather than coincidence.
-REFUSED_CONSENT_SOURCE = "Quillfeather-Erziehungsberechtigt"
+REFUSED_CONSENT_SCOPE = "Quillfeather-Kaderoeffentlich"
 REFUSED_SPIELER_OID = "6890a1b2c3d4e5f60fff0016"
 
 # Two refusals in the shape `mongod` 8 reports them, taken from real ones. A hand-shortened copy
@@ -764,13 +769,13 @@ REFUSED_DOCUMENT_REPORT: dict[str, Any] = {
                                     "operatorName": "properties",
                                     "propertiesNotSatisfied": [
                                         {
-                                            "propertyName": "erteilt_von",
+                                            "propertyName": "umfang",
                                             "details": [
                                                 {
                                                     "operatorName": "enum",
-                                                    "specifiedAs": {"enum": ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]},
+                                                    "specifiedAs": {"enum": ["kader_oeffentlich", "intern"]},
                                                     "reason": "value was not found in enum",
-                                                    "consideredValue": REFUSED_CONSENT_SOURCE,
+                                                    "consideredValue": REFUSED_CONSENT_SCOPE,
                                                 }
                                             ],
                                         }
@@ -800,7 +805,7 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
             "op": {
                 "_id": ObjectId(REFUSED_SPIELER_OID),
                 "vorname": "Anna",
-                "einwilligung": {"erteilt_von": REFUSED_CONSENT_SOURCE},
+                "einwilligung": {"umfang": REFUSED_CONSENT_SCOPE},
                 "inactive_since": None,
             },
         }
@@ -865,7 +870,7 @@ REFUSED_SUBDOCUMENT_REPORT: dict[str, Any] = {
                                     "operatorName": "bsonType",
                                     "specifiedAs": {"bsonType": "object"},
                                     "reason": "type did not match",
-                                    "consideredValue": [{"propertyName": "erteilt_von", "reason": REFUSED_CONSENT_SOURCE}],
+                                    "consideredValue": [{"propertyName": "umfang", "reason": REFUSED_CONSENT_SCOPE}],
                                     "consideredType": "object",
                                 }
                             ],
@@ -956,15 +961,15 @@ class TestValidationLoggingWithholdsTheValue:
     def test_a_refused_stored_documents_value_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))
 
-        assert REFUSED_CONSENT_SOURCE not in document
+        assert REFUSED_CONSENT_SCOPE not in document
         # The key the server puts the value under: naming it would fail this even for a value the test cannot guess.
         assert "consideredValue" not in document
 
     def test_a_refused_stored_document_still_names_the_property_the_rule_and_the_reason(self, caplog):
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))
 
-        # The dotted path, not the leaf: `erteilt_von` alone would not say which sub-document failed.
-        assert "einwilligung.erteilt_von" in document
+        # The dotted path, not the leaf: `umfang` alone would not say which sub-document failed.
+        assert "einwilligung.umfang" in document
         assert "value was not found in enum" in document
         # The second rule in the same report, whose shape names properties the document never carried.
         assert "nachname" in document
@@ -979,7 +984,7 @@ class TestValidationLoggingWithholdsTheValue:
 
         assert response.status_code == 500
         document = logged_document(caplog)
-        assert REFUSED_CONSENT_SOURCE not in document
+        assert REFUSED_CONSENT_SCOPE not in document
         assert UNHANDLED_CRASH in document and "Failed beside it: WriteError" in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
@@ -987,7 +992,7 @@ class TestValidationLoggingWithholdsTheValue:
 
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_SUBDOCUMENT_REPORT))
 
-        assert REFUSED_CONSENT_SOURCE not in document
+        assert REFUSED_CONSENT_SCOPE not in document
         # The refusal is still reported, so this cannot pass by the walk having found nothing at all.
         assert "einwilligung" in document and "type did not match" in document
 
@@ -996,9 +1001,9 @@ class TestValidationLoggingWithholdsTheValue:
 
         # `op` holds the refused value a second time, beside the validator's `consideredValue`.
         assert REFUSED_SPIELER_OID not in document
-        assert REFUSED_CONSENT_SOURCE not in document
+        assert REFUSED_CONSENT_SCOPE not in document
         # Still named, so the case cannot pass on a line that dropped the report whole.
-        assert "einwilligung.erteilt_von" in document
+        assert "einwilligung.umfang" in document
         assert DATABASE_FAILED in document
 
     def test_a_duplicate_keys_refused_value_never_reaches_the_line(self, caplog):

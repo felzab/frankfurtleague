@@ -22,21 +22,19 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { hinweisFehlt, versandWarnt } from "@/shared/utils/linkVersand";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
-import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type {
   FLPatchSchiedsrichterPayload,
-  FLSchiedsrichterAdresswechsel,
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
@@ -57,24 +55,14 @@ const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
 
 /**
  * The same refusal for a row whose address this save replaced when it was none a payload takes: no
- * address at all, or the placeholder under `.invalid`, neither of which may be written back.
+ * address at all, which may not be written back.
  */
 const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
-  reason: "Vor dem Speichern war zu diesem Eintrag keine echte E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
+  reason: "Vor dem Speichern war zu diesem Eintrag keine E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
   repair: "Öffne den Eintrag erneut, wenn die neue Adresse falsch ist",
 });
 
-/**
- * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
- * no junction row, so the patch carries the whole draft and a partial failure is not a state this
- * form can reach.
- */
-export function AdminSchiedsrichterEditForm({
-  schiedsrichter,
-  istFassungBekannt,
-  isRetired,
-  pageHeader,
-}: {
+type AdminSchiedsrichterEditFormProps = {
   /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */
   schiedsrichter: {
     id: string;
@@ -87,16 +75,25 @@ export function AdminSchiedsrichterEditForm({
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
-    adresswechsel: FLSchiedsrichterAdresswechsel | null;
-    /** Whether each link's deadline has passed, as the read judged it rather than this browser's day. */
-    abgelaufen: { bestaetigung: boolean; adresswechsel: boolean };
+    /** The change pending at the stored address, which the address tool shows and this page links to. */
+    adresswechsel_id: string | null;
+    /** Why the address tool refuses this administrator that change, as the read serves it: the page then links nowhere. */
+    adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
+    /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
+    abgelaufen: { bestaetigung: boolean };
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
-}) {
+};
+
+/**
+ * One save bar over one endpoint, unlike the squad editor's two: a referee is one document with no junction
+ * row, so no partial failure is reachable. Its drafts start from the props, the view's key remounting it after a save.
+ */
+export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
@@ -108,9 +105,16 @@ export function AdminSchiedsrichterEditForm({
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
+  const bestaetigteAdresse =
+    schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null
+      ? {
+          email: schiedsrichter.kontakt.email,
+          adresswechselId: schiedsrichter.adresswechsel_id,
+          adresswechselVerwehrt: schiedsrichter.adresswechsel_einsehbar_verwehrt,
+        }
+      : null;
 
-  // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
-  // link can go and no undo may write back.
+  // Over the STORED address: none is somewhere no link can go and no undo may write back.
   const gespeicherteAdresseGilt = hatAdresse(schiedsrichter.kontakt.email);
 
   const [hasSaved, setHasSaved] = useState(false);
@@ -230,11 +234,11 @@ export function AdminSchiedsrichterEditForm({
             .join(" ");
 
           offerUndo({
-            undo: () => undoAdminSchiedsrichterEditAction({ ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true }),
+            undo: () => undoAdminSchiedsrichterEditAction(undoPayload),
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
             // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
-            // referee having no working link and nobody else being told, and so is one whose notice failed.
-            warn: versandWarnt(res.versand) || hinweisFehlt(res.hinweis),
+            // referee having no working link and nobody else being told.
+            warn: versandWarnt(res.versand),
             fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
             // Judged here and not left to the undo action: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.
@@ -278,29 +282,12 @@ export function AdminSchiedsrichterEditForm({
             onFieldLeft={validateFields}
           />
 
-          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
-              change's panel away, and the focus lands on the contact panel's heading rather than the page's
-              (`docs/frontend/spec.md :: I536`). */}
-          <div
-            className="contents"
-            {...focusSection("kontakt")}>
-            <FormKontaktSection
-              kontakt={kontakt}
-              onChange={setKontakt}
-              onFieldLeft={validateFields}
-            />
-
-            {/* Beside the address it would replace, and only while one waits: the box above still holds
-                the address in force, which an administrator would otherwise read as a save that failed. */}
-            {schiedsrichter.adresswechsel !== null && (
-              <FormAdresswechselSection
-                schiedsrichterId={schiedsrichter.id}
-                adresswechsel={schiedsrichter.adresswechsel}
-                istAbgelaufen={schiedsrichter.abgelaufen.adresswechsel}
-                isDirty={isDirty}
-              />
-            )}
-          </div>
+          <FormKontaktSection
+            kontakt={kontakt}
+            bestaetigt={bestaetigteAdresse}
+            onChange={setKontakt}
+            onFieldLeft={validateFields}
+          />
 
           <FormHonorarSection
             defaultPayment={defaultPayment}

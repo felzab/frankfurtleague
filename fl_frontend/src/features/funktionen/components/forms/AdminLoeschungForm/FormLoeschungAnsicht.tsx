@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { joinUnd } from "@/core/joinUnd";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
+import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
+import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -19,12 +21,32 @@ const ZEILE_CLASSES = "fluid-xxs leading-normal font-medium text-foreground";
 
 const nameOf = (vorname: string, nachname: string | null): string => (nachname === null ? vorname : `${vorname} ${nachname}`);
 
+const ADRESSWECHSEL_ZEILE = "Eine laufende Adressänderung auf diese Adresse";
+
+const EIGENER_ADRESSWECHSEL_ZEILE = "Eine laufende Adressänderung dieser Adresse";
+
+/** Who a request concerns, worded from the address the erasure is for. */
+const ANTRAG_ZEILE = {
+  betroffen: "Ein offener Antrag für diese Adresse",
+  gestellt: "Ein offener Antrag, den diese Adresse gestellt hat",
+} as const;
+
 /**
  * One line per record, by kind in the order the person's own reveal lists them, each naming whom it holds in words
  * that say nothing of their gender: the reveal is read before anybody knows whose data it is.
  */
 function zeilenOf(
-  { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, spieler_adresswechsel, verwaltung }: LoeschungAnsicht,
+  {
+    spieler,
+    schiedsrichter,
+    sitze,
+    bewerbungen,
+    registrierungen,
+    eigener_adresswechsel,
+    adresswechsel,
+    verwaltung,
+    antraege,
+  }: LoeschungAnsicht,
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
@@ -51,18 +73,26 @@ function zeilenOf(
           ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
           : `Registrierung bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    // A pending change names no person of its own, so its line opens the record it waits on.
-    ...adresswechsel.map(({ schiedsrichter_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Schiedsrichterin oder eines Schiedsrichters auf diese Adresse",
-      href: saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`),
-    })),
-    ...spieler_adresswechsel.map(({ spieler_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Spielerin oder eines Spielers auf diese Adresse",
-      href: saisonHref(`/bereich/admin/spieler/${spieler_id}`),
-    })),
+    // The address's own change, served only to a reader the address tool admits to it, so its line opens it there.
+    ...(eigener_adresswechsel === null
+      ? []
+      : [
+          {
+            text: EIGENER_ADRESSWECHSEL_ZEILE,
+            href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener_adresswechsel.adresswechsel_id}`),
+          },
+        ]),
+    // A pending change names no person of its own, so its line opens the change in the address tool, or says why the
+    // tool would refuse this reader and where it opens instead.
+    ...adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
+      einsehbar_verwehrt === null
+        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
+        : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
+    ),
     ...(verwaltung === null
       ? []
       : [{ text: verwaltung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),
+    ...antraege.map(({ rolle, verwaltung: beantragt }) => ({ text: `${ANTRAG_ZEILE[rolle]}: ${ANTRAG_WAS[beantragt]}` })),
   ];
 }
 

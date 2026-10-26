@@ -18,8 +18,9 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.services import compose_record
 from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.services import compose_bestaetigung, compose_einwilligung
+from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -30,7 +31,7 @@ from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, 
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document
+from tests.documents import eigene_einwilligung_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -173,20 +174,14 @@ class TestTheClubsContacts:
     def test_emptying_a_confirmed_seat_from_an_older_sign_in_is_refused_and_empties_nothing(self, mongo_replica_set_url: str):
         """Its own link is spent, but its links on the team's open match confirmations die with it, which no read here rules out."""
 
-        confirmed = {
-            "vorname": "Ida",
-            "nachname": "Musterfrau",
-            "email": "ida@example.com",
-            "telefon": "+4917010000001",
-            "geburtsdatum": "1984-05-09",
-            "einwilligung": {
-                "umfang": "kontaktdaten",
-                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
-                "datum": "2026-03-01",
-                "erfasst_von": "person",
-                "bestaetigt_am": "2026-03-02",
-            },
-        }
+        confirmed = kontaktperson_document(
+            "Ida",
+            bestaetigt_am="2026-03-02",
+            einwilligung={"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+            nachname="Musterfrau",
+            email="ida@example.com",
+            telefon="+4917010000001",
+        )
         seated = {**self.NOBODY, "trainer": confirmed}
 
         async def seed(database: AsyncDatabase) -> None:
@@ -233,7 +228,7 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         "bestaetigung": compose_bestaetigung(token_hash=hash_token("seeded-referee"), today="2026-03-20"),
         **(
             {
-                "einwilligung": compose_einwilligung(umfang="intern", medien=False, text_version="v1", today="2026-03-21"),
+                "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-21", umfang="intern"),
                 "geburtsdatum": "1984-05-09",
             }
             if confirmed
@@ -275,19 +270,21 @@ class TestTheRefereesSave:
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, hash_token("seeded-referee")))
 
     @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
-    def test_a_confirmed_referee_s_moved_address_from_an_older_sign_in_is_refused_and_asks_nobody(
+    def test_a_confirmed_referee_s_address_change_from_an_older_sign_in_is_refused_and_asks_nobody(
         self, mongo_replica_set_url: str, retired: bool
     ):
         """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
+            response = await http.post(
+                f"/api/v{API_VERSION}/adresswechsel", headers=OLDER, json={"adresse": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
+            )
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and (stored["kontakt"]["email"], "adresswechsel" in stored)
+            return refused(response), stored and (stored["kontakt"]["email"], await database[Collection.ADRESSWECHSEL].count_documents({}))
 
         seed = seeding(a_referee(confirmed=True, retired=retired))
 
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, False))
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, 0))
 
     @pytest.mark.parametrize(
         ("referee", "email"),
@@ -376,6 +373,60 @@ class TestAGrantHoldersOwnErasure:
             return (await http.post(self.URL, headers=older)).status_code
 
         assert on_a_season(mongo_replica_set_url, body) == 200
+
+
+class TestAGrantHoldersOwnAddressChange:
+    """A start of a change handing a grant over asks the passkey the erasure asks (`docs/backend/spec.md :: I790`)."""
+
+    URL = f"/api/v{API_VERSION}/konto/adresswechsel"
+
+    def test_a_start_by_code_is_refused_however_fresh_and_starts_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
+            # By code a second ago: the route's own window passes it, and the handler judges the factor.
+            OLDER = SignedActor(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
+            response = await http.post(self.URL, json={"email": "gisela.neu@example.com"}, headers=OLDER)
+            return refused(response), await database[Collection.ADRESSWECHSEL].count_documents({})
+
+        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 0)
+
+
+async def a_grant_holders_change_awaiting_approval(database: AsyncDatabase) -> None:
+    await a_grant_holder(database)
+    await database[Collection.ADRESSWECHSEL].insert_one(
+        {
+            "_id": AWAITING_CHANGE_ID,
+            **compose_record(
+                adresse=GRANT_HOLDER,
+                email="gisela.neu@example.com",
+                weg="freigabe",
+                token_hash=None,
+                stopp_hash=hash_token("stop-awaiting"),
+                grund=None,
+                genehmigung=None,
+                # Started now, the request's own clock being the real one: a past start would lapse before the press.
+                now=datetime.now(UTC),
+            ),
+        }
+    )
+
+
+AWAITING_CHANGE_ID = ObjectId("6890a1b2c3d4e5f607950021")
+
+
+class TestAGrantHoldersApprovalOfAnAdministratorsChange:
+    """The address on file's approval lets the link go that hands the grant over (`docs/backend/spec.md :: I790`)."""
+
+    URL = f"/api/v{API_VERSION}/konto/adresswechsel/freigabe"
+
+    def test_an_approval_by_code_is_refused_however_fresh_and_mints_no_link(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            # By code a second ago, as the start's case: the route's own window passes it.
+            OLDER = SignedActor(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
+            response = await http.post(self.URL, json={"id": str(AWAITING_CHANGE_ID)}, headers=OLDER)
+            stored = await database[Collection.ADRESSWECHSEL].find_one({"_id": AWAITING_CHANGE_ID})
+            return refused(response), (stored or {}).get("token_hash")
+
+        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holders_change_awaiting_approval) == (True, None)
 
 
 # An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.

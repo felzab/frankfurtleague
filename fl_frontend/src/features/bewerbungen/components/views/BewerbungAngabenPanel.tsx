@@ -5,9 +5,8 @@ import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf, medienBestaetigungOf } from "@/features/spieler/nachweis";
 import {
-  eingetragenVonLabel,
-  KONTAKT_ROLLEN,
   KONTAKT_WHATSAPP_FRAGE,
   KONTAKT_WHATSAPP_LABELS,
   kontaktGeburtsdatumLeer,
@@ -28,6 +27,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { ReactNode } from "react";
 
 /**
@@ -82,11 +82,14 @@ export function BewerbungAngabenPanel({
   bewerbung,
   teamName,
   staende,
+  medienFragen,
 }: {
   bewerbung: FLBewerbung;
   teamName: string | null;
-  /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
-  staende: readonly SitzBestaetigung[] | null;
+  /** Each seat's state, as `bestaetigungsStand` reads it. */
+  staende: readonly SitzBestaetigung[];
+  /** Whether each seat's confirmation page asked the media choice, read by the page off the registry. */
+  medienFragen: MedienFragen;
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
   const herkunft = bewerbungHerkunft(bewerbung);
@@ -115,9 +118,7 @@ export function BewerbungAngabenPanel({
           </Angabe>
           <Angabe label="Saison">{bewerbung.saison_id}</Angabe>
           <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.eingereicht_am)}</Angabe>
-          {/* `Leer` where „Voraussichtliche Kadergröße“ takes none: this field is null on every
-              application stored before it existed, which is not a school leaving a box empty. */}
-          <Angabe label="Größe der Stufe">{bewerbung.stufengroesse === null ? <Leer /> : String(bewerbung.stufengroesse)}</Angabe>
+          <Angabe label="Größe der Stufe">{String(bewerbung.stufengroesse)}</Angabe>
 
           {herkunft === null ? (
             <Angabe label="Angaben zum Team">Die Bewerbung nennt weder eine neue Schule noch ein bestehendes Team.</Angabe>
@@ -141,9 +142,11 @@ export function BewerbungAngabenPanel({
 
       <Panel title="Kontaktpersonen">
         <div className="flex w-full flex-col gap-y-6">
-          {KONTAKT_ROLLEN.map(({ value, label }) => {
+          {/* `staende` holds every seat in the label table's order (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts ::
+              bestaetigungsStand`), so each seat is read with its state and none without. */}
+          {staende.map((stand) => {
+            const { rolle: value, label } = stand;
             const person = kontakte[value];
-            const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;
 
             return (
               <div
@@ -201,30 +204,14 @@ export function BewerbungAngabenPanel({
                         </a>
                       )}
                     </Angabe>
-                    {/* The stored block's own name where no per-seat state exists: it says who entered
-                        these details and when, which on an application from before the workflow is
-                        nobody's answer — and a Zusage turns on that answer. */}
-                    <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
+                    <Angabe label="Bestätigung">
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
-                      {stand === null ? (
-                        <>
-                          {person.einwilligung.eingetragen_von === null ? (
-                            <Leer>{eingetragenVonLabel(null)}</Leer>
-                          ) : (
-                            eingetragenVonLabel(person.einwilligung.eingetragen_von)
-                          )}
-                          {`, ${formatSpielDatum(person.einwilligung.datum)}`}
-                        </>
-                      ) : stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? (
-                        stand.satz
-                      ) : (
-                        <Leer>{stand.satz}</Leer>
-                      )}
+                      {stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? stand.satz : <Leer>{stand.satz}</Leer>}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
-                      {(stand === null || stand.stand.art === "bestaetigt") &&
+                      {stand.stand.art === "bestaetigt" &&
                         person.einwilligung.text_version !== "" &&
                         ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
@@ -236,16 +223,14 @@ export function BewerbungAngabenPanel({
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
                           <Beleg
                             nachweis={person.einwilligung.nachweis.umfang}
-                            bestaetigtAm={person.einwilligung.bestaetigt_am}
-                            textVersion={person.einwilligung.text_version}
+                            bestaetigung={bestaetigungOf(person.einwilligung)}
                           />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
                           {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
                           <Beleg
                             nachweis={person.einwilligung.nachweis.medien}
-                            bestaetigtAm={person.einwilligung.bestaetigt_am}
-                            textVersion={person.einwilligung.text_version}
+                            bestaetigung={medienBestaetigungOf(person.einwilligung, medienFragen)}
                           />
                         </Angabe>
                       </>
@@ -276,20 +261,16 @@ export function BewerbungAngabenPanel({
         <dl className={ANGABEN_GRID_CLASSES}>
           <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
           <Angabe label="Wunschfarbe">
-            {trikot.wunschfarbe === null ? (
-              <Leer />
-            ) : (
-              <span className="flex flex-row items-center gap-x-2">
-                {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
-                    The fill is the palette's hex, which no theme token tracks. */}
-                <span
-                  aria-hidden="true"
-                  style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}
-                  className="size-4 shrink-0 rounded-full border border-border shadow-sm"
-                />
-                {trikotFarbeLabel(trikot.wunschfarbe)}
-              </span>
-            )}
+            <span className="flex flex-row items-center gap-x-2">
+              {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
+                  The fill is the palette's hex, which no theme token tracks. */}
+              <span
+                aria-hidden="true"
+                style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}
+                className="size-4 shrink-0 rounded-full border border-border shadow-sm"
+              />
+              {trikotFarbeLabel(trikot.wunschfarbe)}
+            </span>
           </Angabe>
           <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
           <Angabe label="Davon im Verein aktiv (mind. Verbandsliga)">

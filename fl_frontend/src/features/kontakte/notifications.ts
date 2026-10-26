@@ -1,15 +1,24 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { frontend_config } from "@/core/config";
-import { buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
+import { KONTAKT_ABGANG_HINWEIS, KONTAKT_ABGANG_TAG } from "@/core/kontaktAbgangTag";
+import { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
+import { logger } from "@/core/logging";
+import { sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
+import { runAnsweringOwnCut } from "@/core/requestScope";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { KontaktAbgangData } from "@/core/kontaktEmail";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { FLKontaktMint } from "./schemas";
+import type { FLKontaktAbgang, FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
 // there, this would mail a link to whatever address a caller hands it, past every guard.
@@ -56,6 +65,53 @@ export async function mailKontaktLink({
         zeile: mint.zeile,
       }),
   }).then(linkVersandOf);
+}
+
+/**
+ * The notice to a mailbox a write took a seat or its live link from, never thrown from: the write has landed. On the lane
+ * no record holds (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes another mailbox.
+ */
+export async function mailKontaktAbgang({
+  operation,
+  saisonId,
+  abgang,
+  quelle,
+}: {
+  operation: string;
+  saisonId: string;
+  abgang: FLKontaktAbgang;
+  quelle: KontaktAbgangData["quelle"];
+}): Promise<void> {
+  try {
+    // A cut or a lost answer here is this notice's own doubt, never the saved write's (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() =>
+      sendMail({
+        to: abgang.email,
+        ...buildKontaktAbgangEmail({
+          origin: frontend_config.AUTH_URL,
+          rollenText: rollenText(abgang.rollen),
+          bleibtText: abgang.bleibt_als.length === 0 ? null : rollenText(abgang.bleibt_als),
+          schule: abgang.schule,
+          saisonId: saisonId,
+          quelle: quelle,
+        }),
+        tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
+        // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day
+        // would swallow the same removal undone and saved again.
+        idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, randomUUID()], abgang.email),
+      }),
+    );
+  } catch (error) {
+    // A barred or a withheld message is the mailer's own line, as on every lane.
+    const ausfall = versandAusfallOf(error);
+    if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return;
+    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    logger.error("kontakt.abgang_failed", undefined, {
+      error_code: "FE-MAIL-002",
+      name: error instanceof Error ? error.name : undefined,
+      operation: operation,
+    });
+  }
 }
 
 /** One mint's message and how it ended. */

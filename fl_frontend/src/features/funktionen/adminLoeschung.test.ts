@@ -30,6 +30,7 @@ const { raised } = doubleToasts();
 const { default: AdminLoeschungPage } = await import("@/app/bereich/admin/loeschung/page.tsx");
 const { FLErasureAnsichtResponseSchema } = await import("./schemas.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 const { STEP_UP_LABEL, StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
 
 /** A rule's refusal as the client raises one, for the mappers' own words. */
@@ -46,7 +47,6 @@ const refused = (serverErrorCode: string): APIBadStatusError =>
   });
 
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
-const PUPIL_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 const ADRESSE = "Ada.Byron@Example.org";
 const ANDERE_ADRESSE = "grace.hopper@example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
@@ -60,7 +60,8 @@ const NICHTS_GESPEICHERT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
-  spieler_adresswechsel: [],
+  eigener_adresswechsel: null,
+  antraege: [],
   verwaltung: null,
   gesperrt: false,
 };
@@ -81,8 +82,9 @@ const EIN_EINTRAG_JE_ART = {
   registrierungen: [
     { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
   ],
-  adresswechsel: [{ schiedsrichter_id: ID }],
-  spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
+  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar_verwehrt: null }],
+  eigener_adresswechsel: { adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e1" },
+  antraege: [{ antrag_id: "68c1f0a2b3c4d5e6f7a8b9e2", verwaltung: "administration", rolle: "betroffen" }],
   verwaltung: "owner",
   gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
@@ -513,13 +515,9 @@ describe("the reveal the arming read answers", () => {
     assert.doesNotMatch(screen.getByRole("alert").textContent, /Handlungsbedarf/);
   });
 
-  /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */
-  it("opens each pending address change's own record, a referee's and a pupil's, keeping the season", async () => {
-    const ansicht = {
-      ...NICHTS_GESPEICHERT,
-      adresswechsel: EIN_EINTRAG_JE_ART.adresswechsel,
-      spieler_adresswechsel: EIN_EINTRAG_JE_ART.spieler_adresswechsel,
-    };
+  /* A pending change names nobody, so its line opens the change in the address tool, on the season the shell shows. */
+  it("opens each pending address change in the address tool, keeping the season", async () => {
+    const ansicht = { ...NICHTS_GESPEICHERT, adresswechsel: EIN_EINTRAG_JE_ART.adresswechsel };
     const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } }, "saison_id=2026");
     await typeRequest(user);
     await arm(user);
@@ -527,8 +525,63 @@ describe("the reveal the arming read answers", () => {
     const ziele = within(screen.getByRole("alert"))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"));
-    assert.deepEqual(ziele, [`/bereich/admin/schiedsrichter/${ID}?saison_id=2026`, `/bereich/admin/spieler/${PUPIL_ID}?saison_id=2026`]);
+    assert.deepEqual(ziele, ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e0&saison_id=2026"]);
   });
+
+  /* The erasure ends the address's own pending change and every open request for it or made by it, so the reveal names
+     each: confirmed without them, an operator learns of their end from nobody. */
+  it("names the address's own pending change, opening it in the tool, and each open request by whom it concerns", async () => {
+    const ansicht = {
+      ...NICHTS_GESPEICHERT,
+      eigener_adresswechsel: EIN_EINTRAG_JE_ART.eigener_adresswechsel,
+      antraege: [
+        { antrag_id: "68c1f0a2b3c4d5e6f7a8b9e2", verwaltung: "administration" as const, rolle: "betroffen" as const },
+        { antrag_id: "68c1f0a2b3c4d5e6f7a8b9e3", verwaltung: "owner" as const, rolle: "gestellt" as const },
+      ],
+    };
+    const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } }, "saison_id=2026");
+    await typeRequest(user);
+    await arm(user);
+
+    assert.deepEqual(
+      within(liste())
+        .getAllByRole("listitem")
+        .map((zeile) => zeile.textContent)
+        .slice(0, -IMMER.length),
+      [
+        "Eine laufende Adressänderung dieser Adresse",
+        "Ein offener Antrag für diese Adresse: Zugang zur Verwaltung",
+        "Ein offener Antrag, den diese Adresse gestellt hat: Ernennung zur Inhaberin oder zum Inhaber",
+      ],
+    );
+    assert.deepEqual(
+      within(screen.getByRole("alert"))
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+      ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e1&saison_id=2026"],
+    );
+  });
+
+  /* The address tool refuses its reader their own address and, without an owner's power, a grant holder's: such a
+     change's line opens nothing, and says where the change opens instead. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no pending change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      const ansicht = {
+        ...NICHTS_GESPEICHERT,
+        adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar_verwehrt: verwehrt }],
+      };
+      const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } });
+      await typeRequest(user);
+      await arm(user);
+
+      const reveal = screen.getByRole("alert");
+      assert.equal(within(reveal).queryAllByRole("link").length, 0, "the line links into a refusal");
+      assert.ok(
+        within(reveal).queryByText(`Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[verwehrt]}`) !== null,
+        "the line says nothing of where the change opens",
+      );
+    });
+  }
 
   /* A read nobody answered: the names ARE the confirmation, so the press stays closed and says why on itself as the
      reveal does, with how to read the list again (`docs/frontend/spec.md` §1.14). */
@@ -620,7 +673,7 @@ describe("the words the page names a person in", () => {
     await typeRequest(user);
     await arm(user);
     const gerueckt = document.body.textContent;
-    const verweigert = ["REQ-PURGE-003", "REQ-PURGE-005"].flatMap((code) =>
+    const verweigert = ["REQ-PURGE-003", "REQ-PURGE-005", "REQ-PURGE-007"].flatMap((code) =>
       [mapErasureRefusal, mapAbmeldungRefusal].map((mapper) => mapper(refused(code))?.error ?? `${code} unworded`),
     );
 

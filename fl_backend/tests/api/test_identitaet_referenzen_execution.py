@@ -75,8 +75,8 @@ INHABERIN = "olga.inhaberin@schule.de"
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
 
-# One pass's batch, as the sweep sends it, one address in it twice. The past seat and the registration
-# store theirs as typed, and the retired pupil is asked in capitals against a row storing the fold.
+# One pass's batch, as the sweep sends it, one address in it twice. The retired pupil is asked in
+# capitals against a row storing the fold, as every record stores it.
 ASKED = [
     SITZ_VERGANGEN,
     SITZ_VERGANGEN_OFFEN,
@@ -173,7 +173,8 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": None}),
+            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
+            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             # The nameless, recordless sentinel as written, given an address by a hand edit: its id alone keeps it out.
             {**build_ghost_spieler(), "email": GEIST_SPIELER},
         ]
@@ -187,7 +188,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
-        [_registrierung("Rita.Registriert@Schule.de", confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
+        [_registrierung(REGISTRIERT, confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
     )
     await database[Collection.SPERRLISTE].insert_many(
         [ban_document(GESPERRT_PFEIFE, bis=ACTIVE_SAISON), ban_document(GESPERRT, bis=ACTIVE_SAISON)]

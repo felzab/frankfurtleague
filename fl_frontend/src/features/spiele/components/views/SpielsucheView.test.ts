@@ -8,6 +8,7 @@ import { act, createElement as h } from "react";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
@@ -15,6 +16,7 @@ import type { FLSpiel } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielsucheView } = await import("./SpielsucheView.tsx");
+const { FLSpielbestaetigungSchema } = await import("@/features/spielbestaetigungen/schemas.ts");
 
 type ViewProps = Parameters<typeof SpielsucheView>[0];
 
@@ -197,5 +199,48 @@ describe("the date a typed query is matched against", () => {
      only widen a numeric query: "2026-03" would then also reach the fixture played in November. */
   it("reaches no fixture of another month through the stored spelling", () => {
     assert.deepEqual(found("2026-03"), [], "the stored date is searched, and a month typed in its spelling reaches November");
+  });
+});
+
+describe("the clubs' answers on the admin search's cards", () => {
+  const ANGESETZT = { ...SPIEL, uhrzeit: "18:00:00" };
+  const ZUSAGE = FLSpielbestaetigungSchema.parse(
+    spielbestaetigungFields({
+      spiel_id: SPIEL.id,
+      partei: { art: "team", team_id: ALPHA },
+      ansetzung: {
+        datum: SPIEL.datum ?? "",
+        uhrzeit: "18:00:00",
+        spielort_id: NORD,
+        team1_id: ALPHA,
+        team2_id: "6890a1b2c3d4e5f607184012",
+        stand: "0".repeat(64),
+      },
+      antwort: { art: "zugesagt", am: "2026-07-20", von: { art: "kontakt", rolle: "trainer" }, vorschlag: null, begruendung: null },
+    }),
+  );
+
+  it("names each club's answer on the card it found", () => {
+    renderView(`team=${ALPHA}`, { ...ADMIN, spiele: [ANGESETZT], bestaetigungen: [ZUSAGE] });
+
+    // The chip spells its name and its answer in two spans, so its own text is read whole.
+    screen.getByText((_, chip) => chip?.tagName === "LI" && chip.textContent === "FC Alpha: Zugesagt");
+  });
+
+  // An unread answer and an unasked fixture would read alike on the card, so the page says which it is, and that the
+  // referee's answer went with the clubs': both are rows of the read that failed.
+  it("says the answers could not be read, rather than showing cards that read as asked nothing", () => {
+    renderView("", { ...ADMIN, bestaetigungen: null });
+
+    screen.getByText("Die Spielbestätigungen ließen sich gerade nicht lesen");
+    screen.getByText(/weder der Teams noch ihrer Schiedsrichterin oder ihres Schiedsrichters/);
+  });
+
+  // A cut read names what it cut, or the cards it shorted read as complete.
+  it("says the answers were cut, and what the cut can leave out", () => {
+    renderView("", { ...ADMIN, spiele: [ANGESETZT], bestaetigungen: [ZUSAGE], bestaetigungenVollstaendig: false });
+
+    screen.getByText("Die Spielbestätigungen sind unvollständig");
+    screen.getByText(/von den geschlossenen nur die neuesten/);
   });
 });

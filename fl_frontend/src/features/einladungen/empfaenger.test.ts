@@ -14,7 +14,6 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null): FL
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1990-04-01",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-08-01",
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,
@@ -54,32 +53,6 @@ describe("who a team's invite is mailed to", () => {
       { rolle: "trainer", vorname: "Jonas", email: "jonas@beispiel.de" },
       { rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" },
     ]);
-  });
-
-  /* The local part is compared byte for byte, as the endpoint compares it: two people whose
-     mailboxes differ only in case are two people, and folding the address would cost one of them
-     the message. */
-  it("keeps two seats apart where only the local part's case differs", () => {
-    const kontakte = block({
-      trainer: person("Jonas", "J.Beispiel@beispiel.de", "2026-08-21"),
-      ansprechperson: person("Erika", "j.beispiel@beispiel.de", "2026-08-20"),
-    });
-
-    assert.deepEqual(bestaetigteEmpfaenger(kontakte), [
-      { rolle: "trainer", vorname: "Jonas", email: "J.Beispiel@beispiel.de" },
-      { rolle: "ansprechperson", vorname: "Erika", email: "j.beispiel@beispiel.de" },
-    ]);
-  });
-
-  /* A domain is case-insensitive, so the same person typed twice is one mailbox and one message —
-     and the address answered is the one that was stored, not the folded key. */
-  it("answers one row where only the domain's case differs", () => {
-    const kontakte = block({
-      trainer: person("Jonas", "jonas@Beispiel.DE", "2026-08-21"),
-      stellvertretung: person("Jonas", "jonas@beispiel.de", "2026-08-21"),
-    });
-
-    assert.deepEqual(bestaetigteEmpfaenger(kontakte), [{ rolle: "trainer", vorname: "Jonas", email: "jonas@Beispiel.DE" }]);
   });
 
   /* An erasure empties the slot naming the person who asked for it, and a confirmed seat whose

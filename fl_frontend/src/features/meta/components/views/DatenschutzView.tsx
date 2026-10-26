@@ -1,10 +1,17 @@
 import Link from "next/link";
 
+import {
+  ADRESSWECHSEL_GUELTIG_STUNDEN,
+  ADRESSWECHSEL_NACHLAUF_TAGE,
+  ADRESSWECHSEL_WARTEZEIT_DAUER,
+  GENEHMIGUNG_DAUER,
+} from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
+import { DAY_MS } from "@/core/timeUnits";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -13,8 +20,8 @@ import {
   VERTRETUNG_MIN_ALTER,
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
-import { SPIELER_ADRESSWECHSEL_FRIST_TAGE, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
+import { SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -44,8 +51,7 @@ const EINE_STUNDE = { 1: "eine Stunde" } as const;
 /** The same hour after „nach“, which takes the dative, for the same reason. */
 const NACH_EINER_STUNDE = { 1: "einer Stunde" } as const;
 
-const TAG_MS = 24 * 60 * 60 * 1000;
-const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / TAG_MS;
+const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / DAY_MS;
 
 const amSatzanfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 
@@ -127,8 +133,8 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
-    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
-    grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Spielbetriebs der Liga",
+    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe, sofern die Person dafür eine Einwilligung erteilt hat",
+    grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
     was: `Vornamen der Organisatorinnen und Organisatoren auf der Seite „${ORGANISATION_TITEL}“`,
@@ -176,6 +182,24 @@ const FRISTEN = [
     frist:
       "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt",
   },
+  {
+    daten:
+      "Antwort einer Schiedsrichterin oder eines Schiedsrichters auf eine Einteilung: Zusage oder Absage mit Datum, bei einer Absage dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
+    frist:
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage oder Absage und Datum bleiben, solange der Eintrag besteht, und gehen mit ihm",
+  },
+  {
+    daten:
+      "Zusage, die die Verwaltung auf eine Spielbestätigung für ein Team, eine Schiedsrichterin oder einen Schiedsrichter einträgt: Datum und eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
+    frist:
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage und Datum bleiben so lange wie die Antwort, für die die Verwaltung sie einträgt",
+  },
+  {
+    daten:
+      "Spielbericht zu einem Spiel, von der Schiedsrichterin oder dem Schiedsrichter oder der Verwaltung: das Ergebnis, Torschützen und Karten mit Minute, zu einer Karte ein Grund aus einer festen Liste, dazu Bemerkungen als freier Text",
+    frist:
+      "Die Bemerkungen und die Gründe der Karten bis zum Ende der Saison, die auf die Saison des Spiels folgt. Ergebnis, Torschützen und Karten bleiben als Chronik der Liga bestehen",
+  },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
     daten:
@@ -184,14 +208,8 @@ const FRISTEN = [
   },
   {
     daten:
-      "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
-    frist:
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
-  },
-  {
-    daten:
-      "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
-    frist: `Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt ${ZAHLWORT[SPIELER_ADRESSWECHSEL_FRIST_TAGE]} Tage ab dem Versand, und jeder neue Link ersetzt den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach`,
+      "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -203,14 +221,20 @@ const FRISTEN = [
     frist: "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
   },
   {
+    daten:
+      "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+    // The approval window of the address change, which a request shares (`fl_backend/app/api/berechtigungen/antraege.py :: compose_antrag`).
+    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn, eine Benachrichtigung über seine Ablehnung oder sein Ende an die Person, die ihn gestellt hat, sobald sie versandt ist. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
+  },
+  {
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Gilt eine neue E-Mail-Adresse, die Du selbst eingetragen oder unter der bisherigen freigegeben hast, tragen wir sie in Dein Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen, bleibt das Konto bei der bisherigen, und Du meldest Dich unter der neuen neu an. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung. Gilt eine neue Adresse, die Dein Konto mitnimmt, löschen wir es unter der bisherigen erst, wenn wir es umgetragen oder das Umtragen aufgegeben haben`,
   },
   {
     daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
-    frist: "Zwölf Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+    frist: "Zwölf Monate ab dem Eintrag",
   },
   {
     daten: "Tageszähler einer angemeldeten Person, je Personengruppe",
@@ -234,7 +258,7 @@ const FRISTEN = [
   },
   {
     daten:
-      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
+      "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson, des Endes eines Antrags auf einen Zugang zur Verwaltung für Deine Adresse ohne Genehmigung, weil er abgelehnt oder zurückgezogen wird oder Deine Adresse wechselt, oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung Deine als drei solche Schlüssel, bei einem Antrag die Adresse, für die er gestellt war, als einer, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
     // The line stands in the application log as every line does, and the day file ages from its last write
     // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:
@@ -256,7 +280,7 @@ const FRISTEN = [
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
     frist:
-      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir früher. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
   },
 ];
 
@@ -394,10 +418,13 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Rechtsgrundlage ist Art. 6
-            Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand wird
-            zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag bestehen bleibt (Abschnitt 13), bleibt er
-            bestehen.
+            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Gehört eine Nachricht zu
+            keinem Eintrag, den wir aufbewahren, etwa ein Anmeldecode oder der Hinweis, dass Du nicht mehr als Kontaktperson eingetragen bist,
+            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Einige Hinweise
+            versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren Zustellstand speichern
+            wir nirgends. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten
+            nicht erreichen. Der Zustellstand wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag
+            bestehen bleibt (Abschnitt 13), bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
           </p>
         </LegalSection>
 
@@ -595,21 +622,43 @@ export function DatenschutzView() {
             Administratorinnen und Administratoren der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
+            Die Schiedsrichterin oder der Schiedsrichter eines Spiels sieht ab dem Spieltag bis zum Ende der Saison für den Spielbericht die
+            Kader beider Teams mit Vor- und Nachnamen und Rückennummer, auch ohne eine Einwilligung zur Veröffentlichung: Das gehört zur
+            Spielleitung, veröffentlicht wird dabei nichts. Nach der Saison sieht sie oder er nur noch den Spielbericht dieses Spiels und kann
+            ihn nicht mehr ändern.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und
+            die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und einen Grund aus einer festen Liste, der bei
+            Rot freiwillig ist. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
+            Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Die
+            Administratorinnen und Administratoren der Liga können den Spielbericht berichtigen oder selbst eintragen. Den Spielbericht sehen
+            nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga; veröffentlicht
+            wird er nicht. Wie lange wir ihn aufbewahren, steht in Abschnitt 13.
+          </p>
+          <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
             eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
             nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir
             bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie schicken.
-            Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.
+            Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn Du sie
+            über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir
+            einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, gilt die neue erst,
+            wenn eine andere Person aus der Verwaltung zustimmt, bei einem Zugang als Inhaberin oder Inhaber eine andere Inhaberin oder ein
+            anderer Inhaber; ohne diese Zustimmung endet die Änderung {GENEHMIGUNG_DAUER} nach ihrem Beginn. Kannst Du Dich nicht mehr anmelden,
+            trägt auf Deine Bitte auch die Verwaltung die neue Adresse ein: Wir fragen dann zuerst die bisherige, und erst wenn die Änderung
+            dort im Konto freigegeben ist, schreiben wir an die neue; erreichst Du die bisherige nicht mehr, gilt die neue erst{" "}
+            {ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht: Deine
+            Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze
+            als Kontaktperson, Deine Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
             ist, den Spielbetrieb der Liga durchzuführen: Kader und Schiedsrichtereinsätze zu führen, das Mindestalter zu prüfen und Dich zu
-            erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir von Spielerinnen und Spielern auf
-            dieser Grundlage nichts: Dein Name im Kader erscheint nur mit Deiner Einwilligung (Abschnitt 9). Den Namen einer Schiedsrichterin
-            oder eines Schiedsrichters an einem Spiel veröffentlichen wir auf dieser Grundlage, wie Abschnitt 9 es beschreibt. Du kannst
+            erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir auf dieser Grundlage keine Namen:
+            Dein Name im Kader und Dein Name an einem Spiel, das Du pfeifst, erscheinen nur mit Deiner Einwilligung (Abschnitt 9). Du kannst
             jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).
           </p>
           <p className={ABSATZ_CLASSES}>
@@ -619,10 +668,11 @@ export function DatenschutzView() {
             Registrierung im Kader standen, kann die Verwaltung das Geburtsdatum nachtragen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
-            und vom nächsten nur der Anfangsbuchstabe. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens,
-            und ist nur ein einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der
-            Liga.
+            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst. Hast Du der Veröffentlichung zugestimmt, steht an
+            einem Spiel davon der erste Namensteil und vom nächsten nur der Anfangsbuchstabe, sonst steht dort „{SCHIEDSRICHTER_ANONYM_LABEL}“.
+            Ein Spiel steht erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat. Bei einem
+            Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein einzelner Name eingetragen, steht
+            dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern trägt die Verwaltung Name und Kontaktdaten ein, dazu die Schule, wenn es eine gibt, so
@@ -633,9 +683,7 @@ export function DatenschutzView() {
             bestehen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
-            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis
-            auf die Änderung.
+            Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
@@ -771,19 +819,20 @@ export function DatenschutzView() {
             </li>
             <li className={ABSATZ_CLASSES}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
-              Spielerin oder eines Spielers in den Kaderlisten, die Erlaubnis für Fotos, Videos und Interviews, die Vornamen der
-              Organisatorinnen und Organisatoren auf der Seite „{ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname
-              auf der Seite „{ORGANISATION_TITEL}“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der
-              Website und aus der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte
-              erhalten. Was bis zum Widerruf geschah, bleibt rechtmäßig.
+              Spielerin oder eines Spielers in den Kaderlisten, den Namen einer Schiedsrichterin oder eines Schiedsrichters an einem Spiel, die
+              Erlaubnis für Fotos, Videos und Interviews, die Vornamen der Organisatorinnen und Organisatoren auf der Seite „
+              {ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname auf der Seite „{ORGANISATION_TITEL}“ steht auch im
+              öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der Website und aus der aktuellen Fassung des
+              Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte erhalten. Was bis zum Widerruf geschah, bleibt
+              rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
             Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du
             außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede
             solche Einwilligung. Eine abgelehnte Bewerbung oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der
-            Entscheidung. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten so schnell wir können und in
-            jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
+            Entscheidung. Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Begründen musst Du nur einen Widerspruch, mit Deiner
+            besonderen Situation. Wir antworten so schnell wir können und in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
           </p>
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien

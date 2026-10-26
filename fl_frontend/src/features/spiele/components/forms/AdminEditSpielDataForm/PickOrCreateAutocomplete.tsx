@@ -12,9 +12,11 @@ import { SearchField } from "@heroui/react/search-field";
 import { dismissControl } from "@/core/dismissControl";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Autocomplete } from "@/shared/components/ui/Autocomplete";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { ExpectedMarker } from "./ExpectedMarker";
@@ -26,7 +28,15 @@ import type { Key } from "@heroui/react/rac";
  * **The create form is its caller's dialog, rendered beside the match form and never inside it**
  * (`docs/frontend/spec.md :: I711`), so this picker only asks for it.
  */
-export function PickOrCreateAutocomplete<TItem extends { id: string; name: string; nameIstPlatzhalter?: boolean }>({
+export function PickOrCreateAutocomplete<
+  TItem extends {
+    id: string;
+    name: string;
+    nameIstPlatzhalter?: boolean;
+    /** Why the row is listed but cannot be picked, shown on it: a record not offered at all reads as one never created. */
+    nichtWaehlbar?: string;
+  },
+>({
   label,
   fieldPath,
   placeholder,
@@ -37,6 +47,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
   createLabel,
   emptyStateText,
   onRequestCreate,
+  hint,
 }: {
   label: string;
   /** The dotted payload path: also its `name`, its error key and its anchor. */
@@ -55,10 +66,12 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
   createLabel: string;
   emptyStateText: string;
   /**
-   * Opens the caller's create dialog, which selects what it creates: an "angelegt" toast over an
-   * empty picker is how a match got saved with no referee.
+   * Opens the caller's create dialog, which hands what it creates to `created`. A record the save may book is also
+   * selected, since an "angelegt" toast over an empty picker is how a match got saved with no referee.
    */
   onRequestCreate: () => void;
+  /** The field's own hint, inside it, so the picker names it in its description. */
+  hint?: string;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -121,6 +134,12 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
+        {hint !== undefined && (
+          <Hint
+            mode="field"
+            text={hint}
+          />
+        )}
 
         <Autocomplete.Popover className={overlayPanel()}>
           <Autocomplete.Filter filter={contains}>
@@ -165,8 +184,10 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                   key={item.id}
                   id={item.id}
                   textValue={item.name}
+                  isDisabled={item.nichtWaehlbar !== undefined}
                   className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                   {item.nameIstPlatzhalter ? <Leer>{item.name}</Leer> : item.name}
+                  {item.nichtWaehlbar !== undefined && <span className={`${labelBadge("warning")} ms-2`}>{item.nichtWaehlbar}</span>}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
               ))}

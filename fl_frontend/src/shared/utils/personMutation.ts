@@ -5,8 +5,8 @@ import { funktionenOf, isSeatAt } from "@/core/funktionen";
 import { getSubjectSession } from "@/core/subject";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
+import { logActionFailure } from "./actionFailure";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
-import { logCodedFailure } from "./degradedRead";
 import { logVerweigert } from "./verweigert";
 
 import type { Funktion } from "@/core/funktionen";
@@ -88,7 +88,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
       // passkey (`docs/frontend/spec.md :: I493`).
       if (!(error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009")) throw error;
 
-      logCodedFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error, "FE-ACT-001");
+      logActionFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error);
       refresh();
       return stepUpRequired();
     }

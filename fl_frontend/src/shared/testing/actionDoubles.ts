@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { withoutStoredValues } from "@/core/logFormat.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { judging } from "@/core/verdicts.ts";
 import { srcPathOf } from "@/shared/testing/actionLanes.ts";
@@ -178,8 +179,17 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
-/** One line an action logged: its level, its message, and the fields beside them. */
-export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown };
+/** One line an action logged: its level, its message, the fields beside them, and an error line's attached error. */
+export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
+
+/**
+ * What the real logger writes of an attached error (`fl_frontend/src/core/logFormat.ts :: serializeError`): its message
+ * and stack are where a submitted address reaches the log, so a suite's address check over these lines reads them too.
+ */
+function writtenOf(attached: unknown): unknown {
+  const error = withoutStoredValues(attached);
+  return error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error;
+}
 
 /**
  * Every line logged since the case began, `doubleActionRequest` emptying it before each case. Recorded
@@ -208,6 +218,8 @@ const logAt =
   (message: string, ...rest: unknown[]): void => {
     // `error` takes the thrown value before its fields, the other three their fields alone.
     const line: LoggedLine = { level, message, meta: level === "error" ? rest[1] : rest[0] };
+    // Only where one was attached, so a line handed none equals its fields alone.
+    if (level === "error" && rest[0] !== undefined) line.attached = writtenOf(rest[0]);
     traceOfLine.set(line, requestTraceId());
     loggedLines.push(line);
   };
@@ -263,6 +275,8 @@ type SignInAnswers = {
   accountDeletionFailure: Error | null;
   /** Whether an account holds the address a ban signs out or an erasure deletes, which the real store answers. */
   accountHeld: boolean;
+  /** The folded addresses `accountStandsAt` finds an account at; none unless a case names one. */
+  accountsAt: string[];
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
   /** Why the guard refuses where it refuses, or `null` to read it off the landing the case named. */
@@ -341,6 +355,12 @@ const signInStore = (answers: SignInAnswers) => ({
     answers.deletedAccounts.push(String(address));
     return answering(answers.accountDeletionFailure ?? answers.accountHeld);
   },
+  // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
+  // `administratorOf`'s reason.
+  accountStandsAt: async (address: unknown) => {
+    const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+    return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+  },
 });
 
 /**
@@ -390,6 +410,8 @@ export function doubleActionRequest({
   failAccountDeletion: (failure: Error) => void;
   /** Makes every sign-out and account deletion for the rest of the case find no account; an account is held by default. */
   holdNoAccount: () => void;
+  /** Makes `accountStandsAt` find an account at `address`, folded, for the rest of the case. */
+  holdAccountAt: (address: string) => Promise<void>;
   /** Why the guard refuses for the rest of the case, where it refuses. */
   setRefusal: (next: AdminRefusal) => void;
 } {
@@ -404,6 +426,7 @@ export function doubleActionRequest({
     deletedAccounts: [],
     accountDeletionFailure: null,
     accountHeld: true,
+    accountsAt: [],
     fresh: true,
     refusal: null,
   };
@@ -427,6 +450,7 @@ export function doubleActionRequest({
     answers.deletedAccounts.length = 0;
     answers.accountDeletionFailure = null;
     answers.accountHeld = true;
+    answers.accountsAt.length = 0;
     answers.fresh = true;
     answers.refusal = null;
   });
@@ -451,6 +475,10 @@ export function doubleActionRequest({
     deletedAccounts: () => [...answers.deletedAccounts],
     failAccountDeletion: (failure) => void (answers.accountDeletionFailure = failure),
     holdNoAccount: () => void (answers.accountHeld = false),
+    holdAccountAt: async (address) => {
+      const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+      answers.accountsAt.push(asSignInIdentifier(address));
+    },
     setRefusal: (next) => void (answers.refusal = next),
   };
 }

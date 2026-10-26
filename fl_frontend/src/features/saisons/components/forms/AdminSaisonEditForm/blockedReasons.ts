@@ -1,7 +1,9 @@
+import { DAY_MS } from "@/core/timeUnits";
 import {
   GRUPPEN_OFF_RULES,
   RECORDED_FACTS_ANY,
   REGELN_ABSCHNITT,
+  SPIELBERICHTE_HALTEN_DEN_SPIELPLAN,
   SPIELPLAN_ABSCHNITT,
   SPIELPLAN_NEU_ANLEGEN,
   SPIELPLAN_ZURUECKNEHMEN,
@@ -24,6 +26,8 @@ export type SpielplanControlInput = {
   spieltageCount: number;
   /** `REQ-SPIELPLAN-005`'s condition: how many fixtures carry something entered against them. */
   erfassteSpieleCount: number;
+  /** `REQ-SPIELPLAN-007`'s condition, which closes the replace and the undraw alike: how many fixtures hold a submitted report. */
+  eingereichteBerichteCount: number;
   /** Whether the season's served schedule reaches a knockout round at all, which a FIRST draw is judged on. */
   hasKoRunden: boolean;
   /** The season's STORED span, `REQ-DATE-009`'s offered side — what the draw would run on. */
@@ -35,9 +39,6 @@ export type SpielplanControlInput = {
   gruppen: Parameters<typeof drawGruppenRefusal>[0];
 };
 
-// One day of UTC milliseconds. Date-only strings parse as UTC midnights, so dividing by it is exact.
-const MS_PER_DAY = 86_400_000;
-
 /**
  * One spelling for both closures: the repair is the season's own dates whichever of them closed the
  * press, and a second could send two admins to two different panels for one fault.
@@ -46,7 +47,7 @@ const SPAN_TOO_SHORT_REPAIR = `Verlege im Abschnitt ${ZEITRAUM_ABSCHNITT} das En
 
 /** Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. */
 function offeredDays(startDate: string, endDate: string): number {
-  return (Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1;
+  return (Date.parse(endDate) - Date.parse(startDate)) / DAY_MS + 1;
 }
 
 /**
@@ -96,6 +97,9 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
       ? "Der Spielplan lässt sich für laufende Saisons nicht neu anlegen."
       : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. ${SPIELPLAN_NEU_ANLEGEN} lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
+
+  // After the window, as the endpoint counts the reports after it.
+  if (replacesDraw && input.eingereichteBerichteCount > 0) return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
 
   // Nothing past the window for a replace, which draws from the panel's boxes and not the stored rules:
   // closing it here unmounts the very boxes that repair it. `spielplanShapeBlockedReason` closes its press.
@@ -204,7 +208,7 @@ export function spielplanReplacesDraw(input: SpielplanControlInput): boolean {
  * draw's above is: `fl_backend/app/api/saisons/services.py :: find_undraw_refusal` decides it.
  */
 export function spielplanUndrawBlockedReason(input: UndrawControlInput): string | null {
-  const { saisonStatus, erfassteSpieleCount } = input;
+  const { saisonStatus, erfassteSpieleCount, eingereichteBerichteCount } = input;
 
   // This panel's own condition rather than the endpoint's: an undraw of an undrawn season is answered
   // 200 with zeroes, so pressing would ask an admin to confirm the destruction of nothing.
@@ -216,6 +220,8 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
 
   if (erfassteSpieleCount > 0)
     return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. ${SPIELPLAN_ZURUECKNEHMEN} lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
+
+  if (eingereichteBerichteCount > 0) return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
 
   return null;
 }

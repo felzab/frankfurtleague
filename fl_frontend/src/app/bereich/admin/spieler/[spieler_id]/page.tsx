@@ -66,7 +66,7 @@ async function AdminSpielerEditContent({
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
   // label went unchecked.
   const fassungBekannt = await runWithIncomingTrace(() =>
-    istFassungBekannt(spieler.einwilligung?.text_version ?? null).catch(nullAfterLoggingUnexplained),
+    istFassungBekannt(spieler.einwilligung.text_version).catch(nullAfterLoggingUnexplained),
   );
 
   const saison: SpielerSaisonMembership = {
@@ -108,7 +108,7 @@ async function AdminSpielerEditContent({
     }));
 
   return (
-    // Unkeyed: the view keys what it holds itself, and a key here would reset the address box's typing over a save.
+    // Unkeyed: the form keys its editor by the stored state the drafts mirror.
     <AdminSpielerEditView
       spieler={{
         id: spieler.id,
@@ -117,8 +117,8 @@ async function AdminSpielerEditContent({
         inactive_since: spieler.inactive_since,
         geburtsdatum: spieler.geburtsdatum,
         email: spieler.email,
-        adresswechsel: spieler.adresswechsel,
-        adresswechsel_abgelaufen: spieler.adresswechsel_abgelaufen,
+        adresswechsel_id: spieler.adresswechsel_id,
+        adresswechsel_einsehbar_verwehrt: spieler.adresswechsel_einsehbar_verwehrt,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.

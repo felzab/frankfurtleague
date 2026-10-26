@@ -34,7 +34,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   if (schiedsrichterRes === null) {
     notFound();
   }
-  const { schiedsrichter, bestaetigung_abgelaufen, adresswechsel_abgelaufen } = schiedsrichterRes;
+  const { schiedsrichter, bestaetigung_abgelaufen, adresswechsel_id, adresswechsel_einsehbar_verwehrt } = schiedsrichterRes;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
@@ -44,9 +44,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   );
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSchiedsrichterEditView
-      key={JSON.stringify([schiedsrichter, bestaetigung_abgelaufen, adresswechsel_abgelaufen])}
       schiedsrichter={{
         id: schiedsrichter.id,
         name: schiedsrichter.name,
@@ -56,8 +54,9 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         geburtsdatum: schiedsrichter.geburtsdatum,
         einwilligung: schiedsrichter.einwilligung,
         bestaetigung: schiedsrichter.bestaetigung,
-        adresswechsel: schiedsrichter.adresswechsel,
-        abgelaufen: { bestaetigung: bestaetigung_abgelaufen, adresswechsel: adresswechsel_abgelaufen },
+        adresswechsel_id: adresswechsel_id,
+        adresswechsel_einsehbar_verwehrt: adresswechsel_einsehbar_verwehrt,
+        abgelaufen: { bestaetigung: bestaetigung_abgelaufen },
       }}
       istFassungBekannt={fassungBekannt}
       inactiveSince={schiedsrichter.inactive_since}

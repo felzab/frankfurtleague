@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
+
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
 import { collectHeldRollen, countLiveSquadRows, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
@@ -27,12 +29,11 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   vorname: "X",
   nachname: null,
   inactive_since: null,
-  geburtsdatum: null,
-  einwilligung: null,
-  // A person the admission has never written an address for, which is every stored row until it has.
-  email: null,
-  adresswechsel: null,
-  adresswechsel_abgelaufen: false,
+  geburtsdatum: "2009-05-04",
+  einwilligung: bestaetigteEinwilligung(),
+  email: "x@example.com",
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   memberships: [MEMBERSHIP],
 } satisfies FLSpielerWithMemberships);
 

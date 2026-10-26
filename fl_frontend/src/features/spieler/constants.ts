@@ -52,18 +52,9 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string
   intern: "Nur innerhalb der Liga",
 };
 
-/** `bestandsuebernahme` is named plainly rather than softened: a record nobody was asked for must not read like consent somebody gave. */
-export const EINWILLIGUNG_HERKUNFT_LABELS: Record<NonNullable<FLEinwilligung["erteilt_von"]>, string> = {
-  // Whoever spoke, named without a gender: half the league's squads are girls, and each of these
-  // stands in a readout that no sentence beside it can qualify.
-  erziehungsberechtigt: "Von einer erziehungsberechtigten Person",
-  volljaehrig: "Von der Person selbst",
-  bestandsuebernahme: "Aus dem Bestand übernommen",
-};
-
 /**
- * `false` is read as nobody having agreed rather than as a refusal: the value stands on a carried-over
- * record nobody was asked, and a word naming a decision would put one in that person's mouth.
+ * `false` is read as nobody having agreed rather than as a refusal: it stands on a seat the applicant
+ * entered until its person answers, and a word naming a decision would put one in that person's mouth.
  */
 export const EINWILLIGUNG_MEDIEN_LABELS = {
   erteilt: "Fotos, Videos und Interviews zugesagt",
@@ -191,7 +182,7 @@ export function spielerInitialen(name: SpielerName): string {
 
 /**
  * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
- * first name alone on a record entered before the surname was asked.
+ * first name alone where the record holds no surname.
  */
 export function kaderName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
   return nachname === null ? vorname : `${vorname} ${nachname}`;
@@ -233,12 +224,3 @@ export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert. Zurü
 export function kaderAustragenHinweis(saisonId: string): string {
   return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
 }
-
-/**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`, so the lapsed address link's panel states
- * the day the endpoint refuses on.
- */
-export const SPIELER_ADRESSWECHSEL_FRIST_TAGE = 14;
-
-/** The address box's press, which the refusal of a taken address names: one spelling, so a reworded press takes the sentence with it. */
-export const ADRESSE_AENDERN = "Adresse ändern";

@@ -1,31 +1,22 @@
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { Leer } from "@/shared/components/ui/Angabe";
 
+import type { Bestaetigung } from "@/features/spieler/nachweis";
 import type { FLEinwilligungNachweis } from "@/features/spieler/schemas";
 
 /**
- * The act a choice stands on, under its value: the confirmation's day and label are another act's. One
- * component for every admin readout of a consent choice, the pupil's, the referee's and a contact seat's.
+ * The act a choice stands on, under its value. One component for every admin readout of a consent choice, the
+ * pupil's, the referee's and a contact seat's, each handing it its record's confirmation.
  */
-export function Beleg({
-  nachweis,
-  bestaetigtAm,
-  textVersion,
-}: {
-  nachweis: FLEinwilligungNachweis | null;
-  bestaetigtAm: string | null;
-  textVersion: string | null;
-}) {
-  return <span className="block muted-meta">{beschreibeNachweis(nachweis, bestaetigtAm, textVersion)}</span>;
+export function Beleg({ nachweis, bestaetigung }: { nachweis: FLEinwilligungNachweis | null; bestaetigung: Bestaetigung }) {
+  return <span className="block muted-meta">{beschreibeNachweis(nachweis, bestaetigung)}</span>;
 }
 
 /**
  * A stored label names a label of the backend's registry, so one the registry does not hold is a
  * record citing words nobody can produce, and a bare key renders the two alike.
  */
-export function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
-  if (textVersion === null) return <Leer />;
-
+export function Fassung({ textVersion, istBekannt }: { textVersion: string; istBekannt: boolean | null }) {
   // `null` where the registry's read failed: the key stands, and the check says it was not made.
   if (istBekannt === null) {
     return (

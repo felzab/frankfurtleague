@@ -23,9 +23,11 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SpielbestaetigungStart } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView.tsx";
+import type { FLSpielbestaetigungAnsichtResponse } from "@/features/spielbestaetigungen/schemas.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
 import type { ReactElement } from "react";
 
@@ -44,7 +46,7 @@ const VIEW_ENDPOINT = "/spielbestaetigungen/ansicht";
 const TOKEN = "kein-echtes-token";
 
 /** The view as the backend serves it, every field filled whatever the state: the page is what narrows it. */
-const ANSICHT = {
+const ANSICHT: FLSpielbestaetigungAnsichtResponse = {
   acknowledged: 1,
   zustand: "gueltig",
   seite: "team1",
@@ -141,6 +143,14 @@ describe("what a spent link's page carries", () => {
     assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "ungueltig" })), { zustand: "ungueltig" });
   });
 
+  /* The date the league kept and nothing else of the fixture: the panel's sentence points at it, the mail having named it. */
+  it("hands the verworfen state the date it kept and nothing else", async () => {
+    assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "verworfen" })), {
+      zustand: "verworfen",
+      termin: { datum: ANSICHT.ansetzung.datum, uhrzeit: ANSICHT.ansetzung.uhrzeit },
+    });
+  });
+
   /* The seat is a role and never a person, and it is what tells the club's other two seats who answered. */
   for (const zustand of ["zugesagt", "abgelehnt"] as const) {
     it(`hands the ${zustand} state the seat that answered and nothing else`, async () => {
@@ -207,7 +217,7 @@ describe("what a link to a barred address opens on", () => {
     viewAnswers(() => ANSICHT);
     const { unmount } = render(await pageBody(SpielbestaetigungPage, PROPS));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: /Zusagen/ }));
+    await pressTwice(userEvent.setup(), { resting: "Zusagen", armed: "Ja, zusagen" });
     await act(fetchMock.answered);
 
     const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);

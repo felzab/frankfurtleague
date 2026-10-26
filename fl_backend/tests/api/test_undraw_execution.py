@@ -19,7 +19,7 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
-from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW, SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
+from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW, SPIELPLAN_BERICHTE_EINGEREICHT, SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import post_saison_team
@@ -31,6 +31,7 @@ from app.core.logging import trace_id_var
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -174,6 +175,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
@@ -181,13 +183,16 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
     )
 
 
-async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLUndrawSpielplanResponse:
+async def call_undraw(
+    database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, spielberichte_collection: Any = None
+) -> FLUndrawSpielplanResponse:
     return await undraw_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
         db=client,
     )
 
@@ -588,6 +593,97 @@ class TestAnUndrawTakesTheSeasonsConfirmations:
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
+def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
+    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
+
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+
+
+async def report_a_drawn_fixture(database: AsyncDatabase) -> None:
+    """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
+
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
+    assert spiel is not None, "the premise: the season is drawn"
+    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
+
+
+class TestAnUndrawTakesTheSeasonsReports:
+    def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the undraw's report delete and this fails: a report document would name a fixture no season holds.
+
+        The season's holds no submitted report, which would refuse the undraw; the neighbour's does.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
+            await call_undraw(database, client)
+
+            berichte = database[Collection.SPIELBERICHTE]
+            return (
+                await berichte.count_documents({"saison_id": SAISON_ID}),
+                await berichte.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
+            )
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+
+
+class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
+    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.delete_many(*args, **kwargs)
+
+
+class TestASubmittedReportKeepsTheSpielplan:
+    """`REQ-SPIELPLAN-007` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
+
+    def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            await report_a_drawn_fixture(database)
+            outcome = await outcome_of(call_undraw(database, client))
+
+            return drawn, outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
+
+        drawn, outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
+
+    def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
+        """A report standing on no fixture, which only a hand edit leaves: counted, it would refuse every undraw while no read shows it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            outcome = await outcome_of(call_undraw(database, client))
+
+            return outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
+
+        outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == COMMITTED, "a report on no fixture kept the season's draw"
+        # The undraw takes the season's reports, the orphan among them.
+        assert (counts, berichte) == ((0, 0), 0)
+
+    def test_a_report_submitted_mid_undraw_is_counted_again_outside_it(self, mongo_replica_set_url: str):
+        """A document inserted with no write's anchor meets nothing the undraw writes: the count outside its transaction refuses it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_fixture(database))
+            outcome = await outcome_of(call_undraw(database, client, spielberichte_collection=berichte))
+            berichte.assert_landed_inside(serially=0)
+
+            return drawn, outcome, await counts_now(database), berichte.passes
+
+        drawn, outcome, counts, passes = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert (outcome, counts) == (SPIELPLAN_BERICHTE_EINGEREICHT, (drawn.spieltage, drawn.spiele))
+        # Once: the insert conflicts with nothing, so no retry met it.
+        assert passes == 1
+
+
 @dataclass(frozen=True)
 class RefusedUndraw:
     """An undraw refused before it removed anything, and the season it left standing."""
@@ -671,6 +767,7 @@ async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *,
         spieltage_collection=database[Collection.SPIELTAGE],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
     )
 
 
@@ -694,6 +791,7 @@ def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
+            "schiedsrichter_stand": None,
         }
     )
 

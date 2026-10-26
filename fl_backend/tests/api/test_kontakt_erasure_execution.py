@@ -21,7 +21,6 @@ from app.api.kontakte.services import (
     contact_block_image_edits,
     departing_names,
     find_matching_slots,
-    rows_naming,
     same_address,
     seat_image_edits,
 )
@@ -35,6 +34,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import bestaetigte_kenntnisnahme
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.wire import commands_sent
@@ -84,7 +84,8 @@ UNKNOWN_EMAIL = "niemand.hierverzeichnet@example.com"
 # normalises it.
 VARIANT_REQUEST_EMAIL = "Wiltrudis.Quastenflosser@EXAMPLE.COM"
 
-# Every stored spelling of that one mailbox: the domain differing, the local part differing, and both.
+# Every spelling of that one mailbox a hand-typed grant may hold, which the grant erasure's pattern
+# (`app/api/kontakte/services.py :: same_address`) must take: the domain differing, the local part differing, and both.
 CASE_VARIANTS: tuple[str, ...] = (
     ERASED_EMAIL,
     ERASED_EMAIL.replace("example.com", "EXAMPLE.COM"),
@@ -98,8 +99,8 @@ OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltr
 OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
 NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 
-# One row per spelling, ids fixed so a failure names the spelling rather than a list position.
-CASE_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{3000 + index:04d}") for index, email in enumerate(CASE_VARIANTS)}
+# One row holding the mailbox as a payload stores it, and one per near miss, ids fixed so a failure names the spelling.
+MATCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607813000")
 NEAR_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{4000 + index:04d}") for index, email in enumerate(NEAR_MISSES)}
 
 # The row an ordinary contact edit moves the erased person OUT of, and one it never stood in. Both
@@ -107,9 +108,6 @@ NEAR_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{4000 + index:04d}") for 
 SWAPPED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815001")
 UNTOUCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815002")
 SWAP_SAISON = "2627"
-
-# Stored in another case, so reaching that image needs both halves of the fix at once.
-SWAPPED_STORED_EMAIL = ERASED_EMAIL.upper()
 
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -154,7 +152,7 @@ def person(nachname: str, telefon: str) -> dict[str, Any]:
         "email": email,
         "telefon": telefon,
         "geburtsdatum": "1979-03-14",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"},
+        "einwilligung": bestaetigte_kenntnisnahme(datum="2026-01-05"),
     }
 
 
@@ -356,7 +354,7 @@ async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
             a_junction_row(
                 SWAPPED_ROW_OID,
                 SWAP_SAISON,
-                a_block_holding({**person(ERASED_NACHNAME, ERASED_FORMER_TELEFON), "email": SWAPPED_STORED_EMAIL}),
+                a_block_holding({**person(ERASED_NACHNAME, ERASED_FORMER_TELEFON), "email": ERASED_EMAIL}),
             ),
             a_junction_row(UNTOUCHED_ROW_OID, SWAP_SAISON, a_block_holding(person(BYSTANDER_NACHNAME, BYSTANDER_FORMER_TELEFON))),
         ]
@@ -393,12 +391,12 @@ def after_erasing_a_swapped_out_person(url: str) -> Snapshot:
     return on_the_seed_loop(_run())
 
 
-def after_erasing_the_case_table(url: str) -> tuple[FLErasureResponse, dict[Any, Mapping[str, Any]]]:
-    """The seeded league plus one row per spelling in both tables, erased with a third spelling again."""
+def after_erasing_the_near_misses(url: str) -> tuple[FLErasureResponse, dict[Any, Mapping[str, Any]]]:
+    """The seeded league plus the stored mailbox and its near misses, erased with an unfolded spelling of the mailbox."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_many(
-            [a_row_naming(row_id, email) for email, row_id in (*CASE_ROW_OIDS.items(), *NEAR_ROW_OIDS.items())]
+            [a_row_naming(row_id, email) for email, row_id in ((ERASED_EMAIL, MATCHED_ROW_OID), *NEAR_ROW_OIDS.items())]
         )
         response = await call_erasure(database, client, VARIANT_REQUEST_EMAIL)
 
@@ -492,9 +490,9 @@ def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
 
 
 def test_the_clearing_names_the_bookkeeping_only_where_told_to_and_the_digest_always():
-    """The pure half: a row holding no block, an application stored before the flow among them, gets no key created.
+    """The pure half: a season row holding no block gets no key created.
 
-    The digest goes either way: an `$unset` creates nothing, and a blockless application may hold one.
+    The digest goes either way: an `$unset` creates nothing.
     """
 
     assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}, "$unset": {"idempotenz_fingerabdruck": ""}}
@@ -531,37 +529,6 @@ def test_a_seat_held_under_an_address_since_corrected_leaves_the_rows_images(mon
     assert len(log) == 2, "the correction and the clearing each file one image"
     assert all((row["before"]["kontakte"]["trainer"], row["redacted_at"]) == (None, REDACTED_AT) for row in log)
     assert MISTYPED_EMAIL not in str(log)
-
-
-BLOCKLESS_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607817201")
-BLOCKLESS_TEAM_OID = ObjectId("6890a1b2c3d4e5f607817202")
-
-
-@pytest.mark.db
-def test_an_application_stored_before_the_flow_loses_the_digest_with_the_seat(mongo_replica_set_url: str):
-    """Unset the digest only beside a block and this fails: the application predates links and still holds one."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        # No deadline, so no links: an application the confirmation flow never reached.
-        blockless = documents.bewerbung_document(
-            BLOCKLESS_BEWERBUNG_OID,
-            LATER_SAISON,
-            "eingereicht",
-            kontakte=FORMER_BLOCKS[BEWERBUNG_OID],
-            eingereicht_am="2026-01-05",
-            team_id=BLOCKLESS_TEAM_OID,
-            kader={"voraussichtliche_groesse": 12, "gute_spieler": 3},
-            idempotenz_fingerabdruck="a" * 64,
-        )
-        await database[Collection.BEWERBUNGEN].insert_one(blockless)
-        await call_erasure(database, client)
-
-        return (await stored_rows(database))[BLOCKLESS_BEWERBUNG_OID]
-
-    stored = on_a_league(mongo_replica_set_url, body)
-
-    assert ("bestaetigungen" in stored, "idempotenz_fingerabdruck" in stored) == (False, False)
-    assert stored["kontakte"]["ansprechperson"] is None, "the erasure reached no seat here, so this case proves nothing"
 
 
 @pytest.mark.db
@@ -715,11 +682,8 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
 
         async def in_session(session: Any) -> Any:
             reached = {
-                collection: rows_naming(
-                    await aggregate_many_from_db(
-                        collection=database[collection], pipeline=build_erasure_seat_pipeline(folded), session=session
-                    ),
-                    folded,
+                collection: await aggregate_many_from_db(
+                    collection=database[collection], pipeline=build_erasure_seat_pipeline(folded), session=session
                 )
                 for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
             }
@@ -860,55 +824,25 @@ def test_a_refused_redaction_takes_every_clearing_back(mongo_replica_set_url: st
 
 
 @pytest.mark.db
-def test_every_case_variant_of_a_stored_address_is_cleared(mongo_replica_set_url: str):
-    """Kills the equality match, which clears one spelling of four and calls it done.
+def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss(mongo_replica_set_url: str):
+    """Another mailbox keeps its seat and adds nothing to the count; the asked spelling's fold is what meets the stored one."""
 
-    A stored address keeps the spelling it was typed in, so the match alone decides which spellings are one mailbox.
-    """
-
-    _, rows = after_erasing_the_case_table(mongo_replica_set_url)
-    survived = [email for email, row_id in CASE_ROW_OIDS.items() if rows[row_id]["kontakte"]["trainer"] is not None]
-
-    assert survived == [], "an erasure that reported success left these spellings standing"
-
-
-@pytest.mark.db
-def test_an_address_that_is_only_similar_survives_the_same_request(mongo_replica_set_url: str):
-    """The floor under ignoring case: another mailbox keeps its seat and adds nothing to the count, whatever the pattern read."""
-
-    response, rows = after_erasing_the_case_table(mongo_replica_set_url)
+    response, rows = after_erasing_the_near_misses(mongo_replica_set_url)
     cleared = [email for email, row_id in NEAR_ROW_OIDS.items() if rows[row_id]["kontakte"]["trainer"] is None]
 
     assert cleared == [], "the match reached an address that is not this person"
-    assert response.kontakt_sitze == sum(EXPECTED_SLOTS.values()) + len(CASE_VARIANTS), "the pattern reached a seat that is somebody else's"
+    assert rows[MATCHED_ROW_OID]["kontakte"]["trainer"] is None, "the unfolded request missed the stored fold"
+    assert response.kontakt_sitze == sum(EXPECTED_SLOTS.values()) + 1, "the read reached a seat that is somebody else's"
 
 
-@pytest.mark.db
-def test_the_pre_filter_reads_no_row_holding_another_local_part(mongo_replica_set_url: str):
-    """The fold hides a pattern too wide from the case above; the anchor and the escaped `.` are what keep the read to one local part."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_many(
-            [a_row_naming(row_id, email) for email, row_id in (*CASE_ROW_OIDS.items(), *NEAR_ROW_OIDS.items())]
-        )
-        pipeline = build_erasure_seat_pipeline(sign_in_identifier(VARIANT_REQUEST_EMAIL))
-
-        return {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
-
-    read = on_a_league(mongo_replica_set_url, body)
-
-    assert [email for email in OTHER_LOCAL_PARTS if NEAR_ROW_OIDS[email] in read] == []
-    assert set(CASE_ROW_OIDS.values()) <= read, "the control: a pre-filter reading nothing passes the assertion above"
-
-
-# An identifier holding no `@`, as the account sweep's references may hand on: the spellings the fold claims, and a
-# value each anchor keeps out, the end two of them and the start one.
+# An identifier holding no `@`: the spellings the fold claims, and a value each anchor keeps out, the end two of them
+# and the start one.
 NO_AT_IDENTIFIER = "kein-at"
 NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "KEIN-AT", f"{chr(0x20)}kein-at{chr(0xA0)}")
 NO_AT_UNCLAIMED: tuple[str, ...] = ("kein-atx", "kein-at@example.com", "xkein-at")
 
 
-# A stored address carrying what the fold trims, the start and the end each: the pre-filter has to
+# A stored address carrying what the fold trims, the start and the end each: the pattern has to
 # take every value the fold would claim. Built from code points, since both are whitespace.
 PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMAIL}{chr(0xA0)}")
 
@@ -947,16 +881,14 @@ ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
         pytest.param(chr(0x20) * 3, ("", chr(0x20), chr(0xA0)), ("x",), id="a blank"),
     ],
 )
-def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_part(
-    asked: str, taken: tuple[str, ...], missed: tuple[str, ...]
-):
+def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_local_part(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
     """Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
 
     Each spelling taken is first held to the fold's claim, so the case never asks the pattern for more.
     """
 
     identifier = sign_in_identifier(asked)
-    # As asked, never its fold: a caller may hand on a stored value unfolded, which the pre-filter folds itself.
+    # As asked, never its fold: a caller may hand on a stored value unfolded, which the pattern folds itself.
     pattern = same_address(asked)
     matches = re.compile(pattern["$regex"], re.IGNORECASE if pattern["$options"] == "i" else 0).search
 
@@ -986,7 +918,7 @@ SERVER_IDENTIFIERS: tuple[str, ...] = (
 
 
 @pytest.mark.db
-def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
+def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
     """The case above's `re` held to the server's own engine, which reads `\\s` as ASCII alone: a no-break space it would miss."""
 
     row_ids = {value: ObjectId(f"6890a1b2c3d4e5f60783{index:04d}") for index, value in enumerate(SERVER_CORPUS)}
@@ -997,7 +929,8 @@ def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_
         )
         read: dict[str, set[ObjectId]] = {}
         for identifier in SERVER_IDENTIFIERS:
-            pipeline = build_erasure_seat_pipeline(identifier)
+            # Any stored string serves the pattern: the grant erasure it reads for asks it of `berechtigungen.adresse`.
+            pipeline = [{"$match": {"kontakte.trainer.email": same_address(identifier)}}]
             read[identifier] = {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
 
         return read
@@ -1011,7 +944,7 @@ def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_
         claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
         # With no `@` the fold equates the value whole, so the read is the claim exactly: an end left open reads a near miss.
         whole = "@" not in sign_in_identifier(identifier)
-        # The last, a whole-collection read for an identifier naming anything, is a pre-filter that takes nothing out.
+        # The last, a whole-collection read for an identifier naming anything, is a pattern that takes nothing out.
         if server != python or claimed - server or (whole and server != claimed) or (identifier.strip() and server == set(SERVER_CORPUS)):
             parted[identifier] = {
                 "server alone": server - python,
@@ -1021,23 +954,6 @@ def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_
             }
 
     assert parted == {}
-
-
-DECODED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817101")
-
-
-@pytest.mark.db
-@pytest.mark.parametrize("stored", UNICODE_DOMAIN_SPELLINGS, ids=["decoded", "decomposed", "a fullwidth full stop"])
-def test_a_seat_stored_with_its_domain_spelled_otherwise_is_cleared(mongo_replica_set_url: str, stored: str):
-    """Pre-filter on listed spellings of the domain and this fails: the server never hands the fold the row."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(DECODED_ROW_OID, stored))
-        await call_erasure(database, client, UNICODE_DOMAIN)
-
-        return (await stored_rows(database))[DECODED_ROW_OID]["kontakte"]["trainer"]
-
-    assert on_a_league(mongo_replica_set_url, body) is None
 
 
 class TestTheSeatJudgesReadWhateverAnImageHolds:
@@ -1083,26 +999,6 @@ class TestTheSeatJudgesReadWhateverAnImageHolds:
         assert departing_names([{"before": image}], {"x@example.com"}) == {}
         # Handed a blank name all the same, the judge still matches no unnamed seat by it.
         assert seat_image_edits(image, ("x@example.com",), links=False, names={("", "")}) == {"kontakte.trainer": None}
-
-
-PADDED_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{7000 + index:04d}") for index, email in enumerate(PADDED_SPELLINGS)}
-
-
-@pytest.mark.db
-def test_a_seat_stored_with_what_the_fold_trims_around_it_is_cleared(mongo_replica_set_url: str):
-    """No payload writes one, and a seed or a pasted repair can.
-
-    The fold claims it, so the pre-filter must reach it (`docs/backend/spec.md :: I331`).
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_many([a_row_naming(row_id, email) for email, row_id in PADDED_ROW_OIDS.items()])
-        await call_erasure(database, client)
-
-        rows = await stored_rows(database)
-        return [email for email, row_id in PADDED_ROW_OIDS.items() if rows[row_id]["kontakte"]["trainer"] is not None]
-
-    assert on_a_league(mongo_replica_set_url, body) == []
 
 
 # Two domains to IDNA 2008 and to sign-in, so two people an application may seat side by side.
@@ -1199,7 +1095,7 @@ def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared
 
 @pytest.mark.db
 def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_set_url: str):
-    """The payload admits the character, and a NUL reaching `$regex` raw is refused by the server as a 500.
+    """The payload admits the character, and a NUL reaching the grant step's `$regex` raw is refused by the server as a 500.
 
     In the local part, the half the pattern carries.
     """
@@ -1282,7 +1178,7 @@ def test_no_value_of_a_swapped_out_person_survives_anywhere(mongo_replica_set_ur
     _, rows, log = after_erasing_a_swapped_out_person(mongo_replica_set_url)
     rendered = str(log) + str(sorted(rows.items(), key=lambda pair: str(pair[0])))
 
-    theirs = (ERASED_EMAIL, SWAPPED_STORED_EMAIL, ERASED_FORMER_TELEFON, ERASED_NACHNAME)
+    theirs = (ERASED_EMAIL, ERASED_FORMER_TELEFON, ERASED_NACHNAME)
 
     assert [value for value in theirs if value in rendered] == []
     assert BYSTANDER_FORMER_TELEFON in rendered, "an unrelated row's pre-image was emptied as collateral"

@@ -15,15 +15,14 @@ from app.api.bewerbungen.schemas import (
     FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
-from app.api.kontakte.services import rows_possibly_naming
+from app.api.kontakte.services import rows_seating
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.core.recording import log_stamp
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER, compose_wahlen
-from app.shared.folding import mailbox_key, sign_in_identifier
+from app.shared.einwilligung_nachweis import compose_wahlen
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
@@ -55,6 +54,7 @@ BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
 BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
 BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
 BEWERBUNG_EINWILLIGUNG_GESPERRT = "REQ-BEWERBUNG-020"
+BEWERBUNG_SITZ_ANDERS_BESETZT = "REQ-BEWERBUNG-021"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -457,8 +457,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     return composed
 
 
-# --- The CONFIRMATION. Every predicate below reads a missing `bestaetigungen` block as "nothing to
-# confirm": an application stored before the flow shipped is neither refused nor swept.
+# --- The CONFIRMATION.
 
 KONTAKT_UMFANG = "kontaktdaten"
 KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
@@ -520,9 +519,8 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
     return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_ROLLEN for field in fields}
 
 
-# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person, and the
-# day a record stored before that field carries.
-KONTAKT_SEITE_FIELDS: Final = ("einwilligung.eingetragen_von", "einwilligung.datum")
+# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person.
+KONTAKT_SEITE_FIELDS: Final = ("einwilligung.eingetragen_von",)
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
@@ -536,14 +534,13 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
-    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
-    "eingereicht_am": 1,
     "schule.team_name": 1,
     "team_id": 1,
     # Suppressed here alone: an inclusion projection answers `_id` unasked, and only the answer's
@@ -561,7 +558,6 @@ EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "status": 1,
     "bestaetigungsfrist": 1,
-    "eingereicht_am": 1,
 }
 
 
@@ -675,8 +671,7 @@ def _declined_on(bestaetigungen: Any, seat: str) -> Any:
 def seat_is_answered(*, kontakte: Any, bestaetigungen: Any, seat: str) -> bool:
     """Whether this seat's person has spoken: a stamp on the slot, a decline beside it, or no bookkeeping.
 
-    No bookkeeping is an application stored before the flow, or a seat an erasure emptied; neither
-    has anything left to answer.
+    No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
     """
 
     if _seat_is_confirmed(kontakte, seat) or _declined_on(bestaetigungen, seat) is not None:
@@ -762,17 +757,24 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
-    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "name": 1,
     # A team that left the season holds no seat a consent could be given for.
     "austritt": 1,
+    # Suppressed as the application's view suppresses it: an inclusion answers `_id` unasked, and only
+    # the answer's read below keys a patch on it.
+    "_id": 0,
 }
 
 # The answer's read writes on the row, so it keys the patch on `_id`, and reads each seat's choices
 # and their evidence as `EINWILLIGUNG_ANTWORT_FIELDS` does.
-SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {**SAISON_EINWILLIGUNG_FIELDS, **_per_seat("kontakte", *KONTAKT_WAHL_FIELDS), "_id": 1}
+SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+    **SAISON_EINWILLIGUNG_FIELDS,
+    **_per_seat("kontakte", *KONTAKT_WAHL_FIELDS),
+    "_id": 1,
+}
 
 
 def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:
@@ -889,15 +891,8 @@ def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
 
 
-def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
-    """Why this application is not yet one the league may accept, or `None`.
-
-    An application with NO `bestaetigungen` block passes: every one stored before the flow shipped
-    would otherwise become unacceptable in the same deploy.
-    """
-
-    if not isinstance(bestaetigungen, Mapping):
-        return None
+def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
+    """Why this application is not yet one the league may accept, or `None`."""
 
     outstanding = ausstehende_seats(kontakte=kontakte)
     if outstanding:
@@ -973,8 +968,8 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    key = mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_ROLLEN if seat in addresses and mailbox_key(addresses[seat]) == key]
+    # One inbox is one stored address, each the fold every payload stores (`docs/backend/spec.md :: I332`).
+    held = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -1011,12 +1006,10 @@ def compose_confirmation_update(
                 gesetzt={"umfang": KONTAKT_UMFANG_WHATSAPP if whatsapp else KONTAKT_UMFANG, "medien": medien},
                 am=am,
                 text_version=text_version,
-                stamp=log_stamp,
             )
         )
 
-    # A speaker a seat stored before its answer names is no truer once its person has answered.
-    return {"$set": written, "$unset": {f"kontakte.{seat}.einwilligung.{field}": "" for seat in seats for field in SPRECHER}}
+    return {"$set": written}
 
 
 # The two pages' own fills: the account page states a seat's words with these too, so each confirmation
@@ -1037,13 +1030,13 @@ def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str
     return str(club_name or "")
 
 
-def build_eigene_bewerbung_filter(identifier: str) -> Mapping[str, Any]:
-    """Every PENDING application whose seats may name the address, a pre-filter the fold decides on.
+def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
+    """Every PENDING application one of whose seats names one of these addresses.
 
     Pending alone: an accepted application's seats are its season row's, and a declined one's go with it.
     """
 
-    return {"status": "eingereicht", **rows_possibly_naming(identifier)}
+    return {"status": "eingereicht", **rows_seating(*identifiers)}
 
 
 # The pages a contact seat's link opens, named as the registry names them: the applicant's, and one
@@ -1051,17 +1044,13 @@ def build_eigene_bewerbung_filter(identifier: str) -> Mapping[str, Any]:
 KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"]
 
 
-def kontakt_seite_of(*, einwilligung: Any, sonst_vom_bewerber: bool, verwaltet: KontaktSeite) -> KontaktSeite:
+def kontakt_seite_of(*, einwilligung: Mapping[str, Any], verwaltet: KontaktSeite) -> KontaktSeite:
     """The page this seat's link opens: the applicant's where the applicant named the person, else its home's own.
 
-    Read off `eingetragen_von`, which nothing after the seating moves; a record stored before it takes
-    the caller's reading of its home.
+    Read off `eingetragen_von`, which nothing after the seating moves.
     """
 
-    eingetragen_von = einwilligung.get("eingetragen_von") if isinstance(einwilligung, Mapping) else None
-    vom_bewerber = eingetragen_von == "bewerbung" if eingetragen_von in get_args(FLKontaktEingetragenVon) else sonst_vom_bewerber
-
-    return "bestaetigung_kontakt" if vom_bewerber else verwaltet
+    return "bestaetigung_kontakt" if einwilligung.get("eingetragen_von") == "bewerbung" else verwaltet
 
 
 def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
@@ -1072,13 +1061,7 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
 
 
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
-    einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
-
-    # Before `eingetragen_von`: the submission stamps its own day on every seat it writes, and a reseat the
-    # day it seats somebody, so a seat dated otherwise was filled by an administrator.
-    vom_bewerber = einwilligung.get("datum") == bewerbung_raw.get("eingereicht_am")
-
-    return kontakt_seite_of(einwilligung=einwilligung, sonst_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
+    return kontakt_seite_of(einwilligung=_einwilligung_of(bewerbung_raw.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_verwaltung")
 
 
 def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
@@ -1097,17 +1080,9 @@ def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence
 
 
 def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
-    """The page a season row's seat opens.
+    """The page a season row's seat opens: the applicant's for a person the applicant named, else the row's own."""
 
-    A seat stored before `eingetragen_von` opens the season row's own page, whoever named its person:
-    the applicant's page promises a deletion and a message that a season row's link never brings.
-    """
-
-    return kontakt_seite_of(
-        einwilligung=_einwilligung_of(row.get("kontakte"), seat),
-        sonst_vom_bewerber=False,
-        verwaltet="bestaetigung_kontakt_saison",
-    )
+    return kontakt_seite_of(einwilligung=_einwilligung_of(row.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_saison")
 
 
 def saison_antwort_seite(*, row: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:
@@ -1235,6 +1210,27 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
         )
 
     return None
+
+
+def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, bisherige_email: str) -> WriteRefusal | None:
+    """Why this correction may not land, or `None`.
+
+    A Widerspruch and a reseat since the page's read hand the seat to someone the address was not typed for.
+    """
+
+    slots = kontakte if isinstance(kontakte, Mapping) else {}
+    slot = slots.get(seat)
+    # On the sign-in fold, as `find_kontakt_email_refusal` compares one mailbox to another.
+    held = sign_in_identifier(str(slot.get("email") or "")) if isinstance(slot, Mapping) else None
+
+    if held == sign_in_identifier(bisherige_email):
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_SITZ_ANDERS_BESETZT,
+        status=HTTPStatus.CONFLICT,
+        message="the seat no longer holds the address this correction was composed against; re-read the application and correct it again",
+    )
 
 
 def compose_kontakt_email_update(
@@ -1482,10 +1478,7 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
-    """The seats as the mails go out: one message per mailbox, in first-seen order.
-
-    Keyed as the first mail keys it (`app/shared/folding.py :: mailbox_key`).
-    """
+    """The seats as the mails go out: one message per stored address, in first-seen order."""
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
@@ -1495,7 +1488,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if not email:
             continue
-        address, held = grouped.setdefault(mailbox_key(email), (email, []))
+        address, held = grouped.setdefault(email, (email, []))
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())
@@ -1692,7 +1685,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     """The season's assigned colours, in the palette's own order.
 
     The RETURN filters through the palette rather than sorting `held` by it: a row assigned nothing
-    yields a null, and one predating the enum a value the model cannot serve.
+    yields a null, which the palette never holds.
     """
 
     # `set(stored)` is the shorthand this refuses: an unhashable BSON value would raise there, where

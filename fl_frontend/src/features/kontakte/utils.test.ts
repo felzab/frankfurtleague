@@ -5,6 +5,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import {
+  addressOnlyConfirmedSeatLabels,
   applySeatPresence,
   applySharedSeat,
   describeUnrestorableKontakte,
@@ -28,7 +29,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -106,7 +107,7 @@ describe("applySeatPresence", () => {
 
     const opened = applySeatPresence(block({ trainer: null }), "trainer", true, LABEL).next;
     assert.equal(opened.trainer?.vorname, "");
-    assert.equal(opened.trainer?.einwilligung.erfasst_von, null);
+    assert.equal(opened.trainer?.einwilligung.bestaetigt_am, null);
     // The label the page read, never one the slice keeps: a blank seat cites the words the form runs.
     assert.equal(opened.trainer?.einwilligung.text_version, LABEL);
   });
@@ -243,6 +244,22 @@ describe("emptiedSeatLabels", () => {
   });
 });
 
+describe("addressOnlyConfirmedSeatLabels", () => {
+  /* Only a confirmed person keeping their name: a new person is the seat's replacement, and an unconfirmed seat loses nothing. */
+  it("names a confirmed seat whose draft changes the address and keeps the name, and no other", () => {
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de" }) })), ["Trainer"]);
+    assert.deepEqual(
+      addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de", nachname: "Lovelace" }) })),
+      [],
+    );
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) })), []);
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block()), []);
+
+    const offen = person({ einwilligung: { ...person().einwilligung, bestaetigt_am: null } });
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ email: "erika@anders.de" }) })), []);
+  });
+});
+
 describe("renamedConfirmedSeatLabels", () => {
   const howStored = (heldBack: Partial<KontaktpersonDraft>, typed: Partial<KontaktpersonDraft>): readonly string[] =>
     renamedConfirmedSeatLabels(block({ trainer: person(heldBack) }), block({ trainer: person(typed) }));
@@ -259,7 +276,7 @@ describe("renamedConfirmedSeatLabels", () => {
   /* A seat nobody confirmed has no stamp for the save to take, so a warning over one would name a seat
      the save leaves exactly as it found it. */
   it("stays silent where the stored seat carries no confirmation", () => {
-    const offen = person({ einwilligung: { ...person().einwilligung, erfasst_von: "administrativ", bestaetigt_am: null } });
+    const offen = person({ einwilligung: { ...person().einwilligung, bestaetigt_am: null } });
 
     assert.deepEqual(renamedConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ nachname: "Lovelace" }) })), []);
   });
@@ -325,7 +342,7 @@ describe("teamPageHref", () => {
 
 describe("resolveTeamSaisonMembership", () => {
   /** The STORED shape, whose Kenntnisnahme has an origin: the draft's widened `null` is the editor's. */
-  const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, erfasst_von: "person" } };
+  const stored: FLKontaktperson = { ...person(), einwilligung: { ...person().einwilligung, eingetragen_von: "liga" } };
 
   // The server derives the token and this side only carries it, so any value stands in for one here.
   const TOKEN = "9f2c";
@@ -337,6 +354,7 @@ describe("resolveTeamSaisonMembership", () => {
     trikot_farbe: null,
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     bestaetigungen: null,
+    adresswechsel: null,
     kontakte_stand: TOKEN,
   });
 

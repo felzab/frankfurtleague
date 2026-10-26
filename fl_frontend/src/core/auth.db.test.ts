@@ -222,7 +222,7 @@ let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, deleteAccountFor, deleteOwnAccount, endSessionsOfAddress, requestAccountDeletion } = await import("./auth.ts");
+const { auth, carryAccount, deleteAccountFor, deleteOwnAccount, endSessionsOfAddress, requestAccountDeletion } = await import("./auth.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
 type Collection = {
@@ -468,6 +468,105 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
     );
     assert.equal((await authDb().collection("user").find({}).toArray()).length, 2);
     assert.equal((await passkeyRows()).length, 1);
+  });
+});
+
+describe("an address change carrying the account, against a real database (`docs/frontend/spec.md :: I829`)", () => {
+  /** An account at `email` holding two sessions and one passkey. */
+  async function accountAt(email: string): Promise<string> {
+    const { adapter } = await auth.$context;
+    const account = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email: email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    for (let index = 0; index < 2; index++) {
+      await adapter.create({
+        model: "session",
+        data: {
+          userId: account.id,
+          token: randomUUID(),
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authFactor: "code",
+        },
+      });
+    }
+    await adapter.create({
+      model: "passkey",
+      data: {
+        userId: account.id,
+        credentialID: `kept-${email}`,
+        publicKey: "k",
+        counter: 0,
+        deviceType: "singleDevice",
+        backedUp: false,
+        transports: "",
+        createdAt: new Date(),
+      },
+    });
+    return account.id;
+  }
+
+  const accounts = async (): Promise<[string, string][]> =>
+    (await authDb().collection("user").find({}).toArray()).map(({ _id, email }) => [String(_id), String(email)] as [string, string]).sort();
+
+  it("moves the account and its passkeys to the folded new address and deletes every session of it", async () => {
+    const person = await accountAt("alt@schule.example");
+    const other = await accountAt("unbeteiligt@example.org");
+
+    assert.equal(await carryAccount("Alt@Schule.example", "Neu@Bücher.example"), "umgezogen");
+
+    assert.deepEqual(
+      await accounts(),
+      [
+        [person, "neu@xn--bcher-kva.example"],
+        [other, "unbeteiligt@example.org"],
+      ].sort(),
+    );
+    assert.deepEqual(
+      [...new Set((await sessionRows()).map(({ userId }) => String(userId)))],
+      [other],
+      "a session of the carried account survived, or another account's was ended",
+    );
+    assert.equal((await passkeyRows()).filter(({ userId }) => String(userId) === person).length, 1);
+  });
+
+  // The unique index refuses the move, and the stamp rides that refused write: nothing of either account changes.
+  it("answers „belegt“ and moves nothing where the new address holds an account of its own", async () => {
+    const person = await accountAt("alt@schule.example");
+    const holder = await accountAt("neu@schule.example");
+
+    assert.equal(await carryAccount("alt@schule.example", "neu@schule.example"), "belegt");
+
+    assert.deepEqual(
+      await accounts(),
+      [
+        [person, "alt@schule.example"],
+        [holder, "neu@schule.example"],
+      ].sort(),
+    );
+    assert.equal((await sessionRows()).length, 4, "a session was ended by a carry that moved nothing");
+    // Each account keeps exactly its own: a passkey handed to the holder's account would let one person sign in to the other's.
+    assert.deepEqual(
+      (await passkeyRows()).map(({ userId, credentialID }) => [String(userId), String(credentialID)]).sort(),
+      [
+        [person, "kept-alt@schule.example"],
+        [holder, "kept-neu@schule.example"],
+      ].sort(),
+      "a carry that moved nothing moved a passkey",
+    );
+    // A stamp written apart from the refused move would end every session of a person whose address never changed.
+    assert.deepEqual(
+      (
+        await authDb()
+          .collection("user")
+          .find({ sessionsEndedAt: { $exists: true } })
+          .toArray()
+      ).length,
+      0,
+      "a carry that moved nothing stamped an account's sessions ended",
+    );
   });
 });
 

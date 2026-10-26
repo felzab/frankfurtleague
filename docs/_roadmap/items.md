@@ -346,43 +346,6 @@ it stays red until `fl_backend/.python-version` moves with it (`docs/ops/spec.md
 
 **Trigger to revisit:** a PyYAML release carrying a 3.15 wheel, or my ruling for the route above.
 
-### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**The admission writes the pupil's own record.** A confirmed registration's record reaches the person
-the admission creates whole; onto a person the league already holds, it renews the record, and each
-choice only where the registration set it later, so a choice the person moved since stands
-(`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
-`docs/backend/spec.md :: I611`). The publication gate reads this field
-(`docs/backend/spec.md :: READ-PUPIL-003`).
-
-**What is left is a value no route writes.** The rows carrying `erteilt_von` as `erziehungsberechtigt`
-are ones an earlier manual write left, and nothing distinguishes them from a record a guardian
-actually filed. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to
-having no writer while the vocabulary still admits it.
-
-**The writer is ruled.** `docs/datenschutz.md` §2 settles it: everyone signs up for themselves
-through the website and gives their own consent there, from 16, and an administrator may neither
-create a player nor assume, enter or transcribe a consent on anybody's behalf. So the vocabulary has
-a person's own consent and a carried-over record to express and nothing else — `bestandsuebernahme`
-already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
-which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
-
-**The consent records' speakers are written by nothing either.** No write sets a consent block's
-`erteilt_von` or a contact seat's `erfasst_von`, and no validator requires them, as I ruled on
-2026-10-04; the records stored before carry them still
-(`fl_backend/app/shared/einwilligung_nachweis.py :: SPRECHER`), and the enum above is `erteilt_von`'s.
-
-**Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
-and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
-UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
-from every model and validator and, by a Playground paste of mine, from every stored record still
-carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
-another field and stays. The notice's referee publication row is `pw5c-zps5`'s.
-
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
 | Status | Depends on |
@@ -447,8 +410,8 @@ shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I28
 and the season and nobody in them. A registration a pupil submits through it and confirms at their
 own link then waits in `registrierungen` as `eingereicht` until a seat holder of the team admits or
 declines it (`fl_backend/app/api/registrierungen/person_router.py`). The admission writes the pupil
-into the person their address resolves to, or the one addressless namesake the team confirms, rather
-than a second one ([`docs/backend/spec.md`](../backend/spec.md) I580, I581). The team's pending read
+into the person their address resolves to rather than a second one
+([`docs/backend/spec.md`](../backend/spec.md) I580). The team's pending read
 marks a squad number the live squad already wears, and the admission stores it all the same. **The wait is bounded**: an
 unconfirmed registration is erased the day after its link's deadline, and one still `eingereicht` when
 its season turns `past` is erased whatever the pupil answered
@@ -533,10 +496,10 @@ never a second create. Making a create idempotent on a natural key was rejected 
 shorthand cannot distinguish the same club returning from a different one wanting those letters, and
 getting it wrong repoints history silently. **A typed name is a weaker key than a shorthand**, so the
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
-one, and the resolution belongs to somebody who can be wrong out loud. The confirmation page shows a
-returning pupil their stored birthdate and consent only where its bounded read at their address finds exactly
-one row carrying their name and a record they confirmed (`fl_backend/app/api/registrierungen/services.py :: seite_of`),
-which presents a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
+one, and the resolution belongs to somebody who can be wrong out loud. The confirmation page asks a
+returning pupil no choice, and takes their stored birthdate rather than asking it, only where its bounded read at
+their address finds exactly one row carrying their name and a record they confirmed
+(`fl_backend/app/api/registrierungen/services.py :: seite_of`); it serves nothing that row holds, and resolves nobody. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
 began, derived at the squad row's create from whether the first matchday's `beginn` has come rather than asked
 (`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), and a registration admitted
 into a running season is precisely that case: the admission derives the marker on the squad row it
@@ -905,33 +868,6 @@ range makes the ausstehend/heute/vergangen ternary genuinely harder, and the int
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
-### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**A referee's own consent record is stored, and the published notice still rests their name on a
-different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
-`einwilligung`, the `schiedsrichter` collection's validator declares it, and
-`POST /schiedsrichter/bestaetigung` is the only writer: the person answers their own emailed link,
-choosing whether their name is published and whether photographs, videos and interviews may be. The
-notice's publication table still gives a referee's name the legitimate-interest basis
-(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: VEROEFFENTLICHT`), which
-is the basis the record replaces.
-
-**Why the two halves are not one change.** Moving the notice's basis to consent is a claim that the
-consent decides what is published, and nothing reads the record yet: the fixture list serves every
-referee's name as before. A notice promising a gate that does not exist is worse than one naming the
-old basis honestly, so the sentence moves when the read does and not before.
-
-**What the reader of this entry must not do.** The record is not missing and is not to be built
-again: a second write path for it would collect a person's answer twice and leave two records to
-disagree. The work here is a text and the read it describes.
-
-**Done when** the fixture read decides a referee's published name from their own record, and the
-notice's publication row rests on that consent rather than on legitimate interest.
-
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
 | Status  | Depends on |
@@ -1187,14 +1123,14 @@ glossary entry is filed with the build.
 | `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`    | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside this entry's scope, below                                                                       |
 
 **The referee's address is judged against the stored record, which is no guard against a stale
-copy.** A confirmed referee's typed address becomes a pending change their new mailbox confirms, and
-an unconfirmed referee's corrected address retires their link and, unless they are retired, mints
-another, each behind the step-up confirmation
-(`fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`). Both compare the
-payload with the row, so an editor still showing an address a rival has since corrected reads as a
-change back to it. An editor typing a third address for a confirmed referee replaces the pending
-change a rival opened, its link dying and its address leaving the log, while the address the row
-reads has not moved. Every other field of that save lands whole.
+copy.** A confirmed referee's save naming another address is refused whole, their address moving
+only through an address change
+(`fl_backend/app/api/schiedsrichter/services.py :: find_bestaetigte_adresse_refusal`), and an
+unconfirmed referee's corrected address retires their link and, unless they are retired, mints
+another, behind the step-up confirmation (`:: compose_korrektur_update`). Both compare the payload
+with the row, so an editor still showing an address a rival has since corrected reads as a change
+back to it: on a confirmed referee the save is refused, and on an unconfirmed one it mints a link
+to the address the rival replaced, every other field of the save landing whole.
 
 **Every undo but the contacts editor's is a second stale write.** Each other undo action replays
 the save's earlier image through a PATCH, so an undo pressed after a rival's save reverts the
@@ -1252,8 +1188,8 @@ present scope.
   editor's read served them, and is stored nowhere**, as `kontakte_stand_of` digests each seat as
   the read model answers it. It leaves out a value the server composes from another record — a club,
   venue or referee name fanned into season rows and fixtures — and takes in what the save judges as
-  well as what it writes: the referee's stand covers the pending address change and the confirmation
-  state, which the save decides on while the address the row reads stays put. A version stored on
+  well as what it writes: the referee's stand covers the confirmation state, which the save decides
+  on while the address the row reads stays put. A version stored on
   the record has to be moved by every writer of it and costs a migration, and a digest of the whole
   document refuses an editor for a fan-out it never showed. So the season row keeps two stands, its
   own save's and the contacts save's.

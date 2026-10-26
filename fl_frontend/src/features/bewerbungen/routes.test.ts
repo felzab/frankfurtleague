@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import {
   answer,
   answerReadsWith,
@@ -365,6 +366,58 @@ describe("what the public application page reads while its window runs", () => {
     assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
     assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
+  });
+});
+
+describe("what the admin application page reads of each seat's confirmation", () => {
+  const ID = "6890a1b2c3d4e5f607181001";
+  const PROPS = { params: Promise.resolve({ bewerbung_id: ID }), searchParams: Promise.resolve({}) };
+  /** Kept through the reset, from before the contact pages asked the media choice. */
+  const VOR_DER_FRAGE = "2026-09-bestaetigungsseite-6";
+  const MIT_DER_FRAGE = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+  const UNLESBAR = "2026-10-bestaetigungsseite-7";
+
+  const seat = (textVersion: string, bestaetigtAm: string | null) => ({
+    vorname: "Erika",
+    nachname: "Mustermann",
+    email: `${textVersion}@beispiel.invalid`,
+    telefon: "069 12 34 56",
+    geburtsdatum: null,
+    einwilligung: kenntnisnahme({ text_version: textVersion, datum: "2026-09-01", bestaetigt_am: bestaetigtAm }),
+  });
+
+  /** The view's media questions over a block seating these three, the words of `UNLESBAR` failing their read. */
+  const medienFragen = async (): Promise<unknown> => {
+    const endpoint = `/bewerbungen/${ID}`;
+    answers = new Map<string, unknown>([
+      [
+        endpoint,
+        (schema: AnswerSchema) => {
+          const leer = EMPTIEST_ANSWER(endpoint, schema, {}) as { bewerbung: Record<string, unknown> };
+          return answer(schema, endpoint, {
+            bewerbung: {
+              ...leer.bewerbung,
+              kontakte: {
+                trainer: seat(VOR_DER_FRAGE, "2026-09-20"),
+                ansprechperson: seat(MIT_DER_FRAGE, "2026-10-19"),
+                stellvertretung: seat(UNLESBAR, "2026-10-13"),
+                trainer_ist_zugleich: null,
+              },
+            },
+          });
+        },
+      ],
+      [`/einwilligung/fassungen/${UNLESBAR}`, new Error("backend unreachable")],
+    ]);
+
+    return ((await pageBody(AdminBewerbungPage, PROPS)) as ReactElement<{ medienFragen: unknown }>).props.medienFragen;
+  };
+
+  /* Off each confirmed label's own words: a seat confirmed before the question holds the choice the server wrote for
+     it, and a label whose words could not be read is left out, which the readout says nobody checked. */
+  it("hands the view whether each confirmed seat's page asked the media choice", async () => {
+    assert.deepEqual(await medienFragen(), { [VOR_DER_FRAGE]: false, [MIT_DER_FRAGE]: true });
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the unread label's failure went unlogged");
   });
 });
 

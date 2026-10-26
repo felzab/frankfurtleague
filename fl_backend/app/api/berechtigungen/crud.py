@@ -5,7 +5,7 @@ The anchor lives here beside the read it protects, so no caller can judge the li
 every row of it (`docs/backend/spec.md :: I53`).
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence, Set
 from datetime import datetime
 from typing import Any
 
@@ -15,11 +15,27 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import FLVerwaltung
-from app.api.berechtigungen.services import berechtigt_seit, inhaber_seit, lebendige_adresse
+from app.api.berechtigungen.services import (
+    berechtigt_seit,
+    compare,
+    compose_announced,
+    compose_postausgang,
+    inhaber_seit,
+    lebendige_adresse,
+    stand_of,
+)
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db
+from app.core.crud import (
+    aggregate_many_from_db,
+    anchor_in_db,
+    delete_many_from_db,
+    erase_many_from_db,
+    patch_many_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+)
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -246,3 +262,102 @@ async def read_the_claimable(
         limit=LIST_LIMIT_DEFAULT,
         session=session,
     )
+
+
+async def grant_in_session(
+    *,
+    adresse: str,
+    verwaltung: str,
+    erteilt_von: str,
+    gesperrt: Set[str],
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+    # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_fortgefuehrt`).
+    fortgefuehrt: Mapping[str, Any] | None = None,
+) -> ObjectId:
+    """Write a grant, its announced row and its outbox row, answering its id.
+
+    The announced row moves with the grant and the outbox carries its notice, so the comparison never announces this write
+    twice (`docs/backend/spec.md :: I451`).
+    """
+
+    document: dict[str, Any] = {
+        "adresse": adresse,
+        "verwaltung": verwaltung,
+        # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
+        "erteilt_von": erteilt_von,
+        "erteilt_am": now,
+        # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
+        # than a fresh paste (`docs/backend/spec.md :: I529`).
+        "gesehen_am": now,
+        **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
+    }
+    created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
+
+    stand = stand_of(document)
+    await post_one_to_db(
+        collection=berechtigungen_angekuendigt_collection,
+        document=compose_announced(berechtigung_id=created.inserted_id, stand=stand, now=now),
+        session=session,
+    )
+    await post_one_to_db(
+        collection=berechtigungen_postausgang_collection,
+        document=compose_postausgang(
+            berechtigung_id=created.inserted_id, art="erteilt", jetzt=stand, vorher=None, geaendert_von=erteilt_von, now=now, gesperrt=gesperrt
+        ),
+        session=session,
+    )
+
+    return created.inserted_id
+
+
+async def revoke_in_session(
+    *,
+    grant: Mapping[str, Any],
+    # The grant's own announced row, or none.
+    announced: Sequence[Mapping[str, Any]],
+    entzogen_von: str,
+    gesperrt: Set[str],
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Remove one grant and its announced row, queueing the notice of its end.
+
+    A database edit nobody was told of goes out first, or the revoke's notice would be its only trace
+    (`docs/backend/spec.md :: I451`).
+    """
+
+    for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced):
+        await post_one_to_db(
+            collection=berechtigungen_postausgang_collection,
+            document=compose_postausgang(
+                berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=gesperrt
+            ),
+            session=session,
+        )
+
+    if lebendige_adresse(grant) is not None:
+        await post_one_to_db(
+            collection=berechtigungen_postausgang_collection,
+            document=compose_postausgang(
+                berechtigung_id=grant["_id"],
+                art="entzogen",
+                jetzt=None,
+                vorher=stand_of(grant),
+                geaendert_von=entzogen_von,
+                now=now,
+                gesperrt=gesperrt,
+            ),
+            session=session,
+        )
+
+    await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
+    # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
+    # none (`docs/backend/spec.md :: I465`).
+    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)

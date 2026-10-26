@@ -25,7 +25,7 @@ import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
-import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
+import { FASSUNG_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
 
@@ -39,6 +39,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
 const { buildSchiedsrichterBestaetigungPayloadSchema } = await import("@/features/schiedsrichter/schemas.ts");
+const { SCHIEDSRICHTER_ANONYM_LABEL } = await import("@/features/schiedsrichter/constants.ts");
 
 const TOKEN = "abc123";
 /** The floor this fixture's read serves: the page judges by it, the one the link was minted under. */
@@ -55,7 +56,6 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
   ansicht: {
     acknowledged: 1,
     zustand: "gueltig",
-    text_version: FASSUNG,
     mindestalter: MINDESTALTER,
     medien_mindestalter: MEDIEN_ALTER,
     frist: "2026-10-05",
@@ -348,9 +348,9 @@ describe("what the press sends", () => {
     assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
   });
 
-  /* The answer as the permission it is, as the media row reads one: the public fixture read consults no
-     consent record, so a word for a hidden name would promise what the schedule does not do. */
-  it("reads the publication answer back as a permission, never as a name the schedule hides", async () => {
+  /* What the schedule then shows, which the fixture read decides by this answer: a permission word would leave
+     the referee to guess what stands at their fixtures instead. */
+  it("reads the publication answer back as what the schedule shows", async () => {
     answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
 
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
@@ -362,7 +362,7 @@ describe("what the press sends", () => {
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     const zeile = await screen.findByText("Name im Spielplan");
-    assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
+    assert.equal(zeile.nextElementSibling?.textContent, SCHIEDSRICHTER_ANONYM_LABEL);
   });
 });
 
@@ -497,6 +497,28 @@ describe("what a refused press does to the page", () => {
       );
     });
   }
+
+  /* Words changed since the page opened: the generic retry resends the stale version the route refuses
+     again, where the refusal's own sentence sends the referee to the mail's link. */
+  it("announces a refusal's own sentence as the failure toast's description", async () => {
+    answerEveryFetch({ success: false, error: FASSUNG_NEU_OEFFNEN });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Antwort nicht gespeichert", FASSUNG_NEU_OEFFNEN]],
+      ),
+    );
+  });
 
   /* A commit whose answer was lost: the route's sentence sends an administrator to reload and check,
      which this page cannot follow, its token being gone from the address. */

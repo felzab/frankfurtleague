@@ -3,9 +3,16 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import {
+  mapBestaetigteAdresseRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+  SCHIEDSRICHTER_REPLAY_REFUSALS,
+} from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -44,13 +51,17 @@ function landed({ endpoint, method }: ApiCall): Promise<unknown> {
     geburtsdatum: null,
     einwilligung: null,
     bestaetigung: null,
-    adresswechsel: null,
   };
   // The re-send reads the referee first, to mail the address the row holds.
   if (method === undefined)
-    return Promise.resolve({ acknowledged: 1, schiedsrichter: stored, bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false });
-  if (method === "PATCH")
-    return Promise.resolve({ acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null });
+    return Promise.resolve({
+      acknowledged: 1,
+      schiedsrichter: stored,
+      bestaetigung_abgelaufen: false,
+      adresswechsel_id: null,
+      adresswechsel_einsehbar_verwehrt: null,
+    });
+  if (method === "PATCH") return Promise.resolve({ acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null });
   if (endpoint.endsWith("/reactivate")) return Promise.resolve({ acknowledged: 1, updated_document: stored, bestaetigung: null });
   return Promise.resolve({ acknowledged: 1, updated_document: stored });
 }
@@ -82,6 +93,8 @@ describe("what each referee write answers a refusal with", () => {
      holding the value it refused: a write asking one mapper alone reports the other as a conflict. */
   it("answers the create's and the save's refusals on the name box and the address box", async () => {
     const saveAnswer = (refusal: unknown) => mapNameRefusal(refusal) ?? mapGesperrteAdresseRefusal(refusal);
+    // The save's alone also refuses to move a confirmed referee's address, which only a page older than the record sends.
+    const patchAnswer = (refusal: unknown) => saveAnswer(refusal) ?? mapBestaetigteAdresseRefusal(refusal);
 
     await assertEachAnswered({
       operation: CREATE_OPERATION,
@@ -93,7 +106,7 @@ describe("what each referee write answers a refusal with", () => {
       operation: SAVE_OPERATION,
       refuseWith: answerWith,
       act: () => patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE }),
-      mapped: saveAnswer,
+      mapped: patchAnswer,
     });
   });
 
@@ -112,5 +125,14 @@ describe("what each referee write answers a refusal with", () => {
       act: () => reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapReactivateRefusal,
     });
+  });
+
+  /* An address change landing inside the undo window refuses the replay of a referee confirmed all along, so the undo's
+     sentence names both causes the save's names: one naming the confirmation alone tells the administrator a falsehood. */
+  it("names both causes of the confirmed-address refusal on the undo as the save does", () => {
+    const beide = /bestätigt oder ihre Adresse hat sich geändert/;
+
+    assert.match(mapBestaetigteAdresseRefusal(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "", beide);
+    assert.match(SCHIEDSRICHTER_REPLAY_REFUSALS["REQ-SCHIEDSRICHTER-011"] ?? "", beide);
   });
 });

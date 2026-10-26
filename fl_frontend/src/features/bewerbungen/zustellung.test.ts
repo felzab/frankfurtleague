@@ -5,6 +5,8 @@ import { inspect } from "node:util";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 
+import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
+
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
  * so nothing outside the process has to agree with it.
@@ -393,7 +395,7 @@ describe("the tags one message rides out with", () => {
 });
 
 describe("an application holding a seat no message reaches", () => {
-  const trail = (stand: string | null) => ({
+  const trail = (stand: FLBewerbungZustellstand | null) => ({
     verschickt_am: "2026-09-01",
     erinnert_am: null,
     abgelehnt_am: null,
@@ -401,9 +403,9 @@ describe("an application holding a seat no message reaches", () => {
   });
 
   it("is marked for any of the three states no further message beats", () => {
-    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"]) {
+    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
       assert.equal(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } } as never),
+        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
         true,
         `${stand} left the row unmarked`,
       );
@@ -411,19 +413,13 @@ describe("an application holding a seat no message reaches", () => {
   });
 
   it("is not marked while the trouble can still clear, or before anything is known", () => {
-    for (const stand of ["angenommen", "zugestellt", "verzoegert", null]) {
+    for (const stand of ["angenommen", "zugestellt", "verzoegert", null] as const) {
       assert.equal(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } } as never),
+        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
         false,
         `${String(stand)} marked the row`,
       );
     }
-  });
-
-  /* An application stored before this block shipped carries no `bestaetigungen` at all, and reading
-     that as an unreachable seat would mark every one of them. */
-  it("is not marked on an application from before the confirmation workflow", () => {
-    assert.equal(hatUnerreichbarenSitz({ bestaetigungen: null }), false);
   });
 
   /* `danger` where the duplicate mark is `warning`: a colliding pair is waited out and an address
@@ -632,6 +628,31 @@ describe("POST /api/mail/zustellung", () => {
     assert.equal(logs[0]?.level, "warn");
     assert.equal(logs[0]?.message, "mail.spielleitung_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-014");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
+  /* The seat a contacts save took a mailbox off holds its next person's delivery record, or none, so a leaving
+     notice that missed its reader is a line or nothing. */
+  it("writes one line for a leaving notice that did not arrive, and none for one that did", async () => {
+    const hinweis = (type: string) =>
+      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { kontakt_abgang: "hinweis" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
+    assert.equal(logs.length, 0, "a delivered notice wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the leaving notice's lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the leaving notice's lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.kontakt_abgang_nicht_zugestellt");
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-015");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");

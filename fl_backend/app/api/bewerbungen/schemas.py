@@ -117,8 +117,8 @@ class FLBewerbungBestaetigung(BaseModel):
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString
-    # Null on every seat mailed before the delivery state existed, and on every fresh entry a re-send
-    # writes: nothing is yet known about the message that entry's link went out in.
+    # Defaulted, as every fresh entry, the submission's and a re-send's, is written without it: nothing
+    # is yet known about the message that entry's link went out in.
     zustellung: FLBewerbungZustellung | None = None
 
 
@@ -157,7 +157,7 @@ class FLBewerbungTrikot(BaseModel):
     """
 
     vorhandener_satz: str
-    wunschfarbe: FLTrikotFarbe | None
+    wunschfarbe: FLTrikotFarbe
 
 
 class FLBewerbungKader(BaseModel):
@@ -215,22 +215,18 @@ class FLBewerbung(BaseModel):
     trikot: FLBewerbungTrikot
     kader: FLBewerbungKader
     # How many pupils the school's whole Abi-Jahrgang holds, which the applicant states and nothing
-    # later checks. Defaulted for `wunschgegner`'s reason.
-    stufengroesse: int | None = None
+    # later checks.
+    stufengroesse: int
     # A FREE STRING, never a club reference: the school may name an applicant the league has not
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
-    # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
-    wunschgegner: str | None = None
+    wunschgegner: str | None
     # As served, so a row reaches the wire only through
     # `app/api/bewerbungen/services.py :: mit_vorenthaltener_entscheidung`.
     entscheidung: FLBewerbungEntscheidungZeile | None
     # The day an unconfirmed application is deleted and its links expire. NOT the season's
-    # `Bewerbungsfrist`, which is the window the form is open in. Defaulted for `wunschgegner`'s
-    # reason, as is the block below.
-    bestaetigungsfrist: CustomOptionalDateString = None
-    # Absent on every application stored before the confirmation flow, which every predicate reads
-    # as "nothing to confirm": without that carve-out shipping makes each of them unacceptable.
-    bestaetigungen: FLBewerbungBestaetigungen | None = None
+    # `Bewerbungsfrist`, which is the window the form is open in.
+    bestaetigungsfrist: CustomDateString
+    bestaetigungen: FLBewerbungBestaetigungen
 
 
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
@@ -482,9 +478,6 @@ class FLBewerbungTrikotPayload(FLBewerbungTrikot):
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
     vorhandener_satz: str = Field(max_length=BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)
-    # Required here and NULLABLE on the stored shape: an applicant names the colour they want, while
-    # the administrator who assigns the real one at acceptance may leave it open.
-    wunschfarbe: FLTrikotFarbe
 
 
 class FLBewerbungKaderPayload(FLBewerbungKader):
@@ -684,8 +677,8 @@ class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
 class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
 
-    A leaked link's holder learns what its mail said: a school, a season, the roles one answer
-    covers and a wording's version, never a name.
+    A leaked link's holder learns what its mail said: a school, a season and the roles one answer
+    covers, and nothing of the person.
     """
 
     quelle: FLEinwilligungQuelle
@@ -702,8 +695,6 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # and never `trainer_ist_zugleich` itself: null on every other seat, so no link says whether two
     # OTHER seats are one person.
     zugleich_rolle: FLKontaktRolle | None
-    # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
-    text_version: str | None
     # The label the page renders and its answer must name: the applicant's page, or the one for a
     # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).
     laufende_fassung: str
@@ -838,8 +829,10 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
 
 
 class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
-    """Every seat the new person now holds, and the fresh link the caller mails them."""
+    """The new person's address as stored, every seat they now hold, and the fresh link the caller mails them there."""
 
+    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
+    email: str
     # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
     # the claim `kontakte.trainer_ist_zugleich` records.
     rollen: list[FLKontaktRolle]
@@ -855,6 +848,9 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
     # `_KontaktpersonWritablePayload.email`'s declaration, so an address this refuses is one the
     # public form refused too and a correction cannot store what a submission could not.
     email: CustomEmail
+    # The address the page showed on the seat: a seat another person took since is refused rather than handed
+    # the address typed for the one who left (`REQ-BEWERBUNG-021`).
+    bisherige_email: CustomEmail
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
@@ -866,6 +862,9 @@ class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
     rollen: list[FLKontaktRolle]
     token: str
     bestaetigungsfrist: CustomDateString
+    # The mailbox the write took the seats' live link from, for the server action's leaving notice and never the
+    # browser; null where the corrected address is that same mailbox, which the fresh link reaches.
+    abgang_email: str | None
 
 
 # --- The retention SWEEP, system tier. The backend decides and prepares, the frontend mails: what

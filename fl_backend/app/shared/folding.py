@@ -77,13 +77,16 @@ def _league_validated(address: str) -> ValidatedEmail:
 
 
 def league_address(address: str) -> str:
-    """The form every address payload stores (`docs/backend/spec.md :: I332`); `ValueError` where the rule refuses it."""
+    """The form every address payload stores (`docs/backend/spec.md :: I332`); `ValueError` where the rule refuses it.
+
+    The sign-in fold of what the rule accepts, so every read of a stored address is an equality on the asker's fold.
+    """
 
     validated = _league_validated(address)
 
     # Set wherever `allow_smtputf8` is off, which refuses every address that would leave it unset.
     assert validated.ascii_email is not None
-    return validated.ascii_email
+    return sign_in_identifier(validated.ascii_email)
 
 
 def sign_in_identifier(address: str) -> str:
@@ -163,16 +166,3 @@ def person_name_key(value: Any) -> str:
     """`composed_name` and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families."""
 
     return composed_name(value).lower()
-
-
-def mailbox_key(address: str) -> str:
-    """What makes two stored addresses one INBOX, which is a narrower question than `sign_in_identifier`'s.
-
-    Folded whole, two people are one recipient and one of them is never written to.
-    """
-
-    local, at, domain = address.rpartition("@")
-
-    # The local part byte for byte and the domain without case (RFC 5321 §2.4), as
-    # `fl_frontend/src/core/emailAddress.ts :: mailboxKey` compares them.
-    return f"{local}@{_folded_domain(domain)}" if at else address

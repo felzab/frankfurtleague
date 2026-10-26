@@ -62,6 +62,8 @@ const MODULE_DOUBLES = {
     getAdminSession: async () => ADMINISTRATOR,
     judgeAdminRequest: async () => ({ session: ADMINISTRATOR }),
     isFreshlySignedIn: () => true,
+    // As the library reads the request it is handed: by its cookie.
+    signOutHere: async (requestHeaders: Headers) => requestHeaders.get("cookie"),
   },
 };
 const mail = doubleSendMail();

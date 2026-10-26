@@ -1,11 +1,43 @@
+import { SPIELBERICHT_ZUSTAENDE_OFFEN } from "@/features/spielberichte/constants";
+import {
+  geltendeBestaetigungen,
+  groupBestaetigungenBySpielId,
+  istSofortFaellig,
+  istUeberfaellig,
+  istVorschlagOffen,
+  schiedsrichterAbsage,
+  terminText,
+} from "@/features/spielbestaetigungen/utils";
 import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
+import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { typedObjectEntries } from "@/shared/utils/type";
 
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
+import type { FLSpielberichtZustandEintrag } from "../spielberichte/schemas";
 import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
 // Re-exported and not moved: it is declared in `spiele`, because it classifies a Spiel.
 export type { ActionRequiredCategory };
+
+const KEINE_BESTAETIGUNGEN: SaisonBestaetigungen = { bySpielId: new Map(), austritte: new Map() };
+
+/**
+ * The season's rows by fixture, and each club's exit day off the departed-occupant faults: they name every club gone by
+ * the day of a fixture it fields, every exit a row about its fixture's Ansetzung can meet.
+ */
+export function saisonBestaetigungen(
+  bestaetigungen: readonly FLSpielbestaetigung[],
+  bracketFaults: readonly FLBracketFault[],
+): SaisonBestaetigungen {
+  return {
+    bySpielId: groupBestaetigungenBySpielId(bestaetigungen),
+    austritte: new Map(
+      bracketFaults.flatMap((fault) => (fault.reason === "departed_occupant" ? [[fault.team_id, fault.ausgeschieden_seit] as const] : [])),
+    ),
+  };
+}
 
 /**
  * How far a category is from stopping the competition, which is the order the triage list works in.
@@ -32,10 +64,38 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     desc: "KO-Spiele mit einer Seite ohne Team und ohne Herkunft",
     urgency: "blocking",
   },
+  vorschlag_offen: {
+    name: "Offene Terminvorschläge",
+    short: "Vorschlag",
+    desc: "Spiele, für die ein Team einen anderen Termin vorgeschlagen hat, der weder übernommen noch verworfen ist",
+    urgency: "blocking",
+  },
+  bestaetigung_ueberfaellig: {
+    name: "Bestätigung überfällig",
+    short: "Überfällig",
+    desc: "Spiele, bei denen ein Team bis zur Frist nicht geantwortet hat",
+    urgency: "results",
+  },
+  // Never „Heute“ for `short`: the status chip on the same cards says that of a fixture played today.
+  bestaetigung_sofort: {
+    name: "Bestätigung heute fällig",
+    short: "Sofort",
+    desc: "Spiele, die die Teams noch am Tag der Anfrage bestätigen müssen",
+    urgency: "results",
+  },
   ergebnis_pending: {
     name: "Ergebnis ausstehend",
     short: "Ergebnis",
     desc: "Spiele, die gespielt sind und noch kein Ergebnis haben",
+    urgency: "results",
+  },
+  ergebnis_vorschlag: {
+    name: "Ergebnis vorgeschlagen",
+    short: "Bericht",
+    // Each state the section files, `teams_geaendert` among them: a card chipped „Bericht zu anderen Teams“ files here.
+    desc:
+      "Spiele mit einem Spielbericht, dessen Ergebnis noch nicht übernommen ist, der sich seit der Übernahme geändert hat " +
+      "oder der für andere Teams geschrieben wurde, als jetzt im Spiel stehen",
     urgency: "results",
   },
   datum_missing: {
@@ -62,6 +122,13 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     desc: "Spiele ohne Schiedsrichter",
     urgency: "details",
   },
+  // „Abgelehnt“ as the confirmation chip says every decline, never „Absage“ beside the called-off tab's „Abgesagt“.
+  schiedsrichter_abgesagt: {
+    name: "Schiedsrichter hat abgelehnt",
+    short: "Abgelehnt",
+    desc: "Spiele, deren eingeteilte Schiedsrichterin oder eingeteilter Schiedsrichter abgelehnt hat",
+    urgency: "details",
+  },
   abgesagt: {
     name: "Abgesagt",
     short: "Abgesagt",
@@ -79,26 +146,45 @@ export function categorizeActionRequired<
   // Base-tier: no rule here reads a rent or a fee, and asking for one would bar the triage list,
   // whose fixtures come from a read that serves neither.
   T extends FLSpielWithStoredSides,
->(spiele: readonly T[], today: string, bracketFaults: readonly FLBracketFault[] = []): Record<ActionRequiredCategory, T[]> {
+>(
+  spiele: readonly T[],
+  today: string,
+  bracketFaults: readonly FLBracketFault[] = [],
+  // The season's rows, as `bracketFaults` read, never derived: the editor passes none for the reason it passes no faults.
+  bestaetigungen: SaisonBestaetigungen = KEINE_BESTAETIGUNGEN,
+  // Read, never derived, as the faults are: the backend judges a report against the stored result and its adoption.
+  spielberichte: readonly Pick<FLSpielberichtZustandEintrag, "spiel_id" | "zustand">[] = [],
+): Record<ActionRequiredCategory, T[]> {
   // Keyed in the label table's order so `Object.keys` agrees with it, which a test asserts.
   const categorized: Record<ActionRequiredCategory, T[]> = {
     bracket_fault: [],
     besetzung_missing: [],
+    vorschlag_offen: [],
+    bestaetigung_ueberfaellig: [],
+    bestaetigung_sofort: [],
     ergebnis_pending: [],
+    ergebnis_vorschlag: [],
     datum_missing: [],
     uhrzeit_missing: [],
     ort_missing: [],
     schiedsrichter_missing: [],
+    schiedsrichter_abgesagt: [],
     abgesagt: [],
   };
 
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
+  // The states awaiting the administrator, by name: a report on a fixture called off since reads `abgesagt`, and the
+  // fixture already sits under „Abgesagt“ with nothing to adopt.
+  const vorgeschlageneSpielIds = new Set(
+    spielberichte.filter((bericht) => SPIELBERICHT_ZUSTAENDE_OFFEN.has(bericht.zustand)).map((bericht) => bericht.spiel_id),
+  );
 
   for (const spiel of spiele) {
     // Keyed on the faulted id alone, never on the reason, so a fault variant added to the union
     // lands here rather than falling through. Not exclusive with the branch below: a faulted
     // fixture still feeds whatever sits under it.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
+    if (vorgeschlageneSpielIds.has(spiel.id)) categorized.ergebnis_vorschlag.push(spiel);
 
     // `isAbgesagt` rather than a second spelling of the four events: two lists of them are invisible
     // until they part, and this list would then disagree with the card about whether a fixture
@@ -112,6 +198,9 @@ export function categorizeActionRequired<
     if (spiel.uhrzeit === null) categorized.uhrzeit_missing.push(spiel);
     if (spiel.ort === null) categorized.ort_missing.push(spiel);
     if (spiel.schiedsrichter === null) categorized.schiedsrichter_missing.push(spiel);
+    if (schiedsrichterAbsage(bestaetigungen.bySpielId.get(spiel.id) ?? [], spiel) !== undefined) {
+      categorized.schiedsrichter_abgesagt.push(spiel);
+    }
 
     if (spiel.datum !== null && spiel.datum < today && spiel.ergebnis === null) {
       categorized.ergebnis_pending.push(spiel);
@@ -126,6 +215,11 @@ export function categorizeActionRequired<
     ) {
       categorized.besetzung_missing.push(spiel);
     }
+
+    const zeilen = geltendeBestaetigungen(bestaetigungen.bySpielId.get(spiel.id) ?? [], spiel, { austritte: bestaetigungen.austritte, today });
+    if (zeilen.some(istVorschlagOffen)) categorized.vorschlag_offen.push(spiel);
+    if (zeilen.some((zeile) => istUeberfaellig(zeile, today))) categorized.bestaetigung_ueberfaellig.push(spiel);
+    if (zeilen.some((zeile) => istSofortFaellig(zeile, today))) categorized.bestaetigung_sofort.push(spiel);
   }
 
   return categorized;
@@ -158,15 +252,54 @@ export function buildActionRequiredSections({
   spiele,
   today,
   bracketFaults,
+  bestaetigungen,
+  spielberichte,
 }: {
   spiele: FLSpiel[];
   today: string;
   bracketFaults: readonly FLBracketFault[];
+  bestaetigungen: SaisonBestaetigungen;
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
 }): readonly FLActionRequiredSection[] {
-  const categorized = categorizeActionRequired(spiele, today, bracketFaults);
+  const categorized = categorizeActionRequired(spiele, today, bracketFaults, bestaetigungen, spielberichte);
 
   return typedObjectEntries(ACTION_REQUIRED_LABELS).map(([category]) => ({
     category,
     spiele: [...categorized[category]].sort(compareByUrgencyWithin),
   }));
+}
+
+/**
+ * Each club's note beside a card in the two confirmation categories, keyed by `spiel_id`: their tabs name neither club
+ * nor date. A row never mailed says so, or a club nobody reached reads as silent.
+ */
+export function bestaetigungNotizen(
+  category: "vorschlag_offen" | "bestaetigung_ueberfaellig",
+  spiele: readonly FLSpiel[],
+  { bySpielId, austritte }: SaisonBestaetigungen,
+  today: string,
+): ReadonlyMap<string, readonly string[]> {
+  return new Map(
+    spiele.map((spiel) => {
+      const teamName = (teamId: string): string =>
+        [spiel.team1, spiel.team2].find((seite) => seite?.team_id === teamId)?.name ?? NICHT_HINTERLEGT;
+
+      const saetze = geltendeBestaetigungen(bySpielId.get(spiel.id) ?? [], spiel, { austritte, today }).flatMap((zeile) => {
+        if (zeile.partei.art !== "team") return [];
+        const team = teamName(zeile.partei.team_id);
+
+        if (category === "vorschlag_offen") {
+          return istVorschlagOffen(zeile) && zeile.antwort?.vorschlag ? [`Vorschlag von ${team}: ${terminText(zeile.antwort.vorschlag)}`] : [];
+        }
+        if (!istUeberfaellig(zeile, today)) return [];
+        return [
+          zeile.angefragt_am === null
+            ? `${team}: Anfrage nicht verschickt`
+            : `${team}: angefragt am ${formatSpielDatum(zeile.angefragt_am)}, keine Antwort`,
+        ];
+      });
+
+      return [spiel.id, saetze] as const;
+    }),
+  );
 }

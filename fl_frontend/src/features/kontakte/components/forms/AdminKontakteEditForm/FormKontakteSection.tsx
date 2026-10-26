@@ -8,11 +8,13 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
+import { AdresswechselOffen } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf, medienBestaetigungOf } from "@/features/spieler/nachweis";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import {
   eingetragenVonLabel,
@@ -42,14 +44,17 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type {
+  FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungAnsicht,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
@@ -97,9 +102,11 @@ function toCalendarDate(stored: string): CalendarDate | null {
  */
 export function FormKontakteSection({
   laufendesLabel,
+  medienFragen,
   value,
   stored,
   bestaetigungen,
+  adresswechsel,
   teamId,
   saisonId,
   nimmtLinks,
@@ -113,11 +120,15 @@ export function FormKontakteSection({
 }: {
   /** The label the application form runs, read by the page per request: a seat opened blank stamps it. `null` where the read failed. */
   laufendesLabel: string | null;
+  /** Whether each stored seat's confirmation page asked the media choice, read by the page off the registry. */
+  medienFragen: MedienFragen;
   value: SaisonTeamKontakteDraft | null;
   /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
   stored: FLSaisonTeamKontakte | null;
   /** Each seat's link as the row stores it, read beside the block, as the referee editor reads its own. */
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+  /** Each seat's pending address change, shown as the pupil and referee editors show their own. */
+  adresswechsel: FLSaisonTeamAdresswechsel | null;
   teamId: string;
   saisonId: string;
   /** The row still takes confirmation links: its season is not over and its team has not left it. */
@@ -221,9 +232,10 @@ export function FormKontakteSection({
             rolle={rolle}
             label={label}
             person={basis[rolle]}
-            istGespeichert={stored?.[rolle] != null}
             link={bestaetigungen?.[rolle] ?? null}
+            adresswechsel={sitzAdresswechsel(adresswechsel, stored, rolle)}
             kannLeerOeffnen={laufendesLabel !== null}
+            medienFragen={medienFragen}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
              what that seat's boxes then read. */
@@ -254,6 +266,19 @@ export function FormKontakteSection({
         ))}
     </>
   );
+}
+
+/** A seat's pending change, the stored address it is at, and why the address tool refuses this reader the change. */
+type SitzAdresswechsel = { id: string; adresse: string | null; verwehrt: EinsehbarVerwehrt | null };
+
+/** A seat's pending change with the stored address it is at, which the line under the seat names. */
+function sitzAdresswechsel(
+  ids: FLSaisonTeamAdresswechsel | null,
+  stored: FLSaisonTeamKontakte | null,
+  rolle: KontaktRolle,
+): SitzAdresswechsel | null {
+  const id = ids?.[rolle] ?? null;
+  return id === null || ids === null ? null : { id: id, adresse: stored?.[rolle]?.email ?? null, verwehrt: ids.einsehbar_verwehrt[rolle] };
 }
 
 /**
@@ -295,9 +320,10 @@ function KontaktpersonFields({
   rolle,
   label,
   person,
-  istGespeichert,
   link,
+  adresswechsel,
   kannLeerOeffnen,
+  medienFragen,
   isMirrored,
   zugleich,
   einladen,
@@ -309,12 +335,13 @@ function KontaktpersonFields({
   label: string;
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
-  /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
-  istGespeichert: boolean;
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
+  /** The change pending at the stored seat's address, which this page shows and never moves, and that address. */
+  adresswechsel: SitzAdresswechsel | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
+  medienFragen: MedienFragen;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
@@ -368,7 +395,7 @@ function KontaktpersonFields({
             rolle={rolle}
             label={label}
             person={person}
-            istGespeichert={istGespeichert}
+            medienFragen={medienFragen}
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
@@ -386,6 +413,15 @@ function KontaktpersonFields({
           </dl>
         )}
 
+        {/* Named rather than „diese Adresse“: the box above takes input, and the change is the stored address's. */}
+        {adresswechsel !== null && (
+          <AdresswechselOffen
+            adresswechselId={adresswechsel.id}
+            adresse={adresswechsel.adresse}
+            verwehrt={adresswechsel.verwehrt}
+          />
+        )}
+
         {einladen}
       </div>
     </section>
@@ -397,7 +433,7 @@ function KontaktpersonInputs({
   rolle,
   label,
   person,
-  istGespeichert,
+  medienFragen,
   isMirrored,
   onChange,
   onFieldLeft,
@@ -405,7 +441,7 @@ function KontaktpersonInputs({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
-  istGespeichert: boolean;
+  medienFragen: MedienFragen;
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -491,16 +527,10 @@ function KontaktpersonInputs({
 
         <div className={FIELD_PAIR_CLASSES}>
           {/* Read out and never picked: the save that seats the person stamps who did, and nothing moves it
-              afterwards. A stored seat without it was seated before the field, which no reading here guesses. */}
+              afterwards. */}
           <TextField
             isReadOnly
-            value={
-              person.einwilligung.eingetragen_von === null
-                ? istGespeichert
-                  ? NICHT_HINTERLEGT
-                  : NOCH_OFFEN
-                : eingetragenVonLabel(person.einwilligung.eingetragen_von)
-            }
+            value={person.einwilligung.eingetragen_von === null ? NOCH_OFFEN : eingetragenVonLabel(person.einwilligung.eingetragen_von)}
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
             <Input className={readoutClasses(person.einwilligung.eingetragen_von === null)} />
@@ -557,8 +587,7 @@ function KontaktpersonInputs({
             </TextField>
             <Beleg
               nachweis={person.einwilligung.nachweis.umfang}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
+              bestaetigung={bestaetigungOf(person.einwilligung)}
             />
           </div>
 
@@ -572,8 +601,7 @@ function KontaktpersonInputs({
             </TextField>
             <Beleg
               nachweis={person.einwilligung.nachweis.medien}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
+              bestaetigung={medienBestaetigungOf(person.einwilligung, medienFragen)}
             />
           </div>
         </div>

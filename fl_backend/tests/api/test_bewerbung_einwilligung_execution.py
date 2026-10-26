@@ -83,9 +83,9 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 # no handler reads fails here.
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
-    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version")
-    | _seat_paths("kontakte", "einwilligung.eingetragen_von", "einwilligung.datum")
-    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id", "eingereicht_am"}
+    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am")
+    | _seat_paths("kontakte", "einwilligung.eingetragen_von")
+    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
 )
 
 # `_id` is here and not in the view's, whose own line says why
@@ -93,8 +93,8 @@ ANSICHT_RESOLVES = frozenset(
 ANTWORT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
     | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.umfang", "einwilligung.medien")
-    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von", "einwilligung.datum")
-    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "eingereicht_am"}
+    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
 )
 
 
@@ -212,8 +212,8 @@ async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
-class _ReadsRecorded:
-    """The applications collection, keeping what each `find_one` answered.
+class ReadsRecorded:
+    """A collection, keeping what each `find_one` answered: the season rows' and the registrations' link tests read it too.
 
     A delegating wrapper rather than a stub: mongod applies the projection, and a stub would hand
     back whatever the handler asked for.
@@ -235,7 +235,7 @@ class _ReadsRecorded:
         return document
 
 
-def loaded_by_the_link(recorder: _ReadsRecorded) -> list[Any]:
+def loaded_by_the_link(recorder: ReadsRecorded) -> list[Any]:
     """Every document the TOKEN filter found.
 
     `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
@@ -260,12 +260,12 @@ def leaf_paths(document: Any, prefix: str = "") -> set[str]:
 
 class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
-        """`READ-BEWERBUNG-002`: a school, a season, a role and a wording, and no name or anything a leaked link could act on."""
+        """`READ-BEWERBUNG-002`: a school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["ansprechperson"]))
 
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert (response.text_version, response.zugleich_rolle) == ("v3", None)
+        assert response.zugleich_rolle is None
         rendered = response.model_dump_json()
         assert "Quillhilde" not in rendered and NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
 
@@ -367,7 +367,7 @@ class TestWhatAnAnonymousReadLoads:
 
     def test_the_view_never_holds_the_application_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            recorder = ReadsRecorded(database[Collection.BEWERBUNGEN])
             await ansicht(database, RAW["ansprechperson"], bewerbungen=recorder)
 
             return loaded_by_the_link(recorder)
@@ -379,7 +379,7 @@ class TestWhatAnAnonymousReadLoads:
 
     def test_the_answer_never_holds_the_application_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            recorder = ReadsRecorded(database[Collection.BEWERBUNGEN])
             await answer(database, client, RAW["ansprechperson"], bewerbungen=recorder)
 
             return loaded_by_the_link(recorder)
@@ -411,6 +411,8 @@ class TestWhatAConfirmationWrites:
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,
             "medien": False,
+            # The seating's, which the answer leaves standing.
+            "eingetragen_von": "bewerbung",
             # Each choice's evidence under the page the person answered: the WhatsApp grant, and the
             # media answer withholding.
             "nachweis": {
@@ -486,14 +488,10 @@ class TestThePageALinkOpens:
         [
             pytest.param(eingetragen("bewerbung"), BEWERBER_SEITE, id="named by the applicant"),
             pytest.param(eingetragen("liga", datum="2026-03-27"), VERWALTUNG_SEITE, id="reseated by an administrator"),
-            pytest.param(bewerbung_document(), BEWERBER_SEITE, id="stored before the field, dated the submission's day"),
         ],
     )
     def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], fassung: str):
-        """The wiring alone, by the field and by the day; which outranks which is the unit table's.
-
-        That table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`.
-        """
+        """The wiring alone; the unit table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
 
@@ -780,7 +778,7 @@ class TestADecline:
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
         assert response.ausstehend == list(KONTAKT_ROLLEN)
-        assert (view.zustand, view.text_version) == ("abgelehnt", None)
+        assert view.zustand == "abgelehnt"
 
     def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
         """Restore the redaction by document and this fails: the Trainer's state before their own consent is in the log alone.
@@ -962,19 +960,6 @@ class TestAResend:
             return conflict.value.error_code
 
         assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == BEWERBUNG_ALREADY_DECIDED
-
-    def test_an_application_stored_before_the_flow_has_no_seat_to_resend(self, mongo_replica_set_url: str):
-        before_the_flow = bewerbung_document()
-        del before_the_flow["bestaetigungen"]
-        del before_the_flow["bestaetigungsfrist"]
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
-                await resend(database, "trainer")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, documents=[before_the_flow]) == BEWERBUNG_SEAT_ALREADY_ANSWERED
 
     def test_a_path_naming_no_seat_is_a_miss(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

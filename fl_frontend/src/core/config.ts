@@ -244,6 +244,14 @@ const environment = {
     .pipe(z.enum(["on", "off"]))
     .default("off"),
 
+  // Off where the server sets nothing: the report form enters pupils, so it opens only after their reset
+  // (`docs/ops/runbooks.md` §9). Not `SPIEL_SWEEP` widened, which stops the mail in a provider fault.
+  SPIELBERICHT_EINGABE: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.enum(["on", "off"]))
+    .default("off"),
+
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),
@@ -330,6 +338,7 @@ const validated = createEnv({
     KONTO_SWEEP: process.env.KONTO_SWEEP,
     LOESCHUNG_SWEEP: process.env.LOESCHUNG_SWEEP,
     SPIEL_SWEEP: process.env.SPIEL_SWEEP,
+    SPIELBERICHT_EINGABE: process.env.SPIELBERICHT_EINGABE,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
 
     // Off the files alone: a variable of the same name, standing in for a missing file, would hand

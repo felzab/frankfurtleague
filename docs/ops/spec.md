@@ -119,8 +119,9 @@ still running skips with one line rather than overlapping it. The clocks that wr
 select on dates or on season statuses and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
-([`docs/backend/spec.md`](../backend/spec.md) I156). The removal of a lapsed pending address is the
-pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the timer
+([`docs/backend/spec.md`](../backend/spec.md) I156). Ending an address change whose step lapsed is the
+pass's alone, and so, but for an approval pressed after it, is making one take effect once its
+waiting time ends: each happens only while `BEWERBUNG_SWEEP` arms the timer
 ([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
 pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
 its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
@@ -249,27 +250,29 @@ never publishes its port, which ends that scope refused.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                                     | Upstream        | Notes                                                                                                                                                                                                |
-| -------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                                  | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                       |
-| `= /api/client-error`                        | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                     |
-| `= /api/bewerbung`                           | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's |
-| `= /api/bewerbung/kuerzel`                   | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                             |
-| `= /api/bestaetigung/kontakt`                | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                             |
-| `= /api/signin/code`                         | `frontend:3000` | Next route handler, the typed sign-in code's check — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                |
-| `= /api/registrierung`                       | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
-| `= /api/bestaetigung/spieler`                | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
-| `= /api/bestaetigung/schiedsrichter`         | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
-| `= /api/bestaetigung/schiedsrichter/adresse` | `frontend:3000` | Next route handler, a confirmed referee's address link — its sibling's pair and burst, and `client_max_body_size 8k`                                                                                 |
-| `= /api/bestaetigung/spieler/adresse`        | `frontend:3000` | Next route handler, a pupil's address link — the referee's address link's pair and burst, never `spielerlink`'s, and `client_max_body_size 8k`                                                       |
-| `= /api/bestaetigung/spiel`                  | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
-| `= /api/mail/zustellung`                     | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
-| the `/` twins                                | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `= /api/revalidate` and its `/` twin         | none            | Answered `404` at the edge: the league caches' invalidation, a Next route handler this server alone calls over loopback                                                                              |
-| `= /api/v0/system/is_live`                   | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
-| `= /signin`                                  | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `/_next/static/`                             | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
-| `/`                                          | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
+| Location                              | Upstream        | Notes                                                                                                                                                                                                    |
+| ------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/auth`                           | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                           |
+| `= /api/client-error`                 | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                         |
+| `= /api/bewerbung`                    | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's     |
+| `= /api/bewerbung/kuerzel`            | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                                 |
+| `= /api/bestaetigung/kontakt`         | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
+| `= /api/signin/code`                  | `frontend:3000` | Next route handler, the typed sign-in code's check — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                    |
+| `= /api/signout`                      | `frontend:3000` | Next route handler, the sign-out — the code check's `limit_req` pair and `client_max_body_size 8k`                                                                                                       |
+| `= /api/registrierung`                | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`            |
+| `= /api/bestaetigung/spieler`         | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                          |
+| `= /api/bestaetigung/schiedsrichter`  | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                   |
+| `= /api/bestaetigung/adresse`         | `frontend:3000` | Next route handler, both mailboxes' links of an address change — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, never `spielerlink`'s, and `client_max_body_size 8k` |
+| `= /api/bestaetigung/spiel`           | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`        |
+| `= /api/mail/zustellung`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                              |
+| the `/` twins                         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                              |
+| `= /api/revalidate` and its `/` twin  | none            | Answered `404` at the edge: the league caches' invalidation, a Next route handler this server alone calls over loopback                                                                                  |
+| `= /api/v0/system/is_live`            | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                                 |
+| `= /signin`                           | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                                  |
+| `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                    |
+| `/bestaetigung/`                      | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                                 |
+| `= /registrierung` and `= /loeschung` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/bestaetigung/`'s lines, each with its twin                                                                             |
+| `/`                                   | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                                  |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
 load** (I9). A container compose recreates or starts again comes back under its name at another
@@ -309,9 +312,9 @@ convention's, or a path recorded at `scripts/checks/check_public_routes.py :: EL
 liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
 answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
 is a finding: it is named by no exact-match location, or a file in the tree has started answering
-it, so the row records what the accounting already reads. Pages are read for that direction alone,
-`location /` carrying every one of them, and a dynamic segment at the top level excuses nothing: its
-static head is the root, which would cover every exact match there is.
+it, so the row records what the accounting already reads. Pages are read for that direction and
+for the link pages' pair below, and a dynamic segment at the top level excuses nothing: its static
+head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
@@ -341,8 +344,8 @@ address in `nginx/shared/http.conf`, the `geo` beside `set_real_ip_from`, and th
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
-**The zones over a GET key on the network maps unconditionally**: the Kürzel check, and the pair
-under `/api/auth`, would otherwise read as limited and be unlimited.
+**The zones over a GET key on the network maps unconditionally**: the Kürzel check, the pair
+under `/api/auth` and the link pages' pair would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
 `nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
@@ -358,7 +361,7 @@ reached the fail-open `default`, and no two addresses shared a /64 while differi
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the
 replace-rather-than-extend rule I2 records for `add_header`, reaching a third directive.
-`limit_conn` inherits the same way, and `location /` declares it alone.
+`limit_conn` inherits the same way, and `location /` and the link pages' blocks alone declare it.
 
 **Each metered path has a trailing-slash twin carrying the same zones.** An exact match is exact,
 so the slashed form fell to the catch-all and reached Next unmetered before the twins existed. Next
@@ -377,14 +380,33 @@ What decides that number, and what it risks, is at the zone in `nginx/shared/htt
 `limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
 as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
 `nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
-form content type, which is every post Next 16.3.8 runs as an action. Next takes an empty header for
+form content type, which is every post Next 16.4.2 runs as an action. Next takes an empty header for
 an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
 a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
-empty, so no page load or asset is metered; the pair is rated above any administrator's run of
+empty, so no page load or asset is metered by it; the pair is rated above any administrator's run of
 saves. `/_next/static/` carries it too, where a POST reaches no action (a 405 whose render fails as
 a 500, driven against Next 16.3.6 on 2026-09-27) but costs that render. **That
 makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
+
+**Every page a mailed or shared link opens, its token in the query, is metered on every request
+and every method**, on `linkseite`/`linkseite48`: each GET renders a page reading the database,
+through the backend or the sign-in store, so one network reloading a link page spends database
+operations the whole league shares. No page links to one, so a visit is one request rather than a
+navigation's fan-out, which is what a zone at `location /` would refuse. **`/bestaetigung/` is a
+prefix because every page under it is a link page**, so a page added there is metered the day it
+exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
+`/loeschung` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
+location naming that pair, at its URL and at its twin's, each zone on one `limit_req` line in every
+block naming it**: a link page is one whose own module reads `token` from its search parameters, or
+one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
+another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
+`location /`'s ceiling and action pair, sets `$linkseite`, and declares no `proxy_set_header`,
+`add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh` floods one link
+page past the burst, then fails any link page, twin, double slash, dot segment, percent-encoded
+letter, `HEAD` or JSON post that is not refused with the edge's own `429`, any refused load of a
+link page not answered with the edge's page, and any link block whose action pair lets a server
+action past the action burst or answers it otherwise than with the sentence.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
@@ -396,17 +418,26 @@ A burst at the Kürzel check was refused past the burst as `429` (not nginx's `5
 refusal being I2's observation. No rate here is measured — the figures remain judgement calls, and
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
 
-**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`**,
-the server block's `error_page 429` sending a zone's refusal and the connection ceiling's alike to
-`nginx/shared/site.conf :: @edge_refusal`. Next 16.3.8 hands a server action's caller the body of a
+**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`,
+but a link page's load**, the server block's `error_page 429` sending a zone's refusal and the
+connection ceiling's alike to `nginx/shared/site.conf :: @edge_refusal`. A `GET` or `HEAD` of a
+link page goes to `:: @edge_refusal_seite` instead (`nginx/shared/http.conf :: $edge_refusal_ziel`):
+a branded page with its way back to the site, since a sentence alone, opened from a mail, is a dead
+end. The page is written inline in the configuration, because the deploy compares every file under
+`nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
+it withholds the referrer, as every link page does, since its URL carries the link's token; and its
+colours are the season scheme's, copied by hand. Next 16.4.2 hands a server action's caller the body of a
 failed answer that is not RSC as the error's message under that exact type alone, and the frontend
 reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
 handler's caller reads the status alone, and a page load past the connection ceiling shows the
-sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
+sentence, a link page's the page. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
-compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way.
+compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
+grades a link page's refused load the same way against the page, and that page's referrer tag and its
+colours against the scheme `fl_frontend/src/app/globals.css` imports, which a comparison with the
+file it was read off cannot hold.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
@@ -414,9 +445,8 @@ both sitting below that log's own level. nginx puts the request line there WHOLE
 line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
 ([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
 `nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
-query of a page — the confirmation and invitation landing pages — so what stands over it
-is `location /`'s connection ceiling rather than any rate zone, the zones metering the writes those
-pages post. **What the pair does not close is every OTHER line about a request, at any level**, an
+query of a link page, where a refusal is routine, so this level is what keeps those tokens out of
+that log; `nginx/edge_test.sh` fails a token found there after a run of refused link pages. **What the pair does not close is every OTHER line about a request, at any level**, an
 upstream failure among them, which repeats the same request line
 ([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
 zone that refused, the access line carrying `status` alone.
@@ -439,12 +469,13 @@ the clearance a navigation earns protects none of the writes there; the bot chec
 server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I622).
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
-lands on the error boundary before any application code runs. Every page and every server action
-arrives through `location /`, and the browser posts an action to the address of the page it is on,
-so the sign-in form's own POST lands on `= /signin`. **What that zone bounds is the PATH and never
-the action**: a server action resolves from a process-wide module map with no reference to the
-address it was posted to, so the same action posted to any other page reaches it, metered there only by the server-action
-pair above (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
+lands on the error boundary before any application code runs. A page arrives through `location /`
+unless a location names it, as `= /signin` and the link pages' blocks do, and the browser posts an
+action to the address of the page it is on, so the sign-in form's own POST lands on `= /signin`.
+**What that zone bounds is the PATH and never the action**: a server action resolves from a
+process-wide module map with no reference to the address it was posted to, so the same action posted
+to any other page reaches it, metered there by the server-action pair above and on a link page by
+the link pages' pair besides (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
 control that fits**, because a status code is an answer the caller can read; `limit_req` on these
 paths is that control at the origin.
 
@@ -876,7 +907,13 @@ is named while it runs and never ended or failed**: the outermost pool prints wh
 and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
 carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the stalled thread's whole
 (`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
-case's suspended coroutine is on no thread, so its dump shows only the event loop. **The pool ends its units rather than outliving them**
+case's suspended coroutine is on no thread, so its dump shows only the event loop. In CI the notice
+lands before the job's timeout ends the job, which names no unit, for a stall starting anywhere
+inside the job's budget, after the widest wait for a job's first step yet observed, on which GitHub
+documents no bound; a job carrying no budget is held to its timeout alone, so there a stall is named
+only where it starts early enough
+(`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
+**The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
@@ -950,10 +987,13 @@ formatter's own cache is keyed on content, and what it cannot see is a prettier 
 prettier's documented caveat — or the contents of the Tailwind stylesheet `.prettierrc.json` names by
 path. A plugin bump, or a stylesheet edit that moves a class's sort order, warrants deleting that
 cache file; it is accepted on a development machine because the stale verdict there is a false green
-that CI's own run then fails. **CI's format verdict never rests on a verdict another lockfile or
-another stylesheet wrote**: the format job restores prettier's cache under a key carrying the
-lockfile's hash and that of every stylesheet under `fl_frontend/src`, so either change starts a
-runner from an empty cache. **What the cache spares is
+that CI's own run then fails. **CI's format verdict never rests on a verdict another version of a
+package it loads or another stylesheet wrote**: the format job restores prettier's cache under a key
+carrying the installed version of prettier, of every plugin `.prettierrc.json` names, of the
+Tailwind package the sorting plugin reads (`tailwindcss`, that file naming no other) and of every
+package a stylesheet under `fl_frontend/src` imports, each with all it depends on, and the hash of
+every such stylesheet, so either change starts a runner from an empty cache, and a dependency change
+none of them loads leaves it warm. **What the cache spares is
 the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
 included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
 name is read on every run.
@@ -1036,6 +1076,16 @@ carries an `if:` or a `continue-on-error`**, either of which leaves the job `suc
 that never ran or failed
 (`scripts/tests/test_check_publish_verdict.py :: test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it`).
 
+**A shard runs the files its plan places in it, each file in exactly one shard**:
+`scripts/gate/shard_plan.py` takes the files the tier itself would run, longest first, each to the
+shard holding least, by the costs under `.github/shard-costs/`, a file the table lacks costing the
+mean of those it holds. A shard by position (`node --test --test-shard`) takes the files at its
+places in the sorted list whatever they cost, so its heaviest shard follows file names rather than
+work. Re-cut a table, from each file run alone through its tier's runner, when one shard's CI span
+pulls away from the others'. `VERIFY_TEST_SHARD=<i>/<n>` with `--frontend-units` and
+`VERIFY_DB_SHARD=<i>/<n>` with `--db` each run shard `i` of `n`, counted from 1, and each is
+refused beside any other scope, where the run would read as the whole suite proven.
+
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv the backend image copies in (§1.1); each
 flag's argument is in `.github/actions/backend-toolchain/action.yml`, which every such job calls.
@@ -1049,7 +1099,7 @@ every job's version; the reason is at that workflow's `verify` job.
 | `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                               |
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier), `check_test_estate.py` and `deptry` over `app/` started together behind it                                                                                            | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                          | pnpm install                                                                                                                                   |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                   |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                                                                      | pnpm install, and for a shard an interpreter at the checkers' floor, which plans it                                                            |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                         | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                  |
 | `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), concurrent when alone                                                       | venv + pnpm install + Docker                                                                                                                   |
@@ -1199,8 +1249,8 @@ stamped runs show and declines to say which of them ran warm, and the Dockerfile
 catching is the one that empties that cache —
 so the median report is its only
 guard. `format`'s and `frontend`'s budgets are the cold job's — a runner starts without prettier's
-cache wherever the lockfile or a stylesheet moves, and without the Next cache and pnpm's lockfile
-verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
+cache wherever a package a prettier verdict loads or a stylesheet moves, and without the Next cache
+and pnpm's lockfile verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
 from the stamped main runs alone, most of which restored the cache, and a re-stamp never lowers it
 (`scripts/checks/check_gate_budget.py :: COLD_BUDGET`).
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
@@ -1263,7 +1313,7 @@ and may take none, `RULES` being where it is stated.
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
 their own scope behind `require_docker` — which is what lets `--quick` skip them — and in CI the
-concurrent `db` job, which pulls the tier's `mongod` image in an advisory step of its own
+concurrent `db` shards, each pulling the tier's `mongod` image in an advisory step of its own
 before pytest, so the download is attributed in the log rather than hidden inside the test span.
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.
@@ -1395,6 +1445,12 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   still meets. **The dashboard is where its token is issued**, and the server holds the issued
   value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
   when the hostname was added, so the zone holds no record naming the origin's address.
+- **Cloudflare answers every plain-HTTP request itself** with a `301` to `https://` on the same host
+  (observed 2026-10-20 as `Server: cloudflare` on that answer for both hostnames). Which setting
+  answers is inferred rather than read: Always Use HTTPS fits, and a redirect rule would answer the
+  same. A browser ignores HSTS sent over plain HTTP, so this redirect is what moves a first visit
+  typed as `http://` onto TLS; `nginx/prod/prod.conf`'s port-80 block plays no part, the tunnel above
+  dialling the origin over TLS whatever Cloudflare does with plain HTTP.
 - **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
   records name Cloudflare's routing servers, and each league address forwards to the personal
   mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
@@ -1518,6 +1574,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Backend healthcheck fails after an API version bump                                                                                                                                                     | The healthcheck spells the API version itself                                                                                                   | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s liveness location with it (§4)                                                                                        |
 | The uptime monitor 404s while the backend container reports healthy                                                                                                                                     | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in `nginx/shared/site.conf`'s liveness location, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                |
 | Sign-in returns 429                                                                                                                                                                                     | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/shared/http.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                    |
+| A page a mailed link opens answers `429` with „Zu viele Aufrufe“                                                                                                                                        | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                           | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                                                                                                                                      | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                                                                                                                                               | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale after a hand edit: the first visit once the cache's day has passed still gets it, up to its week ([`docs/frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation) §1.5) | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Drop the five league tags ([`runbooks.md`](runbooks.md) §20); waiting takes a day, plus one stale answer to the visit refreshing each entry                                                                          |
@@ -1544,6 +1601,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A guard the database tier stays green without                     | Narrowed — dropping `session=` at `judge_and_write_the_rules` turns `--db` (§1.6) red; which other callbacks no case drives is [`docs/backend/spec.md`](../backend/spec.md) §4's                   |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | Cloudflare may rewrite the edge's own 429                         | Open — whether the tunnel passes `@edge_refusal`'s body and `Content-Type` unchanged shows only in production, on the 32nd action POST after a deploy (§1.3)                                       |
+| Cloudflare may rewrite the edge's own 429 page                    | Open — whether the tunnel passes `@edge_refusal_seite`'s page unchanged shows only in production, on a link page loaded past its burst (§1.3)                                                      |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
 | CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
 | A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: eight days at worst                                                       |

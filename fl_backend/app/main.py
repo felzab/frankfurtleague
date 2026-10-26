@@ -16,6 +16,9 @@ from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from starlette.convertors import Convertor
 
+from app.api.adresswechsel.admin_router import router as adresswechsel_admin_router
+from app.api.adresswechsel.router import router as adresswechsel_router
+from app.api.adresswechsel.sweep_router import router as adresswechsel_sweep_router
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
 from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
@@ -41,18 +44,19 @@ from app.api.registrierungen.sweep_router import router as registrierungen_sweep
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
-from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter_adresswechsel_router
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
-from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.spielberichte.admin_router import router as spielberichte_admin_router
+from app.api.spielberichte.person_router import router as spielberichte_person_router
+from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
+from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
 from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
 from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
-from app.api.spieler.adresswechsel_router import router as spieler_adresswechsel_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spieler.selbst_router import router as spieler_selbst_router
@@ -110,6 +114,7 @@ from app.core.security import (
     verify_person_actor,
     verify_person_is_unbarred,
     verify_recent_confirmation,
+    verify_recent_person_confirmation,
     verify_step_up,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
@@ -142,6 +147,9 @@ WRITE_ROUTERS = (
     identitaet_admin_router,
     sperrliste_admin_router,
     berechtigungen_admin_router,
+    spielbestaetigungen_admin_router,
+    spielberichte_admin_router,
+    adresswechsel_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
@@ -151,8 +159,7 @@ PUBLIC_ROUTERS = (
     registrierungen_public_router,
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
-    schiedsrichter_adresswechsel_router,
-    spieler_adresswechsel_router,
+    adresswechsel_router,
     spielbestaetigungen_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
@@ -166,7 +173,7 @@ SYSTEM_ROUTERS = (
     identitaet_router,
     berechtigungen_sweep_router,
     identitaet_sweep_router,
-    schiedsrichter_sweep_router,
+    adresswechsel_sweep_router,
     spielbestaetigungen_sweep_router,
 )
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
@@ -182,6 +189,8 @@ PERSON_ROUTERS = (
     schiedsrichter_person_router,
     konto_router,
     identitaet_person_router,
+    spielbestaetigungen_person_router,
+    spielberichte_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
@@ -230,6 +239,7 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
     verify_actor_is_admin: _probed(HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
     verify_person_is_unbarred: _probed(HTTPStatus.FORBIDDEN, PERSON_BARRED),
     verify_recent_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    verify_recent_person_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     verify_step_up: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     get_db_client: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
@@ -512,6 +522,9 @@ def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
     unnamed: list[str] = []
     for route in document_routes(app):
         for status_code, response in route.responses.items():
+            # A success a route answers besides its default, such as a PUT's 201 on a create, refuses nothing.
+            if HTTPStatus(int(status_code)).is_success:
+                continue
             # Read off the declaration and never assumed from it, so a route refusing for a second
             # reason publishes that reason's code rather than the duplicate key's.
             if not (named := refused_codes(response)):
@@ -595,7 +608,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_origins=config.api_cors_allowed_origins_list,
         allow_credentials=True,
         # Every method the routers serve: one omitted is a preflight rejection waiting to happen.
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)

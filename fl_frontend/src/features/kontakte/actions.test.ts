@@ -6,7 +6,7 @@ import { createElement as h } from "react";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -22,8 +22,6 @@ import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/sch
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-doubleEveryAction();
-
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
@@ -37,7 +35,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: TELEFON[vorname] ?? "069 444",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */

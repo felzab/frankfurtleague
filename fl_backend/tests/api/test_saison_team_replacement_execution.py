@@ -23,7 +23,14 @@ from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, spiel_document, team_document
+from tests.documents import (
+    bestaetigte_kenntnisnahme,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spiel_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -93,7 +100,7 @@ OUTGOING_KONTAKTPERSON = {
     "email": "a.koerner@outgoing.example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    "einwilligung": bestaetigte_kenntnisnahme(),
 }
 
 OUTGOING_KONTAKTE = {

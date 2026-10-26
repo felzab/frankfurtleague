@@ -95,8 +95,8 @@ def address_of(position: int) -> str:
     return f"schuelerin.{position}@beispielschule.de"
 
 
-def pupil(spieler_id: ObjectId, email: str | None, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
-    return spieler_document(spieler_id, "Quintessa", nachname, **({} if email is None else {"email": email}), **fields)
+def pupil(spieler_id: ObjectId, email: str, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
+    return spieler_document(spieler_id, "Quintessa", nachname, email=email, **fields)
 
 
 def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
@@ -189,11 +189,12 @@ async def a_pass(database: AsyncDatabase, client: AsyncMongoClient, **replaced: 
     return answers
 
 
-def stored_before_its_validator(spieler_id: ObjectId) -> dict[str, Any]:
-    """A log row stored before its validator required `trace_id`, which refuses the redaction's update under strict validation."""
+def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
+    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2025-01-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(Collection.SPIELER),
@@ -203,6 +204,7 @@ def stored_before_its_validator(spieler_id: ObjectId) -> dict[str, Any]:
         "before": pupil(spieler_id, "vorher@beispielschule.de"),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 
@@ -254,11 +256,9 @@ LIVE_IN_THE_SEASON_JUST_ENDED = numbered(3)
 RETIRED_IN_THE_SEASON_JUST_ENDED = numbered(4)
 IN_THE_RUNNING_SEASON = numbered(5)
 IN_THE_PLANNED_SEASON = numbered(6)
-PENDING_TYPED_OTHERWISE = numbered(7)
-ADDRESSLESS = numbered(8)
+WITH_A_PENDING_REGISTRATION = numbered(7)
 
-PENDING_FOLDED = "thessaly.okonkwo@beispielschule.de"
-PENDING_TYPED = "Thessaly.Okonkwo@beispielschule.de"
+PENDING = "thessaly.okonkwo@beispielschule.de"
 
 LABELS = {
     TWO_SEASONS_BACK: "a squad row two seasons back alone",
@@ -267,16 +267,15 @@ LABELS = {
     RETIRED_IN_THE_SEASON_JUST_ENDED: "a retired row in the season just ended",
     IN_THE_RUNNING_SEASON: "a row in the running season",
     IN_THE_PLANNED_SEASON: "a row in the planned season",
-    PENDING_TYPED_OTHERWISE: "a pending registration typed with capitals",
-    ADDRESSLESS: "no address",
+    WITH_A_PENDING_REGISTRATION: "a pending registration",
 }
 
 
 async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
-        [pupil(spieler_id, None if spieler_id == ADDRESSLESS else address_of(position)) for position, spieler_id in enumerate(LABELS, start=1)]
+        [pupil(spieler_id, address_of(position)) for position, spieler_id in enumerate(LABELS, start=1)]
     )
-    await database[Collection.SPIELER].update_one({"_id": PENDING_TYPED_OTHERWISE}, {"$set": {"email": PENDING_FOLDED}})
+    await database[Collection.SPIELER].update_one({"_id": WITH_A_PENDING_REGISTRATION}, {"$set": {"email": PENDING}})
     await database[Collection.SAISON_SPIELER].insert_many(
         [
             squad_row(TWO_SEASONS_BACK, "2024"),
@@ -290,17 +289,14 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             registration(numbered(101), address_of(2), declined=True),
-            registration(numbered(102), PENDING_TYPED),
+            registration(numbered(102), PENDING),
         ]
     )
 
 
 class TestThePopulation:
     def test_it_names_the_pupils_the_rule_makes_due_and_no_other(self, mongo_replica_set_url: str):
-        """Each pupil stands for one arm of the rule; a kept one appearing names the arm that broke.
-
-        An addressless pupil is never read: nothing erases by a name.
-        """
+        """Each pupil stands for one arm of the rule; a kept one appearing names the arm that broke."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[str]:
             await a_league_of_every_kind(database)
@@ -352,7 +348,6 @@ class TestThePopulation:
 # --- The run.
 
 ADDRESS = "quirinus.vandersloot@beispielschule.de"
-TYPED = "Quirinus.VanDerSloot@beispielschule.de"
 REACHED = numbered(11)
 REACHED_ROWS = (numbered(12), numbered(13))
 REACHED_REGISTRATION = numbered(14)
@@ -368,7 +363,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_SPIELER].insert_many(
         [squad_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, TYPED, declined=True, nachname="Pupillensloot"))
+    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, nachname="Pupillensloot"))
     await database[Collection.SAISON_TEAMS].insert_one(
         {
             "_id": SEAT_ROW,
@@ -378,13 +373,13 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
                 "Lindenschule",
                 "LS",
                 kontakte=kontakte_document(
-                    ansprechperson=kontaktperson_document("Quirinus", bestaetigt_am="2026-03-01", nachname="Sitzsloot", email=TYPED)
+                    ansprechperson=kontaktperson_document("Quirinus", bestaetigt_am="2026-03-01", nachname="Sitzsloot", email=ADDRESS)
                 ),
             ),
         }
     )
     await database[Collection.SCHIEDSRICHTER].insert_one(
-        schiedsrichter_document(REFEREE, email=TYPED, name="Quirinus Schiedssloot", default_payment=20, einwilligung=None)
+        schiedsrichter_document(REFEREE, email=ADDRESS, name="Quirinus Schiedssloot", default_payment=20, einwilligung=None)
     )
     await database[Collection.BERECHTIGUNGEN].insert_one(
         {
@@ -415,7 +410,7 @@ class TestThePupilsOwnDataAlone:
 
             return (
                 counts(answer),
-                await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", TYPED, ADDRESS),
+                await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS),
                 await database[Collection.AKTIONEN]
                 .find(
                     {
@@ -441,8 +436,7 @@ class TestThePupilsOwnDataAlone:
             "Pupillensloot": [],
             "Sitzsloot": ["aktionen", "saison_teams"],
             "Schiedssloot": ["aktionen", "schiedsrichter"],
-            TYPED: ["aktionen", "saison_teams", "schiedsrichter"],
-            ADDRESS: ["aktionen", "berechtigungen"],
+            ADDRESS: ["aktionen", "berechtigungen", "saison_teams", "schiedsrichter"],
         }
         assert unredacted == []
 
@@ -453,7 +447,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         [
             pytest.param(lambda database: database[Collection.SAISON_SPIELER].insert_one(squad_row(numbered(1), "2026")), id="a squad row"),
             pytest.param(
-                lambda database: database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(901), address_of(1).upper())),
+                lambda database: database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(901), address_of(1))),
                 id="a pending registration",
             ),
         ],
@@ -508,28 +502,19 @@ UNFOLDED = "Thessaly.Okonkwo@beispielschule.de"
 
 class TestAStoredAddressNoRequestMatchesIsPassedOver:
     def test_the_pupil_stands_and_a_warning_names_them_by_id(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Their pending registration at the same spelling would keep them, and nothing compares the two.
-
-        Read the page without the leave-out and no warning names them.
-        """
+        """Read the page without the leave-out and no warning names them."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
             await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": UNFOLDED}})
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(903), UNFOLDED))
             answer = await run(database, client)
 
-            return (
-                counts(answer),
-                answer.nach,
-                await database[Collection.SPIELER].count_documents({"_id": numbered(1)}),
-                await database[Collection.REGISTRIERUNGEN].count_documents({"_id": numbered(903)}),
-            )
+            return counts(answer), answer.nach, await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
 
         with caplog.at_level(logging.WARNING):
-            answer, nach, standing, registered = on_a_league(mongo_replica_set_url, body)
+            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing, registered) == (1, 0, 1, None, 1, 1)
+        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
         warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == STORED_DATA_INVALID]
         assert [message.endswith(f": 1 ({numbered(1)})") for message in warnings] == [True]
         assert not [message for message in warnings if "thessaly" in message.lower()]
@@ -757,14 +742,14 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 class TestOneRecordHoldsBackNobody:
     def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A log row stored before its validator required `trace_id` refuses the redaction's update, a real failure under strict validation.
+        """A log image refusing the redaction's update, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
         """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.AKTIONEN].insert_one(stored_before_its_validator(numbered(1)), bypass_document_validation=True)
+            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(numbered(1)), bypass_document_validation=True)
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -916,7 +901,7 @@ class TestEachCallTakesAShare:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
             await database[Collection.AKTIONEN].insert_many(
-                [stored_before_its_validator(numbered(position)) for position in failing], bypass_document_validation=True
+                [refusing_its_redaction(numbered(position)) for position in failing], bypass_document_validation=True
             )
             answers = await a_pass(database, client)
 

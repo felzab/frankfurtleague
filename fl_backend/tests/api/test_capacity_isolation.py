@@ -9,7 +9,7 @@ The refusals themselves are decided on in `tests/api/test_team_entry_refusal.py`
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from bson import ObjectId
@@ -30,6 +30,7 @@ from app.api.teams.services import ENTRY_GRUPPE_FULL
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import kontaktperson_document
 from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.worker import worker_database
 
@@ -101,22 +102,18 @@ def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
     }
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:
-    """One submitted application naming an existing club, and carrying no `bestaetigungen` block.
+    """One submitted application naming an existing club, every seat confirmed by its own person.
 
-    An application stored before the confirmation flow is not held to it, so the acceptance below
-    reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
+    Confirmed, so the acceptance below reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
     """
 
     return documents.bewerbung_document(

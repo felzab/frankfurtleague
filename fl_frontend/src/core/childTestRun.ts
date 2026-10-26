@@ -21,9 +21,8 @@ export function runAsTestFile(source: string, { timeoutMs = CHILD_TIMEOUT_MS }: 
   const scratch = mkdtempSync(path.join(tmpdir(), "fl-child-run-"));
   const fixture = path.join(scratch, "fixture.test.mjs");
   writeFileSync(fixture, source);
-  // Without `NODE_TEST_CONTEXT`, under which a child refuses to run a file, and without the gate's
-  // shard, which `NODE_OPTIONS` carries and which leaves a one-file child no file.
-  const env = { ...process.env, NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(/--test-shard=\S+/g, "") };
+  // Without `NODE_TEST_CONTEXT`, under which a child refuses to run a file.
+  const env = { ...process.env };
   Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
   try {
     const run = spawnSync(process.execPath, ["--import", ALIAS_HOOK, "--test", "--test-reporter=spec", fixture], {

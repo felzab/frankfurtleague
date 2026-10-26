@@ -5,6 +5,8 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
+import type { FLSchiedsrichterBestaetigungAnsichtResponse } from "@/features/schiedsrichter/schemas.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const tags: [string, unknown][] = [];
@@ -47,10 +49,9 @@ const LAUFEND = publishedLaufendeFassung("bestaetigung_schiedsrichter").text_ver
 const TOKEN = "abc123";
 const HEUTE = "2026-09-21";
 
-const ANSICHT = {
+const ANSICHT: FLSchiedsrichterBestaetigungAnsichtResponse = {
   acknowledged: 1,
-  zustand: "gueltig" as const,
-  text_version: LAUFEND,
+  zustand: "gueltig",
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",
@@ -158,8 +159,8 @@ describe("the referee's confirmation handler", () => {
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, false);
   });
 
-  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`), ahead
-     of the fixture read joining the referee's record. */
+  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`): the
+     fixture read serves the referee's name by this record. */
   it("drops the fixture cache with no staleness tolerated", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

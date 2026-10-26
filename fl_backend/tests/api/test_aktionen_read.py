@@ -43,6 +43,7 @@ def stored_row(**overrides):
         "before": dict(STORED_SPIEL),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
     row.update(overrides)
     return row

@@ -3,10 +3,6 @@ import { apiClient } from "@/core/api";
 import {
   FLPatchSchiedsrichterResponseSchema,
   FLPostSchiedsrichterResponseSchema,
-  FLSchiedsrichterAdresswechselAnsichtResponseSchema,
-  FLSchiedsrichterAdresswechselMintResponseSchema,
-  FLSchiedsrichterAdresswechselResponseSchema,
-  FLSchiedsrichterAdresswechselSweepResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
@@ -20,14 +16,6 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
-  FLSchiedsrichterAdresswechselAnsichtPayload,
-  FLSchiedsrichterAdresswechselAnsichtResponse,
-  FLSchiedsrichterAdresswechselEinladenPayload,
-  FLSchiedsrichterAdresswechselMintResponse,
-  FLSchiedsrichterAdresswechselPayload,
-  FLSchiedsrichterAdresswechselResponse,
-  FLSchiedsrichterAdresswechselSweepResponse,
-  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
@@ -81,65 +69,6 @@ export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayl
   return apiClient<FLSchiedsrichterMintResponse>(`/schiedsrichter/${id}/bestaetigung/einladen`, FLSchiedsrichterMintResponseSchema, {
     method: "POST",
     authType: "admin",
-  });
-}
-
-// Replaces the pending block but its address, so the previous address link stops working at once.
-export async function einladeAdresswechsel({
-  id,
-}: FLSchiedsrichterAdresswechselEinladenPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselMintResponse>(
-    `/schiedsrichter/${id}/adresswechsel/einladen`,
-    FLSchiedsrichterAdresswechselMintResponseSchema,
-    { method: "POST", authType: "admin" },
-  );
-}
-
-/**
- * The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove.
- * `nach` is the previous call's answer.
- */
-export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
-  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
-  const params: { nach?: string } = nach === null ? {} : { nach: nach };
-  return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
-    "/schiedsrichter/sweep/adresswechsel",
-    FLSchiedsrichterAdresswechselSweepResponseSchema,
-    {
-      method: "POST",
-      authType: "system",
-      params: params,
-    },
-  );
-}
-
-// The stored address stays; the pending one and its link go.
-export async function verwirfAdresswechsel({ id }: FLSchiedsrichterAdresswechselVerwerfenPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/adresswechsel`, FLSchiedsrichterWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
-}
-
-/** A POST that reads, for `postSchiedsrichterBestaetigungAnsicht`'s reason. */
-export async function postSchiedsrichterAdresswechselAnsicht(
-  payload: FLSchiedsrichterAdresswechselAnsichtPayload,
-): Promise<FLSchiedsrichterAdresswechselAnsichtResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselAnsichtResponse>(
-    "/schiedsrichter/adresswechsel/ansicht",
-    FLSchiedsrichterAdresswechselAnsichtResponseSchema,
-    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
-  );
-}
-
-/** The mailbox's own answer, `base` for `postSchiedsrichterBestaetigung`'s reason. */
-export async function postSchiedsrichterAdresswechsel(
-  payload: FLSchiedsrichterAdresswechselPayload,
-): Promise<FLSchiedsrichterAdresswechselResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselResponse>("/schiedsrichter/adresswechsel", FLSchiedsrichterAdresswechselResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
   });
 }
 

@@ -11,7 +11,7 @@ const ORIGIN = "http://localhost:3000";
 
 registerDoubles();
 
-const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { kontaktBestaetigungsLink, KONTAKT_BESTAETIGUNG_PATH } = await import("./kontaktLink.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
@@ -173,6 +173,56 @@ describe("no value can open a line of its own in the text part", () => {
       assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `${name} was not carried onto one line`);
       assert.ok(!/[\r\n]/.test(mail.subject), `${name} put a break in the subject`);
     }
+  });
+});
+
+/* `docs/frontend/spec.md :: I89`, for the leaving notice as for the confirmation: it prints the seats, the school and the
+   season in its subject, its text and its markup, each a value somebody typed. */
+describe("the leaving notice's values", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const wert = `Wert\n${FORGED_OPENER}`;
+  const abgang = {
+    origin: ORIGIN,
+    rollenText: "Ansprechperson",
+    bleibtText: null,
+    schule: "Ernst-Reuter-Schule",
+    saisonId: "2627",
+    quelle: "saison",
+  } as const;
+
+  it("folds every value it prints onto one line, in the text part and the subject", () => {
+    for (const [feld, daten] of [
+      ["rollenText", { ...abgang, rollenText: wert }],
+      ["bleibtText", { ...abgang, bleibtText: wert }],
+      ["schule", { ...abgang, schule: wert }],
+      ["saisonId", { ...abgang, saisonId: wert }],
+    ] as const) {
+      const mail = buildKontaktAbgangEmail(daten);
+
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `the notice's ${feld} forged a line`);
+      assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `the notice's ${feld} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `the notice's ${feld} put a break in the subject`);
+    }
+  });
+
+  it("escapes a school or a seat carrying markup rather than serving it", () => {
+    for (const daten of [
+      { ...abgang, schule: "<script>a</script>" },
+      { ...abgang, rollenText: "<script>a</script>", bleibtText: "Trainer" },
+      { ...abgang, bleibtText: "<script>a</script>" },
+    ]) {
+      assert.ok(!buildKontaktAbgangEmail(daten).html.includes("<script>"), `a value reached the markup unescaped: ${JSON.stringify(daten)}`);
+    }
+  });
+
+  /* A seat in an application was never asked about a fixture: told its fixture links died, its reader looks for links they
+     never had. A season row's seat may hold both, and is told both died. */
+  it("names the fixture links a seat may have held only on a team's season row", () => {
+    const tot = (quelle: "saison" | "bewerbung") => buildKontaktAbgangEmail({ ...abgang, quelle }).text;
+
+    assert.ok(tot("saison").includes("die Links zum Bestätigen von Spielterminen"), "a season seat is not told its fixture links died");
+    assert.ok(tot("bewerbung").includes("Der Link zum Bestätigen dieses Eintrags funktioniert nicht mehr."), tot("bewerbung"));
+    assert.ok(!tot("bewerbung").includes("Spielterminen"), "an application's seat is told of fixture links it never held");
   });
 });
 

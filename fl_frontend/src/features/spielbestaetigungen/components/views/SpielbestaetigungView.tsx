@@ -15,7 +15,7 @@ import {
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { beantwortetVon, terminText } from "@/features/spielbestaetigungen/utils";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
 
@@ -38,7 +38,8 @@ export type SpielbestaetigungStart =
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse; token: string }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt"> | "unlesbar" };
+  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
+  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> | "unlesbar" };
 
 type Stand =
   | SpielbestaetigungStart
@@ -53,27 +54,19 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   "abgelehnt-neu": "Vorschlag gesendet",
   zugesagt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
+  verworfen: "Schon erledigt",
   abgelaufen: "Link ungültig",
   "termin-vorbei": "Link ungültig",
   ungueltig: "Link ungültig",
+  abgesagt: "Spiel abgesagt",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
-
-/** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-function beantwortetVon(von: FLSpielbestaetigungVon): string {
-  if (von.art === "admin") return "Verwaltung der Liga";
-  // A referee's row carries no seat a link reaches, so a club's page meets this arm only on a broken contract.
-  if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
-  return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
-}
 
 /** The two clubs, ours first: the page is the reader's club's answer about its own fixture. */
 function vereine(ansicht: FLSpielbestaetigungAnsichtResponse): { eigenes: string; anderes: string } {
   const { team1_name, team2_name } = ansicht.ansetzung;
   return ansicht.seite === "team1" ? { eigenes: team1_name, anderes: team2_name } : { eigenes: team2_name, anderes: team1_name };
 }
-
-const terminText = (termin: FLSpielbestaetigungTermin): string => `${formatSpielDatum(termin.datum)} um ${formatUhrzeit(termin.uhrzeit)} Uhr`;
 
 /** The fixture as the mail led with it, in the mail's own panel. */
 function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungAnsichtResponse }) {
@@ -177,7 +170,12 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ_CLASSES}>Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun.</p>
+          {/* The league's own entry once the deadline passed is no answer of the team's, and says so beside the readout. */}
+          <p className={ABSATZ_CLASSES}>
+            {stand.beantwortet_von.art === "admin"
+              ? "Für dieses Spiel hat die Verwaltung der Liga den Termin für Dein Team bestätigt. Du musst nichts weiter tun."
+              : "Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun."}
+          </p>
           <GespeicherteAngaben zeilen={[{ label: "Zugesagt von", wert: beantwortetVon(stand.beantwortet_von) }]} />
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -193,6 +191,17 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
         </BestaetigungErgebnis>
       )}
 
+      {/* The decline's own sentence said the league decides, so this one says it has, under the date it kept. */}
+      {stand.zustand === "verworfen" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <GespeicherteAngaben zeilen={[{ label: "Termin", wert: terminText(stand.termin) }]} />
+          <p className={ABSATZ_CLASSES}>Die Liga hat entschieden: Der Termin oben bleibt.</p>
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
+
       {/* One wording for both, though the view tells them apart: each sentence names one case's way on, and a guessed
           link, read `ungueltig`, passes for a real one before its day. A day gone by has the panel below. */}
       {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
@@ -204,6 +213,18 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
             vorbei, legt die Verwaltung der Liga den Termin fest.
           </p>
           <FrageStellen />
+        </BestaetigungErgebnis>
+      )}
+
+      {/* Whatever the team answered: an agreement shown here would send it to a ground nobody plays on. */}
+      {stand.zustand === "abgesagt" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ_CLASSES}>
+            Dieses Spiel ist abgesagt. Du musst nichts weiter tun. Wird es neu angesetzt, kommt eine neue E-Mail.
+          </p>
+          <ZurLiga />
         </BestaetigungErgebnis>
       )}
 

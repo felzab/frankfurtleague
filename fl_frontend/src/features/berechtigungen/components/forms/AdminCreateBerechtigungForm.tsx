@@ -5,7 +5,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { postBerechtigungAction } from "@/features/berechtigungen/actions";
-import { ZUGANG_ERTEILT } from "@/features/berechtigungen/constants";
+import { ZUGANG_BEANTRAGT, ZUGANG_ERTEILT } from "@/features/berechtigungen/constants";
 import { FLPostBerechtigungPayloadSchema } from "@/features/berechtigungen/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -24,7 +24,7 @@ const toPayload = (draft: FLPostBerechtigungPayload) => ({ email: draft.email })
  */
 export function AdminCreateBerechtigungForm({ onClose }: { onClose: () => void }) {
   return (
-    <EntityForm<FLPostBerechtigungPayload>
+    <EntityForm<FLPostBerechtigungPayload, FLPostBerechtigungPayload, { beantragt: boolean }>
       initialDraft={EMPTY_DRAFT}
       renderFields={(draft, setDraft) => (
         <TextField
@@ -48,7 +48,9 @@ export function AdminCreateBerechtigungForm({ onClose }: { onClose: () => void }
       marksRequired
       // The action's own window: a grant outlives the session making it.
       stepUp="enrolment"
-      successMessage={ZUGANG_ERTEILT}
+      // Saved as a request rather than the grant, a save that stood like any other: the title must not say a grant was
+      // made that waits on another administrator. The tier panel titles its promotion's request the same way.
+      successMessage={(saved) => (saved.beantragt ? ZUGANG_BEANTRAGT : ZUGANG_ERTEILT)}
       onClose={onClose}
     />
   );

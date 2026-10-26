@@ -52,9 +52,9 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildCodeEmail } = await import("./authEmail.ts");
-const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
+const { buildAntragEndeEmail, buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
-const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const {
@@ -63,12 +63,24 @@ const {
   buildRegistrierungErinnerungEmail,
   buildRegistrierungSaisonendeEmail,
 } = await import("./registrierungEmail.ts");
-const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
-  await import("./schiedsrichterEmail.ts");
+const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
-const { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } =
-  await import("./spielEmail.ts");
-const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
+const {
+  buildSpielAbgesagtEmail,
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielErinnerungEmail,
+  buildSpielNeueAnsetzungEmail,
+  buildSpielVorschlagVerworfenEmail,
+} = await import("./spielEmail.ts");
+const {
+  buildAdresswechselEmail,
+  buildAdresswechselGenehmigungEmail,
+  buildAdresswechselHinweisEmail,
+  buildAdresswechselNichtWirksamEmail,
+  buildAdresswechselWirksamEmail,
+} = await import("./adresswechselEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -211,6 +223,15 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       fristText: "05.10.2026",
       zeile: "offen",
     }),
+  buildKontaktAbgangEmail: (origin) =>
+    buildKontaktAbgangEmail({
+      origin: origin,
+      rollenText: "Ansprechperson",
+      bleibtText: null,
+      schule: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+      quelle: "saison",
+    }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),
   buildPasskeyHinzugefuegtEmail: (origin) =>
@@ -247,14 +268,24 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
     buildSchiedsrichterBestaetigungEmail({ origin: origin, token: "beispiel-fuenf", fristText: "05.10.2026" }),
-  buildSchiedsrichterAdresswechselEmail: (origin) =>
-    buildSchiedsrichterAdresswechselEmail({ origin: origin, token: "beispiel-sechs", fristText: "05.10.2026" }),
-  buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
-  buildSpielerAdresswechselEmail: (origin) =>
-    buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
-  buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
+  // The waiting time's variant, the one carrying every sentence a link mail can.
+  buildAdresswechselEmail: (origin) =>
+    buildAdresswechselEmail({ origin: origin, token: "beispiel-sieben", weg: "wartezeit", gueltigBis: "2026-10-05T10:00:00Z" }),
+  // The approval's variant, the one carrying two controls.
+  buildAdresswechselHinweisEmail: (origin) =>
+    buildAdresswechselHinweisEmail({
+      origin: origin,
+      stoppToken: "beispiel-sechs",
+      weg: "freigabe",
+      gueltigBis: "2026-10-05T10:00:00Z",
+      vorname: "Anna",
+    }),
+  buildAdresswechselWirksamEmail: (origin) =>
+    buildAdresswechselWirksamEmail({ origin: origin, vorname: "Lena", zeitpunkt: new Date("2026-10-05T10:00:00Z") }),
+  buildAdresswechselNichtWirksamEmail: (origin) => buildAdresswechselNichtWirksamEmail({ origin: origin }),
+  buildAdresswechselGenehmigungEmail: (origin) => buildAdresswechselGenehmigungEmail({ origin: origin }),
   buildSpielAnfrageEmail: (origin) =>
     buildSpielAnfrageEmail({
       origin: origin,
@@ -281,6 +312,32 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       altUhrzeitText: "14:30",
       empfaenger: "team",
     }),
+  buildSpielEinteilungAufgehobenEmail: (origin) =>
+    buildSpielEinteilungAufgehobenEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      altDatumText: "20.11.2026",
+      altUhrzeitText: "14:30",
+    }),
+  buildSpielAbgesagtEmail: (origin) =>
+    buildSpielAbgesagtEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      altDatumText: "20.11.2026",
+      altUhrzeitText: "14:30",
+      empfaenger: "schiedsrichter",
+    }),
+  buildSpielVorschlagVerworfenEmail: (origin) =>
+    buildSpielVorschlagVerworfenEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      datumText: "20.11.2026",
+      uhrzeitText: "14:30",
+    }),
+  buildAntragEndeEmail: (origin) => buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "neu@schule.de", inhaber: false }, origin),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(
       { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
@@ -628,9 +685,9 @@ describe("the shared email shell", () => {
       "buildEinladungEmail",
       "buildKontaktBestaetigungEmail",
       "buildRegistrierungBestaetigungEmail",
-      "buildSchiedsrichterAdresswechselEmail",
+      "buildAdresswechselEmail",
+      "buildAdresswechselHinweisEmail",
       "buildSchiedsrichterBestaetigungEmail",
-      "buildSpielerAdresswechselEmail",
       "buildSpielAnfrageEmail",
       "buildSpielErinnerungEmail",
     ]) {

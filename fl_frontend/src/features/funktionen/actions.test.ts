@@ -36,6 +36,7 @@ const GELOESCHT = {
   registrierungen: 0,
   adresswechsel: 0,
   berechtigungen: 0,
+  berechtigungen_antraege: 0,
   drosselung: 0,
 };
 const NICHTS = { ...GELOESCHT, spieler: 0, saison_spieler: 0 };
@@ -48,7 +49,8 @@ const ANSICHT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
-  spieler_adresswechsel: [],
+  eigener_adresswechsel: null,
+  antraege: [],
   verwaltung: null,
   gesperrt: false,
 };
@@ -229,6 +231,24 @@ describe("the erasure on request", () => {
     const result = await erase();
 
     assert.equal(result.success, false);
+    assert.deepEqual(request.deletedAccounts(), [], "a refused erasure deleted the account");
+  });
+
+  /* The reveal leaves an owner's pending change out for a reader without an owner's power, and the erasure that would end
+     it is refused them: the sentence names who may erase the address instead. */
+  it("answers an erasure ending a change the reveal left out by naming who may erase the address, deleting nothing", async () => {
+    answerWith(() => Promise.reject(refused("/identitaet/erasure", "REQ-PURGE-007")));
+
+    const result = await erase();
+
+    assert.deepEqual(
+      result.success ? undefined : result.error,
+      [
+        "Die Löschung würde eine laufende Adressänderung beenden, die nur sieht, wer Inhaberin oder Inhaber der Verwaltung ist.",
+        "Lass die Adresse von einer Inhaberin oder einem Inhaber löschen.",
+        "Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
+      ].join(" "),
+    );
     assert.deepEqual(request.deletedAccounts(), [], "a refused erasure deleted the account");
   });
 

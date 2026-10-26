@@ -16,6 +16,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import bestaetigte_kenntnisnahme
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -84,7 +85,7 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
         "email": KONTAKT_EMAIL,
         "telefon": KONTAKT_TELEFON,
         "geburtsdatum": KONTAKT_GEBURTSDATUM,
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+        "einwilligung": bestaetigte_kenntnisnahme(),
     }
 
 

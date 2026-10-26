@@ -6,15 +6,14 @@ import { AdminBracketWiringView } from "@/features/admin/components/views/AdminB
 import { requireAdminSaison } from "@/features/saisons/resolvers";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
-import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas";
+import { FLSpieltagWithAdminSpieleSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The season's bracket wiring, on the admin-tier reads: this page opens on a season that may still be
- * planned, whose contents the base reads withhold. The page is admin-only through
- * `bereich/admin/layout.tsx`'s guard.
+ * planned, whose contents the base reads withhold.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
   await connection();
@@ -27,7 +26,7 @@ export default async function AdminFinalrundenPage(props: NextPageProps) {
 
   // Parsed, not cast: the type system cannot know the joined rows still satisfy the shape after an
   // upstream schema change, and the mismatch would surface inside the view.
-  const rounds = z.array(FLSpieltagWithSpieleSchema).parse(
+  const rounds = z.array(FLSpieltagWithAdminSpieleSchema).parse(
     joinCollections({
       left: spieltageRes.spieltage,
       right: spieleRes.spiele,

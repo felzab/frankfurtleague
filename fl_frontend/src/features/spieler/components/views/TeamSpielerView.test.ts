@@ -19,7 +19,6 @@ import type { FLSpielerPublic } from "../../schemas.ts";
 const { TeamSpielerView } = await import("./TeamSpielerView.tsx");
 
 const VEROEFFENTLICHT: FLSpielerPublic = {
-  id: "6890a1b2c3d4e5f607390031",
   vorname: "Alina",
   nachname: "F.",
   nummer: "7",
@@ -28,7 +27,6 @@ const VEROEFFENTLICHT: FLSpielerPublic = {
 
 /** What `READ-PUPIL-003` serves for a person the consent record withholds: both names `null`, the slot standing. */
 const ZURUECKGEHALTEN: FLSpielerPublic = {
-  id: "6890a1b2c3d4e5f607390032",
   vorname: null,
   nachname: null,
   nummer: "12",
@@ -37,7 +35,6 @@ const ZURUECKGEHALTEN: FLSpielerPublic = {
 
 /** A forename a space runs through, which is the row a reader that split the DISPLAY string gave three letters. */
 const ZWEITEILIGER_VORNAME: FLSpielerPublic = {
-  id: "6890a1b2c3d4e5f607390033",
   vorname: "Anna Lena",
   nachname: "K.",
   nummer: "3",

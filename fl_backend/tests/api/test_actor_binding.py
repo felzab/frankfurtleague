@@ -18,7 +18,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.sperrliste.services import adresse_hash
-from app.core.actor_token import ACTOR_TOKEN_MAX_LENGTH, Lane
+from app.core.actor_token import ACTOR_TOKEN_MAX_LENGTH, PASSKEY_FACTOR, Lane
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, NO_DATABASE_CLIENT, ActorTokenRefusedException, MalformedRequestException
 from app.core.logging import FL_LOGGER_NAME
@@ -361,12 +361,11 @@ PUBLIC_WRITES = [
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
     ("/api/v0/schiedsrichter/bestaetigung", "POST"),
-    # The holder of a referee's new mailbox holds no session either, for the same reason.
-    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "POST"),
-    ("/api/v0/schiedsrichter/adresswechsel", "POST"),
-    # The holder of a pupil's new mailbox, for the same reason.
-    ("/api/v0/spieler/adresswechsel/ansicht", "POST"),
-    ("/api/v0/spieler/adresswechsel", "POST"),
+    # The holder of a new mailbox holds no session either, for the same reason, and the address on file's stop link is the
+    # whole credential, as the new mailbox's is.
+    ("/api/v0/adresswechsel/bestaetigung/ansicht", "POST"),
+    ("/api/v0/adresswechsel/bestaetigung", "POST"),
+    ("/api/v0/adresswechsel/bestaetigung/stopp", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -391,6 +390,7 @@ SYSTEM_WRITES = [
     ("/api/v0/registrierungen/sweep/{saison_id}", "POST"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "POST"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "POST"),
+    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt", "POST"),
     ("/api/v0/bewerbungen/zustellung", "POST"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "POST"),
     ("/api/v0/zustellung", "POST"),
@@ -408,7 +408,12 @@ SYSTEM_WRITES = [
     ("/api/v0/berechtigungen/abgleich/angekuendigt", "POST"),
     # Recorded under `SYSTEM`: the rule and the clock delete, never the administrator whose press may run one.
     ("/api/v0/identitaet/loeschung/lauf", "POST"),
-    ("/api/v0/schiedsrichter/sweep/adresswechsel", "POST"),
+    ("/api/v0/adresswechsel/sweep", "POST"),
+    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
+    ("/api/v0/adresswechsel/sweep/postausgang", "POST"),
+    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "POST"),
+    # A read, listed for the reason the identity reads are: the frontend's server asks a live change's new address.
+    ("/api/v0/adresswechsel/sweep/adresse", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
@@ -424,6 +429,11 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/identitaet/selbst/erasure", "POST"),
+    ("/api/v0/spielbestaetigungen/{spielbestaetigung_id:objectid}/antwort", "POST"),
+    ("/api/v0/spielberichte/{spiel_id:objectid}/bericht", "PUT"),
+    ("/api/v0/konto/adresswechsel", "POST"),
+    ("/api/v0/konto/adresswechsel/freigabe", "POST"),
+    ("/api/v0/konto/adresswechsel", "DELETE"),
 ]
 
 # Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
@@ -712,6 +722,10 @@ GRANT_WRITES = [
     pytest.param("post", "/api/v0/berechtigungen", id="a grant"),
     pytest.param("delete", f"/api/v0/berechtigungen/{GRANT_ID}", id="a revoke"),
     pytest.param("patch", f"/api/v0/berechtigungen/{GRANT_ID}", id="a tier change"),
+    # It hands a grant over to the confirmed address, as a grant does.
+    pytest.param("post", f"/api/v0/adresswechsel/{GRANT_ID}/genehmigung", id="an approval of a grant's move"),
+    # It makes the grant, or the promotion, the request asked for.
+    pytest.param("post", f"/api/v0/berechtigungen/antraege/{GRANT_ID}/genehmigung", id="an approval of a grant or a promotion"),
 ]
 ENROLMENT_WINDOW_S = ENROLMENT_WINDOW_MINUTES * 60
 
@@ -739,13 +753,15 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
-    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
-    pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
-    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change asked"),
-    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel/einladen", id="a pupil's fresh address link"),
-    pytest.param("delete", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change discarded"),
+    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/eintragen", id="a party's Zusage recorded for it"),
+    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen", id="a club's proposal discarded"),
+    pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
+    pytest.param("post", "/api/v0/adresswechsel", id="an address change asked"),
+    pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/einladen", id="an address change's fresh link"),
+    pytest.param("delete", "/api/v0/adresswechsel/{adresswechsel_id}", id="an address change discarded"),
+    pytest.param("delete", "/api/v0/berechtigungen/antraege/{antrag_id}", id="a request for a grant refused or withdrawn"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
@@ -1010,6 +1026,42 @@ class TestThePersonBinderOverAServedRequest:
         response = person_client(barred=None).get(PERSON_PROBE, headers={ACTOR_HEADER: actor_token(KNOWN_IDENTIFIER, lane="person")})
 
         assert (response.status_code, response.json()["error_code"]) == (503, UNREACHED_DATABASE)
+
+
+# The person's own address change, started or approved, held to the enrolment window by either factor.
+ADDRESS_CHANGE_WRITES = [
+    pytest.param("/api/v0/konto/adresswechsel", {"email": "neu.postfach@anderswo.example"}, id="a start"),
+    pytest.param("/api/v0/konto/adresswechsel/freigabe", None, id="an approval"),
+]
+
+
+def person_signed_in_before(age_s: int, *, factor: str | None = None) -> dict[str, str]:
+    """A person's token whose sign-in lies `age_s` before the guard read it, by code unless `factor` names another."""
+
+    claims = actor_claims(KNOWN_IDENTIFIER, lane="person")
+    return {ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s, **({} if factor is None else {"amr": [factor]})})}
+
+
+class TestTheAddressChangeAsksAFreshSignIn:
+    """`docs/backend/spec.md :: I790`: a start or an approval from a sign-in or confirmation inside the enrolment window, by either factor."""
+
+    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
+    def test_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, path: str, body: Any):
+        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **person_signed_in_before(ENROLMENT_WINDOW_S + 1)})
+
+        assert (response.status_code, response.json()["error_code"]) == (401, CONFIRMATION_REQUIRED)
+        assert response.headers["www-authenticate"] == (
+            f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{ENROLMENT_WINDOW_S}"'
+        )
+
+    @pytest.mark.parametrize("factor", [None, PASSKEY_FACTOR], ids=["by-code", "by-passkey"])
+    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
+    def test_either_factor_at_the_window_s_edge_passes_the_check(self, path: str, body: Any, factor: str | None):
+        """The control: the code goes to the address on file, the confirmation OWASP's process asks of it; refuse it and this fails."""
+
+        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **person_signed_in_before(ENROLMENT_WINDOW_S, factor=factor)})
+
+        assert response.json()["error_code"] == UNREACHED_DATABASE
 
 
 class TestThePseudonym:

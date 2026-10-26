@@ -92,12 +92,10 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
     ("/api/v0/schiedsrichter/bestaetigung", "post"),
-    # A referee's address link, on a base-tier router of its own for the same reason.
-    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "post"),
-    ("/api/v0/schiedsrichter/adresswechsel", "post"),
-    # A pupil's address link, its own base-tier router for the referee's link's reason.
-    ("/api/v0/spieler/adresswechsel/ansicht", "post"),
-    ("/api/v0/spieler/adresswechsel", "post"),
+    # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
+    ("/api/v0/adresswechsel/bestaetigung/ansicht", "post"),
+    ("/api/v0/adresswechsel/bestaetigung", "post"),
+    ("/api/v0/adresswechsel/bestaetigung/stopp", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
@@ -120,6 +118,7 @@ SYSTEM_WRITES = [
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "post"),
+    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
     ("/api/v0/zustellung", "post"),
@@ -139,7 +138,12 @@ SYSTEM_WRITES = [
     # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
     # no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identitaet/loeschung/lauf", "post"),
-    ("/api/v0/schiedsrichter/sweep/adresswechsel", "post"),
+    ("/api/v0/adresswechsel/sweep", "post"),
+    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
+    ("/api/v0/adresswechsel/sweep/postausgang", "post"),
+    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
+    # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
+    ("/api/v0/adresswechsel/sweep/adresse", "post"),
 ]
 
 MUTATIONS = [
@@ -163,6 +167,9 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
+    # Every confirmation row of a season, each reason a club typed or an administrator recorded among them: free text
+    # that may name anyone, which no base-tier read serves.
+    ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/identitaet/erasure/ansicht", "post"),
@@ -191,6 +198,12 @@ ADMIN_READS = [
     ("/api/v0/spieler/selbst", "get"),
     ("/api/v0/schiedsrichter/selbst", "get"),
     ("/api/v0/konto/einwilligungen", "get"),
+    # A report's remarks and card reasons, which only the administrator and the booked referee read; the squads
+    # beside them carry every surname whole.
+    ("/api/v0/spielberichte/{spiel_id}/admin", "get"),
+    ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
+    # Every report's proposed result, which the public result never serves.
+    ("/api/v0/spielberichte", "get"),
 ]
 
 
@@ -252,6 +265,15 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
         ("/api/v0/identitaet/selbst/erasure", "post"),
         ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
+        ("/api/v0/spielbestaetigungen/selbst", "get"),
+        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
+        ("/api/v0/spielberichte/person", "get"),
+        ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
+        ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
+        ("/api/v0/konto/adresswechsel", "get"),
+        ("/api/v0/konto/adresswechsel", "post"),
+        ("/api/v0/konto/adresswechsel/freigabe", "post"),
+        ("/api/v0/konto/adresswechsel", "delete"),
     }
 )
 

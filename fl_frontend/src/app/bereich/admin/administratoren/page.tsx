@@ -46,6 +46,7 @@ async function Berechtigungen() {
     <AdminBerechtigungenView
       berechtigungen={berechtigungenRes.berechtigungen}
       uebersprungen={berechtigungenRes.uebersprungen}
+      antraege={berechtigungenRes.antraege}
       inhaberAdresse={inhaberAdresse}
     />
   );
@@ -53,7 +54,7 @@ async function Berechtigungen() {
 
 /**
  * The signed-in administrator's address where their session holds an owner's power, which alone revokes and changes
- * a tier: off the lookup the guard's own verdict was read from, memoised per render, so it costs no second read.
+ * a tier: off the lookup the page's own verdict was read from, memoised per render, so it costs no second read.
  */
 async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();

@@ -8,7 +8,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
@@ -44,6 +43,7 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -55,7 +55,6 @@ from app.api.spiele.services import (
     slots_booked_against,
 )
 from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler
-from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
@@ -186,6 +185,7 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "notiz": stored.get("notiz"),
+            "schiedsrichter_stand": None if stored["schiedsrichter"] is None else stored["schiedsrichter"]["schiedsrichter_id"],
         }
     )
 
@@ -237,7 +237,7 @@ REMOVAL_MODULES = ("app/core/crud.py",)
 
 # A day count is operational state and no domain row, written and removed outside the log by design;
 # its id names the person's pseudonym, so a logged filter would keep what the erasure removes.
-UNLOGGED_REMOVALS = frozenset({"app/core/drosselung.py :: erase_counts_in_session"})
+UNLOGGED_REMOVALS = frozenset({"app/core/drosselung.py :: erase_counts_in_session", "app/core/drosselung.py :: carry_counts_in_session"})
 
 # The day a row retired, and so the field a retention sweep would select on.
 RETIREMENT_FIELD = "inactive_since"
@@ -683,24 +683,8 @@ class TestAPersonWithNoSquadRow:
         }
 
 
-class TestAPupilStoredWithNoBirthdate:
-    """That the one write judging a date demands one, that a stored person needs no key, and that the league's age reaches no squad module."""
-
-    def test_the_write_that_judges_a_date_demands_one_while_the_person_does_not(self):
-        """The asymmetry this entry is about: a pupil cannot answer their confirmation dateless, and the person it becomes may carry none."""
-
-        assert FLRegistrierungBestaetigungPayload.model_fields["geburtsdatum"].is_required()
-        assert not FLSpieler.model_fields["geburtsdatum"].is_required()
-
-    def test_a_stored_person_carrying_no_key_still_validates(self):
-        schema = COLLECTION_VALIDATORS[Collection.SPIELER]["$jsonSchema"]
-
-        # The floor: this collection DOES require keys, so the absence below is the field going
-        # unrequired rather than a validator that asks nothing of anybody.
-        assert schema["required"]
-
-        assert "geburtsdatum" in schema["properties"]
-        assert "geburtsdatum" not in schema["required"]
+class TestAPupilsAgeNoSquadRuleJudges:
+    """That the league's age reaches no squad module: the floor is judged at the registration alone."""
 
     def test_the_leagues_age_reaches_no_squad_module(self):
         """Both thresholds are named constants, so where a module can read either is where an age can be judged."""
@@ -861,6 +845,7 @@ FIXTURE_PATCH_REFUSALS = (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_state_refusal,
     find_wiring_refusal,
@@ -930,6 +915,7 @@ def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayloa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
+            "schiedsrichter_stand": None,
         }
     )
 

@@ -1,4 +1,4 @@
-import { isRecordMissing } from "@/core/errors";
+import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
 import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -85,18 +85,18 @@ export const KEINE_ADRESSE = buildRefusal({
 });
 
 /**
- * The pending address change's two controls, or `null`. A change answered, replaced or discarded
- * since the page loaded is the 404 both answer, and the page holding a stale panel is the repair.
+ * The save's refusal to move a confirmed referee's address, which only a page older than the record sends: one opened
+ * before the confirmation, or before an address change moved the address it carries back unedited.
  */
-export function mapAdresswechselRefusal(error: unknown): string | null {
-  if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
+export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? SPERRLISTE_ADRESSE_GESPERRT : null;
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-011" ? { error: BESTAETIGTE_ADRESSE } : null;
 }
 
-const KEIN_ADRESSWECHSEL = buildRefusal({
-  reason: "Für diese Person wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
+// Both causes named: on the second the administrator touched no address, so the rule alone explains a change they never made.
+const BESTAETIGTE_ADRESSE = buildRefusal({
+  reason: `Seit Du die Seite geöffnet hast, hat die Person bestätigt oder ihre Adresse hat sich geändert. Die Adresse einer bestätigten Schiedsrichterin oder eines bestätigten Schiedsrichters ändert die Person selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“`,
   repair: LADE_DIE_SEITE_NEU,
 });
 
@@ -105,4 +105,7 @@ export const SCHIEDSRICHTER_REPLAY_REFUSALS: Readonly<Record<string, string>> = 
   "REQ-SCHIEDSRICHTER-007":
     "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
   "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+  // Both causes, as `BESTAETIGTE_ADRESSE` names them: an address change landing inside the undo window refuses the
+  // replay of a referee confirmed throughout, who would otherwise read as having just confirmed.
+  "REQ-SCHIEDSRICHTER-011": `Seit dem Speichern hat die Person bestätigt oder ihre Adresse hat sich geändert. Ihre Adresse ändert sie jetzt selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“.`,
 };

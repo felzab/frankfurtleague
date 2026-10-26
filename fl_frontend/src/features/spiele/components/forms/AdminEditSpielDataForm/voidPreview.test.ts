@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { APINetworkError } from "@/core/errors.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { pickerTrigger } from "@/shared/testing/pickerTrigger.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
@@ -230,16 +231,6 @@ function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE, isSpie
       { search: "saison_id=2026" },
     ),
   );
-}
-
-/** The picker's trigger group, whose own click toggles the list: HeroUI wraps the select's button in it. */
-function pickerTrigger(label: string): HTMLElement {
-  const button = [...document.querySelectorAll<HTMLElement>('button[aria-haspopup="listbox"]')].find((candidate) =>
-    (candidate.getAttribute("aria-labelledby") ?? "")
-      .split(" ")
-      .some((id) => document.getElementById(id)?.textContent?.trim().startsWith(label) === true),
-  );
-  return button?.closest<HTMLElement>('[data-slot="autocomplete-trigger"]') ?? assert.fail(`no picker trigger labelled ${label}`);
 }
 
 /* The form's half of the banner: which date is the draft's and which the stored one is decided here alone. */

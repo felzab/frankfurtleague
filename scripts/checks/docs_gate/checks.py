@@ -49,6 +49,7 @@ from .kernel import (
     ENTRY_TOKEN_ALPHABET,
     GATE,
     GLOSSARY_PAGE,
+    HASH_STYLES,
     HEADER_SUFFIXES,
     INVARIANT_ID_RE,
     OPS_FILENAMES,
@@ -1711,7 +1712,7 @@ def _jsx_text_lines(text: str, sought: str) -> set[int]:
 # hyphen, so there `autoupdate` must not resolve inside `--no-autoupdate`; in code it is an operator.
 NAME_CONTINUES: Final = r"[\w$]"
 NAME_WITH_HYPHEN: Final = r"[\w$-]"
-HYPHENATED_STYLES: Final = frozenset({".sh", ".css"})
+HYPHENATED_STYLES: Final = frozenset({*HASH_STYLES, ".css"})
 
 
 def _lines_carrying(text: str, sought: str, *, rendered: bool, continues: str | None = None) -> set[int]:

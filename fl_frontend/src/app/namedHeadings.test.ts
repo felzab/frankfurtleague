@@ -5,19 +5,23 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import {
   ABOUT_TITEL,
+  ADMINISTRATOREN_TITEL,
   DATENSCHUTZ_TITEL,
   DEIN_BEREICH_TITEL,
+  EINSAETZE_TITEL,
   IMPRESSUM_TITEL,
   KONTAKT_TITEL,
+  OFFENE_ANTRAEGE,
   ORGANISATION_TITEL,
   SAISONUEBERSICHT_TITEL,
   VERWALTUNG_TITEL,
 } from "@/core/seitenNamen.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import {
+  ADRESSWECHSEL_EINTRAG,
   FINALRUNDEN_EINTRAG,
   HANDLUNGSBEDARF_EINTRAG,
   LOESCHUNG_EINTRAG,
@@ -37,7 +41,7 @@ import {
   ZEITRAUM_ABSCHNITT,
 } from "@/features/saisons/constants.ts";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { ADRESSE_AENDERN, KADER_ABSCHNITT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants.ts";
+import { KADER_ABSCHNITT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants.ts";
 import { KONTAKTE_ABSCHNITT, SAISON_ABSCHNITT } from "@/features/teams/constants.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -67,10 +71,7 @@ const SAISON_FORM = "features/saisons/components/forms/AdminSaisonEditForm";
 const SAISONS_TABELLE = "features/saisons/components/collections/AdminSaisonsTable.tsx";
 const ADMIN = "features/admin/constants.ts";
 const ANTWORTEN = "core/adresswechselAntworten.ts";
-const ADRESSWECHSEL_SEITEN = [
-  "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
-  "features/spieler/components/views/SpielerAdresswechselView.tsx",
-];
+const ADRESSWECHSEL_SEITEN = ["features/adresswechsel/components/views/AdresswechselLinkView.tsx"];
 
 const TOP_NAV = "shared/components/layout/topnav/TopNav.tsx";
 const FOOTER = "shared/components/layout/footer/Footer.tsx";
@@ -134,6 +135,16 @@ const REGISTER: readonly Benannt[] = [
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
   },
+  {
+    wort: EINSAETZE_TITEL,
+    konstante: "EINSAETZE_TITEL",
+    heim: "core/seitenNamen.ts",
+    zeigen: [
+      "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+      "core/spielEmail.ts",
+      "features/funktionen/utils.ts",
+    ],
+  },
   seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, "/dashboard", [
     TOP_NAV,
     "app/dashboard/layout.tsx",
@@ -162,6 +173,18 @@ const REGISTER: readonly Benannt[] = [
     "features/funktionen/utils.ts",
     "app/bereich/admin/not-found.tsx",
   ]),
+  // Named by the mails sending an approver there, which `core` holds and no feature constant can reach.
+  seitenName("ADMINISTRATOREN_TITEL", ADMINISTRATOREN_TITEL, "/bereich/admin/administratoren", [ADMIN, "core/adresswechselEmail.ts"]),
+  {
+    wort: OFFENE_ANTRAEGE,
+    konstante: "OFFENE_ANTRAEGE",
+    heim: "core/seitenNamen.ts",
+    zeigen: [
+      "features/berechtigungen/components/collections/AdminBerechtigungAntraegeList.tsx",
+      "features/berechtigungen/constants.ts",
+      "core/berechtigungEmail.ts",
+    ],
+  },
   seitenName("ABOUT_TITEL", ABOUT_TITEL, "/about", [
     TOP_NAV,
     FOOTER,
@@ -198,6 +221,7 @@ const REGISTER: readonly Benannt[] = [
   eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG, [SAISONS_TABELLE]),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),
   eintrag("LOESCHUNG_EINTRAG", LOESCHUNG_EINTRAG),
+  eintrag("ADRESSWECHSEL_EINTRAG", ADRESSWECHSEL_EINTRAG, ["features/adresswechsel/components/ui/AdresswechselHinweis.tsx"]),
   eintrag("SAISONS_EINTRAG", SAISONS_EINTRAG),
   eintrag("SPIELTAGE_EINTRAG", SPIELTAGE_EINTRAG, [SAISONS_TABELLE]),
   eintrag("FINALRUNDEN_EINTRAG", FINALRUNDEN_EINTRAG),
@@ -209,15 +233,16 @@ const REGISTER: readonly Benannt[] = [
     zeigen: ["features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx"],
     steuerung: true,
   },
+  { wort: JA_ANGEFRAGT, konstante: "JA_ANGEFRAGT", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
+  { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
+  // Named by the notice to the address on file, so offered under that word on the stop link's page and the account page.
   {
-    wort: ADRESSE_AENDERN,
-    konstante: "ADRESSE_AENDERN",
-    heim: "features/spieler/constants.ts",
-    zeigen: [`${SPIELER_FORM}/FormAdresseSection.tsx`],
+    wort: ADRESSWECHSEL_STOPPEN,
+    konstante: "ADRESSWECHSEL_STOPPEN",
+    heim: ANTWORTEN,
+    zeigen: [...ADRESSWECHSEL_SEITEN, "features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx"],
     steuerung: true,
   },
-  { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
-  { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
   {
     wort: ADRESSE_KORRIGIEREN,
     konstante: "ADRESSE_KORRIGIEREN",
@@ -250,7 +275,10 @@ const REGISTER: readonly Benannt[] = [
     wort: SCHIEDSRICHTER_ANONYM_LABEL,
     konstante: "SCHIEDSRICHTER_ANONYM_LABEL",
     heim: "features/schiedsrichter/constants.ts",
-    zeigen: [],
+    zeigen: [
+      "features/meta/components/views/DatenschutzView.tsx",
+      "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+    ],
   },
 ];
 

@@ -196,3 +196,19 @@ describe("the fixture dialog's status chip", () => {
     unmount();
   });
 });
+
+describe("the referee the fixture dialog names", () => {
+  /* The served verdict withholds the name of a real referee, which must read as nobody rather than as an entry
+     somebody left unfinished: the card is the one public reader of the referee block. */
+  it("reads a referee whose consent withholds the name as „anonym“, in the empty-value grade", () => {
+    const { dialog, unmount } = openDialog({
+      ...UNGESPIELT,
+      schiedsrichter: { name: null, name_is_public: false },
+    });
+
+    const wort = within(dialog).getByText("anonym");
+    assertLeer(wort, "anonym");
+    assert.ok(!dialog.textContent.includes("Eintrag ohne Namen"), "a withheld name reads as an unfinished entry");
+    unmount();
+  });
+});

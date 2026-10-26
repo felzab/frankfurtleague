@@ -17,8 +17,11 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
+    BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
@@ -30,6 +33,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SperrlisteCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
@@ -48,7 +52,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Twenty-one commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
+# Twenty-two commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
 # again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
 # round trip (`docs/backend/spec.md :: I322`).
 LOESCHUNGEN_PER_PASS: Final = 10
@@ -65,6 +69,7 @@ async def _erase_one(
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -74,6 +79,9 @@ async def _erase_one(
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
+    adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     db: AsyncMongoClient,
     schluessel: SecretStr,
@@ -93,6 +101,7 @@ async def _erase_one(
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
@@ -102,6 +111,9 @@ async def _erase_one(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adressanker_collection=adressanker_collection,
+            adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             schluessel=schluessel,
             stamp=stamp,
@@ -129,6 +141,7 @@ async def post_loeschung_lauf(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
@@ -138,6 +151,9 @@ async def post_loeschung_lauf(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adressanker_collection: AdressankerCollection,
+    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -223,6 +239,7 @@ async def post_loeschung_lauf(
                     schiedsrichter_collection=schiedsrichter_collection,
                     spiele_collection=spiele_collection,
                     spielbestaetigungen_collection=spielbestaetigungen_collection,
+                    spielberichte_collection=spielberichte_collection,
                     registrierungen_collection=registrierungen_collection,
                     drosselung_collection=drosselung_collection,
                     aktionen_collection=aktionen_collection,
@@ -232,6 +249,9 @@ async def post_loeschung_lauf(
                     einladungen_collection=einladungen_collection,
                     sperrliste_collection=sperrliste_collection,
                     adressanker_collection=adressanker_collection,
+                    adresswechsel_collection=adresswechsel_collection,
+                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                    berechtigungen_antraege_collection=berechtigungen_antraege_collection,
                     sperrliste=sperrliste,
                     db=db,
                     schluessel=config.sperrliste_schluessel,

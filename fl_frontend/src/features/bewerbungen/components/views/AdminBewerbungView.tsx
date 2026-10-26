@@ -16,6 +16,7 @@ import { BewerbungAngabenPanel } from "./BewerbungAngabenPanel";
 import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { GruppeOffer } from "@/features/teams/types";
 import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
 
@@ -31,6 +32,7 @@ export function AdminBewerbungView({
   saisonStatus,
   gruppeOffer,
   neubesetzung,
+  medienFragen,
 }: {
   bewerbung: FLBewerbung;
   /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
@@ -42,6 +44,7 @@ export function AdminBewerbungView({
   gruppeOffer: readonly GruppeOffer[];
   /** `null` where the registry could not be read, which closes the reseat. */
   neubesetzung: Neubesetzung | null;
+  medienFragen: MedienFragen;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -52,8 +55,6 @@ export function AdminBewerbungView({
   const [grundGetippt, setGrundGetippt] = useState(false);
   const [boxGetippt, setBoxGetippt] = useState(false);
 
-  // `null` for an application submitted before the workflow: it carries no per-seat state, and the
-  // acceptance is not closed against one.
   const staende = bestaetigungsStand(bewerbung);
   const hindernis = zusageHindernis(staende, teamName);
 
@@ -77,23 +78,22 @@ export function AdminBewerbungView({
         </header>
 
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
-          {staende !== null && (
-            <BewerbungBestaetigungStrip
-              bewerbungId={bewerbung.id}
-              neubesetzung={neubesetzung}
-              staende={staende}
-              frist={bewerbung.bestaetigungsfrist}
-              fristAbgelaufen={fristAbgelaufen}
-              isOpen={isOpen}
-              isDirty={grundGetippt}
-              onGetipptChange={setBoxGetippt}
-            />
-          )}
+          <BewerbungBestaetigungStrip
+            bewerbungId={bewerbung.id}
+            neubesetzung={neubesetzung}
+            staende={staende}
+            frist={bewerbung.bestaetigungsfrist}
+            fristAbgelaufen={fristAbgelaufen}
+            isOpen={isOpen}
+            isDirty={grundGetippt}
+            onGetipptChange={setBoxGetippt}
+          />
 
           <BewerbungAngabenPanel
             bewerbung={bewerbung}
             teamName={teamName}
             staende={staende}
+            medienFragen={medienFragen}
           />
 
           {/* Standing whatever the endpoint would refuse, its own control closed with the reason

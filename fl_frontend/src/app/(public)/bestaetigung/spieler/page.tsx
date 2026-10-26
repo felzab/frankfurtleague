@@ -89,7 +89,5 @@ function seitenFassung(
     return neu === null ? null : { ...gekeyteFassung(neu, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
   }
 
-  return wiederkehrend === null
-    ? null
-    : { ...gekeyteFassung(wiederkehrend, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
+  return wiederkehrend === null ? null : { ...gekeyteFassung(wiederkehrend, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL), seite: seite };
 }

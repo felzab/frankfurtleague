@@ -25,6 +25,20 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(stamp, str) and stamp != ""
 
 
+# `app/api/spieler/services.py :: name_is_public` as a Mongo expression, here for `is_confirmed`'s reason: a pupil's
+# squad read and a fixture's referee join both read it. By `$type`, as an absent key and a stored null are one state.
+NAME_IS_PUBLIC: Final[Mapping[str, Any]] = {
+    "$and": [
+        {"$eq": [{"$type": "$einwilligung"}, "object"]},
+        {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
+        {"$eq": [{"$type": "$einwilligung.bestaetigt_am"}, "string"]},
+        # Beside the type test rather than instead of it: `$type` calls `""` a string, so an arm
+        # reading the type alone publishes a record nobody confirmed.
+        {"$ne": ["$einwilligung.bestaetigt_am", ""]},
+    ]
+}
+
+
 # Every page that stamps a label: a name outside it is a type error rather than a 500. The wire
 # serves a plain string, so a page added here moves no published schema.
 Seite = Literal[
@@ -275,7 +289,7 @@ _BESTAETIGUNGSSEITE_SAISON: Final[Mapping[str, str]] = MappingProxyType(
 # rewording is a new constant under a new label, never an edit here.
 _MEDIEN_SCHALTER: Final = "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen."
 
-_SCHIEDSRICHTERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
+_SCHIEDSRICHTERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
     {
         "worum": (
             "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und "
@@ -335,7 +349,8 @@ _SCHIEDSRICHTERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
             "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner "
             "besonderen Situation ergeben (Art. 21 DSGVO)."
         ),
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+        # A link page names nobody: its link went to an address nobody has confirmed, behind a typo a stranger's.
+        "klickIdentitaet": "dass Du selbst als Schiedsrichterin oder Schiedsrichter eingetragen bist und diese E-Mail-Adresse Dir gehört,",
         "klickEintrag": "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
         "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
         "klickEinwilligung": (
@@ -346,7 +361,7 @@ _SCHIEDSRICHTERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
-_SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
+_SPIELERSEITE_5: Final[Mapping[str, str]] = MappingProxyType(
     {
         "worum": (
             "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League "
@@ -395,10 +410,10 @@ _SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
         ),
         "frist": (
             "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du "
-            "kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der "
-            "nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich dort wieder mit derselben "
-            "E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl bestätigen; andernfalls löschen wir sie "
-            "dann vollständig."
+            "kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten "
+            "wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen "
+            "von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist "
+            "bis zum Ende der Saison nicht entschieden, löschen wir sie dann."
         ),
         "widerruf": (
             "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, "
@@ -410,7 +425,8 @@ _SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
             "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner "
             "besonderen Situation ergeben (Art. 21 DSGVO)."
         ),
-        "klickIdentitaet": "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
+        # A link page names nobody: its link went to an address nobody has confirmed, behind a typo a stranger's.
+        "klickIdentitaet": "dass Du Dich selbst für {team} registriert hast und diese E-Mail-Adresse Dir gehört,",
         "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,",
         "klickEinwilligung": (
             "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so "
@@ -421,24 +437,10 @@ _SPIELERSEITE_3: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
-# The pupil page once a registration's fate follows the team's decision: only the retention paragraph,
-# which promised the details until the next season's registration closed, is its own.
-_SPIELERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
-    {
-        **_SPIELERSEITE_3,
-        "frist": (
-            "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von selbst; Du "
-            "kannst Dich dann über den Link Deines Teams erneut registrieren. Bestätigst Du die Registrierung, behalten "
-            "wir sie, bis Dein Team über sie entscheidet: Nimmt es Dich auf, löschen wir sie, und Deine Angaben stehen "
-            "von da an in Deinem Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung. Ist "
-            "bis zum Ende der Saison nicht entschieden, löschen wir sie dann."
-        ),
-    }
-)
-
-# The pupil page for a pupil the league already holds, confirmed, under this address and name: the
-# choices they gave stand and are shown back rather than asked again, so nothing here asks or clicks one.
-_SPIELERSEITE_WIEDERKEHREND: Final[Mapping[str, str]] = MappingProxyType(
+# For a pupil the league already holds, confirmed, under this address and name: their choices stand,
+# so nothing here asks or clicks one, and a link page shows no stored answer, so the words send them
+# to the account page.
+_SPIELERSEITE_WIEDERKEHREND_3: Final[Mapping[str, str]] = MappingProxyType(
     {
         "worum": (
             "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League "
@@ -452,46 +454,30 @@ _SPIELERSEITE_WIEDERKEHREND: Final[Mapping[str, str]] = MappingProxyType(
         ),
         "geburtsdatum": (
             "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: "
-            "Kennen wir es schon, steht es unten, sonst trägst Du es hier ein. Ein falsches Geburtsdatum beendet die "
-            "Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons keine neue "
-            "Registrierung möglich."
+            "Kennen wir es schon, prüfen wir das gespeicherte. Ein falsches Geburtsdatum "
+            "beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons "
+            "keine neue Registrierung möglich."
         ),
-        "wer": _SPIELERSEITE_4["wer"],
+        "wer": _SPIELERSEITE_5["wer"],
         "einwilligungen": (
             "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des "
             "Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt "
-            "weiter. Deshalb fragen wir es hier nicht erneut; unten steht, wie Du entschieden hast. In Deinem Konto "
-            "kannst Du das jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine Erlaubnis "
-            "nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen."
+            "weiter. Deshalb fragen wir es hier nicht erneut. Wie Du entschieden hast, siehst Du in Deinem Konto, und "
+            "dort kannst Du es jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine "
+            "Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen."
         ),
-        "rechtsgrundlage": _SPIELERSEITE_4["rechtsgrundlage"],
-        "frist": _SPIELERSEITE_4["frist"],
-        "widerruf": _SPIELERSEITE_4["widerruf"],
-        "art21": _SPIELERSEITE_4["art21"],
-        "klickIdentitaet": _SPIELERSEITE_4["klickIdentitaet"],
+        "rechtsgrundlage": _SPIELERSEITE_5["rechtsgrundlage"],
+        "frist": _SPIELERSEITE_5["frist"],
+        "widerruf": _SPIELERSEITE_5["widerruf"],
+        "art21": _SPIELERSEITE_5["art21"],
+        "klickIdentitaet": _SPIELERSEITE_5["klickIdentitaet"],
         "klickAlter": "dass Du mindestens {minAlter} Jahre alt bist, was wir an Deinem Geburtsdatum prüfen,",
-        "klickHinweise": _SPIELERSEITE_4["klickHinweise"],
+        "klickHinweise": _SPIELERSEITE_5["klickHinweise"],
     }
 )
 
-# Every link page once its identity line names nobody: the link went to an address nobody has
-# confirmed, which behind a typo is a stranger's, so the line names the team or the role instead.
-_SPIELERSEITE_5: Final[Mapping[str, str]] = MappingProxyType(
-    {
-        **_SPIELERSEITE_4,
-        "klickIdentitaet": "dass Du Dich selbst für {team} registriert hast und diese E-Mail-Adresse Dir gehört,",
-    }
-)
-_SPIELERSEITE_WIEDERKEHREND_2: Final[Mapping[str, str]] = MappingProxyType(
-    {**_SPIELERSEITE_WIEDERKEHREND, "klickIdentitaet": _SPIELERSEITE_5["klickIdentitaet"]}
-)
-_SCHIEDSRICHTERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
-    {
-        **_SCHIEDSRICHTERSEITE_3,
-        "klickIdentitaet": "dass Du selbst als Schiedsrichterin oder Schiedsrichter eingetragen bist und diese E-Mail-Adresse Dir gehört,",
-    }
-)
-# One line for the three contact pages, whose seat the slot names.
+# One line for the three contact pages, whose seat the slot names: a link page names nobody, its link
+# having gone to an address nobody has confirmed.
 _KONTAKT_KLICK_IDENTITAET: Final = "dass Du selbst als {rolle} eingetragen bist und diese E-Mail-Adresse Dir gehört,"
 _BESTAETIGUNGSSEITE_8: Final[Mapping[str, str]] = MappingProxyType({**_BESTAETIGUNGSSEITE_7, "klickIdentitaet": _KONTAKT_KLICK_IDENTITAET})
 _BESTAETIGUNGSSEITE_VERWALTUNG_2: Final[Mapping[str, str]] = MappingProxyType(
@@ -582,8 +568,8 @@ _KONTO_KONTAKT: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
-# A stored record cites its label alone, so an entry here is never reworded or removed: either leaves a
-# record claiming words nobody was shown. Different words are a new label.
+# A stored record cites its label alone, so an entry here is never reworded, nor removed while a stored
+# record can cite it: either leaves a record claiming words nobody was shown. Different words are a new label.
 FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
     {
         "2026-08": Fassung(
@@ -1149,372 +1135,6 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
             bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
         ),
-        "2026-09-schiedsrichterseite": Fassung(
-            seite="bestaetigung_schiedsrichter",
-            gilt_ab=date(2026, 9, 22),
-            absaetze=(
-                (
-                    "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter "
-                    "eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und "
-                    "entscheidest, was wir mit Deinen Angaben tun dürfen."
-                ),
-                (
-                    "Gespeichert sind Dein Vorname, Dein Nachname, Deine Schule, Deine E-Mail-Adresse und Deine "
-                    "Telefonnummer, die für Dich hinterlegte Aufwandsentschädigung je Spiel sowie das Geburtsdatum, "
-                    "das Du gleich hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du "
-                    "meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst "
-                    "Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben."
-                ),
-                (
-                    "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem "
-                    "Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben."
-                ),
-                (
-                    "Deine Schule, Deine Kontaktdaten, die Aufwandsentschädigung und Dein Geburtsdatum sehen nur die "
-                    "Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht "
-                    "und nicht an Teams, Schulen oder Dritte weitergegeben."
-                ),
-                (
-                    "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens im Spielplan bei den "
-                    "Spielen erscheinen, die Du leitest. Mehr als das steht dort in keinem Fall: nie Dein voller "
-                    "Nachname. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten von "
-                    "Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen."
-                ),
-                (
-                    "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga "
-                    "von Dir entstehen, veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst "
-                    "ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem "
-                    "Zugang zurücknehmen."
-                ),
-                (
-                    "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines "
-                    "Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und "
-                    "Art. 7 DSGVO). Was wir brauchen, um Dich anzusetzen und die Aufwandsentschädigung auszuzahlen, "
-                    "sind Name, Schule, Kontaktdaten, Betrag und Geburtsdatum in der Verwaltung der Liga. "
-                    "Rechtsgrundlage dafür ist Deine Tätigkeit für die Liga selbst (Art. 6 Abs. 1 lit. b DSGVO)."
-                ),
-                (
-                    "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung "
-                    "schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt "
-                    "bestehen, solange Du für die Liga Spiele leitest. Du kannst ihn jederzeit selbst löschen."
-                ),
-                (
-                    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin "
-                    "geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten "
-                    "verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen "
-                    "E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}."
-                ),
-                "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-                "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-                ("dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,"),
-                (
-                    "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so "
-                    "einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den "
-                    "Schalter eingeschaltet hast,"
-                ),
-                "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
-            ),
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: dort steht „anonym“",
-                }
-            ),
-        ),
-        "2026-09-schiedsrichterseite-2": Fassung(
-            seite="bestaetigung_schiedsrichter",
-            gilt_ab=date(2026, 9, 24),
-            absaetze=(
-                (
-                    "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter "
-                    "eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und "
-                    "entscheidest, was wir mit Deinen Angaben tun dürfen."
-                ),
-                (
-                    "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine "
-                    "Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich "
-                    "hier einträgst. Deine E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit "
-                    "ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und "
-                    "siehst jederzeit, was wir über Dich gespeichert haben."
-                ),
-                (
-                    "Spiele leiten kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem "
-                    "Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben."
-                ),
-                (
-                    "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die "
-                    "Administratorinnen und Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht "
-                    "und nicht an Teams, Schulen oder Dritte weitergegeben."
-                ),
-                (
-                    "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste "
-                    "Teil Deines Namens und vom nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, "
-                    "steht er ganz da. Wählst Du „intern“, steht dort an der Stelle Deines Namens „anonym“. Am Leiten "
-                    "von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen."
-                ),
-                (
-                    "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und "
-                    "Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem "
-                    "Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir "
-                    "veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit "
-                    "Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein "
-                    "Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen."
-                ),
-                (
-                    "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos und "
-                    "Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um "
-                    "Dich anzusetzen und das Honorar auszuzahlen, sind Name, Kontaktdaten, Betrag und Geburtsdatum, "
-                    "dazu Deine Schule, falls Du sie angibst. Rechtsgrundlage dafür ist unser berechtigtes Interesse, "
-                    "den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f DSGVO)."
-                ),
-                (
-                    "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung "
-                    "schickt Dir auf Wunsch einen neuen. Dein Eintrag ist an keine Saison gebunden und bleibt "
-                    "bestehen, bis er endgültig gelöscht wird: von Dir selbst, von der Verwaltung oder auf Deinen "
-                    "Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen."
-                ),
-                (
-                    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin "
-                    "geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten "
-                    "verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen "
-                    "E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}."
-                ),
-                (
-                    "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich "
-                    "aus Deiner besonderen Situation ergeben (Art. 21 DSGVO)."
-                ),
-                "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-                "dass Du von Deinem Eintrag als Schiedsrichterin oder Schiedsrichter weißt und er richtig ist,",
-                ("dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,"),
-                (
-                    "dass Du in die Veröffentlichung Deines Namens im Spielplan so einwilligst, wie Du es oben "
-                    "gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den Schalter eingeschaltet hast,"
-                ),
-                "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
-            ),
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
-                    "intern": "Intern: dort steht „anonym“",
-                }
-            ),
-        ),
-        "2026-09-schiedsrichterseite-3": Fassung(
-            seite="bestaetigung_schiedsrichter",
-            gilt_ab=date(2026, 10, 3),
-            absaetze=tuple(_SCHIEDSRICHTERSEITE_3.values()),
-            absaetze_nach_schluessel=_SCHIEDSRICHTERSEITE_3,
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
-                    "intern": "Intern: dort steht „anonym“",
-                }
-            ),
-        ),
-        "2026-09-spielerseite": Fassung(
-            seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 9, 22),
-            absaetze=(
-                (
-                    "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt "
-                    "League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir "
-                    "mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen."
-                ),
-                (
-                    "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine "
-                    "Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Deine "
-                    "E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an und "
-                    "siehst dort jederzeit, was wir über Dich gespeichert haben."
-                ),
-                (
-                    "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem "
-                    "Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches "
-                    "Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit dieser E-Mail-Adresse ist "
-                    "für fünf volle Saisons keine neue Registrierung möglich."
-                ),
-                (
-                    "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, "
-                    "Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und "
-                    "können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein "
-                    "Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga."
-                ),
-                (
-                    "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website "
-                    "erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. "
-                    "Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen "
-                    "dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am "
-                    "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen."
-                ),
-                (
-                    "Unabhängig davon kannst Du erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga "
-                    "von Dir entstehen, veröffentlicht werden. Diese Erlaubnis ist freiwillig und zunächst "
-                    "ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem "
-                    "Zugang zurücknehmen."
-                ),
-                (
-                    "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines "
-                    "Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und "
-                    "Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, "
-                    "Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist "
-                    "Deine Teilnahme selbst (Art. 6 Abs. 1 lit. b DSGVO)."
-                ),
-                (
-                    "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von "
-                    "selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben "
-                    "behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich "
-                    "dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl "
-                    "bestätigen; andernfalls löschen wir sie dann vollständig."
-                ),
-                (
-                    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin "
-                    "geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten "
-                    "verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen "
-                    "E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}."
-                ),
-                "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-                ("dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,"),
-                (
-                    "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so "
-                    "einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den "
-                    "Schalter eingeschaltet hast,"
-                ),
-                "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
-            ),
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
-        ),
-        "2026-09-spielerseite-2": Fassung(
-            seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 9, 24),
-            absaetze=(
-                (
-                    "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt "
-                    "League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir "
-                    "mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen."
-                ),
-                (
-                    "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine "
-                    "Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Deine "
-                    "E-Mail-Adresse ist zugleich Dein Zugang zur Website: Du meldest Dich damit ohne Passwort an und "
-                    "siehst dort jederzeit, was wir über Dich gespeichert haben."
-                ),
-                (
-                    "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem "
-                    "Geburtsdatum, das Du hier einträgst; niemand hat es vorher für Dich angegeben. Ein falsches "
-                    "Geburtsdatum beendet die Teilnahme: Wir schließen den Zugang, und mit dieser E-Mail-Adresse ist "
-                    "für fünf volle Saisons keine neue Registrierung möglich."
-                ),
-                (
-                    "Trainerin oder Trainer, Ansprechperson und Stellvertretung Deines Teams sehen Deinen Namen, "
-                    "Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und "
-                    "können Nummer, Position, Stufe und die Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein "
-                    "Geburtsdatum sehen nur die Administratorinnen und Administratoren der Liga."
-                ),
-                (
-                    "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website "
-                    "erscheinen: in der Kaderliste Deines Teams, in Aufstellungen und bei Torschützen und Karten. "
-                    "Mehr als das steht dort in keinem Fall: nie Dein voller Nachname. Wählst Du „intern“, stehen "
-                    "dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am "
-                    "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Zugang umstellen."
-                ),
-                (
-                    "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und "
-                    "Interviews, die im Rahmen der Liga von Dir entstehen, auf unserer Website und unserem "
-                    "Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich das nicht, und wir "
-                    "veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit "
-                    "Dir. Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein "
-                    "Nachteil, und auch sie kannst Du jederzeit in Deinem Zugang zurücknehmen."
-                ),
-                (
-                    "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines "
-                    "Nachnamens und für Fotos, Videos und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und "
-                    "Art. 7 DSGVO). Was wir zur Durchführung des Spielbetriebs brauchen, sind Name, E-Mail-Adresse, "
-                    "Nummer, Position, Stufe und Geburtsdatum in der Verwaltung der Liga. Rechtsgrundlage dafür ist "
-                    "unser berechtigtes Interesse, den Spielbetrieb der Liga durchzuführen (Art. 6 Abs. 1 lit. f "
-                    "DSGVO)."
-                ),
-                (
-                    "Bestätigst Du diese Seite nicht innerhalb von sieben Tagen, löschen wir die Registrierung von "
-                    "selbst; Du kannst Dich dann über den Link Deines Teams erneut registrieren. Deine Angaben "
-                    "behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist. Registrierst Du Dich "
-                    "dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine Wahl "
-                    "bestätigen; andernfalls löschen wir sie dann vollständig."
-                ),
-                (
-                    "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin "
-                    "geschehen ist, bleibt rechtmäßig. Du kannst außerdem jederzeit die Löschung aller Deiner Daten "
-                    "verlangen (Art. 17 DSGVO): direkt in Deinem Zugang über „{loeschung}“ oder mit einer formlosen "
-                    "E-Mail an {kontakt}. Alle Deine Rechte und wie Du sie ausübst, stehen in der {datenschutz}."
-                ),
-                (
-                    "Der Verarbeitung für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich "
-                    "aus Deiner besonderen Situation ergeben (Art. 21 DSGVO)."
-                ),
-                "dass Du {vorname} bist und diese E-Mail-Adresse Dir gehört,",
-                ("dass Du mindestens {minAlter} Jahre alt bist, was wir an dem Geburtsdatum prüfen, das Du hier einträgst,"),
-                (
-                    "dass Du in die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens so "
-                    "einwilligst, wie Du es oben gewählt hast, und in Fotos, Videos und Interviews nur, wenn Du den "
-                    "Schalter eingeschaltet hast,"
-                ),
-                "dass Du diese Hinweise und die Datenschutzerklärung lesen konntest.",
-            ),
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
-        ),
-        "2026-09-spielerseite-3": Fassung(
-            seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 10, 3),
-            absaetze=tuple(_SPIELERSEITE_3.values()),
-            absaetze_nach_schluessel=_SPIELERSEITE_3,
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
-        ),
-        "2026-10-spielerseite-4": Fassung(
-            seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 10, 12),
-            absaetze=tuple(_SPIELERSEITE_4.values()),
-            absaetze_nach_schluessel=_SPIELERSEITE_4,
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
-        ),
-        "2026-10-spielerseite-wiederkehrend": Fassung(
-            seite="bestaetigung_spieler_wiederkehrend",
-            gilt_ab=date(2026, 10, 12),
-            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND.values()),
-            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND,
-            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
-            schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
-        ),
         "2026-10-konto-spieler": Fassung(
             seite="konto_spieler",
             gilt_ab=date(2026, 10, 12),
@@ -1563,19 +1183,15 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
-        "2026-10-spielerseite-wiederkehrend-2": Fassung(
+        "2026-10-spielerseite-wiederkehrend-3": Fassung(
             seite="bestaetigung_spieler_wiederkehrend",
-            gilt_ab=date(2026, 10, 18),
-            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_2.values()),
-            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_2,
-            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            gilt_ab=date(2026, 10, 27),
+            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_3.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_3,
+            # The new pupil page's, offered nothing here: every label states a switch, and this page decides
+            # no stored field with a control, so it names none.
             schalter=_MEDIEN_SCHALTER,
-            bedienelemente=MappingProxyType(
-                {
-                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
-                    "intern": "Intern: nur Nummer und Position, ohne Namen",
-                }
-            ),
+            bedienelemente=MappingProxyType({}),
         ),
         "2026-10-schiedsrichterseite-4": Fassung(
             seite="bestaetigung_schiedsrichter",
@@ -1627,7 +1243,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
         "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison-2",
         "bestaetigung_spieler": "2026-10-spielerseite-5",
-        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-2",
+        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-3",
         "bestaetigung_schiedsrichter": "2026-10-schiedsrichterseite-4",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",

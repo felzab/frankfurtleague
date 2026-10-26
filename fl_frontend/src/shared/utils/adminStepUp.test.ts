@@ -52,16 +52,14 @@ const referee = () => ({
   einwilligung: answered
     ? {
         umfang: "kader_oeffentlich",
-        erteilt_von: "volljaehrig",
         datum: "2026-01-02",
         bestaetigt_am: "2026-01-02",
-        text_version: "2026-09-schiedsrichterseite",
+        text_version: "2026-10-schiedsrichterseite-4",
         medien: false,
         nachweis: { umfang: null, medien: null },
       }
     : null,
   bestaetigung: null,
-  adresswechsel: null,
 });
 
 /** Each request answered as the backend answers it where it landed, the ones a case here reaches past its step-up. */
@@ -74,8 +72,14 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   }
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
-      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false }
-      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null };
+      ? {
+          acknowledged: 1,
+          schiedsrichter: referee(),
+          bestaetigung_abgelaufen: false,
+          adresswechsel_id: null,
+          adresswechsel_einsehbar_verwehrt: null,
+        }
+      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null };
   }
   if (endpoint.endsWith("/spielplan")) {
     return {
@@ -111,6 +115,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
     kontakte: null,
     kontakte_stand: "a1b2",
     bestaetigungen: [],
+    abgaenge: [],
     gesperrt: [],
   };
 }
@@ -125,18 +130,18 @@ const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolv
 const { stepUpRequired } = await import("./adminMutation.ts");
 const { UNDO_UNBESTAETIGT } = await import("./adminUndo.ts");
 
-/** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
-const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
+/** The action that authorizes nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for its own reason. */
+const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn"]);
 
 /** The account page's slices, whose every write its own spine holds to the window (`docs/frontend/spec.md :: I422`). */
 const ACCOUNT_SLICES: ReadonlySet<string> = new Set(["konto", "passkeys"]);
 
 /** The action named, off the real server action module of its slice that exports it. */
-async function action(name: string): Promise<(payload?: unknown) => Promise<unknown>> {
+async function action(name: string): Promise<(payload?: unknown, context?: unknown) => Promise<unknown>> {
   const slice = STEP_UP_WRITES[name] ?? assert.fail(`${name} is no step-up write`);
   for (const file of serverActionModules(20).filter((module) => path.basename(path.dirname(module)) === slice)) {
     const found = ((await import(pathToFileURL(file).href)) as Record<string, unknown>)[name];
-    if (typeof found === "function") return found as (payload?: unknown) => Promise<unknown>;
+    if (typeof found === "function") return found as (payload?: unknown, context?: unknown) => Promise<unknown>;
   }
   return assert.fail(`${slice} exports no ${name}`);
 }
@@ -423,8 +428,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await draw({ id: SAISON_ID }), refused, "a stale session was refused a first draw");
   });
 
-  /* The save mints where it moves a referee's address, a consent link before their answer and an
-     address link after it, and only there: a fee changed on a stale session asks nothing. */
+  /* The save asks where it moves a referee's address, which mints an unanswered referee a consent link and is refused
+     an answered one, and only there: a fee changed on a stale session asks nothing. */
   it("refuses a referee's save only where it mints a new link", async () => {
     const save = await action("patchSchiedsrichterAction");
     const payload = (email: string) => ({
@@ -456,17 +461,13 @@ describe("an administrator write the server holds to the step-up window", () => 
   });
 });
 
-/**
- * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
- * undo's own field, as the kontakte drive carries its save's `kontakte_stand`.
- */
+/** A referee's undo body as the editor sends it: the save's payload, its address `email` among it. */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email },
-  adresswechsel_gespeichert: false,
 });
 
 /**
@@ -554,7 +555,9 @@ describe("an undo the server holds to the step-up window", () => {
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 const BEWERBUNG_ID = "6890a1b2c3d4e5f6071c0001";
 const SPERRE_ID = "6890a1b2c3d4e5f6071d0001";
-const SPIELER_ID = "6890a1b2c3d4e5f6071e0001";
+const ADRESSWECHSEL_ID = "6890a1b2c3d4e5f6071e0001";
+const ANTRAG_ID = "6890a1b2c3d4e5f6071e0002";
+const SPIELBESTAETIGUNG_ID = "6890a1b2c3d4e5f6071f0001";
 const INCOMING_TEAM_ID = "6890a1b2c3d4e5f607182933";
 
 /** A season both the create's schema and the backend's take, as the season suite's own fixture is. */
@@ -571,10 +574,12 @@ const NEW_SAISON = {
  * Per operation publishing the backend's own confirmation refusal, the action sending it and a payload
  * its schema admits; a conditional write's is the call its condition steps up, which the backend judges alike.
  */
-const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown }> = {
+const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown; context?: unknown }> = {
   "POST /berechtigungen": { name: "postBerechtigungAction", payload: { email: "neu@schule.de" } },
   "DELETE /berechtigungen/{berechtigung_id}": { name: "deleteBerechtigungAction", payload: { id: GRANT_ID } },
   "PATCH /berechtigungen/{berechtigung_id}": { name: "patchBerechtigungAction", payload: { id: GRANT_ID, verwaltung: "owner" } },
+  "POST /berechtigungen/antraege/{antrag_id}/genehmigung": { name: "genehmigeAntragAction", payload: { id: ANTRAG_ID } },
+  "DELETE /berechtigungen/antraege/{antrag_id}": { name: "lehneAntragAbAction", payload: { id: ANTRAG_ID } },
   "POST /bewerbungen/{bewerbung_id}/annehmen": {
     name: "annehmenBewerbungAction",
     payload: { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null },
@@ -589,7 +594,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
     name: "kontaktEmailKorrigierenAction",
-    payload: { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "berta@example.de" },
+    payload: { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "berta@example.de", bisherige_email: "anna@example.de" },
   },
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}": {
     name: "besetzeKontaktSitzAction",
@@ -634,16 +639,29 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "PATCH /schiedsrichter/{schiedsrichter_id}": { name: "patchSchiedsrichterAction", payload: refereeReplay("anna@neu.example") },
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
-  "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
+  "POST /adresswechsel": {
+    name: "beantrageAdresswechselAction",
+    payload: { adresse: STORED_EMAIL, email: "anna@neu.example", grund: null },
+  },
+  "POST /adresswechsel/{adresswechsel_id}/einladen": { name: "einladeAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
+  "DELETE /adresswechsel/{adresswechsel_id}": { name: "verwirfAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
+  // The approval hands a grant to another address, so its window is the enrolment's, as a grant write's.
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": {
+    name: "genehmigeAdresswechselAction",
+    payload: { id: ADRESSWECHSEL_ID },
+    // The row's served reason the tool refuses its reader, which words a refusal and decides nothing.
+    context: null,
+  },
   "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
-  "POST /spieler/{spieler_id}/adresswechsel": {
-    name: "beantrageSpielerAdresswechselAction",
-    payload: { id: SPIELER_ID, email: "lena@neu.example" },
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": {
+    name: "eintragenSpielbestaetigungAction",
+    payload: { id: SPIELBESTAETIGUNG_ID, begruendung: "Die Trainerin hat am Telefon zugesagt." },
   },
-  "POST /spieler/{spieler_id}/adresswechsel/einladen": { name: "einladeSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
-  "DELETE /spieler/{spieler_id}/adresswechsel": { name: "verwirfSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
+    name: "verwerfenSpielbestaetigungAction",
+    payload: { id: SPIELBESTAETIGUNG_ID },
+  },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },
   "POST /teams/{team_id}/saisons/{saison_id}/replace": {
     name: "replaceSaisonTeamAction",
@@ -653,10 +671,21 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
 
 /**
  * Per person's route publishing the confirmation refusal, the action sending it, driven in its own suite
- * (`fl_frontend/src/features/konto/loeschung.test.ts :: "the backend's confirmation refusal"`). Named, never told apart by
- * REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
+ * (`fl_frontend/src/features/konto/loeschung.test.ts`, `fl_frontend/src/features/konto/personActions.test.ts`). Named,
+ * never told apart by REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
  */
-const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = { "POST /identitaet/selbst/erasure": "loescheKontoAction" };
+const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = {
+  "POST /identitaet/selbst/erasure": "loescheKontoAction",
+  "POST /konto/adresswechsel": "starteAdresswechselAction",
+  "POST /konto/adresswechsel/freigabe": "gibAdresswechselFreiAction",
+};
+
+/**
+ * Per administrator's route publishing the confirmation refusal whose action opens behind a switch this sweep leaves
+ * closed, the action sending it, driven in its slice's suite, which doubles the switch
+ * (`fl_frontend/src/features/spielberichte/actions.test.ts`).
+ */
+const CONFIRMED_IN_ITS_OWN_SUITE: Readonly<Record<string, string>> = { "PATCH /spielberichte/{spiel_id}": "patchAdminSpielberichtAction" };
 
 describe("a write the backend refuses for want of a recent confirmation", () => {
   /* Read off the document rather than kept by hand: an operation that starts publishing the refusal
@@ -666,17 +695,24 @@ describe("a write the backend refuses for want of a recent confirmation", () => 
       .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
       .map(({ operation }) => operation);
 
-    assert.deepEqual(publishing.sort(), [...Object.keys(CONFIRMED_BY_THE_BACKEND), ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE)].sort());
+    assert.deepEqual(
+      publishing.sort(),
+      [
+        ...Object.keys(CONFIRMED_BY_THE_BACKEND),
+        ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE),
+        ...Object.keys(CONFIRMED_IN_ITS_OWN_SUITE),
+      ].sort(),
+    );
   });
 
   /* The session is inside the spine's window, so only the backend refuses: the answer has to be the
      spine's own refusal, and the figure re-read, for the page's next press to ask. */
-  for (const [operation, { name, payload }] of Object.entries(CONFIRMED_BY_THE_BACKEND)) {
+  for (const [operation, { name, payload, context }] of Object.entries(CONFIRMED_BY_THE_BACKEND)) {
     it(`${name} answers the step-up refusal, and the page's figure is read again`, async () => {
       setFresh(true);
       answerWith(() => Promise.reject(refusedOn(operation, "REQ-AUTH-009")));
 
-      assert.deepEqual(await (await action(name))(payload), refused, `${name} answered the backend's refusal in other words`);
+      assert.deepEqual(await (await action(name))(payload, context), refused, `${name} answered the backend's refusal in other words`);
       assert.deepEqual(
         cacheCalls.map((call) => call.name),
         ["refresh"],

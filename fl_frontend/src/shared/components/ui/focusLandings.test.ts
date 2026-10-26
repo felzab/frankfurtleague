@@ -13,7 +13,9 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
@@ -21,6 +23,7 @@ import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
@@ -60,11 +63,18 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { SchiedsrichterEinsaetzeSection } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
 const { FormPersonLoeschenSection } = await import("@/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx");
+const { FormAdresswechselSection } =
+  await import("@/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
+const { AdresswechselPanel } = await import("@/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx");
+const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
+const { SpielbestaetigungPanel } = await import("@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx");
+const { FLSpielbestaetigungSchema } = await import("@/features/spielbestaetigungen/schemas.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -174,8 +184,9 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
+  abgelaufen: { bestaetigung: false },
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";
@@ -206,11 +217,8 @@ const SAISON_TEAMS = [{ teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" }];
 const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
-/** A pupil's new address waiting on its mailbox. */
-const SP_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null };
-
 /** The player's editor in the season its squad row stands in, retired as the case says. */
-const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechsel: typeof SP_ADRESSWECHSEL | null = null) =>
+const spielerEditor = (inactiveSince: string | null, inKader = true) =>
   h(AdminSpielerEditView, {
     istFassungBekannt: true,
     spieler: {
@@ -218,12 +226,12 @@ const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechs
       vorname: "Lena",
       nachname: "Meier",
       inactive_since: inactiveSince,
-      geburtsdatum: null,
+      geburtsdatum: "2009-05-04",
       email: "lena.meier@schule.example",
-      adresswechsel: adresswechsel,
-      adresswechsel_abgelaufen: false,
+      adresswechsel_id: null,
+      adresswechsel_einsehbar_verwehrt: null,
     },
-    einwilligung: null,
+    einwilligung: bestaetigteEinwilligung(),
     saison: {
       saisonId: "2026",
       saisonStatus: "active" as const,
@@ -263,7 +271,9 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
       saisonId: "2026",
       saisonStatus: "future" as const,
       membership:
-        gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
+        gruppe === null
+          ? null
+          : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, adresswechsel: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
     gruppeLocked: locked,
@@ -283,6 +293,31 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
+
+/** What the address tool reads of a pupil's address: one record to move, no change standing. */
+const TOOL_ANSICHT = {
+  adresse: "lena.meier@schule.example",
+  bestand: { spieler: 1, schiedsrichter: 0, sitze: 0, bewerbungssitze: 0, registrierungen: 0, berechtigung: null },
+  moeglich: true,
+  offen: null,
+};
+
+/** A change at that address waiting on its new mailbox, which the tool's re-send and discard name by id. */
+const TOOL_OFFEN = {
+  id: "68c1f0a2b3c4d5e6f7a8b9e0",
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  grund: null,
+  wartet_auf: "neue_adresse" as const,
+  verschickt_am: "2026-09-21",
+  gueltig_bis: "2026-10-05T11:30:00Z",
+  freigegeben_am: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+  abgelaufen: false,
+  genehmigung: null,
+};
 
 /** A pick in one of react-aria's pickers: its trigger, then the option. */
 const pickOption = async (user: UserEvent, box: RegExp, option: RegExp) => {
@@ -325,6 +360,7 @@ const SPIELPLAN_UNDRAWN = {
   schedule: SCHEDULE,
   gruppenOccupancy: { A: 4, B: 4 },
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
 };
@@ -333,6 +369,7 @@ const SPIELPLAN_DRAWN = {
   spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
   spieltageCount: 5,
   bestand: { spiele: 15, erfasst: 0, angesetzt: 0 },
+  eingereichteBerichte: 0,
   hasDrawnSpiele: true,
 };
 
@@ -387,7 +424,6 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
@@ -410,7 +446,7 @@ const OFFEN: Bewerbung = {
     trainer: kontaktperson("Clara", null, "2026-09-03"),
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
@@ -429,6 +465,7 @@ const MIT_OFFENEN_SITZEN: Bewerbung = {
 const bewerbungPage = (bewerbung: Bewerbung) =>
   h(AdminBewerbungView, {
     neubesetzung: laufendeNeubesetzung(),
+    medienFragen: {},
     bewerbung,
     fristAbgelaufen: false,
     teamName: "SG Alpha",
@@ -481,11 +518,20 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
     status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
     children: h(AdminKontakteEditView, {
       laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+      medienFragen: {},
       team: { id: TEAM_A, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
       saison: {
         saisonId: "2026",
         saisonStatus: "active",
-        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" },
+        membership: {
+          gruppe: "A",
+          austritt: null,
+          trikot_farbe: null,
+          kontakte,
+          bestaetigungen: null,
+          adresswechsel: null,
+          kontakte_stand: "9f2c",
+        },
       },
     }),
   });
@@ -526,9 +572,10 @@ const zugang = (id: string, adresse: string, verwaltung: "owner" | "administrati
   erteilt_von: "inhaber@example.org",
   erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-01T08:00:00.000Z",
+  adresswechsel: null,
 });
 const zugaenge = (rows: ReturnType<typeof zugang>[]) =>
-  h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, inhaberAdresse: "inhaber@example.org" });
+  h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, antraege: [], inhaberAdresse: "inhaber@example.org" });
 const ZUGANG_A = zugang("68c1f0a2b3c4d5e6f7a8b951", "anna@example.org");
 const ZUGANG_B = zugang("68c1f0a2b3c4d5e6f7a8b952", "ben@example.org");
 const ZUGANG_C = zugang("68c1f0a2b3c4d5e6f7a8b953", "cem@example.org");
@@ -542,8 +589,33 @@ const eigeneZugaenge = (verwaltung: "owner" | "administration") =>
     h(AdminBerechtigungenView, {
       berechtigungen: [zugang("68c1f0a2b3c4d5e6f7a8b954", INHABER, verwaltung), ZUGANG_A, ZUGANG_B],
       uebersprungen: 0,
+      antraege: [],
       inhaberAdresse: verwaltung === "owner" ? INHABER : null,
     }),
+  );
+const antrag = (id: string, adresse: string) => ({
+  id,
+  adresse,
+  gesperrt: false,
+  berechtigung_id: null,
+  verwaltung: "administration" as const,
+  gestartet_von: INHABER,
+  gestartet_von_gesperrt: false,
+  angefragt_am: "2026-09-01T08:00:00.000Z",
+  bis: "2026-09-08T08:00:00.000Z",
+  steht: true,
+  verwehrt: null,
+});
+const ANTRAG_A = antrag("68c1f0a2b3c4d5e6f7a8b961", "dora@example.org");
+const ANTRAG_B = antrag("68c1f0a2b3c4d5e6f7a8b962", "emil@example.org");
+const ANTRAG_C = antrag("68c1f0a2b3c4d5e6f7a8b963", "fritz@example.org");
+/** The requests above the grants, under the page's heading: the section goes with the last of them. */
+const antraegeSeite = (antraege: ReturnType<typeof antrag>[]) =>
+  h(
+    Fragment,
+    null,
+    topBar("Berechtigungen"),
+    h(AdminBerechtigungenView, { berechtigungen: [ZUGANG_A, ZUGANG_B], uebersprungen: 0, antraege, inhaberAdresse: null }),
   );
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -656,7 +728,61 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
     ],
   });
 
+/** The account page's address panel, confirmed a minute ago so no press asks first, holding `offen` or no change. */
+const kontoAnmeldung = (offen: Parameters<typeof AdresswechselPanel>[0]["adresswechsel"]["offen"] | "keine") => {
+  const jetzt = Date.now();
+  return h(KontoPanel, {
+    email: "lena@schule.example",
+    // `keine`: the address now holds nothing a change moves, so the page draws no control.
+    adresswechsel:
+      offen === "keine"
+        ? null
+        : h(AdresswechselPanel, {
+            adresswechsel: { acknowledged: 1, moeglich: true, offen: offen },
+            bestaetigung: {
+              freshUntil: jetzt + 60 * 60 * 1000,
+              enrolmentUntil: jetzt + 4 * 60 * 1000,
+              servedAt: jetzt,
+              hasPasskey: true,
+              verwaltung: null,
+              inhaberId: "inhaber",
+              inhaberAdresse: "lena@schule.example",
+            },
+          }),
+    sicherheit: null,
+    einwilligung: null,
+    loeschung: null,
+  });
+};
+
+const KONTO_OFFEN = {
+  id: "68c1f0a2b3c4d5e6f7a8b961",
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  wartet_auf: "neue_adresse" as const,
+  gueltig_bis: "2099-10-21T11:30:00Z",
+  wirksam_ab: null,
+  genehmigung: null,
+  abgelaufen: false,
+};
+const KONTO_FREIGABE = { ...KONTO_OFFEN, weg: "freigabe" as const, wartet_auf: "freigabe" as const, email: "l•••@n•••.example" };
+
 const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
+/** One of a referee's own rows on their panel, open unless a case answers it. */
+const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt" | "abgelehnt" = "gueltig") => ({
+  id,
+  spiel_id: "68c1f0a2b3c4d5e6f7a8b9f9",
+  schiedsrichter_id: "68c1f0a2b3c4d5e6f7a8b9f8",
+  ansetzung: { team1_name: "SG Alpha", team2_name, datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+  zustand,
+  begruendung: null,
+  eingetragen: false,
+  vergangen: false,
+});
+
+const EINSATZ_BETA = "68c1f0a2b3c4d5e6f7a8b9f1";
+const EINSATZ_GAMMA = "68c1f0a2b3c4d5e6f7a8b9f2";
+
 const REGISTRIERUNG_TITEL = "Als Spielerin oder Spieler: Registrierung für SG Alpha, Saison 2026";
 
 /** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
@@ -692,6 +818,49 @@ const kontoRegistrierung = (medien: boolean) =>
         }),
       },
     ],
+  });
+
+const OFFEN_TEAM1 = spielbestaetigungFields();
+const OFFEN_TEAM2 = spielbestaetigungFields({ id: "6890a1b2c3d4e5f607182a02", partei: { art: "team", team_id: "6890a1b2c3d4e5f607182933" } });
+const VORSCHLAG_TEAM1 = spielbestaetigungFields({
+  antwort: {
+    art: "abgelehnt",
+    am: "2026-07-28",
+    von: { art: "kontakt", rolle: "trainer" },
+    vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+    begruendung: null,
+  },
+});
+const ZUSAGE_DER_VERWALTUNG = {
+  art: "zugesagt",
+  am: "2026-07-30",
+  von: { art: "admin" },
+  vorschlag: null,
+  begruendung: "Am Telefon zugesagt.",
+};
+
+/** A fixture's confirmations panel over `zeilen`, about the Ansetzung `spielbestaetigungFields` names. */
+const bestaetigungPanel = (zeilen: SpielbestaetigungFields[]) =>
+  h(SpielbestaetigungPanel, {
+    stand: { zeilen: zeilen.map((zeile) => FLSpielbestaetigungSchema.parse(zeile)), gelaufenAm: null },
+    spiel: {
+      id: "6890a1b2c3d4e5f607182930",
+      datum: "2026-08-05",
+      uhrzeit: "18:00:00",
+      ort: null,
+      team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha", tore: null },
+      team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta", tore: null },
+      ergebnis: null,
+      elfmeterschiessen: null,
+      sonderereignis: null,
+      schiedsrichter: null,
+    },
+    parteien: { teams: [], schiedsrichter: [] },
+    austritte: new Map(),
+    today: "2026-07-30",
+    isSpielSweepOn: true,
+    isActiveSaison: true,
+    onVorschlagUebernehmen: () => undefined,
   });
 
 const LANDINGS: Record<string, Landing> = {
@@ -868,6 +1037,19 @@ const LANDINGS: Record<string, Landing> = {
     before: () => eigeneZugaenge("owner"),
     press: (user) => pressTwice(user, { resting: "Mich zur Verwaltung herabstufen", armed: "Ja, mich zur Verwaltung herabstufen" }),
     after: () => eigeneZugaenge("administration"),
+    lands: () => heading("Berechtigungen"),
+  },
+  "a request's approval, on the next request's": {
+    before: () => antraegeSeite([ANTRAG_A, ANTRAG_B, ANTRAG_C]),
+    press: (user) => pressTwice(user, { resting: "Antrag genehmigen: emil@example.org", armed: "Ja, Antrag genehmigen" }),
+    after: () => antraegeSeite([ANTRAG_A, ANTRAG_C]),
+    lands: () => screen.getByRole("button", { name: "Antrag genehmigen: fritz@example.org" }),
+  },
+  /* The section stands only while a request waits, so the last one's refusal takes its heading too: the page's takes the focus. */
+  "the last request's refusal, on the page's heading": {
+    before: () => antraegeSeite([ANTRAG_A]),
+    press: (user) => pressTwice(user, { resting: "Antrag ablehnen: dora@example.org", armed: "Ja, Antrag ablehnen" }),
+    after: () => antraegeSeite([]),
     lands: () => heading("Berechtigungen"),
   },
   /* The pick fills the last dimension, so the closed add control replaces the panel's trigger in its place. */
@@ -1220,43 +1402,66 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => screen.getByRole("button", { name: "Link erneut senden: Bestätigung" }),
   },
-  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
-  "a referee's waiting address discarded, on the contact panel's heading": {
-    before: () =>
-      h(AdminSchiedsrichterEditView, {
-        istFassungBekannt: true,
-        schiedsrichter: {
-          ...SR_RECORD,
-          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
-        },
-        inactiveSince: null,
-      }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
-    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
-    remount: true,
-    lands: () => heading(/^Kontakt/),
+  /* The discard takes the change's own panel away, so the focus lands on the tool's heading, which stays. */
+  "a change discarded in the address tool, on the tool's heading": {
+    answers: {
+      verwirfAdresswechselAction: { success: true, message: "Verworfen." },
+      readAdresswechselAnsichtAction: { success: true, ansicht: TOOL_ANSICHT },
+    },
+    before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
+    press: (user) => pressTwice(user, { resting: "Änderung verwerfen", armed: "Ja, Änderung verwerfen" }),
+    // The tool reads the address again itself, so the page hands it nothing new.
+    after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
+    lands: () => heading(/^Adresse ändern/),
   },
-  /* The referee's twin: the discard takes its own panel away, and the address panel beside it stays. */
-  "a pupil's waiting address discarded, on the address panel's heading": {
-    before: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
-    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
-    after: () => spielerEditor(null),
-    remount: true,
-    lands: () => heading(/^E-Mail-Adresse/),
-  },
-  /* The request closes the box it was pressed in, so the focus returns to the control that opened it. */
-  "a pupil's new address requested, on the control the box opened from": {
-    before: () => spielerEditor(null),
+  /* The start closes the box it was pressed in, so the focus returns to the control that opened it. */
+  "a change started in the address tool, on the control the box opened from": {
+    answers: {
+      beantrageAdresswechselAction: { success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet" },
+      readAdresswechselAnsichtAction: { success: true, ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } },
+    },
+    before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-      const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
-      await user.clear(box);
-      await user.type(box, "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Neue Adresse eintragen" }));
+      await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
       await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
     },
-    after: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
-    remount: true,
-    lands: () => screen.getByRole("button", { name: "Adresse ändern" }),
+    after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),
+    lands: () => screen.getByRole("button", { name: "Neue Adresse eintragen" }),
+  },
+  /* The start closes its box and the refresh draws the pending change, so the focus goes to that change's own control. */
+  "an address change started on the account page, on the withdrawal replacing it": {
+    answers: { starteAdresswechselAction: { success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" } },
+    before: () => kontoAnmeldung(null),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse ändern" }));
+      await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    },
+    after: () => kontoAnmeldung(KONTO_OFFEN),
+    lands: () => screen.getByRole("button", { name: "Änderung zurückziehen" }),
+  },
+  "an address change withdrawn on the account page, on the start replacing it": {
+    answers: { stoppeAdresswechselAction: { success: true, message: "Diese Adresse bleibt." } },
+    before: () => kontoAnmeldung(KONTO_OFFEN),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung zurückziehen" })),
+    after: () => kontoAnmeldung(null),
+    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse ändern" }),
+  },
+  "an address change approved on the account page, on its stop beside it": {
+    answers: { gibAdresswechselFreiAction: { success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" } },
+    before: () => kontoAnmeldung(KONTO_FREIGABE),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung freigeben" })),
+    after: () => kontoAnmeldung({ ...KONTO_FREIGABE, wartet_auf: "neue_adresse" }),
+    lands: () => screen.getByRole("button", { name: "Änderung stoppen" }),
+  },
+  /* A stop whose address then holds nothing a change moves: the page draws no address control, so the panel's heading. */
+  "an address change stopped where nothing is left to change, on the sign-in panel's heading": {
+    answers: { stoppeAdresswechselAction: { success: true, message: "Diese Adresse bleibt." } },
+    before: () => kontoAnmeldung(KONTO_FREIGABE),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung stoppen" })),
+    after: () => kontoAnmeldung("keine"),
+    lands: () => heading("Anmeldung"),
   },
   // In no season, as a retired club stands: no season takes a retired club in (`REQ-ENTER-005`).
   "a club editor's reactivation, on the retirement replacing it": {
@@ -1280,6 +1485,32 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => pressTwice(user, { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" }),
     after: () => registrierungen([REG_MIA]),
     lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
+  },
+  "a referee's acceptance on their panel, on the next open row's acceptance": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
+    after: () =>
+      h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    lands: () => screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
+  },
+  /* The decline is sent from inside its disclosure, so the place is the disclosure's whole slot: one on its trigger alone
+     reads as no slot at all from the submit, and the landing skips every row for the heading. */
+  "a referee's decline on their panel, on the next open row's decline": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Absagen: SG Alpha gegen SG Beta am 20.11.2026" }));
+      await user.type(screen.getByRole("textbox", { name: /^Begründung/ }), "Klassenfahrt");
+      await user.click(screen.getByRole("button", { name: /^Absage senden/ }));
+    },
+    after: () =>
+      h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "abgelehnt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    lands: () => screen.getByRole("button", { name: "Absagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
+  },
+  "a referee's last open row's acceptance, on the section's heading": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta")] }),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
+    after: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt")] }),
+    lands: () => heading("Deine Einsätze"),
   },
   "an application seat's media withdrawal on the account page, closing its switch, on the record's heading": {
     answers: {
@@ -1330,7 +1561,8 @@ const LANDINGS: Record<string, Landing> = {
           bewerbungen: [],
           registrierungen: [],
           adresswechsel: [],
-          spieler_adresswechsel: [],
+          eigener_adresswechsel: null,
+          antraege: [],
           verwaltung: null,
         },
       },
@@ -1353,6 +1585,22 @@ const LANDINGS: Record<string, Landing> = {
     },
     after: () => h(FormPersonLoeschenSection),
     lands: () => openStop("Person löschen"),
+  },
+  /* The settled row loses its press, so the next open row's takes the focus, closed until its own reason is typed. */
+  "a confirmation's settle, on the next open row's press": {
+    before: () => bestaetigungPanel([OFFEN_TEAM1, OFFEN_TEAM2]),
+    press: async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage: SG Alpha" }), "Am Telefon zugesagt.");
+      await pressTwice(user, { resting: "Auf Zusage setzen: SG Alpha", armed: "Ja, auf Zusage setzen" });
+    },
+    after: () => bestaetigungPanel([{ ...OFFEN_TEAM1, antwort: ZUSAGE_DER_VERWALTUNG }, OFFEN_TEAM2]),
+    lands: () => openStop("Auf Zusage setzen: SG Beta"),
+  },
+  "a proposal's discard, the last press, on the panel's heading": {
+    before: () => bestaetigungPanel([VORSCHLAG_TEAM1]),
+    press: (user) => pressTwice(user, { resting: "Vorschlag verwerfen: SG Alpha", armed: "Ja, Vorschlag verwerfen" }),
+    after: () => bestaetigungPanel([{ ...VORSCHLAG_TEAM1, geschlossen: { am: "2026-07-30", grund: "verworfen" } }]),
+    lands: () => heading("Spielbestätigungen"),
   },
 };
 

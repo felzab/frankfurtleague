@@ -14,7 +14,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_person_move
-from app.api.registrierungen.crud import person_at_the_address, persons_without_an_address
+from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -84,8 +84,7 @@ OTTO = "otto@example.com"
 PAULA = "paula@example.com"
 NORA = "nora@example.com"
 
-# As typed, a capital in the local part: the fold differs, so this spelling exists in the
-# registration alone and a whole-database scan finds it only where the registration's values survive.
+# As a visitor may type it, and the fold every record stores it under.
 TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 GEBURTSDATUM = "2009-05-04"
@@ -194,7 +193,7 @@ def registrierung_document(
     confirmed: bool = True,
     saison_id: str = SAISON_ID,
     team_id: ObjectId = TEAM_OID,
-    email: str = TYPED_EMAIL,
+    email: str = FOLDED_EMAIL,
     vorname: str = "Thessaly",
     nachname: str = "Okonkwo-Brandt",
     geburtsdatum: str = GEBURTSDATUM,
@@ -357,6 +356,15 @@ def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, *
     return documents.spieler_document(spieler_id, stored.pop("vorname", "Thessaly"), stored.pop("nachname", "Okonkwo-Brandt"), **stored)
 
 
+# A person's record as their own confirmation under an older label left it, both choices granted, and the evidence it left.
+STORED_AM = "2026-01-20T11:00:00+00:00"
+STORED_GRANT = {"am": STORED_AM, "text_version": "2025-09"}
+
+
+def granted_under_an_older_label() -> dict[str, Any]:
+    return documents.eigene_einwilligung_document(text_version="2025-09", bestaetigt_am="2026-01-20", am=STORED_AM, medien=True)
+
+
 class TestWhatAnAdmissionWrites:
     def test_a_new_person_is_written_with_the_folded_address_and_the_registrations_record(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -420,7 +428,8 @@ class TestWhatAnAdmissionWrites:
 
             remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-            return imaged, naming, remaining, await where_held(database, TYPED_EMAIL, hash_token(TOKEN))
+            # The link's hash alone: the address is the person's too, whom the admission writes.
+            return imaged, naming, remaining, await where_held(database, hash_token(TOKEN))
 
         imaged, naming, remaining, held = on_a_league(mongo_replica_set_url, body)
 
@@ -428,7 +437,7 @@ class TestWhatAnAdmissionWrites:
         assert imaged >= 1
         assert remaining == 0
         assert naming and all(row["before"] is None and row["redacted_at"] is not None for row in naming)
-        assert held == {TYPED_EMAIL: [], hash_token(TOKEN): []}
+        assert held == {hash_token(TOKEN): []}
 
     def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -578,7 +587,7 @@ class TestAnUnconfirmedRegistration:
 
         (row,) = on_a_league(mongo_replica_set_url, body)
 
-        assert (row.aufnehmbar, row.person, row.vorschlag) == (False, None, None)
+        assert (row.aufnehmbar, row.person) == (False, None)
 
     def test_the_admission_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -657,7 +666,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Stored in another case and spacing, which the name fold reads as the same person.
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, vorname="THESSALY", geburtsdatum=None))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, vorname="THESSALY"))
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
             answer = await admit(database, client, registrierung_id)
@@ -679,7 +688,9 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
+            await database[Collection.SPIELER].insert_one(
+                a_stored_person(stored_id, einwilligung={**granted_under_an_older_label(), "medien": False})
+            )
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
             await admit(database, client, registrierung_id)
@@ -689,7 +700,15 @@ class TestThePersonAnAdmissionNames:
         fresh, einwilligung = on_a_league(mongo_replica_set_url, body)
 
         assert fresh["nachweis"], "the registration carries no evidence, so nothing proves it was carried"
-        assert einwilligung == fresh
+        # The narrowed scope names the grant the stored record held, which its own confirmation evidenced.
+        assert fresh["umfang"] == "intern", "the registration narrows nothing, so no grant ends here"
+        assert einwilligung == {
+            **fresh,
+            "nachweis": {
+                **fresh["nachweis"],
+                "umfang": {**fresh["nachweis"]["umfang"], "erteilt_zuvor": STORED_GRANT},
+            },
+        }
 
     def test_a_withdrawal_the_person_made_after_confirming_the_registration_stands(self, mongo_replica_set_url: str):
         """The interleaving the per-choice renewal exists for: media granted at the registration, withdrawn on the account page, then admitted.
@@ -703,9 +722,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
-            )
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
@@ -720,23 +737,23 @@ class TestThePersonAnAdmissionNames:
         einwilligung = on_a_league(mongo_replica_set_url, body)
 
         # The withdrawal is newer than the registration's grant, so it stands with its own evidence,
-        # naming the stored grant it ended by that record's confirmation day.
+        # naming the stored grant it ended.
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
             False,
             {
                 "am": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
-        # naming that grant by its record's confirmation day.
+        # naming that grant.
         assert (einwilligung["umfang"], einwilligung["nachweis"]["umfang"]) == (
             "intern",
             {
                 "am": "2026-03-31T08:00:00+00:00",
                 "text_version": "2026-09",
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
         assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
@@ -750,9 +767,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
-            )
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
@@ -776,69 +791,34 @@ class TestThePersonAnAdmissionNames:
 
         einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        # Carried onto the person, the withdrawal ends the grant the PERSON's record held, named by that
-        # record's confirmation day, as the account page's own press on it would.
+        # Carried onto the person, the withdrawal ends the grant the PERSON's record held, as the account
+        # page's own press on it would.
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
             False,
             {
                 "am": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
 
     def test_a_body_naming_anyone_but_the_address_match_is_refused(self, mongo_replica_set_url: str):
-        legacy_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_many([a_stored_person(ObjectId()), a_stored_person(legacy_id, email=None)])
-            registrierung_id = await seed(database, registrierung_document())
-
-            return await refused(admit(database, client, registrierung_id, spieler_id=legacy_id))
-
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_PERSON_NICHT_BENANNT
-
-    def test_the_proposed_person_takes_the_registrations_address(self, mongo_replica_set_url: str):
-        legacy_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
-            registrierung_id = await seed(database, registrierung_document())
-            listed = await read(database, client)
-            answer = await admit(database, client, registrierung_id, spieler_id=legacy_id)
-
-            return listed.registrierungen[0], answer.spieler_id, await persons(database)
-
-        row, admitted, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert row.person is None and row.vorschlag is not None and row.vorschlag.spieler_id == legacy_id
-        assert admitted == legacy_id
-        assert [(person["_id"], person["email"]) for person in stored] == [(legacy_id, FOLDED_EMAIL)]
-
-    def test_two_addressless_namesakes_are_proposed_neither(self, mongo_replica_set_url: str):
-        """No birthdate is served, so the two would read identically and the team would be guessing."""
+        other_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_many(
-                [a_stored_person(ObjectId(), email=None, geburtsdatum=None), a_stored_person(ObjectId(), email=None, geburtsdatum=None)]
+                [a_stored_person(ObjectId()), a_stored_person(other_id, email="andere@beispielschule.de")]
             )
-            await seed(database, registrierung_document())
+            registrierung_id = await seed(database, registrierung_document())
 
-            return (await read(database, client)).registrierungen[0].vorschlag
+            return await refused(admit(database, client, registrierung_id, spieler_id=other_id))
 
-        assert on_a_league(mongo_replica_set_url, body) is None
+        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_PERSON_NICHT_BENANNT
 
-    @pytest.mark.parametrize(
-        "named",
-        [
-            a_stored_person(ObjectId(), email="andere@beispielschule.de"),
-            a_stored_person(ObjectId(), email=None, vorname="Lysander"),
-            a_stored_person(ObjectId(), email=None, geburtsdatum="2008-01-01"),
-        ],
-        ids=("a person holding another address", "another name", "another birthdate"),
-    )
-    def test_a_body_naming_no_admissible_proposal_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, named: Mapping[str, Any]):
-        """A person holding another address is never proposed: a yes would hand their record to whoever holds the registering mailbox."""
+    def test_a_body_naming_anyone_where_the_address_resolves_to_nobody_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """A person holding another address is never admitted into: a yes would hand their record to whoever holds the registering mailbox."""
+
+        named = a_stored_person(ObjectId(), email="andere@beispielschule.de")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(dict(named))
@@ -855,23 +835,12 @@ class TestThePersonAnAdmissionNames:
 
 
 class TestTheSentinelIsNobodyToAdmit:
-    """A hand edit can match the sentinel to a registration by name or by address, so its id alone keeps it out of the admission.
+    """A body can name the sentinel and a hand edit can give it a registration's address, so its id alone keeps it out of the admission.
 
     Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
     """
 
     WHITESPACE: Mapping[str, Any] = {"vorname": "   ", "nachname": "   "}
-
-    def test_it_is_never_among_the_persons_a_name_may_propose(self, mongo_replica_set_url: str):
-        addressless = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_many([build_ghost_spieler(), a_stored_person(addressless, email=None)])
-
-            return [row["_id"] for row in await persons_without_an_address(spieler_collection=database[Collection.SPIELER], session=None)]
-
-        # The control is the addressless person beside it, whom a read matching nothing would drop too.
-        assert on_a_league(mongo_replica_set_url, body) == [addressless]
 
     def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -927,12 +896,12 @@ class TestTheSentinelIsNobodyToAdmit:
 
 
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The returning pupil's page pressed: a birthdate, its label, and no choice."""
+    """The returning pupil's page pressed over a stored birthdate: its label, and no choice and no date."""
 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload(
             token=TOKEN,
-            geburtsdatum=GEBURTSDATUM,
+            geburtsdatum=None,
             umfang=None,
             medien=None,
             text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"],
@@ -951,24 +920,20 @@ class TestAReturningRegistration:
 
     # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
     # restamp of the label would each move a byte.
-    HELD = {**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True}
+    HELD = granted_under_an_older_label()
 
-    @pytest.mark.parametrize("namesake", [False, True], ids=("a new person", "an addressless namesake the body names"))
-    def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str, namesake: bool):
-        """Neither a new person nor a namesake: the registration carries no choice for either to stand on."""
+    def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str):
+        """Not as a new person: the registration carries no choice for one to stand on."""
 
         stored_id = ObjectId()
-        legacy_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            if namesake:
-                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
             await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"email": "thessaly.umgezogen@beispielschule.de"}})
             before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id, spieler_id=legacy_id if namesake else None))
+            code = await refused(admit(database, client, registrierung_id, spieler_id=None))
 
             return code, before, await snapshot(database)
 
@@ -977,26 +942,19 @@ class TestAReturningRegistration:
         assert code == REGISTRIERUNG_PERSON_FEHLT
         assert after == before
 
-    @pytest.mark.parametrize("namesake", [False, True], ids=("a new person", "an addressless namesake the body names"))
-    def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str, namesake: bool):
-        """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit.
-
-        The namesake holds no address, so it stands.
-        """
+    def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
+        """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit."""
 
         stored_id = ObjectId()
-        legacy_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            if namesake:
-                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
             gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
             before = await snapshot(database)
             with pytest.raises(DocumentNotFoundException):
-                await admit(database, client, registrierung_id, spieler_id=legacy_id if namesake else None)
+                await admit(database, client, registrierung_id, spieler_id=None)
 
             return (gone.spieler, gone.registrierungen), before, await snapshot(database)
 
@@ -1004,7 +962,7 @@ class TestAReturningRegistration:
 
         assert counted == (1, 1)
         assert after == before
-        assert [person["_id"] for person in after[Collection.SPIELER] if person["_id"] != GHOST_SPIELER_ID] == ([legacy_id] if namesake else [])
+        assert [person["_id"] for person in after[Collection.SPIELER] if person["_id"] != GHOST_SPIELER_ID] == []
 
     def test_the_admission_leaves_the_persons_record_byte_for_byte(self, mongo_replica_set_url: str):
         stored_id = ObjectId()
@@ -1021,13 +979,31 @@ class TestAReturningRegistration:
 
         assert admitted == person["_id"] == stored_id
         assert person["einwilligung"] == self.HELD
-        # The rest of the admission still lands on the person: the registration's birthdate and address.
         assert (person["geburtsdatum"], person["email"]) == (GEBURTSDATUM, FOLDED_EMAIL)
 
-    def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
-        """The page opened showing media on, the account page withdrew it, the page was pressed, the team admitted.
+    def test_an_administrators_correction_of_the_birthdate_made_since_stands(self, mongo_replica_set_url: str):
+        """The registration holds the date its page took from the person; written back, it would undo the correction unseen."""
 
-        A press sending the choices its page showed would stamp that grant after the withdrawal, and the admission carry it.
+        stored_id = ObjectId()
+        corrected = "2009-06-14"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
+            registrierung_id = await seed(database, registrierung_document(confirmed=False))
+            await confirm_as_returning(database, client)
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"geburtsdatum": corrected}})
+            await admit(database, client, registrierung_id, spieler_id=stored_id)
+
+            return (await persons(database))[0]
+
+        person = on_a_league(mongo_replica_set_url, body)
+
+        assert (person["geburtsdatum"], person["email"]) == (corrected, FOLDED_EMAIL)
+
+    def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
+        """The page opened while media stood on, the account page withdrew it, the page was pressed, the team admitted.
+
+        A press re-sending the opening choices would stamp that grant after the withdrawal, and the admission carry it.
         """
 
         stored_id = ObjectId()
@@ -1054,7 +1030,7 @@ class TestAReturningRegistration:
 
         view, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert (view.seite, view.medien) == ("bestaetigung_spieler_wiederkehrend", True)
+        assert view.seite == "bestaetigung_spieler_wiederkehrend"
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]["text_version"]) == (False, KONTO_LABEL)
 
 
@@ -1241,7 +1217,7 @@ class TestTheDecline:
         before, after, answer = on_a_league(mongo_replica_set_url, body)
 
         assert after == {**before, "status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": THEO, "grund": grund}}
-        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (TYPED_EMAIL, True, "Zorbanax", grund)
+        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (FOLDED_EMAIL, True, "Zorbanax", grund)
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1284,13 +1260,11 @@ class TestThePendingReadServesNoAddress:
     def test_no_key_or_value_of_an_address_birthdate_or_consent_at_any_depth(self, mongo_replica_set_url: str):
         """Over the serialised body, so a nested block cannot smuggle one in.
 
-        A match, a proposal and an unconfirmed row at once, each with a stored address and birthdate to find.
+        A match, a confirmed row resolving to nobody and an unconfirmed row at once, each with a stored address and birthdate to find.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_many(
-                [a_stored_person(ObjectId(), vorname="Thessa"), a_stored_person(ObjectId(), email=None, vorname="Zweite", geburtsdatum=None)]
-            )
+            await database[Collection.SPIELER].insert_one(a_stored_person(ObjectId(), vorname="Thessa"))
             await seed(database, registrierung_document())
             await seed(database, registrierung_document(email="zweite@beispielschule.de", vorname="Zweite"))
             await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.de", vorname="Dritte"))
@@ -1306,7 +1280,7 @@ class TestThePendingReadServesNoAddress:
 
         assert status == 200
         assert len(served["registrierungen"]) == 3
-        assert {"person", "vorschlag"} <= set(keys_at_every_depth(served))
+        assert "person" in keys_at_every_depth(served)
         assert not {"email", "telefon", "geburtsdatum", "einwilligung"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
         assert not any(value in text for value in ("beispielschule.de", GEBURTSDATUM, "@"))

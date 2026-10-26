@@ -29,7 +29,6 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
-    KorrekturLink,
     bestaetigung_frist_from,
     build_token_filter,
     compose_bestaetigung,
@@ -72,11 +71,6 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
-
-# One mailbox, its domain spelled in two cases (RFC 5321 §2.4). The address rule stores the lower one,
-# and a row written before any rule held the referee's address may hold the other.
-CAPITALS_STORED = "anna@Mueller.DE"
-LOWER_CASE_SAVED = "anna@mueller.de"
 
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
@@ -141,18 +135,21 @@ class TestTheRecordTheConfirmationWrites:
 
         assert compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)["medien"] is False
 
-    def test_the_record_is_given_and_confirmed_in_one_press_naming_no_speaker(self):
-        """Nobody but the referee answers on their own link, and no write names who answered any longer."""
+    def test_the_record_is_given_and_confirmed_in_one_press(self):
+        """Nobody but the referee answers on their own link."""
 
         record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
 
-        assert "erteilt_von" not in record
         assert record["datum"] == record["bestaetigt_am"] == TODAY
 
     def test_the_record_carries_every_key_the_validator_requires(self):
         declared = COLLECTION_VALIDATORS[Collection.SCHIEDSRICHTER]["$jsonSchema"]["properties"][EINWILLIGUNG_FELD]
 
-        assert set(declared["required"]) <= set(compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY))
+        update = compose_confirmation_update(
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="intern", medien=False, text_version="v1", today=TODAY, am=CONFIRMED_AT
+        )
+
+        assert set(declared["required"]) <= set(update["$set"][EINWILLIGUNG_FELD])
 
 
 class TestWhatALeakedLinkLearns:
@@ -172,13 +169,12 @@ class TestWhatALeakedLinkLearns:
         assert asked_of_the_ban_list <= read
         assert not {key.partition(".")[0] for key in read - asked_of_the_ban_list} & withheld
 
-    def test_the_view_declares_exactly_the_five_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_four_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterBestaetigungAnsichtResponse.model_fields) == {
             "acknowledged",
             "zustand",
-            "text_version",
             "mindestalter",
             "medien_mindestalter",
             "frist",
@@ -441,18 +437,8 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is None
+        assert minted is False
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
-
-    def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
-        stored = {"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        payload = {"kontakt": {"telefon": None, "email": LOWER_CASE_SAVED}}
-
-        update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert (update, minted) == ({"$set": payload}, None)
 
     def test_a_live_referees_new_address_is_minted_for(self):
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
@@ -462,7 +448,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted == "bestaetigung"
+        assert minted is True
         assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
 
 
@@ -476,10 +462,10 @@ class TestTheReactivationAsks:
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": None}, False),
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
-            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am=""), "inactive_since": "2026-01-01"}, True),
         ],
-        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder", "empty-stamp"],
+        ids=["retired-unanswered", "not-retired", "answered", "no-address", "unfoldable-address", "empty-stamp"],
     )
     def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
         assert owes_reactivation_mint(stored=stored) is owed
@@ -500,10 +486,10 @@ class TestARefereeWithNoAddress:
         assert refusal is not None
         assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
 
-    def test_the_placeholder_under_the_reserved_domain_is_refused_as_none(self):
-        """The value a row without an address is given, which no payload takes and the ban-list hash cannot key."""
+    def test_an_address_under_a_reserved_domain_is_refused_as_none(self):
+        """No payload takes one, and the ban-list hash cannot key it."""
 
-        refusal = find_missing_address_refusal(email="adresse-fehlt@frankfurtleague.invalid")
+        refusal = find_missing_address_refusal(email="jemand@schule.invalid")
 
         assert refusal is not None
         assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
@@ -523,7 +509,7 @@ class TestAnAddressOnTheBanList:
         assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
 
-def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], KorrekturLink | None]:
+def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
     """The save's update over an empty payload, so all it `$set`s is what the save minted."""
 
     return compose_korrektur_update(
@@ -538,36 +524,33 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com"),
-            # Two inboxes to RFC 5321, whose local part is case-sensitive, though one sign-in.
-            ({"kontakt": {"email": "Old@example.com"}, EINWILLIGUNG_FELD: None}, "old@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
-            ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
+            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
         ],
-        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced", "empty-stamp"],
+        ids=["address-moved", "address-entered", "unfoldable-replaced", "empty-stamp"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (
             {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
-            "bestaetigung",
+            True,
         )
 
     @pytest.mark.parametrize(
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
-            ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "same@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed-and-unmoved"],
+        ids=["address-unchanged", "already-confirmed-and-unmoved"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == ({"$set": {}}, None)
+        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
 
     def test_the_fresh_block_restarts_the_deadline(self):
         update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 
-        assert minted == "bestaetigung"
+        assert minted is True
         assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
 
 

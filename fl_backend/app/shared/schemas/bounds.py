@@ -137,9 +137,21 @@ AKTEUR_PSEUDONYM_SHOWN: Final = 8
 # second route in.
 SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
 
-# How long a pupil's new address has to confirm its link; a re-send restarts it. The referee's figure
-# and its own constant, for the floors' reason below: the two links wait on different people.
-SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
+# How long a step of an address change waits from its asking: the new mailbox's link, or the address
+# on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
+# (read 2026-10-20).
+ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
+
+# A change an administrator started with a reason waits this long after its confirmation, the address
+# on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
+ADRESSWECHSEL_WARTEZEIT_TAGE: Final = 7
+
+# How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
+# approver away for a weekend is no reason to start it again.
+GENEHMIGUNG_TAGE: Final = 7
+
+# How long an ended change's record is kept, holding no address, so each link answers what became of it.
+ADRESSWECHSEL_NACHLAUF_TAGE: Final = 30
 
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
@@ -156,6 +168,12 @@ SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
 # `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
 SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
+
+# A report's remarks on one match, whoever writes them, bounded on the payload alone: every correction and adoption files the
+# report whole on a log row, which this keeps far under BSON's document ceiling.
+SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH: Final = 2000
+# The most scorers, and the most cards, one report lists, for the remarks' reason.
+SPIELBERICHT_EINTRAEGE_MAX: Final = 60
 
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
@@ -210,3 +228,6 @@ DROSSELUNG_SPIELER_PRO_TAG: Final = 20
 DROSSELUNG_SCHIEDSRICHTER_PRO_TAG: Final = 100
 # A contact seat's is a season start: 25 admissions, 5 declines, two saves per squad row, 4 grants, about 84.
 DROSSELUNG_KONTAKT_PRO_TAG: Final = 300
+# A person's own address-change starts and approvals per German day, counted apart since each mails a
+# mailbox the person typed; the busiest legitimate day is a start, a restart over a typo and an approval.
+DROSSELUNG_ADRESSWECHSEL_PRO_TAG: Final = 10

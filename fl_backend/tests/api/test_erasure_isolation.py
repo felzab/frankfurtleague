@@ -9,8 +9,9 @@ once the erasure has answered.
 """
 
 import functools
+import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -20,6 +21,8 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
+from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.berechtigungen.admin_router import post_berechtigung
 from app.api.berechtigungen.schemas import FLPostBerechtigungPayload
 from app.api.bewerbungen.admin_router import besetze_kontakt_sitz, korrigiere_kontakt_email
@@ -30,8 +33,6 @@ from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter, post_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload
-from app.api.spieler.admin_router import post_adresswechsel
-from app.api.spieler.schemas import FLSpielerAdresswechselPayload
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
@@ -59,6 +60,7 @@ from tests.documents import (
 )
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.records import record_collections
 from tests.whole_database import where_folded_to, where_held
 from tests.worker import worker_database
 
@@ -72,7 +74,7 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 SAISON_ID = "2026"
 
-# Typed as a visitor types it: the fold, never the spelling, says whose a record is.
+# Typed as a visitor types it, and the fold every record stores: the fold, never the spelling, says whose a record is.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = sign_in_identifier(TYPED)
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=config_for(DATABASE_NAME).sperrliste_schluessel)
@@ -82,6 +84,7 @@ EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607e10002")
 EINLADUNG_TOKEN = "einladung-erasure-isolation"
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
+PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607e10006")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
@@ -168,23 +171,46 @@ async def a_league(database: AsyncDatabase) -> None:
     await database[Collection.BEWERBUNGEN].update_one(
         {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20")
     )
-    await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email="wraxlington@example.com"))
+    await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
     await database[Collection.SCHIEDSRICHTER].insert_one(
         schiedsrichter_document(REFEREE_OID, email="kraus.bernd@example.com", name=REFEREE_NAME, default_payment=25, einwilligung=None)
     )
 
 
 async def a_grant(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """Granted by an administrator nobody else could approve beside: the league holds no other grant, so it takes effect at once."""
+
     return await post_berechtigung(
         berechtigung_data=FLPostBerechtigungPayload(email=TYPED),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         erteilt_von=ADMINISTRATORS[0],
         now=NOW,
+    )
+
+
+async def a_request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """A grant of the address asked for where colleagues could approve it, so it waits as a request (`docs/backend/spec.md :: I848`)."""
+
+    await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+
+    return await post_berechtigung(
+        berechtigung_data=FLPostBerechtigungPayload(email=TYPED),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        db=client,
+        erteilt_von=ADMINISTRATORS[0],
+        # On the real clock: the request lapses a week after it, and the TTL monitor removes a lapsed one.
+        now=datetime.now(UTC),
     )
 
 
@@ -218,7 +244,8 @@ async def a_seat_on_the_application(database: AsyncDatabase, client: AsyncMongoC
     return await korrigiere_kontakt_email(
         bewerbung_id=BEWERBUNG_OID,
         seat="ansprechperson",
-        email_data=FLBewerbungKontaktEmailPayload(email=TYPED),
+        # The seeded Ansprechperson's address, which the correcting page showed.
+        email_data=FLBewerbungKontaktEmailPayload(email=TYPED, bisherige_email="quillhilde@example.com"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
@@ -316,15 +343,22 @@ async def a_registration(database: AsyncDatabase, client: AsyncMongoClient) -> A
 
 
 async def a_pending_pupil_address(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    return await post_adresswechsel(
-        spieler_id=PUPIL_OID,
-        adresswechsel_data=FLSpielerAdresswechselPayload(email=TYPED),
+    return await post_adresswechsel_verwaltung(
+        adresswechsel_data=FLAdresswechselVerwaltungPayload(adresse=PUPIL_EMAIL, email=TYPED, grund=None),
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
-        today=TODAY,
+        operator="verwaltung@frankfurtleague.de",
+        auth_time=int(time.time()),
         germany_now=NOW,
     )
 
@@ -352,17 +386,16 @@ async def a_corrected_referee_address(database: AsyncDatabase, client: AsyncMong
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,
-        germany_now=NOW,
     )
 
 
 # Each writer an address enters a record through from a payload, with the count the erasure's answer files it under.
 WRITERS: dict[str, tuple[Rival, str]] = {
     "a grant": (a_grant, "berechtigungen"),
+    "a request for a grant": (a_request, "berechtigungen_antraege"),
     "a contact seat on a season row": (a_seat_on_the_season_row, "kontakt_sitze"),
     "a contact seat on an application": (a_seat_on_the_application, "kontakt_sitze"),
     "a contact seat filled on an application": (a_seat_filled_on_the_application, "kontakt_sitze"),
@@ -426,7 +459,7 @@ async def a_seat_holder_with_a_registration_to_decide(database: AsyncDatabase) -
         {
             "$set": {
                 "kontakte": kontakte_document(
-                    ansprechperson=kontaktperson_document("Zorbanax", bestaetigt_am="2026-03-21", nachname="Quillfeather", email=TYPED)
+                    ansprechperson=kontaktperson_document("Zorbanax", bestaetigt_am="2026-03-21", nachname="Quillfeather", email=IDENTIFIER)
                 )
             }
         },

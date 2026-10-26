@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -7,9 +7,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
+    ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
     SeatVoid,
+    build_holding_filter,
     build_referee_images_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
@@ -21,9 +23,10 @@ from app.api.spielbestaetigungen.services import (
     season_end_image_edits,
     seat_entry_image_edits,
 )
+from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_many_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
 
@@ -103,6 +106,107 @@ async def pull_vorschlag_offen(
     return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
 
+# --- The ADMINISTRATOR's read.
+
+
+async def pull_admin_rows(
+    *, spielbestaetigungen_collection: AsyncCollection, db_filter: Mapping[str, Any], limit: int
+) -> tuple[list[Mapping[str, Any]], bool]:
+    """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
+
+    A cut across all rows would drop the oldest open ones, the overdue, first.
+    """
+
+    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_FIELDS).to_list(length=None)
+    # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
+    # its closed image wins below.
+    rest = await pull_many_from_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={**db_filter, "$nor": [build_holding_filter()]},
+        # One row over what is served, and the extra never is: it answers whether the list is whole without a count.
+        limit=limit + 1,
+        # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
+        sort_by=[("_id", -1)],
+        projection=ADMIN_FIELDS,
+    )
+    rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
+
+    return sorted(rows.values(), key=lambda row: row["_id"], reverse=True), len(rest) <= limit
+
+
+# --- A REFEREE'S OWN ROWS.
+
+# No seat's hashes and no deadline: a referee answers signed in, until the fixture's day.
+EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
+    "saison_id": 1,
+    "spiel_id": 1,
+    "partei": 1,
+    "ansetzung": 1,
+    "antwort.art": 1,
+    "antwort.von.art": 1,
+    "antwort.begruendung": 1,
+    "geschlossen": 1,
+}
+
+# The view's fields and the booked referee, whom `grund_to_close` compares a referee's row against.
+EIGENE_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
+
+EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.datum": 1}
+
+
+async def pull_eigene_lagen(
+    *,
+    spiele_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
+    session: AsyncClientSession,
+) -> dict[Any, AnsetzungLage]:
+    """Each row's fixture and clubs' season rows, two reads for the whole list, keyed by the row's id."""
+
+    if not spielbestaetigungen_raw:
+        return {}
+
+    spiele = await spiele_collection.find(
+        {"_id": {"$in": list({row["spiel_id"] for row in spielbestaetigungen_raw})}}, EIGENE_SPIEL_FIELDS, session=session
+    ).to_list(length=None)
+    vereine = await saison_teams_collection.find(
+        {
+            "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
+            "team_id": {"$in": list({row["ansetzung"][key] for row in spielbestaetigungen_raw for key in ("team1_id", "team2_id")})},
+        },
+        EIGENE_VEREIN_FIELDS,
+        session=session,
+    ).to_list(length=None)
+    by_id = {spiel["_id"]: spiel for spiel in spiele}
+
+    return {
+        row["_id"]: AnsetzungLage(
+            # An undraw removes a fixture with its rows in one transaction, and this read shares their snapshot.
+            spiel=by_id[row["spiel_id"]],
+            vereine=[
+                verein
+                for verein in vereine
+                if verein["saison_id"] == row["saison_id"] and verein["team_id"] in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])
+            ],
+        )
+        for row in spielbestaetigungen_raw
+    }
+
+
+async def pull_spielorte_public(
+    *, spielorte_collection: AsyncCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
+) -> dict[Any, FLSpielOrtFieldPublic]:
+    """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
+
+    wanted = list({spielort_id for spielort_id in spielort_ids if spielort_id is not None})
+    if not wanted:
+        return {}
+
+    orte = await spielorte_collection.find({"_id": {"$in": wanted}}, {"name": 1, "maps_link": 1}, session=session).to_list(length=None)
+
+    return {ort["_id"]: FLSpielOrtFieldPublic(spielort_id=ort["_id"], name=ort["name"], maps_link=ort["maps_link"]) for ort in orte}
+
+
 # --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
 
 
@@ -132,7 +236,7 @@ async def redact_seat_entries_in_images(
     )
 
 
-async def strip_the_seasons_team_rows(
+async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -141,9 +245,10 @@ async def strip_the_seasons_team_rows(
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry, reason and holder digest left on the season's team rows and their images.
+    """At the season's end, every link entry, reason and holder digest left on the season's rows and their images.
 
-    A replaced club's rows and an administrator's reason among them; each answer's way and role stay as the record.
+    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
+    record.
     """
 
     # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
@@ -260,9 +365,9 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a close read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
+    """Write the season rows the notice step read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
 
-    An erasure or a Widerspruch empties the seat on that row and writes nothing the close writes.
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the notice step writes.
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
@@ -275,9 +380,9 @@ async def anchor_the_referees_told(
     # REQUIRED: committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a mint writes a row for (`docs/backend/spec.md :: I760`), as a fixture's save anchors the referee it books.
+    """Write the referees a step tells: the mint's and the reminder's (`docs/backend/spec.md :: I760`), the notice step's (`:: I762`).
 
-    A referee's erasure deletes the rows its snapshot holds, never one inserted beside it.
+    A referee's erasure deletes only the rows its snapshot holds, never the mint's insert beside it, so this write conflicts.
     """
 
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)

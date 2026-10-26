@@ -38,6 +38,12 @@ export type FLSpielDraftFields = {
 };
 
 /**
+ * What the descriptors read: the draft, with the report version a seed adopts kept beside it, since the draft is the
+ * save's body. A stored fixture holds none, so a seed is always a change to save.
+ */
+type FLSpielStatusSource = FLSpielDraftFields & { uebernimmt_bericht?: number | null };
+
+/**
  * One statement of the condition for the panel, the draft and the preview alike — never retracted
  * handler by handler (`docs/frontend/spec.md` I62).
  */
@@ -127,7 +133,10 @@ export type FLSpielExpectedField = {
 };
 
 type FLSpielFieldStatus = {
-  /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
+  /**
+   * Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. `uebernimmt_bericht` alone
+   * is the save's query parameter, with no input.
+   */
   path: string;
   /** German, sentence case. Used in the change list and the open-items list, not as the field's label. */
   label: string;
@@ -165,10 +174,10 @@ type FieldDescriptor<TValue, TPath extends string> = {
   label: string;
   group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
-  read: (source: FLSpielDraftFields) => TValue;
+  read: (source: FLSpielStatusSource) => TValue;
   equals?: (a: TValue, b: TValue) => boolean;
   format: (value: TValue) => string | null;
-  isEmpty?: (source: FLSpielDraftFields) => boolean;
+  isEmpty?: (source: FLSpielStatusSource) => boolean;
   errorPaths?: readonly string[];
 };
 
@@ -181,9 +190,9 @@ type ErasedFieldDescriptor<TPath extends string = string> = {
   label: string;
   group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
-  hasChanged: (stored: FLSpielDraftFields, draft: FLSpielDraftFields) => boolean;
-  format: (source: FLSpielDraftFields) => string | null;
-  isEmpty?: (source: FLSpielDraftFields) => boolean;
+  hasChanged: (stored: FLSpielStatusSource, draft: FLSpielStatusSource) => boolean;
+  format: (source: FLSpielStatusSource) => string | null;
+  isEmpty?: (source: FLSpielStatusSource) => boolean;
   errorPaths?: readonly string[];
 };
 
@@ -340,6 +349,16 @@ const FIELD_DESCRIPTORS = [
     read: (source) => source.elfmeterschiessen?.team2 ?? null,
     format: numberAsNull,
   }),
+  // A row of its own and no input: a proposal equal to the stored result moves no field above, and without this one
+  // the save stays disabled, so that report could never be adopted.
+  describeField({
+    path: "uebernimmt_bericht",
+    group: "Ergebnis",
+    label: "Spielbericht",
+    expectedWhen: null,
+    read: (source) => source.uebernimmt_bericht ?? null,
+    format: (value: number | null) => (value === null ? null : "Vorschlag übernommen"),
+  }),
   describeField({
     path: "notiz",
     group: "Notiz",
@@ -374,17 +393,22 @@ export type SpielFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 export function deriveSpielDraftStatus({
   stored,
   draft,
+  uebernimmtBericht,
   expectedCategories,
   fieldErrors,
 }: {
   stored: FLSpielAdmin;
   draft: FLSpielDraftFields;
+  // Required, never defaulted: an editor leaving its seed out disables the save of a report equal to the stored result.
+  uebernimmtBericht: number | null;
   expectedCategories: ReadonlySet<ActionRequiredCategory>;
   fieldErrors: FieldErrors;
 }): FLSpielDraftStatus {
+  const source: FLSpielStatusSource = { ...draft, uebernimmt_bericht: uebernimmtBericht };
+
   const fields = FIELD_DESCRIPTORS.map((descriptor): FLSpielFieldStatus => {
-    const draftText = descriptor.format(draft);
-    const isEmptyNow = descriptor.isEmpty ? descriptor.isEmpty(draft) : draftText === null;
+    const draftText = descriptor.format(source);
+    const isEmptyNow = descriptor.isEmpty ? descriptor.isEmpty(source) : draftText === null;
 
     // The first path carrying a message wins, matching `FieldError`'s one line per input.
     const error =
@@ -396,7 +420,7 @@ export function deriveSpielDraftStatus({
       path: descriptor.path,
       label: descriptor.label,
       group: descriptor.group,
-      isChanged: descriptor.hasChanged(stored, draft),
+      isChanged: descriptor.hasChanged(stored, source),
       expectedSeverity: isExpected && descriptor.expectedWhen !== null ? severityFor(descriptor.expectedWhen) : null,
       error,
       storedText: descriptor.format(stored),

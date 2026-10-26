@@ -9,7 +9,7 @@ import { createElement as h } from "react";
 
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -28,8 +28,6 @@ import type { SubjectSession } from "@/core/subject.ts";
 import type { ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
-// Each shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
@@ -43,7 +41,7 @@ const APP_DIR = path.resolve(import.meta.dirname, "..");
 const TEAM = { team_id: SITZ.team_id, saison_id: "2526" };
 const TEAM_HREF = `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`;
 
-/** What stands in each layout's page slot, which the session's guard holds back. */
+/** What stands in each layout's page slot, which the layout holds back until the session is read. */
 const PAGE = "Seiteninhalt";
 
 /** A person holding every place, so whatever the session decides shows once it is read. */

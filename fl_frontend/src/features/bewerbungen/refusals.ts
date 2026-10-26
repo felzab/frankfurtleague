@@ -127,8 +127,8 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
         reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
         repair: LADE_DIE_SEITE_NEU,
       });
-    // Answered, declined, or a seat an application from before the workflow holds: one sentence for
-    // all three, because the control is offered from a page whose state has since moved.
+    // Answered, declined, or a seat holding no link to answer: one sentence for all three, because
+    // the control is offered from a page whose state has since moved.
     case "REQ-BEWERBUNG-011":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
@@ -174,6 +174,14 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "REQ-BEWERBUNG-019":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
+    // A Widerspruch and a reseat since the page was read: the address typed was meant for the person replaced.
+    case "REQ-BEWERBUNG-021":
+      return {
+        error: buildRefusal({
+          reason: "Für diese Rolle ist inzwischen eine andere Adresse hinterlegt als die, die Du korrigieren wolltest",
+          repair: LADE_DIE_SEITE_NEU,
+        }),
+      };
     default:
       return null;
   }

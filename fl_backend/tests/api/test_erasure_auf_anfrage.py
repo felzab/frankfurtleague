@@ -11,6 +11,7 @@ import functools
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator, Mapping
+from datetime import timedelta
 from typing import Any, cast
 
 import pymongo
@@ -22,10 +23,12 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
     EIGENE_ADRESSE,
+    FREMDER_ADRESSWECHSEL,
     NAME_IM_ANLASS,
     NAME_IM_GRUND,
     VERWALTUNG_ADRESSE,
@@ -52,7 +55,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, schiedsrichter_document, spiel_document
+from tests.documents import ban_document, spiel_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
@@ -60,6 +63,8 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 from .test_funktionen_erasure import (
+    ANTRAG_BY_THEM_OID,
+    ANTRAG_FOR_THEM_OID,
     BEWERBUNG_OID,
     BLOCKLESS_BEWERBUNG_OID,
     DECLINED_OID,
@@ -67,12 +72,12 @@ from .test_funktionen_erasure import (
     GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
-    MOVING_PUPIL_OID,
+    MOVING_PUPIL_CHANGE_OID,
     NACHNAME,
     NOW,
     OTHER_OWNER,
     OTHER_OWNER_OID,
-    OTHER_REFEREE_OID,
+    OTHER_REFEREE_CHANGE_OID,
     OTHER_TEAM_OID,
     PAYMENT,
     PENDING_OID,
@@ -81,6 +86,7 @@ from .test_funktionen_erasure import (
     REFEREE_OID,
     SAISON_ID,
     SPIELTAG_OID,
+    THEIR_CHANGE_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -90,6 +96,7 @@ from .test_funktionen_erasure import (
     acting,
     as_person,
     everything_in,
+    pending_changes,
 )
 from .test_funktionen_erasure import PATH as SELBST_PATH
 
@@ -107,10 +114,6 @@ ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 GRANT_ID_OF = {row["adresse"]: row["_id"] for row in grants_for_the_suite()}
 
 ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
-
-# What every address-less referee row holds, under RFC 6761's reserved `invalid`: one value, shared by every such row.
-PLACEHOLDER = "adresse-fehlt@frankfurtleague.invalid"
-PLACEHOLDER_REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f607d00001"), ObjectId("6890a1b2c3d4e5f607d00002"))
 
 # An address a hand edit gave both sentinels, which no erasure may reach through them.
 SENTINEL_ADDRESS = "von.hand@example.com"
@@ -210,11 +213,13 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
         spiele_collection=database[Collection.SPIELE],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
         operator=OPERATOR,
         auth_time=int(time.time()) - 60,
+        germany_now=NOW,
     )
 
 
@@ -290,7 +295,14 @@ def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
     }
 
 
+async def their_requests_open(database: AsyncDatabase) -> None:
+    """The seed's two requests, asked far off so no TTL pass removes them and so lapsed at the suite's clock, open again."""
+
+    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].update_many({}, {"$set": {"genehmigung.bis": NOW + timedelta(days=1)}})
+
+
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.
+# The seed's requests opened by `their_requests_open`.
 EXPECTED_ANSICHT = {
     "acknowledged": 1,
     "spieler": [
@@ -326,9 +338,17 @@ EXPECTED_ANSICHT = {
         },
     ],
     "registrierungen": [registration(PENDING_OID, "eingereicht"), registration(DECLINED_OID, "abgelehnt")],
-    "adresswechsel": [{"schiedsrichter_id": str(OTHER_REFEREE_OID)}],
-    # Another pupil moving to the address: the change goes and their row stands.
-    "spieler_adresswechsel": [{"spieler_id": str(MOVING_PUPIL_OID)}],
+    # Another referee's and another pupil's change to the address: each change goes and its person's row stands.
+    "adresswechsel": [
+        {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar_verwehrt": None},
+        {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None},
+    ],
+    "eigener_adresswechsel": None,
+    # A grant asked for their address and one they asked for another's.
+    "antraege": [
+        {"antrag_id": str(ANTRAG_FOR_THEM_OID), "verwaltung": "administration", "rolle": "betroffen"},
+        {"antrag_id": str(ANTRAG_BY_THEM_OID), "verwaltung": "administration", "rolle": "gestellt"},
+    ],
     "verwaltung": "administration",
     "gesperrt": False,
 }
@@ -363,7 +383,9 @@ class TestTheRegistryRunsWhole:
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
-            "drosselung": 3,
+            # The request about their address and the one they asked.
+            "berechtigungen_antraege": 2,
+            "drosselung": 4,
         }
         assert left == dict.fromkeys(THEIR_VALUES, [])
         assert (squad, squad_left) == (2, 1)
@@ -495,15 +517,21 @@ class TestAGrantHoldersAddress:
         racing: list[PupilsReadMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
+            antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von=OWNER, now=NOW)
+            )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:
-                    answered = await http.post(
-                        f"/api/v{API_VERSION}/berechtigungen", json={"email": IDENTIFIER}, headers=SignedActor(OWNER, ADMIN_KEY)
+                    approved = await http.post(
+                        f"/api/v{API_VERSION}/berechtigungen/antraege/{antrag.inserted_id}/genehmigung",
+                        headers=SignedActor(ANOTHER_ADMINISTRATOR, ADMIN_KEY),
                     )
-                    granted.append(answered.status_code)
+                    granted.append(approved.status_code)
 
                 async def pupils() -> AsyncCollection:
                     # The app's own client: the request's session belongs to it.
@@ -522,7 +550,7 @@ class TestAGrantHoldersAddress:
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json().get("error_code"), granted) == (403, VERWALTUNG_ADRESSE, [201])
+        assert (response.status_code, response.json().get("error_code"), granted) == (403, VERWALTUNG_ADRESSE, [200])
         assert row is not None and row["verwaltung"] == "administration"
         # The rows the grant wrote aside, every value stands where it stood.
         assert {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in left.items()} == held
@@ -537,6 +565,7 @@ class TestTheReveal:
     def test_it_names_every_record_the_erasure_removes_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await their_requests_open(database)
             before = await everything_in(database)
             response = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)
 
@@ -602,6 +631,7 @@ class TestTheReveal:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await a_grant(database, DEAD_GRANT_OID, TYPED, "administration")
+            await their_requests_open(database)
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
             return ansicht, (await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)).json()
@@ -613,7 +643,8 @@ class TestTheReveal:
             "schiedsrichter": len(ansicht["schiedsrichter"]),
             "kontakt_sitze": len(ansicht["sitze"]) + len(ansicht["bewerbungen"]),
             "registrierungen": len(ansicht["registrierungen"]),
-            "adresswechsel": len(ansicht["adresswechsel"]) + len(ansicht["spieler_adresswechsel"]),
+            "adresswechsel": len(ansicht["adresswechsel"]) + (ansicht["eigener_adresswechsel"] is not None),
+            "berechtigungen_antraege": len(ansicht["antraege"]),
         }
 
         assert named == {key: erased[key] for key in named}
@@ -623,6 +654,76 @@ class TestTheReveal:
         assert {*named, "berechtigungen", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
         assert all(erased[key] for key in FLErasure.model_fields)
+
+
+# The address the seed's referee change moves away from, given a grant by the cases below.
+CHANGING_HOLDER = "kraus.bernd@example.com"
+CHANGING_HOLDER_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00003")
+
+
+@pytest.mark.db
+class TestAGrantHoldersPendingChange:
+    """`docs/backend/spec.md :: I871`: a grant holder's change naming the address is shown and ended only where the tool would open it."""
+
+    @pytest.mark.parametrize("tier", ["administration", "owner"])
+    def test_the_reveal_leaves_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str, tier: str):
+        """Named, it would answer whether a typed address is that change's new one, which the administrators page withholds."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            return [
+                (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=by)).json()["adresswechsel"] for by in (OPERATOR, OWNER)
+            ]
+
+        operators, owners = on_a_league(mongo_replica_set_url, body)
+
+        assert operators == [{"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None}]
+        assert owners == [
+            {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar_verwehrt": None},
+            {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None},
+        ]
+
+    @pytest.mark.parametrize("tier", ["administration", "owner"])
+    def test_the_erasure_ending_it_is_the_owners_whatever_the_tier(self, mongo_replica_set_url: str, tier: str):
+        """Ending it is a discard, which only an owner makes of an administrator's change."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            before = await everything_in(database)
+            by_operator = await posted(mongo_replica_set_url, PATH, erasure_of())
+            untouched = before == await everything_in(database)
+            by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
+            ended = await database[Collection.ADRESSWECHSEL].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
+            return by_operator, untouched, by_owner.status_code, ended
+
+        by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
+
+        assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, FREMDER_ADRESSWECHSEL, True)
+        assert owners_status == 200
+        assert ended is not None and ended["beendet"]["art"] == "verworfen"
+
+    def test_the_reveal_names_their_own_change_and_open_requests_alone(self, mongo_replica_set_url: str):
+        """A lapsed request is gone to every reader already (`docs/backend/spec.md :: I851`), so it is left out though removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
+            await their_requests_open(database)
+            lapsed = NOW - timedelta(days=8)
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(
+                    adresse="verfallen@example.com",
+                    verwaltung="owner",
+                    berechtigung_id=None,
+                    gestartet_von=IDENTIFIER,
+                    now=lapsed,
+                )
+            )
+            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
+
+        answer = on_a_league(mongo_replica_set_url, body)
+
+        assert answer["eigener_adresswechsel"] == {"adresswechsel_id": str(THEIR_CHANGE_OID)}
+        assert answer["antraege"] == EXPECTED_ANSICHT["antraege"]
 
 
 @pytest.mark.db
@@ -906,31 +1007,7 @@ class TestAnotherAdministratorsAddress:
 
 @pytest.mark.db
 class TestRowsNoMailboxNames:
-    """What no request may reach through this route: the placeholder every address-less referee row shares, and the two sentinels."""
-
-    def test_a_look_alike_of_the_placeholder_is_refused_as_the_placeholder(self, mongo_replica_set_url: str):
-        """Its stop full-width: the fold converts the domain as the URL Standard does, so it names the placeholder and both routes refuse it."""
-
-        look_alike = PLACEHOLDER.replace(".invalid", f"{chr(0xFF0E)}invalid")
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].insert_many(
-                [
-                    schiedsrichter_document(referee_id, email=PLACEHOLDER, name=f"Ohne Adresse {index}", default_payment=20, einwilligung=None)
-                    for index, referee_id in enumerate(PLACEHOLDER_REFEREE_OIDS)
-                ]
-            )
-            ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(look_alike))
-            erasure = await posted(mongo_replica_set_url, PATH, erasure_of(look_alike))
-
-            return (
-                [(response.status_code, response.json()["error_code"]) for response in (ansicht, erasure)],
-                await database[Collection.SCHIEDSRICHTER].count_documents({"kontakt.email": PLACEHOLDER}),
-            )
-
-        answers, left = on_a_league_of_its_own(mongo_replica_set_url, body)
-
-        assert (answers, left) == ([(422, PAYLOAD_REFUSED)] * 2, len(PLACEHOLDER_REFEREE_OIDS))
+    """What no request may reach through this route: the two sentinels."""
 
     def test_the_sentinels_given_an_address_by_hand_are_reached_by_neither_request(self, mongo_replica_set_url: str):
         """Each step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
@@ -1006,6 +1083,8 @@ class TestTheSignOut:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            # The seed's request asked for them before this grant, which would refuse the promotion beside it.
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
             served = _app()
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
@@ -1091,33 +1170,6 @@ class TestTheAnlassIsRefusedAtTheBox:
         """The control: a route refusing every body would pass the cases above."""
 
         response = answered_unanswered(PATH, erasure_of(anlass="x" * ERASURE_ANLASS_MAX_LENGTH))
-
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE
-
-
-class TestThePlaceholderIsRefusedAtTheBox:
-    """Every referee row stored without an address shares one placeholder, so a lookup of it would reach them all at once."""
-
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
-    @pytest.mark.parametrize(
-        "email",
-        [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID", "jemand@invalid"],
-        ids=["as stored", "folding to it", "any mailbox under it", "the reserved name itself"],
-    )
-    def test_it_is_refused_on_its_fold(self, path: str, email: str):
-        assert refused_at(answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))) == (
-            422,
-            PAYLOAD_REFUSED,
-            [["email"]],
-        )
-
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
-    def test_an_address_merely_naming_the_word_reaches_the_database(self, path: str):
-        """The control, and the boundary: the domain is refused, never a mailbox spelling `invalid` elsewhere."""
-
-        email = "invalid@invalid-schule.de"
-        response = answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))
 
         assert response.status_code == 500, response.json()
         assert response.json()["error_code"] in UNREACHED_DATABASE

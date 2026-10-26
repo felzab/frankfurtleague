@@ -43,6 +43,7 @@ import {
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
+import { HOUR_MS } from "./timeUnits";
 import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
@@ -94,8 +95,6 @@ const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
 /** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
-
-const HOUR_MS = 60 * 60 * 1000;
 
 // Prefixes the plugin never writes, so these rows are told from its code rows by identifier alone,
 // and an operator can clear every lock at once (`docs/ops/runbooks.md` §17).
@@ -1847,9 +1846,15 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes (`:: I517`).
   if (account === null) return false;
 
+  await deleteEndedSessions(adapter, account.id);
+  return true;
+}
+
+/** The rows of sessions an account's stamp has already ended. Never thrown from: the stamp is what ends them. */
+async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMany">, userId: string): Promise<void> {
   try {
     // By the account, never by a token: no session's cookie value leaves the store for this.
-    await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+    await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: userId }] });
   } catch (failed) {
     // Logged and left: the rows stand served by no lane, and the landing deletes each its browser brings back.
     logger.error("auth.ended_sessions_not_deleted", undefined, {
@@ -1857,7 +1862,45 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
-  return true;
+}
+
+/**
+ * Whether an account signs in at `address`, which refuses an address change onto it as the library's own change of
+ * address refuses one (`better-auth/api :: changeEmail`): joining it would hand one person's sign-in to another.
+ */
+export async function accountStandsAt(address: string): Promise<boolean> {
+  const { internalAdapter } = await auth.$context;
+  return (await internalAdapter.findUserByEmail(asSignInIdentifier(address))) !== null;
+}
+
+/** Where an address change's effect left the replaced address's account: moved, none there, or the new address holding its own. */
+export type KontoUmzug = "umgezogen" | "keines" | "belegt";
+
+/**
+ * Moves the replaced address's account, passkeys included, to the new address and ends its sessions: the confirmed
+ * link is the verification the library's own change of address mails, so this is that change's completing write
+ * (`better-auth/api :: verifyEmail`).
+ */
+export async function carryAccount(bisherige: string, neue: string): Promise<KontoUmzug> {
+  const { adapter, internalAdapter } = await auth.$context;
+  try {
+    // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
+    // library's revocations each end only the requesting session, which no caller here holds.
+    const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(bisherige), {
+      email: asSignInIdentifier(neue),
+      emailVerified: true,
+      [SESSIONS_ENDED_FIELD]: new Date(),
+    });
+    if (account === null) return "keines";
+
+    await deleteEndedSessions(adapter, account.id);
+    return "umgezogen";
+  } catch (failed) {
+    // `user_email_uidx` refusing a second account: the new address signs in to its own, the old one waits for the account sweep.
+    // Every press and approval refuses such an address (`accountStandsAt`), so only an account opened there since reaches this.
+    if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "belegt";
+    throw failed;
+  }
 }
 
 /**

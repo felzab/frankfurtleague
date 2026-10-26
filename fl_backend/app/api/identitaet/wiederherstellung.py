@@ -30,16 +30,26 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.adresswechsel.crud import (
+    Belegung,
+    adresse_belegt,
+    end_the_change_in_session,
+    move_the_address_in_session,
+    queue_the_refusal_notice_in_session,
+    read_the_bestand,
+)
+from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
+from app.api.berechtigungen.antraege import ist_offen, queue_the_ending_in_session, remove_the_antrag_in_session
+from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.services import genehmigung_steht
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
+from app.api.identitaet.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reasons, remove_their_reasons
 from app.api.konto.services import compose_person_move, compose_sitz_move
-from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
+from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
-from app.api.spieler.crud import discard_spieler_adresswechsel_in_session
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
@@ -78,8 +88,13 @@ _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] 
 # Each home's own update emptying the seats a Widerspruch names, as the link's answer writes it.
 _WIDERSPRUCH_UPDATE: Final = {Collection.BEWERBUNGEN: compose_decline_update, Collection.SAISON_TEAMS: compose_saison_decline_update}
 
-# Where each record keeps a pending address change.
-_ADRESSWECHSEL_FELD: Final = {Collection.SCHIEDSRICHTER: ADRESSWECHSEL_FELD, Collection.SPIELER: SPIELER_ADRESSWECHSEL_FELD}
+# The ending each ending line replays, as its press ended the change.
+_ENDE_ART: Final[Mapping[str, FLAdresswechselEndeArt]] = {
+    "adresswechsel_abgelehnt": "abgelehnt",
+    "adresswechsel_gestoppt": "gestoppt",
+    "adresswechsel_verworfen": "verworfen",
+    "adresswechsel_verworfen_mitgeteilt": "verworfen",
+}
 
 # A line's standing: to replay, replayed, already as the line left it or set since, held by somebody else or in another
 # state (listed and left), or a record the restore does not hold.
@@ -218,7 +233,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
     made = datetime.fromisoformat(line.am)
 
     def set_since(wahl: FLEinwilligungWahl) -> bool:
-        evidenced = beleg_of(block, wahl, stamp=log_stamp)
+        evidenced = beleg_of(block, wahl)
         return evidenced is not None and evidenced[0] > made
 
     return {wahl: wert for wahl, wert in line.wahlen.items() if ist_erteilt(wahl, block.get(wahl)) and not set_since(wahl)}
@@ -351,49 +366,191 @@ async def _plan_widerspruch(
 async def _plan_adresswechsel(
     line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
 ) -> Plan:
-    assert line.collection is not None
-    feld = _ADRESSWECHSEL_FELD[line.collection]
-    row = await database[line.collection].find_one({"_id": line.record_id}, {feld: 1}, session=session)
-    if row is None:
+    record = await database[Collection.ADRESSWECHSEL].find_one(
+        {"_id": line.record_id}, {"email": 1, "verschickt_am": 1, "beendet": 1}, session=session
+    )
+    if record is None:
         return Plan("no such record")
-
-    wechsel = row.get(feld)
-    if not isinstance(wechsel, Mapping):
+    if record.get("beendet") is not None:
         return Plan("already done")
-    sent = wechsel.get("verschickt_am")
+
+    sent = record.get("verschickt_am")
     asked_since = window.sent_after_restore(sent) if isinstance(sent, str) else False
-    # A change the restored site asked for, never the one declined.
+    # A link the restored site sent, never the one the line ended.
     if asked_since is True:
         return Plan("already done")
     if asked_since is None:
         return Plan("left for review", detail="its pending change went out on the day of both the snapshot and the restore")
-    if not _holds(wechsel.get("email"), line, schluessel):
+    if not _holds(record.get("email"), line, schluessel):
         return Plan("left for review")
 
     # The address judged above, so a change replaced since this plan was made is not taken with it.
-    db_filter = {"_id": row["_id"], f"{feld}.email": wechsel["email"]}
+    db_filter = {"_id": record["_id"], "email": record["email"]}
+    assert line.am is not None
+    pressed_at = datetime.fromisoformat(line.am)
 
-    # The discard's body, which writes the decline's own update and redaction (`docs/backend/spec.md :: I704`).
-    async def rewrite_declined_address(session: AsyncClientSession) -> Any:
-        if line.collection == Collection.SCHIEDSRICHTER:
-            return await discard_adresswechsel_in_session(
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db_filter=db_filter,
-                stamp=log_stamp(now),
-                return_document=ReturnDocument.BEFORE,
-                session=session,
-            )
-        return await discard_spieler_adresswechsel_in_session(
-            spieler_collection=database[Collection.SPIELER],
+    # The ending's own body, which writes the press's own update and redaction (`docs/backend/spec.md :: I704`). Ended at
+    # the press's instant, which its record's expiry counts from; the redaction happens now, so its stamp is the replay's.
+    async def rewrite_the_ending(session: AsyncClientSession) -> Any:
+        stored = await end_the_change_in_session(
+            adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             aktionen_collection=database[Collection.AKTIONEN],
             db_filter=db_filter,
+            art=_ENDE_ART[line.art],
+            now=pressed_at,
             stamp=log_stamp(now),
-            return_document=ReturnDocument.BEFORE,
+            session=session,
+        )
+        # The notice the end queued went with the restore (`docs/backend/spec.md :: I870`).
+        if line.art == "adresswechsel_verworfen_mitgeteilt":
+            await queue_the_refusal_notice_in_session(
+                record, adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], now=now, session=session
+            )
+        return stored
+
+    return Plan("to replay", rewrite_the_ending)
+
+
+async def _plan_antrag_ende(
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+) -> Plan:
+    """An ended request the restore brought back, removed again; one lapsed since is gone to every reader already."""
+
+    antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one(
+        {"_id": line.record_id}, {"adresse": 1, "genehmigung": 1}, session=session
+    )
+    if antrag is None:
+        return Plan("no such record")
+    if not ist_offen(antrag, now=now):
+        return Plan("already done")
+    if not _holds(antrag.get("adresse"), line, schluessel):
+        return Plan("left for review")
+
+    async def rewrite_the_end(session: AsyncClientSession) -> Any:
+        # The request's notice the restore brought back goes with it, as the end took it.
+        await remove_the_antrag_in_session(
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            antrag_id=antrag["_id"],
+            session=session,
+        )
+        # The requester's notice went with the restore: told again as the end told them, a withdrawal telling nobody.
+        if line.art != "antrag_zurueckgezogen":
+            await queue_the_ending_in_session(
+                [antrag],
+                art="antrag_abgelehnt" if line.art == "antrag_abgelehnt" else "antrag_beendet",
+                sperrliste=BanList(
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    schluessel=schluessel,
+                ),
+                berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+                now=now,
+                session=session,
+            )
+
+    return Plan("to replay", rewrite_the_end)
+
+
+def _records_of(database: AsyncDatabase) -> RecordCollections:
+    return RecordCollections(
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+    )
+
+
+async def _plan_adresswechsel_wirksam(
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+) -> Plan:
+    """A change that took effect: moved again by the effect's own body, where the restored change still stands.
+
+    A grant moves only on an approval the restore holds: one given after the snapshot is asked again.
+    """
+
+    record = await database[Collection.ADRESSWECHSEL].find_one({"_id": line.record_id}, session=session)
+    if record is None:
+        # Started after the snapshot, the window's own line being its effect: the restore put the records and the sign-in
+        # store, one cluster, back at the replaced address, so somebody must tell the person to start it again.
+        return Plan("left for review", detail="started after the snapshot: its person starts the change again")
+
+    beendet = record.get("beendet")
+    if beendet is not None:
+        return (
+            Plan("already done")
+            if beendet.get("art") == "wirksam"
+            else Plan("left for review", detail="the restored change ended otherwise: its person starts the change again")
+        )
+    if not _holds(record.get("email"), line, schluessel):
+        return Plan("left for review", detail="the restored change names another address: its person starts the change again")
+
+    records = _records_of(database)
+    bestand = await read_the_bestand(
+        str(record["adresse"]), records=records, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session
+    )
+    if bestand.leer:
+        return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
+    genehmigung = record.get("genehmigung")
+    sperrliste = BanList(
+        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
+    )
+    if bestand.berechtigung is not None and (
+        not deckt(genehmigung, bestand.berechtigung.get("verwaltung"))
+        or (genehmigung or {}).get("genehmigt_am") is None
+        # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
+        # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
+        or not genehmigung_steht(
+            betroffen=record["adresse"],
+            genehmigung=genehmigung,
+            grants=await read_berechtigungen(berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session),
+            announced=await read_the_announced(
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], session=session
+            ),
+            gesperrt=frozenset(),
+        )
+    ):
+        return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
+    # As the effect refuses it: replayed onto an address an entry names, it would join two people's records.
+    belegung = Belegung(
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        now=now,
+    )
+    if await adresse_belegt(str(record["email"]), records=records, belegung=belegung, session=session):
+        return Plan("left for review", detail="the new address holds entries of its own in the restored database")
+
+    async def rewrite_the_effect(session: AsyncClientSession) -> Any:
+        await move_the_address_in_session(
+            record=record,
+            bestand=bestand,
+            sperrliste=sperrliste,
+            adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+            spieler_collection=database[Collection.SPIELER],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            einladungen_collection=database[Collection.EINLADUNGEN],
+            sperrliste_collection=database[Collection.SPERRLISTE],
+            adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+            drosselung_collection=database[Collection.DROSSELUNG],
+            aktionen_collection=database[Collection.AKTIONEN],
+            adressanker_collection=database[Collection.ADRESSANKER],
+            schluessel=schluessel,
+            now=now,
             session=session,
         )
 
-    return Plan("to replay", rewrite_declined_address)
+    return Plan("to replay", rewrite_the_effect)
 
 
 async def pseudonym_traces(database: AsyncDatabase, pseudonym: str, *, session: AsyncClientSession | None) -> tuple[list[Any], int]:
@@ -462,8 +619,12 @@ async def plan_replay(
             return await _plan_widerruf(line, database, schluessel=schluessel, session=session)
         case "widerspruch":
             return await _plan_widerspruch(line, database, schluessel=schluessel, session=session, now=now, window=window)
-        case "adresswechsel_abgelehnt":
+        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen" | "adresswechsel_verworfen_mitgeteilt":
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
+        case "adresswechsel_wirksam":
+            return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session, now=now)
+        case "antrag_abgelehnt" | "antrag_zurueckgezogen" | "antrag_beendet":
+            return await _plan_antrag_ende(line, database, schluessel=schluessel, session=session, now=now)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 
@@ -523,10 +684,18 @@ async def run_replay(
 
     window = Window(since=since, until=until)
     read, unreadable = read_day_files(lines, since=since, until=until)
-    erased = {entry.line.person_hash for entry in read if entry.line.art == "loeschung"}
-    held = await where_held(database, erased, schluessel=schluessel)
+    # Each person's last erasure, the read being oldest first.
+    erased_at = {entry.line.person_hash: entry.timestamp for entry in read if entry.line.art == "loeschung"}
+    replaced = {entry.line.zuvor for entry in read if entry.line.zuvor is not None}
+    held = await where_held(database, set(erased_at) | replaced, schluessel=schluessel)
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
-    gone = {person_hash for person_hash in erased if not held[person_hash]}
+    gone = {person_hash for person_hash in erased_at if not held[person_hash]}
+    # An effect before its person's erasure left their records at the replaced address in a snapshot from before it
+    # (`docs/backend/spec.md :: I808`). Newest first, so a chain of changes reaches the earliest address still held.
+    for entry in reversed(read):
+        if _erased_after(entry, gone, erased_at) and entry.line.zuvor is not None and not held[entry.line.zuvor]:
+            gone.add(entry.line.zuvor)
+            erased_at[entry.line.zuvor] = max(erased_at[entry.line.person_hash], erased_at.get(entry.line.zuvor, entry.timestamp))
     print(f"Journal lines written after {since.isoformat()} and no later than {until.isoformat()}: {len(read)}.", file=out)
 
     left = {"erasures to run": 0, "lines to replay": 0, "records to review": 0, "replays that failed": 0}
@@ -535,18 +704,18 @@ async def run_replay(
         print(f"\n{entry.timestamp.isoformat()}  {line.act()}", file=out)
 
         if line.art == "loeschung" and held[line.person_hash]:
-            places = held[line.person_hash]
             left["erasures to run"] += 1
-            for collection in sorted({place[0] for place in places}):
-                found = [place for place in places if place[0] == collection]
-                shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
-                print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
-            print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
+            _print_held(held[line.person_hash], out)
             continue
         if line.art == "loeschung" and line.pseudonym is None and line.halter is None:
             print("    its address is held nowhere in the restored database: nothing to run", file=out)
             continue
-        if line.art != "loeschung" and line.person_hash in gone:
+        if _erased_after(entry, gone, erased_at) and line.zuvor is not None and held[line.zuvor]:
+            left["erasures to run"] += 1
+            print("    its person's erasure followed it, and the address it replaced holds their records again", file=out)
+            _print_held(held[line.zuvor], out)
+            continue
+        if line.art != "loeschung" and _erased_after(entry, gone, erased_at):
             print("    its person's erasure has run: nothing to replay", file=out)
             continue
 
@@ -575,6 +744,22 @@ async def run_replay(
     print(f"\nLeft: {', '.join(f'{count} {what}' for what, count in left.items())}.", file=out)
 
     return 1 if any(left.values()) else 0
+
+
+def _erased_after(entry: Read, gone: set[str], erased_at: Mapping[str, datetime]) -> bool:
+    """Whether the line's person, held nowhere, was erased after the line was written."""
+
+    return entry.line.person_hash in gone and erased_at[entry.line.person_hash] > entry.timestamp
+
+
+def _print_held(places: list[tuple[str, Any, str]], out: TextIO) -> None:
+    """Where an erasure to run finds its address, by collection, document and field, and where it is run."""
+
+    for collection in sorted({place[0] for place in places}):
+        found = [place for place in places if place[0] == collection]
+        shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
+        print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
+    print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
 
 
 def _instant(parser: argparse.ArgumentParser, flag: str, spelled: str) -> datetime:

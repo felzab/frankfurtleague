@@ -154,7 +154,8 @@ async def patch_kader_zeile(
 
     The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
     row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
-    nothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
+    nothing is written. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the German day, ahead of the 404 and
+    every rule, `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
     season's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`
     for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
     """
@@ -232,7 +233,8 @@ async def delete_kader_zeile(
 
     Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
     brings the row back. 404 where this team holds no live row for the player in this season,
-    another team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.
+    another team's pupil and an ausgetragen row alike. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the
+    German day, ahead of the 404, and `REQ-FUNKTION-001` without a seat.
     """
 
     async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeileResponse:

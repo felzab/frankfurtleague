@@ -28,7 +28,9 @@ export const ANTWORT_NICHT_GESPEICHERT_SATZ = `Deine Antwort wurde nicht gespeic
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
 export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
+  // A count, never a flag: a page still offering a press once answered (the address link's decline after a lapsed
+  // confirmation) unmounts that press too, and a flag already set would leave its focus on `<body>`.
+  const [antworten, setAntworten] = useState(0);
   const ergebnisRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -41,10 +43,10 @@ export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElem
   // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
   // announced; the panel takes it, and `role="status"` reads it out.
   useEffect(() => {
-    if (hatGeantwortet) ergebnisRef.current?.focus();
-  }, [hatGeantwortet]);
+    if (antworten > 0) ergebnisRef.current?.focus();
+  }, [antworten]);
 
-  return { ergebnisRef: ergebnisRef, beantwortet: () => setHatGeantwortet(true) };
+  return { ergebnisRef: ergebnisRef, beantwortet: () => setAntworten((bisher) => bisher + 1) };
 }
 
 /**

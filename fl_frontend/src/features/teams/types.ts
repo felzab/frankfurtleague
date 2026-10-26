@@ -8,6 +8,7 @@ import type {
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
@@ -82,7 +83,8 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
-  einwilligung: FLKontaktKenntnisnahme;
+  // Null on a seat the editor opened: the save that seats the person stamps who did.
+  einwilligung: Omit<FLKontaktKenntnisnahme, "eingetragen_von"> & { eingetragen_von: FLKontaktKenntnisnahme["eingetragen_von"] | null };
 };
 
 /**
@@ -118,6 +120,8 @@ export type TeamSaisonMembership = {
     kontakte: FLSaisonTeamKontakte | null;
     /** Each seat's link, read beside the block for the contacts editor. */
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+    /** Each seat's pending address change, read beside the block for the contacts editor. */
+    adresswechsel: FLSaisonTeamAdresswechsel | null;
     /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
     kontakte_stand: string;
   } | null;

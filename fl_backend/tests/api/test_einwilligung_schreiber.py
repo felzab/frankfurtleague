@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.api.bewerbungen.services import compose_confirmation_update, compose_kontakt_seat_update, compose_kontakte
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.registrierungen.services import compose_person_update
-from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_herkunft
+from app.api.teams.services import compose_kontakte_herkunft
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, ist_erteilt
@@ -108,24 +108,22 @@ AM: Final = "2026-04-01T10:30:00+00:00"
 # evidenced, the withdrawal naming the grant it ended.
 PERSON_RECORD: Final = {
     "umfang": "kader_oeffentlich",
-    "erteilt_von": "volljaehrig",
     "datum": "2026-03-01",
     "bestaetigt_am": "2026-03-01",
-    "text_version": "2026-09-spielerseite-3",
+    "text_version": "2026-10-spielerseite-5",
     "medien": False,
     NACHWEIS: {
-        "umfang": {"am": CONFIRMED_AT, "text_version": "2026-09-spielerseite-3"},
+        "umfang": {"am": CONFIRMED_AT, "text_version": "2026-10-spielerseite-5"},
         "medien": {
             "am": WITHDRAWN_AT,
             "text_version": "2026-10-konto-spieler",
-            "erteilt_zuvor": {"am": CONFIRMED_AT, "text_version": "2026-09-spielerseite-3"},
+            "erteilt_zuvor": {"am": CONFIRMED_AT, "text_version": "2026-10-spielerseite-5"},
         },
     },
 }
 # A seat its applicant named, which nobody has answered yet.
 SEAT_RECORD: Final = {
     "umfang": "kontaktdaten",
-    "erfasst_von": "administrativ",
     "text_version": "2026-09-bestaetigung-5",
     "datum": "2026-03-01",
     "bestaetigt_am": None,
@@ -136,7 +134,6 @@ SEAT_RECORD: Final = {
 ANSWERED_SEAT: Final = {
     **SEAT_RECORD,
     "umfang": "kontaktdaten_whatsapp",
-    "erfasst_von": "person",
     "bestaetigt_am": "2026-03-02",
     "medien": True,
     NACHWEIS: {
@@ -236,8 +233,8 @@ def _admission() -> Write:
         "bestaetigt_am": "2026-03-10",
         "medien": True,
         NACHWEIS: {
-            "umfang": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
-            "medien": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
+            "umfang": {"am": registered_at, "text_version": "2026-10-spielerseite-5"},
+            "medien": {"am": registered_at, "text_version": "2026-10-spielerseite-5"},
         },
     }
     registrierung = {"vorname": "Ida", "nachname": "Musterfrau", "geburtsdatum": "2009-05-04", "einwilligung": fresh}
@@ -288,14 +285,6 @@ def _contacts_editor() -> Write:
     return stored, update, ("kontakte.trainer.einwilligung", "kontakte.ansprechperson.einwilligung")
 
 
-def _acceptance() -> Write:
-    """An application accepted with one seat answered and one not: the season row takes both."""
-
-    kontakte = _seats(trainer={**SEAT, "einwilligung": dict(ANSWERED_SEAT)}, ansprechperson={**OTHER, "einwilligung": dict(SEAT_RECORD)})
-    update = {"$set": {"kontakte": compose_kontakte_at_entry(kontakte=kontakte)}}
-    return {"kontakte": kontakte}, update, ("kontakte.trainer.einwilligung", "kontakte.ansprechperson.einwilligung")
-
-
 # Every function under `fl_backend/app` composing a consent block or moving a choice on one, by its
 # lane. Held to the code below, so a new composer fails by name until it is judged here.
 PERSON_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
@@ -308,7 +297,6 @@ ADMIN_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
     "app/api/bewerbungen/services.py::compose_kontakte": _submission,
     "app/api/bewerbungen/services.py::compose_kontakt_seat_update": _reseat,
     "app/api/teams/services.py::compose_kontakte_herkunft": _contacts_editor,
-    "app/api/teams/services.py::compose_kontakte_at_entry": _acceptance,
 }
 # Driven by their own suites, or through a write above: each writes a block born whole from its
 # person's own answer, carries one whole, or builds a block for a writer above.
@@ -324,8 +312,6 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/schiedsrichter/services.py::compose_einwilligung",
         # Writers at their routes, each through a composer classed above, and each driven by its own
         # route's suite.
-        "app/api/bewerbungen/admin_router.py::accept_and_enter_the_school",
-        "app/api/bewerbungen/admin_router.py::annehmen_bewerbung",
         "app/api/bewerbungen/admin_router.py::besetze_kontakt_sitz",
         "app/api/bewerbungen/admin_router.py::seat_and_mint",
         "app/api/bewerbungen/einwilligung_router.py::answer_for_the_person",

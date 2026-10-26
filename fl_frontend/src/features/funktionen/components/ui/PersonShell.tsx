@@ -1,7 +1,7 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOutAction } from "@/features/auth/actions";
+import { signOut } from "@/features/auth/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 
@@ -12,7 +12,7 @@ import type React from "react";
 import type { PersonIconName } from "../../constants";
 
 /**
- * A client wrapper for `AdminShell`'s reason: the icons and the sign-out action cross no server
+ * A client wrapper for `AdminShell`'s reason: the icons and the sign-out cross no server
  * boundary as props. What the person's Funktionen decide arrives as slots, each streamed on its own.
  */
 export function PersonShell({
@@ -45,7 +45,7 @@ export function PersonShell({
       fallbackTitle={fallback.label}
       fallbackHint={fallback.hint}
       kontoHref={KONTO_HREF}
-      onSignOut={signOutAction}>
+      onSignOut={signOut}>
       {children}
     </AppShell>
   );

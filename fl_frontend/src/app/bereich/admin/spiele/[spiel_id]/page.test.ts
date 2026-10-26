@@ -10,6 +10,7 @@ import { spielFields } from "@/shared/testing/fixtures.ts";
 import {
   answer,
   answerReadsWith,
+  backendUnreachable,
   clearSteps,
   EMPTIEST_ANSWER,
   OBJECT_ID,
@@ -19,6 +20,7 @@ import {
   saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
@@ -36,6 +38,7 @@ const { AdminContextWrapper } = await import("@/features/admin/components/provid
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { default: nextConfig } = await import("../../../../../../next.config.ts");
 const { frontend_config } = await import("@/core/config.ts");
+const { FLSpielberichtAdminResponseSchema } = await import("@/features/spielberichte/schemas.ts");
 
 const ENDPOINT = `/spiele/${OBJECT_ID}/admin`;
 const PROPS: NextPageProps<{ spiel_id: string }> = { params: Promise.resolve({ spiel_id: OBJECT_ID }), searchParams: Promise.resolve({}) };
@@ -115,6 +118,90 @@ describe("which switch the match editor's near-date warning reads", () => {
     t.after(() => Reflect.set(frontend_config, "SPIEL_SWEEP", gesetzt));
 
     assert.equal((await opened()).isSpielSweepOn, true);
+  });
+});
+
+/* The panel's rows are the fixture's own, of its own season: the read takes a season, and the triage's season-wide
+   one would hand the editor every fixture's rows. */
+describe("the confirmations the match editor reads", () => {
+  type Handed = ReactElement<{ bestaetigungen: unknown }>;
+  const handed = async (): Promise<unknown> => {
+    const body = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<{ children: Handed }>;
+    return body.props.children.props.bestaetigungen;
+  };
+
+  it("reads the fixture's rows of its own season and hands them to the editor with the last run", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      if (endpoint === "/spielbestaetigungen")
+        return answer(schema, endpoint, { spielbestaetigungen: [], spiel_sweep_gelaufen_am: "2026-11-01", vollstaendig: true });
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+
+    assert.deepEqual(await handed(), { zeilen: [], gelaufenAm: "2026-11-01" });
+    assert.deepEqual(
+      readsOf(steps)
+        .filter(({ endpoint }) => endpoint === "/spielbestaetigungen")
+        .map(({ params }) => params),
+      [{ saison_id: STORED.saison_id, spiel_id: STORED.id }],
+    );
+  });
+
+  // The editor is how a fixture is repaired, so a read it can live without takes none of it down.
+  it("hands the editor no rows where their read failed, and keeps the editor", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      if (endpoint === "/spielbestaetigungen") throw backendUnreachable(endpoint);
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+
+    assert.equal(await handed(), null);
+  });
+});
+
+/* The triage files a standing report's fixture whatever the switch reads, and only „Vorschlag übernehmen“ here clears
+   it; closed, a fixture holding no report shows no panel. */
+describe("the report the match editor reads", () => {
+  const BERICHT_ENDPOINT = `/spielberichte/${OBJECT_ID}/admin`;
+  const ohneBericht = { ...spielberichtReadFixture(), bericht: null, zustand: null };
+
+  const handed = async (eingabe: "on" | "off", gelesen: Record<string, unknown> | null): Promise<unknown> => {
+    const gesetzt = frontend_config.SPIELBERICHT_EINGABE;
+    Reflect.set(frontend_config, "SPIELBERICHT_EINGABE", eingabe);
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      // `null` for a read the network breaks off.
+      if (endpoint === BERICHT_ENDPOINT) {
+        if (gelesen === null) throw backendUnreachable(endpoint);
+        return schema.safeParse(gelesen).data;
+      }
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+    try {
+      const body = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<{ children: ReactElement<{ spielbericht: unknown }> }>;
+      return body.props.children.props.spielbericht;
+    } finally {
+      Reflect.set(frontend_config, "SPIELBERICHT_EINGABE", gesetzt);
+    }
+  };
+
+  /* Closed, the correction page writes nothing, so the panel offers no way there. */
+  it("hands the editor a standing report while the switch reads off, offering no correction", async () => {
+    assert.deepEqual(await handed("off", spielberichtReadFixture()), {
+      lesen: FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()),
+      korrigierbar: false,
+    });
+  });
+
+  it("hands it no panel where no report stands and the switch reads off, and the empty read where it reads on", async () => {
+    assert.equal(await handed("off", ohneBericht), undefined);
+    assert.deepEqual(await handed("on", ohneBericht), { lesen: FLSpielberichtAdminResponseSchema.parse(ohneBericht), korrigierbar: true });
+  });
+
+  /* A failed read is not a fixture without a report: the panel says the read failed, as the confirmations' panel does. */
+  it("hands the editor the failed read as such, whatever the switch reads", async () => {
+    assert.equal(await handed("off", null), null);
+    assert.equal(await handed("on", null), null);
   });
 });
 

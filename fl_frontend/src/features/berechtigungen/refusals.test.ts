@@ -3,11 +3,22 @@ import { describe, it } from "node:test";
 
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals.ts";
+import {
+  mapAntragAblehnungRefusal,
+  mapAntragGenehmigungRefusal,
+  mapEntziehenRefusal,
+  mapErteilenRefusal,
+  mapStufeRefusal,
+} from "./refusals.ts";
 
 const GRANT = "POST /berechtigungen";
 const REVOKE = "DELETE /berechtigungen/{berechtigung_id}";
 const TIER = "PATCH /berechtigungen/{berechtigung_id}";
+const APPROVE = "POST /berechtigungen/antraege/{antrag_id}/genehmigung";
+const REFUSE = "DELETE /berechtigungen/antraege/{antrag_id}";
+
+/** A second request about an address, refused on the grant's box and on the promotion's toast alike. */
+const ANTRAG_OFFEN = "Für diese Adresse wartet schon ein Antrag. Du findest ihn unter „Offene Anträge“.";
 
 describe("the grant's refusals", () => {
   /* Both spellings of one grant: the rule refuses a second, and the unique index refuses it again where
@@ -23,6 +34,12 @@ describe("the grant's refusals", () => {
     assert.deepEqual(mapErteilenRefusal(refusedOn(GRANT, "REQ-BERECHTIGUNG-003", 409)), {
       fieldErrors: { email: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll." },
     });
+  });
+
+  /* The box is no way out of this one: the request already waiting is decided first, so the sentence says where it is. */
+  it("lands a second request about an address on the address box, naming where the first one waits", () => {
+    assert.deepEqual(mapErteilenRefusal(refusedOn(GRANT, "REQ-BERECHTIGUNG-008", 409)), { fieldErrors: { email: ANTRAG_OFFEN } });
+    assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-008", 409)), { error: ANTRAG_OFFEN });
   });
 
   it("answers every refusal the grant publishes", () => {
@@ -83,6 +100,50 @@ describe("the tier change's refusals", () => {
       assert.notEqual(answerShown(TIER, code, mapStufeRefusal), null, `${code} reaches the admin as an unhandled refusal`);
     }
   });
+});
+
+describe("a request's decision refused", () => {
+  /* Its requester withdraws a request, so on a refusal `-009` is the subject's alone: the approval's sentence names both. */
+  it("tells the approval's own reader apart from the refusal's", () => {
+    assert.equal(
+      mapAntragGenehmigungRefusal(refusedOn(APPROVE, "REQ-BERECHTIGUNG-009")),
+      "Einen Antrag, den Du gestellt hast oder der Dich betrifft, genehmigt eine andere Person aus der Verwaltung, eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+    );
+    assert.equal(
+      mapAntragAblehnungRefusal(refusedOn(REFUSE, "REQ-BERECHTIGUNG-009")),
+      "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+    );
+  });
+
+  /* The approval and the grant are one transaction, so a refused address leaves the request standing until it is refused. */
+  it("names the refusal as the way out where the address has changed since the request", () => {
+    assert.equal(
+      mapAntragGenehmigungRefusal(refusedOn(APPROVE, "REQ-BERECHTIGUNG-003")),
+      "Diese Adresse ist inzwischen gesperrt, deshalb ist nichts genehmigt. Lehne den Antrag ab, oder hebe zuerst die Sperre auf.",
+    );
+    assert.equal(
+      mapAntragGenehmigungRefusal(refusedOn(APPROVE, "REQ-BERECHTIGUNG-012")),
+      "Wer den Antrag gestellt hat, hat diesen Zugang inzwischen nicht mehr, deshalb genehmigt ihn niemand. Lehne ihn ab und stelle ihn bei Bedarf neu.",
+    );
+  });
+
+  it("answers a request decided, withdrawn or lapsed since the page loaded with the reload", () => {
+    const neuLaden = "Dieser Antrag ist nicht mehr offen. Lade die Seite neu.";
+
+    assert.equal(mapAntragGenehmigungRefusal(refusedOn(APPROVE, "DB-COMMON-001")), neuLaden);
+    assert.equal(mapAntragAblehnungRefusal(refusedOn(REFUSE, "DB-COMMON-001")), neuLaden);
+  });
+
+  for (const [operation, mapper] of [
+    [APPROVE, mapAntragGenehmigungRefusal],
+    [REFUSE, mapAntragAblehnungRefusal],
+  ] as const) {
+    it(`answers every refusal ${operation} publishes`, () => {
+      for (const code of publishedRefusals(operation)) {
+        assert.notEqual(answerShown(operation, code, mapper), null, `${code} reaches the admin as an unhandled refusal`);
+      }
+    });
+  }
 });
 
 describe("what neither mapper answers", () => {

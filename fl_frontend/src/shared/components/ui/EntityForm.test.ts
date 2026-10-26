@@ -109,6 +109,37 @@ describe("the create form", () => {
     assert.equal(onClose.mock.callCount(), 1, "a save that stood left the dialog open over the record it created");
   });
 
+  /* One save standing in two ways its caller tells apart (a grant made or one asked for): neither cost anything, so
+     both are raised as a success, each under the title its answer picks. */
+  it("raises a save under the success title its caller's answer picks", async () => {
+    const user = userEvent.setup();
+    render(
+      underNext(
+        h(EntityForm<Draft, Draft, { beantragt: boolean }>, {
+          initialDraft: { name: "Ada" },
+          renderFields: () => null,
+          schema: z.object({ name: z.string() }),
+          toPayload: (draft) => draft,
+          onSubmit: () =>
+            handedOut("onSubmit", Promise.resolve({ success: true as const, message: "Eine zweite Person genehmigt ihn.", beantragt: true })),
+          successMessage: (saved) => (saved.beantragt ? "Beantragt" : "Angelegt"),
+          onClose: () => undefined,
+        }),
+      ),
+    );
+    raised.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["success", "Beantragt", "Eine zweite Person genehmigt ihn."]],
+      ),
+    );
+  });
+
   /* The block judges the payload step's output, so handing the write the raw draft sends a value the
      schema never saw, one it would have refused. */
   it("sends the payload the block judged, not the draft it was built from", async () => {

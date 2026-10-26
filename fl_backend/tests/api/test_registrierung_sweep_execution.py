@@ -3,7 +3,7 @@ import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -32,7 +32,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ban_document, rules_document, saison_document, team_document
+from tests.documents import ban_document, eigene_einwilligung_document, rules_document, saison_document, team_document
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -62,14 +62,9 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, bestaetigt_am: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": bestaetigt_am,
-        "bestaetigt_am": bestaetigt_am,
-        "text_version": "2026-09-spielerseite",
-        "medien": False,
-    }
+    stored = eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=MAILED_ON_THE_MARK)
+
+    return {**stored, "bestaetigt_am": bestaetigt_am}
 
 
 def bestaetigung(registrierung_id: ObjectId, *, frist: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:
@@ -490,6 +485,7 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(Collection.REGISTRIERUNGEN),
@@ -499,6 +495,7 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 
@@ -654,7 +651,7 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A registration stored before a field its validator requires: the stamp's update is refused under strict validation.
+        """A hand-edited registration short of a field its validator requires: strict validation refuses the stamp's update.
 
         Beside it a barred one, which the share leaves out: its count stays the whole page's once the share is taken apart.
         """

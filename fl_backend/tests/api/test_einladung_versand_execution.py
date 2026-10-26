@@ -11,6 +11,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.saisons.admin_router import _mail_one_team
 from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import kontaktperson_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -27,20 +28,7 @@ TEAM: Mapping[str, Any] = {
     "name": "Adler",
     "austritt": None,
     "kontakte": {
-        "trainer": {
-            "vorname": "Wraxlington",
-            "nachname": "Mustermann",
-            "email": "wraxlington@example.com",
-            "telefon": "+49 69 1234567",
-            "geburtsdatum": "1980-05-04",
-            "einwilligung": {
-                "umfang": "kontaktdaten",
-                "erfasst_von": "person",
-                "text_version": "v1",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-03-20",
-            },
-        },
+        "trainer": kontaktperson_document("Wraxlington", bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567"),
         "ansprechperson": None,
         "stellvertretung": None,
         "trainer_ist_zugleich": None,

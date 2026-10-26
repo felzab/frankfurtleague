@@ -10,7 +10,7 @@ import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./consta
 
 import type { NamedTeam } from "@/features/bewerbungen/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung } from "./schemas";
+import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung, FLRegistrierungBestaetigungPayload } from "./schemas";
 import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**
@@ -140,6 +140,21 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
 const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt.";
 
+/**
+ * The returning pupil's age refusal, judged on the date the league holds rather than one typed here: the page
+ * has no field to correct, and every reopened link takes the same date, so the league is the repair.
+ */
+export const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
+  reason: "Dein bei uns gespeichertes Geburtsdatum liegt außerhalb der Altersgrenzen dieser Saison",
+  repair: `Du siehst es in Deinem Konto. Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}`,
+});
+
+/** The returning pupil's page meeting a person the league holds no birthdate for: the page has no field, so the league is the repair. */
+const GESPEICHERTES_GEBURTSDATUM_FEHLT = buildRefusal({
+  reason: "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen",
+  repair: `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen`,
+});
+
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
@@ -158,6 +173,7 @@ export type GelesenerLink =
  */
 export async function mapBestaetigungRefusal(
   error: unknown,
+  gesendet: Pick<FLRegistrierungBestaetigungPayload, "geburtsdatum">,
   gelesen: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
@@ -182,10 +198,13 @@ export async function mapBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-REGISTRIERUNG-010":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
-    // Choices the link's page did not ask: no page of ours sends it, the label check refusing a
-    // mismatched page first, so only a drifted client meets this, and the mail's link reopens the page.
+    // Answers the page did not ask: a drifted client, the label check refusing a page whose person
+    // changed since it opened first. The mail's link reopens it.
     case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // Never the mail's link: every reopening takes the same undated person.
+    case "REQ-REGISTRIERUNG-019":
+      return { error: GESPEICHERTES_GEBURTSDATUM_FEHLT };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
@@ -202,9 +221,12 @@ export async function mapBestaetigungRefusal(
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-REGISTRIERUNG-012":
       return { zustand: "gesperrt" };
-    // The one refusal that spends no token, so it lands on the field and the typed date survives it;
+    // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {
+      // No date sent is the returning pupil's stored one judged: their page asks none (`REQ-REGISTRIERUNG-017`).
+      if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
+
       const floor = (await ansicht())?.mindestalter ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
@@ -278,7 +300,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
         reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
-    // The page sends exactly the person the read resolved or proposed, so this is a page older than
+    // The page sends exactly the person the read resolved, so this is a page older than
     // the stored person it names.
     case "REQ-REGISTRIERUNG-014":
       return buildRefusal({

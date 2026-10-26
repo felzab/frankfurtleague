@@ -1,4 +1,5 @@
 from collections.abc import Iterator, Mapping
+from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -12,17 +13,23 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_FRIST_VORBEI,
     ANSETZUNG_GEAENDERT,
     ANSETZUNG_GESCHLOSSEN,
+    ANSETZUNG_NICHT_EINTRAGBAR,
+    ANSETZUNG_NICHT_VERWERFBAR,
     ANSETZUNG_TOKEN_UNKNOWN,
     ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
+    ansetzung_stand_of,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
     clubs_without_a_season_row,
     compose_ansetzung,
+    find_eintragen_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
+    find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
     grund_to_close,
+    grund_to_end,
     proposal_payload,
     seat_adresse,
     zustand_of,
@@ -107,6 +114,12 @@ def zeile(**overrides: Any) -> dict[str, Any]:
 
 
 ANSWERED = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+DISCARDED_DECLINE = {
+    **ANSWERED,
+    "art": "abgelehnt",
+    "vorschlag": {"datum": AFTER_THE_DAY, "uhrzeit": "18:30:00"},
+    "begruendung": "Halle belegt",
+}
 
 
 class TestATokenNoSeatHolds:
@@ -216,7 +229,9 @@ class TestWhatAReopenedLinkShows:
             pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
-            pytest.param({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"),
+            pytest.param(
+                {"geschlossen": {"am": TODAY, "grund": "spiel_vergangen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"
+            ),
             pytest.param(
                 {"geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
                 {},
@@ -333,6 +348,10 @@ SITUATIONS = [
 STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
 
 
+def called_off(situation: dict[str, Any]) -> bool:
+    return situation.get("spiel_overrides", {}).get("sonderereignis") in ("ausgefallen", "annulliert")
+
+
 class TestTheLinkAndTheCloseReadOneVerdict:
     """The view, the answer and the pass's close judge an open row alike: a link shows and refuses only what the close would record."""
 
@@ -340,8 +359,10 @@ class TestTheLinkAndTheCloseReadOneVerdict:
     def test_the_view_shows_the_state_the_answer_refuses_with(self, situation: dict[str, Any], today: str):
         refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today)
         shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, gesperrt=False, vorschlag_offen=None)
+        # A call-off refuses with a decision's code, on which the page reads the view again, and the view names it.
+        expected = "abgesagt" if called_off(situation) else STATE_OF_CODE[None if refusal is None else refusal.error_code]
 
-        assert shown == STATE_OF_CODE[None if refusal is None else refusal.error_code]
+        assert shown == expected
 
     @pytest.mark.parametrize("antwort", [None, ANSWERED], ids=["unanswered", "answered"])
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
@@ -362,6 +383,26 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
 
         assert before == after
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_a_discard_shows_the_same_state_once_the_close_ends_it(self, situation: dict[str, Any], today: str):
+        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`.
+
+        Standing about the fixture as it is, it reads `verworfen`, the league having kept the date.
+        """
+
+        situated = lage(**situation)
+        austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
+        discarded = zeile(antwort=DISCARDED_DECLINE, geschlossen={"am": TODAY, "grund": "verworfen"})
+        grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
+        ended = {**discarded, "geschlossen": discarded["geschlossen"] if grund is None else {"am": today, "grund": grund}}
+
+        before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+
+        standing = grund is None and ansetzung_stand_of(situated.spiel) == discarded["ansetzung"]["stand"]
+        # A call-off reads as one ahead of every answer, the discarded decline's too.
+        assert before == after == ("abgesagt" if called_off(situation) else "verworfen" if standing else "abgelehnt")
 
 
 class TestWhatTheViewStatesOfTheFixture:
@@ -394,6 +435,39 @@ class TestAProposalBeforeToday:
 
         assert refusal is not None and (refusal.error_code, refusal.fields) == (ANSETZUNG_VORSCHLAG_VERGANGEN, (("vorschlag", "datum"),))
         assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
+
+
+DECLINED = {**ANSWERED, "art": "abgelehnt", "vorschlag": {"datum": "2027-05-15", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
+REFEREE_ROW = {"partei": {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
+CLOSED = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
+# The Ansetzung `spiel()` stood at before its hour moved.
+LEFT = compose_ansetzung(spiel(uhrzeit="17:00:00"))
+
+
+class TestWhatTheAdministratorMaySettleAndDiscard:
+    """A discard closing any row but an open decline with a proposal would silence that party for the Ansetzung for good."""
+
+    @pytest.mark.parametrize(
+        ("row", "settles", "discards"),
+        [
+            pytest.param({}, True, False, id="open"),
+            pytest.param(REFEREE_ROW, True, False, id="a-referees-open-row"),
+            pytest.param({"antwort": ANSWERED}, False, False, id="agreed"),
+            pytest.param({"antwort": DECLINED}, False, True, id="declined-with-a-proposal"),
+            pytest.param({"antwort": {**DECLINED, "vorschlag": None}}, False, False, id="declined-without-one"),
+            pytest.param({**REFEREE_ROW, "antwort": DECLINED}, False, False, id="a-referees-decline"),
+            pytest.param({**CLOSED, "antwort": DECLINED}, False, False, id="a-decline-closed-since"),
+            pytest.param(CLOSED, False, False, id="closed-unanswered"),
+            pytest.param({"antwort": DECLINED, "ansetzung": LEFT}, False, False, id="a-decline-about-an-ansetzung-left"),
+        ],
+    )
+    def test_each_row_state_meets_its_code(self, row: dict[str, Any], settles: bool, discards: bool):
+        eintragen = find_eintragen_refusal(spielbestaetigung_raw=zeile(**row))
+        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row), spiel=spiel())
+
+        assert (eintragen is None, verwerfen is None) == (settles, discards)
+        assert eintragen is None or (eintragen.error_code, eintragen.status) == (ANSETZUNG_NICHT_EINTRAGBAR, HTTPStatus.CONFLICT)
+        assert verwerfen is None or (verwerfen.error_code, verwerfen.status) == (ANSETZUNG_NICHT_VERWERFBAR, HTTPStatus.CONFLICT)
 
 
 class TestTheProposalIsTheFixtureOnItsNewDate:

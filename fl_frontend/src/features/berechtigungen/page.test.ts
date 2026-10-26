@@ -24,6 +24,7 @@ const INHABER = {
   erteilt_von: "PLAYGROUND",
   erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-27T01:00:00Z",
+  adresswechsel: null,
 };
 const VORSTAND = {
   id: "6890a1b2c3d4e5f6071b0002",
@@ -34,6 +35,7 @@ const VORSTAND = {
   erteilt_von_gesperrt: false,
   // Past 22:00 UTC: already the 28th in Berlin.
   erteilt_am: "2026-09-27T22:30:00Z",
+  adresswechsel: null,
 };
 const GESPERRT = {
   id: "6890a1b2c3d4e5f6071b0003",
@@ -43,6 +45,7 @@ const GESPERRT = {
   erteilt_von: null,
   erteilt_von_gesperrt: true,
   erteilt_am: "2026-09-27T03:00:00Z",
+  adresswechsel: null,
 };
 
 const ZWEITER_INHABER = { ...VORSTAND, id: "6890a1b2c3d4e5f6071b0004", adresse: "kasse@schule.de", verwaltung: "owner" };
@@ -57,8 +60,11 @@ let inhaberSeit = VOR_JEDER_SITZUNG;
 /** The grants the list answers, until a case names others. */
 let zeilen: object[] = [INHABER, VORSTAND, GESPERRT];
 
+/** The requests the list answers, none until a case names some. */
+let antraege: object[] = [];
+
 answerReadsWith((endpoint, schema, params) => {
-  if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: zeilen, uebersprungen: 0 });
+  if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: zeilen, uebersprungen: 0, antraege });
   if (endpoint === "/identitaet/subjekt") {
     return answer(schema, endpoint, {
       verwaltung: eigeneVerwaltung,
@@ -73,6 +79,7 @@ beforeEach(() => {
   eigeneVerwaltung = "administration";
   inhaberSeit = VOR_JEDER_SITZUNG;
   zeilen = [INHABER, VORSTAND, GESPERRT];
+  antraege = [];
   setSession({ user: { email: "vorstand@schule.de" } });
 });
 
@@ -275,5 +282,205 @@ describe("who is offered the tier change", () => {
       names.filter((name) => /ernennen|herabstufen|entziehen/.test(name)),
       ["Mich zur Verwaltung herabstufen", "Zur Verwaltung herabstufen: kasse@schule.de"],
     );
+  });
+});
+
+describe("who is offered an address change's approval", () => {
+  const wartend = (verwehrt: "eigene" | "gestartet" | "inhaber" | "juenger" | null) => ({
+    ...VORSTAND,
+    adresswechsel: {
+      id: "68c1f0a2b3c4d5e6f7a8b9e0",
+      email: "vorstand@neu.de",
+      email_gesperrt: false,
+      weg: "konto" as const,
+      gestartet_von: null,
+      gestartet_von_gesperrt: false,
+      grund: null,
+      bestaetigt: true,
+      bis: "2026-10-27T11:30:00Z",
+      verwehrt,
+      einsehbar_verwehrt: null,
+    },
+  });
+
+  /* On the grant the change moves, where granting and revoking already are: one place for the approval. */
+  it("shows the change on the grant it moves, with the press named by its row and its deadline in Berlin", async () => {
+    zeilen = [INHABER, wartend(null)];
+
+    const markup = await renderPage(PAGE);
+
+    assert.match(
+      textOf(markup, " ").replace(/\s+/g, " "),
+      /Neue Adresse für diesen Zugang: vorstand@neu\.de ?\. Sie ist bestätigt\. Genehmigen bis 27\. Oktober 2026 um 12:30 ?\./,
+    );
+    assert.deepEqual(
+      buttonNames(markup).filter((name) => name.startsWith("Adressänderung genehmigen")),
+      ["Adressänderung genehmigen: vorstand@schule.de"],
+    );
+  });
+
+  /* The backend refuses each of these: the press stands closed, saying why in its refusal's words. */
+  for (const [verwehrt, satz] of [
+    [
+      "eigene",
+      "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
+    [
+      "gestartet",
+      "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
+    // An owner signed in before their promotion is refused too, and is told the repair.
+    [
+      "inhaber",
+      "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
+    ],
+    [
+      "juenger",
+      "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte, die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur, wer schon vorher Inhaberin oder Inhaber war.",
+    ],
+  ] as const) {
+    it(`closes the press where the read says ${verwehrt}, saying why`, async () => {
+      zeilen = [INHABER, wartend(verwehrt)];
+
+      const markup = await renderPage(PAGE);
+
+      assert.deepEqual(
+        refusalWrappers(markup)
+          .map(({ name }) => name)
+          .filter((name) => name.startsWith("Adressänderung genehmigen")),
+        ["Adressänderung genehmigen: vorstand@schule.de"],
+      );
+      assert.ok(textOf(markup, " ").includes(satz), "the closed approval says not why");
+    });
+  }
+
+  it("shows no approval on a grant no change waits at", async () => {
+    const names = buttonNames(await renderPage(PAGE));
+
+    assert.deepEqual(
+      names.filter((name) => name.startsWith("Adressänderung genehmigen")),
+      [],
+    );
+  });
+});
+
+describe("the grants and promotions waiting on a second administrator", () => {
+  // Asked on a summer day and open until after the clocks change, so each instant is read in its own Berlin offset.
+  const antrag = (felder: object = {}) => ({
+    id: "68c1f0a2b3c4d5e6f7a8b9e1",
+    adresse: "neu@schule.de",
+    gesperrt: false,
+    berechtigung_id: null,
+    verwaltung: "administration",
+    gestartet_von: "inhaber@schule.de",
+    gestartet_von_gesperrt: false,
+    angefragt_am: "2026-10-20T11:30:00Z",
+    bis: "2026-10-27T11:30:00Z",
+    steht: true,
+    verwehrt: null,
+    ...felder,
+  });
+  const antragNamen = (html: string): string[] => buttonNames(html).filter((name) => name.startsWith("Antrag "));
+  const geschlossen = (html: string): string[] =>
+    refusalWrappers(html)
+      .map(({ name }) => name)
+      .filter((name) => name.startsWith("Antrag "));
+
+  /* A request is a decision owed: with none, nothing stands where one would, its heading included. */
+  it("shows no section while no request waits", async () => {
+    const markup = await renderPage(PAGE);
+
+    assert.ok(!textOf(markup, " ").includes("Offene Anträge"), "an empty section stands on the page");
+  });
+
+  it("lists a request under its heading with what it asks, who asked and when, and until when, each in Berlin", async () => {
+    antraege = [antrag()];
+
+    const markup = await renderPage(PAGE);
+    const text = textOf(markup, " ").replace(/\s+/g, " ");
+
+    assert.match(markup, /<h2\b[^>]*>Offene Anträge<\/h2>/);
+    for (const fakt of ["Zugang zur Verwaltung", "inhaber@schule.de", "20. Oktober 2026 um 13:30", "27. Oktober 2026 um 12:30"]) {
+      assert.ok(text.includes(fakt), `the request's row says not ${fakt}`);
+    }
+    assert.deepEqual(antragNamen(markup), ["Antrag genehmigen: neu@schule.de", "Antrag ablehnen: neu@schule.de"]);
+    assert.deepEqual(geschlossen(markup), [], "an approver's controls stand closed");
+  });
+
+  /* Under the requests' heading alone the grants would read as more requests, in heading navigation as on screen. */
+  it("heads the grants „Alle Zugänge“ while a request stands above them, the list named by that heading, and not otherwise", async () => {
+    const ohne = await renderPage(PAGE);
+    assert.doesNotMatch(ohne, /Alle Zugänge/, "a lone grants list gains a heading the page's title already gives it");
+    assert.match(ohne, /<ul\b[^>]*aria-label="Liste aller Zugänge"/);
+
+    antraege = [antrag()];
+    const mit = await renderPage(PAGE);
+    const ueberschrift = /<h2\b[^>]*\bid="([^"]+)"[^>]*>Alle Zugänge<\/h2>/.exec(mit);
+    assert.ok(ueberschrift !== null, "no heading over the grants under the requests' section");
+    assert.ok(mit.indexOf("Offene Anträge") < mit.indexOf("Alle Zugänge"), "the grants' heading stands above the requests'");
+    assert.match(mit, new RegExp(`<ul\\b[^>]*aria-labelledby="${ueberschrift[1] ?? ""}"`), "the list is not named by its heading");
+  });
+
+  it("names a promotion by what it asks", async () => {
+    antraege = [antrag({ verwaltung: "owner", berechtigung_id: VORSTAND.id, adresse: VORSTAND.adresse })];
+
+    assert.ok(textOf(await renderPage(PAGE), " ").includes("Ernennung zur Inhaberin oder zum Inhaber"));
+  });
+
+  /* The backend refuses both presses to each of these readers: each stands closed, saying why in its refusal's words. */
+  for (const [verwehrt, satz] of [
+    [
+      "eigene",
+      "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+    ],
+    ["inhaber", "Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber."],
+    ["juenger", "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte"],
+  ] as const) {
+    it(`closes both presses where the read says ${verwehrt}, saying why`, async () => {
+      antraege = [antrag({ verwehrt })];
+
+      const markup = await renderPage(PAGE);
+
+      assert.deepEqual(geschlossen(markup), ["Antrag genehmigen: neu@schule.de", "Antrag ablehnen: neu@schule.de"]);
+      assert.ok(textOf(markup, " ").includes(satz), "the closed presses say not why");
+    });
+  }
+
+  /* Who made a request may always take it back, and never approves it. */
+  it("offers its requester the withdrawal and the approval closed, saying why", async () => {
+    antraege = [antrag({ verwehrt: "gestartet" })];
+
+    const markup = await renderPage(PAGE);
+
+    assert.deepEqual(antragNamen(markup), ["Antrag genehmigen: neu@schule.de", "Antrag zurückziehen: neu@schule.de"]);
+    assert.deepEqual(geschlossen(markup), ["Antrag genehmigen: neu@schule.de"]);
+    assert.ok(
+      textOf(markup, " ").includes(
+        "Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung, eine Ernennung eine andere Inhaberin oder ein anderer Inhaber.",
+      ),
+    );
+  });
+
+  /* A request outlives no revoke, demotion or ban of who made it: nobody approves it, and its refusal clears the address. */
+  it("closes the approval of a request whose requester has lost the tier since, and leaves its refusal open", async () => {
+    antraege = [antrag({ steht: false })];
+
+    const markup = await renderPage(PAGE);
+
+    assert.deepEqual(geschlossen(markup), ["Antrag genehmigen: neu@schule.de"]);
+    assert.ok(textOf(markup, " ").includes("Wer den Antrag gestellt hat, hat diesen Zugang inzwischen nicht mehr"));
+  });
+
+  /* A barred address is answered on no route, so the row names the state and each control its moment. */
+  it("names a barred address and a barred requester by their state, and each control by the request's moment", async () => {
+    antraege = [antrag({ adresse: null, gesperrt: true, gestartet_von: null, gestartet_von_gesperrt: true })];
+
+    const markup = await renderPage(PAGE);
+
+    assert.deepEqual(antragNamen(markup), [
+      "Antrag genehmigen: Antrag vom 20. Oktober 2026 um 13:30",
+      "Antrag ablehnen: Antrag vom 20. Oktober 2026 um 13:30",
+    ]);
+    assert.ok(!markup.includes("neu@schule.de"));
   });
 });

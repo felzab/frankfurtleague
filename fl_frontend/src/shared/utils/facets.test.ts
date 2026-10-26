@@ -24,7 +24,7 @@ import {
   readFacetSelectionFromRoute,
 } from "./facets";
 
-import type { ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 import type { Facet } from "./facets";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -498,36 +498,41 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
 /** What each option was told, per facet parameter: the numbers a view hands on as `facetCounts`. */
 type Told = Record<string, Record<string, number>>;
 
+/** The counts told for `param`, which every facet the slice declares is handed. */
+const gezaehlt = (told: Told, param: string): Record<string, number> => told[param] ?? assert.fail(`no count is told for ${param}`);
+
+const aktionenView = async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView;
+const bewerbungenView = async () => (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView;
+
 /**
  * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded behind
  * the harness, as `AdminCrudView` is above.
  */
 const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
   "aktionen/AKTIONEN_FACETS": {
-    load: async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView as ComponentType<never>,
+    load: async () => (await aktionenView()) as ComponentType<never>,
     props: (told) =>
       ({
         aktionen: [],
         vollstaendig: true,
-        anzahlJeCollection: told["collection"],
-        anzahlJeOperation: told["operation"],
-        anzahlJeHerkunft: told["herkunft"],
+        anzahlJeCollection: gezaehlt(told, "collection"),
+        anzahlJeOperation: gezaehlt(told, "operation"),
+        anzahlJeHerkunft: gezaehlt(told, "herkunft"),
         dokumentId: null,
         vorgangId: null,
         richtung: "desc",
-      }) as never,
+      }) satisfies ComponentProps<Awaited<ReturnType<typeof aktionenView>>> as never,
   },
   "bewerbungen/BEWERBUNGEN_FACETS": {
-    load: async () =>
-      (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView as ComponentType<never>,
+    load: async () => (await bewerbungenView()) as ComponentType<never>,
     props: (told) =>
       ({
         bewerbungen: [],
-        anzahlJeStatus: told["status"],
-        anzahlJeSaisonbezug: told["saisonbezug"],
+        anzahlJeStatus: gezaehlt(told, "status"),
+        anzahlJeSaisonbezug: gezaehlt(told, "saisonbezug"),
         dublettenSchluessel: [],
         richtung: "desc",
-      }) as never,
+      }) satisfies ComponentProps<Awaited<ReturnType<typeof bewerbungenView>>> as never,
   },
 };
 

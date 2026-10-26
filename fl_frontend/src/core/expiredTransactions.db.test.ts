@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { Db } from "mongodb";
+
 import { runAsTestFile } from "./childTestRun.ts";
 import { replicaSetContainer, startJudged } from "./expiredTransactions.ts";
 
@@ -43,6 +45,11 @@ const unhealthy = () =>
     .withEntrypoint(["sh", "-c", `echo '${UNHEALTHY_MARKER}'; exec sleep infinity`])
     .withHealthCheck({ test: ["CMD-SHELL", "exit 1"], interval: 1000, retries: 1 });
 
+/** Logged by a shell passing its health check, so the start succeeds and the read of its count is the step that fails. */
+const HEALTHY_MARKER = "logged by a server whose count was never read";
+
+const UNREAD_REFUSAL = "serverStatus refused by the case";
+
 const rejectsNaming = (start: Promise<unknown>, wait: RegExp, logged: string) =>
   assert.rejects(start, (failure) => {
     assert.ok(failure instanceof Error, String(failure));
@@ -68,6 +75,20 @@ describe("a db file's replica set that fails its start", () => {
 
     await rejectsNaming(startJudged(unbound), /ports to be bound/, EXIT_MARKER);
     // Docker refuses a container a name another still holds, so this start reaches its health check only once the first is gone.
+    await rejectsNaming(startJudged(unhealthy().withName(name)), /^Health check failed/, UNHEALTHY_MARKER);
+  });
+
+  it("fails reading its count after the start naming the container's last log lines, and removes the container", async (t) => {
+    const name = `fl-unread-${randomUUID()}`;
+    // Refused at once, where a server that never answers holds the read for the driver's 30 s.
+    t.mock.method(Db.prototype, "command", () => Promise.reject(new Error(UNREAD_REFUSAL)));
+    const healthy = replicaSetContainer()
+      .withName(name)
+      .withEntrypoint(["sh", "-c", `echo '${HEALTHY_MARKER}'; exec sleep infinity`])
+      .withHealthCheck({ test: ["CMD-SHELL", "exit 0"], interval: 1000, retries: 1 });
+
+    await rejectsNaming(startJudged(healthy), new RegExp(`^${UNREAD_REFUSAL}`), HEALTHY_MARKER);
+    // The name is free again only once the first container is gone, as in the port wait's case.
     await rejectsNaming(startJudged(unhealthy().withName(name)), /^Health check failed/, UNHEALTHY_MARKER);
   });
 

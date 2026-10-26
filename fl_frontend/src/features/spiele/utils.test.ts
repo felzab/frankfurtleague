@@ -688,6 +688,7 @@ describe("toPatchPayload", () => {
       "notiz",
       "ort",
       "schiedsrichter",
+      "schiedsrichter_stand",
       "sonderereignis",
       "spiel_id",
       "team1",
@@ -1382,13 +1383,17 @@ const { SpielDraftPreview } = await import("./components/forms/AdminEditSpielDat
 const { ERGEBNIS_INK_CLASSES } = await import("./components/ui/SpielScore.tsx");
 
 /**
- * The two money fields the base tier withholds, supplied rather than cast over: the preview reads a
- * draft, where an emptied Mietpreis or Honorar is `null` while the admin types.
+ * The two money fields and the referee's id the base tier withholds, supplied rather than cast over: the preview
+ * reads a draft, where an emptied Mietpreis or Honorar is `null` while the admin types.
  */
+const REFEREE_ID = "6890a1b2c3d4e5f607180202";
 const asDraft = (spiel: FLSpiel): FLSpielWithDraftFields => ({
   ...spiel,
   ort: spiel.ort === null ? null : { ...spiel.ort, mietpreis: null },
-  schiedsrichter: spiel.schiedsrichter === null ? null : { ...spiel.schiedsrichter, payment: null },
+  schiedsrichter:
+    spiel.schiedsrichter === null
+      ? null
+      : { ...spiel.schiedsrichter, schiedsrichter_id: spiel.schiedsrichter.schiedsrichter_id ?? REFEREE_ID, payment: null },
 });
 
 /** Every surface painting a score and naming its sides, each spelling the three tints in its own vocabulary. */

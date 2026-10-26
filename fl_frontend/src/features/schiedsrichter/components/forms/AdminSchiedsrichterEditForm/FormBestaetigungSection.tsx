@@ -10,7 +10,6 @@ import { Button } from "@heroui/react/button";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
-  SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
@@ -18,6 +17,7 @@ import {
 } from "@/features/schiedsrichter/constants";
 import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf } from "@/features/spieler/nachweis";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -84,16 +84,14 @@ function EinwilligungStand({
         {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
         <Beleg
           nachweis={einwilligung.nachweis.umfang}
-          bestaetigtAm={einwilligung.bestaetigt_am}
-          textVersion={einwilligung.text_version}
+          bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>
       <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
         {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
         <Beleg
           nachweis={einwilligung.nachweis.medien}
-          bestaetigtAm={einwilligung.bestaetigt_am}
-          textVersion={einwilligung.text_version}
+          bestaetigung={bestaetigungOf(einwilligung)}
         />
       </Angabe>
       <Angabe label="Bestätigt am">
@@ -220,11 +218,11 @@ export function FormBestaetigungSection({
 
         {einwilligung === null ? (
           // The missing control belongs in the same breath, a reader of an empty panel among editable
-          // ones looking for a way to record a consent. The schedule's sentence is today's: the public
-          // fixture read consults no consent record.
+          // ones looking for a way to record a consent; so does what waits on it, the save refusing to
+          // book an unconfirmed referee (`REQ-BOOKING-002`).
           <p className="muted-hint">
-            Diese Person hat ihren Eintrag noch nicht bestätigt, und eintragen lässt sich die Einwilligung nicht. Im Spielplan stehen bei ihren
-            Spielen ihr erster Namensteil und der Anfangsbuchstabe des nächsten.
+            Diese Person hat ihren Eintrag noch nicht bestätigt, und eintragen lässt sich die Einwilligung nicht. Einteilen lässt sie sich erst,
+            wenn sie bestätigt hat.
           </p>
         ) : (
           <>
@@ -237,9 +235,9 @@ export function FormBestaetigungSection({
           </>
         )}
 
-        {/* One sentence per state, because the save mints a different link in each: a consent link
-            while the record is outstanding, an address link once it is given. */}
-        <p className="muted-hint">{istBestaetigt ? SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS : SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>
+        {/* Only while the record is outstanding does the save mint a link; a confirmed referee's address
+            changes through its own control in the contact panel, which states its own hint. */}
+        {!istBestaetigt && <p className="muted-hint">{SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>}
 
         <div className="flex w-full flex-col items-start">
           {/* Closed rather than withheld, so the refusal can name what to repair. `sendet` is left
