@@ -620,9 +620,11 @@ account page, and a request for one by mail is answered by pointing them there (
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
-**Every request arrives at the league's mailbox**
+**Every request arrives at the league's address**
 (`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
-reader to), and the answer goes back from it. There is no ticket system: the mail thread is the
+reader to), which Cloudflare forwards to the personal mailboxes of the organisers who answer it, and
+the answer goes back from the answering organiser's own address
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)). There is no ticket system: the mail thread is the
 record, and the action log records the writes you make rather than the request that asked for them.
 
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
@@ -891,12 +893,15 @@ address on „Löschung auf Anfrage“.
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
 
-**Three things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
+**Four things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); every mail the
-league sent them outlives it at the mail provider, and in that provider's backups, for the period
-the notice states, no erasure reaching those copies
-([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); and an erasure is
+league sent them outlives it at the mail provider, and in that provider's backups, and Cloudflare
+keeps the sender, recipient and subject of every mail they sent the league, each for the period the
+notice states, no erasure reaching either
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); every organiser deletes
+the person's mail from their own personal mailbox, which the notice promises, while what a
+provider keeps in its own backups stays beyond reach; and an erasure is
 keyed on an email address, so it clears every record that address holds, in every season and every
 collection. **The erasure takes the address typed, and reaches a record only where that record's
 address folds to the same spelling** once its capitals are lowered
@@ -959,7 +964,7 @@ already mailed to the address stops confirming at once**, however long ago it we
 (`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
 (`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
 already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spec.md :: I516`). A
-contact person's Widerspruch then reaches the league's mailbox, as the withdrawal bullet above says.
+contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
 its deadline open on its form again. Nothing else refuses on the list, so a person reading the
 queue is still what keeps a barred address out of everything a sign-up does not cover. **The ban
