@@ -23,7 +23,7 @@ import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 /**
  * A fresh link for one stored, unconfirmed seat, on the referee's pattern
  * (`fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx`):
- * a seat stored before any link was minted has no other way to one.
+ * the editor's save mints one only for a person it newly seats, so a lapsed or lost link is replaced here.
  */
 export function FormKontaktEinladen({
   teamId,
@@ -43,7 +43,6 @@ export function FormKontaktEinladen({
   const router = useRouter();
   const [sendet, setSendet] = useState(false);
   const stepUp = useStepUp();
-  // Not „erneut“: a seat stored before links existed never had one, and the page cannot tell which.
   const sendeLabel = benannt("Bestätigungslink senden", label);
 
   const sende = async () => {

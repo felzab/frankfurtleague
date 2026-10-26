@@ -1003,7 +1003,7 @@ async def einladen_kontakt(
 
     It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
     the previous link stops opening anything, the delivery state of the message it went out in goes with it, and the
-    deadline restarts from today. A seat stored before links were minted, which holds none, is sent its first.
+    deadline restarts from today.
 
     Refused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its
     person has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).
