@@ -1185,7 +1185,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-spielerseite-wiederkehrend-3": Fassung(
             seite="bestaetigung_spieler_wiederkehrend",
-            gilt_ab=date(2026, 10, 21),
+            gilt_ab=date(2026, 10, 27),
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_3.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_3,
             # The new pupil page's, offered nothing here: every label states a switch, and this page decides

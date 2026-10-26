@@ -331,7 +331,7 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
     ),
     "2026-10-spielerseite-wiederkehrend-3": (
         "bestaetigung_spieler_wiederkehrend",
-        date(2026, 10, 21),
+        date(2026, 10, 27),
         (
             "worum",
             "gespeichert",

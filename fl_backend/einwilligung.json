@@ -651,7 +651,7 @@
     "2026-10-spielerseite-wiederkehrend-3": {
       "text_version": "2026-10-spielerseite-wiederkehrend-3",
       "seite": "bestaetigung_spieler_wiederkehrend",
-      "gilt_ab": "2026-10-21",
+      "gilt_ab": "2026-10-27",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
