@@ -6,28 +6,30 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 [`spec.md`](spec.md); the pipeline a change travels from a branch to a deploy is
 [`../_git/spec.md`](../_git/spec.md) §1.1.
 
-| Section                                                                                                                                         | Answers                                                        |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                                  | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)                         | The one check to run before a constraint reaches production    |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                                    | Who can sign in, and what revoking actually ends               |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                                                | What the triage page still shows, and what stops new rows      |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)                   | Where each role's data is read, and how a request is answered  |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                                                | The authority, the clock, and what the logs can establish      |
-| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                  | The host files that bound them, and where a deploy's copies go |
-| [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                                  | What reverses the tunnel, and the half no commit reaches       |
-| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                                      | What answers each, and what each answer means                  |
-| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
-| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
-| [12. Deleting pupils and referees, migrating what's kept, wiping the log](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log) | The pupils, the referees, the log, and what is lost with them  |
-| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
-| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
-| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
-| [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
-| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
-| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
-| [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                                            | What a hand edit leaves cached, and the one call that drops it |
+**A section number is spent once taken**: a gap in the run below is a number whose procedure left,
+and renumbering what stands would repoint every citation of it, the scripts' own messages among them.
+
+| Section                                                                                                                        | Answers                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
+| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
+| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
+| [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                 | What reverses the tunnel, and the half no commit reaches       |
+| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                     | What answers each, and what each answer means                  |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
+| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)      | What finds the rows, and why no save clears one                |
+| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                     | Who is re-erased, and what the restore took the record of      |
+| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                            | What builds them, and what a boot that could not leaves        |
+| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                             | What the person cannot tell apart, and the line that can       |
+| [16. The secret files](#16-the-secret-files)                                                                                   | What each holds, and how each machine makes its own            |
+| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
+| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and the one call that drops it |
 
 ---
 
@@ -187,12 +189,11 @@ the machine is outside the repository. What it does tell you:
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
   - that build's boot attaches its own validators again (§2), which refuse any write over either row.
-- **Never deploy by tag a build from before the reset (§12) once the reset has run; roll forward
-  instead.** Such a build's returning pupil's page stamps a consent label the current registry does
-  not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a record it confirms cites words
-  nobody can produce, and no check compares a stored label with the registry. The automatic rollback
-  of the first deploy after the reset restores the build before it all the same, by image id: then
-  publish a fixed build at once rather than leaving that one serving.
+- **Never deploy by tag a build from before every pupil and referee row was deleted and the action
+  log emptied; roll forward instead.** Such a build's returning pupil's page stamps a consent label
+  the current registry does not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a
+  record it confirms cites words nobody can produce, and no check compares a stored label with the
+  registry.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -680,11 +681,8 @@ digests, the links and the delivery records go with the block
 answer for that season names nobody to send.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
-question is answered at all. **Two populations sit in that collection and only one has an expiry**:
-a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
-is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
-which it is about — the unstamped rows leave at [section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)'s
-reset instead.
+question is answered at all. Each of its rows is gone twelve months after the write it recorded
+(`docs/backend/spec.md :: I119`), which is the period an answer gives for it.
 
 **There is no export route, so an access request is answered by composing what those pages show.**
 Send the categories, the values, where each came from, who receives them
@@ -882,13 +880,6 @@ by mail instead has two answers, and which one you give is the person's to choos
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
 
-**A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
-[section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)'s drop empties it
-as it repoints them at the ghost, which no erasure reaches, and empties the log's images of them, a
-fixture's image whole where an erasure repoints its booking alone
-(`docs/backend/spec.md :: I212`, `:: I213`). Where the person has registered again since, erase their
-address on „Löschung auf Anfrage“.
-
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
@@ -915,13 +906,7 @@ erasure could not delete goes when the address is erased again
 
 **The page refuses two kinds of address, and says so before anyone confirms**: the
 administrator's own, which goes through their account page or an owner; and any holding a grant, to
-an administrator who is not an owner. A referee row stored without an address of its own is
-reached by the address route all the same
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save the person's
-own address on the row in the referee editor, which on a row still in service mails them a confirmation
-link first, then erase that address; otherwise the row goes with the reset
-([section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)), as a pupil row
-holding no address does. The page mails the person nothing. **Erasing an administrator's address tells every
+an administrator who is not an owner. The page mails the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
@@ -1425,10 +1410,9 @@ route repairs one**: the address tool and the account page find a pupil by the f
 finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
-an address the rule refuses to the folded address the person is established to hold, as
+an empty one or one the rule refuses to the folded address the person is established to hold, as
 [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
-mailbox's. An empty one is a pupil holding no address, whom no route reaches
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
+mailbox's.
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
@@ -1453,8 +1437,8 @@ the press deletes under arms that pass, and with it the squad cache's drop after
 frontend service arms a fresh one, and the clocks select on dates and season statuses rather than
 on the hour that ran them, so the pass that follows does whatever the missed days owed.
 
-**Turn the pupils' deletion on once, after the once-only reset (§12).** `LOESCHUNG_SWEEP` ships off,
-so neither an activation nor a pass deletes a pupil until you set it.
+**Turn the pupils' deletion on only after reading the season page's count.** `LOESCHUNG_SWEEP`
+ships off, so neither an activation nor a pass deletes a pupil until you set it.
 
 1. Open the planned season's page and read the count beside its rollover press: at most how many
    pupils activating it would delete, and which season it closes. It is a bound because it counts
@@ -1499,8 +1483,8 @@ recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
-**Turn the confirmations on once, on a day you choose after the pupils and referees are deleted
-(§12), in the same edit as the report form's switch below: the first armed passes are a burst.**
+**Turn the confirmations on once, on a day you choose, in the same edit as the report form's switch
+below: the first armed passes are a burst.**
 `SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
 of the running season inside the answer window
 (`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
@@ -1517,9 +1501,7 @@ mail at once, the lever for an outage or a fault at the mail provider: until the
 on it, a pass can still mail.
 
 **The referee's report form opens on `SPIELBERICHT_EINGABE=on`, added to `fl_frontend/.env` in the
-same edit as `SPIEL_SWEEP=on`, and never before the pupils and referees are deleted (§12).** A
-report names pupils by their records, so one written before the reset names records the reset
-deletes. It ships off: until the frontend has booted on it, the form shows a closed state and both
+same edit as `SPIEL_SWEEP=on`.** It ships off: until the frontend has booted on it, the form shows a closed state and both
 the referee's save and the administrator's refuse before any request leaves. Off again is that line
 set to `off` and a deploy; it stops no mail, which is `SPIEL_SWEEP`'s alone.
 
@@ -1631,87 +1613,6 @@ database shell. Four things decide whether the one pasted is right:
 
 Then `--check` again.
 
-## 12. Deleting pupils and referees, migrating what's kept, wiping the log
-
-**Once, before the deploy that first requires the record shapes it leaves, and never again** — the
-ruling and what it is for are
-[`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)'s. Every step is a
-database edit run by hand as a MongoDB Playground paste, as every migration here is (§2): no route
-deletes a pupil or referee row wholesale, and `aktionen` carries no POST and no DELETE route, no code
-removing a row from it ([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
-
-**The order is the pupils, then the referees, then the records that stay brought to the deploy's
-shapes, then the log, LAST**, because every write through `fl_backend/app/core/crud.py` appends a row
-to it. Run it in a break between match weeks, the old build still serving, and keep the time up to
-the deploy short: a record that build stamps meanwhile can cite a consent label the deploy's
-registry does not hold. Before the deploy, §2's `--check` from the deploy's checkout reads clean.
-
-**„Löschung auf Anfrage“ is not the route for either half**: it reaches a record only through the
-address the record holds, so a pupil row holding none survives it
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), and every row this
-reset is for has to go.
-
-**The pupils.** Every `spieler` row but the pupil ghost
-(`fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`), every `saison_spieler` row and every
-`registrierungen` row go, with each pupil's daily write counts: what the pupil steps of
-`fl_backend/app/api/identitaet/crud.py :: ERASURE_STEPS` leave of an erased pupil. Where a pupil
-stands and no ghost does, the ghost is written first, exactly the document
-`fl_backend/app/api/spieler/services.py :: build_ghost_spieler` builds. Nothing the reset keeps names a
-pupil.
-
-**The referees.** Every referee row but the ghost goes, as an erasure leaves a referee, though the
-paste is **not** a referee's erasure:
-
-- **The ghost exists first.** Only an erasure writes it, inside its own transaction, so a league
-  that has had none holds no such row: insert exactly the document
-  `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` builds, and a repoint
-  run without it points every fixture at a document nobody has.
-- **Their confirmation rows go first**: every `spielbestaetigungen` row whose party is a referee, as
-  `fl_backend/app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`
-  removes a referee's.
-- **Repoint before deleting, counting both** — the fixtures naming the rows, and the rows — and read
-  each count the database reports against it. Every fixture naming one is repointed at the ghost
-  (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled and
-  its `payment` kept, the update
-  `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds; a report one of them
-  filed is repointed as
-  `fl_backend/app/api/spielberichte/crud.py :: repoint_referee_reports_in_session` does.
-  `spiele.schiedsrichter.schiedsrichter_id` is a required id, so a null is refused rather than stored.
-- **Afterwards no referee row but the ghost stands, no fixture names an id with no referee row
-  behind it, and no fixture booked to the ghost holds a name.** Read one of those fixtures on the site
-  once [section 20](#20-after-a-hand-edit-in-mongodb)'s call has answered `204`; its referee reads
-  „anonym“.
-
-A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
-until a referee is assigned
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), which is why the
-reset belongs in a break between match weeks; and the ghost claims no slot
-(`fl_backend/app/api/spiele/services.py :: find_slot_claims`), so no double booking among those
-fixtures is ever reported.
-
-**Neither half touches the sign-in store, and the frontend keeps running throughout.** Each paste
-holds league rows alone: once no record holds an address, and no change that replaced it still owes
-its account's carry to the new one, the account sweep deletes its account within the hour, mailing
-nobody, a barred address's alike
-([section 9](#9-checking-that-the-hourly-passes-have-run)). That needs the sweep live before the
-first paste, `KONTO_SWEEP` reading `on` on a production build, and its next `konto.sweep_completed`
-line counts the accounts it deleted.
-
-**Each paste is followed by [section 20](#20-after-a-hand-edit-in-mongodb)'s call**: until then the
-public squad pages and fixtures go on naming whom the paste removed, for as long as each cached
-entry lives.
-
-**The log, last, emptied in full rather than redacted.** Neither half redacts the log's images of
-whom it removed: emptying the log takes every one of them. A contact seat's WhatsApp consent given
-before seats recorded evidence takes its proof from its confirmation's log row first, the one step
-that reads the log. **What the emptying reaches that the retention index cannot is the rows carrying
-no `at_date`**, which nothing expires (I119).
-
-**Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
-write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
-so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
-first ([section 13](#13-after-a-restore-from-a-snapshot)).
-
 ## 13. After a restore from a snapshot
 
 **The published notice promises that nothing comes back from a backup without the person's erasure
@@ -1723,9 +1624,9 @@ moment the restored snapshot was taken, and once the restore has completed, that
 replay below reads the journal between the two, and an act after the second is the restored site's
 own, which stands as its person made it.
 
-**Never restore a snapshot taken before the reset (§12).** It brings back every pupil and referee
-row the reset removed and the log it emptied, holding addresses nobody asked to keep, and records
-citing consent labels the registry does not hold, which §2's `--check` never reads.
+**Never restore a snapshot taken before every pupil and referee row was deleted and the action log
+emptied.** It brings back those rows and that log, holding addresses nobody asked to keep, and
+records citing consent labels the registry does not hold, which §2's `--check` never reads.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
