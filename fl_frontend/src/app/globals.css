@@ -1,6 +1,5 @@
 /* HeroUI, component by component: its own entry pulls in everything and Tailwind
-   does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`;
-   adding one is `docs/frontend/spec.md` §1.11. */
+   does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`. */
 
 /* Two entries back no direct import: `spinner` is `Button`'s loading state, and `empty-state` is
    `ListBox`'s `renderEmptyState`. `disclosure` serves both `Accordion`'s heading and `Disclosure` itself. */
@@ -454,7 +453,7 @@ input:focus:placeholder-shown::placeholder {
   /* Declared here rather than left to a fallback, so a field never inherits a refused ancestor's. */
   --field-focus-accent: var(--accent-brand);
 
-  /* THE HOVER moves the border and never the fill (`docs/frontend/spec.md` §1.17). Before the focus
+  /* THE HOVER moves the border and never the fill. Before the focus
      arm, whose `aria-expanded` arms weigh the same and must win; the variable carries it into the
      resets below, which out-weigh both. */
   /* Every exclusion IN `:where()`, a refused one included: one weighed `:not()` here outranks those
@@ -507,7 +506,7 @@ input:focus:placeholder-shown::placeholder {
   }
 
   /* A REFUSED field wears the danger border at rest, and focused the same 3px ring in danger, so
-     focus reads by weight and refusal by hue (`scripts/checks/docs_gate/scheme.py :: "a refused field's focus ring"`). */
+     focus reads by weight and refusal by hue. */
   /* A picker's refusal is marked on its ROOT alone, never on the trigger this block styles. */
   &[data-invalid="true"],
   :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] & {
@@ -611,9 +610,8 @@ input:focus:placeholder-shown::placeholder {
   opacity: 0.5;
 }
 
-/* A frozen field and a closed picker are both tab stops that reach no focus border, refused or not
-   (`docs/frontend/spec.md :: I173`). react-aria's attribute, not `:focus-visible`, so this outline
-   answers a key press, not a click. */
+/* A frozen field and a closed picker are both tab stops that reach no focus border, refused or not.
+   react-aria's attribute, not `:focus-visible`, so this outline answers a key press, not a click. */
 /* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
    border and fill match it and lose, out-layered by the `utilities` classes
    `formFieldStyles.ts :: FIELD_GROUP_CLASSES` puts on the group. */
@@ -693,7 +691,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
 /* The keyboard's own mark on a collection option: inset, so a list clipping its overflow keeps it
    whole, and on react-aria's keyboard attribute, so a menu row hovered by the mouse takes the fill
-   alone (`docs/frontend/spec.md :: I230`). */
+   alone. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focus-visible="true"] {
   outline: 2px solid var(--focus);
@@ -847,8 +845,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
-     function, so everything with an element to hang a class on is ordinary TSX.
-     `fl_frontend/src/app/toastStack.test.ts` holds these rules against the installed `toast.css`. */
+     function, so everything with an element to hang a class on is ordinary TSX. */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */

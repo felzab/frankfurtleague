@@ -111,8 +111,7 @@
        grade restated, so it moves with --accent-brand. On the info blue every switch read as a
        notice. */
     --accent: #216c2d;
-    /* The thumb riding the track above, measured against it in
-       `scripts/checks/docs_gate/scheme.py :: PAIRS`. */
+    /* The thumb riding the track above, measured against it. */
     --accent-foreground: #ffffff;
   }
 

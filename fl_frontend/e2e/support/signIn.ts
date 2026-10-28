@@ -56,9 +56,9 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   const before = await filedMessages();
   await askForCode(page, address);
   const code = await mailedCode(address, before);
-  // Typed into the first of the six boxes, each digit moving on to the next as a person's typing does; the
-  // sixth sends the code by itself.
-  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).first().pressSequentially(code);
+  // Typed into the code's one input, a digit at a time as a person's typing is; the sixth sends the code by
+  // itself.
+  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
 }
 
 /** The account page renders for a session alone: without one it sends the visitor to `/signin`. */

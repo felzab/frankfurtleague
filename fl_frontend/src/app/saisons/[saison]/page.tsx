@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 
-import { EmptyState } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
 import { MatchList } from "@/kit/MatchRow";
-import { RailPage } from "@/kit/RailFrame";
+import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -18,46 +17,54 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]"
   return { title: ROUTES.spielplan.titel, alternates: { canonical: path }, openGraph: openGraphFor(path) };
 }
 
-/** The Spielplan: the season's matchdays as tabs, one at a time, opening on the current one. */
-export default function SpielplanPage({ params }: PageProps<"/saisons/[saison]">) {
+/**
+ * The Spielplan: the season's matchdays as tabs, one at a time, opening on the one the address names
+ * (`?tab=`), else on the current one.
+ */
+export default function SpielplanPage({ params, searchParams }: PageProps<"/saisons/[saison]">) {
   return (
     <Suspense fallback={null}>
-      <Spielplan params={params} />
+      <Spielplan
+        params={params}
+        searchParams={searchParams}
+      />
     </Suspense>
   );
 }
 
-async function Spielplan({ params }: { params: Promise<{ saison: string }> }) {
+async function Spielplan({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ saison: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { saison } = await readSaison((await params).saison);
   const { matchdays, current } = await readSpielplan(saison);
-
-  if (current === null) {
-    return (
-      <RailPage
-        area="saison"
-        title={{ route: "spielplan" }}>
-        <EmptyState
-          kind="noch"
-          plural={COPY.spielplan.spieltage}
-        />
-      </RailPage>
-    );
-  }
+  const address = await searchParams;
 
   return (
     <ListPage
       head={{ area: "saison", title: { route: "spielplan" } }}
       list={{
         kind: "spieltage",
-        tabs: {
-          label: COPY.spielplan.spieltage,
-          defaultKey: current,
-          tabs: matchdays.map((matchday) => ({
-            id: matchday.id,
-            label: matchday.label,
-            panel: <MatchList matches={matchday.spiele.map(matchRowOf)} />,
-          })),
-        },
+        tabs:
+          current === null
+            ? null
+            : {
+                label: COPY.spielplan.spieltage,
+                selectedKey: chosenTab(
+                  address,
+                  matchdays.map((matchday) => matchday.id),
+                  current,
+                ),
+                tabs: matchdays.map((matchday) => ({
+                  id: matchday.id,
+                  label: matchday.label,
+                  panel: <MatchList matches={matchday.spiele.map(matchRowOf)} />,
+                })),
+              },
+        empty: { kind: "noch", plural: COPY.spielplan.spieltage },
       }}
     />
   );

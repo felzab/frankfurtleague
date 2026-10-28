@@ -2,6 +2,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
+import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
 import { ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
@@ -9,6 +10,7 @@ import { Tabs } from "./Tabs";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps } from "react";
+import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
@@ -22,7 +24,7 @@ export type ListCreate = Omit<ComponentProps<typeof Dialog>, "trigger">;
  * one; the filter block, its values in the address, with the act creating a record over the list beside
  * it; then the list. The list is a table whose rows open their records, „Weitere 50 laden“ under it only
  * while the server reports more rows; or, for the season's matches, the matchday tabs, one matchday at a
- * time, opening on the one the server names.
+ * time, opening on the one the server names. A list with nothing in it shows its empty state in its place.
  */
 export function ListPage({
   head,
@@ -36,7 +38,15 @@ export function ListPage({
   search?: { label: Copy };
   filters?: ReadonlyArray<Filter>;
   create?: ListCreate;
-  list: { kind: "table"; table: TableProps; more?: ListMore } | { kind: "spieltage"; tabs: ComponentProps<typeof Tabs> };
+  list:
+    | { kind: "table"; table: TableProps; more?: ListMore }
+    | {
+        kind: "spieltage";
+        /** The matchday tabs; `null` while the season has no matchday yet. */
+        tabs: ComponentProps<typeof Tabs> | null;
+        /** Why there is no matchday to show, standing in the tabs' place. */
+        empty: EmptyStateProps;
+      };
 }) {
   const label =
     create === undefined
@@ -77,7 +87,7 @@ export function ListPage({
       ) : (
         <>
           {toolbar}
-          <Tabs {...list.tabs} />
+          {list.tabs === null ? <EmptyState {...list.empty} /> : <Tabs {...list.tabs} />}
         </>
       )}
     </RailPage>

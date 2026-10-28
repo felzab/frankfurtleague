@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { goBackOrPush } from "@/core/goBackOrPush";
+
 export type PageExitOptions = {
   /**
    * Wrapped by the caller, never here: `fl_frontend/eslint.config.mjs :: SOURCE_BANS` reads each
@@ -11,15 +13,6 @@ export type PageExitOptions = {
    */
   fallbackHref: string;
 };
-
-/**
- * The guarded exit. A fresh tab reads `history.length` as 1, so
- * the comparison is against 1 and not against 0.
- */
-export function goBackOrPush(router: ReturnType<typeof useRouter>, fallbackHref: string): void {
-  if (window.history.length > 1) router.back();
-  else router.push(fallbackHref);
-}
 
 /** The one way off a page a control can leave: the guarded destination and the pending flag together. */
 export function usePageExit({ fallbackHref }: PageExitOptions) {

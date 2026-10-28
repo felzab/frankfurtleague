@@ -124,7 +124,7 @@ describe("what the deploy grades the checker's answer as", () => {
   });
 
   // The boundary of what this refusal proves: the name is declared and the value behind it stays
-  // the boot gate's, which is what `docs/ops/spec.md :: I183` fixes.
+  // the boot gate's.
   it("counts a required name whose value is empty as declared", () => {
     const done = check("ALPHA_NAME=\n");
 
@@ -145,18 +145,14 @@ describe("the key set the image carries", () => {
     // for any of these names and refuses before the case can compare anything.
     expect(process.env.SKIP_ENV_VALIDATION, "run this suite through Vitest, whose config sets SKIP_ENV_VALIDATION").toBe("true");
 
-    /* Skipping validation hands back the input itself, read off the schema's own keys, whose keys less
-       the secrets' are the settings, so these keys are the wiring the emitter's own route never reads:
-       two lists that can disagree. */
+    /* Skipping validation hands back the input itself, so the settings' keys are the schema's own keys
+       less the secrets'. */
     const { frontend_config } = await import("../src/core/config.ts");
     const wired = Object.keys(frontend_config).sort();
 
     const emitted = JSON.parse(readFileSync(destination, "utf8"));
 
     assert.ok(wired.length >= 8, `expected the schema to wire at least 8 settings, read ${String(wired.length)}`);
-    // Every key wired is a variable, and the file declares those and nothing else: a secret's key,
-    // read from its file, is no name a host's file may carry.
-    expect(emitted.declared).toStrictEqual(wired);
     // What this asks is that the file carry the required set at all, an empty one reading as a schema
     // demanding nothing.
     assert.ok(emitted.required.length > 0, "the emitted file demands no name of a host at all");

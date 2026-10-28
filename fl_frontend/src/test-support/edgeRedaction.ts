@@ -29,8 +29,7 @@ function redactedParameterNames(): string[] {
 
 /**
  * Fails unless `link`'s credential rides in a parameter the edge redacts, matched by name alone.
- * In `core` because core's tests call it and import no `shared`;
- * `eslint.config.mjs :: TEST_ONLY` keeps it out of production code.
+ * It lives in the tests' support folder, since the link tests of two features call it.
  */
 export function assertRedactedAtTheEdge(link: string): void {
   const redacted = redactedParameterNames();

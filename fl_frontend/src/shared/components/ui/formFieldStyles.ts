@@ -70,7 +70,7 @@ export const TAB_TRACK_CLASSES = "rounded-xl border border-border bg-muted";
  * `rounded-lg` matches `TAB_ITEM_CLASSES`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`.
  *
  * **The ring says which tab is selected**: the fill does not flip and its track does, measuring
- * 1.24:1 in the dark theme (`scripts/checks/docs_gate/scheme.py :: PAIRS`).
+ * 1.24:1 in the dark theme.
  */
 export const TAB_INDICATOR_CLASSES = "rounded-lg bg-brand-solid shadow-sm ring-1 ring-brand";
 
