@@ -1624,9 +1624,12 @@ moment the restored snapshot was taken, and once the restore has completed, that
 replay below reads the journal between the two, and an act after the second is the restored site's
 own, which stands as its person made it.
 
-**Never restore a snapshot taken before every pupil and referee row was deleted and the action log
-emptied.** It brings back those rows and that log, holding addresses nobody asked to keep, and
-records citing consent labels the registry does not hold, which §2's `--check` never reads.
+**Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
+every pupil and referee row had been deleted and the action log emptied. It brings back those rows
+and that log, holding addresses nobody asked to keep, and records citing consent labels the
+registry does not hold, which §2's `--check` never reads. The rule lapses once the hosting holds no
+snapshot taken before that moment, its snapshot window being about eight days
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
