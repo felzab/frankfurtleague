@@ -563,7 +563,10 @@ FEW = ADRESSWECHSEL_PER_PASS // 2
 
 
 async def _cleared(database: AsyncDatabase) -> None:
-    for collection in (Collection.ADRESSWECHSEL, Collection.AKTIONEN, Collection.REGISTRIERUNGEN):
+    # The anchors too: a counted call re-anchors the addresses the last one anchored, stamped on the server's own
+    # clock and expiring at once, so the TTL monitor's next pass could delete one under a counted transaction
+    # writing it, and the retry that write conflict forces would be counted as the change's own commands.
+    for collection in (Collection.ADRESSWECHSEL, Collection.AKTIONEN, Collection.REGISTRIERUNGEN, Collection.ADRESSANKER):
         await database[collection].delete_many({})
     await database[Collection.SCHIEDSRICHTER].delete_many({"_id": {"$ne": build_ghost_schiedsrichter()["_id"]}})
     await database[Collection.SPIELER].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
