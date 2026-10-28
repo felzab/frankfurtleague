@@ -137,7 +137,7 @@ PAIRED = {
     "trainer_ist_zugleich": "stellvertretung",
 }
 
-# Seats stored before links were minted: entered administratively, holding no link at all.
+# Three unconfirmed people on a row holding no link entry, so the link a re-send mints is the only one in play.
 STORED_UNCONFIRMED = {
     "trainer": stored("Ida"),
     "ansprechperson": stored("Jonas"),
@@ -606,9 +606,7 @@ class TestABarredAddressIsRefused:
 
 
 class TestTheResend:
-    def test_a_seat_stored_before_links_existed_is_sent_its_first(self, mongo_replica_set_url: str):
-        """The seats entered before this flow: never newly written, so the re-send is the one way their person is ever asked."""
-
+    def test_a_seat_holding_no_link_is_sent_its_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "ansprechperson")
 
