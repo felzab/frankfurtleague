@@ -387,13 +387,13 @@ const ENVIRONMENT_READ = syntax(
 
 /**
  * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
- * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
- * answers that one.
+ * error boundary, which reads nothing of it, the edge's own 429 included. The kit's one wrapper answers every
+ * throw as the form's own failure line.
  */
 const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = syntax(
   [`ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`, `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`].join(", "),
-  "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action.",
+  "Take `useActionState` through the kit's `useFormAction` in src/kit/useFormAction.ts, which answers every throw as the form's own failure line.",
 );
 
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
@@ -490,7 +490,11 @@ const SOURCE_BANS = [
     ],
   }),
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
-  syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/shared/hooks/useAnsweredActionState.ts"] }),
+  syntaxBan(ACTION_STATE_BAN, SOURCE, {
+    allow: ["src/kit/useFormAction.ts"],
+    // The old wrapper: session 2's action builder moves its importers onto the kit's and deletes it.
+    pending: { 2: ["src/shared/hooks/useAnsweredActionState.ts"] },
+  }),
   syntaxBan(
     syntax(
       inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
@@ -607,7 +611,7 @@ const SOURCE_BANS = [
       'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',
       "Render `PanelHeading` rather than spelling a panel heading.",
     ),
-    SOURCE,
+    (zone) => SOURCE(zone) && zone.kind !== "kit",
   ),
   syntaxBan(
     syntax(
@@ -730,13 +734,15 @@ const SOURCE_BANS = [
 // ---------------------------------------------------------------------------------------------------
 
 const PROPERTY_BANS = [
-  // `back` on any object, a destructured `{ back }` included, which a call selector would let an alias
-  // carry past. A test's router double counts its own `back`. `useEditorExit.ts` IS the history guard.
-  ban(
-    "no-restricted-properties",
-    { property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
-    SOURCE,
-    { allow: ["src/shared/hooks/useEditorExit.ts"] },
+  // `back` on the history and on Next's router, a destructured `{ back }` of either included. A test's
+  // router double counts its own `back`. `useEditorExit.ts` IS the history guard.
+  ...["history", "router"].map((object) =>
+    ban(
+      "no-restricted-properties",
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
+      SOURCE,
+      { allow: ["src/shared/hooks/useEditorExit.ts"] },
+    ),
   ),
   // The passkey plugin's own deletion, on whatever object or binding carries it. A test may call it to
   // hold it closed.
@@ -863,7 +869,25 @@ const DESIGN_BANS = [
   ),
   // Only a template writes the page's heading and its main landmark.
   ...["h1", "main"].map((element) =>
-    ban("react/forbid-elements", { element, message: "only a page template writes the page's heading and its main landmark." }, KIT),
+    ban("react/forbid-elements", { element, message: "only a page template writes the page's heading and its main landmark." }, KIT, {
+      allow: ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"],
+    }),
+  ),
+  // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
+  // the mailed-page template, a Konto box to Konto's pages.
+  ...[
+    ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
+    ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
+    ["KontoBox", ["src/app/bereich/**/konto/**"], "A `KontoBox` saves one section of Konto, on Konto's own pages."],
+  ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
+  // The danger act is one row inside the editor's last box, which the editor template alone places.
+  syntaxBan(
+    syntax(
+      'JSXOpeningElement[name.name="Section"] > JSXAttribute[name.name="danger"]',
+      "An irreversible act is the editor template's danger row: only `EditorPage` hands a `Section` its `danger`.",
+    ),
+    PRODUCTION,
+    { allow: ["src/kit/EditorPage.tsx"] },
   ),
   // React Aria, the icon set and Next's link only inside the kit.
   ...[
@@ -1136,11 +1160,16 @@ function exceptKeys(keys) {
 
 const BANS = [...IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DATE_CONTROL_BANS, ...DESIGN_BANS];
 
-/** Each engine rule's setting for one zone, or one file of it when `path` is given. */
-function rulesFor(zone, path) {
-  const reaching = BANS.filter(
-    ({ reach, only, spared }) => reach(zone) && (only === undefined || only.includes(path)) && !(path !== undefined && spared.includes(path)),
-  );
+/** An entry naming files: a path, or a directory glob whose `**` stands for any folders. */
+const isGlob = (entry) => entry.includes("**");
+const escapeRegExp = (part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const globPattern = (glob) => new RegExp(`^${glob.split("/**").map(escapeRegExp).join("(?:/.*)?")}$`);
+const covers = (entry, path) => (isGlob(entry) ? globPattern(entry).test(path) : entry === path);
+
+/** Each engine rule's setting for one zone, or one file of it when `path` is given; `under` names a directory glob's block. */
+function rulesFor(zone, path, under) {
+  const spares = (spared) => (path !== undefined ? spared.some((entry) => covers(entry, path)) : under !== undefined && spared.includes(under));
+  const reaching = BANS.filter(({ reach, only, spared }) => reach(zone) && (only === undefined || only.includes(path)) && !spares(spared));
   return Object.fromEntries(
     Object.entries(RULES).map(([rule, setting]) => {
       const entries = reaching.filter((each) => each.rule === rule).map(({ entry }) => entry);
@@ -1153,7 +1182,9 @@ function rulesFor(zone, path) {
 const literally = (path) => path.replace(/[[\](){}*?!+@]/g, (character) => `[${character}]`);
 
 /** Every file a ban names, each given its own block with the bans its zone takes and its names spare. */
-const NAMED_FILES = [...new Set(BANS.flatMap(({ only = [], spared }) => [...only, ...spared]))];
+const NAMED = [...new Set(BANS.flatMap(({ only = [], spared }) => [...only, ...spared]))];
+const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
+const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
 /** Files waiting on a later session's rebuild: a file gone with its rebuild takes its entry with it. */
 const GONE = [...new Set(BANS.flatMap(({ pending }) => pending))].filter((path) => !existsSync(fileURLToPath(new URL(path, import.meta.url))));
@@ -1173,6 +1204,15 @@ const fileBlocks = () => {
 
 const BAN_BLOCKS = [
   ...ZONES.map(({ kind, layer, files, ignores }) => ({ name: `bans/${kind}/${layer}`, files, ignores, rules: rulesFor({ kind, layer }) })),
+  // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
+  ...NAMED_DIRECTORIES.flatMap((glob) =>
+    ZONES.map(({ kind, layer, files, ignores }) => ({
+      name: `bans/under/${glob}/${kind}/${layer}`,
+      files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
+      ignores,
+      rules: rulesFor({ kind, layer }, undefined, glob),
+    })),
+  ),
   // Last, so a named file's own block is the one eslint reads its options from.
   ...fileBlocks(),
 ];
