@@ -154,6 +154,24 @@ def test_a_reserved_name_inside_a_private_folder_is_no_claim_on_the_population()
     assert routes.metadata(with_files("_components/icon.tsx", "_lib/sitemap.ts")) == ()
 
 
+def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url():
+    """A slot is no segment of the URL, and `(.)spiele` names `spiele` on its own level: the pop-up answers the match page's URL."""
+    [page] = routes.pages(tree("/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx"))
+
+    assert (page.url, page.head, page.dynamic) == ("/saisons/[saison]/spiele/[spiel]", "/saisons/", True)
+
+
+@pytest.mark.parametrize("marker", ["(..)", "(...)", "(..)(..)"])
+def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
+    """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
+    try:
+        routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
+    except routes.RouteShape as refusal:
+        assert re.search("cannot derive", str(refusal)), refusal
+    else:
+        raise AssertionError("an intercepting route reaching above its level was given a URL")
+
+
 def test_a_reserved_metadata_name_the_map_does_not_carry_refuses():
     """The gap this population closes is the NEXT metadata file, which silence would let through."""
     try:
