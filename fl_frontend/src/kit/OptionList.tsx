@@ -18,9 +18,10 @@ export type Option = { id: string; label: string } & ({ isDisabled?: false; note
 
 /**
  * An entry that acts rather than chooses, such as a combo box's „Spielort anlegen …“, which creates the record
- * the list lacks: last in the list, under a hairline. Choosing it leaves the field's value as it was.
+ * the list lacks: last in the list, under a hairline. Choosing it leaves the field's value as it was. `typed`
+ * is the field's text, which the entry's filter text ends with, so a combo box's filter always keeps it.
  */
-export type ActEntry = { label: Copy; onAction: () => void };
+export type ActEntry = { label: Copy; typed: string; onAction: () => void };
 
 /**
  * The menu of choices under a select or a combo box, the chosen one marked as a form's value: as wide as its
@@ -65,7 +66,9 @@ export function OptionList({ options, fit = "field", act }: { options: readonly 
             <Separator className="my-1 border-t border-border first:hidden" />
             <ListBoxItem
               data-kit-focus="item"
-              textValue={act.label}
+              // React Aria's filter reads an entry's text alone; holding what is typed, as React Aria's own create
+              // action names it, the entry matches every text while no option of the same name does.
+              textValue={`${act.label} ${act.typed}`}
               onAction={act.onAction}
               className={menuItem()}>
               {act.label}

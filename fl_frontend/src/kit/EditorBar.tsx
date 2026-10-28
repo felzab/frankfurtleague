@@ -1,29 +1,16 @@
 "use client";
 
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { StatusLine } from "./FieldParts";
 
 import type { Copy } from "@/core/copy";
-import type { EditorStatus } from "./useEditor";
+import type { FormStatus } from "./useFormAction";
 
 /** A save whose change reaches beyond the record, such as the mails a moved match sends, asks this first. */
 export type SaveWarning = { subject: Copy; consequence: Copy };
-
-const statusLine = tv({
-  base: "line-clamp-2 min-w-0 flex-1 text-sm",
-  variants: {
-    tone: {
-      none: "",
-      changes: "text-fg",
-      saved: "text-success",
-      error: "text-danger",
-    },
-  },
-});
 
 /**
  * The editor's one save: a bar at the bottom of the viewport, from the rail's separator to the edge, holding
@@ -36,7 +23,7 @@ export function EditorBar({
   warning,
   onSave,
 }: {
-  status: EditorStatus;
+  status: FormStatus;
   isPending: boolean;
   /** The question a save of the present changes asks first, or `null` where it asks none. */
   warning: SaveWarning | null;
@@ -54,7 +41,10 @@ export function EditorBar({
     // On desktop as tall as the rail's foot beside it (`--rail-foot`, set by the rail frame), so the two top
     // hairlines are one line.
     <div className="sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8">
-      <p className={statusLine({ tone: status?.tone ?? "none" })}>{status?.text}</p>
+      <StatusLine
+        status={status}
+        placement="row"
+      />
       {warning === null ? (
         save(onSave)
       ) : (

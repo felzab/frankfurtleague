@@ -6,9 +6,7 @@ import { FieldLabel, MessageLine } from "./FieldParts";
 import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
-
-/** One answer of a radio group, a fixed word or phrase. */
-export type Choice = { id: string; label: Copy };
+import type { Choice } from "./FieldParts";
 
 /** An answer that needs describing: its title and the one line under it. */
 type DescribedChoice = Choice & { line: Copy };

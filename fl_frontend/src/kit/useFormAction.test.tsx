@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
-import { answering, useFormAction } from "./useFormAction";
+import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ReactNode } from "react";
 import type { ActionAnswer } from "./useFormAction";
@@ -37,6 +37,16 @@ describe("a form's action through the one wrapper", () => {
   it("lets Next's redirect through to Next", async () => {
     const answered = answering(async (): Promise<ActionAnswer> => redirect("/bereich"));
     await expect(answered(undefined)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+  });
+});
+
+describe("a form's status line for a refusal", () => {
+  it("points at the fields rather than repeat a reason they already carry", () => {
+    const plz = COPY.shared.feld.pflichtfeld;
+    expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false)).toStrictEqual({
+      tone: "error",
+      text: COPY.vorlage.felderPruefen,
+    });
   });
 });
 

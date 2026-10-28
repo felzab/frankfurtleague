@@ -8,9 +8,6 @@
   // its line here and in `knip.production.json`. A kit file a test already reads is used in this run
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
-    // Session 1, the spike's pages.
-    "src/kit/Stack.tsx",
-    "src/kit/Inline.tsx",
     // Session 3.
     "src/kit/BracketCard.tsx",
     "src/kit/Skeleton.tsx",

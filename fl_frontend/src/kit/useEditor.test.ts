@@ -177,17 +177,6 @@ describe("an editor's refused save", () => {
     expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.vorlage.aenderungenOffen(1) });
   });
 
-  it("points at the fields rather than repeat a reason they already carry", async () => {
-    const plz = COPY.shared.feld.pflichtfeld;
-    const { result } = editorOn(STORED, async () => ({ ok: false, fieldErrors: { plz }, reason: plz }));
-
-    act(() => result.current.set("plz", ""));
-    await press(result.current.submit);
-
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.vorlage.felderPruefen });
-    expect(result.current.fieldErrors).toStrictEqual({ plz });
-  });
-
   it("shows a refusal's own reason", async () => {
     const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.fehler.veraltet }));
 

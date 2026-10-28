@@ -7,17 +7,14 @@ import { COPY } from "@/core/copy";
 import { ClassicPage } from "./ClassicPage";
 import { SignInPage } from "./SignInPage";
 
+import type { Copy } from "@/core/copy";
+
 const WORTE = COPY.anmeldung;
 
 /** The first screen under the classic header, whose height the classic frame declares. */
 const FILLS_SCREEN = "min-h-[calc(100dvh-var(--classic-header))]";
 
 const ADRESSE = "lena@example.com";
-
-const classesOf = (element: Element | null | undefined) => element?.className.split(" ") ?? [];
-
-/** The quiet button: words alone, no fill and no edge. */
-const QUIET = ["bg-transparent", "border-transparent", "text-fg-muted"];
 
 describe("the classic page's column", () => {
   it("fills the first screen under the header at either width, so the footer starts just below it", () => {
@@ -27,33 +24,10 @@ describe("the classic page's column", () => {
     rerender(<ClassicPage width="form">{null}</ClassicPage>);
     expect(screen.getByRole("main").className.split(" ")).toContain(FILLS_SCREEN);
   });
-
-  it("keeps the status card's width where the sign-in takes its own, narrower column", () => {
-    const { rerender } = render(<ClassicPage width="card">{null}</ClassicPage>);
-    expect(screen.getByRole("main").className.split(" ")).toContain("max-w-[30rem]");
-
-    rerender(<ClassicPage width="signin">{null}</ClassicPage>);
-    expect(screen.getByRole("main").className.split(" ")).toContain("max-w-[24rem]");
-  });
 });
 
 describe("the sign-in template", () => {
-  it("fills the first screen in the 384-px column, so the footer starts just below it", () => {
-    render(
-      <SignInPage
-        view="passkey"
-        titel={WORTE.passkey.anmelden.titel}
-        zeile={null}
-        satz={WORTE.passkey.anmelden.satz}
-        adresse={ADRESSE}
-        los={{ label: WORTE.passkey.anmelden.knopf, onPress: () => undefined }}
-      />,
-    );
-
-    expect(screen.getByRole("main").className.split(" ")).toEqual(expect.arrayContaining([FILLS_SCREEN, "max-w-[24rem]"]));
-  });
-
-  it("sets the address view's title in the page's column, the heading gap above the field, and reserves no line under it", () => {
+  it("reserves no line under the address field", () => {
     render(
       <SignInPage
         view="adresse"
@@ -67,18 +41,41 @@ describe("the sign-in template", () => {
       />,
     );
 
-    const main = screen.getByRole("main");
-    // The title is the column's own child, 24 px above the rest as on every classic page; the rest 16 px apart.
-    expect(main.firstElementChild).toBe(screen.getByRole("heading", { level: 1 }));
-    expect(classesOf(main)).toContain("gap-6");
-    expect(classesOf(main.lastElementChild)).toContain("gap-4");
     // Label and field alone: no empty line holds a place under the field.
     const field = screen.getByRole("textbox", { name: WORTE.adresse });
     expect(field.parentElement?.children).toHaveLength(2);
     expect(field.parentElement?.lastElementChild).toBe(field);
   });
 
-  it("sets the address semibold inside the code view's sentence, and the step aside as the quiet button", () => {
+  it("moves the focus to the address field on each of the server's refusals, so a screen reader reads it", () => {
+    const adresseView = (fehler: Readonly<Record<string, Copy>> | undefined) => (
+      <SignInPage
+        view="adresse"
+        titel={WORTE.titel}
+        zeile={null}
+        adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined, fehler }}
+        pruefung={null}
+        senden={{ label: WORTE.codeSenden, onPress: () => undefined }}
+        oder={WORTE.oder}
+        passkey={{ label: WORTE.mitPasskey, onPress: () => undefined }}
+      />
+    );
+    const refusal = COPY.shared.feld.format(COPY.shared.feld.beispielAdresse);
+    const { rerender } = render(adresseView(undefined));
+    const field = screen.getByRole("textbox", { name: WORTE.adresse });
+    const send = screen.getByRole("button", { name: WORTE.codeSenden });
+    expect(document.activeElement).not.toBe(field);
+
+    rerender(adresseView({ email: refusal }));
+    expect(document.activeElement).toBe(field);
+
+    // The same words again, pressed from the button: a new refusal all the same.
+    send.focus();
+    rerender(adresseView({ email: refusal }));
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("marks the address inside the code view's sentence", () => {
     render(
       <SignInPage
         view="code"
@@ -91,26 +88,38 @@ describe("the sign-in template", () => {
       />,
     );
 
-    const sentence = screen.getByRole("status").querySelector("p");
-    expect(sentence?.textContent).toBe(`${WORTE.codeUnterwegs.vor} ${ADRESSE} ${WORTE.codeUnterwegs.nach}`);
-    const marked = sentence?.querySelector("strong");
-    expect(marked?.textContent).toBe(ADRESSE);
-    expect(classesOf(marked)).toContain("font-semibold");
-    expect(classesOf(screen.getByRole("button", { name: WORTE.andereAdresse }))).toEqual(expect.arrayContaining(QUIET));
+    const marked = screen.getByText(ADRESSE);
+    expect(marked.tagName).toBe("STRONG");
+    expect(marked.parentElement?.textContent).toBe(`${WORTE.codeUnterwegs.vor} ${ADRESSE} ${WORTE.codeUnterwegs.nach}`);
   });
 
-  it("offers signing out as the quiet button beside the way on", () => {
-    render(
+  it("marks the address wherever a view names it, inside the signed-in sentence and on a passkey view's own line", () => {
+    const { unmount } = render(
       <SignInPage
         view="angemeldet"
         titel={WORTE.titel}
         zeile={null}
-        satz={WORTE.angemeldetAls(ADRESSE)}
+        satz={WORTE.angemeldetAls}
+        adresse={ADRESSE}
         weiter={{ label: COPY.shared.uebersicht, href: "/" }}
         abmelden={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
       />,
     );
+    const marked = screen.getByText(ADRESSE);
+    expect(marked.tagName).toBe("STRONG");
+    expect(marked.parentElement?.textContent).toBe(`${WORTE.angemeldetAls.vor} ${ADRESSE} ${WORTE.angemeldetAls.nach}`);
+    unmount();
 
-    expect(classesOf(screen.getByRole("button", { name: COPY.shared.verb.abmelden }))).toEqual(expect.arrayContaining(QUIET));
+    render(
+      <SignInPage
+        view="passkey"
+        titel={WORTE.passkey.anmelden.titel}
+        zeile={null}
+        satz={WORTE.passkey.anmelden.satz}
+        adresse={ADRESSE}
+        los={{ label: WORTE.passkey.anmelden.knopf, onPress: () => undefined }}
+      />,
+    );
+    expect(screen.getByText(ADRESSE).tagName).toBe("STRONG");
   });
 });

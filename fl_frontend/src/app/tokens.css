@@ -170,4 +170,21 @@
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
+
+  /* The kit's widths, each named for what it holds, so a width is declared once and every box of its kind
+     reads it through `max-w-*` or `w-*`. A column's width includes its side padding. */
+  --container-popover: 20rem; /* the help text behind a section's ⓘ */
+  --container-signin: 24rem; /* the sign-in's column */
+  --container-question: 25rem; /* a dialog asking one question */
+  --container-card: 30rem; /* a status card, and the classic column holding one */
+  --container-dialog: 35rem; /* a dialog holding a form */
+  --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
+  --container-classic: 65rem; /* the classic frame's header and footer */
+  --container-content: 80rem; /* a rail page's title and content */
+}
+
+/* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a
+   variable: the menu's script asks the same question as `lg:` (`Menu.tsx`). */
+@theme static {
+  --breakpoint-lg: 64rem;
 }

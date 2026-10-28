@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { ComboBox as AriaComboBox, Button, Input } from "react-aria-components/ComboBox";
 import { Group } from "react-aria-components/Group";
-import { useFilter } from "react-aria/useFilter";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
@@ -52,8 +51,7 @@ export function ComboBox({
   onChange?: (id: string | null) => void;
 }) {
   // React Aria filters the list itself while the field holds its own text, so the field clears its value when
-  // its text is cleared and its arrow opens the whole list; only the create entry passes whatever is typed.
-  const { contains } = useFilter({ sensitivity: "base" });
+  // its text is cleared and its arrow opens the whole list; the create entry's own text keeps it in.
   // The field's text and value, followed rather than held, for the create entry to hand on.
   const [text, setText] = useState("");
   const [chosen, setChosen] = useState(defaultValue ?? null);
@@ -61,7 +59,6 @@ export function ComboBox({
   return (
     <AriaComboBox
       className={fieldRoot()}
-      defaultFilter={(entry, typed) => entry === create?.label || contains(entry, typed)}
       name={name}
       // The form receives the chosen record's id, not the text typed to find it.
       formValue="key"
@@ -101,7 +98,7 @@ export function ComboBox({
       />
       <OptionList
         options={options}
-        act={create && { label: create.label, onAction: () => create.onCreate(text === shown ? "" : text) }}
+        act={create && { label: create.label, typed: text, onAction: () => create.onCreate(text === shown ? "" : text) }}
       />
     </AriaComboBox>
   );

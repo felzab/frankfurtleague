@@ -11,10 +11,8 @@ import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
 
 import type { Copy } from "@/core/copy";
+import type { Choice } from "./FieldParts";
 import type { IconName } from "./Icon";
-
-/** An answer in words. Its own type here, so the control's pages do not pull the radio group into production. */
-type Choice = { id: string; label: Copy };
 
 /** An answer drawn as a glyph alone, such as a theme's: `label` names it for assistive technology and in its tooltip. */
 export type GlyphChoice = { id: string; glyph: IconName; label: Copy };
