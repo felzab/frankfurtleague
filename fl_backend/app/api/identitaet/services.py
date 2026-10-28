@@ -637,7 +637,7 @@ def adresswechsel_einsehbar_verwehrt(
 ) -> FLAdresswechselEinsehbarVerwehrt | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
-    Their judgements, never their finders: a read reaching a finder can raise that code, which only the operations `RULES` names publish.
+    Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
     """
 
     if ist_eigene_adresse(identifier=identifier, akteur=akteur):

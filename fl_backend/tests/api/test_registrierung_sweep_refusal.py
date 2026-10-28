@@ -281,7 +281,7 @@ class TestWhatEachClockReads:
 
     @pytest.mark.parametrize("clock", sorted(CLOCK_FILTERS))
     def test_every_clock_reads_one_season(self, clock: str):
-        """`fl_backend/tests/core/test_write_shapes.py :: TestWhatARemovalFilterMayName` holds the removals; the READS answer to this."""
+        """The reads; the removals are held to the season by `tests/api/test_registrierung_sweep_execution.py :: TestTheDeadlineClock`."""
 
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
 
