@@ -207,14 +207,15 @@ export const toggleBox = tv({
 export const toggleLine = tv({ base: "col-start-2 grid" });
 
 /**
- * A radio group's answers: one under another, or, where each answer is described, side by side as cards.
+ * A radio group's answers: one under another, or, where each answer is described, side by side as cards,
+ * one equal column per answer on desktop so the row is always full.
  * @awaitsProduction session 4's `RadioGroup`
  */
 export const radioList = tv({
   variants: {
     layout: {
       list: "flex flex-col gap-2",
-      cards: "grid gap-2 lg:grid-cols-3",
+      cards: "grid gap-2 lg:auto-cols-fr lg:grid-flow-col",
     },
   },
 });
