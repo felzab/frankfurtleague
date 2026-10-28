@@ -1,0 +1,85 @@
+import { COPY } from "@/core/copy";
+
+import { Button } from "./Button";
+import { Dialog } from "./Dialog";
+import { Filters } from "./Filters";
+import { ListTable } from "./ListTable";
+import { RailPage } from "./RailFrame";
+import { Tabs } from "./Tabs";
+
+import type { Copy } from "@/core/copy";
+import type { ComponentProps } from "react";
+import type { Filter } from "./Filters";
+import type { ListMore } from "./ListTable";
+import type { RailPageHead } from "./RailFrame";
+import type { TableProps } from "./Table";
+
+/** A record created where its list shows: the dialog's title, its act, its fields and the action. */
+export type ListCreate = Omit<ComponentProps<typeof Dialog>, "trigger">;
+
+/**
+ * The list template: the page's title in the strip; the search field where the list is long enough to need
+ * one; the filter block, its values in the address, with the act creating a record over the list beside
+ * it; then the list. The list is a table whose rows open their records, „Weitere 50 laden“ under it only
+ * while the server reports more rows; or, for the season's matches, the matchday tabs, one matchday at a
+ * time, opening on the one the server names.
+ */
+export function ListPage({
+  head,
+  search,
+  filters,
+  create,
+  list,
+}: {
+  head: RailPageHead;
+  /** The search field's name, where the list holds about 20 rows or more. */
+  search?: { label: Copy };
+  filters?: ReadonlyArray<Filter>;
+  create?: ListCreate;
+  list: { kind: "table"; table: TableProps; more?: ListMore } | { kind: "spieltage"; tabs: ComponentProps<typeof Tabs> };
+}) {
+  const label =
+    create === undefined
+      ? undefined
+      : create.act.objekt === undefined
+        ? COPY.shared.verb[create.act.verb]
+        : COPY.shared.mitObjekt(create.act.objekt, create.act.verb);
+
+  const toolbar = (filters !== undefined || create !== undefined) && (
+    <div className="flex flex-wrap items-start gap-3">
+      {filters !== undefined && <Filters filters={filters} />}
+      {create !== undefined && label !== undefined && (
+        <Dialog
+          {...create}
+          trigger={
+            <Button
+              variant="primary"
+              label={label}
+            />
+          }
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <RailPage
+      area={head.area}
+      title={head.title}
+      chip={head.chip}>
+      {list.kind === "table" ? (
+        <ListTable
+          table={list.table}
+          search={search}
+          toolbar={toolbar}
+          more={list.more}
+        />
+      ) : (
+        <>
+          {toolbar}
+          <Tabs {...list.tabs} />
+        </>
+      )}
+    </RailPage>
+  );
+}
