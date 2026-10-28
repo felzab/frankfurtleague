@@ -7,11 +7,11 @@
 # Invariants:
 # - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
 #   connector included, so anything nginx does not route does not exist for the internet. A
-#   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
+#   `ports:` entry anywhere removes that silently.
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
 # - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
 #   this file, so a setting here reaches both stacks and a difference exists only where that file
-#   writes one. No database service, here or ever (`docs/ops/spec.md :: I174`).
+#   writes one. No database service, here or ever.
 #
 # See:
 # - docs/ops/spec.md -- the service table and invariants
@@ -34,11 +34,9 @@ services:
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
-    # stop: killed sooner, a write or a mail already sent answers as a dropped connection
-    # (`docs/ops/spec.md :: I547`).
+    # stop: killed sooner, a write or a mail already sent answers as a dropped connection.
     stop_grace_period: 61s
-    # The signing key is this service's alone: a holder of it mints any actor the backend trusts
-    # (`docs/ops/spec.md :: I472`).
+    # The signing key is this service's alone: a holder of it mints any actor the backend trusts.
     secrets:
       - fl_actor_signing_key
       - frontend_mongodb_uri
@@ -95,8 +93,7 @@ services:
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
     # Past uvicorn's own graceful wait (`fl_backend/Dockerfile :: CMD`), which the engine's 10 s
-    # default falls short of: killed sooner, a request still inside its bound sends no abort
-    # (`docs/ops/spec.md :: I540`).
+    # default falls short of: killed sooner, a request still inside its bound sends no abort.
     stop_grace_period: 12s
     # The frontend's reason, and its group for the three internal keys.
     secrets:
@@ -159,7 +156,7 @@ services:
     volumes:
       # Directories, never a file: a file mount holds the inode it was created with, and a pull
       # replaces a changed file with a new one, so the reload `deploy.sh` sends would re-read the
-      # old file (`docs/ops/spec.md :: I355`).
+      # old file.
       - ./nginx/prod:/etc/nginx/conf.d:ro
       # What both edges share, which prod.conf includes by this container path.
       - ./nginx/shared:/etc/nginx/shared:ro
@@ -236,7 +233,7 @@ services:
 
 # Each a file the host provides, never a variable: `docker inspect` prints an environment and never a
 # mount's contents. One name on the host, at `/run/secrets/` and in development, so the two database
-# logins take two (`docs/ops/spec.md :: I508`).
+# logins take two.
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
@@ -263,7 +260,7 @@ secrets:
   turnstile_secret_key:
     file: ./secrets/turnstile_secret_key
 
-# Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I471`). Containers resolve each
+# Two user-defined bridges, joined by nginx alone. Containers resolve each
 # other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in
 # nginx/shared/site.conf are these names, not hosts.
 networks:

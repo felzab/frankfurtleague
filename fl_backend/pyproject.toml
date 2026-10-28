@@ -77,7 +77,7 @@ DEP002 = ["tzdata", "uvicorn"]
 [tool.uv]
 # The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
 # outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema (`docs/ops/spec.md :: I657`).
+# the lockfile's schema.
 required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
@@ -101,9 +101,9 @@ select = [
     # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
     # they opened.
     "UP",  # pyupgrade
-    # Docstring FORMATTING only (docs/_standard/standard.md, INC-7). Deliberately NOT the D1xx
-    # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
-    # the standard asks for prose where there is a reason to record, not coverage for its own sake.
+    # Docstring FORMATTING only. Deliberately NOT the D1xx missing-docstring family: requiring a
+    # docstring on every symbol manufactures boilerplate, and prose belongs where there is a reason
+    # to record, not coverage for its own sake.
     "D200",  # one-line docstring should fit on one line
     "D205",  # blank line required between summary line and description
     "D209",  # multi-line docstring closing quotes on their own line
@@ -156,7 +156,7 @@ indent-style = "space"
 # and this suite is fast enough that verbosity costs nothing.
 #
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
-# (`docs/backend/spec.md :: 1.6`).
+
 addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
 testpaths = ["tests"]
 pythonpath = ["."]
