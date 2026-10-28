@@ -75,15 +75,16 @@ export function RailRoot({ children }: { children: ReactNode }) {
 }
 
 /**
- * The strip's toggle folding the rail to its glyphs and back, before the page title in both states. The
- * 36-px box hangs 10 px into the strip's 32-px inset and its 16-px gap, so the 16-px glyph, not the box,
- * stands on the content's line, 16 px before the title. Desktop only: a phone's drawer has no rail to fold.
+ * The strip's toggle folding the rail to its glyphs and back, before the page title in both states, at the
+ * strip's start as shadcn/ui's sidebar trigger stands: the 36-px box reaches 24 px into the strip's 32-px
+ * inset, so it starts 8 px from the rail and its 16-px glyph 18 px, and hangs 10 px into the 16-px gap, so
+ * the glyph stands 16 px before the title. Desktop only: a phone's drawer has no rail to fold.
  */
 export function RailToggle() {
   const rail = useRail();
   if (rail === null) return null;
   return (
-    <span className="-mx-2.5 max-lg:hidden">
+    <span className="-mr-2.5 -ml-6 max-lg:hidden">
       <Button
         icon="seitenleiste"
         label={rail.collapsed ? COPY.vorlage.seitenleiste.ausklappen : COPY.vorlage.seitenleiste.einklappen}
