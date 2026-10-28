@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
  * The administration's menu: the Übersicht with no heading, then its three groups. A season's
  * page takes the season the page works in, which the frame reads from the address.
  */
-const RAIL_GROUPS: RailGroup[] = [
+export const RAIL_GROUPS: RailGroup[] = [
   {
     entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "uebersicht" }],
   },
