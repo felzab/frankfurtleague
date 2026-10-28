@@ -8,7 +8,6 @@ import type { ComponentProps } from "react";
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027" }));
 
 // The season's three matchdays, the second the current one, each holding one match named for its matchday.
 // A matchday's id is a database id the address never shows; its key is its phase and position.
@@ -65,7 +64,7 @@ describe("the Spielplan's server render", () => {
 
   it("renders each tab and each match row as a link a press loads before hydration", async () => {
     const html = await rendered({});
-    expect(html).toMatch(/<a[^>]*href="\/saisons\/2027\?tab=finale-1"[^>]*>Spieltag finale-1</);
+    expect(html).toMatch(/<a[^>]*href="\?tab=finale-1"[^>]*>Spieltag finale-1</);
     expect(html).toMatch(/<a[^>]*href="\/saisons\/2027\/spiele\/sp-gruppenphase-2"/);
   });
 });

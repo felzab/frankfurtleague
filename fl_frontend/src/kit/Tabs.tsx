@@ -1,7 +1,4 @@
-"use client";
-
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
 
 import { TAB_PARAM } from "./tabChoice";
 
@@ -11,8 +8,9 @@ import type { ReactNode } from "react";
 /**
  * Switching what a page shows, such as its matchday: a row of links in a `nav`, as GitHub Primer's
  * UnderlineNav builds navigation tabs, the chosen one marked `aria-current="page"`, and under the row the
- * chosen tab's content, the page's own. Each link is the page's address with the tab in it (`?tab=<id>`),
- * so Back, a reload and a shared link keep the view; the chosen tab is the one the server read from the
+ * chosen tab's content, the page's own. Each link is the tab alone, `?tab=<id>`, which the browser and
+ * Next's router alike resolve against the page's own address, so Back, a reload and a shared link keep the
+ * view; the chosen tab is the one the server read from the
  * address (`chosenTab`). Plain links, because React Aria's tabs replace their server-rendered links when
  * they hydrate and drop a link click whose press they did not see begin: a press held across hydration did
  * nothing (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
@@ -34,7 +32,6 @@ export function Tabs({
   /** The chosen tab's content, alone: the other tabs' content never reaches the page. */
   children: ReactNode;
 }) {
-  const pathname = usePathname();
   return (
     <div className="grid gap-4">
       {/* A grid item is as wide as its content unless told otherwise, so without `min-w-0` the row would widen
@@ -48,7 +45,7 @@ export function Tabs({
               key={tab.id}
               className="shrink-0">
               <NextLink
-                href={`${pathname}?${new URLSearchParams({ [TAB_PARAM]: tab.id }).toString()}`}
+                href={`?${new URLSearchParams({ [TAB_PARAM]: tab.id }).toString()}`}
                 aria-current={tab.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
                 className="flex h-9 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors duration-(--motion-state) hover:text-fg aria-[current=page]:border-brand aria-[current=page]:text-fg pointer-coarse:h-11">
