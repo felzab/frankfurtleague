@@ -17,15 +17,6 @@
     // Session 1, the spike's pages.
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/ComboBox.tsx",
-    "src/kit/DateField.tsx",
-    "src/kit/TimeField.tsx",
-    "src/kit/dateParts.tsx",
-    "src/kit/Section.tsx",
-    "src/kit/HelpPopover.tsx",
-    "src/kit/EditorPage.tsx",
-    "src/kit/EditorBar.tsx",
-    "src/kit/useEditor.ts",
     // Session 3.
     "src/kit/BracketCard.tsx",
     "src/kit/Skeleton.tsx",
@@ -53,10 +44,7 @@
     // Kit exports the spike's pages reach, read so far only by files above that wait for their first
     // page: the field looks with session 5's last readers, the rest with session 1's other spike pages.
     "src/kit/fieldStyles.ts": ["exports"],
-    "src/kit/Dialog.tsx": ["exports"],
-    "src/kit/Toast.tsx": ["exports"],
-    "src/kit/FrameNav.tsx": ["exports"],
-    "src/kit/LeaveGuard.tsx": ["exports"]
+    "src/kit/Toast.tsx": ["exports"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.

@@ -1,6 +1,6 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
-// Two seasons, eight clubs, four venues, four referees, an owner and three administrators, every one of them
+// Two seasons, eight clubs, five venues, four referees, an owner and four administrators, every one of them
 // invented, so no machine needs production's personal data to show a page in each of its states.
 // The states are the ones the Spielplan, the sign-in, the match editor and the Spielorte table draw:
 //
@@ -8,12 +8,16 @@
 // - the running season: a played matchday holding a forfeit, today's matchday holding a played, an
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
-// - venues with and without rent, one retired; referees with and without an address, one retired;
-// - an owner and three administrators.
+// - venues with and without rent, one retired and one with a name long enough to test a row's width;
+//   referees with and without an address, one retired;
+// - an owner and four administrators.
 //
 // The administrators and the two referees with an address are the journeys' people: one
-// administrator and one referee per end-to-end project (`fl_frontend/playwright.config.ts`), and the
-// third administrator the desktop editor's journey's alone. The owner signs in in none.
+// administrator and one referee per end-to-end project (`fl_frontend/playwright.config.ts`), the
+// third administrator the desktop journey's whose save meets the proxy signed out
+// (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the administration's journey's
+// (`fl_frontend/e2e/desktop/verwaltung.spec.ts`): each sets up its own passkey, which no other journey
+// could then answer. The owner signs in in none.
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -81,6 +85,8 @@ const VENUES = [
   venue("Sporthalle Birkenallee", 40, address("Birkenallee", "14a", "60489", "Rödelheim"), null),
   venue("Kunstrasen Eichenhain", 25, address("Eichenhain", "7", "60599", "Sachsenhausen"), null),
   venue("Bolzplatz Lindenstraße", 0, address("Lindenstraße", "30", "60325", "Westend"), day(-120)),
+  // Last, so no fixture's booking (`booked`, by index) changes: a name as long as a real ground's can be.
+  venue("Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord", 30, address("Deuil-la-Barre-Straße", "100", "60437", "Nieder-Eschbach"), null),
 ];
 
 function referee(name, schule, payment, email, inactiveSince) {
@@ -102,6 +108,7 @@ const GRANTS = [
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
+  ["admin.verwaltung@example.com", "administration"],
 ].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, erteilt_von: "MADE-UP-SEED", erteilt_am: new Date() }));
 
 // --- Seasons -------------------------------------------------------------------------------------

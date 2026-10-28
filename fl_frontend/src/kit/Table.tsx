@@ -11,7 +11,7 @@ import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 
 /** A column after the name: its head, and how its values set. */
-export type TableColumn = {
+type TableColumn = {
   key: string;
   label: Copy;
   /** Figures, set in Inter with columns that line up and to the right. */

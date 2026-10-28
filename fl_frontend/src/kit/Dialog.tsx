@@ -4,7 +4,7 @@ import { startTransition, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
-import { Form } from "react-aria-components/Form";
+import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 import { useFormStatus } from "react-dom";
 import { tv } from "tailwind-variants/lite";
@@ -151,30 +151,37 @@ export function Dialog({
             data-kit-focus
             className={dialogBox({ width: "form" })}>
             <AriaDialog data-kit-focus>
-              <Form
-                className="grid gap-6"
-                action={async (formData: FormData) => {
-                  if (await action(formData)) {
-                    // A form's action runs in a transition, and an update after its `await` commits outside it.
-                    startTransition(() => setOpen(false));
-                  }
-                }}>
-                <Heading
-                  slot="title"
-                  level={2}
-                  className="text-xl font-semibold">
-                  {title}
-                </Heading>
-                <div className="grid gap-4">{children}</div>
-                <ActRow>
-                  <Button
-                    variant="secondary"
-                    label={COPY.shared.zurueck}
-                    onPress={() => setOpen(false)}
-                  />
-                  <SubmitAct label={label} />
-                </ActRow>
-              </Form>
+              {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React
+                  Aria's `Form` would otherwise take the outer form's props from its context, the outer submit
+                  handler among them. */}
+              <FormContext.Provider value={null}>
+                <Form
+                  className="grid gap-6"
+                  // React's submit event bubbles through the portal to the outer form, whose save would run too.
+                  onSubmit={(event) => event.stopPropagation()}
+                  action={async (formData: FormData) => {
+                    if (await action(formData)) {
+                      // A form's action runs in a transition, and an update after its `await` commits outside it.
+                      startTransition(() => setOpen(false));
+                    }
+                  }}>
+                  <Heading
+                    slot="title"
+                    level={2}
+                    className="text-xl font-semibold">
+                    {title}
+                  </Heading>
+                  <div className="grid gap-4">{children}</div>
+                  <ActRow>
+                    <Button
+                      variant="secondary"
+                      label={COPY.shared.zurueck}
+                      onPress={() => setOpen(false)}
+                    />
+                    <SubmitAct label={label} />
+                  </ActRow>
+                </Form>
+              </FormContext.Provider>
             </AriaDialog>
           </Modal>
         </div>
