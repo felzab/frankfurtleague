@@ -423,7 +423,7 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   ok "both stacks parse"
 
   # A parse accepts a published port and a database alike.
-  step "ops · only the edge is reachable off this host"
+  step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
   check --checker "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
