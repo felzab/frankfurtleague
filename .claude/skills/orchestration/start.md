@@ -12,12 +12,12 @@ applied to the whole session.
 4. Build the file-ownership map from every file each slice writes, hubs and leaves marked, and name
    the couplings and shared contracts that are not file edges.
 5. Write the register's landing order from the map, one ordering constraint a line.
-6. Decide each slice's cycle now, with its reason, by whether a wrong result would be silent. A slice
-   whose output a person looks at carries the owner's browser pass beside its rounds; that pass is
-   its audit, served with the stack up by `./scripts/ops/local.sh` in your checkout
-   (`.claude/CLAUDE.md` §5), a checklist of what changed, and the structural checks. Where the session builds a mechanism meant to change what people write — a rule set, a
-   prompt, a linter — give one slice an A/B instead: the same writing task to two read-only agents,
-   one given the mechanism and one denied it, both outputs read against the rules.
+6. Decide now, with the reason, which lenses of the session's one lens round read silently failing
+   behaviour, and which of its areas change what a person sees: each of those has its board, built
+   with the programme's shared board tool, which the owner reviews once. Where the session builds a
+   mechanism meant to change what people write — a rule set, a prompt, a linter — run an A/B as
+   well: the same writing task to two read-only agents, one given the mechanism and one denied it,
+   both outputs read against the rules.
 7. A check that reads the whole corpus runs against the real tree before it is wired into anything,
    its findings classified rather than counted.
 8. Enumerate the ending in the register's ending section, so the dispatch floor has something to

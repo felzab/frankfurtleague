@@ -49,10 +49,9 @@ this work. The bar reaches an agent only through its brief: the definitions are 
 skill sessions too. The definition withholds `gh`, so a CI failure the work must answer goes in as
 the lines `ci.py` printed for it, never as a run to read.
 
-```
+```text
 VALUES.         Your agent name: <name>. Session branch: <session branch>; your worktree forked
                 from it at <sha>. Coordinator's checkout: <path>. Scratch path: <path>.
-                Invariant ids reserved for you: <I<n> to I<m>, or none>.
 
 BAR.            Done is every item met in full, nothing traded. Challenge an item that conflicts
                 with documented practice or the evidence before you build it. Ask what you cannot
@@ -95,7 +94,7 @@ lacks. A re-audit's subject is the fixes and their blast radius, by an agent tha
 a document or plan re-audit also takes the previous audit's findings one at a time, each by its
 ledger id, closed or open with its evidence.
 
-```
+```text
 BAR.            Ask what you cannot verify; never assume it. A test, document or helper with no
                 job is a finding too: removing it counts as a gain. <What else the skill's bar
                 means for this subject.>

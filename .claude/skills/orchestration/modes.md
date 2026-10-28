@@ -63,9 +63,9 @@ coordinator's rule alone, it is named in no brief.
   weekly-limit card doesn't offer it." The card appears at the stop, so an unattended desktop stop
   continues only if the owner ticked it there; whether a tick carries to a later stop is not
   established. The box and the terminal's setting are separate.
-- These passages mirror https://code.claude.com/docs/en/interactive-mode,
-  https://code.claude.com/docs/en/errors and https://code.claude.com/docs/en/whats-new/2026-w33, read
-  2026-10-16; they move without us.
+- These passages mirror <https://code.claude.com/docs/en/interactive-mode>,
+  <https://code.claude.com/docs/en/errors> and <https://code.claude.com/docs/en/whats-new/2026-w33>,
+  read 2026-10-16; they move without us.
 - **The continuation is a resume.** Run [resume.md](resume.md) to its end, whose step 3 brings the
   agents back.
 

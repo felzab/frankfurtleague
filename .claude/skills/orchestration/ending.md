@@ -2,17 +2,11 @@
 
 Run once, in this order, when what remains is the last wave plus this list.
 
-1. Land the last wave. The audit its last landing dispatches and the fix the cycle ends on are a
-   whole round the ending still holds.
+1. Land the last wave. The lens round over the whole change and the fix round the cycle ends on are
+   rounds the ending still holds.
 2. Re-run the start's enumeration and tick every slice to a landed commit. Close every findings-ledger
    row (`ledger.py open --unclosed` exits 0; a refusal prints no row either) and every
-   expected-red row. Close the gaps unused reserved invariant ids left, listing the reserved ones
-   from every brief's VALUES line in the `Briefs:` directory and the unused among them with
-   `git grep -nw` on each.
-   `scripts/checks/check_docs.py` takes a branch's new rows as one run from one past the highest id
-   at the fork, so each id above a gap moves down into it, everywhere `git grep -nw` lists it, code
-   comments, tests and a generated document included, the last regenerated rather than edited,
-   until `check_docs.py` exits 0. An id of the same width re-pads no table.
+   expected-red row.
 3. Run `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. The branch is
    stable only once the last fix is committed, the gate is green, no live agent can still return a
    finding, and `reg.py prune` leaves no worktree of this session's agents, each one it kept
