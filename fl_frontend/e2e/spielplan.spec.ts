@@ -15,8 +15,14 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const tabs = page.getByRole("tablist", { name: "Spieltage" });
   await expect(tabs.getByRole("tab", { name: "2. Spieltag" })).toHaveAttribute("aria-selected", "true");
 
-  await tabs.getByRole("tab", { name: "1. Spieltag" }).click();
-  await expect(tabs.getByRole("tab", { name: "1. Spieltag" })).toHaveAttribute("aria-selected", "true");
+  // A press before React has hydrated the tabs does nothing, as it would for a visitor, who presses again;
+  // a probe of this page in WebKit lost the first press. Once the tab takes, the page is hydrated, so the
+  // match row's press below is a client navigation the pop-up's route intercepts, not a full load.
+  const first = tabs.getByRole("tab", { name: "1. Spieltag" });
+  await expect(async () => {
+    await first.click();
+    await expect(first).toHaveAttribute("aria-selected", "true", { timeout: 1_000 });
+  }).toPass();
 
   // A match row is a link to the match's page, which opens over the Spielplan.
   await page
@@ -33,7 +39,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await page.goBack();
   await expect(popup).toBeHidden();
   await expect(page).toHaveURL(/\/saisons\/2027$/);
-  await expect(tabs.getByRole("tab", { name: "1. Spieltag" })).toHaveAttribute("aria-selected", "true");
+  await expect(first).toHaveAttribute("aria-selected", "true");
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
