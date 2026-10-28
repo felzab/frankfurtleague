@@ -118,15 +118,18 @@ SCOPE="${SELECTED[0]}"
 
 # Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
 # verdict. `--checker` adds the 2 a checker built on `scripts/lib/checker_kernel.py :: run` answers
-# for an input it could not judge.
-check() { # [--checker] $1 what to say on a finding · the command
+# for an input it could not judge. `--summary` is for a tool raising an annotation per finding itself
+# under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
+check() { # [--checker] [--summary] $1 what to say on a finding · the command
   local checker=0 said rc=0
+  local -a summary=()
   if [[ "$1" == --checker ]]; then checker=1; shift; fi
+  if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   said="$1"; shift
   quietly "$@" || rc=$?
   case "$rc" in
     0) return 0 ;;
-    1) fail "$said"; return 1 ;;
+    1) fail "${summary[@]}" "$said"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above."; fi
@@ -182,7 +185,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -319,7 +322,7 @@ scope_format() {
 scope_frontend_units() {
   section frontend-units
   step "frontend-units · unit tests"
-  check "frontend unit tests failed." in_dir fl_frontend pnpm test \
+  check --summary "frontend unit tests failed." in_dir fl_frontend pnpm test \
     && ok "unit tests pass"
   return 0
 }
@@ -515,7 +518,7 @@ own message above says which." \
 
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   step "db · the frontend's *.db.test.ts files"
-  check "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
+  check --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
 own message above says which." in_dir fl_frontend pnpm run test:db \
     && ok "frontend db-tier tests pass"
   return 0

@@ -1570,7 +1570,8 @@ def _vitest_run(annotation: str) -> bytes:
                     text="AssertionError: expected 'a' to be 'b' // Object.is equality",
                 ),
                 annotation.format(title="[unit] src/core/broken.test.ts", text="Error: Cannot find module './gone'"),
-                "##[error]frontend unit tests failed.",
+                # The gate's verdict sums the annotations above, so it raises none of its own.
+                "^[[31m   ✗^[[0m  frontend unit tests failed.",
             )
         )
     )
