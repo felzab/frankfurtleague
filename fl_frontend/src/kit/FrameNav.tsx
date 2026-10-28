@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Fragment, use, useContext } from "react";
+import { createContext, Fragment, Suspense, use, useContext } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -226,8 +226,16 @@ const avatar = tv({
   },
 });
 
+/**
+ * The person signed in, read for the frame and handed down unawaited, so the frame streams before the session
+ * is judged; `null` for a session the area turns away, whose page sends it on.
+ */
+export type AccountRead = Promise<Account | null>;
+
 /** The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu. */
-export function AccountRow({ account }: { account: Account }) {
+export function AccountRow({ account: read }: { account: AccountRead }) {
+  const account = use(read);
+  if (account === null) return null;
   return (
     <Menu
       label={COPY.vorlage.konto}
@@ -290,7 +298,7 @@ type BarProps = {
   bar: ReadonlyArray<string>;
   /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
-  account?: Account;
+  account?: AccountRead;
 };
 
 function Places({ groups: given, bar, extra, account }: BarProps) {
@@ -375,26 +383,38 @@ function Places({ groups: given, bar, extra, account }: BarProps) {
         </FreshPerPage>
       )}
       {account !== undefined && (
-        <Menu
-          label={COPY.vorlage.konto}
-          placement="above"
-          head={{ name: account.name, detail: account.address }}
-          groups={account.menu}
-          trigger={
-            <AriaButton
-              data-kit-focus="inset"
-              className={barPlace({ current: false })}>
-              <span
-                aria-hidden
-                className={avatar({ size: "bar" })}>
-                {initials(account.name)}
-              </span>
-              {COPY.vorlage.konto}
-            </AriaButton>
-          }
-        />
+        // The bar's places stand drawn while the session is judged; the account's keeps its column.
+        <Suspense fallback={<span />}>
+          <AccountPlace account={account} />
+        </Suspense>
       )}
     </nav>
+  );
+}
+
+/** The phone bar's account place: the avatar over „Konto“, opening the account menu. */
+function AccountPlace({ account: read }: { account: AccountRead }) {
+  const account = use(read);
+  if (account === null) return null;
+  return (
+    <Menu
+      label={COPY.vorlage.konto}
+      placement="above"
+      head={{ name: account.name, detail: account.address }}
+      groups={account.menu}
+      trigger={
+        <AriaButton
+          data-kit-focus="inset"
+          className={barPlace({ current: false })}>
+          <span
+            aria-hidden
+            className={avatar({ size: "bar" })}>
+            {initials(account.name)}
+          </span>
+          {COPY.vorlage.konto}
+        </AriaButton>
+      }
+    />
   );
 }
 

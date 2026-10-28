@@ -5,13 +5,12 @@ import { RailFrame } from "@/kit/RailFrame";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
-import { UnreadGrantError } from "@/core/errors";
 import { ROUTES } from "@/core/routes";
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
-import type { RailGroup, Seasons } from "@/kit/FrameNav";
+import type { Account, RailGroup, Seasons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
 /**
@@ -58,65 +57,64 @@ const RAIL_GROUPS: RailGroup[] = [
 ];
 
 /**
- * The administration's frame and its guard. The guard is today's admin layout's: the page slot waits until
- * the session is judged and nothing here redirects, since a redirect thrown in a frame unmounts it whole;
- * an outage throws to the boundary's retry, and a session turned away is served the page alone, whose own
- * read sends it to the sign-in. One frame stands around every page of the area, so moving between a list and
- * an editor, or between seasons, keeps it; an editor declares its own way back (`EditorPage`).
+ * The administration's frame and its guard. The frame is drawn without waiting for the session: the account
+ * and the seasons it shows are handed down as reads still running, each streaming into its own place. The
+ * guard is today's admin layout's: the page slot waits in its own boundary until the session is judged, and
+ * nothing here redirects, since a redirect thrown in a frame unmounts it whole; an unread grant throws to the
+ * error page, and a session turned away is shown no account and no season, while its page's own read sends it
+ * to the sign-in. One frame stands around every page of the area, so moving between a list and an editor, or
+ * between seasons, keeps it; an editor declares its own way back (`EditorPage`).
  */
 export function VerwaltungFrame({ children }: { children: ReactNode }) {
-  return (
-    // The frame reads the session and the seasons, so it streams in its own boundary, never the root's.
-    <Suspense>
-      <Framed>{children}</Framed>
-    </Suspense>
-  );
-}
-
-async function Framed({ children }: { children: ReactNode }) {
-  // The builder stage reaches no sign-in store.
-  await connection();
-  const judged = await judgeAdminRequest();
-  if ("refused" in judged) {
-    if (judged.refused === "unread") throw new UnreadGrantError();
-    return children;
-  }
-
-  const seasons = readSeasons();
-  const adresse = judged.session.user.email;
+  // One judgement for both reads; the builder stage reaches no sign-in store, hence `connection()` first.
+  const session = connection().then(async () => {
+    const judged = await judgeAdminRequest();
+    return "session" in judged ? judged.session : null;
+  });
 
   return (
     <RailFrame
       groups={RAIL_GROUPS}
       bar={["uebersicht", "spiele", "teams"]}
       // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
-      season={{ seasons, home: "verwaltungUebersicht", withoutSeason: ROUTES.verwaltungSaisons.pfad() }}
-      foot={{
-        kind: "account",
-        account: {
-          // An administrator is an address: the grant stores no name.
-          name: adresse,
-          role: COPY.verwaltung.rolle,
-          address: adresse,
-          menu: [
-            [{ kind: "link", label: COPY.vorlage.konto, href: ROUTES.kontoAnmeldung.pfad() }],
-            [
-              { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
-              { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
-            ],
-          ],
-        },
-      }}>
-      <AdminSessionHold>{children}</AdminSessionHold>
+      season={{ seasons: readSeasons(session), home: "verwaltungUebersicht", withoutSeason: ROUTES.verwaltungSaisons.pfad() }}
+      foot={{ kind: "account", account: readAccount(session) }}>
+      <Suspense>
+        <AdminSessionHold>{children}</AdminSessionHold>
+      </Suspense>
     </RailFrame>
   );
 }
 
+type Session = Promise<{ user: { email: string } } | null>;
+
+/** The administrator signed in, or `null` for a session the area turns away. */
+async function readAccount(session: Session): Promise<Account | null> {
+  const served = await session;
+  if (served === null) return null;
+  const adresse = served.user.email;
+  return {
+    // An administrator is an address: the grant stores no name.
+    name: adresse,
+    role: COPY.verwaltung.rolle,
+    address: adresse,
+    menu: [
+      [{ kind: "link", label: COPY.vorlage.konto, href: ROUTES.kontoAnmeldung.pfad() }],
+      [
+        { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
+        { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
+      ],
+    ],
+  };
+}
+
 /**
  * Every season, as the list serves them, and the one a page whose address names none works in: the season
- * the league runs, else the last; `null` for a league holding none.
+ * the league runs, else the last; `null` for a league holding none, and for a session turned away, which
+ * the list's read would redirect from inside the frame.
  */
-async function readSeasons(): Promise<Seasons | null> {
+async function readSeasons(session: Session): Promise<Seasons | null> {
+  if ((await session) === null) return null;
   const { saisons } = await getAdminSaisons();
   const standard = selectSaison(saisons, undefined);
   return standard === undefined ? null : { ids: saisons.map((entry) => entry.id), standard: standard.id };

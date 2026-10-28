@@ -17,10 +17,10 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
-import type { Account, FrameSeasons, RailGroup } from "./FrameNav";
+import type { AccountRead, FrameSeasons, RailGroup } from "./FrameNav";
 
-/** The rail's foot: the account signed in, or „Anmelden“ where nobody is. */
-type RailFoot = { kind: "account"; account: Account } | { kind: "anmelden"; href: Route };
+/** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
+type RailFoot = { kind: "account"; account: AccountRead } | { kind: "anmelden"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
@@ -85,7 +85,10 @@ export function RailFrame({
           </Suspense>
           <div className="grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3">
             {foot.kind === "account" ? (
-              <AccountRow account={foot.account} />
+              // The row's height held while the session is judged, so the entries above do not move.
+              <Suspense fallback={<div className="h-12" />}>
+                <AccountRow account={foot.account} />
+              </Suspense>
             ) : (
               <NextLink
                 href={foot.href}
