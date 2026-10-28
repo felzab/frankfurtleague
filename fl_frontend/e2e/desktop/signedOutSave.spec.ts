@@ -20,7 +20,8 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
   await page.goto("/bereich/admin/spielorte");
   await page.getByRole("link", { name: "Bearbeiten: Spielort Sporthalle Birkenallee" }).click();
   await expect(page).toHaveURL(EDITOR_URL);
-  const rent = page.getByLabel("Standard-Mietpreis");
+  // By its role: the number field's two stepper buttons carry its label too.
+  const rent = page.getByRole("textbox", { name: "Standard-Mietpreis" });
   await expect(rent).toBeVisible();
 
   // The browser forgets the session while the editor stands open, as an expired one leaves it.
