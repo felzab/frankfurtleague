@@ -55,6 +55,18 @@ describe("a combo box's create entry", () => {
     expect(screen.getByRole("listbox").firstElementChild?.getAttribute("role")).toBe("separator");
   });
 
+  it("filters a record named as the entry like any other record", async () => {
+    render(
+      <ComboBox
+        label={ORT.objekt}
+        options={[{ id: "gleich", label: ORT.anlegenEintrag }]}
+        create={{ label: ORT.anlegenEintrag, onCreate: () => undefined }}
+      />,
+    );
+    await typeInto("Sportpark Süd");
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+  });
+
   it("hands on the typed text and leaves the value as it was", async () => {
     const onCreate = vi.fn();
     const onChange = vi.fn();
