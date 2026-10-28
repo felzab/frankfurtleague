@@ -1,3 +1,7 @@
+import { existsSync, globSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import css from "@eslint/css";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
@@ -981,6 +985,23 @@ const literally = (path) => path.replace(/[[\](){}*?!+@]/g, (character) => `[${c
 const NAMED = [...new Set(BANS.flatMap(({ only = [], allow }) => [...only, ...allow]))];
 const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
+
+/**
+ * Every file a ban names and every file the suppressions count, each of which must exist. A renamed
+ * module drops out of its ban in silence, and ESLint never flags a deleted file's counts: they stand
+ * until they spare whatever file is written at that path next.
+ */
+const HERE = fileURLToPath(new URL(".", import.meta.url));
+const SUPPRESSED = Object.keys(JSON.parse(readFileSync(join(HERE, "eslint-suppressions.json"), "utf8")));
+const GONE = [
+  ...[...NAMED_FILES, ...SUPPRESSED].filter((path) => !existsSync(join(HERE, path))),
+  ...NAMED_DIRECTORIES.filter((glob) => globSync(glob, { cwd: HERE }).length === 0),
+];
+if (GONE.length > 0) {
+  throw new Error(
+    `eslint.config.mjs or eslint-suppressions.json names what no longer exists: ${GONE.join(", ")}. Point a ban at the file's new path, and drop a deleted file's counts with \`pnpm exec eslint --prune-suppressions\`.`,
+  );
+}
 
 const fileBlocks = () => {
   const groups = new Map();
