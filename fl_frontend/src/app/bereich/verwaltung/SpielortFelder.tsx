@@ -10,7 +10,7 @@ const WORTE = COPY.verwaltung.spielort;
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name, its
  * address and its price. Each posts under its own name, which `spielortAnlegen` reads. The street and its
- * number, and the postcode and its town, each form one line of the address and share a row on desktop, the
+ * number, and the postcode and its town, each form one line of the address and share a row at every width, the
  * postcode before its town as a German address writes it.
  */
 export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
@@ -26,7 +26,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       />
       <FieldPair
         short="second"
-        phone="stack">
+        phone="pair">
         <TextField
           label={WORTE.strasse}
           name="strasse"
@@ -54,7 +54,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       />
       <FieldPair
         short="first"
-        phone="stack">
+        phone="pair">
         <TextField
           label={WORTE.plz}
           name="plz"
