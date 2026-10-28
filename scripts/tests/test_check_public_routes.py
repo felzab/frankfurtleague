@@ -598,7 +598,7 @@ def test_a_minted_link_this_reader_cannot_place_refuses(monkeypatch, text):
 
 @pytest.mark.parametrize("suffix", [".ts", ".tsx", ".js", ".jsx"])
 def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
-    """Every extension the walk reads, for `.claude/rules/cross-surface.md`'s sweeps clause: a fixture is no minter."""
+    """Every extension the walk reads: a fixture is no minter."""
     root = new_root("check-public-routes-")
     write(root, f"core/neuLink.test{suffix}", "const fixture = `/neuhilfe?token=kein-echtes-token`;\n")
 

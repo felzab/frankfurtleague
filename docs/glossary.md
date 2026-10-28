@@ -497,6 +497,21 @@ where the row carries the stamp the expiry reads.\
 **Trap:** the proxy turning a request away is not the proxy guarding the page — it judges nothing past whether a session cookie is carried, not whether its session stands, the factor, the grant or the ban, so a page is served to any request carrying one unless the page reads its own session: no layout turns a session away. A cookie no check serves, an ended session's or a code-borne administrator's, meets the area's frame and the page's static chrome before the page's own check sends it on. The words are addresses and not screen copy: `admin` is English beside three German ones, and `team` names a club's seats in one season rather than the season-independent `Team` document. The panel's old address `/admin` answers 404 with no redirect, by the rule a renamed page follows. On screen the word is the place's name („Dein Bereich“, „Zu Deinem Bereich“), so a sentence using it for one part of a page reads as the whole area: the shared crash panel of `fl_frontend/src/features/dashboard/components/ui/DashboardError.tsx` says „Diese Seite“ for that reason.\
 **See:** [`frontend/overview.md`](frontend/overview.md#authentication-and-authorization) for the layering.
 
+### `Tabelle` — the league table, and the page showing it
+
+**Is:** the screen word for one season's standings, and for the public page showing them, whose address segment is `tabelle`.\
+**In code:** `fl_frontend/src/core/routes.ts :: ROUTES.tabelle`, which gives the page its address and its name; the figures are the `Statistik` entry's.
+
+### `Kontakt` — the page saying how to reach the league
+
+**Is:** the screen word for the public page listing the league's contact channels, at `/kontakt`.\
+**In code:** `fl_frontend/src/app/(public)/(meta)/kontakt/page.tsx` over `fl_frontend/src/features/meta/components/views/KontaktView.tsx`; `fl_frontend/src/core/routes.ts :: ROUTES.kontakt` gives its address.
+
+### `K.-o.-Runde` · `K.-o.-Baum` — the knockout stage, and its tree
+
+**Is:** „K.-o.-Runde“ is the screen word for a season's knockout stage, every round after the `gruppenphase`, and for its public page, whose address segment is `ko-runde`; „K.-o.-Baum“ is the tree its fixtures are drawn as.\
+**In code:** `fl_frontend/src/core/copy.ts :: COPY.shared.kORunde` and `:: COPY.shared.kOBaum`; `fl_frontend/src/core/routes.ts :: ROUTES.kORunde` gives the page its address.
+
 ---
 
 ## Terms that are not domain vocabulary

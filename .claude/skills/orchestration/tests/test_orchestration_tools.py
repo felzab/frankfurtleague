@@ -1241,6 +1241,35 @@ def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_pat
     assert f"names process {os.getpid()}, still running" in said and "in no messages file" in said, said
 
 
+def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
+    """The hook lets through whatever it cannot read, so a renamed input field turned it off with nothing failing.
+
+    The payload is a PreToolUse input as the hooks reference documents it, `agent_type` among the
+    common fields a subagent's call carries.
+    """
+    assert BASH is not None
+    payload = {
+        "session_id": "s",
+        "transcript_path": "t.jsonl",
+        "cwd": str(REPO_ROOT),
+        "permission_mode": "default",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__Claude_Preview__preview_start",
+        "tool_input": {},
+        "tool_use_id": "toolu_01",
+        "agent_id": "agent-a1b2c3",
+        "agent_type": "implementer",
+    }
+    done = subprocess.run(
+        (BASH, (REPO_ROOT / ".claude" / "hooks" / "writer-tools.sh").as_posix()),
+        input=json.dumps(payload),
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert done.returncode == 2 and "implementer holds no mcp__Claude_Preview__preview_start" in done.stderr, (done.returncode, done.stderr)
+
+
 def test_dispatch_writes_the_messages_file_and_the_row_a_send_resolves_through(tmp_path: Path) -> None:
     """The first dispatch after the landing made no messages file and no live-agent row, so its sends had nowhere to go."""
     plans, register, _ = _fleet(tmp_path)
@@ -1473,10 +1502,6 @@ FAILED_RUN: Final = _log(
     ("backend", "      FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3"),
     ("backend", "##[error]backend pytest failed."),
     ("backend", "##[error]pyright found type errors in fl_backend."),
-    # A self-check's own annotation, replayed indented under its step, and the gate's pointer to it.
-    ("scripts", "      ::error::compaction hook: the coordinator must be told its register"),
-    ("scripts", "##[error]scripts/gate/selfcheck.sh failed \u2014 its findings are above."),
-    ("scripts", "^[[31m   \u2717^[[0m  1 finding(s) in this run, 1 section(s), 40s."),
     ("frontend", "      src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'."),
     ("ops", "^[[31m   \u2717^[[0m  the compose model drifted."),
     ("images", "##[error]Process completed with exit code 1."),
@@ -1551,19 +1576,11 @@ def _vitest_run(annotation: str) -> bytes:
     )
 
 
-@pytest.mark.parametrize(
-    "annotation",
-    [
-        # The runner trims a line's leading space before it reads a workflow command, so the replayed
-        # annotation is raised, and logged as its message.
-        "##[error]{text}",
-        "      ::error file=src/core/plant.test.ts,title={title},line=5,column=15::{text}%0A%0A- Expected",
-    ],
-    ids=["raised", "replayed"],
-)
-def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_repeat(annotation: str) -> None:
+def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_repeat() -> None:
     """Vitest's failures read as their errors' messages and the step's verdict, no case named: only node:test's section was parsed."""
-    said, new, flagged = _report(_vitest_run(annotation))
+    # The runner trims a line's leading space before it reads a workflow command, so Vitest's
+    # annotation the gate replays indented is raised, and logged as its message.
+    said, new, flagged = _report(_vitest_run("##[error]{text}"))
     assert new == [
         "src/core/plant.test.ts > a suite: with a colon > fails, with a comma",
         "src/core/plant.test.ts > fails at the top level",
@@ -1577,7 +1594,7 @@ def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
     said, _, _ = _report(FAILED_RUN)
     first_new = next(k for k, line in enumerate(said) if line.startswith("NEW"))
     assert all(line.startswith(("NEW", " ")) for line in said[first_new:-1]), said
-    assert said[-1] == "7 NEW, 3 expected"
+    assert said[-1] == "7 NEW, 2 expected"
     assert "            docs: a row in `## 2. Invariants` is neither an invariant nor a header: '| I_NEW_A_1 | x' (OUT-4)" not in said
     verbose = ci.report(FAILED_RUN.decode("utf-8"), EXPECTED_RED, verbose=True).said
     assert "            docs: a row in `## 2. Invariants` is neither an invariant nor a header: '| I_NEW_A_1 | x' (OUT-4)" in verbose
@@ -1621,9 +1638,9 @@ def _gate(tmp_path: Path, body: tuple[str, ...]) -> bytes:
     script = write_shell(tmp_path / "gate.sh", "\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', *body, "")))
     done = run_shell(BASH, script, env=env)
     assert done.returncode == 1, done.stderr
-    # The runner writes stdout and stderr into one log, each stream in its own order, and logs an
-    # unindented workflow command as the annotation it raises.
-    lines = (re.sub(r"^::error::", "##[error]", line) for line in (done.stdout + done.stderr).splitlines())
+    # The runner writes stdout and stderr into one log, each stream in its own order, and logs a
+    # workflow command, its leading space trimmed, as the annotation it raises.
+    lines = (re.sub(r"^\s*::error::", "##[error]", line) for line in (done.stdout + done.stderr).splitlines())
     return _log(*(("docs", line) for line in lines))
 
 
@@ -1707,7 +1724,7 @@ def _gh(
         ("in_progress", "", FAILED_RUN, 0, 2, "not concluded"),
         ("completed", "failure", FAILED_RUN, 1, 2, "exited 1"),
         ("completed", "failure", b"", 0, 2, "no job line"),
-        ("completed", "failure", FAILED_RUN, 0, 1, "7 NEW, 3 expected"),
+        ("completed", "failure", FAILED_RUN, 0, 1, "7 NEW, 2 expected"),
         ("completed", "success", b"", 0, 0, "5 RED row(s) CLEARED"),
     ],
     ids=["a run still going", "gh failing", "an empty log", "a failed run", "a run that passed"],

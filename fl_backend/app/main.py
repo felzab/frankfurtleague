@@ -2,7 +2,6 @@ import functools
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
-from enum import StrEnum
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
@@ -199,58 +198,38 @@ KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 
 
-class RefusalDriver(StrEnum):
-    """The suite that makes a dependency's refusal happen, which holds the table's entry to what a request meets."""
-
-    #: Met before any handler, against an application holding no database.
-    PROBE = "probe"
-    #: Met only past the database, where the handler calls the check: `fl_backend/tests/api/test_step_up_execution.py`.
-    STEP_UP = "step_up"
-    #: Met only once the stored day's count is spent: `fl_backend/tests/api/test_drosselung_execution.py`.
-    COUNT = "count"
-
-
 @dataclass(frozen=True, kw_only=True)
 class DependencyRefusal:
     status: HTTPStatus
     code: str
-    driven_by: RefusalDriver
 
 
-def _probed(status: HTTPStatus, code: str) -> DependencyRefusal:
-    return DependencyRefusal(status=status, code=code, driven_by=RefusalDriver.PROBE)
-
-
-# Each dependency answering a refusal of its own, the one it answers, and the suite making it happen.
+# Each dependency answering a refusal of its own, and the one it answers.
 # One table, so a dependency added to it is published with no second list to join.
 DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
-    get_token: _probed(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN),
-    verify_access_base: _probed(HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
-    verify_access_admin: _probed(HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
-    verify_access_system: _probed(HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
+    get_token: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=MISSING_TOKEN),
+    verify_access_base: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_BASE_KEY),
+    verify_access_admin: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_ADMIN_KEY),
+    verify_access_system: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_SYSTEM_KEY),
     # The actor's three, each raised by the dependency it is keyed on; a binder declaring them raises
     # none of its own, and an operation meets them through it (`dependency_refusals` walks sub-dependencies).
-    get_actor_token: _probed(HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
-    verify_admin_actor: _probed(HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
-    verify_person_actor: _probed(HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    get_actor_token: DependencyRefusal(status=HTTPStatus.BAD_REQUEST, code=MISSING_ACTOR),
+    verify_admin_actor: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=ACTOR_TOKEN_REFUSED),
+    verify_person_actor: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=ACTOR_TOKEN_REFUSED),
     # A session older than its grant is refused here under `verify_admin_actor`'s code, which this
     # check's own dependency on it publishes on every operation running both.
-    verify_actor_is_admin: _probed(HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
-    verify_person_is_unbarred: _probed(HTTPStatus.FORBIDDEN, PERSON_BARRED),
-    verify_recent_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
-    verify_recent_person_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
-    verify_step_up: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
-    get_db_client: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
-    get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+    verify_actor_is_admin: DependencyRefusal(status=HTTPStatus.FORBIDDEN, code=ACTOR_NOT_ADMIN),
+    verify_person_is_unbarred: DependencyRefusal(status=HTTPStatus.FORBIDDEN, code=PERSON_BARRED),
+    verify_recent_confirmation: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    verify_recent_person_confirmation: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    verify_step_up: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    get_db_client: DependencyRefusal(status=HTTPStatus.SERVICE_UNAVAILABLE, code=NO_DATABASE_CLIENT),
+    get_database: DependencyRefusal(status=HTTPStatus.SERVICE_UNAVAILABLE, code=NO_DATABASE_CLIENT),
     # A check handed to the handler, which calls it on the calls it judges.
-    get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP),
-    get_person_confirmation_check: DependencyRefusal(
-        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
-    ),
-    get_recent_confirmation_check: DependencyRefusal(
-        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
-    ),
-    get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT, driven_by=RefusalDriver.COUNT),
+    get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    get_person_confirmation_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    get_recent_confirmation_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
+    get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT),
 }
 UNGUARDED_TIER = "none"
 
@@ -496,16 +475,16 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
         yield from _dependency_calls(dependency)
 
 
-def dependency_refusals(app: FastAPI, drivers: AbstractSet[RefusalDriver] = frozenset(RefusalDriver)) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; every driver's unless named."""
+def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them."""
 
-    table = {call: refusal for call, refusal in DEPENDENCY_REFUSALS.items() if refusal.driven_by in drivers}
     found: dict[Operation, Refusals] = {}
     for route in document_routes(app):
-        refusing = set(_dependency_calls(route.dependant)) & table.keys()
+        refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
         for operation in route.operations:
             for call in refusing:
-                found.setdefault(operation, {}).setdefault(table[call].status, set()).add(table[call].code)
+                refusal = DEPENDENCY_REFUSALS[call]
+                found.setdefault(operation, {}).setdefault(refusal.status, set()).add(refusal.code)
 
     return found
 

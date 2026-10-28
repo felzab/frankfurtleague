@@ -294,7 +294,7 @@ def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
     assert set(tags) == set(pinned), f"CI installs uv {pinned[0]} and fl_backend/Dockerfile copies in {tags}"
 
 
-def test_the_frontend_image_runs_the_node_series_pnpm_installs() -> None:
+def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_release() -> None:
     """The image's Node is the release pnpm installs for the checkout and CI: `devEngines` names one exact release, the lockfile records it."""
     runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
     # `pnpm/setup` installs from the manifest alone, so a range there resolves afresh on every CI run.
