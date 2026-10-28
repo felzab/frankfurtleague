@@ -9,9 +9,9 @@ import { ROUTES } from "@/core/routes";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { spielortAnlegen } from "../../../spielortAnlegen";
-import { SpielortFelder } from "../../../SpielortFelder";
-import { SPIELORT_REGELN } from "../../../spielortRegeln";
+import { spielortAnlegen } from "../../spielortAnlegen";
+import { SpielortFelder } from "../../SpielortFelder";
+import { SPIELORT_REGELN } from "../../spielortRegeln";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { TableRow } from "@/kit/Table";
