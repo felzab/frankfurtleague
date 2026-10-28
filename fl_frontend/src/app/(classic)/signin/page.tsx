@@ -3,25 +3,16 @@ import { connection } from "next/server";
 
 import { getSignedInAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
-import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
 import { SignedIn } from "@/features/auth/components/ui/SignedIn";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
-/**
- * `noindex`, not a canonical: this is the entrance to `/bereich` and there is nothing here to rank. A
- * route declaring no metadata inherits the root layout's, which would point `/signin` at the homepage.
- * No description: a sign-in page carries none.
- */
-export const metadata: Metadata = {
-  title: COPY.anmeldung.titel,
-  robots: { index: false, follow: false },
-  openGraph: openGraphFor("/signin"),
-  alternates: { canonical: "/signin" },
-};
+/** No description: a sign-in page carries none. */
+export const metadata: Metadata = pageMetadata(ROUTES.anmeldung, ROUTES.anmeldung.pfad());
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would

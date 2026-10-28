@@ -43,10 +43,21 @@ function spiel(fields: Partial<FLSpiel> = {}): FLSpiel {
   };
 }
 
+/** A played fixture as the backend writes one: each side's goals, and `ergebnis` composed from them. */
+function gespielt(tore: { team1: number; team2: number }, fields: Partial<FLSpiel> = {}): FLSpiel {
+  const { team1, team2, ...rest } = spiel(fields);
+  return {
+    ...rest,
+    team1: team1 && { ...team1, tore: tore.team1 },
+    team2: team2 && { ...team2, tore: tore.team2 },
+    ergebnis: `${tore.team1}:${tore.team2}`,
+  };
+}
+
 const matchday = (id: string, spiele: FLSpiel[]): Matchday => ({ id, key: `gruppenphase-${id}`, label: `${id}. Spieltag`, spiele });
 
 describe("the matchday the tabs open on", () => {
-  const played = spiel({ ergebnis: "2:1" });
+  const played = gespielt({ team1: 2, team2: 1 });
   const calledOff = spiel({ sonderereignis: "ausgefallen" });
 
   it("is the first holding a match still to be played", () => {
@@ -69,7 +80,7 @@ describe("the matchday the tabs open on", () => {
 
 describe("a match as a row", () => {
   it("opens the match's page and adds a shoot-out's goals to the result it carries", () => {
-    const row = matchRowOf(spiel({ ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 3 } }));
+    const row = matchRowOf(gespielt({ team1: 1, team2: 1 }, { elfmeterschiessen: { team1: 4, team2: 3 } }));
     expect(row.href).toBe(`/saisons/2027/spiele/${"a".repeat(24)}`);
     expect(row.when).toBe("So., 14.03. · 15:30");
     expect(row.result).toEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
@@ -105,7 +116,7 @@ describe("a match's facts", () => {
   });
 
   it("set the result first, with the shoot-out's mark", () => {
-    const [first] = factsOf(spiel({ ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 3 } }), "Finale");
+    const [first] = factsOf(gespielt({ team1: 1, team2: 1 }, { elfmeterschiessen: { team1: 4, team2: 3 } }), "Finale");
     expect(first).toEqual({ label: "Ergebnis", value: "5:4 n. E.", figures: true });
   });
 

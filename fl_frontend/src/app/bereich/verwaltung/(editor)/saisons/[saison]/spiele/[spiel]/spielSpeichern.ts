@@ -10,8 +10,7 @@ import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { isRefusal } from "@/shared/utils/actionError";
 import { FORBIDDEN_BY_REFUSAL, invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
 
-import { werteOf } from "./spielLesen";
-import { KEIN_SONDEREREIGNIS } from "./spielWerte";
+import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
 import type { AdminRefusal } from "@/core/auth";
 import type { Copy } from "@/core/copy";

@@ -7,7 +7,7 @@ import type { Copy } from "./copy";
  * and whether a search engine may list it. A link takes its address from here, so with typed routes
  * on, an address whose page does not exist fails where the link is written.
  */
-type RouteEntry = {
+export type RouteEntry = {
   readonly pfad: (...segmente: never) => `/${string}`;
   readonly titel: Copy | ((...namen: never) => Copy);
   readonly indexiert: boolean;
@@ -56,6 +56,8 @@ export const ROUTES = {
   datenschutz: { pfad: () => "/datenschutz" as const, titel: COPY.seite.datenschutz, indexiert: true },
   /** Signing in, which every page signed out offers as „Anmelden“. */
   anmeldung: { pfad: () => "/signin" as const, titel: COPY.anmeldung.titel, indexiert: false },
+  /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
+  anmeldungPasskey: { pfad: () => "/signin/passkey" as const, titel: COPY.anmeldung.passkeyTitel, indexiert: false },
 
   kontoAnmeldung: { pfad: () => "/bereich/konto/signin" as const, titel: COPY.seite.anmeldung, indexiert: false },
   kontoSicherheit: { pfad: () => "/bereich/konto/security" as const, titel: COPY.seite.sicherheit, indexiert: false },
