@@ -18,7 +18,7 @@ import type { ChipProps } from "./Chip";
 import type { Account, RailGroup } from "./FrameNav";
 
 /** The rail's foot: the account signed in, or „Anmelden“ where nobody is. */
-export type RailFoot = { kind: "account"; account: Account } | { kind: "anmelden"; href: Route };
+type RailFoot = { kind: "account"; account: Account } | { kind: "anmelden"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];

@@ -59,7 +59,7 @@ function useCurrent(entries: ReadonlyArray<RailEntry>) {
  * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
  * led on, since a layout outlives the page it surrounds.
  */
-export function FreshPerPage({ children }: { children: ReactNode }) {
+function FreshPerPage({ children }: { children: ReactNode }) {
   return <Fragment key={usePathname()}>{children}</Fragment>;
 }
 
