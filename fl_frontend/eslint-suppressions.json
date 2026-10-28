@@ -1,0 +1,4098 @@
+{
+  "src/app/(public)/(meta)/layout.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/(public)/page.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 29
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 19
+    }
+  },
+  "src/app/api/signin/code/route.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/bereich/(persoenlich)/schiedsrichter/spielbericht/[spiel_id]/page.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/bereich/admin/spiele/[spiel_id]/spielbericht/page.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/dashboard/(shared-views)/layout.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/actorToken.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/adresswechsel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/api.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/auth.ts": {
+    "no-restricted-syntax": {
+      "count": 13
+    }
+  },
+  "src/core/berechtigungEmail.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/copy.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/dismissControl.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    }
+  },
+  "src/core/logFormat.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/core/mail.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/passkeyEmail.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/passkeyLastUse.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/core/providers/AppToaster.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 7
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    }
+  },
+  "src/core/providers/RootProviders.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/core/sessionLifetimes.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/admin/components/views/AdminBracketWiringView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 11
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/admin/components/views/AdminSpielEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/admin/components/views/AdminSpieleActionRequiredView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/admin/constants.ts": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 17
+    }
+  },
+  "src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/adresswechsel/components/ui/AdresswechselHinweis.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/adresswechsel/components/views/AdminAdresswechselView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/adresswechsel/components/views/AdresswechselLinkView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 19
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 20
+    }
+  },
+  "src/features/adresswechsel/notifications.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 33
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 12
+    }
+  },
+  "src/features/aktionen/components/views/AdminAktionenView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 10
+    }
+  },
+  "src/features/aktionen/utils.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/auth/components/forms/CodeStep.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/berechtigungen/components/collections/AdminBerechtigungAntraegeList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/collections/AdminBerechtigungenList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminBerechtigungAntragAblehnenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminBerechtigungAntragGenehmigenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/berechtigungen/components/views/AdminBerechtigungenView.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 31
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 8
+    }
+  },
+  "src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 10
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 19
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 34
+    },
+    "react/jsx-no-literals": {
+      "count": 9
+    }
+  },
+  "src/features/bewerbungen/components/forms/BewerbungForm/FormTeamSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 18
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/ui/BewerbungBandSkeleton.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/ui/Gefuellt.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/ui/LinkStandAngaben.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/ui/band.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/ui/seite.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/views/AdminBewerbungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/features/bewerbungen/components/views/AdminBewerbungenView.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 7
+    }
+  },
+  "src/features/bewerbungen/components/views/BestaetigungHinweise.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 34
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/bewerbungen/components/views/BestaetigungPanels.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 9
+    }
+  },
+  "src/features/bewerbungen/components/views/BestaetigungView.tsx": {
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/jsx-no-literals": {
+      "count": 20
+    }
+  },
+  "src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 11
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 26
+    },
+    "react/forbid-component-props": {
+      "count": 32
+    },
+    "react/jsx-no-literals": {
+      "count": 13
+    }
+  },
+  "src/features/bewerbungen/components/views/BewerbungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/bewerbungen/notifications.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/dashboard/components/ui/DashboardError.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/dashboard/constants.ts": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    }
+  },
+  "src/features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/funktionen/components/forms/AdminLoeschungForm/FormLoeschungAnsicht.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/funktionen/components/ui/SaisonChipSlot.tsx": {
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/funktionen/components/ui/TeamForbiddenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/funktionen/components/views/AdminLoeschungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/funktionen/components/views/FunktionenView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/funktionen/components/views/TeamStartView.tsx": {
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/funktionen/constants.ts": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    }
+  },
+  "src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/forbid-component-props": {
+      "count": 19
+    },
+    "react/jsx-no-literals": {
+      "count": 11
+    }
+  },
+  "src/features/kontakte/components/views/AdminKontakteEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    }
+  },
+  "src/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    }
+  },
+  "src/features/konto/components/forms/EinwilligungForm/kontoWorte.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/konto/components/ui/AndereAbmelden.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/konto/components/ui/AnmeldungZeile.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/konto/components/ui/CodeConfirmation.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/konto/components/views/EinwilligungSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/konto/components/views/KontoLoeschenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/konto/components/views/LoeschungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 14
+    }
+  },
+  "src/features/konto/components/views/SicherheitPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/konto/loeschungStepUp.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/meta/components/ui/LegalSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/meta/components/ui/MetaSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 6
+    }
+  },
+  "src/features/meta/components/views/AboutView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 10
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/meta/components/views/DatenschutzView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 108
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 130
+    }
+  },
+  "src/features/meta/components/views/ImpressumView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 24
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 17
+    }
+  },
+  "src/features/meta/components/views/KontaktView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/features/meta/components/views/MetaOrganisationView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/passkeys/components/ui/PasskeyKarteView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 11
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 19
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/registrierungen/components/collections/RegistrierungenList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 8
+    }
+  },
+  "src/features/registrierungen/components/ui/RegistrierungAngaben.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/registrierungen/components/views/AdminRegistrierungenView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/registrierungen/components/views/RegistrierungFormPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 12
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 8
+    }
+  },
+  "src/features/registrierungen/components/views/RegistrierungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 17
+    }
+  },
+  "src/features/registrierungen/components/views/RegistrierungenView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 8
+    }
+  },
+  "src/features/registrierungen/components/views/SpielerBestaetigungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 9
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 48
+    },
+    "react/forbid-component-props": {
+      "count": 14
+    },
+    "react/jsx-no-literals": {
+      "count": 26
+    }
+  },
+  "src/features/saisons/components/collections/AdminSaisonsTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 15
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/saisons/components/forms/AdminCreateSaisonForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 14
+    },
+    "react/jsx-no-literals": {
+      "count": 19
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormBewerbungSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 26
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 7
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 7
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 20
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    },
+    "react/jsx-no-literals": {
+      "count": 16
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRegistrierungSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 23
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 25
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 30
+    },
+    "react/forbid-component-props": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 18
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 14
+    }
+  },
+  "src/features/saisons/components/forms/AdminSaisonEditForm/FormZeitraumSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/saisons/components/forms/SaisonFormControls.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 15
+    }
+  },
+  "src/features/saisons/components/forms/StufenPicker.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    }
+  },
+  "src/features/saisons/components/ui/SaisonBadge.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/saisons/components/ui/SaisonChip.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/saisons/components/ui/SaisonSelector.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/saisons/components/ui/laufendDot.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/features/saisons/components/views/AdminSaisonEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/components/views/AdminSaisonsView.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/saisons/schemas.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormHonorarSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormPersonSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/schiedsrichter/components/forms/SchiedsrichterFormFields.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 16
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/schiedsrichter/components/ui/SchiedsrichterAngaben.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 33
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 22
+    }
+  },
+  "src/features/schiedsrichter/components/views/SchiedsrichterSelbstView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/sperrliste/components/collections/AdminSperreAnsichtList.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/sperrliste/components/collections/AdminSperrlisteList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/sperrliste/components/forms/AdminCreateSperreForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/sperrliste/components/views/AdminSperrlisteView.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/FormBemerkungenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/FormKartenSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/FormTorschuetzenSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/FormVorschlagSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spielberichte/components/forms/SpielberichtForm/eintragFelder.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spielberichte/components/ui/VorschlagText.tsx": {
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 10
+    }
+  },
+  "src/features/spielberichte/components/views/BerichtEintraege.tsx": {
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spielberichte/components/views/SchiedsrichterSpielberichteSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spielberichte/components/views/SpielberichtLesenView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spielberichte/components/views/SpielberichtZustandView.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/spielberichte/utils.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "no-restricted-syntax": {
+      "count": 26
+    },
+    "react/forbid-component-props": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 23
+    }
+  },
+  "src/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 11
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spielbestaetigungen/components/views/SpielbestaetigungView.tsx": {
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/jsx-no-literals": {
+      "count": 16
+    }
+  },
+  "src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/collections/SpielCardsList.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/ExpectedMarker.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormAnsetzungSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormDateTimeSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormErgebnisSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormMatchupSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormNotizSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSchiedsrichterSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSpielortSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 17
+    },
+    "react/forbid-component-props": {
+      "count": 42
+    },
+    "react/jsx-no-literals": {
+      "count": 7
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielDraftPreview.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/SpielRail.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/StepFiveButton.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/modals/SpielDetailsModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 9
+    },
+    "no-restricted-syntax": {
+      "count": 23
+    },
+    "react/forbid-component-props": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 7
+    }
+  },
+  "src/features/spiele/components/ui/ImElfmeterschiessen.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/ui/SaisonPhaseChip.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 38
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/ui/SpielCard.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/ui/SpielCardCompact.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/ui/SpielCardGrid.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/ui/SpielCardSkeleton.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/ui/SpielCardUltraCompact.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    }
+  },
+  "src/features/spiele/components/ui/SpielScore.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/components/ui/SpielStatusChip.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 7
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    }
+  },
+  "src/features/spiele/components/ui/SpielTeamSlot.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/features/spiele/components/ui/teamName.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    }
+  },
+  "src/features/spiele/components/views/SpielsucheView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/utils.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/collections/AdminSpielerTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 21
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 9
+    }
+  },
+  "src/features/spieler/components/collections/KaderList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/FormKaderSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 12
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spieler/components/forms/AdminSpielerEditForm/FormPersonSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spieler/components/forms/ClosedSetSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileAustragenSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/forms/KaderZeileEditForm/FormKaderZeileSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieler/components/forms/NummerField.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/forms/TeamSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/ui/Nachweis.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/ui/SpielerAngaben.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spieler/components/views/AdminSpielerEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/views/KaderView.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/spieler/components/views/SpielerSelbstView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spieler/components/views/TeamSpielerView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spieler/nachweis.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spielorte/components/collections/AdminSpielorteTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 13
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormAdresseSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormMieteSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spielorte/components/forms/AdminSpielortEditForm/FormSpielortSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/spielorte/components/forms/SpielortFormFields.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/spielorte/components/views/AdminSpielortEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spieltage/components/collections/AdminSpieltageList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 18
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/spieltage/components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/features/spieltage/components/views/AdminSpieltagEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/spieltage/components/views/PlayoffsView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 14
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    }
+  },
+  "src/features/spieltage/components/views/SpielplanView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    }
+  },
+  "src/features/system/components/ui/ServerIsLive.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/collections/AdminKontakteList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 22
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/collections/AdminTeamsTable.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 16
+    },
+    "react/forbid-component-props": {
+      "count": 14
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/teams/components/collections/TeamsGrid.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/forms/AdminCreateTeamForm.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormAdresseSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormAustrittSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "no-restricted-syntax": {
+      "count": 14
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 12
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormKontakteLinkSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 19
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 10
+    }
+  },
+  "src/features/teams/components/forms/AdminTeamEditForm/FormVereinSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 12
+    },
+    "react/forbid-component-props": {
+      "count": 15
+    },
+    "react/jsx-no-literals": {
+      "count": 9
+    }
+  },
+  "src/features/teams/components/forms/GruppeSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/forms/TeamFormFields.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/teams/components/forms/TrainerZugleichPicker.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    }
+  },
+  "src/features/teams/components/forms/TrikotFarbeSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/forms/WebsiteUrlField.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/modals/AdminCreateTeamModal.tsx": {
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/modals/DescriptionEditModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/features/teams/components/ui/AustrittKuerzel.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/features/teams/components/ui/TeamAustrittNote.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/ui/TeamCard.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    }
+  },
+  "src/features/teams/components/ui/TeamIdentityCard.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/ui/TeamPopoverMenu.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 8
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 11
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/ui/TeamSaisonSpieleTimeline.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 11
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/ui/TeamSaisonStatistik.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/ui/TeamSaisonVerlauf.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 6
+    }
+  },
+  "src/features/teams/components/ui/Tordifferenz.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/views/AdminTeamEditView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/features/teams/components/views/SaisontabelleView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 24
+    },
+    "react/forbid-component-props": {
+      "count": 18
+    },
+    "react/jsx-no-literals": {
+      "count": 16
+    }
+  },
+  "src/features/teams/components/views/TeamDetailsView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/teams/components/views/TeamSelectionView.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/zustellung/notifications.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/footer/Footer.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 15
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/footer/FooterCopyrightString.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/shell/AppShell.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/shared/components/layout/shell/AppTopBar.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/shared/components/layout/shell/PublicShell.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/layout/shell/ShellHeading.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/shell/SignOutButton.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/sidemenu/FunktionSwitcher.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 9
+    }
+  },
+  "src/shared/components/layout/sidemenu/Sidemenu.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/layout/sidemenu/SidemenuDrawerHeader.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/sidemenu/SidemenuFooter.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/sidemenu/SidemenuNavItem.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/sidemenu/SidemenuNavLinks.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 9
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/sidemenu/SidemenuOptionsMenu.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 8
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/sidemenu/railGutter.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/shared/components/layout/topnav/TopNav.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 9
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 10
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 22
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/layout/topnav/TopNavLinksDropdown.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/AddressFields.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 19
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/AdminCrudEmpty.tsx": {
+    "no-restricted-syntax": {
+      "count": 6
+    }
+  },
+  "src/shared/components/ui/AdminCrudFallback.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 9
+    },
+    "no-restricted-syntax": {
+      "count": 34
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/AdminCrudLoading.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/AdminCrudSearch.tsx": {
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/AdminCrudShell.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/AdminCrudView.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/Angabe.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/Autocomplete.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/BackButton.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/BrandHero.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 13
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/BrandLink.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/Callout.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/CardGrid.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/ComboBox.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/ConfirmActionRow.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/ConfirmDeleteModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 11
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 8
+    }
+  },
+  "src/shared/components/ui/ConfirmDiscardModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/ConfirmPressButton.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/ConfirmReadoutRow.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/ConfirmReveal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/ConfirmSaveModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/ConfirmTypedAddress.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/ContentLoader.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 9
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/CrashReportLink.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/CreateModal.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/DateTimeFields.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 6
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 14
+    }
+  },
+  "src/shared/components/ui/DraftChangeList.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 12
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/DraftRail.tsx": {
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/EditFormLayout.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/EditPageHeader.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/EmptyState.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/EntityForm.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/Error.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/ExpandableDescription.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/FLLogo.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/FieldLabel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/FilterLeiste.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 17
+    },
+    "no-restricted-syntax": {
+      "count": 10
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/FilterPanel.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 13
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 10
+    },
+    "react/jsx-no-literals": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/FocusSlot.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/Form.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/FormActionBar.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 3
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/Hint.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/IconTooltip.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/IdentityConfirmation.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/InfoHint.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/KontoPanel.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/ModalShell.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/NewTabLink.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/NotFound.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 4
+    },
+    "react/forbid-component-props": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/NumberField.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/PanelHeading.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/RailSection.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/RefusableSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 3
+    },
+    "react/forbid-component-props": {
+      "count": 6
+    }
+  },
+  "src/shared/components/ui/RetiredBadge.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/RowActions.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 8
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 12
+    }
+  },
+  "src/shared/components/ui/SaisonSelect.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 4
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 7
+    },
+    "react/jsx-no-literals": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/SaisonSlotSkeleton.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 6
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/SearchBar.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/Select.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/ShellNotFound.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 1
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/SkipToContentLink.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/StatusPanel.tsx": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 12
+    },
+    "no-restricted-syntax": {
+      "count": 8
+    },
+    "react/forbid-component-props": {
+      "count": 1
+    },
+    "react/jsx-no-literals": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/StepUpRefused.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/components/ui/Switch.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/TextField.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/ThemeSwitch.tsx": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 5
+    },
+    "react/forbid-component-props": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/brandTile.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/card.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/formButtons.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 9
+    }
+  },
+  "src/shared/components/ui/formFieldStyles.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 14
+    }
+  },
+  "src/shared/components/ui/formPanel.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/hintSurface.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 3
+    }
+  },
+  "src/shared/components/ui/hintTrigger.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/motion.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    }
+  },
+  "src/shared/components/ui/optionChip.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 5
+    }
+  },
+  "src/shared/components/ui/overlayPanel.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/pickedOption.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 4
+    }
+  },
+  "src/shared/components/ui/placeholderBox.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 6
+    }
+  },
+  "src/shared/components/ui/refusableOption.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/shared/components/ui/textLink.ts": {
+    "better-tailwindcss/no-restricted-classes": {
+      "count": 2
+    }
+  },
+  "src/shared/hooks/useAnsweredActionState.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/hooks/useConfirmationWindows.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/hooks/useStepUp.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/hooks/useTurnstile.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/hooks/useTwoPressConfirm.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/utils/appToast.ts": {
+    "@typescript-eslint/no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "src/shared/utils/date.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/utils/format.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/shared/utils/kontoMutation.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/shared/utils/undoDispatch.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  }
+}
