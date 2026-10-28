@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ClassicFrame` replaces it.
+
 import { Suspense } from "react";
 import Link from "next/link";
 

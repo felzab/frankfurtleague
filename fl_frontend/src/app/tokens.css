@@ -143,7 +143,8 @@
 }
 
 /* No namespace is reset to `initial` while HeroUI's stylesheets `@apply` Tailwind's default scale, so
-   the steps below are the only ones the kit may use, and the defaults stay for those stylesheets. */
+   the steps below are the only ones the kit may use, and the defaults stay for those stylesheets.
+   Session 8: once those stylesheets go, each namespace below is reset to `initial`. */
 @theme {
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -190,14 +191,12 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-rail: 16rem; /* the rail, standing open */
-  --container-rail-collapsed: 4.5rem; /* the rail collapsed to its glyphs: 24 px of inset at each side of one */
   --container-measure: 64ch; /* a line of running text on a legal or consent page */
   --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a
-   variable: the menu's script asks the same question as `lg:` (`Menu.tsx`). */
+   variable: the kit's script asks the same question as `lg:` (`useDesktop.ts`). */
 @theme static {
   --breakpoint-lg: 64rem;
 }

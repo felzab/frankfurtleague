@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Skeleton` replaces it.
+
 import { tv } from "tailwind-variants";
 
 /**

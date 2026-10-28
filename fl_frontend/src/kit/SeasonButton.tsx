@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 import { counterpart, useFrameSeason } from "./FrameNav";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
+import { useRailCollapsed } from "./RailState";
 import { railFade } from "./railStyles";
 import { tv } from "./tv";
 
@@ -58,6 +59,7 @@ const trigger = tv({
  */
 export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
   const season = useFrameSeason();
+  const collapsed = useRailCollapsed();
   const path = usePathname();
   const params = useParams();
   if (season === null) return null;
@@ -69,6 +71,8 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
       <Menu
         label={COPY.shared.saison}
         placement="below"
+        // In the collapsed rail the list opens beside the button, at the rail's edge.
+        beside={placement === "rail" && collapsed}
         // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
         width={placement === "rail" ? "trigger" : "content"}
         groups={[

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import {
   Menu as AriaMenu,
@@ -21,6 +21,7 @@ import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
+import { useDesktop } from "./useDesktop";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -60,6 +61,11 @@ export type MenuProps = {
   groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
+  /**
+   * On desktop, the menu opens at its trigger's end instead, as a collapsed rail entry's tooltip does, and as
+   * wide as its entries: its top level with the trigger's where it would open below, its foot where above.
+   */
+  beside?: boolean;
   /** On desktop, as wide as its entries with the menu's floor, or as wide as a full-width trigger such as the rail's. */
   width?: "content" | "trigger";
   /** One row after the entries: its words at the start, a control at the end, such as the theme's glyphs. */
@@ -67,27 +73,6 @@ export type MenuProps = {
 };
 
 type Size = "desktop" | "phone";
-
-/**
- * The rail's breakpoint, `lg`, read from its token on the root as Tailwind's guide reads a theme variable in
- * script: from it the rail stands, below it the phone's bars and sheets.
- */
-const desktop = () => window.matchMedia(`(min-width: ${getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-lg")})`);
-
-function subscribe(onChange: () => void) {
-  const query = desktop();
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-/** Whether the rail stands. The server answers desktop; a menu renders its list only once opened. */
-function useDesktop() {
-  return useSyncExternalStore(
-    subscribe,
-    () => desktop().matches,
-    () => true,
-  );
-}
 
 // An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
 // as every link does, so it takes `menuEntry` alone.
@@ -327,7 +312,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement, width = "content", foot: row }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, beside = false, width = "content", foot: row }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
@@ -345,10 +330,11 @@ export function Menu({ label, trigger, head, groups, placement, width = "content
       {trigger}
       {isDesktop ? (
         <Popover
-          placement={placement === "above" ? "top start" : "bottom start"}
-          offset={4}
+          placement={beside ? (placement === "above" ? "end bottom" : "end top") : placement === "above" ? "top start" : "bottom start"}
+          // 4 px from its trigger; beside a rail part, 4 px beyond the rail's 12-px inset and its edge, as the tooltip.
+          offset={beside ? 16 : 4}
           data-kit-focus
-          className={surface(width)}>
+          className={surface(beside ? "content" : width)}>
           {head !== undefined && (
             <Head
               head={head}

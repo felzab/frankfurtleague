@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { startTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 

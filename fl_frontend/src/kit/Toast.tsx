@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import {
   UNSTABLE_Toast as AriaToast,
   UNSTABLE_ToastRegion as AriaToastRegion,
@@ -7,6 +9,7 @@ import {
   UNSTABLE_ToastContent as ToastContent,
   UNSTABLE_ToastQueue as ToastQueue,
 } from "react-aria-components/Toast";
+import { UNSAFE_PortalProvider as PortalProvider } from "react-aria/PortalProvider";
 
 import { Icon } from "./Icon";
 import { tv } from "./tv";
@@ -34,8 +37,9 @@ const region = tv({
   variants: {
     // 12 px under the band or the strip, centred over the content, by the measures the frame around it
     // declares: on desktop the rail frame's content starts after the rail, the classic frame's under its header.
+    // Its edge moves with the rail as the rail folds, on the motion the frame's grid takes.
     frame: {
-      rail: "top-[calc(var(--rail-band)+0.75rem)] lg:top-[calc(var(--rail-strip)+0.75rem)] lg:left-(--rail-width)",
+      rail: "top-[calc(var(--rail-band)+0.75rem)] lg:top-[calc(var(--rail-strip)+0.75rem)] lg:left-(--rail-width) lg:transition-[left] lg:duration-(--motion-in)",
       classic: "top-[calc(var(--classic-header)+0.75rem)]",
     },
   },
@@ -44,29 +48,40 @@ const region = tv({
 /**
  * Where toasts appear: top centre under the band or the strip. The frame mounts it once. A toast fades
  * in on the overlay token and leaves without a fade.
+ *
+ * React Aria portals the region into `document.body`, outside the frame whose measures place it, so its
+ * container is an empty host where the frame mounts it, set through React Aria's portal provider: the host
+ * draws no box and takes no grid cell, and the region, fixed, inherits the frame's measures.
  */
 export function ToastRegion({ frame }: { frame: "rail" | "classic" }) {
+  const host = useRef<HTMLDivElement>(null);
   return (
-    <AriaToastRegion
-      queue={queue}
-      data-kit-focus
-      className={region({ frame })}>
-      {({ toast }) => (
-        <AriaToast
-          toast={toast}
-          data-kit-focus="ring"
-          className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-xl border border-border bg-bg px-4 py-3 text-sm font-medium whitespace-nowrap text-fg shadow-dialog transition-opacity duration-(--motion-in) starting:opacity-0">
-          <span className={toast.content.tone === "success" ? "text-success" : "text-danger"}>
-            <Icon
-              glyph={toast.content.tone === "success" ? "erledigt" : "fehler"}
-              size={16}
-            />
-          </span>
-          <ToastContent className="min-w-0">
-            <Text slot="title">{toast.content.title}</Text>
-          </ToastContent>
-        </AriaToast>
-      )}
-    </AriaToastRegion>
+    <div
+      ref={host}
+      className="contents">
+      <PortalProvider getContainer={() => host.current}>
+        <AriaToastRegion
+          queue={queue}
+          data-kit-focus
+          className={region({ frame })}>
+          {({ toast }) => (
+            <AriaToast
+              toast={toast}
+              data-kit-focus="ring"
+              className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-xl border border-border bg-bg px-4 py-3 text-sm font-medium whitespace-nowrap text-fg shadow-dialog transition-opacity duration-(--motion-in) starting:opacity-0">
+              <span className={toast.content.tone === "success" ? "text-success" : "text-danger"}>
+                <Icon
+                  glyph={toast.content.tone === "success" ? "erledigt" : "fehler"}
+                  size={16}
+                />
+              </span>
+              <ToastContent className="min-w-0">
+                <Text slot="title">{toast.content.title}</Text>
+              </ToastContent>
+            </AriaToast>
+          )}
+        </AriaToastRegion>
+      </PortalProvider>
+    </div>
   );
 }

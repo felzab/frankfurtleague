@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import { Select as HeroUISelect } from "@heroui/react/select";
 
 import { useRequiredMark } from "./RequiredMarks";

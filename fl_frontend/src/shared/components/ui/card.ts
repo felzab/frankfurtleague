@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Card` replaces it.
+
 import { tv } from "tailwind-variants";
 
 /**

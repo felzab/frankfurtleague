@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
+
 import Plus from "@gravity-ui/icons/Plus";
 
 import { buttonVariants } from "@heroui/styles";

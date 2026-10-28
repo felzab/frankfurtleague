@@ -21,6 +21,7 @@ export function pageMetadata(row: RouteEntry, pfad: string, titel?: string): Met
   };
 }
 
+// Session 3: goes with the old dashboard pages, its last importers; `pageMetadata` stays.
 /**
  * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter.
  *

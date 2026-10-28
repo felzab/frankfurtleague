@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/HelpPopover` replaces it.
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 
 import { Popover } from "@heroui/react/popover";

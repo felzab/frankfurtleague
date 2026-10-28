@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { Button } from "@heroui/react/button";
 
 import { confirmButton } from "./formButtons";

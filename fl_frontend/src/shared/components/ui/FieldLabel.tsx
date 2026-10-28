@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import PencilToLine from "@gravity-ui/icons/PencilToLine";
 
 import { Label } from "@heroui/react/label";

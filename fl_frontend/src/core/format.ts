@@ -44,8 +44,15 @@ export function formatUhrzeit(zeit: Uhrzeit | Date): string {
   return UHRZEIT_GESPEICHERT.format(Date.UTC(1970, 0, 1, stunde, minute));
 }
 
-/** „24. Oktober 2026 um 15:30“: an instant a reader checks against their own day, in a page or a mail. */
-export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zeitpunkt);
+/**
+ * „24. Oktober 2026 um 15:30“: an instant a reader checks against their own day, in a page or a mail, to the
+ * minute, since a link open 24 hours lapses mid-day. An unreadable stored instant is printed as it was
+ * stored: `Intl`'s `format` throws on it, which would take a whole page or mail with it.
+ */
+export function formatZeitpunkt(zeitpunkt: string | Date): string {
+  const datum = typeof zeitpunkt === "string" ? new Date(zeitpunkt) : zeitpunkt;
+  return Number.isNaN(datum.getTime()) ? String(zeitpunkt) : ZEITPUNKT.format(datum);
+}
 
 /**
  * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The

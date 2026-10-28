@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; the motion tokens replace it.
+
 /**
  * Tier 1, a route shell. Must keep `CARDS_CASCADE_CLASSES`'s duration and curve — they play together on
  * `SpielplanView` and a gap reads as page and contents arriving apart. Not on a wrapper whose

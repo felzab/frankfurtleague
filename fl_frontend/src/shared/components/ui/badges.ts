@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Chip` replaces it.
+
 /**
  * The radius the recipes below carry, and the one every `Chip` in this app sets in place of HeroUI's. On a `Chip` it
  * overrides `rounded-2xl` from `.chip`, and a utility beats the component layer, so no `!` is needed.

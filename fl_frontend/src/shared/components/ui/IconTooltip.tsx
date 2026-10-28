@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Tooltip` replaces it.
 import { Tooltip } from "@heroui/react/tooltip";
 
 import { HINT_SURFACE_CLASSES } from "./hintSurface";

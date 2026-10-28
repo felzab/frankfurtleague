@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Toast.tsx :: appToast` replaces it.
+
 import { toast } from "@heroui/react/toast";
 
 import { failureToastTitle } from "./failureToastTitle";

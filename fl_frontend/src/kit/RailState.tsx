@@ -10,6 +10,7 @@ import { Button } from "./Button";
 import { RAIL_ID } from "./railStyles";
 import { Tooltip } from "./Tooltip";
 import { tv } from "./tv";
+import { useDesktop } from "./useDesktop";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
@@ -25,16 +26,22 @@ function useRail() {
   return useContext(RailContext);
 }
 
+/** Whether the rail stands collapsed, for a rail part whose menu then opens beside the rail; `false` outside a rail frame. */
+export function useRailCollapsed() {
+  return useRail()?.collapsed === true;
+}
+
 /**
  * The frame's measures, declared once for the parts drawn to them and for the toasts placed under them: the
  * phone's band, the desktop rail's width and its head, which the title strip shares, and the signed-in rail
  * foot's height, which an editor's bar takes too, so the two top hairlines are one line: its 1-px edge, its
- * 8-px and 12-px padding, and the 48-px account row. The rail's width is one of two tokens, switched by the
- * collapsed attribute, and the grid's columns follow it over the entrance's 200 ms: a 100-ms state change
- * over 184 px reads as a jump. Under reduced motion the token is unset and the width snaps.
+ * 8-px and 12-px padding, and the 48-px account row. The rail's width is 256 px standing open and 72 px
+ * collapsed to its glyphs, 24 px of inset at each side of one, switched by the collapsed attribute; the
+ * grid's columns follow it over the entrance's 200 ms, since a 100-ms state change over 184 px reads as a
+ * jump. Under reduced motion the motion token is unset and the width snaps.
  */
 const root = tv({
-  base: "group min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:var(--container-rail)] data-collapsed:[--rail-width:var(--container-rail-collapsed)] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)] lg:transition-[grid-template-columns] lg:duration-(--motion-in)",
+  base: "group min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:16rem] data-collapsed:[--rail-width:4.5rem] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)] lg:transition-[grid-template-columns] lg:duration-(--motion-in)",
 });
 
 /**
@@ -42,12 +49,15 @@ const root = tv({
  * attribute on this element, which the rail's parts style against with `group-data-collapsed:`. The choice
  * is not stored: every page load starts expanded, and it holds while the visitor moves between the frame's
  * pages because Next keeps a layout mounted. Ctrl+B, and Cmd+B on a Mac, flip it from anywhere on the page,
- * as shadcn/ui's sidebar does, so the listener is the window's rather than the toggle's.
+ * as shadcn/ui's sidebar does, so the listener is the window's rather than the toggle's; only where the rail
+ * stands, so a phone's keyboard keeps the browser's own Ctrl+B and no hidden rail folds unseen.
  */
 export function RailRoot({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const isDesktop = useDesktop();
 
   useEffect(() => {
+    if (!isDesktop) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "b" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
@@ -56,7 +66,7 @@ export function RailRoot({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [isDesktop]);
 
   return (
     <RailContext value={{ collapsed, toggle: () => setCollapsed((is) => !is) }}>
@@ -70,15 +80,16 @@ export function RailRoot({ children }: { children: ReactNode }) {
 }
 
 /**
- * The strip's toggle folding the rail to its glyphs and back, before the page title in both states. The
- * 36-px box hangs 10 px into the strip's 32-px inset and its 16-px gap, so the 16-px glyph, not the box,
- * stands on the content's line, 16 px before the title. Desktop only: a phone's drawer has no rail to fold.
+ * The strip's toggle folding the rail to its glyphs and back, before the page title in both states, at the
+ * strip's start as shadcn/ui's sidebar trigger stands: the 36-px box reaches 24 px into the strip's 32-px
+ * inset, so it starts 8 px from the rail and its 16-px glyph 18 px, and hangs 10 px into the 16-px gap, so
+ * the glyph stands 16 px before the title. Desktop only: a phone's drawer has no rail to fold.
  */
 export function RailToggle() {
   const rail = useRail();
   if (rail === null) return null;
   return (
-    <span className="-mx-2.5 max-lg:hidden">
+    <span className="-mr-2.5 -ml-6 max-lg:hidden">
       <Button
         icon="seitenleiste"
         label={rail.collapsed ? COPY.vorlage.seitenleiste.ausklappen : COPY.vorlage.seitenleiste.einklappen}

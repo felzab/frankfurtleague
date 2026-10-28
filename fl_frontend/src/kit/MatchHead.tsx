@@ -20,9 +20,10 @@ const head = tv({
   extend: sideMarks,
   slots: {
     // The band: the lighter surface run edge to edge across the dialog's top, the padding the box declares
-    // taken back around it and its corners the box's own, so the pairing is framed as the old pop-up framed
-    // the teams, on a surface of its own.
-    root: "-mx-(--dialog-padding) -mt-(--dialog-padding) grid justify-items-center gap-4 rounded-t-xl bg-bg-surface p-6",
+    // taken back around it, so the pairing is framed as the old pop-up framed the teams, on a surface of its
+    // own. Its top corners are the box's: a box whose overflow is not visible clips its content to its
+    // rounded padding edge (CSS Backgrounds 3, corner clipping).
+    root: "-mx-(--dialog-padding) -mt-(--dialog-padding) grid justify-items-center gap-4 bg-bg-surface p-6",
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",

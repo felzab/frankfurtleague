@@ -3,10 +3,10 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
-import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { afterTheResponse } from "@/core/afterResponse";
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { formatZeitpunkt } from "@/core/format";
 import { recordWriteSent } from "@/core/requestScope";
 import { mailAdresswechsel } from "@/features/adresswechsel/notifications";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
@@ -118,7 +118,7 @@ function gesendetSatz(versand: LinkVersand, gueltigBis: string, art: "start" | "
   }
   if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
 
-  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${adresswechselZeitpunkt(gueltigBis)}.`;
+  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatZeitpunkt(gueltigBis)}.`;
   // Only the start's notice goes to the address on file; the approval's request went at the administrator's start.
   const sonst =
     art === "start"

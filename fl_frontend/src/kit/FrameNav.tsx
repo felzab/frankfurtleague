@@ -19,7 +19,7 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { frameLink, menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { RailTooltip } from "./RailState";
+import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
@@ -180,13 +180,14 @@ const THEMES: readonly GlyphChoice[] = [
  * theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address at
  * the top; an address alone already stands in the row, so the menu does not repeat it.
  */
-function AccountMenu({ account, trigger }: { account: Account; trigger: ReactElement }) {
+function AccountMenu({ account, trigger, beside }: { account: Account; trigger: ReactElement; beside?: boolean }) {
   // The theme next-themes holds; the menu's content renders only once it is opened, after hydration.
   const { theme, setTheme } = useTheme();
   return (
     <Menu
       label={COPY.vorlage.konto}
       placement="above"
+      beside={beside}
       head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
       groups={[
         [
@@ -259,16 +260,34 @@ const railHeading = groupHeading({
     "mb-1 overflow-hidden px-3 py-1 whitespace-nowrap transition-[margin,opacity] duration-(--motion-in) group-data-collapsed:-mt-6 group-data-collapsed:mb-0 group-data-collapsed:opacity-0",
 });
 
+// Where a heading folds away, a hairline as wide as a glyph fades in, centred in the 16-px gap above its
+// group, so the collapsed rail still reads in groups, as the old rail and Linear's and Vercel's collapsed
+// sidebars do; none above the first group, which nothing precedes.
+const railRule = tv({
+  base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
+});
+
 /** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
 export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
   const groups = useEntries(given);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
+    // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
+    // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
+    // entry's fill to the rail's edge and past it.
     <nav
       aria-label={COPY.vorlage.navigation}
-      className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-3 py-2">
+      className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-3 py-2">
       {groups.map((group, index) => (
-        <div key={group.heading ?? index}>
+        <div
+          key={group.heading ?? index}
+          className="relative">
+          {group.heading !== undefined && index > 0 && (
+            <span
+              aria-hidden
+              className={railRule()}
+            />
+          )}
           {group.heading !== undefined && <h2 className={railHeading}>{group.heading}</h2>}
           <div className="grid gap-1">
             {group.entries.map((entry) => (
@@ -323,15 +342,17 @@ export type AccountRead = Promise<Account | null>;
 /**
  * The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu.
  * Collapsed, the avatar alone stands centred, 8 px of the row's inset after the foot's 12, and the words
- * fade, clipped by the row.
+ * fade, clipped by the row; the menu then opens beside the row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
+  const collapsed = useRailCollapsed();
   const account = use(read);
   if (account === null) return null;
   const name = account.name ?? account.address;
   return (
     <AccountMenu
       account={account}
+      beside={collapsed}
       trigger={
         <AriaButton
           data-kit-focus="ring"

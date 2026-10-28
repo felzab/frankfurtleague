@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/fieldStyles` replaces it.
+
 /**
  * The one form-label appearance: `fluid-xs` over a `fluid-sm` input, so the value stays dominant.
  * The sign-in form's uppercase-tracked label is that page's own style rather than this constant.

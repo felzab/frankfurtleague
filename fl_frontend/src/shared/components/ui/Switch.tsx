@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import { Switch as HeroUISwitch } from "@heroui/react/switch";
 
 import { useRequiredMark } from "./RequiredMarks";

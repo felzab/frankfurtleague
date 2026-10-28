@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import React, { Suspense } from "react";
 
 import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";

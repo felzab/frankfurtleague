@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/HelpPopover` replaces it.
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
 import { Description } from "@heroui/react/description";

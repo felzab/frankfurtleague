@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Link` replaces it.
+
 import Link from "next/link";
 
 import type { ReactNode } from "react";

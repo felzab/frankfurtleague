@@ -5,6 +5,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Session 8: from `react-aria-components` once HeroUI goes, as in `RootProviders.tsx`.
 import { RouterProvider } from "@heroui/react/rac";
 
 import { COPY } from "@/core/copy";

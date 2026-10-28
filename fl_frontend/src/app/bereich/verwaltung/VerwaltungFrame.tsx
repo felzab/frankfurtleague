@@ -7,6 +7,7 @@ import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
 import { formatZeitraum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+// Session 5: the old admin layout's guard, which moves with that layout.
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";

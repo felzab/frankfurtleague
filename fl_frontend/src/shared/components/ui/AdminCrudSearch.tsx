@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
 import { useCrudSearchField } from "./AdminCrudPrivateQuery";
 import { SearchBar } from "./SearchBar";
 

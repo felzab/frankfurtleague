@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { useState } from "react";
 
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";

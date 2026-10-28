@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Dialog` replaces it.
 import { ModalShell } from "./ModalShell";
 
 import type { ReactNode } from "react";

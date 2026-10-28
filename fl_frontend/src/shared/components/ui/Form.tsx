@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; the kit's fields replace it.
+
 import { useSyncExternalStore } from "react";
 
 import { Form as HeroUIForm } from "@heroui/react/form";

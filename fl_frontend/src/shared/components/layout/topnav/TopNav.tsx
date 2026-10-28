@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ClassicFrame` replaces it.
+
 import Link from "next/link";
 
 import At from "@gravity-ui/icons/At";

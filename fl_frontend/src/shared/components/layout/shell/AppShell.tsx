@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { Suspense, useEffect, useState } from "react";
 
 import { SkipToContentLink } from "../../ui/SkipToContentLink";

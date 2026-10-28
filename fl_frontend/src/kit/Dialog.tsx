@@ -11,14 +11,16 @@ import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { actLabel } from "./dialogAct";
 import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 
-import type { Copy, Verb } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
+import type { DialogAct } from "./dialogAct";
 import type { ActionAnswer } from "./useFormAction";
 
 /**
@@ -227,17 +229,6 @@ function ActForm({
   );
 }
 
-/** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
-export type DialogAct = {
-  title: Copy;
-  /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
-  act: { verb: Verb; objekt?: Copy };
-  /** The server action doing the act, reading the form's fields by their `name`s. */
-  action: (formData: FormData) => Promise<ActionAnswer>;
-  /** The act's inputs: the kit's fields. */
-  children: ReactNode;
-};
-
 /** What opens the dialog: its own trigger, or the open state another control holds; one of the two, always. */
 type Opening =
   | {
@@ -261,7 +252,7 @@ export function Dialog({ title, act, trigger, open, action, children }: DialogAc
   const [own, setOwn] = useOpenUntilHidden();
   const isOpen = open?.isOpen ?? own;
   const setOpen = open?.onOpenChange ?? setOwn;
-  const label = act.objekt === undefined ? COPY.shared.verb[act.verb] : COPY.shared.mitObjekt(act.objekt, act.verb);
+  const label = actLabel(act);
 
   const overlay = (
     <DialogOverlay

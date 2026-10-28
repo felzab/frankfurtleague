@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import { NumberField as HeroUINumberField } from "@heroui/react/number-field";
 
 import { useRequiredMark } from "./RequiredMarks";

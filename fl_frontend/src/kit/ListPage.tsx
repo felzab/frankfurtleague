@@ -1,7 +1,6 @@
-import { COPY } from "@/core/copy";
-
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
+import { actLabel } from "./dialogAct";
 import { EmptyState } from "./EmptyState";
 import { Filters } from "./Filters";
 import { ListTable } from "./ListTable";
@@ -10,7 +9,7 @@ import { Tabs } from "./Tabs";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { DialogAct } from "./Dialog";
+import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore, ListSearch } from "./ListTable";
@@ -67,19 +66,12 @@ export function ListPage({
         empty: EmptyStateProps;
       };
 }) {
-  const label =
-    create === undefined
-      ? undefined
-      : create.act.objekt === undefined
-        ? COPY.shared.verb[create.act.verb]
-        : COPY.shared.mitObjekt(create.act.objekt, create.act.verb);
-
   // The filters and the create act, which stands at the toolbar's end.
   const toolbar =
     filters === undefined && create === undefined ? undefined : (
       <>
         {filters !== undefined && <Filters filters={filters} />}
-        {create !== undefined && label !== undefined && (
+        {create !== undefined && (
           <div className="ms-auto">
             <Dialog
               {...create}
@@ -87,7 +79,7 @@ export function ListPage({
                 <Button
                   variant="primary"
                   leadingIcon="anlegen"
-                  label={label}
+                  label={actLabel(create.act)}
                 />
               }
             />

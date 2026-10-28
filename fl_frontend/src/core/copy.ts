@@ -116,6 +116,7 @@ export const COPY = katalog({
     schliessen: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
+    // Session 4: the mailed pages read these.
     ende: {
       erledigtAm: (erledigt: Copy, tag: Kalendertag) => `${erledigt} am ${formatDatumLang(tag)}.`,
       linkUngueltig: "Dieser Link gilt nicht mehr.",
@@ -132,8 +133,10 @@ export const COPY = katalog({
     weitereLaden: "Weitere 50 laden",
     protokoll: "Protokoll",
     kORunde: "K.-o.-Runde",
+    // Session 3: its page reads it.
     kOBaum: "K.-o.-Baum",
     nachElfmeterschiessen: NACH_ELFMETERSCHIESSEN,
+    // Session 3: its page reads it.
     disqualifiziert: "DQ",
     startelf: "Startelf",
     bank: "Bank",

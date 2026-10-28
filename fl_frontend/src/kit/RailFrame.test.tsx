@@ -145,6 +145,18 @@ describe("the rail's collapse", () => {
     await userEvent.keyboard("{Meta>}b{/Meta}");
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
+
+  // Below the rail's breakpoint no rail shows: a flip would fold it unseen and take the browser's own Ctrl+B.
+  it("leaves Ctrl+B to the browser where the rail does not stand", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: false }) as MediaQueryList);
+    await renderPage();
+    const press = new KeyboardEvent("keydown", { key: "b", ctrlKey: true, cancelable: true });
+
+    act(() => void window.dispatchEvent(press));
+
+    expect(press.defaultPrevented).toBe(false);
+    expect(screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen }).getAttribute("aria-expanded")).toBe("true");
+  });
 });
 
 describe("the account menu", () => {

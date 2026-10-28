@@ -7,9 +7,10 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { formatZeitpunkt } from "@/core/format";
 import { KONTO_HREF } from "@/core/kontoHref";
 import { startOf } from "@/features/adresswechsel/link";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
@@ -214,7 +215,7 @@ function AntwortPanel({ gueltigBis, weg, antwort }: { gueltigBis: string; weg: F
         {weg === "wartezeit" && ` Sie gilt ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach Deiner Bestätigung.`}
       </p>
       <p className={ABSATZ_CLASSES}>
-        Bis dahin gilt die bisherige Adresse. Der Link gilt bis <Wert>{adresswechselZeitpunkt(gueltigBis)}</Wert>.
+        Bis dahin gilt die bisherige Adresse. Der Link gilt bis <Wert>{formatZeitpunkt(gueltigBis)}</Wert>.
       </p>
       <p className={ABSATZ_CLASSES}>Bestätige nur, wenn Du diese Änderung selbst angefragt hast.</p>
       <div className={AKTIONEN_CLASSES}>
@@ -262,8 +263,8 @@ function stoppSatz(zustand: FLAdresswechselBisherigZustand, weg: FLAdresswechsel
   if (zustand === "wartezeit" && wirksamAb !== null) {
     return (
       <>
-        Für Dein Konto soll ab <Wert>{adresswechselZeitpunkt(wirksamAb)}</Wert> eine neue E-Mail-Adresse gelten. Hast Du das nicht angefragt,
-        stoppe die Änderung. Dann bleibt diese Adresse.
+        Für Dein Konto soll ab <Wert>{formatZeitpunkt(wirksamAb)}</Wert> eine neue E-Mail-Adresse gelten. Hast Du das nicht angefragt, stoppe
+        die Änderung. Dann bleibt diese Adresse.
       </>
     );
   }
@@ -318,7 +319,7 @@ function StoppPanel({
 
 /** What the new mailbox is told once its link is pressed and the change still waits on its time or an approval. */
 function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | null; genehmigungOffen: boolean }) {
-  const ab = wirksamAb === null ? null : <Wert>{adresswechselZeitpunkt(wirksamAb)}</Wert>;
+  const ab = wirksamAb === null ? null : <Wert>{formatZeitpunkt(wirksamAb)}</Wert>;
   if (ab !== null && genehmigungOffen) {
     return <>Danke. Die neue E-Mail-Adresse gilt frühestens ab {ab}, und erst wenn die Verwaltung die Änderung genehmigt hat.</>;
   }
