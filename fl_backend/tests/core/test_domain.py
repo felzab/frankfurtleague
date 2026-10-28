@@ -64,7 +64,7 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 _CODE_PATTERN = "REQ-"
 
 # The declaration's own module, which never answers for a reason's own text: it is dropped from
-# every listing built out of the source trees (`docs/_standard/standard.md :: PRE-4`).
+# every listing built out of the source trees.
 DECLARATION = APP_ROOT / "core" / "domain.py"
 DECLARATION_MODULE = "app.core.domain"
 
@@ -305,8 +305,6 @@ def test_no_family_holds_both_a_protocol_code_and_a_rule_s():
 
 
 def test_the_document_publishes_every_protocol_family_and_no_other():
-    """The frontend's half is `fl_frontend/src/core/protocolFamilies.test.ts`, against the committed document."""
-
     assert build_document()[PROTOCOL_FAMILIES_EXTENSION] == sorted({refusal_family(code) for code in PROTOCOL_CODES})
 
 
@@ -626,8 +624,7 @@ def _steps_reaching(collection: Collection, scope: frozenset[Personengruppe] = J
 def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
     """A reference to a person no step reaches outlives their erasure, naming a document that is gone.
 
-    A match report's scorer and card ids declare no row, so this passes over them
-    (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
+    A match report's scorer and card ids declare no row, so this passes over them.
     """
 
     assert REFERENCES_TO_A_PERSON, "no reference targets a person, so the comparison below holds of nothing"
@@ -719,7 +716,7 @@ class TestEveryCallTheErasureHandsItsSessionIsADeclaredStep:
     def test_the_calls_are_the_registry_and_the_named_prelude(self):
         """Read off the body rather than `ERASURE_STEPS`: a step called but never declared is in no scope's reckoning.
 
-        By the session, which every step requires (`docs/backend/spec.md :: I52`), so an undeclared one is handed it too.
+        By the session, which every step requires, so an undeclared one is handed it too.
         """
 
         handed = {

@@ -66,7 +66,7 @@ WIDER_PER_GROUP = 6
 NEWCOMER_OID = ObjectId("6890a1b2c3d4e5f607770001")
 
 # A hand-assigned kickoff the draw never wrote and nothing regenerates, which is what the removal's
-# images are for (`docs/backend/spec.md :: I138` and `:: I48`).
+# images are for.
 A_DATE = "2026-05-01"
 A_KICKOFF = "18:00:00"
 
@@ -307,7 +307,7 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
 
 
 class TestAnUndrawRemovesTheWholeSpielplan:
-    """`docs/backend/spec.md :: I46`'s three, together: the fixtures, the matchdays and the watermark."""
+    """The three, together: the fixtures, the matchdays and the watermark."""
 
     def test_neither_collection_keeps_a_document_of_the_season(self, mongo_replica_set_url: str):
         """Drop either removal and this fails: an undraw is these rows being GONE, never merely disowned by a watermark."""
@@ -317,14 +317,14 @@ class TestAnUndrawRemovesTheWholeSpielplan:
         assert (undrawn.spieltage, undrawn.spiele) == (0, 0)
 
     def test_the_season_keeps_no_watermark(self, mongo_replica_set_url: str):
-        """Leave the watermark standing and the season reads as drawn while holding nothing, which `docs/backend/spec.md :: I110` prevents."""
+        """Leave the watermark standing and the season reads as drawn while holding nothing, which the rule prevents."""
 
         undrawn = an_undrawn_season(mongo_replica_set_url)
 
         assert undrawn.watermark is None
 
     def test_the_response_reports_what_it_removed(self, mongo_replica_set_url: str):
-        """Counted off the driver's own results (`docs/backend/spec.md :: I13`): numbers read off the watermark would echo a claim."""
+        """Counted off the driver's own results: numbers read off the watermark would echo a claim."""
 
         undrawn = an_undrawn_season(mongo_replica_set_url)
 
@@ -334,7 +334,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
 
 
 class TestTheRemovalKeepsEveryImage:
-    """`docs/backend/spec.md :: I138`: a drawn schedule carries hand-assigned dates and kickoff times nothing regenerates."""
+    """A drawn schedule carries hand-assigned dates and kickoff times nothing regenerates."""
 
     def test_the_log_records_both_removals_and_the_watermark_as_three_rows(self, mongo_replica_set_url: str):
         """Fixtures before matchdays, the reverse of the draw's write order: no image names a matchday already gone."""
@@ -906,7 +906,7 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
         assert undrawn.response.watermark_cleared is False
 
     def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
-        """Report the clear off the counts and this fails: the claim is what is removed, and `docs/backend/spec.md :: I13` says report it."""
+        """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
 
         seed = Seed(saison=saison_document(spielplan={"generiert_am": TODAY, "spieltage": 8, "spiele": 67}))
         undrawn = an_undraw_of(mongo_replica_set_url, seed=seed)

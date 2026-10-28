@@ -75,7 +75,7 @@ def drawn(shape: Shape) -> Spielplan:
 def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
     """The drawn fixtures as the write path reads them.
 
-    Every rule below takes the whole season as its slice (`docs/backend/spec.md :: I108`).
+    Every rule below takes the whole season as its slice.
     """
 
     return tuple(FLSpielListAdapter.validate_python(list(drawn(shape).spiele)))
@@ -84,7 +84,7 @@ def season_of(shape: Shape) -> tuple[FLSpiel, ...]:
 def with_the_slot_cleared(season: tuple[FLSpiel, ...], spiel_id: Any) -> tuple[FLSpiel, ...]:
     """`season` with this fixture stripped of its own sources, so resubmitting them reads as ENTERING them.
 
-    `find_wiring_refusal` judges the side whose source a save moves (`docs/backend/spec.md :: I106` and `:: I44`),
+    `find_wiring_refusal` judges the side whose source a save moves,
     which a resubmission never does.
     """
 
@@ -117,7 +117,7 @@ class TestTheShapesAreSeasonsThatCanExist:
 
 
 class TestTheDrawnWiringIsWiringTheWritePathAccepts:
-    """`docs/backend/spec.md :: I27` run rather than restated: the emitted season judged by the rule an admin's own edit meets."""
+    """Run rather than restated: the emitted season judged by the rule an admin's own edit meets."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
     def test_no_emitted_fixture_carries_a_wiring_its_own_endpoint_would_refuse(self, shape: Shape):
@@ -140,7 +140,7 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
 
 
 class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
-    """`docs/backend/spec.md :: I30` asked of the shipped judge, not of the pairing the draw happens to have produced."""
+    """Asked of the shipped judge, not of the pairing the draw happens to have produced."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
     def test_resubmitting_a_fixture_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):

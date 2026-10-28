@@ -258,7 +258,7 @@ def patched_spiel(
 
 
 class TestApplyingThePayload:
-    """The normalisation, which is the one thing the preview and the save must never do differently (`docs/backend/spec.md :: I29`)."""
+    """The normalisation, which is the one thing the preview and the save must never do differently."""
 
     def test_ergebnis_is_derived_from_the_two_goal_counts(self, season):
         patched = patched_spiel(season, 1, team1=team(ADLER, "Adler", tore=4), team2=team(BIEBER, "Bieber", tore=2))

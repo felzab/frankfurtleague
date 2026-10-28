@@ -199,7 +199,7 @@ def spiel_document(
     saison_phase, tag = SPIELTAGE[spieltag_id]
 
     # `team2_quelle` is left null throughout, so every fixture keeps one side the admin owns: a
-    # resolution refilling both slots would answer for the payload (`docs/backend/spec.md :: I23`).
+    # resolution refilling both slots would answer for the payload.
     return documents.spiel_document(
         spiel_id=spiel_id,
         saison_id=SAISON_ID,
@@ -414,7 +414,7 @@ class TestAnUndoReplayPutsTheFixtureBackAsItStood:
     """The whole sequence `fl_frontend/src/features/spiele/actions.ts :: undoAdminSpielEditAction` runs, driven end to end.
 
     Every fixture goes back in one request, the edited one leading, which frees the club the moved
-    one is about to claim again (`docs/backend/spec.md :: I215`).
+    one is about to claim again.
     """
 
     def _replayed(self, url: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], FLPatchSpielePaarungenResponse]:

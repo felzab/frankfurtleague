@@ -745,7 +745,7 @@ class ConfirmationsRunningARivalBeforeTheWrite(InterleavedCollection):
 class TestAFixtureMovedMidAnswerIsJudgedAgain:
     """The administrator moves the fixture while a club answers: the answer reads the fixture and writes none of it.
 
-    So the move raises no conflict, and only the re-read outside the transaction (`docs/backend/spec.md :: I118`) sees it.
+    So the move raises no conflict, and only the re-read outside the transaction sees it.
     """
 
     def test_the_answer_is_refused_on_the_move_and_writes_nothing(self, mongo_replica_set_url: str):
@@ -843,7 +843,7 @@ class TestTwoSeatsPressingAtOnce:
     def test_the_second_press_landing_under_the_first_is_one_answer_and_one_refusal(self, mongo_replica_set_url: str):
         """The other seat commits between this press's judgement and its write: the write conflicts, and the retry finds the row answered.
 
-        `docs/backend/spec.md :: I755`, driven rather than reasoned: the answer stored is the seat that committed first.
+        Driven rather than reasoned: the answer stored is the seat that committed first.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1090,7 +1090,7 @@ class TestTheDiscard:
 
     @pytest.mark.parametrize("agreed", [pytest.param(False, id="open"), pytest.param(True, id="agreed")])
     def test_a_row_no_open_decline_with_a_proposal_is_refused_and_closes_nothing(self, mongo_replica_set_url: str, agreed: bool):
-        """Closed `verworfen`, either would be its club's one answer to the Ansetzung (`docs/backend/spec.md :: I768`)."""
+        """Closed `verworfen`, either would be its club's one answer to the Ansetzung."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if agreed:
@@ -1329,7 +1329,7 @@ class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
 
 
 class TestAnAnswerAndItsWritersErasureCross:
-    """`docs/backend/spec.md :: I772`: the answer writes its row and the erasure voids the writer's entry on it, so one retries.
+    """The answer writes its row and the erasure voids the writer's entry on it, so one retries.
 
     Neither anchors the address: a holder digest stored under an erasure's snapshot would stand until the season's end.
     """
@@ -1827,7 +1827,7 @@ ZUGESAGT = {"art": "zugesagt", "am": TODAY, "von": {"art": "schiedsrichter"}, "v
 
 class TestTheRefereesOwnRows:
     def test_one_card_per_fixture_its_current_request(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I837`: the row about the slot the fixture left was minted first, and the fresh request answers alone.
+        """The row about the slot the fixture left was minted first, and the fresh request answers alone.
 
         Another referee's row of the same fixture is not theirs at all.
         """

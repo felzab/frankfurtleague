@@ -167,7 +167,7 @@ def answered(
 
 
 def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Response:
-    """`X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`)."""
+    """`X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying none."""
 
     async def _created() -> Response:
         async with app_client(uri, app=_served(database_name)) as http:

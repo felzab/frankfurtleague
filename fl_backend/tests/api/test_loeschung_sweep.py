@@ -652,7 +652,7 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
             # The same anchor in the season just ended, which no registration reaches.
             pytest.param(functools.partial(a_squad_row_entered, saison_id=JUST_ENDED), id="a squad row in the season just ended"),
             # Held by the address: the submission inserts a row the deletion never read, and the address's anchor
-            # both write is what puts the two in one write set (`docs/backend/spec.md :: I719`).
+            # both write is what puts the two in one write set.
             pytest.param(a_registration_submitted, id="a pending registration"),
         ],
     )
@@ -685,7 +685,7 @@ class LinkReadThenRival(InterleavedCollection):
 
 class TestTwoAddressesRegisteringForOneSeasonWaitOnNeitherOther:
     def test_one_committing_inside_the_other_sends_it_round_no_second_time(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I716`: write the season in the submission again and the outer one meets the inner's commit, read twice."""
+        """Write the season in the submission again and the outer one meets the inner's commit, read twice."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_running_season_open_to_its_team(database)
@@ -704,7 +704,7 @@ BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
 
 class TestAnActivationInsideThePupilsTransactionKeepsThem:
     def test_the_pupil_stands(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I722`: remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
+        """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
 
         The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
         """

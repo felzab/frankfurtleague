@@ -56,10 +56,7 @@ RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationEr
 
 @pytest.fixture
 def assert_rejects() -> RejectsAssertion:
-    """Names the field that refused: a payload rejected for an UNRELATED field would otherwise read as the constraint holding.
-
-    When to prefer it: `docs/backend/spec.md` §1.6.
-    """
+    """Names the field that refused: a payload rejected for an UNRELATED field would otherwise read as the constraint holding."""
 
     def _assert(model: type[BaseModel], payload: dict[str, Any], field: str) -> ValidationError:
         with pytest.raises(ValidationError) as excinfo:

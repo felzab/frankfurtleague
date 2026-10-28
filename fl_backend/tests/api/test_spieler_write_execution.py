@@ -496,7 +496,7 @@ def spieltag_row(*, beginn: str | None, saison_phase: str = "gruppenphase", posi
 
 
 class TestTheCreateDerivesTheLateEntryMarker:
-    """`docs/backend/spec.md :: I334`: the create stores the verdict the squad editor's read serves, whatever the season's status says.
+    """The create stores the verdict the squad editor's read serves, whatever the season's status says.
 
     Every season here is `active`, so a create judging by the status would mark every entry late.
     """
