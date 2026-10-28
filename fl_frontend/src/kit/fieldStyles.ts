@@ -87,6 +87,9 @@ export const codeBox = tv({
 /** One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. */
 export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted" });
 
+/** The weekdays over a date's calendar, in the caption grade. */
+export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
+
 /** A day in a date's calendar, as large as a control; the chosen day inverts. */
 export const calendarCell = tv({
   base: "flex size-9 cursor-default items-center justify-center rounded-md font-numeric text-sm tabular-nums data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-11",

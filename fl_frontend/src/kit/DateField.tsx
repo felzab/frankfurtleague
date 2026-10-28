@@ -1,12 +1,23 @@
 "use client";
 
 import { parseDate } from "@internationalized/date";
-import { Button as AriaButton, Calendar, CalendarCell, CalendarGrid, DatePicker, Group, Popover } from "react-aria-components/DatePicker";
+import {
+  Button as AriaButton,
+  Calendar,
+  CalendarCell,
+  CalendarGrid,
+  CalendarGridBody,
+  CalendarGridHeader,
+  CalendarHeaderCell,
+  DatePicker,
+  Group,
+  Popover,
+} from "react-aria-components/DatePicker";
 import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
 import { FieldLabel, MessageLine } from "./FieldParts";
-import { calendarCell, fieldButton, fieldFrame, fieldRoot, menuPopover } from "./fieldStyles";
+import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -48,13 +59,16 @@ function MonthCalendar() {
         </AriaButton>
       </header>
       <CalendarGrid data-kit-focus>
-        {(date) => (
-          <CalendarCell
-            data-kit-focus="item"
-            date={date}
-            className={calendarCell()}
-          />
-        )}
+        <CalendarGridHeader>{(day) => <CalendarHeaderCell className={calendarHead()}>{day}</CalendarHeaderCell>}</CalendarGridHeader>
+        <CalendarGridBody>
+          {(date) => (
+            <CalendarCell
+              data-kit-focus="item"
+              date={date}
+              className={calendarCell()}
+            />
+          )}
+        </CalendarGridBody>
       </CalendarGrid>
     </Calendar>
   );
