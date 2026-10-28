@@ -68,7 +68,7 @@ export function ListTable({
 }: {
   table: TableProps;
   search?: ListSearch;
-  /** The filter block and the create act, between the search field and the table. */
+  /** The filter block and the create act, in the search field's row after it. */
   toolbar?: ReactNode;
   more?: ListMore;
 }) {
@@ -111,14 +111,22 @@ export function ListTable({
 
   return (
     <>
-      {search !== undefined && (
-        <SearchField
-          label={search.label}
-          value={current.query}
-          onChange={onSearch}
-        />
+      {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
+          end; on a phone the search keeps the width and the buttons share the next line. */}
+      {(search !== undefined || toolbar !== undefined) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {search !== undefined && (
+            <div className="w-full lg:max-w-96 lg:flex-1">
+              <SearchField
+                label={search.label}
+                value={current.query}
+                onChange={onSearch}
+              />
+            </div>
+          )}
+          {toolbar}
+        </div>
       )}
-      {toolbar}
       <Table
         {...table}
         rows={rows}
