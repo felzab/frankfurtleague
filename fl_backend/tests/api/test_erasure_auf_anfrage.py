@@ -356,7 +356,7 @@ EXPECTED_ANSICHT = {
 
 @pytest.mark.db
 class TestTheRegistryRunsWhole:
-    """`docs/backend/spec.md :: I682`: the person's whole data on one pass, with no precondition about their state."""
+    """The person's whole data on one pass, with no precondition about their state."""
 
     def test_every_kind_goes_on_one_pass_a_pupil_in_a_live_squad_among_them(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -560,7 +560,7 @@ class TestAGrantHoldersAddress:
 
 @pytest.mark.db
 class TestTheReveal:
-    """`docs/backend/spec.md :: I684`: every record of the person's the erasure removes or empties, by its own selections, stored nowhere."""
+    """Every record of the person's the erasure removes or empties, by its own selections, stored nowhere."""
 
     def test_it_names_every_record_the_erasure_removes_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -663,7 +663,7 @@ CHANGING_HOLDER_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00003")
 
 @pytest.mark.db
 class TestAGrantHoldersPendingChange:
-    """`docs/backend/spec.md :: I871`: a grant holder's change naming the address is shown and ended only where the tool would open it."""
+    """A grant holder's change naming the address is shown and ended only where the tool would open it."""
 
     @pytest.mark.parametrize("tier", ["administration", "owner"])
     def test_the_reveal_leaves_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str, tier: str):
@@ -703,7 +703,7 @@ class TestAGrantHoldersPendingChange:
         assert ended is not None and ended["beendet"]["art"] == "verworfen"
 
     def test_the_reveal_names_their_own_change_and_open_requests_alone(self, mongo_replica_set_url: str):
-        """A lapsed request is gone to every reader already (`docs/backend/spec.md :: I851`), so it is left out though removed."""
+        """A lapsed request is gone to every reader already, so it is left out though removed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
@@ -728,7 +728,7 @@ class TestAGrantHoldersPendingChange:
 
 @pytest.mark.db
 class TestTheAnlass:
-    """`docs/backend/spec.md :: I683`: on every log row the administrator's erasure files, and on no other."""
+    """On every log row the administrator's erasure files, and on no other."""
 
     def test_every_row_the_erasure_files_carries_it_stripped_and_no_other_row_does(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -797,7 +797,7 @@ SURNAME_OF: Mapping[str, tuple[Collection, Mapping[str, Any], str]] = {
 
 @pytest.mark.db
 class TestANameInTheAnlass:
-    """`REQ-PURGE-006`, judged on the names the erasure's own subject read holds (`docs/backend/spec.md :: I721`)."""
+    """`REQ-PURGE-006`, judged on the names the erasure's own subject read holds."""
 
     def test_it_is_refused_inside_the_write_which_writes_nothing_and_names_nobody(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
@@ -881,7 +881,7 @@ class TheSignOutsRowMeetingARival(InterleavedCollection):
 
 @pytest.mark.db
 class TestAnAdministratorRevokedMidRequest:
-    """`docs/backend/spec.md :: I575` on this route: the transaction's judge, never the check before the handler, meets the revoke."""
+    """On this route: the transaction's judge, never the check before the handler, meets the revoke."""
 
     @pytest.mark.parametrize("revoked", [True, False], ids=["revoked inside the erasure", "the control, revoked by nobody"])
     def test_the_erasure_erases_nobody_and_answers_that_they_administer_no_more(self, mongo_replica_set_url: str, revoked: bool):
@@ -932,7 +932,7 @@ class TestAnAdministratorRevokedMidRequest:
 
 @pytest.mark.db
 class TestANameARivalWritesMidRequest:
-    """`docs/backend/spec.md :: I721` on a retry: a rename committing inside the erasure meets its delete, and the retry reads it."""
+    """On a retry: a rename committing inside the erasure meets its delete, and the retry reads it."""
 
     def test_the_retry_refuses_the_name_and_erases_nobody(self, mongo_replica_set_url: str):
         """Judged once outside the transaction instead, the first attempt's pass stands: the erasure commits and the log keeps the name."""
@@ -1034,7 +1034,7 @@ class TestRowsNoMailboxNames:
 
 @pytest.mark.db
 class TestTheSignOut:
-    """`docs/backend/spec.md :: I689`: one row naming who ended an address's sessions and when, never the address."""
+    """One row naming who ended an address's sessions and when, never the address."""
 
     def test_it_files_one_row_naming_the_operator_and_the_act_and_writes_nothing_else(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

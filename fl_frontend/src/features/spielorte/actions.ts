@@ -155,7 +155,7 @@ export async function undoAdminSpielortEditAction(rawPayload: FLPatchSpielortPay
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row.
     invalidatesOnWrite("spiele");
     let operation;
     try {

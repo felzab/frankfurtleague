@@ -38,8 +38,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
           where: TEAMS_EINTRAG.label,
         }),
       };
-    // The application's own validator asserts no more than `docs/backend/spec.md :: I16`, while `teams`
-    // reads a club through a stricter model, so a school's details can make no club. Nothing edits them.
+    // `teams` reads a club through a stricter model, so a school's details can make no club. Nothing edits them.
     case "REQ-BEWERBUNG-003":
       return {
         error: buildRefusal({
@@ -63,7 +62,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
       };
     // `REQ-ENTER-001` to `-003` open with the sentence
     // `fl_frontend/src/features/teams/refusals.ts :: mapEntryRefusal` renders too, so only the repair
-    // below is this one's own; `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
+    // below is this one's own.
     case "REQ-ENTER-001":
       return {
         error: buildRefusal({
@@ -72,7 +71,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
         }),
       };
     // On the picker: the field at fault is the one the admin can move, and a message under the
-    // control that is itself the way out carries no repair sentence (`docs/frontend/spec.md` §1.12).
+    // control that is itself the way out carries no repair sentence.
     case "REQ-ENTER-002":
       return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
     case "REQ-ENTER-003":
@@ -207,7 +206,7 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "REQ-BEWERBUNG-019":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
-    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // The backend's judgement of the label: a page opened before a
     // deploy moved the form's label would seat the person under words other than those the backend runs.
     case "REQ-EINWILLIGUNG-001":
       return { error: BEWERBUNG_VERALTET };

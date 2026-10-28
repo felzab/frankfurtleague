@@ -113,7 +113,7 @@ async def eintragen_spielbestaetigung(
         refuse(find_eintragen_refusal(spielbestaetigung_raw=row))
 
         try:
-            # The state term as a seat's press writes it (`docs/backend/spec.md :: I755`). A seat's answer committing under
+            # The state term as a seat's press writes it. A seat's answer committing under
             # this one conflicts with the write instead, and the retry's read above refuses.
             return await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
@@ -184,7 +184,7 @@ async def verwerfen_spielbestaetigung(
             raise WriteRefusalException(verwerfen_refusal()) from miss
 
         # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
-        # again outside it before answering (`docs/backend/spec.md :: I118`).
+        # again outside it before answering.
         await judged(row, None)
 
         return discarded

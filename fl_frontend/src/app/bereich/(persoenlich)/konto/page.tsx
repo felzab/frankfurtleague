@@ -14,7 +14,7 @@ export default async function KontoPage() {
   const subject = await requireSubjectSession();
 
   // A granted address whose administrator verdict lapsed owes a fresh sign-in or its passkey step
-  // before its passkeys, as the landing sends it (`docs/frontend/spec.md :: I426`); here the section
+  // before its passkeys, as the landing sends it; here the section
   // stands empty.
   if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
 

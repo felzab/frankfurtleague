@@ -525,7 +525,7 @@ UNRESOLVED = [
 class TestAnApplicationResolvingToNoOneClub:
     """`REQ-BEWERBUNG-002` reaching the acceptance.
 
-    `docs/backend/spec.md :: I16` keeps the rule off the validator, so the write path is where it holds.
+    The backend keeps the rule off the validator, so the write path is where it holds.
     """
 
     @pytest.mark.parametrize(("bewerbung_id", "team_id", "schule"), UNRESOLVED)
@@ -639,7 +639,7 @@ class TestAcceptanceWaitsForEverySeat:
 async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:
     """One application whose school makes no club, stored through the SHIPPED validator.
 
-    Read back, because `docs/backend/spec.md :: I16` keeps the format off the validator: the value
+    Read back, because the backend keeps the format off the validator: the value
     really does reach `teams` unless acceptance refuses it.
     """
 
@@ -1143,7 +1143,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 
 
 # A school whose own URL carries the three characters `validate_external_url` strips. Storable as
-# submitted: `bewerbungen` types `website_url` as a bare string (`docs/backend/spec.md :: I16`).
+# submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
 DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
 DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WK"
@@ -1845,7 +1845,7 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
 
 @pytest.mark.db
 class TestAResendToASeatStampedEmpty:
-    """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the re-send's filter reads it the same way."""
+    """`is_confirmed` reads `""` as unconfirmed, and the re-send's filter reads it the same way."""
 
     def test_the_link_is_minted_rather_than_answered_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

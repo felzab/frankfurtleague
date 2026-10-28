@@ -15,7 +15,7 @@ export const CONFIRM_PRESS_MARK = "data-confirm-press";
 
 /**
  * The primary control of a two-press confirm: the refusal over it, the armed fill, the dropped glyph
- * and the three labels — every clause `docs/frontend/spec.md` §1.14's, and a panel spelling them out
+ * and the three labels, and a panel spelling them out
  * drifts from that one clause at a time.
  */
 export function ConfirmPressButton({
@@ -64,10 +64,10 @@ export function ConfirmPressButton({
 }) {
   const { isConfirming } = confirm;
   // The prompt's words over the panel's armed ones: this press opens the browser's passkey prompt
-  // before it sends anything (`docs/frontend/spec.md :: I431`).
+  // before it sends anything.
   const label = !isConfirming ? resting : confirm.asksPasskey ? STEP_UP_LABEL : armed;
   const writing = confirm.isPending || submitting;
-  // A write in flight HOLDS the control rather than closing it (§1.14).
+  // A write in flight HOLDS the control rather than closing it.
   const waiting = writing || held;
 
   return (

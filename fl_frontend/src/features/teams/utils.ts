@@ -70,8 +70,7 @@ export const describeReplacementUmfang = ({
 
 /**
  * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, over the row that endpoint serves.
- * One rule, so the table and the bracket cannot name different qualifiers
- * (`docs/backend/spec.md :: I24b`).
+ * One rule, so the table and the bracket cannot name different qualifiers.
  */
 const mayHoldAPlatz = (team: FLGruppenTeam): boolean =>
   team.austritt_type === null && team.statistik.anzahl_gespielte_spiele + team.anzahl_ausstehende_spiele > 0;
@@ -222,9 +221,9 @@ const knockoutOutcome = (fixtures: readonly FLSpiel[], teamId: string, standsInA
 type EntscheidungFor = { ergebnisFor: FLSpielErgebnisFor; imElfmeterschiessen: boolean };
 
 /**
- * The bracket's reading of a level knockout (`docs/backend/spec.md :: I25`), for the team page's
+ * The bracket's reading of a level knockout, for the team page's
  * rounds and fixtures alone. **Never a figure**: the table and the Saisonstatistik count the fixture as
- * the draw it finished as (`docs/backend/spec.md :: I25a`).
+ * the draw it finished as.
  */
 export const computeEntscheidungFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: string }): EntscheidungFor => {
   const ergebnisFor = computeErgebnisFor({ spiel, teamId });

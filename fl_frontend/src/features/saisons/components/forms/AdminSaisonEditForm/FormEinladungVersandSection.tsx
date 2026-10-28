@@ -93,7 +93,7 @@ const nichtErreicht = (zeile: EinladungVersandErgebnis): readonly string[] =>
 
 /**
  * **No numeral stands before a plural noun**: „An 1 Adressen“ is what a count interpolated into one
- * sentence produces (`docs/frontend/spec.md :: 1.12`).
+ * sentence produces.
  */
 function zustellSatz(zeile: EinladungVersandErgebnis): string {
   const versucht = zeile.zugestellt.length + zeile.unerreichbar.length;
@@ -346,7 +346,7 @@ export function FormEinladungVersandSection({
                               <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
                             )}
                             {/* Ungraded and unnamed: a ban is no failure to chase, and the row names no
-                                barred address (`docs/frontend/spec.md :: I542`). */}
+                                barred address. */}
                             {zeile.gesperrt > 0 && <span className="block">{gesperrtSatz(zeile.gesperrt)}</span>}
                             {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>

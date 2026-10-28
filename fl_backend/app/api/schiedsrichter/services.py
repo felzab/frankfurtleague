@@ -36,7 +36,7 @@ def build_ghost_schiedsrichter() -> dict[str, Any]:
         "name": None,
         "schule": None,
         # Zero rather than a rate: no fee was ever agreed with nobody, and each fixture keeps the
-        # `payment` it recorded (`docs/backend/spec.md :: I6`).
+        # `payment` it recorded.
         "default_payment": 0,
         # Read off the model, so a contact field added later arrives null here rather than missing.
         "kontakt": dict.fromkeys(FLKontakt.model_fields),
@@ -91,7 +91,7 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
 def build_ghost_repoint() -> Mapping[str, Any]:
     """What a fixture's booking becomes once the person behind it is deleted.
 
-    `payment` stays: it records what THIS match agreed (`docs/backend/spec.md :: I6`). The ghost has
+    `payment` stays: it records what THIS match agreed. The ghost has
     no name, and every surface reads a null one.
     """
 
@@ -246,7 +246,7 @@ def vorname_of(name: Any) -> str | None:
     """The forename inside the one `name` field this collection stores.
 
     Split rather than stored apart, as every other referee surface reads the whole name. Only the
-    account page fills a slot with it (`docs/backend/spec.md :: READ-REFEREE-002`).
+    account page fills a slot with it.
     """
 
     parts = str(name).split() if isinstance(name, str) else []
@@ -271,7 +271,7 @@ def frist_of(bestaetigung: Any) -> Any:
 
 
 def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLSchiedsrichterBestaetigungZustand:
-    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+    """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A person who answered on the last valid day is shown that they did.
     """
@@ -318,8 +318,7 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """Why this entry takes no second answer, or `None`. The single use: a stamp is what spends the link."""
 
-    # The STAMP and never a nulled hash: the hash stays live so a second press is told why
-    # (`docs/backend/spec.md :: I307`).
+    # The STAMP and never a nulled hash: the hash stays live so a second press is told why.
     if not is_confirmed(einwilligung=einwilligung):
         return None
 
@@ -442,7 +441,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
-    # Both the fold every payload stores (`docs/backend/spec.md :: I332`), so one string is one mailbox.
+    # Both the fold every payload stores, so one string is one mailbox.
     stored_email = (stored.get("kontakt") or {}).get("email")
     return stored_email is None or payload_email != stored_email
 
@@ -514,7 +513,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
 
 
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
-# of the row is what must not reach them (`docs/backend/spec.md :: READ-REFEREE-002`).
+# of the row is what must not reach them.
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
@@ -541,7 +540,7 @@ def build_selbst_referee_filter(*identifiers: str, schiedsrichter_id: Any = None
     """The referee rows of these addresses, retired ones included: a withdrawal reaches them too."""
 
     return {
-        # Folded here, the form every referee record stores (`docs/backend/spec.md :: I332`).
+        # Folded here, the form every referee record stores.
         "kontakt.email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})},
         **(build_real_referees_filter() if schiedsrichter_id is None else build_referee_filter(schiedsrichter_id)),
     }

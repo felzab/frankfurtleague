@@ -143,7 +143,7 @@ function SignInPanel({ next, siteKey }: { next: string; siteKey: string }) {
     // and a second submit mid-flight would send a second code.
     if (isPending) return;
 
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
+    // The block keeping an incomplete draft off the wire; it RUNS the write.
     guardSubmit({ signIn: { email } }, () => send(email));
   };
 

@@ -29,7 +29,7 @@ const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResp
 
 /**
  * A season's matchdays for the admin surfaces, a planned season's included — `getSpieltage` refuses
- * that season, though a matchday is dated before it. **Uncached**: `docs/frontend/spec.md` §1.2.
+ * that season, though a matchday is dated before it. **Uncached**.
  */
 export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
@@ -47,7 +47,7 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
 
 /**
  * The one matchday the editor loads, admin-tier for `getAdminSpieltage`'s reason. `null` on a 404,
- * which the editor turns into `notFound()`. **Uncached**: `docs/frontend/spec.md` §1.2.
+ * which the editor turns into `notFound()`. **Uncached**.
  */
 export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
   runAdminRead(() =>

@@ -20,7 +20,7 @@ export function RootProviders({ children }: AppProvidersProps) {
     // Without it react-aria's `href` props fall back to native <a> navigation, a full page reload
     // on every menu link.
     <RouterProvider navigate={(href) => router.push(href)}>
-      {/* Here because the document declares its language here (`docs/frontend/spec.md :: I41`):
+      {/* Here because the document declares its language here:
           unpinned, react-aria formats "en-US" under SSR and the browser's locale after hydration,
           so a date field asks mm/dd/yyyy and reorders its segments mid-session. */}
       <I18nProvider locale="de-DE">

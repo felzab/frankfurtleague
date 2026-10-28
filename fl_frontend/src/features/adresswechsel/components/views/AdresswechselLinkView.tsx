@@ -117,7 +117,7 @@ const PASSKEY_SATZ =
 /** What the new mailbox's holder does once the change takes effect, told before it does. */
 const DANACH: Readonly<Record<FLAdresswechselWeg, string>> = {
   // Never "Deine Passkeys gelten weiter": a sign-in account already standing at the new address keeps them behind, and no
-  // served field tells this page so (`docs/frontend/spec.md :: I829`).
+  // served field tells this page so.
   konto: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
   freigabe: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
   wartezeit:
@@ -238,7 +238,7 @@ function AntwortPanel({ gueltigBis, weg, antwort }: { gueltigBis: string; weg: F
 
 /**
  * A link whose confirmation is closed: the decline stays open, since the backend removes an address
- * nobody proved past its deadline and whatever the ban list holds (`docs/frontend/spec.md :: I630`).
+ * nobody proved past its deadline and whatever the ban list holds.
  */
 function NurAblehnen({ antwort }: { antwort: Presse }) {
   return (

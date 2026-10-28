@@ -506,7 +506,7 @@ SEASON_WRITE_ENDPOINTS = _season_write_endpoints()
 SEASON_WRITE_HANDLERS = {_handler_key(endpoint): endpoint for endpoint in SEASON_WRITE_ENDPOINTS}
 
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
-# set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
+# set instead of failing, so a rename costing no behaviour can
 # shrink the sweep and still report success.
 SEASON_WRITE_HANDLER_FLOOR = 19
 
@@ -528,7 +528,7 @@ class TestEverySeasonWriteDropsIt:
         assert "app.api.registrierungen.person_router.aufnehmen" in SEASON_WRITE_HANDLERS
 
     def test_the_season_after_deletion_pass_is_among_the_season_writers(self):
-        """Named, as the admission is: the pass writes a season only through I722's anchor, three calls deep.
+        """Named, as the admission is: the pass writes a season only through the anchor, three calls deep.
 
         A rename there drops the pass from the set, and its drop could then go with every case green.
         """

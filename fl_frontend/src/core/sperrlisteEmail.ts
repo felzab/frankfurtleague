@@ -152,7 +152,7 @@ export function buildSperreEmail({
 }): SperrlisteEmail {
   const site = mailOrigin(origin);
   // Folded once, before either part prints them: this message has no column of facts to fold them on
-  // the way, and the reason stands on a line of its own (`docs/frontend/spec.md :: I89`).
+  // the way, and the reason stands on a line of its own.
   const grundText = einzeilig(grund);
   const bis = einzeilig(gesperrtBisSaisonId);
 

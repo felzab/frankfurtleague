@@ -214,8 +214,7 @@ function SpielerEditForm({ spieler, einwilligung, istFassungBekannt, saison, tea
         ...(saisonDirty ? { saisonSpieler: buildSaisonPayload() } : {}),
       },
       writeAfterBlock,
-      // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-      // (`docs/frontend/spec.md :: I255`).
+      // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
       { banners, confirm: setConfirmingBanners },
     );
   };

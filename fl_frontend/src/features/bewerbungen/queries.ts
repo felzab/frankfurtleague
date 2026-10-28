@@ -64,7 +64,7 @@ export async function getBewerbungenQueue(
  * The one application the triage page decides against, uncached for the reason above. `null` on a
  * 404, which the page turns into `notFound()`; everything else throws.
  */
-// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
+// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() =>
     apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
@@ -105,7 +105,7 @@ const FensterAntwortSchema = z.union([FLBewerbungFensterResponseSchema, FLBewerb
  * no season carries the id, which is the page's `notFound()`.
  */
 // `cache`, never `"use cache"`: the metadata and the body read this once between them, and a cache
-// would key on the season and go on serving `laeuft` after the window shut (`docs/frontend/spec.md` §1.2).
+// would key on the season and go on serving `laeuft` after the window shut.
 export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fenster: FLBewerbungFensterResponse | null } | null> =>
   runWithIncomingTrace(() =>
     apiClient<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse>(

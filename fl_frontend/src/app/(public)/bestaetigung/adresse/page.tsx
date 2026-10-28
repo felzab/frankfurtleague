@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   alternates: { canonical: ADRESSWECHSEL_PFAD },
 };
 
-/** Resolves nothing itself, for the consent link page's reason (`docs/frontend/spec.md :: I22`). */
+/** Resolves nothing itself, for the consent link page's reason. */
 export default function AdresswechselPage(props: NextPageProps) {
   return (
     <Suspense fallback={<ContentLoader fills="viewport" />}>

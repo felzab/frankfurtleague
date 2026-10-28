@@ -82,7 +82,7 @@ def on_a_clean_list(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            # The ban re-judges its actor's grant inside its transaction.
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(dict(SAISON_DOCUMENT))
 
@@ -323,7 +323,7 @@ class TestWhatTheListServes:
         assert served.sperrliste[0].erstellt_am == TODAY
 
     def test_an_author_revoked_and_barred_since_is_withheld_beside_a_flag(self, mongo_replica_set_url: str):
-        """The grants list's rule on every admin read: no barred address is served in plain (`docs/backend/spec.md :: I452`)."""
+        """The grants list's rule on every admin read: no barred address is served in plain."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=OTHER)
@@ -428,7 +428,7 @@ class TestLiftingABan:
         assert on_a_clean_list(mongo_replica_set_url, body) == ["Bleibt stehen"]
 
     def test_the_log_image_holds_the_whole_row_and_no_address(self, mongo_replica_set_url: str):
-        """What outlives a lifted ban, pinned rather than assumed: the image is kept for `docs/backend/spec.md :: I119`'s twelve months.
+        """What outlives a lifted ban, pinned rather than assumed: the image is kept for the rule's twelve months.
 
         A field added to the row joins this image on the next removal, so the set is asserted whole.
         """
@@ -475,7 +475,7 @@ class TestLiftingABan:
 
 class TestAnErasureLeavesTheListStanding:
     def test_erasing_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
-        """The deliberate exception (`docs/backend/spec.md :: I268`): the one record a person's own erasure does not reach.
+        """The deliberate exception: the one record a person's own erasure does not reach.
 
         Driven through the real erasure rather than asserted about it, so a collection added to that
         walk fails here.
@@ -518,7 +518,7 @@ def on_a_person_holding_everything(url: str, body: Body) -> Any:
 
 
 class TestANameInTheGrund:
-    """`REQ-SPERRLISTE-004`, judged inside the ban's write on the names the address's own records hold (`docs/backend/spec.md :: I726`)."""
+    """`REQ-SPERRLISTE-004`, judged inside the ban's write on the names the address's own records hold."""
 
     def test_it_is_refused_on_the_box_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -569,7 +569,7 @@ class TestANameInTheGrund:
 
 
 class TestANameARivalWritesMidBan:
-    """`docs/backend/spec.md :: I726` on a retry: a rename committing inside the ban, and the retry reads it."""
+    """On a retry: a rename committing inside the ban, and the retry reads it."""
 
     def test_the_retry_refuses_the_name_and_bans_nobody(self, mongo_replica_set_url: str):
         """Judged once before the transaction instead, the pass stands: the retry commits a reason naming the person.

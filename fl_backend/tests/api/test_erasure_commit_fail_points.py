@@ -403,9 +403,9 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
     def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """The notices were answered first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
+        """The notices were answered first, so the pass answers them rather than raising.
 
-        Its rows hold links nobody was mailed, so the next pass asks each again (`:: I765`), a fresh link a seat beside the first.
+        Its rows hold links nobody was mailed, so the next pass asks each again, a fresh link a seat beside the first.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

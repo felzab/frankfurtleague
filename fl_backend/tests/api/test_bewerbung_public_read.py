@@ -84,7 +84,7 @@ OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
 OTHER_SEASON_FARBE = "magenta"
 
 
-# `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is why the
+# `future` by default: the rule withholds one from this tier, which is why the
 # window has a read of its own. Overridden only where a case asks what the status does: `past`
 # alone, which ends the window.
 def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[str, Any]:
@@ -221,7 +221,7 @@ pytestmark = pytest.mark.db
 
 
 class TestTheWindowReads:
-    """What this tier learns about a `future` season `docs/backend/spec.md :: I47` otherwise withholds: the window, and that it is there."""
+    """What this tier learns about a `future` season the rule otherwise withholds: the window, and that it is there."""
 
     def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
         """Two near-misses sort ahead of the answer, so a query dropping either term picks one of them instead."""
@@ -295,7 +295,7 @@ class TestTheWindowReads:
 class TestTheAssignedColoursRead:
     """What the Wunschfarbe picker excludes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish.
 
-    Beside the window reads rather than the picker: `docs/backend/spec.md :: I111` puts it inside
+    Beside the window reads rather than the picker: the rule puts it inside
     their carve-out.
     """
 
@@ -326,7 +326,7 @@ class TestTheAssignedColoursRead:
         assert set(body) == {"acknowledged", "saison_id", "vergeben"}
 
     def test_a_season_read_that_would_404_still_serves_its_colours(self, seeded_url: str):
-        """The finding this endpoint exists for: `docs/backend/spec.md :: I47` withholds a `future` season's clubs whole."""
+        """The finding this endpoint exists for: the rule withholds a `future` season's clubs whole."""
 
         assert answered(seeded_url, f"/api/v{API_VERSION}/teams?saison_id={OPEN_SAISON}").status_code == 404
 
@@ -361,7 +361,7 @@ class TestTheAssignedColoursRead:
 
     @pytest.mark.parametrize("status", [pytest.param("active", id="the running season"), pytest.param("past", id="a finished season")])
     def test_a_season_this_tier_may_read_is_refused_all_the_same(self, mongo_url: str, status: str):
-        """Gated on whether the season takes applications, never on `docs/backend/spec.md :: I47`."""
+        """Gated on whether the season takes applications, never on the rule."""
 
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=None, status=status)])
 
@@ -394,7 +394,7 @@ class TestASeasonThatHasEndedTakesNoApplication:
         ],
     )
     def test_its_own_window_read_serves_that_it_has_ended_and_no_other_season_s_does(self, mongo_url: str, status: str, beendet: bool):
-        """Both sides: a field answering one value fails a case, and `active` answers as `future` does (`docs/backend/spec.md :: I47`)."""
+        """Both sides: a field answering one value fails a case, and `active` answers as `future` does."""
 
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)])
 

@@ -36,7 +36,7 @@ FLSpielbestaetigungGrund = Literal[
     "spiel_vergangen",
 ]
 
-# What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag`: the other
+# What a reopened link shows; `gesperrt` ranks first. `vorschlag`: the other
 # club's decline proposes another date; `abgesagt`: the fixture was called off, whatever was answered;
 # `verworfen`: the league discarded this decline's proposal.
 FLSpielbestaetigungZustand = Literal[

@@ -70,7 +70,7 @@ export function FormAustragenSection({
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await write().catch(rejectedWrite(router));
       // A detail written here would be this panel's guess at what the write cost: the action sends
-      // that sentence, and `docs/frontend/spec.md` §1.12 leaves a server's message alone.
+      // that sentence.
       if (res.success) {
         landing.landed();
         appToast.success(savedHeading, { description: res.message });
@@ -106,8 +106,8 @@ export function FormAustragenSection({
               banners={banners}
               spot="austragen"
             />
-            {/* The reason is said on the control as well as in the banner above it, the treatment
-                `docs/frontend/spec.md` §1.14 gives a standing closure. `isPending` is left out: it
+            {/* The reason is said on the control as well as in the banner above it.
+                `isPending` is left out: it
                 ends by itself. */}
             <FocusSlot name={KADEREINTRAG_PLACE}>
               <Hint

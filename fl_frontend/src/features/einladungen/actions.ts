@@ -45,7 +45,7 @@ export async function postEinladungAction(
     }
 
     // A mint voiding a standing link is a step-up write and the first mint is not, so a read decides; made
-    // only for a session past the window, the one it can refuse (`docs/frontend/spec.md :: I432`).
+    // only for a session past the window, the one it can refuse.
     const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).einladung;
     const unconfirmed = standing === null ? null : refuseUnconfirmed(session);
     if (unconfirmed !== null) return unconfirmed;
@@ -161,7 +161,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
     // One link per team: sent where any of its seats took it.
     const versand = linkVersandOf(outcome);
 
-    // Every address barred is no failure either: a retry meets the same ban (`docs/frontend/spec.md :: I542`).
+    // Every address barred is no failure either: a retry meets the same ban.
     if (outcome.delivered.length === 0 && outcome.unreachable.length === 0 && outcome.ungewiss.length === 0 && outcome.gesperrt > 0) {
       return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.", versand: versand };
     }
@@ -265,7 +265,7 @@ export async function postEinladungVersandAction(
 
       if (uebersprungen !== null || einladung_id === null || token === null) {
         // The league's own failure alone grades a skip. `kontakte_gesperrt` is a pass-over the preview showed, no
-        // link minted or held back, so it adds no grade (`docs/backend/spec.md :: I544`).
+        // link minted or held back, so it adds no grade.
         if (uebersprungen === "erzeugung_fehlgeschlagen" || uebersprungen === "erzeugung_ungewiss") versendet.push("fehlgeschlagen");
         zeilen.push({
           team_id: team_id,

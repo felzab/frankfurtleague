@@ -474,7 +474,7 @@ describe("one fan-out about a record", () => {
     expect(logged.at(-1)?.meta["error_code"]).toBe("FE-MAIL-003");
   });
 
-  /* `docs/logging/spec.md :: L9`. Asserted over the whole call, the error argument included, so a
+  /* Asserted over the whole call, the error argument included, so a
      recipient cannot reach the stream through a serialised stack. */
   it("names no recipient on any line it writes", async () => {
     outcomes.set(ADDRESS, "refused");
@@ -497,7 +497,7 @@ describe("one fan-out about a record", () => {
 
 describe("a recipient the ban list holds", () => {
   /* Counted and in no list: an address in `unreachable` is one a caller tells an administrator to
-     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+     write to by hand, which would name a barred person. */
   it("is counted, named in no list, and costs the others nothing", async () => {
     outcomes.set(ADDRESS, "barred");
 

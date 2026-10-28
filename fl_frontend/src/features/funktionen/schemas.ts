@@ -39,7 +39,7 @@ export type FLTeamSitzeResponse = z.infer<typeof FLTeamSitzeResponseSchema>;
 
 /**
  * The erasure's lookup, held to no address rule as the API's is: a record stored under an older rule
- * stays erasable (`docs/backend/spec.md :: I329`).
+ * stays erasable.
  */
 const ADRESSE_NACHSCHLAGEN = addressSchema((address) => address.includes("@"));
 

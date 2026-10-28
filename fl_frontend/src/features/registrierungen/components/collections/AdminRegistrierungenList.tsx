@@ -35,11 +35,11 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 /** The eyebrow over each fact, one cell of the card's grid. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
-/** Where no label stands beside the words, so they name the field (`docs/frontend/spec.md` §1.12). */
+/** Where no label stands beside the words, so they name the field. */
 const NO_TEAM = nichtHinterlegt("Team");
 
 /**
- * **A card per registration at every width, never a table** (`docs/frontend/spec.md :: I237`). Memoised per
+ * **A card per registration at every width, never a table**. Memoised per
  * `AdminCrudView`'s collection-identity note.
  */
 export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({

@@ -290,7 +290,7 @@ async function settledWithin(bound: number, what: string, run: () => Promise<unk
   }
 }
 
-describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md :: I362`)", () => {
+describe("the sign-in store's client bounds a cold start", () => {
   /* Only a client that has never connected takes the driver's automatic connect, which `timeoutMS`
      does not reach. */
   it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", async () => {
@@ -303,7 +303,7 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
 
-    // The reconnect after a hung first connect (`docs/frontend/spec.md :: I364`), awaited before the
+    // The reconnect after a hung first connect, awaited before the
     // next case hangs the relay under it.
     await settledWithin(OPERATION_BOUND + coldClient.options.minHeartbeatFrequencyMS, "the cold client's reconnect", () => reopened);
   });
@@ -320,9 +320,9 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
   });
 });
 
-describe("the sign-in store's client bounds every operation it sends (`docs/frontend/spec.md :: I362`)", () => {
+describe("the sign-in store's client bounds every operation it sends", () => {
   /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. A failed
-     read throws rather than reading as no session (`docs/frontend/spec.md :: I519`), and the line names the bound. */
+     read throws rather than reading as no session, and the line names the bound. */
   it("ends a session read the store never answers within its `timeoutMS`", async () => {
     const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
 
@@ -365,8 +365,7 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
   });
 
   /* A passkey removal runs from a server action, outside every endpoint, where the library writes this
-     line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`
-     (`docs/frontend/spec.md :: I678`). */
+     line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`. */
   it("writes a removal's transaction left open to the console when its commit and its abort both hang", async ({ onTestFinished }) => {
     const printed: unknown[][] = [];
     const printing = vi.spyOn(console, "error").mockImplementation((...line: unknown[]) => void printed.push(line));
@@ -477,7 +476,7 @@ async function transactionsHeld(): Promise<unknown[]> {
   }
 }
 
-describe("the sign-in store's client recovers from a cold start it could not complete (`docs/frontend/spec.md :: I364`)", () => {
+describe("the sign-in store's client recovers from a cold start it could not complete", () => {
   const probe = () => recoveringClient.db("store_bound").collection("probe").findOne({});
 
   it("answers again once the store does, its first connect having been refused", async () => {
@@ -563,7 +562,7 @@ process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
   });
 });
 
-describe("the sign-in store's indexes recover with the store (`docs/frontend/spec.md :: I520`)", () => {
+describe("the sign-in store's indexes recover with the store", () => {
   /* The client opened before the outage, so its topology is the one recovering, and the driver marks
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async () => {

@@ -32,7 +32,7 @@ export async function postTeam(postTeamPayload: FLPostTeamPayload): Promise<FLPo
 }
 
 // The id goes in the PATH, never the body — a backend payload model that saw one refuses the whole
-// body (frontend spec 1.3).
+// body.
 export async function patchTeam({ id, ...fields }: FLPatchTeamPayload): Promise<FLPatchTeamResponse> {
   return apiClient<FLPatchTeamResponse>(`/teams/${id}`, FLPatchTeamResponseSchema, {
     method: "PATCH",

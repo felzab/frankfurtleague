@@ -258,7 +258,7 @@ export async function mapEinwilligungRefusal(
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
@@ -289,7 +289,7 @@ export async function mapEinwilligungRefusal(
     case "REQ-EINWILLIGUNG-002":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
-    // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
+    // form either: the page offers no Widerspruch to a barred address.
     case "REQ-BEWERBUNG-020":
       return { zustand: "gesperrt" };
     default:
@@ -302,7 +302,7 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
   if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
-  // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
+  // than offering a reload that cannot succeed. The two
   // tiers bound its length apart.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 

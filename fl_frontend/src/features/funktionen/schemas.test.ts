@@ -29,7 +29,7 @@ const LOOKUPS = [
 
 describe("the address the erasure, its reveal and the sign-out look up", () => {
   /* The records an erasure removes are keyed on whatever a rule of their day stored; refusing that erases
-     nobody (GDPR Art. 17, `docs/backend/spec.md :: I329`). The full-width at sign is built from its code point. */
+     nobody (GDPR Art. 17). The full-width at sign is built from its code point. */
   it("takes every address any rule stored, so the request can name any record", () => {
     const stored = [
       "käthe@example.de",

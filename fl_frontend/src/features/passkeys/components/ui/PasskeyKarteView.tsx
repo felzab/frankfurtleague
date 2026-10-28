@@ -65,8 +65,8 @@ const FOLGE_DIESES_GERAET = "Auch dieses Gerät wird dabei abgemeldet.";
 const FOLGE_LETZTER = ["Danach meldest Du Dich wieder mit einem Code per E-Mail an.", "Lösche ihn auch in Deinem Passwortmanager."];
 
 /**
- * One passkey's card. Its own component so each card holds its own armed state
- * (`docs/frontend/spec.md :: I37`): one state shared across the list would leave a second card one
+ * One passkey's card. Its own component so each card holds its own armed state:
+ * one state shared across the list would leave a second card one
  * press from a removal armed on the first.
  */
 export function PasskeyKarteView({

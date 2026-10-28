@@ -54,7 +54,7 @@ export async function activateSaison({ id }: FLActivateSaisonPayload): Promise<F
 
 /**
  * Draws the season's matchdays and fixtures in one transaction. **`replace` makes the same call
- * DESTRUCTIVE** and nothing writes the removed rows back (`docs/backend/spec.md :: I26`). `shape`
+ * DESTRUCTIVE** and nothing writes the removed rows back. `shape`
  * moves the three shape rules with them. Nothing here retries on a 409.
  */
 export async function generateSpielplan({ id, ...confirmation }: FLGenerateSpielplanPayload): Promise<FLGenerateSpielplanResponse> {
@@ -68,7 +68,7 @@ export async function generateSpielplan({ id, ...confirmation }: FLGenerateSpiel
 
 /**
  * Removes the season's matchdays, fixtures and watermark in one transaction. **Destructive with no
- * inverse** (`docs/backend/spec.md :: I26`). No body: the id is the whole argument.
+ * inverse**. No body: the id is the whole argument.
  */
 export async function undrawSpielplan({ id }: FLUndrawSpielplanPayload): Promise<FLUndrawSpielplanResponse> {
   return apiClient<FLUndrawSpielplanResponse>(`/saisons/${id}/spielplan`, FLUndrawSpielplanResponseSchema, {

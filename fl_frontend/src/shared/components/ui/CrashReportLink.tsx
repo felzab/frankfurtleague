@@ -17,7 +17,7 @@ export function CrashReportLink({ digest }: { digest?: string }) {
   // Captured at mount, as close to the incident as the client can date it; click time would drift.
   const [occurredAt] = useState(() => new Date().toISOString());
 
-  // The three coordinates `docs/logging/spec.md` asks a report to carry: a digest names an error class, so
+  // The three coordinates a report carries: a digest names an error class, so
   // the route and the time narrow it to one entry. A client crash has no digest, and saying so is the pointer.
   const reportSubject = `Fehlerbericht: ${digest ?? "Client-Fehler"} auf ${pathname}`;
   const reportBody = [

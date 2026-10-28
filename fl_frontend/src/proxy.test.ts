@@ -237,7 +237,7 @@ describe("which addresses the proxy is run on", () => {
   });
 
   /* Next strips the prefetch header before the proxy runs, so a prefetch reaching it carrying a session would
-     slide it, a store read for a page nobody asked for (`docs/frontend/spec.md :: I495`). */
+     slide it, a store read for a page nobody asked for. */
   it("skips a prefetch carrying a session cookie everywhere, the administrator's subtree included", async () => {
     const { cookie } = await signIn("leserin@example.org");
     for (const prefetch of PREFETCHES) {
@@ -293,7 +293,7 @@ describe("which addresses the proxy is run on", () => {
     }
   });
 
-  // The verdicts past the cookie are each guard's, read where the data is (`docs/frontend/spec.md :: I122`).
+  // The verdicts past the cookie are each guard's, read where the data is.
   it("lets every session carrying a cookie through, the administrator's subtree included, a grant held or none", async () => {
     for (const url of [
       "http://localhost:3000/bereich/konto",
@@ -324,7 +324,7 @@ const PERSON_URLS = [
   TEAM_URL,
 ];
 
-describe("where the proxy sends a request for an area's page (`docs/frontend/spec.md :: I243`, `:: I495`)", () => {
+describe("where the proxy sends a request for an area's page", () => {
   /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
      the page's own guard would turn it away only once the area's frame had streamed. */
   it("sends a request carrying no session cookie to sign in, reading no store, the administrator's subtree included", async ({
@@ -339,7 +339,7 @@ describe("where the proxy sends a request for an area's page (`docs/frontend/spe
   });
 
   // An action's POST takes the same turn-away in the header its client reads, never the 307 its `fetch` would
-  // replay (`docs/frontend/spec.md :: I251`).
+  // replay.
   it("turns a signed-out action's POST away in the action's own redirect", async () => {
     for (const url of PERSON_URLS) {
       const answer = await callProxy({ url, method: "POST", action: true });
@@ -434,7 +434,7 @@ const heldValue = (cookie: string): string => decodeURIComponent(cookie.slice(co
 /** The stamps that say when a row was last used and when it lapses. */
 const stampsOf = (row: SessionRow) => ({ updatedAt: row.updatedAt.getTime(), expiresAt: row.expiresAt.getTime() });
 
-describe("where a session that is only read slides (`docs/frontend/spec.md :: I495`)", () => {
+describe("where a session that is only read slides", () => {
   it("slides a person's row and cookie once past `updateAge`, on a document load and a client navigation alike", async () => {
     for (const load of ["document", "navigation"] as const) {
       const { cookie, row } = await signIn("leserin@example.org");

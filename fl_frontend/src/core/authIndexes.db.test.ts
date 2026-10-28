@@ -171,7 +171,7 @@ async function assertPasskey(cookie: string): Promise<Response> {
 
 const asRequest = (cookie: string) => new Headers({ ...ORIGIN, cookie });
 
-describe("every query the sign-in store serves, with table scans refused (`docs/frontend/spec.md :: I499`)", () => {
+describe("every query the sign-in store serves, with table scans refused", () => {
   /* The index list is derived from what this drives: a query no declared index serves fails here,
      whether or not the flow that sent it survives the failure. */
   it("plans each one on an index, from a code's send to a ban ending every session", async () => {
@@ -258,7 +258,7 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
   });
 });
 
-describe("the index build against a real store (`docs/frontend/spec.md :: I498`)", () => {
+describe("the index build against a real store", () => {
   it("changes nothing when run again", async () => {
     await buildAuthIndexes();
     const built = await heldIndexes();

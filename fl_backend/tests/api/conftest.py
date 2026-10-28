@@ -138,7 +138,7 @@ def _junction(key: str, gruppe: str, **overrides: Any) -> dict[str, Any]:
 
 
 def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
-    """The name and shorthand a fixture side carries are COMPOSED from the season row and ride on no payload (`docs/backend/spec.md :: I3`)."""
+    """The name and shorthand a fixture side carries are COMPOSED from the season row and ride on no payload."""
 
     if key is None:
         return None
@@ -174,8 +174,7 @@ def _spiel(
         "saison_phase": phase,
         "spieltag_id": _spieltag_oid(saison_id, nr),
         # Written null rather than left out: each is a nullable key the collection still REQUIRES,
-        # and a `quelle` is its side's independent sibling rather than a value the side implies
-        # (`docs/backend/spec.md :: I22`).
+        # and a `quelle` is its side's independent sibling rather than a value the side implies.
         "datum": None,
         "uhrzeit": None,
         "ort": None,

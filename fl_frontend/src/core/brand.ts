@@ -14,7 +14,7 @@ export const VORSTAND = [
   { name: "Janosch Weiß", amt: "Schatzmeister", vorsitz: false },
 ] as const;
 
-/** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead (`docs/frontend/spec.md :: I186`). */
+/** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead. */
 export const SITE_URL = "https://frankfurtleague.de";
 
 /** One spelling: the footer's mark, the contact page's channel row and the application page's invitation all press through to this. */

@@ -238,9 +238,9 @@ jobs:
         env:
           VERIFY_IMAGES_BUILT: "1"
         run: ./scripts/gate/verify.sh --images
-      # On a push to main alone, the run that publishes.
-      - if: github.event_name == 'push'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      # On every event, the images the journeys job raises its stack from; on a push to main, also the
+      # images the publish job pushes.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: images
           path: |
@@ -252,8 +252,10 @@ jobs:
           compression-level: 0
 
   # The Playwright journeys (`fl_frontend/playwright.config.ts`) against the end-to-end stack, raised
-  # from this commit's images with the made-up seed.
+  # from the images the images job built from this commit, with the made-up seed.
   journeys:
+    # Its images, built once by buildx: compose's own builder refuses the frontend Dockerfile's `COPY --exclude`.
+    needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
     timeout-minutes: 25
@@ -281,10 +283,20 @@ jobs:
           chmod 644 .tmp-e2e/secrets/*
           public="$(openssl pkey -in .tmp-e2e/secrets/fl_actor_signing_key -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\n')"
           printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > .tmp-e2e/backend.env
-      - name: Build both images
-        run: docker compose build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: images
+          path: ${{ runner.temp }}/images
+      # Under the names docker-compose.e2e.yml gives the two built services; every `up` below passes
+      # `--no-build`, so a name that does not match fails rather than building.
+      - name: Load both images as the stack's
+        run: |
+          docker load --input "${RUNNER_TEMP}/images/frontend.tar"
+          docker load --input "${RUNNER_TEMP}/images/backend.tar"
+          docker tag frankfurtleague-verify:frontend frankfurtleague-e2e-frontend
+          docker tag frankfurtleague-verify:backend frankfurtleague-e2e-backend
       - name: Start the database and the backend
-        run: docker compose up -d --wait --wait-timeout 180 mongo backend
+        run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
       - name: Load the made-up seed and judge it
         run: |
           base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
@@ -292,7 +304,7 @@ jobs:
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
           docker compose exec -T backend python -m app.core.constraints --check
       - name: Start the stack
-        run: docker compose up -d --force-recreate --wait --wait-timeout 240
+        run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
       - name: Run the journeys
         working-directory: fl_frontend
         run: pnpm run e2e

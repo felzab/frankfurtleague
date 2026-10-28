@@ -85,7 +85,7 @@ def test_every_dead_shape_is_counted_and_no_address_reaches_the_line(caplog):
 
 
 def test_an_unfolded_owner_row_is_no_owner(caplog):
-    """A dead row admits nobody, so a list whose only owner row is dead has no owner (`docs/backend/spec.md :: I453`)."""
+    """A dead row admits nobody, so a list whose only owner row is dead has no owner."""
 
     dead_owner = {**UNFOLDED, "verwaltung": "owner"}
 

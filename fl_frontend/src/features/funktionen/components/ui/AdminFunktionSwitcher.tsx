@@ -11,14 +11,12 @@ import { funktionOrteOf } from "../../utils";
 
 /**
  * The administrator's switcher: the records of the admin session's own address, never through
- * `getSubjectSession`, the person lane's read, which reads the sign-in again and sets a second actor
- * (`docs/frontend/spec.md :: I394`).
+ * `getSubjectSession`, the person lane's read, which reads the sign-in again and sets a second actor.
  */
 export async function AdminFunktionSwitcher() {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store (`docs/frontend/spec.md :: I448`).
+  // Its own, whatever is mounted above: the builder stage reaches no sign-in store.
   await connection();
-  // The hold's own read, memoised per render; nothing for a refused session, the page turning it away
-  // (`docs/frontend/spec.md :: I834`).
+  // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const served = await getAdminSession();
   if (served === null) return null;
 

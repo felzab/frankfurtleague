@@ -140,7 +140,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
-  // One form creates the row and its junction: without one the club is invisible (backend spec I11).
+  // One form creates the row and its junction: without one the club is invisible.
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
   SchiedsrichterAbsage: "the decline action's own argument; the action wraps it in the answer's payload",
 };

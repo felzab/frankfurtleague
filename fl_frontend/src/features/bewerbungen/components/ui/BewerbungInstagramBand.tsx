@@ -28,7 +28,7 @@ export function BewerbungInstagramBand() {
             one-line strapline beside a button. */}
         <p className="muted-hint">
           {/* Wording I dictated, and the one place the reader is „ihr“ rather than „Du“: the invitation
-              is to a team, not to one reader. `docs/frontend/spec.md` §1.12's first rule carries it. */}
+              is to a team, not to one reader. */}
           Ihr wollt eure Chancen auf eine Zusage verbessern? Ladet einen Beitrag auf Instagram hoch, am besten ein Video, in dem ihr erzählt,
           warum ihr in die Liga wollt, und markiert{" "}
           {/* The strip's one accent, and its only tap target: a strip that is itself a link takes a

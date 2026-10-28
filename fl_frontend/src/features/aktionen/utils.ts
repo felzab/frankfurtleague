@@ -27,7 +27,7 @@ export function personAkteurLabel(actor: FLAktorPerson): string {
 
 /**
  * What a row's actor cell prints, through the functions the cell renders with, which the log's search
- * reads too: the stored sentinels and markers are on no screen to type (`docs/frontend/spec.md :: I681`).
+ * reads too: the stored sentinels and markers are on no screen to type.
  */
 export function aktorAnzeige(actor: FLAktor): string {
   if (actor.kind === "person_session") return personAkteurLabel(actor);
@@ -74,7 +74,7 @@ export function formatAktionZeitpunkt(at: string): AktionZeitpunkt {
 
 /**
  * Three shapes because the reader needs a different thing from each: an id to look the document up, the filter a
- * fan-out ran, and a bare count where a bulk create selected nothing (`docs/backend/spec.md :: I40`).
+ * fan-out ran, and a bare count where a bulk create selected nothing.
  */
 export type AktionDatensatz =
   { kind: "dokument"; id: string } | { kind: "menge"; filterPaare: readonly [string, string][]; betroffen: number | null } | { kind: "ohne" };

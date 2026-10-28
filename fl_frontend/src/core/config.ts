@@ -9,7 +9,7 @@ import { BootRefusal } from "./bootRefusal";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
-// without the space, which `secrets.compare_digest` there reads (`docs/ops/spec.md :: I11`).
+// without the space, which `secrets.compare_digest` there reads.
 const INTERNAL_API_KEY = z
   .string()
   .length(64)
@@ -73,7 +73,7 @@ function readSecretFiles(directory: string): { values: Partial<Record<SecretKey,
     try {
       // `trim()`, and the backend Python's `strip()`: the two part at U+FEFF, U+001C-U+001F and
       // U+0085, and a shared key's alphabet refuses each on the side keeping it, so the services
-      // never hold two keys in silence (`docs/frontend/spec.md :: I504`).
+      // never hold two keys in silence.
       values[key] = UTF8.decode(readFileSync(path)).trim();
     } catch (error) {
       if (failureName(error) !== "ENOENT") unreadable.push(`${path} (${failureName(error)})`);
@@ -110,7 +110,7 @@ export function refuseInvalidEnvironment(names: readonly string[]): never {
   // By the file's name, the one an operator goes and fixes.
   const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
 
-  // The class the backend's boot refusals take, and its sentences (`docs/logging/error-codes.md` §3).
+  // The class the backend's boot refusals take, and its sentences.
   refuse([
     ...(variables.length > 0
       ? [{ sentence: "Invalid environment variables", error_code: "FE-BOOT-001", field: "variables", names: variables } as const]
@@ -126,7 +126,7 @@ function refuseUnreadableSecretFiles(unreadable: readonly string[]): never {
 }
 
 // Names only: an issue's message, or its `input` under `reportInput`, can quote a rejected value,
-// which a container log must never hold (`docs/ops/spec.md :: I179`). An empty path refuses the whole object.
+// which a container log must never hold. An empty path refuses the whole object.
 function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[] {
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
@@ -160,7 +160,7 @@ const environment = {
 
   // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
   // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
-  // call (`docs/ops/spec.md :: I13`). Caught at boot: that shape reads as healthy.
+  // call. Caught at boot: that shape reads as healthy.
   API_URL: z.url().refine((raw) => {
     const authUrl = process.env.AUTH_URL;
     return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
@@ -169,7 +169,7 @@ const environment = {
 
   // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
   // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
-  // or neither (`docs/frontend/spec.md` §1.7).
+  // or neither.
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
@@ -247,7 +247,7 @@ const fromFiles = {
   MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
 
   // The library's own floor, which it only warns below, so a short value signs every admin session
-  // behind a deploy nothing turned red (`docs/frontend/spec.md :: I317`).
+  // behind a deploy nothing turned red.
   AUTH_SECRET: z.string().min(32),
   // Optional here and demanded below under `production` alone: what keeps a send off another
   // deployment is `APP_ENV`, never this being absent, a development machine possibly holding a real

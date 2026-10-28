@@ -339,7 +339,7 @@ class TestResolveBracket:
 
     @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
     def test_a_result_advances_its_winner_whatever_the_event_says(self, fixture_at: FixtureFactory, side: SideFactory, sonderereignis: str):
-        """A forfeit counts (I1a), and `_outcome_of` reads no event, so the bracket follows the `ergebnis` the table scores.
+        """A forfeit counts, and `_outcome_of` reads no event, so the bracket follows the `ergebnis` the table scores.
 
         Only a hand edit reaches the two states barred from a result; this walk special-cases none.
         """
@@ -533,7 +533,7 @@ class TestNamingWhatWasVoided:
         assert advancement.voided_ergebnis == "2:0"
 
     def test_a_shoot_out_is_named_beside_the_goals_it_settled(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The shoot-out goes with the result (I25b), reported separately because it is stored separately."""
+        """The shoot-out goes with the result, reported separately because it is stored separately."""
 
         spiele = [
             fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
@@ -794,7 +794,7 @@ class TestPuttingBackWhatTheResolutionDestroyed:
         assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(25), MATCH_ID.format(29)]
 
     def test_a_released_fixture_keeps_the_booking_it_was_holding(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A rewrite takes nothing off a booking, so the report names one only where `other_fields` does (`docs/backend/spec.md :: I257`)."""
+        """A rewrite takes nothing off a booking, so the report names one only where `other_fields` does."""
 
         spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
         held = stored_at(spiele, 29).schiedsrichter
@@ -805,7 +805,7 @@ class TestPuttingBackWhatTheResolutionDestroyed:
         assert moved.other_fields is None, "a fixture the write only released names no field beyond its Paarung"
 
     def test_a_slice_missing_a_moved_fixture_is_refused(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A restore silently short of one fixture is the failure this refusal exists for -- `docs/backend/spec.md :: I108`'s reading."""
+        """A restore silently short of one fixture is the failure this refusal exists for -- the rule's reading."""
 
         with pytest.raises(ValueError, match="does not hold every fixture"):
             priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(31)])

@@ -36,7 +36,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
 }: {
   antraege: readonly FLBerechtigungAntragZeile[];
 }) {
-  // No empty section on every visit: once the last is decided, the page's own heading takes the focus (`docs/frontend/spec.md :: I536`).
+  // No empty section on every visit: once the last is decided, the page's own heading takes the focus.
   if (antraege.length === 0) return null;
 
   return (

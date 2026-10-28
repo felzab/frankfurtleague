@@ -9,7 +9,7 @@ const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 const nextConfig: NextConfig = {
   // These run *ahead of* src/proxy.ts -- observed, not assumed: GET /bereich/admin redirects without
   // the proxy running. A redirect added here must land on a page guarding itself, as each under
-  // `/bereich` does (`docs/frontend/spec.md :: I122`, `:: I377`).
+  // `/bereich` does.
   async redirects() {
     return [
       {
@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
   },
   // Development-only: Next reads `logging.fetches` and `logging.incomingRequests` in the dev server
   // alone, which is why the production frontend writes no per-request line — that record is nginx's
-  // access log (docs/logging/spec.md).
+  // access log.
   logging: {
     fetches: {
       fullUrl: false, // Prevents giant URLs in the terminal
@@ -79,8 +79,7 @@ const nextConfig: NextConfig = {
   pageExtensions: ["tsx", "ts"],
   cacheComponents: true,
   // On: Next's documented pairing with `cacheComponents`, unset meaning off. A prefetch never carries
-  // what waits on `connection()`, which is what keeps the match editor's fixture fresh
-  // (`fl_frontend/src/app/bereich/admin/spiele/[spiel_id]/page.test.ts`).
+  // what waits on `connection()`, which is what keeps the match editor's fixture fresh.
   partialPrefetching: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written.

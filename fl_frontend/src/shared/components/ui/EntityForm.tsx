@@ -46,7 +46,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    */
   onSubmit: (payload: TPayload) => Promise<ActionResult<TSaved>>;
   /**
-   * The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18).
+   * The one the action parses, so the block and the server state the same rules.
    * Parameterised: unparameterised it takes any schema, and a caller's own action then applies other rules.
    */
   schema: ZodType<TPayload>;
@@ -57,7 +57,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
   toPayload: (draft: TDraft) => TPayload;
   /**
    * The title raised beside the action's own sentence: a literal, or the literal the caller's answer picks where one
-   * save stands two ways. A literal either way, for `docs/frontend/spec.md :: I42`'s register, which cannot reach a
+   * save stands two ways. A literal either way, for the register, which cannot reach a
    * server's words.
    */
   successMessage: string | ((saved: Saved<TSaved>) => string);
@@ -73,7 +73,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    * fields are required either way, by the schema this form submits.
    */
   marksRequired?: boolean;
-  /** The create is a step-up write: nothing reverses it, or it mints a link (`docs/frontend/spec.md :: I432`). */
+  /** The create is a step-up write: nothing reverses it, or it mints a link. */
   stepUp?: StepUpDemand;
 }) {
   const [isPending, startSaving] = useTransition();
@@ -90,7 +90,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
 
   const handleSubmit = () => {
     const payload = toPayload(draft);
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
+    // The block keeping an incomplete draft off the wire; it RUNS the write.
     guardSubmit({ entity: payload }, () => {
       writeAfterBlock(payload);
     });
@@ -119,12 +119,12 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
 
           setSubmitFieldErrors({}, {});
           setDraft(initialDraft);
-          // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+          // The server's sentence as the body, and never a second copy of
           // the title: an action with nothing to add sends the title's own words.
           const warns = warning !== undefined && warning.when(res);
           const title = warns ? warning.title : typeof successMessage === "string" ? successMessage : successMessage(res);
           const body = res.message === title ? undefined : res.message;
-          // The addendum after the server's sentence, never over it (`docs/frontend/spec.md` §1.12).
+          // The addendum after the server's sentence, never over it.
           const description = warns && warning.addendum !== undefined ? [body, warning.addendum].filter(Boolean).join(" ") : body;
           (warns ? appToast.warning : appToast.success)(title, { description });
           onClose();
@@ -145,7 +145,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
       {/* The separator reaches the dialog's edges rather than the form's; `MODAL_FOOTER_CLASSES` owns the arithmetic. The
-          action first and the way back second, as in every dialog footer (`docs/frontend/spec.md` §1.19). */}
+          action first and the way back second, as in every dialog footer. */}
       <div className={MODAL_FOOTER_ROW_CLASSES}>
         {/* No icon: a checkmark on a button that has not yet done anything reads as "done" rather than "do it". */}
         <Button

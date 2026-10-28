@@ -204,8 +204,7 @@ async def patch_kader_zeile(
             saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
         )
 
-    # The captaincy's anchor writes the season, and every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # The captaincy's anchor writes the season, and every season write drops the cache.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             return await session.with_transaction(edit_the_row)

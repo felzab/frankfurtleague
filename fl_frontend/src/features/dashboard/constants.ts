@@ -52,7 +52,7 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
         iconName: "Magnifier",
         hint: {
           lead: "Alle Spiele der Saison.",
-          // The list is counted against what a visitor can reach (`docs/frontend/spec.md` §1.12): both
+          // The list is counted against what a visitor can reach: both
           // `ort.*` keys are the venue, so `Ort` names them once. Only a referee's first name and initial
           // reach a visitor (`READ-REFEREE-001`).
           points: [{ term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Vorname des Schiedsrichters." }],

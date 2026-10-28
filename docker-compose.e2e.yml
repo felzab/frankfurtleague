@@ -21,6 +21,9 @@ name: frankfurtleague-e2e
 
 services:
   frontend:
+    # Named here, where the local file leaves the built image unnamed, so the journeys' CI job can
+    # tag the image the images job built under the one name `up --no-build` looks for.
+    image: frankfurtleague-e2e-frontend
     # The developer's `fl_frontend/.env` stays the local stack's: the one setting it holds that the
     # local file does not override is written here.
     env_file: !reset null
@@ -32,6 +35,8 @@ services:
       - ./.tmp-e2e/mail:/app/.tmp-mail
 
   backend:
+    # Named for the same reason as the frontend's.
+    image: frankfurtleague-e2e-backend
     # The start's own file, holding the one setting a start generates: the public half of the actor
     # key pair it generated beside it. Optional, so a stop needs no start before it; a backend booting
     # without it refuses, naming ACTOR_TOKEN_PUBLIC_KEY.
@@ -51,10 +56,23 @@ services:
       - mongo-data:/data/db
 
   nginx:
+    # nginx/e2e in nginx/local's place, which it includes from the path beside it: the local edge,
+    # taking each journey's own address from the host's side (`nginx/e2e/e2e.conf`).
     volumes: !override
-      - ./nginx/local:/etc/nginx/conf.d:ro
+      - ./nginx/e2e:/etc/nginx/conf.d:ro
+      - ./nginx/local:/etc/nginx/local:ro
       - ./nginx/shared:/etc/nginx/shared:ro
       - ./.tmp-e2e/nginx-log:/var/log/frankfurtleague/nginx
+
+# The network the published port forwards the host's requests on, with a subnet and gateway of its
+# own rather than the daemon's pick, so `nginx/e2e/e2e.conf` trusts that one gateway by address. It
+# sits beside the 172.30.0.0/24 docker-compose.yml gives the connector's network.
+networks:
+  frankfurtleague-app:
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+          gateway: 172.30.1.1
 
 # The local stack's six files, each one this stack's start generated.
 secrets: !override

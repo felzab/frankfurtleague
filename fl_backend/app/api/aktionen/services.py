@@ -22,7 +22,7 @@ def akteur_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
 
 
 def mit_vorenthaltenem_akteur(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
-    """A stored row with its actor as both reads serve it (`docs/backend/spec.md :: I452`).
+    """A stored row with its actor as both reads serve it.
 
     The stored image is left as recorded: it is what a restore of the write starts from.
     """
@@ -111,7 +111,7 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
 def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple[ImageAddress, ...]:
     """What an effect writes over the replaced address in these images: who acted carries to the new address.
 
-    A record's own subject's address goes, as the erasure takes it (`docs/backend/spec.md :: I845`).
+    A record's own subject's address goes, as the erasure takes it.
     """
 
     return tuple(

@@ -186,7 +186,7 @@ class TestTheReminderClock:
     def test_it_stamps_mints_and_answers_one_message_per_registration(self, mongo_replica_set_url: str):
         """The fresh hash replaces the stored one and the first is kept live beside it.
 
-        The deadline does not move, a reminder being no re-send (`docs/backend/spec.md :: I152`).
+        The deadline does not move, a reminder being no re-send.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -360,7 +360,7 @@ class TestTheDeadlineClock:
         assert response.benachrichtigt == []
 
     def test_it_redacts_the_log_rows_that_still_hold_the_person(self, mongo_replica_set_url: str):
-        """The erasure's second half: the row survives its subject, emptied (`docs/backend/spec.md :: I42`)."""
+        """The erasure's second half: the row survives its subject, emptied."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
@@ -517,7 +517,7 @@ async def the_days_stamp(database: AsyncDatabase) -> str | None:
 
 
 class TestOneRowHoldsBackNoOther:
-    """`docs/backend/spec.md :: I720`, one case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
+    """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
     def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -926,7 +926,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
 
 class TestAnswerAndMessagesCommitTogether:
-    """What the answer hands back is committed by the call's LAST transaction (`docs/backend/spec.md :: I323`)."""
+    """What the answer hands back is committed by the call's LAST transaction."""
 
     def test_a_page_owing_notices_ends_the_call_and_the_next_call_takes_the_rest(self, mongo_replica_set_url: str):
         """Every row confirmed, so each page owes a message: nobody erased is left out of an answer."""

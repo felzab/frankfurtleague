@@ -24,7 +24,7 @@ class _SpielortPayload(_SpielortWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`): the name is embedded onto
+    # Stripped on the WRITE side alone: the name is embedded onto
     # every fixture at this ground and composed into `maps_link`, so spaces alone reach both.
     name: CustomStrippedNonEmptyString
 
@@ -70,7 +70,7 @@ class FLPostSpielortResponse(BaseAPIResponse):
 
 class FLPatchSpielortResponse(BaseAPIResponse):
     updated_document: FLSpielort
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
 
 

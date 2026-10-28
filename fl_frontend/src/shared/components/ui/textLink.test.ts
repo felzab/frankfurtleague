@@ -27,14 +27,14 @@ describe("the one treatment a link inside text wears", () => {
 
 describe("the grade a brand-coloured control outside prose wears", () => {
   /* `brand-solid` is one value in both themes, so a grade losing its dark arm compiles, lints and
-     renders — and sinks the hovered control into the card it sits on (`docs/frontend/spec.md :: I161`). */
+     renders — and sinks the hovered control into the card it sits on. */
   it("hovers to a value each theme declares for itself", () => {
     expect(BRAND_INK_OUTSIDE_PROSE_CLASSES).toMatch(/(^|\s)hover:text-brand-solid(\s|$)/);
     expect(BRAND_INK_OUTSIDE_PROSE_CLASSES).toMatch(/(^|\s)dark:hover:text-brand-solid-accent(\s|$)/);
   });
 
-  /* The underline is what parts this from `textLink`, whose base carries one for every caller
-     (`docs/frontend/spec.md :: I43`). With one here the two names reach the same control. */
+  /* The underline is what parts this from `textLink`, whose base carries one for every caller.
+     With one here the two names reach the same control. */
   it("leaves the underline to the link recipe", () => {
     expect(BRAND_INK_OUTSIDE_PROSE_CLASSES).not.toMatch(/underline/);
   });

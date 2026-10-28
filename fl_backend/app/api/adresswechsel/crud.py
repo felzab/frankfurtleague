@@ -85,7 +85,7 @@ _REGISTRIERUNG_FIELDS: Final[Mapping[str, int]] = {"email": 1, "vorname": 1, "na
 
 @dataclass(frozen=True, kw_only=True)
 class Bestand:
-    """Everything an address holds as its person's own: what a change moves (`docs/backend/spec.md :: I793`)."""
+    """Everything an address holds as its person's own: what a change moves."""
 
     identifier: str
     spieler: Mapping[str, Any] | None
@@ -208,7 +208,7 @@ class Belegung:
 
 
 async def adresse_belegt(email: str, *, records: RecordCollections, belegung: Belegung, session: AsyncClientSession | None) -> bool:
-    """Whether an entry names the new address, which refuses the change (`docs/backend/spec.md :: I860`).
+    """Whether an entry names the new address, which refuses the change.
 
     Confirmed or not, never only what a change would move: each admits a sign-in there, now or once confirmed or granted.
     """
@@ -254,7 +254,7 @@ async def end_the_change_in_session(
     # The address on file too, where its records are gone and no erasure's address pass follows.
     ohne_adresse: bool = False,
 ) -> Mapping[str, Any]:
-    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I704`, `:: I816`).
+    """End one live change, answering it as it stood: the one body every ending runs.
 
     Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
     """
@@ -285,7 +285,7 @@ EndingArt = Literal["adresswechsel_abgelehnt", "adresswechsel_gestoppt", "adress
 
 
 def ending_line(*, art: EndingArt, neue: str, record_id: ObjectId, am: str, schluessel: SecretStr) -> JournalLine:
-    """A decline's, a stop's or a discard's line, so a restore does not bring the change back to act (`docs/backend/spec.md :: I706`)."""
+    """A decline's, a stop's or a discard's line, so a restore does not bring the change back to act."""
 
     return JournalLine(
         person_hash=loeschung_journal_hash(neue, schluessel=schluessel),
@@ -346,8 +346,7 @@ async def start_the_change_in_session(
 
     # Two starts on one address meet at `uniq_adresswechsel_adresse` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=adresswechsel_collection, document=record, session=session)
-    # The new address enters here, which an erasure of it running now never read; the one on file is stored on the record
-    # (`docs/backend/spec.md :: I719`).
+    # The new address enters here, which an erasure of it running now never read; the one on file is stored on the record.
     await anchor_the_addresses(
         [str(record["email"]), str(record["adresse"])], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
@@ -407,7 +406,7 @@ async def queue_the_refusal_notice_in_session(
 ) -> None:
     """A confirmed change's notice that it did not take effect, queued in its end's transaction.
 
-    Off the record as it stood before the end: never why, nor the address on file (`docs/backend/spec.md :: I827`, `:: I846`).
+    Off the record as it stood before the end: never why, nor the address on file.
     """
 
     await post_one_to_db(
@@ -477,7 +476,7 @@ async def judge_the_effect_in_session(
         return Urteil(ursache=None, leer=False, wartet=True)
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing (`docs/backend/spec.md :: I844`).
+    # leaves no approval standing.
     von = genehmigung.get("genehmigt_von")
     steht = genehmigung_steht(
         betroffen=alte,
@@ -683,14 +682,13 @@ async def move_the_address_in_session(
 ) -> list[Mapping[str, Any]]:
     """Move everything `bestand` holds to the change's address in the caller's transaction, then end it as taken effect.
 
-    One patch per row, never a fan-out, so each row's own history keeps the write that moved it (`docs/backend/spec.md :: I40`).
+    One patch per row, never a fan-out, so each row's own history keeps the write that moved it.
     """
 
     neue, stamp = str(record["email"]), log_stamp(now)
 
     if bestand.spieler is not None:
-        # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality
-        # (`docs/backend/spec.md :: I265`).
+        # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality.
         await patch_one_in_db(
             collection=spieler_collection,
             db_filter={"_id": bestand.spieler["_id"]},
@@ -700,7 +698,7 @@ async def move_the_address_in_session(
         )
 
     for row in bestand.schiedsrichter:
-        # The consent link's delivery state described the replaced address (`docs/backend/spec.md :: I561`).
+        # The consent link's delivery state described the replaced address.
         await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": row["_id"]},
@@ -722,7 +720,7 @@ async def move_the_address_in_session(
         moved = {**kontakte, **{slot: {**kontakte[slot], "email": neue} for slot in slots}}
         voids.append(seat_void_of(saison_id=row["saison_id"], team_id=row["team_id"], stored_kontakte=kontakte, kontakte=moved))
     # The match confirmations' links went to the replaced mailbox, so they die here and the hourly pass mints the
-    # moved seats fresh ones (`docs/backend/spec.md :: I758`).
+    # moved seats fresh ones.
     await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
 
     for row, slots in bestand.bewerbungssitze:
@@ -790,7 +788,7 @@ async def move_the_address_in_session(
     )
 
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I845`).
+    # by address alone would outlive the person's erasure at the new one.
     alt, neu = bestand.identifier, sign_in_identifier(neue)
     # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
     # decisions included: the starter of a change stays excluded from approving it.
@@ -807,7 +805,7 @@ async def move_the_address_in_session(
         session=session,
     )
     # After the grant's move and the requests' ends queued theirs: a notice announcing the replaced address keeps it, and
-    # names the new one beside it for an erasure there (`docs/backend/spec.md :: I659`).
+    # names the new one beside it for an erasure there.
     await stamp_the_successor_in_session(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection, alt=alt, neue=neu, session=session
     )
@@ -831,7 +829,7 @@ async def move_the_address_in_session(
         stamp=stamp,
         session=session,
     )
-    # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
+    # The day's counts follow the pseudonym, or every effect hands the person a fresh day.
     await carry_counts_in_session(
         drosselung_collection=drosselung_collection,
         alt=akteur_pseudonym(alt, schluessel=schluessel),
@@ -851,7 +849,7 @@ async def move_the_address_in_session(
             update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I846`). Both
+    # In this transaction, so a commit whose answer was lost still owes its notice. Both
     # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
@@ -867,13 +865,13 @@ async def move_the_address_in_session(
         session=session,
     )
 
-    # The effect writes the address onto rows the start never wrote (`docs/backend/spec.md :: I719`), and moves every
+    # The effect writes the address onto rows the start never wrote, and moves every
     # record of the one replaced: a record committed there meanwhile, which this read never saw, would stay behind.
     await anchor_the_addresses(
         [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
 
-    # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I857`).
+    # The requests for a grant it ended, each journalled by the caller as a refusal.
     return beendet
 
 
@@ -904,7 +902,7 @@ async def _move_the_grant(
 ) -> None:
     """Revoked at the replaced address and granted at the new by the approver, as the administrators page does both.
 
-    Granted now, never the old row repointed: a session signed in before it holds none of it (`docs/backend/spec.md :: I526`).
+    Granted now, never the old row repointed: a session signed in before it holds none of it.
     """
 
     announced = await aggregate_many_from_db(
@@ -932,7 +930,7 @@ async def _move_the_grant(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         now=now,
         session=session,
-        # The four-eyes rule dates the person, not the mailbox (`docs/backend/spec.md :: I866`).
+        # The four-eyes rule dates the person, not the mailbox.
         fortgefuehrt=compose_fortgefuehrt(grant, announced[0] if announced else None),
     )
 
@@ -949,7 +947,7 @@ async def _rekey_the_person(
 ) -> None:
     """The digests naming the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches them.
 
-    Kept on a record instead, every erasure step would have to read them (`docs/backend/spec.md :: I809`).
+    Kept on a record instead, every erasure step would have to read them.
     """
 
     await patch_many_in_db(
@@ -968,7 +966,7 @@ async def _rekey_the_person(
     if answered:
         await patch_many_in_db(
             collection=spielbestaetigungen_collection,
-            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text (`docs/backend/spec.md :: I48`).
+            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text.
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in answered})}, "_id": {"$in": [row["_id"] for row in answered]}},
             update={"$set": {"antwort.von.halter": nachher}},
             session=session,
@@ -1064,7 +1062,7 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
 
 
 def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The ones whose link reached the new mailbox (`docs/backend/spec.md :: I794`): a request awaiting approval has not."""
+    """The ones whose link reached the new mailbox: a request awaiting approval has not."""
 
     return [row for row in rows if row.get("token_hash") is not None]
 
@@ -1082,7 +1080,7 @@ async def end_the_address_changes_in_session(
     rows: Sequence[Mapping[str, Any]],
     now: datetime,
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """End every change naming the erased address, unjournalled, and give the marker where it started or approved one.

@@ -264,7 +264,7 @@ class TestHerGrantsGo:
         assert (result.removed_berechtigungen, result.removed_angekuendigt) == (2, 1)
 
     def test_the_last_owner_goes_below_the_floor_of_two_and_the_step_refuses_neither(self, mongo_replica_set_url: str):
-        """Neither the revoke's floor nor its owner refusal holds against the step (`docs/backend/spec.md :: I435`, `:: I436`).
+        """Neither the revoke's floor nor its owner refusal holds against the step.
 
         Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_erasure.py :: TestTheLastOwner`.
         """
@@ -299,7 +299,7 @@ class TestHerGrantsGo:
 
 
 class TestTheNotices:
-    """`docs/backend/spec.md :: I659`: no notice still queued names her, and every administrator is told her grant ended."""
+    """No notice still queued names her, and every administrator is told her grant ended."""
 
     def test_her_grants_end_is_queued_already_withheld_and_attributed_to_who_erased_her(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
@@ -327,7 +327,7 @@ class TestTheNotices:
         assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER]
 
     def test_a_database_edit_to_her_grant_nobody_was_told_of_goes_out_first_withheld_too(self, mongo_replica_set_url: str):
-        """A promotion pasted and never announced: dropped, the holders never learn she held the tier (`docs/backend/spec.md :: I451`)."""
+        """A promotion pasted and never announced: dropped, the holders never learn she held the tier."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[Any, ...]]:
             await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].update_one({"_id": ERIKA_ID}, {"$set": {"verwaltung": "administration"}})
@@ -344,7 +344,7 @@ class TestTheNotices:
         ]
 
     def test_a_record_of_her_kept_under_a_grant_since_repointed_goes_and_that_grant_stands(self, mongo_replica_set_url: str):
-        """Repointed in the database and not yet compared: the record is hers, the grant somebody else's (`docs/backend/spec.md :: I464`)."""
+        """Repointed in the database and not yet compared: the record is hers, the grant somebody else's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId], list[tuple[Any, ...]]]:
             await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].update_one({"_id": NAHE_ID}, {"$set": {"adresse": ERIKA}})
@@ -398,7 +398,7 @@ class TestTheNotices:
 
 
 class TestTheRecordsSheMade:
-    """`docs/backend/spec.md :: I660`: a grant, a ban, an invite or a decision she made names her by the marker alone."""
+    """A grant, a ban, an invite or a decision she made names her by the marker alone."""
 
     AUTHORS = (
         (Collection.BERECHTIGUNGEN, BERND_ID, ("erteilt_von",)),

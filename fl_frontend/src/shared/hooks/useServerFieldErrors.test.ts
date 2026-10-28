@@ -300,7 +300,7 @@ describe("what the fallback toast says", () => {
   });
 
   it("restates none of the condition that raised it", () => {
-    // `docs/frontend/spec.md`: a toast's body says what it COST. Why no control could be marked is the app's
+    // A toast's body says what it COST. Why no control could be marked is the app's
     // problem, and every rejected draft of this sentence has been a paraphrase of exactly that.
     expect(UNHANDLED_FIELD_REFUSAL).not.toMatch(/grund|gehört zu kein|kein feld/i);
   });

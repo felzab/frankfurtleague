@@ -76,7 +76,7 @@ const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "succe
 
 /**
  * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
- * the last open row is answered, so the focus has somewhere to land (`docs/frontend/spec.md :: I536`).
+ * the last open row is answered, so the focus has somewhere to land.
  */
 export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelbst[] }) {
   const panel = formPanel();

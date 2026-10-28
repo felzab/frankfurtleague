@@ -468,7 +468,7 @@ def replayed_after_the_admission(url: str, **overrides: Any) -> tuple[str, int, 
 
 
 class TestTheSubmissionKey:
-    """`docs/backend/spec.md :: I346` and `:: I347`, over the shipped unique index and the submission's transaction."""
+    """Over the shipped unique index and the submission's transaction."""
 
     def test_a_second_press_stores_no_second_row_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -606,7 +606,7 @@ class TestTheSubmissionKey:
         assert stored["bestaetigung"]["token_hash"] == hash_token(second.bestaetigung_token)
 
     def test_a_replay_after_the_admission_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        """The admission deletes the row and carries the key onto the squad row it writes (`docs/backend/spec.md :: I349`).
+        """The admission deletes the row and carries the key onto the squad row it writes.
 
         Without the carry, the replay would store the admitted pupil's second registration.
         """
@@ -719,7 +719,7 @@ async def over_the_wire(url: str, *, schluessel: str | None) -> Response:
 
 
 class TestTheKeyOverTheWire:
-    """`docs/backend/spec.md :: I350`, judged where the header is parsed rather than handed in as a `UUID`."""
+    """Judged where the header is parsed rather than handed in as a `UUID`."""
 
     def test_a_version_4_key_is_stored_as_sent(self, mongo_replica_set_url: str):
         """The floor under the refusals below: without it each would pass on a request nothing reaches."""

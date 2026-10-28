@@ -14,7 +14,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The referee editor. One per URL and no season in it: a referee belongs to the league, so the
- * sidemenu's selector changes nothing here. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * sidemenu's selector changes nothing here. It resolves nothing itself.
  */
 export default function AdminSchiedsrichterEditPage(props: NextPageProps<{ schiedsrichter_id: string }>) {
   return (

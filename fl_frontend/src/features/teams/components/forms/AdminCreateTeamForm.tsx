@@ -26,7 +26,7 @@ const EMPTY_DRAFT_BASE = {
 
 /**
  * Creates the club AND enters it into a season in one submit. One form on purpose: every team read
- * joins the junction strictly (backend spec I11), so a club created without a row is invisible to
+ * joins the junction strictly, so a club created without a row is invisible to
  * the very list this form sits on.
  */
 export function AdminCreateTeamForm({

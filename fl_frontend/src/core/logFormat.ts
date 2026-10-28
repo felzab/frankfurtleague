@@ -4,7 +4,7 @@ export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
 // The levels a threshold may name: `logging.ts :: logger` exposes a writer for each, and CRITICAL
 // for none, so admitting it would drop every application line and leave the log reading as quiet
-// rather than as silenced (`docs/frontend/spec.md` §1.7).
+// rather than as silenced.
 export const LOG_THRESHOLDS = ["DEBUG", "INFO", "WARNING", "ERROR"] as const;
 
 export interface LogMeta extends Record<string, unknown> {
@@ -43,8 +43,7 @@ const NEEDS_QUOTING = /[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200
 
 /**
  * The store's error as a line may carry it, its class and the server's code alone: a duplicate-key
- * refusal quotes the stored value in its message, its stack and the fields the driver copies onto it
- * (`docs/frontend/spec.md :: I500`).
+ * refusal quotes the stored value in its message, its stack and the fields the driver copies onto it.
  */
 export function withoutStoredValues(error: unknown): unknown {
   if (error instanceof MongoError) {
@@ -126,7 +125,7 @@ export function formatLogLine(format: "console" | "json", level: LogLevel, messa
   }
 
   // Chosen by LOG_FORMAT, not by the build, so nothing here may assume development. The shape is
-  // `docs/logging/spec.md` §1.4's, byte-identical to `fl_backend/app/core/logging.py`'s.
+  // byte-identical to `fl_backend/app/core/logging.py`'s.
   const origin = module !== undefined && line !== undefined ? `${module}:${String(line)}` : SERVICE;
   // The padding sits OUTSIDE the colour so a level word copied out of a terminal carries no run of
   // coloured blanks after it.

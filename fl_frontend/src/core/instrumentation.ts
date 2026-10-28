@@ -38,7 +38,7 @@ export async function onRequestError(err: Error, request: unknown, context: Next
   const cause = webErr.cause || {};
 
   // Two different jobs: `trace_id` names the page request that failed, `fetch_trace_id` the
-  // outbound call -- distinct whenever the fetch ran as a cache fill (docs/logging/spec.md).
+  // outbound call -- distinct whenever the fetch ran as a cache fill.
   const requestId = traceIdOf((request ?? {}) as NextRequestInfo);
   const fetchId = cause.traceId || webErr.traceId;
 

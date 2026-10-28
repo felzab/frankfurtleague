@@ -928,7 +928,7 @@ def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, k
     ],
 )
 def test_a_key_the_check_cannot_read_is_no_verdict_on_the_pair(setup: str, key: str) -> None:
-    """The frontend's boot refuses such a key before this check runs (`fl_frontend/src/instrumentation.test.ts`), so here it is the advisory."""
+    """The frontend's boot refuses such a key before this check runs, so here it is the advisory."""
     output = _judged(setup, key, "env.txt")
 
     assert "check=4" in output, output

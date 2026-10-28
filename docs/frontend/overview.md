@@ -20,7 +20,8 @@ its invalidation live here rather than in the backend.
 
 **Routes are thin**: a page fetches, then hands off to its slice. A slice holds only the modules it
 needs: `queries.ts` for reads, `mutations.ts` for the calls that write, `actions.ts` for the server
-actions a form calls, `schemas.ts` for its Zod schemas.
+actions a form calls, `personActions.ts` for those a signed-in person's own pages call, `schemas.ts`
+for its Zod schemas.
 
 **Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`, and
 `src/shared/` does not import `src/features/`; ESLint refuses both (`fl_frontend/eslint.config.mjs`).
@@ -33,7 +34,9 @@ file.
 ## Data flow
 
 **Reads are cached with `"use cache"`, and a write is a server action that invalidates tags.** A
-cached read declares its lifetime and tags beside it in its slice's `queries.ts`. Only two tags are
+cached read declares its lifetime and tags beside it in its slice's `queries.ts`; the read of a
+`Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) is cached untagged at
+the longest life, since a label's words never change. Only two tags are
 granular, `spiele:saison_id:*` and `teams:saison_id:*`, because an edit to one season's matches must
 not evict every other season's lists; the league table is computed from the matches, so a match
 write drops the team tags too. Every other tag names a whole resource. **The administration's reads
@@ -60,21 +63,21 @@ tried to prerender its data would fail the image build.
 ## Styling and copy
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
-The pages not yet rebuilt on the kit still render HeroUI components. `browserslist` in
-`fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet uses `oklch()`,
-`color-mix()` and `@property`; it does not govern Next's own polyfills.
+`browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
+uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
-**Every string a visitor reads comes from the catalogue**, `fl_frontend/src/core/copy.ts`, and
-every date and number from `fl_frontend/src/core/format.ts`. How a string is written is
-[`copy.md`](copy.md).
+**The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Copy`**, so a
+string reaches them only from the catalogue. The pages render HeroUI components and carry their own
+strings and date formatting. How a string is written is [`copy.md`](copy.md).
 
 ## Authentication and authorization
 
 Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback; the administration
 admits only a session a passkey signed in. **This is the one place the frontend touches MongoDB
 directly**: a separate `auth` database holding sessions and passkeys and no league data
-(`fl_frontend/src/core/db.ts`), because the library's adapter has no HTTP transport and sits on every
-authorization check. Application data goes through FastAPI without exception.
+(`fl_frontend/src/core/authIndexes.ts :: MONGO_DB_NAME`, reached through
+`fl_frontend/src/core/db.ts :: signInStore`), because the library's adapter has no HTTP transport
+and sits on every authorization check. Application data goes through FastAPI without exception.
 
 **Administration is a stored grant, read on every request.** A row of `berechtigungen`
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
@@ -82,7 +85,7 @@ authorization check. Application data goes through FastAPI without exception.
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action runs through
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which opens on
-`fl_frontend/src/core/auth.ts :: getAdminSession`.
+`fl_frontend/src/core/auth.ts :: judgeAdminRequest`.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a

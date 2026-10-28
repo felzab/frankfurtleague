@@ -31,7 +31,7 @@ function splitDateQuery(query: string): { dates: string[]; rest: string } {
 
 /**
  * A dotted path to a stored value, or Fuse's own key shape for a value the row's card derives: a card
- * printing a label in place of what is stored is searched by that label (`docs/frontend/spec.md :: I681`).
+ * printing a label in place of what is stored is searched by that label.
  */
 export type SearchKey<T> = string | { readonly name: string; readonly getFn: (item: T) => string };
 

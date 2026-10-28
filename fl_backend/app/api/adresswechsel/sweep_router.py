@@ -75,7 +75,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`) for the
+# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` for the
 # dearest change over a 40,000-row action log a due change reads whole; the arithmetic is
 # `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, its counts pinned on the wire; a dearer change meets the deadline.
 ADRESSWECHSEL_PER_PASS: Final = 4
@@ -103,7 +103,7 @@ def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]
         },
         {"$match": {"$nor": [build_parked_terms(now)]}},
         # What `ist_abgelaufen` labels a lapse by: a confirmed change whose approval's week passed holds a `wirksam_ab` too,
-        # and is no due change for that (`docs/backend/spec.md :: I693`).
+        # and is no due change for that.
         {"$project": {"_id": 1, "gueltig_bis": 1, "genehmigung.bis": 1, "genehmigung.genehmigt_am": 1}},
         {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
     ]
@@ -135,7 +135,7 @@ async def _end_the_lapsed_change(
             session=session,
         )
         # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
-        # told it did not take effect, as a refused due change's is (`docs/backend/spec.md :: I827`).
+        # told it did not take effect, as a refused due change's is.
         if stored.get("bestaetigt_am") is not None:
             await queue_the_refusal_notice_in_session(
                 stored, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
@@ -222,7 +222,7 @@ async def _make_the_due_change_take_effect(
         if urteil.wartet:
             return None
 
-        # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I795`).
+        # Every judgement the confirmation makes, at the end of the waiting time as at its start.
         if not urteil.leer:
             await end_the_change_in_session(
                 adresswechsel_collection=adresswechsel_collection,
@@ -327,7 +327,7 @@ async def sweep_adresswechsel(
     for row in seite[:ADRESSWECHSEL_PER_PASS]:
         erreicht = row["_id"]
         welche, was = ("due", "effect") if row["faellig"] else ("lapsed", "end")
-        # Each caught outside the change's session (`docs/backend/spec.md :: I539`).
+        # Each caught outside the change's session.
         try:
             if row["faellig"]:
                 ergebnis = await _make_the_due_change_take_effect(
@@ -371,8 +371,8 @@ async def sweep_adresswechsel(
             # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.
             uebersprungen += 1
             continue
-        # Any class, or the next pass stops at this change again and holds back every one behind it
-        # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
+        # Any class, or the next pass stops at this change again and holds back every one behind it;
+        # not `BaseException`, so a cancellation still ends the call.
         except Exception as failure:
             # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
             # it as a timeout keeping the label.
@@ -445,7 +445,7 @@ async def post_adresswechsel_postausgang(
 
         token = secrets.token_urlsafe(24)
         # Every claimed row written, so two overlapping calls conflict and the retry sees them held; the count rises in
-        # this write, so a retried claim counts once (`docs/backend/spec.md :: I454`, `:: I480`).
+        # this write, so a retried claim counts once.
         await patch_many_in_db(
             collection=adresswechsel_postausgang_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},

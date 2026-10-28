@@ -222,7 +222,7 @@ async def patch_spielbericht(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
 
-        # For the referee's write's reason (`docs/backend/spec.md :: I118`).
+        # For the referee's write's reason.
         jetzt = await pull_bericht_lage(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
@@ -236,7 +236,7 @@ async def patch_spielbericht(
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
         return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
 
-    # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
+    # A first write anchors the season, a season write the cache serves.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             return await session.with_transaction(write_the_report)

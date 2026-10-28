@@ -10,8 +10,8 @@ export interface SpielSide {
 /**
  * Every field a fixture document carries.
  *
- * Typed structurally rather than off `FLSpielSchema`, which `shared` may not import
- * (`docs/frontend/spec.md` I9): the schema's parse stands at the call site and refuses the drift.
+ * Typed structurally rather than off `FLSpielSchema`, which `shared` may not import:
+ * the schema's parse stands at the call site and refuses the drift.
  */
 export interface SpielFields {
   id: string;

@@ -30,7 +30,7 @@ const { config } = await import("./proxy.ts");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 
-describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I243`)", () => {
+describe("the proxy's session cookie over https", () => {
   /* Read under the library's default name, it would find nothing a signed-in person carries in production,
      and the proxy would send every one of them to sign in. */
   it("is the cookie the library writes there", async () => {
@@ -62,7 +62,7 @@ describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I243`
 });
 
 /* The matcher spells the cookie by its suffix alone: a prefix it did not foresee, the host-bound one among them,
-   would run the proxy on every signed-in prefetch and slide its session (`docs/frontend/spec.md :: I495`). */
+   would run the proxy on every signed-in prefetch and slide its session. */
 describe("the proxy's matcher over https", () => {
   it("skips a prefetch carrying the session cookie the library writes there, and runs on one carrying none", async () => {
     const written = cookieHeader(await signInByCode(auth, ADMIN_EMAIL, HEADERS));

@@ -12,7 +12,7 @@ import type { FLTeam } from "../../schemas";
 
 /**
  * Composition only, and nothing here hands a function to a client leaf — the callbacks live below
- * the boundary, on the side that holds the state (`docs/frontend/spec.md :: I13`).
+ * the boundary, on the side that holds the state.
  */
 export function TeamDetailsView({
   teamData,

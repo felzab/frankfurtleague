@@ -57,7 +57,7 @@ export const FASSUNG_UNLESBAR = buildRefusal({
 /**
  * The retry as a `repair`, where the same press may pass: period-free, since `buildRefusal` closes the
  * sentence it ends. „erneut“ is the one word for doing anything again, a link reopened included,
- * never „noch einmal“ (`docs/frontend/spec.md` §1.12).
+ * never „noch einmal“.
  */
 export const VERSUCHE_ES_ERNEUT = "Versuche es erneut";
 

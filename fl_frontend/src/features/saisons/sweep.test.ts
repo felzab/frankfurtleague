@@ -185,7 +185,7 @@ describe("one pass of the pupils' deletion", () => {
   });
 
   /* A press's call its deadline cut deletes after the press dropped the tag, and no count shows those pupils, so the
-     drop follows the pass's last call whatever the pass did (`docs/frontend/spec.md :: I705`). */
+     drop follows the pass's last call whatever the pass did. */
   const PASSES = [
     ["that deleted nobody", () => gelaufen(0, 0)],
     ["that deleted pupils", () => gelaufen(3, 0)],

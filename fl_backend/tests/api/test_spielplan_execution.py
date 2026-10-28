@@ -1181,7 +1181,7 @@ async def orphaned_reports(database: AsyncDatabase) -> list[ObjectId]:
 
 
 class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
-    """`docs/backend/spec.md :: I833`: the report's tail, every judgement past, lands inside the removal before its commit."""
+    """The report's tail, every judgement past, lands inside the removal before its commit."""
 
     def test_a_report_landing_inside_a_same_day_redraw_never_outlives_it(self, mongo_replica_set_url: str):
         """The redraw's watermark write changes nothing, so only its own anchor writes the season the report anchors."""
@@ -1278,7 +1278,7 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
         assert (replaced.second.spieltage, replaced.second.spiele) == expected
 
     def test_every_fixture_hangs_on_a_matchday_the_replace_itself_wrote(self, mongo_replica_set_url: str):
-        """Hang a fresh fixture on a surviving matchday and this fails: the two lists go as one set (`docs/backend/spec.md :: I46`)."""
+        """Hang a fresh fixture on a surviving matchday and this fails: the two lists go as one set."""
 
         replaced = a_replaced_season(mongo_replica_set_url)
         matchdays = {row["_id"] for row in replaced.spieltage}
@@ -1301,7 +1301,7 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
         assert (replaced.second.removed_spieltage, replaced.second.removed_spiele) == (replaced.first.spieltage, replaced.first.spiele)
 
     def test_the_log_records_each_removal_with_every_pre_image(self, mongo_replica_set_url: str):
-        """Use `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded (`docs/backend/spec.md :: I48`)."""
+        """Use `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded."""
 
         replaced = a_replaced_season(mongo_replica_set_url)
 

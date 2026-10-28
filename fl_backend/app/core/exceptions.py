@@ -24,7 +24,7 @@ class WriteRefusal:
 
     error_code: str
     # Chosen by the check, never looked up from `RULES`, which no write path reads; the test it
-    # answers is `docs/backend/spec.md` §1.4's.
+    # answers is the rule's.
     status: HTTPStatus
     message: str
     # The body paths a 422 judged, each as a `REQ-VAL-001` names its own, so a form can mark the field.

@@ -143,8 +143,8 @@ export function FormTeamErsatzSection({
             Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
         ) : !hasPickableRow ? (
-          /* Dictated copy, whole. It states its rule and names no repair, where `docs/frontend/spec.md` §1.12 gives a
-             refusal two sentences as its floor. Rewriting it needs an instruction naming this sentence. */
+          /* Dictated copy, whole. It states its rule and names no repair.
+             Rewriting it needs an instruction naming this sentence. */
           <Callout
             severity="info"
             title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"
@@ -243,8 +243,8 @@ export function FormTeamErsatzSection({
                   </dl>
                 </div>
 
-                {/* The contacts take „Zurückholen“ and not „keinen Weg zurück“: the same transaction takes them out of the log
-                    (`docs/frontend/spec.md` §1.3), leaving no pre-image to restore them from. */}
+                {/* The contacts take „Zurückholen“ and not „keinen Weg zurück“: the same transaction takes them out of the log,
+                    leaving no pre-image to restore them from. */}
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
                   Weg zurück. {describeKaderAustragungDanach(outgoing.name)} Die eingetragenen Kontaktpersonen von {outgoing.name} werden dabei
@@ -254,8 +254,7 @@ export function FormTeamErsatzSection({
             )}
 
             <ConfirmActionRow confirm={twoPress}>
-              {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                  §1.14). */}
+              {/* On the control, never a sentence beside it that a pick would unmount. */}
               <FocusSlot name="ersatz">
                 <ConfirmPressButton
                   confirm={twoPress}

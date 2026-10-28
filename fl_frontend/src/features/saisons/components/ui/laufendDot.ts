@@ -1,8 +1,8 @@
 /** The type step the dot is sized against: an ornament outweighing the word beside it reads as a second mark. */
 export type LaufendDotStep = "xxs" | "xs";
 
-// `bg-brand` and never the solid fill, which sinks into this tint in the dark theme
-// (`docs/frontend/spec.md` §1.17). Rests visible under `prefers-reduced-motion`, which stops the
+// `bg-brand` and never the solid fill, which sinks into this tint in the dark theme.
+// Rests visible under `prefers-reduced-motion`, which stops the
 // animation: `animate-ping`'s first frame is full opacity, unscaled.
 const DOT_CLASSES = "animate-ping rounded-full bg-brand";
 

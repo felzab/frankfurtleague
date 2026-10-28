@@ -36,7 +36,7 @@ export const GELOESCHTE_PERSON = "Gelöschte Person";
 
 /**
  * An actor as every admin card names one a read may withhold: a barred administrator by that state,
- * their address served as `null` beside a flag, and an erased person by theirs (`docs/frontend/spec.md :: I492`).
+ * their address served as `null` beside a flag, and an erased person by theirs.
  */
 export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return GESPERRTE_ADRESSE;
@@ -62,7 +62,7 @@ export const DIREKT_IN_DER_DATENBANK = "Direkt in der Datenbank";
 
 /**
  * A grant's „Erteilt von“ as its card prints it, which the grants list's search reads too: a search
- * over the stored value finds the marker nobody sees (`docs/frontend/spec.md :: I681`).
+ * over the stored value finds the marker nobody sees.
  */
 export function erteiltVonAnzeige(von: string | null, gesperrt: boolean): string {
   const angezeigt = vonOderGesperrt(von, gesperrt);
@@ -78,14 +78,14 @@ export const ERTEILT_AM_LABEL = "Erteilt am";
 export const ZUGANG_ERTEILT = "Zugang erteilt";
 
 /**
- * Closes every refusal of an owner's power. A promotion holds for a sign-in after it alone (`docs/backend/spec.md :: I534`),
+ * Closes every refusal of an owner's power. A promotion holds for a sign-in after it alone,
  * so an owner signed in before it is refused too, and would read the refusal as false of them.
  */
 export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.";
 
 /**
  * Who decides about a promotion, closing every sentence that names who decides about a request: another
- * administrator decides a grant, another owner alone a promotion (`docs/backend/spec.md :: I848`).
+ * administrator decides a grant, another owner alone a promotion.
  */
 const ERNENNUNG_GENEHMIGT = "eine Ernennung eine andere Inhaberin oder ein anderer Inhaber";
 

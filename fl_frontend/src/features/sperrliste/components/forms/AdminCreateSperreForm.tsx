@@ -59,7 +59,7 @@ function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
 }
 
 /**
- * The ban, its list read and shown before it, as the erasure's reveal is (`docs/frontend/spec.md :: I724`). **No
+ * The ban, its list read and shown before it, as the erasure's reveal is. **No
  * `onCreated` twin to the other create forms**: the row the API answers with holds no address to reassemble.
  */
 export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
@@ -125,7 +125,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
           }
 
           setSubmitFieldErrors({}, {});
-          // The server's sentence as the body, never a second copy of the title (`docs/frontend/spec.md` §1.12). The
+          // The server's sentence as the body, never a second copy of the title. The
           // dialog closes, as every create's does: its list was worked through before the press.
           const title = res.warn ? SPERRE_MIT_FOLGEN : SPERRE_ERFOLG;
           (res.warn ? appToast.warning : appToast.success)(title, { description: res.message === title ? undefined : res.message });
@@ -137,7 +137,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
 
   const ansicht = isConfirming ? gelesen : null;
   // The list IS what the press is confirmed over, so it is held over the placeholder and closed over a failed read: no
-  // ban goes out over a list nobody saw (`docs/frontend/spec.md :: I724`).
+  // ban goes out over a list nobody saw.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
   const ansichtReason = !isPending && ansicht?.status === "refused" ? ansicht.reason : null;

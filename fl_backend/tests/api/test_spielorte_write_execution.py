@@ -29,7 +29,7 @@ DATABASE_NAME = worker_database("fl_spielorte_write_test")
 
 SPIELORTE = f"/api/v{API_VERSION}/spielorte"
 
-# The write router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`).
+# The write router binds an actor and refuses a write carrying none.
 ACTOR = "spielorte.admin@example.com"
 
 # Fixed rather than generated, so a failure names the same row every run.

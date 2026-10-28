@@ -192,13 +192,12 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-    // (`docs/frontend/spec.md :: I255`).
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
     guardSubmit({ schiedsrichter: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 
   const writeAfterBlock = () => {
-    // A save minting the referee a new link is a step-up write (`docs/frontend/spec.md :: I432`).
+    // A save minting the referee a new link is a step-up write.
     stepUp.confirmThen(saveMayMint(schiedsrichter, kontakt.email), () =>
       startSaving(async () => {
         // Read before the write: the props still hold the pre-save values, and the toast that replays

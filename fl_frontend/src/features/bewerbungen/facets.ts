@@ -13,7 +13,7 @@ export const BEWERBUNGEN_STATUS_PARAM = "status";
 /** The endpoint's own term too, read there against the `saison_id` the shell resolved rather than naming a season itself. */
 export const BEWERBUNGEN_SAISONBEZUG_PARAM = "saisonbezug";
 
-// Module scope is load-bearing (`docs/frontend/spec.md` §1.1).
+// Module scope is load-bearing.
 export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
   {
     // Its own parameter, never `/bereich/admin/teams`'s `zugehoerigkeit`: the two lists label this question

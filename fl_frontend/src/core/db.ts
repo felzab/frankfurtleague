@@ -13,8 +13,7 @@ const options = {
     deprecationErrors: true,
   },
   // Per operation, and an admin action runs up to seven: three session reads of two commands
-  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s
-  // (`docs/frontend/spec.md :: I362`).
+  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s.
 
   // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
   // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
@@ -32,7 +31,7 @@ const options = {
 
 /**
  * The driver closes the topology a failed connect built and never builds another itself, so every
- * later operation would fail until a restart (`docs/frontend/spec.md :: I364`). The same client is
+ * later operation would fail until a restart. The same client is
  * connected again: the adapter holds its `Db`.
  */
 class SignInStoreClient extends MongoClient {

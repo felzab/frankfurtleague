@@ -935,7 +935,7 @@ class TestTheStop:
 
 
 class TestAGrantHoldersOwnPressAsksAPasskey:
-    """The person's lane admits a sign-in by code, which a change handing a grant over must not be enough for (I790)."""
+    """The person's lane admits a sign-in by code, which a change handing a grant over must not be enough for."""
 
     def test_a_start_by_code_is_refused_where_the_address_holds_a_grant_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1566,7 +1566,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             "referee": (minted, verwehrt),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
             "seats": (minted, {"trainer": None, "ansprechperson": verwehrt, "stellvertretung": None}),
-            # Withheld where the tool refuses it as a grant holder's: a typed address would learn it is that change's new one (I871).
+            # Withheld where the tool refuses it as a grant holder's: a typed address would learn it is that change's new one.
             "reveal": [] if verwehrt == "verwaltung" else [(minted, verwehrt)],
         }
         if grant:
@@ -1575,7 +1575,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
 
 
 class TestAGrantEndedBeforeTheApproval:
-    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I847)."""
+    """The approval a confirmation left owed is owed only while the address holds the grant it would move."""
 
     def test_the_pass_makes_the_change_take_effect_once_the_grant_is_gone(self, mongo_replica_set_url: str):
         """Revoked after the confirmation: nobody is offered the approval, and the change took effect regardless."""
@@ -1767,7 +1767,7 @@ class TestTheAdministratorFollowsTheirMove:
     def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
         """A grant they made, its image and log row, their own change's starter and their revoked grant's image named it.
 
-        The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        The queued notice of the old grant's end withholds it too, its stamp naming the new address.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1817,7 +1817,7 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address.
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
     def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
@@ -1967,7 +1967,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
             left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
             return carried["genehmigung"]["gestartet_von"], left, await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address.
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (NEW_EMAIL, 0, {EMAIL: []})
 
     def test_a_request_about_the_replaced_address_ends_as_a_refusal_ends_it(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -2011,12 +2011,12 @@ class TestTheRequestsForAGrantAnEffectMeets:
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
-        # The refusal's notice to its requester withholds it too, its stamp naming the new address (I659).
+        # The refusal's notice to its requester withholds it too, its stamp naming the new address.
         assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
 
     @pytest.mark.parametrize("request_", ["none", "refused before the change", "ended by the change", "moved on again"])
     def test_an_erasure_at_the_new_address_withholds_the_replaced_one_in_every_queued_notice(self, mongo_replica_set_url: str, request_: str):
-        """`docs/backend/spec.md :: I659`: the grant's announcement, the move's revoke and a request's end name the old address.
+        """The grant's announcement, the move's revoke and a request's end name the old address.
 
         A second move carries their stamp on to the address erased.
         """
@@ -2119,7 +2119,7 @@ class TestTheDecline:
 
 
 class TestTheReplayTellsTheNewMailboxAgain:
-    """`docs/backend/spec.md :: I870`: a restore takes back the notice an end queued, and the replay of its line queues it again."""
+    """A restore takes back the notice an end queued, and the replay of its line queues it again."""
 
     @pytest.mark.parametrize(
         ("end", "expected"),
@@ -2181,7 +2181,7 @@ REPLAY_NOW = NOW + timedelta(hours=21)
 
 
 class TestTheReplayOntoEntries:
-    """`docs/backend/spec.md :: I860`: replayed onto an address an entry names since, an effect would join two people's records."""
+    """Replayed onto an address an entry names since, an effect would join two people's records."""
 
     @pytest.mark.parametrize("what", ["an-unconfirmed-seat", "a-grant-request", "nothing"])
     def test_a_restored_live_change_whose_new_address_holds_an_entry_is_left_for_review(self, mongo_replica_set_url: str, what: str):
@@ -2207,7 +2207,7 @@ class TestTheReplayOntoEntries:
 
 class TestTheReSendsRefusals:
     def test_a_new_address_an_entry_has_come_to_name_is_refused(self, mongo_replica_set_url: str):
-        """A link re-sent onto it would only be refused on its press (`docs/backend/spec.md :: I860`)."""
+        """A link re-sent onto it would only be refused on its press."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=GRUND)

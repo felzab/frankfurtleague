@@ -94,7 +94,7 @@ BLOCKS_CLEARED_PER_PASS: Final = 22
 async def _redact(
     *, aktionen_collection: AktionenCollection, collection: Collection, ids: Sequence[Any], stamp: str, session: AsyncClientSession
 ) -> int:
-    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I671`)."""
+    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half."""
 
     if not ids:
         return 0
@@ -139,7 +139,7 @@ async def pull_the_season_after(
         return None
 
     later_saison_status = next(iter(statuses.values()), None)
-    # Written where its rows go, as a pupil's deletion writes one (`docs/backend/spec.md :: I722`): an activation
+    # Written where its rows go, as a pupil's deletion writes one: an activation
     # committing after this read conflicts with the erasure, whose retry finds this season running.
     if own_status == "future" and season_after_has_ended(later_saison_status=later_saison_status):
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
@@ -252,8 +252,8 @@ async def sweep_saison(
 
     # Ahead of the guard below, so an id that is no year fails the running season's pass too.
     beendet_danach = _ended_after(saison_id)
-    # Ended once any later season has while this one is not `active`, as a squad row's pupil goes
-    # (`docs/backend/spec.md :: I715`): the next year's season alone may be skipped, or planned and never run.
+    # Ended once any later season has while this one is not `active`, as a squad row's pupil goes:
+    # the next year's season alone may be skipped, or planned and never run.
     beendete_raw = None if saison_status == "active" else await saisons_collection.find_one(beendet_danach, {"status": 1})
     later_saison_status = beendete_raw.get("status") if beendete_raw is not None else None
 
@@ -284,7 +284,7 @@ async def sweep_saison(
                 db_filter=batch.within({"saison_id": saison_id, "status": "eingereicht"}),
                 projection=["status"],
                 # One over the page: a full page is a page that may be truncated, and a clock cannot
-                # see what it never read (`docs/backend/spec.md :: I295`).
+                # see what it never read.
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -378,7 +378,7 @@ async def sweep_saison(
             return erinnerungen, {seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe}
 
         # Answers built before any stamp, the share cut from the rows they carry: a refused row writes nothing
-        # and costs no second attempt (`docs/backend/spec.md :: I728`), and the rows past the share stay due.
+        # and costs no second attempt, and the rows past the share stay due.
         taken = batch.judged(chased, reminder_of)[: batch.share]
         batch.took([row for row, _ in taken])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
@@ -422,7 +422,7 @@ async def sweep_saison(
 
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
-        # other key would preserve what this call destroys (`docs/backend/spec.md :: I48`).
+        # other key would preserve what this call destroys.
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -505,7 +505,7 @@ async def sweep_saison(
             voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))
             cleared.append(row["_id"])
         # Once for the share, so voiding its people's match links costs the pass the same however many rows it
-        # clears (`docs/backend/spec.md :: I758`).
+        # clears.
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
@@ -556,8 +556,7 @@ async def sweep_saison(
         )
 
     # Every transaction before the LAST, which is the reminder's: what that one hands back is owed a
-    # message, and a failure after it would answer this request with an error instead
-    # (`docs/backend/spec.md :: I323`).
+    # message, and a failure after it would answer this request with an error instead.
     ohne_entscheidung, redacted_undecided, fehlgeschlagen = 0, 0, 0
     # AHEAD of the reminder and of the list below, which read the collection after it: a season that
     # has ended leaves nobody to chase, and a notice about an application this pass erased is a
@@ -651,7 +650,7 @@ async def sweep_saison(
         # message with: one person on two seats reads one phrase naming both, in both messages.
         empfaenger, rollen = ansprechperson_mailbox(kontakte=row.get("kontakte"))
         # Each row apart, so one that raises, a deadline the answer's model refuses say, is passed over
-        # rather than failing every clock of the call (`docs/backend/spec.md :: I720`).
+        # rather than failing every clock of the call.
         try:
             loeschung = FLBewerbungSweepLoeschung(
                 bewerbung_id=row["_id"],

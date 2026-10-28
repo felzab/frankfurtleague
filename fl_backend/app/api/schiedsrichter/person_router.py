@@ -41,7 +41,7 @@ from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
-# at router level (`docs/backend/spec.md :: I41`): this one records every write under the referee's Funktion.
+# at router level: this one records every write under the referee's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/selbst",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],

@@ -22,7 +22,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   await connection();
 
   // Every miss is answered with the shared object rather than thrown: a `notFound()` here leaves the
-  // 404 the layout's title, and an object of its own inherits the layout's canonical (`docs/frontend/spec.md` §1.13).
+  // 404 the layout's title, and an object of its own inherits the layout's canonical.
   const team_id = await parseObjectIdParam(props.params, "team_id");
   if (team_id === null) return NOT_FOUND_METADATA;
 

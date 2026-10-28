@@ -111,7 +111,7 @@ def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
     """`fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId` restated over the row shape it parses.
 
     The two surfaces must number the same clubs, and nothing else in either suite can fail when they
-    part company (`docs/backend/spec.md :: I24b`).
+    part company.
     """
 
     numbered: dict[str, int] = {}
@@ -483,7 +483,7 @@ class TestWhoMayHoldAPlatz:
 
 
 class TestTheTableAndTheSeedingNumberTheSameClubs:
-    """The published table carries the still-to-play term, so one rule numbers both surfaces (`docs/backend/spec.md :: I24b`).
+    """The published table carries the still-to-play term, so one rule numbers both surfaces.
 
     Read through `platz_by_team_id`: a row that reached the wire without the term would number a
     different set here.
@@ -643,7 +643,7 @@ class TestWhenAPlacingIsFinal:
 class TestACallOffIsAnEndingToo:
     """An outstanding fixture may be called off, awarding nothing to EITHER club and leaving neither with it to play.
 
-    No ending that awards something expresses either half (`docs/backend/spec.md :: I24a`).
+    No ending that awards something expresses either half.
     """
 
     def test_a_club_with_nothing_counted_and_one_fixture_left_holds_no_placing(self, a_team: TeamFactory, played: MatchFactory):
@@ -685,8 +685,7 @@ class TestACallOffIsAnEndingToo:
 class TestAGroupPastTheFixtureLimit:
     """Every group is answered whatever its size: past `CERTAINTY_FIXTURE_LIMIT` each placing is decided from what every club can still reach.
 
-    Sound rather than exact, and what it declines reads as not yet decided
-    (`docs/backend/spec.md :: I24c`).
+    Sound rather than exact, and what it declines reads as not yet decided.
     """
 
     def test_the_largest_legal_group_seeds_a_lead_its_remaining_fixtures_cannot_close(self, a_team: TeamFactory, played: MatchFactory):

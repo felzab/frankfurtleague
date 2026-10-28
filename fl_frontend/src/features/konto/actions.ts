@@ -20,7 +20,7 @@ type Beendet = { success: true } | ActionFailure;
 
 /**
  * Ends one of the holder's other sign-ins. By id AND the holder's own user id, so an id belonging to
- * another person ends nothing (`docs/frontend/spec.md :: I421`).
+ * another person ends nothing.
  */
 export async function endAnmeldungAction(id: string): Promise<Beendet> {
   return runKontoMutation("endAnmeldungAction", async (served) => {
@@ -54,8 +54,7 @@ export async function endAndereAnmeldungenAction(): Promise<Beendet> {
 
 /**
  * Whether the session a confirmation just made is the page's holder's: once the page's session has
- * ended, its challenge names nobody and any account's passkey signs its own account in
- * (`docs/frontend/spec.md :: I428`).
+ * ended, its challenge names nobody and any account's passkey signs its own account in.
  */
 export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
   return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: isHeldBy(served, inhaberId) }));
@@ -66,7 +65,7 @@ const CODE_UNTERWEGS = "Ein Anmeldecode ist an Deine Adresse unterwegs.";
 
 /**
  * Mails the holder a code to confirm themselves with. The address is the session's and never a posted one,
- * so the press mails nobody but the holder and needs no bot check (`docs/frontend/spec.md :: I624`).
+ * so the press mails nobody but the holder and needs no bot check.
  */
 export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
   return runKontoStepUp("sendeBestaetigungscodeAction", async (served) => {
@@ -91,8 +90,8 @@ const LOESCHLINK_UNTERWEGS =
   "Wir haben Dir einen Link geschickt. Erst wenn Du ihn öffnest und dort bestätigst, löschen wir Dein Konto. Kommt keine E-Mail an, fordere den Link erneut an.";
 
 /**
- * Mails the holder a link to delete their account. The account page's guard without the step-up window
- * (`docs/frontend/spec.md :: I676`): the link goes to the session's own mailbox, and completing it
+ * Mails the holder a link to delete their account. The account page's guard without the step-up window:
+ * the link goes to the session's own mailbox, and completing it
  * takes that mailbox and the signed-in session both.
  */
 export async function fordereKontoLoeschungAnAction(): Promise<ActionResult> {

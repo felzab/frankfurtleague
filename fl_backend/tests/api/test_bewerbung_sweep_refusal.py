@@ -138,12 +138,12 @@ class TestTheReminderMark:
         ],
     )
     def test_a_seat_that_has_spoken_been_reminded_or_been_emptied_is_not_reminded(self, kontakte_block: Any, bookkeeping: Any, why: str):
-        """One reminder per seat: whatever the mail did after the stamp, the seat is never reminded twice (`docs/backend/spec.md :: I152`)."""
+        """One reminder per seat: whatever the mail did after the stamp, the seat is never reminded twice."""
 
         assert not seat_reminder_is_due(kontakte=kontakte_block, bestaetigungen=bookkeeping, seat="trainer", today=TODAY), why
 
     def test_a_seat_stamped_empty_is_still_reminded(self):
-        """`is_confirmed` reads `""` as no confirmation (`docs/backend/spec.md :: I387`), so the seat is still owed its one chase."""
+        """`is_confirmed` reads `""` as no confirmation, so the seat is still owed its one chase."""
 
         empty = kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=""))
 

@@ -240,7 +240,7 @@ describe("the contacts save that seats new people", () => {
   });
 
   /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
-     a sentence naming no address and no seat, since the refusal names neither (`docs/frontend/spec.md :: I542`). */
+     a sentence naming no address and no seat, since the refusal names neither. */
   it("answers a save seating a barred address with the ban, mailing nobody", async () => {
     save = () => refusedOn(SAVE_OPERATION, "REQ-KONTAKT-003");
 
@@ -253,7 +253,7 @@ describe("the contacts save that seats new people", () => {
   });
 
   /* Barred between the mint and the send, the gate withholds it: filed, never failed, and no delivery
-     state recorded on the seat (`docs/frontend/spec.md :: I542`). */
+     state recorded on the seat. */
   it("files a send the gate withholds as barred, recording no delivery state", async () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "barred");
@@ -385,7 +385,7 @@ describe("the contacts save that takes a mailbox off the row", () => {
 });
 
 /* A seat handed to another person is a new acceptance, admitted under the running label alone; the
-   label the editor's page held may be one a deploy has since moved past (`docs/backend/spec.md :: I610`). */
+   label the editor's page held may be one a deploy has since moved past. */
 describe("the label a contacts save names", () => {
   it("sends every seat under the label the form runs at the write, whatever label the page held", async () => {
     const alt = (person: typeof BLOCK.trainer) => ({
@@ -482,7 +482,7 @@ describe("the re-send beside an unconfirmed seat", () => {
     expect(res.success && res.versand).toBe("fehlgeschlagen");
   });
 
-  /* Filed rather than failed, as the save reports it (`docs/frontend/spec.md :: I542`). */
+  /* Filed rather than failed, as the save reports it. */
   it("reports no failure where the gate withholds a barred send", async () => {
     mail.answerWith(() => "barred");
 
@@ -502,7 +502,7 @@ function keysOf(value: unknown): string[] {
 
 describe("what an action of this slice hands the browser", () => {
   /* A raw token is the seat's whole credential: one in an action's result lets whoever holds the
-     administrator's session confirm the seat as its person (`docs/backend/spec.md :: I142`). */
+     administrator's session confirm the seat as its person. */
   it("carries no minted link's token at any depth, from the save or the re-send", async () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"]), minted("Clara", "clara@schule.example", ["trainer"])]);
 

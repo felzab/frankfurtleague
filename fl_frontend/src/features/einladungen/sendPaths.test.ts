@@ -156,7 +156,7 @@ describe("what the single invite press answers", () => {
   });
 
   /* A retry meets the same ban, so a refusal offering one sends the administrator round a loop; the
-     answer names no address (`docs/frontend/spec.md :: I542`). */
+     answer names no address. */
   it("counts a fan-out the ban list kept from every address as answered, offering no retry", async () => {
     const teamId = "8b".repeat(12);
     sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
@@ -336,7 +336,7 @@ describe("what the season-wide press answers", () => {
   });
 
   /* A count and never the address: the row is the administrator's, and a barred one is in no list
-     it names (`docs/frontend/spec.md :: I542`). */
+     it names. */
   it("carries how many addresses the ban list kept the link from, naming none of them", async () => {
     sendWith(() => "barred");
 

@@ -338,7 +338,7 @@ class TestWhatTheLinksPersonReadLoads:
 
 
 class TestWhatAConfirmationWrites:
-    """One `$set`: `docs/backend/spec.md :: I141`'s pairing lands whole, and the hash stays where it is."""
+    """One `$set`: the pairing lands whole, and the hash stays where it is."""
 
     def test_the_date_and_the_whole_record_land_together(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -402,7 +402,7 @@ class TestWhatAConfirmationWrites:
         assert (record["umfang"], record["medien"]) == ("intern", False)
 
     def test_a_returning_pupils_press_stores_the_stamp_and_the_label_alone(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I557`: the page asked no choice and no date, so the stored date is written and echoed nowhere.
+        """The page asked no choice and no date, so the stored date is written and echoed nowhere.
 
         The person's record is untouched.
         """
@@ -786,7 +786,7 @@ class TestALinkToABarredAddress:
 
 
 class TestTheViewOfALinkToABarredAddress:
-    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred pupil the form."""
+    """The page reads the ban off the view, so it never offers a barred pupil the form."""
 
     def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
         """Barred in the folded spelling while the row stores the typed one, as the press's own case bars it."""

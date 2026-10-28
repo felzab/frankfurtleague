@@ -205,7 +205,7 @@ export async function mapBestaetigungRefusal(
     // Never the mail's link: every reopening takes the same undated person.
     case "REQ-REGISTRIERUNG-019":
       return { error: GESPEICHERTES_GEBURTSDATUM_FEHLT };
-    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };

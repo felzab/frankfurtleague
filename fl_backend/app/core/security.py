@@ -166,7 +166,7 @@ GrantLookup = Callable[[str], Awaitable[datetime | None]]
 def get_grant_lookup(
     berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)], sperrliste: SperrlisteLookup
 ) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I463`)."""
+    """The actor check's read: a live grant, and no ban on its address."""
 
     async def grant_since(identifier: str) -> datetime | None:
         return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
@@ -179,7 +179,7 @@ async def verify_actor_is_admin(
     actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
     grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
 ) -> None:
-    """Refuse a verified actor who holds no live grant, read per request, or signed in before it (`docs/backend/spec.md :: I383`, `:: I526`)."""
+    """Refuse a verified actor who holds no live grant, read per request, or signed in before it."""
 
     # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
@@ -207,7 +207,7 @@ def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[Async
 
 
 def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
-    """The actor check asked again in each attempt of every transaction the request opens (`docs/backend/spec.md :: I575`)."""
+    """The actor check asked again in each attempt of every transaction the request opens."""
 
     @asynccontextmanager
     async def judging_the_administrator(session: AsyncClientSession) -> AsyncIterator[None]:
@@ -232,7 +232,7 @@ def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
         yield
 
         # Nothing sent by this request is an attempt that wrote nothing, which takes part in no write
-        # skew: its answer holds as of its snapshot, so a no-op logs no anchor (`docs/backend/spec.md :: I438`).
+        # skew: its answer holds as of its snapshot, so a no-op logs no anchor.
         if not a_write_may_stand():
             return
 
@@ -245,7 +245,7 @@ def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
 
 
 def get_actor_auth_time(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> int:
-    """When the acting administrator signed in, which an owner's power is judged against inside the write (`docs/backend/spec.md :: I534`)."""
+    """When the acting administrator signed in, which an owner's power is judged against inside the write."""
 
     return actor.auth_time
 
@@ -269,14 +269,14 @@ def confirmation_required(actor: ActorClaims, window_s: int) -> ActorConfirmatio
 
 
 def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation (`docs/backend/spec.md :: I489`)."""
+    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation."""
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
         raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
 
 def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
-    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant (`docs/backend/spec.md :: I489`).
+    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant.
 
     A dependency for `get_step_up_check`'s reason: the document derives the refusal from the operations running it.
     """
@@ -289,7 +289,7 @@ def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_a
 
 
 def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
+    """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window.
 
     One stepped up on some calls takes `get_step_up_check` instead, and its handler judges the call.
     """
@@ -304,7 +304,7 @@ StepUpCheck = Callable[[], None]
 
 
 def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> StepUpCheck:
-    """The step-up of a write stepped up on some calls alone (`docs/backend/spec.md :: I524`).
+    """The step-up of a write stepped up on some calls alone.
 
     A dependency rather than a raise in the handler, so the document derives the refusal from the
     operations running it (`app/main.py :: DEPENDENCY_REFUSALS`).
@@ -320,7 +320,7 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
 def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> StepUpCheck:
     """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code.
 
-    The window is I489's, judged at `iat` (`docs/backend/spec.md :: I527`).
+    The window is `ENROLMENT_WINDOW_S`, judged at `iat`.
     """
 
     def refuse_unconfirmed() -> None:
@@ -331,7 +331,7 @@ def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_p
 
 
 def verify_recent_person_confirmation(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> None:
-    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window (`docs/backend/spec.md :: I790`).
+    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window.
 
     Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
     """
@@ -345,7 +345,7 @@ BanLookup = Callable[[str], Awaitable[bool]]
 
 
 def get_ban_lookup(sperrliste: SperrlisteLookup) -> BanLookup:
-    """The person check's read, keyed as the grant check keys its own ban read (`docs/backend/spec.md :: I463`)."""
+    """The person check's read, keyed as the grant check keys its own ban read."""
 
     async def is_gesperrt(identifier: str) -> bool:
         return bool(await adressen_gesperrt(sperrliste, [identifier]))
@@ -368,7 +368,7 @@ async def verify_person_is_unbarred(
 
 
 def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
-    """The ban check asked again in each attempt of every transaction a person's request opens (`docs/backend/spec.md :: I575`)."""
+    """The ban check asked again in each attempt of every transaction a person's request opens."""
 
     @asynccontextmanager
     async def judging_the_person(session: AsyncClientSession) -> AsyncIterator[None]:
@@ -383,8 +383,7 @@ def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
         yield
 
         # Last, and only where a write may stand, for the administrator's judge's reasons. The write may hold
-        # the person's address or pseudonym on a record their erasure, running now, never read
-        # (`docs/backend/spec.md :: I719`).
+        # the person's address or pseudonym on a record their erasure, running now, never read.
         if not a_write_may_stand():
             return
 
@@ -407,13 +406,13 @@ async def bind_actor(
     """Attribute this request's writes to the administrator its verified actor token names.
 
     Every method, a read included: the grant check judges who asks off this token. At router level,
-    so a later operation cannot miss it (`docs/backend/spec.md :: I41`).
+    so a later operation cannot miss it.
     """
 
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
     actor_token = actor_var.set(Actor(kind="admin_session", email=sign_in_identifier(actor.email)))
-    # Beside the actor, so no transaction this request opens runs unjudged (`docs/backend/spec.md :: I575`).
+    # Beside the actor, so no transaction this request opens runs unjudged.
     judge_token = actor_judge_var.set(admin_judge(actor, config))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
     # row per document where the page wants one row per kind of action.

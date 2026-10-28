@@ -10,8 +10,7 @@ import type React from "react";
 import type { TeamSeat } from "./teamSeats";
 
 /**
- * The erasure's `anlass` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py` and paired with it by
- * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Bound here too because the endpoint's
+ * The erasure's `anlass` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the endpoint's
  * `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const ERASURE_ANLASS_MAX_LENGTH = 200;

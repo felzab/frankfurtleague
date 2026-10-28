@@ -56,7 +56,7 @@ const wunschgegnerSatz = (gegner: string): string =>
   `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
 
 /**
- * The league's dictated wording and its policy towards schools, kept over `docs/frontend/spec.md :: 1.12`'s rule
+ * The league's dictated wording and its policy towards schools, kept over the rule
  * against calling a performed operation impossible: an administrator's group swap and colour edit are the
  * league's own corrections.
  */
@@ -81,7 +81,7 @@ interface Absender {
 
 /**
  * Its paragraphs are wording the league dictated, to the team as „ihr“: where they part from
- * `docs/frontend/spec.md :: 1.12`, „Generalversammlung“, „Versammlung“ and „Sitzung“ for one meeting
+ * the rule, „Generalversammlung“, „Versammlung“ and „Sitzung“ for one meeting
  * included, the wording wins.
  */
 interface SaisonZusage {
@@ -428,7 +428,7 @@ function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
 /** A panel's facts as lines, wherever the text branch sets them. */
 function textFakten(fakten: readonly Fakt[]): string[] {
   // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
-  // Both shapes are normalised here rather than trusted from the payload (`docs/frontend/spec.md :: I85`).
+  // Both shapes are normalised here rather than trusted from the payload.
   const zeile = (fakt: Fakt): string =>
     fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;
   // Blank on both sides, so a stacked value's wrapped lines read as neither the fact above nor the
@@ -471,7 +471,7 @@ export function buildBewerbungZusageEmail({
 }: BewerbungZusageData): BewerbungEmail {
   const site = mailOrigin(origin);
   // Folded before anything prints it: the heading, the prose and the subject state the season, and
-  // `textFakten` folds the column of facts alone (`docs/frontend/spec.md :: I89`).
+  // `textFakten` folds the column of facts alone.
   const saisonId = einzeilig(saisonIdRoh);
   // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
   // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: textFakten` folds the
@@ -480,8 +480,7 @@ export function buildBewerbungZusageEmail({
   // Folded for a reason `textFakten` cannot cover: this one stands in the prose ALONE, so no fact line
   // it prints would ever reach it. Blank counts as unnamed, so the silence rests on no payload's trim.
   const gegner = einzeilig(wunschgegner ?? "").trim();
-  // Folded here as well as in `textFakten`, as the name is: both stand in the prose too
-  // (`docs/frontend/spec.md :: I89`).
+  // Folded here as well as in `textFakten`, as the name is: both stand in the prose too.
   const gruppeText = einzeilig(gruppe);
   const farbe = trikotFarbeLabel === null ? null : einzeilig(trikotFarbeLabel);
   const einteilung = einteilungSatz(gruppeText, farbe);
@@ -519,7 +518,7 @@ export function buildBewerbungZusageEmail({
 
   const html = renderHtml(nachricht, [
     // Wording the league dictated, written to the team as „ihr“ rather than to the one contact reading
-    // it: where it and `docs/frontend/spec.md` §1.12's register rule part, the wording wins.
+    // it: where it and the register rule part, the wording wins.
     paragraph("Liebe Freundinnen und Freunde,"),
     // One paragraph, so the decision does not lead: the meeting and the team's details are what the school acts on.
     paragraph(
@@ -1134,7 +1133,7 @@ export function buildBewerbungWiderspruchEmail({
 
   const html = renderHtml(nachricht, [
     // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for
-    // every name (`docs/frontend/spec.md :: 1.12`).
+    // every name.
     paragraph(
       `${strong(`${escapeHtml(wer)} hat dem Eintrag als Kontaktperson widersprochen.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
     ),

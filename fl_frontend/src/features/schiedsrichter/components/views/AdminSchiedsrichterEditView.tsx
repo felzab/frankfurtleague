@@ -42,8 +42,7 @@ export function AdminSchiedsrichterEditView({
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSchiedsrichterEditForm
-        // Keyed by the stored record its drafts seed from, so a save's refresh remounts it on the saved values
-        // (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+        // Keyed by the stored record its drafts seed from, so a save's refresh remounts it on the saved values.
         key={JSON.stringify(schiedsrichter)}
         schiedsrichter={schiedsrichter}
         istFassungBekannt={istFassungBekannt}

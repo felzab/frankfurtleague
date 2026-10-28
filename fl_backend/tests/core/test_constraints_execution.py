@@ -235,8 +235,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "inactive_since": None,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
-        # one carries a value, a write-path rule no validator of types and enums can state
-        # (`docs/backend/spec.md :: I16`).
+        # one carries a value, a write-path rule no validator of types and enums can state.
         "bewerbungen": {
             "_id": BEWERBUNG_OID,
             "saison_id": SAISON_ID,
@@ -1458,7 +1457,7 @@ def counted_stages(explained: Mapping[str, Any]) -> list[str]:
 
 
 #: What the declared support set may not fall below. The equality beside it compares the registry's own
-#: length on both sides, so it holds no floor (`docs/_standard/standard.md :: PRE-4`).
+#: length on both sides, so it holds no floor.
 SUPPORT_INDEX_FLOOR: Final = 9
 
 

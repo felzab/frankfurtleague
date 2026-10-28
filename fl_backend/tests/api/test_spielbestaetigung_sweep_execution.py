@@ -609,7 +609,7 @@ class TestADiscardTellsTheClubTheDateStands:
 
 
 class TestADiscardedDeclineIsNotAskedAgain:
-    """`docs/backend/spec.md :: I768`: a club declines once per Ansetzung, so the decline the administrator discarded is its answer."""
+    """A club declines once per Ansetzung, so the decline the administrator discarded is its answer."""
 
     def test_the_declining_club_is_asked_nothing_until_the_fixture_moves(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -632,7 +632,7 @@ AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "grund": "Schulwechsel",
 
 
 class TestADiscardEndsWhereAnAgreementBesideItEnds:
-    """`docs/backend/spec.md :: I763`: the public verdict counts a discard as its club's agreement only while an agreement would count."""
+    """The public verdict counts a discard as its club's agreement only while an agreement would count."""
 
     @pytest.mark.parametrize(
         ("saison_team", "spiel", "today", "grund"),
@@ -733,7 +733,7 @@ class TestAMovedFixtureAsksAgain:
 
 
 class TestTheVoidNoticeGoesAheadOfTheFreshRequest:
-    """`docs/backend/spec.md :: I769`: a full close or notice share holds a moved fixture's fresh request back one more pass."""
+    """A full close or notice share holds a moved fixture's fresh request back one more pass."""
 
     def test_the_moved_fixture_is_asked_on_the_pass_that_announces_it(self, mongo_replica_set_url: str):
         decided = [
@@ -875,7 +875,7 @@ class TestAReplacedClubsRowsClose:
 
 
 class TestARowClosesOnceItsDayHasPassed:
-    """`docs/backend/spec.md :: I749`: a fixture nobody entered a result for keeps no row open past its day."""
+    """A fixture nobody entered a result for keeps no row open past its day."""
 
     def test_the_day_after_closes_every_row_answered_or_not_and_the_day_itself_none(self, mongo_replica_set_url: str):
         day_after = days_after(day=NEXT_WEEK, days=1)
@@ -1000,7 +1000,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
 
 
 class TestASeatHandedOnBesideTheMintIsMintedForItsNewHolder:
-    """`docs/backend/spec.md :: I770`: the handover voids the open rows it sees, and the mint's rows are not yet among them."""
+    """The handover voids the open rows it sees, and the mint's rows are not yet among them."""
 
     def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1388,7 +1388,7 @@ def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str]]:
 
 
 class TestALaterStepFailingAnswersWhatCommitted:
-    """`docs/backend/spec.md :: I753`: the notice step's notices committed, so a later step's failure is no error."""
+    """The notice step's notices committed, so a later step's failure is no error."""
 
     def test_the_notices_are_answered_and_the_day_is_not_stamped(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1445,7 +1445,7 @@ class TestALaterStepFailingAnswersWhatCommitted:
 
 
 class TestOneRowHoldsBackNoOther:
-    """`docs/backend/spec.md :: I720`: a fixture the pass cannot answer is passed over alone, every pass, and its neighbour is asked."""
+    """A fixture the pass cannot answer is passed over alone, every pass, and its neighbour is asked."""
 
     def test_a_fixture_fielding_a_club_without_a_season_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1763,7 +1763,7 @@ class ThenTheRivalAfterTheSecondSessionRead(ThenTheRivalAfterTheFirstSessionRead
 
 
 class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
-    """`docs/backend/spec.md :: I770`'s second shape: the handover's void finds the open row's entry already empty and writes nothing.
+    """The second shape: the handover's void finds the open row's entry already empty and writes nothing.
 
     So only the anchor parts the two, on a club the mint writes no new row for.
     """
@@ -1860,7 +1860,7 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
 
 
 class TestARefereeErasedBesideTheMintIsToldNothing:
-    """`docs/backend/spec.md :: I760`: the erasure deletes the referee's rows its snapshot holds, and the mint's is not yet one."""
+    """The erasure deletes the referee's rows its snapshot holds, and the mint's is not yet one."""
 
     def test_the_mint_runs_again_and_writes_the_erased_referee_no_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1883,7 +1883,7 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
 
 
 class TestAnErasedContactIsNotToldTheirFixtureMoved:
-    """`docs/backend/spec.md :: I762`: a seat holding no link on the closed row is one the erasure's void writes nothing for."""
+    """A seat holding no link on the closed row is one the erasure's void writes nothing for."""
 
     def _told(self, url: str, interleaving: Callable[[Any, Callable[[], Awaitable[None]]], Any], serially: int) -> set[str]:
         """The addresses the move's notice went to, the trainer erased at the pass's read `interleaving` names."""
@@ -2026,7 +2026,7 @@ class TestARequestNeverStampedIsAskedAgain:
 
 
 class TestASeatMintedAfreshOnAReminderDay:
-    """`docs/backend/spec.md :: I767`: the seat's request is its message of the day, and its row's other seats are reminded beside it."""
+    """The seat's request is its message of the day, and its row's other seats are reminded beside it."""
 
     def _passes(self, url: str, emptied: list[str]) -> Any:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2060,7 +2060,7 @@ class TestASeatMintedAfreshOnAReminderDay:
 
 
 class TestALinkMailedBeforeALostStampLivesToTheDeadline:
-    """`docs/backend/spec.md :: I752` across a request asked again: its first mail may have arrived, so its link stays live."""
+    """Across a request asked again: its first mail may have arrived, so its link stays live."""
 
     def test_the_first_requests_links_name_their_seats_after_the_resend_and_both_reminders(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2118,7 +2118,7 @@ async def a_lost_einteilung_stamp(database: AsyncDatabase, client: AsyncMongoCli
 
 
 class TestAnEinteilungNeverStampedIsToldAgain:
-    """`docs/backend/spec.md :: I765` for a referee row: the referee is told on every later pass until a stamp records it."""
+    """For a referee row: the referee is told on every later pass until a stamp records it."""
 
     def test_the_next_pass_tells_the_referee_again(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2327,7 +2327,7 @@ async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, antw
 
 
 class TestARefereeWhoAcceptedIsToldTheyWereTakenOff:
-    """`docs/backend/spec.md :: I780` reaches an answered row: the close shuts it answered or not, and the notice follows."""
+    """The rule reaches an answered row: the close shuts it answered or not, and the notice follows."""
 
     def test_their_acceptance_is_no_reason_to_tell_them_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2342,7 +2342,7 @@ class TestARefereeWhoAcceptedIsToldTheyWereTakenOff:
         assert [notice.address for notice in second.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
 
 
-# --- The NOTICES a close owes, held on the rows it closed (`docs/backend/spec.md :: I835`).
+# --- The NOTICES a close owes, held on the rows it closed.
 
 
 class TestANoticeOutlivesALostAnswer:
@@ -2416,7 +2416,7 @@ class TestANoticeOutlivesALostAnswer:
 
 
 class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
-    """`docs/backend/spec.md :: I840`: its parties asked about `NEXT_WEEK`, the fixture moved before any pass closed their rows."""
+    """Its parties asked about `NEXT_WEEK`, the fixture moved before any pass closed their rows."""
 
     @pytest.mark.parametrize(
         ("today", "moved_to", "told"),
@@ -2443,7 +2443,7 @@ class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
 
 
 class TestANoticeWhoseClosingWasUndoneIsDropped:
-    """`docs/backend/spec.md :: I839`: each first pass's notices went unstamped, so the second pass holds them still."""
+    """Each first pass's notices went unstamped, so the second pass holds them still."""
 
     def test_a_call_off_whose_fixture_was_reinstated(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2511,7 +2511,7 @@ class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
         assert [notice.address for notice in answer.schiedsrichter_gewechselt] == [moved_to]
 
 
-# --- A FIXTURE CALLED OFF after its parties were asked (`docs/backend/spec.md :: I836`).
+# --- A FIXTURE CALLED OFF after its parties were asked.
 
 
 async def asked_and_called_off(

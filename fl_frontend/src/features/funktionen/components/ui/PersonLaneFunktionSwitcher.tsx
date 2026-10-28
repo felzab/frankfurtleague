@@ -11,10 +11,9 @@ import { funktionOrteOf } from "../../utils";
  * the person's Funktionen lead to is the session's to say.
  */
 export async function PersonLaneFunktionSwitcher({ ohneOrt, mitBereich }: { ohneOrt: string; mitBereich: boolean }) {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store (`docs/frontend/spec.md :: I448`).
+  // Its own, whatever is mounted above: the builder stage reaches no sign-in store.
   await connection();
-  // The hold's own read, memoised per render; nothing for a refused session, the page turning it away
-  // (`docs/frontend/spec.md :: I834`).
+  // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return null;
   const { funktionen } = funktionenOf(subject);

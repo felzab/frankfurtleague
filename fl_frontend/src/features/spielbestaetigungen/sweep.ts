@@ -70,7 +70,7 @@ type Zaehler = {
  * Arms the fixture confirmations' timer for the life of this process.
  *
  * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built (`docs/ops/spec.md :: I149`).
+ * is built.
  */
 export function armSpielSweep(): void {
   const erster = setTimeout(() => void runSpielSweep(), SWEEP_START_DELAY_MS);
@@ -101,7 +101,7 @@ export async function runSpielSweep(): Promise<void> {
   try {
     await sweepAlleSaisons();
   } finally {
-    // On every armed pass, one whose listing failed included (`docs/frontend/spec.md :: I741`).
+    // On every armed pass, one whose listing failed included.
     await revalidateOverLoopback(["spiele"]);
     laeuft = false;
   }
@@ -135,8 +135,8 @@ async function sweepAlleSaisons(): Promise<void> {
 }
 
 /**
- * One season's pass, then its messages: a notice and a first request each mailed before its stamp
- * (`docs/frontend/spec.md :: I742`), a reminder after the stamp the call wrote, so a failed send costs one reminder.
+ * One season's pass, then its messages: a notice and a first request each mailed before its stamp,
+ * a reminder after the stamp the call wrote, so a failed send costs one reminder.
  */
 async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   const antwort = await postSpielbestaetigungSweep(saisonId);
@@ -153,7 +153,7 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
     if (istVersandt(versand)) mitgeteilt.push(spielbestaetigungId);
   };
   // Each fixture's mailbox whose void notice did not go: its fresh request waits, unstamped, for the next pass to ask it
-  // after the notice (`docs/frontend/spec.md :: I869`).
+  // after the notice.
   const ungewarnt = new Set<string>();
   for (const neu of antwort.neue_ansetzungen) {
     const versand = await mailNeueAnsetzung(neu);
@@ -230,7 +230,7 @@ function ansetzungText(ansetzung: FLSpielbestaetigungAnsichtAnsetzung): SpielAns
 }
 
 /**
- * Whether a request or a notice counts as sent, on either lane (`docs/frontend/spec.md :: I742`). Production waits for a
+ * Whether a request or a notice counts as sent, on either lane. Production waits for a
  * real send: withheld there is a deployment missing its key, and a stamp would leave a party nobody told silent.
  */
 function istVersandt(versand: "gesendet" | VersandAusfall): boolean {
@@ -244,7 +244,7 @@ function istVersandt(versand: "gesendet" | VersandAusfall): boolean {
  * deadline is the row's own, as the endpoint answered it, and never one reckoned here.
  */
 async function mailAnfrage(anfrage: FLSpielbestaetigungSweepAnfrage, art: "anfrage" | "erinnerung"): Promise<boolean> {
-  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`).
+  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
   const origin = frontend_config.AUTH_URL;
   const ansetzung = ansetzungText(anfrage.ansetzung);
   const team = anfrage.seite === "team1" ? anfrage.ansetzung.team1_name : anfrage.ansetzung.team2_name;
@@ -398,7 +398,7 @@ async function mailSpielleitung(address: string, scope: readonly string[], bauen
     const ausfall = versandAusfallOf(error);
     // A barred or a withheld message is the mailer's own line, as on every lane.
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
-    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    // Name only, never the error: its message can carry the address.
     logger.error("spielbestaetigung.spielleitung_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,

@@ -22,7 +22,7 @@ import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
-// A replica set: why this file needs one is `docs/frontend/spec.md` §1.9's.
+// A replica set.
 const { mongod, closing } = await startJudgedReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
@@ -322,7 +322,7 @@ const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
 
 describe("two enrolments of one administrator, against a real database", () => {
-  // The clause holds in sequence; two enrolments at once may both stand (`docs/frontend/spec.md` §4).
+  // The clause holds in sequence; two enrolments at once may both stand.
   it("refuses a second code-borne enrolment made after the first", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
@@ -356,8 +356,7 @@ describe("two enrolments of one administrator, against a real database", () => {
 });
 
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
-   that signs in, so a setup the database refuses signs nobody in and nobody out
-   (`docs/frontend/spec.md :: I399`). */
+   that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
   it("replaces the code's session with the passkey's, the credential stamped", async () => {
     const offered = await offer(await signIn(ADMIN_EMAIL));
@@ -416,7 +415,7 @@ describe("a passkey setup that signs in, against a real database", () => {
   });
 });
 
-describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I402`)", () => {
+describe("what a ban ends, against a real database", () => {
   it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
     const { adapter } = await auth.$context;
     const person = await adapter.create<Record<string, unknown>, { id: string }>({
@@ -461,7 +460,7 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
   });
 });
 
-describe("an address change carrying the account, against a real database (`docs/frontend/spec.md :: I829`)", () => {
+describe("an address change carrying the account, against a real database", () => {
   /** An account at `email` holding two sessions and one passkey. */
   async function accountAt(email: string): Promise<string> {
     const { adapter } = await auth.$context;
@@ -559,7 +558,7 @@ describe("an address change carrying the account, against a real database (`docs
 
 /* The memory adapter's `delete` removes every row it matches and MongoDB's removes one, so the
    clearing is judged here and nowhere else. */
-describe("an address's failures after a code signs in, against a real database (`docs/frontend/spec.md :: I441`)", () => {
+describe("an address's failures after a code signs in, against a real database", () => {
   async function failureRows(): Promise<Record<string, unknown>[]> {
     return authDb()
       .collection("verification")
@@ -625,8 +624,7 @@ describe("an address's failures after a code signs in, against a real database (
 });
 
 /* A wrong guess consumes the code and writes it back after its check. A send from another request,
-   inside the consume's transaction, writes a newer code the written-back one must not outrank
-   (`docs/frontend/spec.md :: I486`). */
+   inside the consume's transaction, writes a newer code the written-back one must not outrank. */
 describe("a wrong code racing a new one's send, against a real database", () => {
   it("signs in with the code mailed while a wrong guess was being checked", async () => {
     const headers = new Headers(ORIGIN);
@@ -658,7 +656,7 @@ describe("a wrong code racing a new one's send, against a real database", () => 
 });
 
 /* The per-address mail cap's own race, on the real store: sends held at their count until the whole
-   burst has arrived (`docs/frontend/spec.md :: I442`). */
+   burst has arrived. */
 describe("the code mails one address may be sent, against a real database", () => {
   it("mails no burst of concurrent sends past the fifth", async () => {
     const before = sent.length;
@@ -676,8 +674,8 @@ describe("the code mails one address may be sent, against a real database", () =
 });
 
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
-   takes the passkey row back with it (`docs/frontend/spec.md :: I403`); the enrolment refuses a barred
-   person before any mint (`:: I406`). */
+   takes the passkey row back with it; the enrolment refuses a barred
+   person before any mint. */
 describe("a set-up the gate refuses, against a real database", () => {
   it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
     const email = "ohne-sitz-spaeter@example.org";
@@ -698,7 +696,7 @@ describe("a set-up the gate refuses, against a real database", () => {
 });
 
 /* The typed code's own path through the mint: its creation hook stamps the factor and asks the gate,
-   and the rotation ends the session the browser held (`docs/frontend/spec.md :: I399`, `:: I403`). */
+   and the rotation ends the session the browser held. */
 describe("a code sign-in through the mint, against a real database", () => {
   const PERSON = "spielerin-mit-code@example.org";
 
@@ -719,7 +717,7 @@ describe("a code sign-in through the mint, against a real database", () => {
   });
 
   /* The sibling read and delete run on the real adapter's id and reference types, which the memory
-     store's plain strings never test (`docs/frontend/spec.md :: I485`). */
+     store's plain strings never test. */
   it("leaves only the later of two sessions minted to replace one cookie", async () => {
     gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const held = await signIn(PERSON);
@@ -750,7 +748,7 @@ describe("a code sign-in through the mint, against a real database", () => {
 
 /* The slide's write is the Mongo adapter's update by token, which the memory store's plain objects
    never test: an update matching nothing signs the reader out instead. */
-describe("a session only read, against a real database (`docs/frontend/spec.md :: I495`, `:: I496`)", () => {
+describe("a session only read, against a real database", () => {
   it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
     const { readServedSession } = await import("./auth.ts");
     const { proxy } = await import("../proxy.ts");
@@ -831,7 +829,7 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
 }
 
 /* The Mongo adapter turns the helper's `in` and `starts_with` into a query of its own, which the memory store
-   never shows: a row they miss stands here and nowhere else (`docs/frontend/spec.md :: I675`). */
+   never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
@@ -858,7 +856,7 @@ describe("an account deleted, against a real database", () => {
   });
 
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
-     leaves it for them to find, and no passkey past their reach (`docs/frontend/spec.md :: I675`). */
+     leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const person = await seedAccount("nutzerzeile-db@example.org");

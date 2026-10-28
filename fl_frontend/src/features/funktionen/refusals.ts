@@ -39,8 +39,8 @@ const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
 const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
 
 /**
- * Said on the box, one sentence about the value: its hint and placeholder say what it may hold (`docs/frontend/spec.md`
- * §1.12). The refusal names no word and takes a common word equal to a name.
+ * Said on the box, one sentence about the value: its hint and placeholder say what it may hold.
+ * The refusal names no word and takes a common word equal to a name.
  */
 const NAME_IM_ANLASS = "Der Anlass enthält ein Wort, das einem Namen der Person gleicht.";
 

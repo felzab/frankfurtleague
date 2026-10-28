@@ -56,7 +56,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
     // frame it, and a hand-rolled ceremony would own that pairing without owning the endpoints.
 
     // `createSession`: setting the passkey up signs in with it, ending the code's session in the
-    // same step (`docs/frontend/spec.md :: I399`).
+    // same step.
     const { error } = enrolling ? await authClient.passkey.addPasskey({ createSession: true }) : await authClient.signIn.passkey();
 
     if (error === null) return null;
@@ -75,7 +75,7 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 // session that could remove one would let a stolen mailbox swap the administrator's own out.
 
 // Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused at
-// `fl_frontend/src/core/auth.ts :: BROWSER_PATHS` (`docs/frontend/spec.md :: I261`).
+// `fl_frontend/src/core/auth.ts :: BROWSER_PATHS`.
 
 /** Where „Später“ goes, which only the offer carries: the requirement and the assertion have no way past them. */
 type Props = { readonly address: string; readonly next: string } & (
@@ -118,8 +118,7 @@ export function PasskeyForm(props: Props) {
           </p>
         ))}
 
-        {/* The account this passkey belongs to, at the rung a person's own datum takes on a page
-            (`docs/frontend/spec.md` §1.16). */}
+        {/* The account this passkey belongs to, at the rung a person's own datum takes on a page. */}
         <p className="fluid-sm font-bold break-all text-foreground">{address}</p>
 
         {/* `isPending` is the whole of the double-press guard: a second prompt aborts the first,

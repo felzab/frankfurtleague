@@ -49,8 +49,7 @@ async def erase_referee_in_session(
     # ONE stamp for both passes below, so a row cannot say which of the two reached it; the caller's,
     # so several erasures in one transaction redact under one instant.
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """Delete the referee, repoint their fixtures at the ghost and redact the log, answering how many fixtures moved.
@@ -76,8 +75,7 @@ async def erase_referee_in_session(
     )
 
     # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
-    # here would file the person's whole document into the log this call exists to clear
-    # (`docs/backend/spec.md :: I48`).
+    # here would file the person's whole document into the log this call exists to clear.
     await erase_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},

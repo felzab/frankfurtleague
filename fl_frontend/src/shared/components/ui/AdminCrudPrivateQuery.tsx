@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 type PrivateQuery = { value: string; set: (value: string) => void };
 
-/** `null` outside the shell, which holds every admin search, and never a fallback to the URL (`docs/frontend/spec.md :: I680`). */
+/** `null` outside the shell, which holds every admin search, and never a fallback to the URL. */
 const PrivateQueryContext = createContext<PrivateQuery | null>(null);
 
 /**

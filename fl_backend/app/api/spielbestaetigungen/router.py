@@ -237,7 +237,7 @@ async def post_spielbestaetigung(
                     refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
 
                 # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
-                # proposal an earlier rule refuses. Only claims the stored fixture did not make (`docs/backend/spec.md :: I258`).
+                # proposal an earlier rule refuses. Only claims the stored fixture did not make.
                 booked = await pull_booked_slots(
                     spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
                 )
@@ -263,12 +263,11 @@ async def post_spielbestaetigung(
             )
         except DocumentNotFoundException:
             # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
-            # the filter repeats that judgement on the write (`docs/backend/spec.md :: I755`).
+            # the filter repeats that judgement on the write.
             refuse(first_press_refusal(schiedsrichter=False))
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
-        # landing under this transaction raises no conflict: all judged again outside it before answering
-        # (`docs/backend/spec.md :: I118`).
+        # landing under this transaction raises no conflict: all judged again outside it before answering.
         jetzt = await pull_ansetzung_lage(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,

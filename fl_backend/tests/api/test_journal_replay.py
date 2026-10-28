@@ -471,7 +471,7 @@ class TestEachPressAndItsReplay:
         # No address: the day files keep the line thirty days.
         assert "@" not in outcome["lines"][0]
 
-        # An effect is made again now, as a grant it moves holds nothing from before (`docs/backend/spec.md :: I526`).
+        # An effect is made again now, as a grant it moves holds nothing from before.
         pressed = [
             _ended_at(record, REPLAY_NOW) if press in MOVED and index == 0 else record for index, record in enumerate(outcome["pressed"])
         ]

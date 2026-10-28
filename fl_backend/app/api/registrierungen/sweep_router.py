@@ -57,12 +57,12 @@ _TEAM_UNBEKANNT = ""
 
 # Three commands a row beside the eighteen of the worst call erasing one page per clock
 # (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 261 commands at a 37 ms round trip
-# plus 1.27 ms take 9.99 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
+# plus 1.27 ms take 9.99 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 81
 
 
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
-    """Every log row naming the erased registrations, emptied and stamped (`docs/backend/spec.md :: I671`).
+    """Every log row naming the erased registrations, emptied and stamped.
 
     A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two slices
     of two instances each fall short of `.claude/CLAUDE.md` §3's three.
@@ -248,7 +248,7 @@ async def sweep_registrierungen(
 
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
-        # other key would preserve what this call destroys (`docs/backend/spec.md :: I48`).
+        # other key would preserve what this call destroys.
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -298,7 +298,7 @@ async def sweep_registrierungen(
             return erinnerung, token_hash
 
         # Answers built before any stamp, the share cut from the rows they carry: a refused row writes nothing
-        # and costs no second attempt (`docs/backend/spec.md :: I728`), and the rows past the share stay due.
+        # and costs no second attempt, and the rows past the share stay due.
         taken = batch.judged(reachable, erinnerung_of)[: batch.share]
         batch.took([row for row, _ in taken])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
@@ -347,8 +347,7 @@ async def sweep_registrierungen(
         return len(rows), result.deleted_count, redacted
 
     # FIRST, and every other drain before the pass's last transaction: what that transaction hands
-    # back is owed a message, and a failure after it would answer this request with an error instead
-    # (`docs/backend/spec.md :: I323`).
+    # back is owed a message, and a failure after it would answer this request with an error instead.
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
         page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
@@ -372,7 +371,7 @@ async def sweep_registrierungen(
             # page: this clock also stops at the first page owing somebody a message.
             while True:
                 # Accepted: this commit going unanswered erases a page and loses whom it owed a
-                # message (`docs/backend/spec.md :: "An unanswered commit owing a message"`).
+                # message.
                 pages, passed = await run_isolated(
                     db=db,
                     # Without the rows passed over, as `drain` reads its pages.

@@ -856,7 +856,7 @@ class TestAFixtureIsEitherDrawnOrWired:
 class TestTheSeasonIsPlayedUnderTheJunctionRowsNames:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_a_side_copies_the_name_and_shorthand_the_row_carries(self, shape: tuple[int, int, int]):
-        """The row's name, never the club's: the row is what the season was played under (`docs/backend/spec.md :: I19`)."""
+        """The row's name, never the club's: the row is what the season was played under."""
 
         groups, teams, _ = shape
         entered = entered_for(groups, teams)

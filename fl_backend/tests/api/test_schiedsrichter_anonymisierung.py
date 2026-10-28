@@ -776,7 +776,7 @@ def test_every_fixture_they_officiated_is_repointed(mongo_replica_set_url: str):
 
 @pytest.mark.db
 def test_a_closed_seasons_fixture_is_repointed_as_well(mongo_replica_set_url: str):
-    """The archive records them too, and a referee's fan-out carries no `past` bound where a club's stops (`docs/backend/spec.md :: I13`)."""
+    """The archive records them too, and a referee's fan-out carries no `past` bound where a club's stops."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await an_archived_fixture(database)
@@ -973,7 +973,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
 def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica_set_url: str):
     """An undraw removes a season's fixtures and keeps every image in ONE row, `document_id` an array.
 
-    Kills a filter reading `before` as a single document (`docs/backend/spec.md :: I48`).
+    Kills a filter reading `before` as a single document.
     """
 
     removed = SPIEL_OIDS[SCHIEDSRICHTER_OID]

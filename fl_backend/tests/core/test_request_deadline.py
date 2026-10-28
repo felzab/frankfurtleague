@@ -93,7 +93,7 @@ DEADLINES = [
 
 class TestTheDeadlinesTheApplicationSets:
     def test_the_request_s_and_the_aborts_past_it_are_the_only_two(self):
-        """`docs/backend/spec.md :: I320`. The whole list rather than a count, so finding nothing fails as a third spelling does."""
+        """The whole list rather than a count, so finding nothing fails as a third spelling does."""
 
         spelled = [
             (path.relative_to(BACKEND_ROOT).as_posix(), line.strip())
@@ -153,7 +153,7 @@ def _backend_stop_grace() -> int:
 
 
 class TestAStoppedContainerOutlastsEveryRequest:
-    """`docs/ops/spec.md :: I540`: three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
+    """Three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
     def test_uvicorn_waits_out_a_request_s_whole_bound(self):
         assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
@@ -619,7 +619,7 @@ def _published() -> dict[str, dict[str, Any]]:
 
 
 class TestTheDeclarationIsPublished:
-    """`docs/backend/spec.md :: I327`: the frontend marks its calls against the document, never against a copy."""
+    """The frontend marks its calls against the document, never against a copy."""
 
     def test_every_declaration_reaches_the_document_and_nothing_else_does(self):
         published = {

@@ -1,7 +1,7 @@
 export const TRACEPARENT_HEADER = "traceparent";
 
-// No proxied path reaches a backend write, so the actor is always the one the session set
-// (`docs/backend/spec.md :: I41`). The edge blanks a visitor's header too (`nginx/shared/site.conf`),
+// No proxied path reaches a backend write, so the actor is always the one the session set.
+// The edge blanks a visitor's header too (`nginx/shared/site.conf`),
 // which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 
@@ -11,8 +11,7 @@ export interface TraceIds {
 }
 
 // Version `00` alone, and the whole header anchored: the edge mints this value, so anything else
-// arriving here was written by a caller and is replaced rather than read
-// (`docs/logging/spec.md :: L7`).
+// arriving here was written by a caller and is replaced rather than read.
 const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/;
 
 // W3C reserves both as "no trace" and "no span", so honouring one would file every request that

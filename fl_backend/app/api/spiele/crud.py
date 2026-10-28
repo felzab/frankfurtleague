@@ -89,7 +89,7 @@ async def _resolve_one_saison(
     if gruppen_to_decide:
         # `GET /teams`' own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a club that table withholds must hold no placing the bracket
-        # honours (`docs/backend/spec.md :: I252`). `rules=None` asks it for the ROWS alone.
+        # honours. `rules=None` asks it for the ROWS alone.
 
         # No `GERMAN_COLLATION`, unlike the reads that serve that pipeline to a page: what comes back
         # here is grouped and ranked by points, so its order reaches nobody and would only cost the
@@ -106,7 +106,7 @@ async def _resolve_one_saison(
 
         # From the fixtures ARGUED, never re-read: the preview hands in a season this collection
         # does not hold yet, so a table read back from it would rank the save's fixtures while the
-        # walk ranks the preview's (`docs/backend/spec.md :: I98`).
+        # walk ranks the preview's.
         by_team = build_statistik_by_team(gruppenphase, rules)
 
         standings = build_decided_standings(
@@ -164,7 +164,7 @@ async def find_bracket_faults(
     faults.extend(find_double_entries(spiele))
 
     # Beside it too, each a booking rule's state: a bracket resolution, or a side emptied for a Spieltag
-    # clash, reopening a fixture stores one without judging it (`docs/backend/spec.md :: I257`).
+    # clash, reopening a fixture stores one without judging it.
     faults.extend(
         find_retired_bookings(
             spiele,
@@ -193,7 +193,7 @@ async def _retirement_days(collection: AsyncCollection, ids: Set[Any]) -> dict[A
         collection=collection,
         db_filter={"_id": {"$in": list(ids)}, "inactive_since": {"$ne": None}},
         projection={"inactive_since": 1},
-        # `_id` is unique, so `len(ids)` rows is the whole answer and the cap can never cut it short (`docs/backend/spec.md :: I45`).
+        # `_id` is unique, so `len(ids)` rows is the whole answer and the cap can never cut it short.
         limit=len(ids),
     )
 
@@ -235,7 +235,7 @@ async def pull_booked_slots(
     """Every other fixture's booking one of `claims` meets, as `REQ-CLASH-001` compares them.
 
     `claims` is the caller's choice, and a save judges `find_claims_made`'s rather than every claim
-    its fixture makes (`docs/backend/spec.md :: I258`).
+    its fixture makes.
     """
 
     holders = await pull_slot_holders(spiele_collection=spiele_collection, claims=claims, session=session)
@@ -378,7 +378,7 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
     """Every reference a rewrite books afresh by reopening its fixture.
 
     Called by the save and its preview alike, so neither anchors what the other leaves alone. A
-    rewrite keeps the booking it finds (`docs/backend/spec.md :: I257`).
+    rewrite keeps the booking it finds.
     """
 
     by_id = {spiel.id: spiel for spiel in season}
@@ -495,7 +495,7 @@ async def advance_bracket_winners(
     booked_again = references_booked_again(season=spiele, rewrites=resolution.advancements)
 
     for advancement in resolution.advancements:
-        # The result goes with the occupant (`docs/backend/spec.md :: I25b`): what was scored here
+        # The result goes with the occupant: what was scored here
         # was scored by a team no longer in the fixture.
         await patch_one_in_db(
             collection=spiele_collection,
@@ -545,7 +545,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
 
 
 def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | None:
-    """One stored side as a payload names it. The display copies stay behind: the server composes them (`docs/backend/spec.md :: I3`)."""
+    """One stored side as a payload names it. The display copies stay behind: the server composes them."""
 
     return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
 
@@ -593,7 +593,7 @@ def report_prior_paarungen(
     moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
     stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
 
-    # `docs/backend/spec.md :: I108`'s reading: a restore silently short of one fixture leaves it
+    # The rule's reading: a restore silently short of one fixture leaves it
     # holding exactly what the admin asked to undo.
     if len(stored) != len(moved):
         raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")

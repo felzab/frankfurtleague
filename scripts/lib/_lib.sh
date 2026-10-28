@@ -622,7 +622,7 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# The one line every reader takes alike (`docs/ops/spec.md :: I487`): a value of RFC 3986's URL
+# The one line every reader takes alike: a value of RFC 3986's URL
 # characters less `#`, `$` and `'`, some reader's comment, substitution and quote. A character
 # joins only once every reader takes it literally.
 ENV_LINE_RE='^[A-Za-z_][A-Za-z0-9_]*=[]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$'
@@ -701,8 +701,8 @@ return before its end, U+2028, U+2029 or a NUL byte.
 NOTHING was asked of compose or of either service."
 }
 
-# The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
-# (`docs/ops/spec.md :: I472`). The file is read by the scripts that source this one.
+# The actor token's signing key: where the host holds it, and where compose mounts it for the frontend.
+# The file is read by the scripts that source this one.
 # shellcheck disable=SC2034
 SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
 SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
@@ -852,8 +852,8 @@ whether it would boot. Its own answer is above."
 }
 
 # Compose hands the container every line of its file as a variable, which `docker inspect` prints,
-# so a credential's or the retired list's name is refused with any value or none
-# (`docs/ops/spec.md :: I508`), given in the list's spelling.
+# so a credential's or the retired list's name is refused with any value or none,
+# given in the list's spelling.
 refuse_credential_lines() { # $@ the environment files
   # Off, as in `env_lines`: a name read in any form may be a key's data, and a trace would print it.
   local -

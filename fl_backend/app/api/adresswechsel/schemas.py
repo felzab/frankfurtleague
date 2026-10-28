@@ -287,7 +287,7 @@ class FLAdresswechselVerwaltungBestand(BaseModel):
 class FLAdresswechselVerwaltungGenehmigung(BaseModel):
     """The approval a change moving a grant waits on, read-only here: the administrators page approves it.
 
-    Never who approved: a barred administrator's address is answered on no read (`docs/backend/spec.md :: I452`).
+    Never who approved: a barred administrator's address is answered on no read.
     """
 
     verwaltung: FLAdresswechselVerwaltung
@@ -347,8 +347,8 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     bisherige_email: str
     # Null on the lost-mailbox way: the address on file may have passed to a stranger, so its notice greets nobody.
     vorname: str | None
-    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
-    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim,
+    # and the caller only branches on a wait.
     genehmiger_anzahl: int = Field(ge=0)
 
 

@@ -70,7 +70,7 @@ const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte ei
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and
  * the one place that knows which answers are not this application's — a form recognising one itself
- * is a form that can miss one (`docs/frontend/spec.md` §1.3).
+ * is a form that can miss one.
  */
 export async function postPublicForm<T extends PublicEnvelope>(
   endpoint: string,

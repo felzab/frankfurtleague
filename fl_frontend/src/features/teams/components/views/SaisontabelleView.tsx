@@ -42,7 +42,7 @@ function qualifiedLegend(anzahl: number, isFinishedSaison: boolean): string {
 }
 
 /**
- * Annotative and never additive: a forfeit is in both figures (`docs/backend/spec.md :: I1d`), so a
+ * Annotative and never additive: a forfeit is in both figures, so a
  * `+1` would invite a reader to add it to the tally and reach a total the season never held.
  *
  * A hint, not `IconTooltip` — `Hint.tsx` carries why.

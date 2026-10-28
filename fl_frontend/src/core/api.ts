@@ -28,7 +28,7 @@ const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VE
 
 /**
  * The backend's own deadline on a request, retyped from `fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`:
- * every database write a call makes ends inside it (`docs/backend/spec.md :: I320`).
+ * every database write a call makes ends inside it.
  */
 const BACKEND_REQUEST_DEADLINE_MS = 10000;
 
@@ -41,7 +41,7 @@ const WRITE_ANSWER_MARGIN_MS = 2000;
 
 /**
  * What a call that may write needs left of its request's deadline: sent with less, the request could stop waiting while
- * the backend still commits, and drop its caches before that write lands (`docs/frontend/spec.md :: I733`).
+ * the backend still commits, and drop its caches before that write lands.
  */
 export const WRITE_NEEDS_MS = BACKEND_REQUEST_DEADLINE_MS + WRITE_ANSWER_MARGIN_MS;
 
@@ -56,8 +56,7 @@ export interface FetchOptions extends RequestInit {
   cacheFill?: { name: string; args: unknown };
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
-   * a dry run: its timeout is a read that failed, never a write of unknown outcome
-   * (`docs/frontend/spec.md :: I326`).
+   * a dry run: its timeout is a read that failed, never a write of unknown outcome.
    */
   readOnly?: true;
 }
@@ -147,7 +146,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   // INFO rather than DEBUG: a fill is rare beside requests, and the default `LOG_LEVEL` must show
   // the join between a fill and what asked for it. The arguments are cache-key filters, never a
-  // submitted value (`docs/logging/spec.md :: L9`).
+  // submitted value.
   if (cacheFill && scopedTraceId === undefined) {
     logger.info("cache fill", {
       cache_fill: { name: cacheFill.name, args: JSON.stringify(cacheFill.args) },
@@ -165,7 +164,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
   // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
-  // of its own (`docs/logging/spec.md :: L12`).
+  // of its own.
   headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
@@ -224,7 +223,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   let rawData: unknown;
   try {
     // Thrown here rather than left to `fetch`, which refuses an aborted signal unsent too but names no
-    // deadline in what it throws (`docs/frontend/spec.md :: I366`). A read alone reaches it: a write is refused above.
+    // deadline in what it throws. A read alone reaches it: a write is refused above.
     if (bound.signal.aborted) {
       throw new APINetworkError({
         message: "The request's deadline had passed before this call was sent.",
@@ -285,7 +284,7 @@ const BEARER = "Bearer ";
 
 /**
  * Whether a caller presents the system key: the guard of `fl_frontend/src/app/api/revalidate/route.ts`, which this
- * server alone calls (`docs/frontend/spec.md :: I16`).
+ * server alone calls.
  */
 export function presentsSystemKey(authorization: string | null): boolean {
   const presented = Buffer.from(authorization?.startsWith(BEARER) ? authorization.slice(BEARER.length) : "", "utf8");
@@ -301,7 +300,7 @@ const REVALIDATION_TIMEOUT_MS = 10000;
 
 /**
  * Asks this server's own revalidation route to drop `tags`, answering the route's status. Over loopback because Next
- * drops a tag only inside a request, and a timer's call throws (`docs/frontend/spec.md` §1.5).
+ * drops a tag only inside a request, and a timer's call throws.
  */
 export async function postRevalidation(tags: readonly string[]): Promise<number> {
   const response = await fetch(`http://127.0.0.1:${String(serverPort())}/api/revalidate`, {

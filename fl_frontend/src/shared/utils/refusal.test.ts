@@ -47,7 +47,7 @@ describe("buildRefusal", () => {
   });
 
   it("puts no dash anywhere, whatever its parts hold", () => {
-    // `docs/frontend/spec.md` §1.12: no dash is punctuation, and the gate reads only the literals a
+    // No dash is punctuation, and the gate reads only the literals a
     // call site wrote — never the string this assembles from them.
     const built = buildRefusal({ reason: "Nichts wurde gespeichert", repair: "Melde Dich neu an", where: "Konto" });
 

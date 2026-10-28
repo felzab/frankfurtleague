@@ -18,7 +18,7 @@ import type {
 } from "./schemas";
 
 // Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
-// one refuses the whole body (frontend spec 1.3).
+// one refuses the whole body.
 export async function patchSaisonTeamKontakte({
   team_id,
   saison_id,

@@ -3,7 +3,7 @@ import { withSaisonId } from "./saisonHref";
 import type { Metadata } from "next";
 
 /**
- * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter (`docs/frontend/spec.md` §1.13).
+ * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter.
  *
  * **A URL naming the RUNNING season canonicalises to the bare address**, which serves that same
  * page: two self-canonicalising addresses split one page's indexing.

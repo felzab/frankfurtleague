@@ -11,7 +11,7 @@ import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "./
  * **Never `"use cache"` here** (`.claude/rules/frontend.md`'s **cache** clause): `laeuft` is judged
  * against today, so a cached answer would go on reporting an open window long after it shut.
  */
-// `cache` memoizes per RENDER PASS (`docs/frontend/spec.md` §1.2).
+// `cache` memoizes per RENDER PASS.
 export const getEinladung = cache(async (teamId: string, saisonId: string): Promise<FLEinladungResponse> =>
   runAdminRead(() =>
     apiClient<FLEinladungResponse>(

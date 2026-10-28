@@ -30,7 +30,7 @@ export function useReactivation<TPayload>({
   /** The passkey prompt a return minting a link opened is open, and nothing has been sent. */
   isPrompting: boolean;
   /**
-   * `stepUp` where this return is a step-up write (`docs/frontend/spec.md :: I432`); `pressed` where the control stands in
+   * `stepUp` where this return is a step-up write; `pressed` where the control stands in
    * a grid row, which takes the focus off a control pressed without a pointer, so the landing anchors on the control.
    */
   reactivate: (payload: TPayload, declared?: { stepUp?: boolean; pressed?: Element }) => void;

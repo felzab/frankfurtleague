@@ -291,8 +291,7 @@ const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload |
  * showing from its seed.
  */
 const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
-  // No `ergebnis`: the backend derives it from the goals and refuses to accept one
-  // (`docs/backend/spec.md` I3).
+  // No `ergebnis`: the backend derives it from the goals and refuses to accept one.
   spiel_id: spiel.id,
   sonderereignis: spiel.sonderereignis,
   team1: toPayloadSide(spiel.team1),

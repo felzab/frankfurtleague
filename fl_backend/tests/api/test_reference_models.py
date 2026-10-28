@@ -375,7 +375,7 @@ class TestSaisonSpielerRow:
 class TestASquadNumberOnTheWritePath:
     """The digits bound sits on the payloads alone.
 
-    A read model refusing a stored value answers 500 for the whole list (`docs/backend/spec.md :: I254`).
+    A read model refusing a stored value answers 500 for the whole list.
     """
 
     PAYLOADS = [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload]
@@ -740,8 +740,7 @@ def _stored(parsed: BaseModel, path: tuple[str, ...]) -> str:
 class TestTheWritePathStripsBeforeItCountsCharacters:
     """Per payload field with a floor: a padded value is stored stripped, and spaces alone are refused.
 
-    No read model is here: the strip runs BEFORE the floor, so one there would refuse a stored blank
-    (`docs/backend/spec.md :: I36`).
+    No read model is here: the strip runs BEFORE the floor, so one there would refuse a stored blank.
     """
 
     @pytest.fixture

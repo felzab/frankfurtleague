@@ -84,7 +84,7 @@ export function TeamSpielerView({
                         <Avatar.Fallback className="font-bold">{spielerInitialen(spielerData)}</Avatar.Fallback>
                       </Avatar>
                       {/* The name's own size and weight, and the empty-value grade's ink: the grade alone tells
-                          the stand-in word from somebody's name (`docs/frontend/spec.md` §1.19). */}
+                          the stand-in word from somebody's name. */}
                       {istNameZurueckgehalten(spielerData) ? (
                         <span className="line-clamp-1 fluid-xs font-bold">
                           <Leer>{spielerAnzeigename(spielerData)}</Leer>

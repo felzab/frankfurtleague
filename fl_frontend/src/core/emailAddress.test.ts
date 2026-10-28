@@ -8,7 +8,7 @@ import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareM
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de` (I226). */
+/** `new URL` DELETES these five while parsing, so each reaches every later check as `xy.de`. */
 const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
 
 /** The tab and the second at sign survive `new URL` too, where the enumerated punctuation does not. */
@@ -105,8 +105,7 @@ const ROWS = z
   .array(z.object({ case: z.string(), typed: z.string(), ...ANSWER.shape, frontend: ANSWER.optional() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
 
-/* Each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part
-   (`docs/backend/spec.md :: The two runtimes' folds part on a domain no payload stores`). */
+/* Each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part. */
 describe("the address table the API is held to as well", () => {
   for (const row of ROWS) {
     it(`answers ${row.case} as the table records`, () => {
@@ -154,7 +153,7 @@ describe("the domain the conversion is willing to rewrite", () => {
 
 describe("one bare mailbox, the only recipient the mailer takes", () => {
   /* Each a spelling the ban list's keying answers unbarred where a provider may still find a mailbox
-     in it: handed on, it reached a barred person past the gate (`docs/frontend/spec.md :: I541`). */
+     in it: handed on, it reached a barred person past the gate. */
   const AROUND_A_MAILBOX: readonly (readonly [string, string])[] = [
     ["a display name", "Gerda <gerda.gesperrt@schule.de>"],
     ["angle brackets", "<gerda.gesperrt@schule.de>"],

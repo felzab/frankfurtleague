@@ -12,7 +12,7 @@ export const COUNT_BADGE_CLASSES = `inline-flex min-w-6 items-center justify-cen
 
 /**
  * Every tone a pill may wear, and no member of it is neutral: a grey chip reads as a control that has
- * been switched off (`docs/frontend/spec.md :: I170`).
+ * been switched off.
  */
 export type PillTone =
   | "success"
@@ -57,8 +57,7 @@ export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | 
 
 /**
  * For a ground a tint cannot survive — a tab strip's `muted`, and any fill painted under a pill:
- * the tone's fill under its paired on-colour, a pair no ground moves
- * (`docs/frontend/spec.md :: I229`).
+ * the tone's fill under its paired on-colour, a pair no ground moves.
  */
 export const PILL_SOLID_CLASSES: Record<FeedbackTone, string> = {
   success: "bg-success-solid text-success-solid-foreground",

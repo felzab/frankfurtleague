@@ -23,8 +23,7 @@ import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
 /**
  * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
- * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent
- * (`docs/backend/spec.md :: I610`).
+ * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent.
  */
 export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
   const gestempelt = (sitz: FLKontaktpersonPayload | null) =>
@@ -123,7 +122,7 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
     const held = stored?.[value] ?? null;
     const sent = draft?.[value] ?? null;
     // Both halves: a seat nobody confirmed has no stamp for the save to take, and an unchanged one would
-    // raise the confirmation over a form nobody has touched (`docs/backend/spec.md :: I219`).
+    // raise the confirmation over a form nobody has touched.
     if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
 
     // Field by field, never one joined run: „Anna Maria“ moved from the forename into the surname folds
@@ -204,7 +203,7 @@ export function resolveTeamSaisonMembership(
 
 /**
  * The contacts editor's key, holding neither the club's other rows nor a seat's link state or pending address change:
- * those move with no edit here, and remounting on them drops the typed draft (`docs/frontend/spec.md` §1.10).
+ * those move with no edit here, and remounting on them drops the typed draft.
  */
 export function kontakteEditorKey(
   { id, name, shorthand, inactive_since }: FLTeamWithMemberships,
@@ -217,7 +216,7 @@ export function kontakteEditorKey(
   return JSON.stringify({ team, saison, membership: gesaet });
 }
 
-/** One seat as the write side spells it: the provenance is the server's own (`docs/backend/spec.md :: I142`). */
+/** One seat as the write side spells it: the provenance is the server's own. */
 const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktpersonPayload | null =>
   person === null
     ? null
@@ -227,8 +226,7 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
         email: person.email,
         telefon: person.telefon,
         // No `geburtsdatum`: the date is the person's own to enter at their confirmation, so the
-        // server carries the stored seat's forward and this editor may not name one at all
-        // (`docs/backend/spec.md :: I141`).
+        // server carries the stored seat's forward and this editor may not name one at all.
         einwilligung: {
           umfang: EINWILLIGUNG_UMFANG,
           text_version: person.einwilligung.text_version,
@@ -238,7 +236,7 @@ const kontaktpersonPayload = (person: KontaktpersonDraft | null): FLKontaktperso
 
 /**
  * The stored block as the endpoint's own payload. The narrow scope is deliberate: the backend
- * restores a confirmed seat's wider consent from the confirmation (`docs/backend/spec.md :: I142`),
+ * restores a confirmed seat's wider consent from the confirmation,
  * so a replay must never name it.
  */
 export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLSaisonTeamKontaktePayload | null {
@@ -254,7 +252,7 @@ export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLS
 
 /**
  * The alphabet, email and telephone bounds sit on the payload and not the read model, decided at
- * each field (`docs/backend/spec.md :: I104`), so a stored block can be no legal write — and no
+ * each field, so a stored block can be no legal write — and no
  * reload makes it one.
  */
 export function describeUnrestorableKontakte(payload: SaisonTeamKontaktePayloadDraft | FLPatchSaisonTeamKontaktePayload): string | null {

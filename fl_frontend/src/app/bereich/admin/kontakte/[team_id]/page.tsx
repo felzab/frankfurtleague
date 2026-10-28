@@ -18,7 +18,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The contacts editor. One club per URL; WHICH season's three seats it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * selector's `?saison_id=`. It resolves nothing itself.
  */
 export default function AdminKontakteEditPage(props: NextPageProps<{ team_id: string }>) {
   return (
@@ -63,7 +63,7 @@ async function AdminKontakteEditContent({
   const medienFragen = await runWithIncomingTrace(() => getMedienFragen(saison.membership?.kontakte ?? null));
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+    // Keyed by the state the draft mirrors.
     <AdminKontakteEditView
       key={kontakteEditorKey(team, saison)}
       laufendesLabel={laufendesLabel}

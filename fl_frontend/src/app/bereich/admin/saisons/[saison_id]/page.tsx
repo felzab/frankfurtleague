@@ -29,7 +29,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The season editor. The season is the SEGMENT, not the selector's `?saison_id=`: the club and
  * player editors address a junction row, while this page's subject IS a season. It resolves
- * nothing itself (`docs/frontend/spec.md :: I22`).
+ * nothing itself.
  */
 export default function AdminSaisonEditPage(props: NextPageProps<{ saison_id: string }>) {
   return (

@@ -24,8 +24,8 @@ type UndoOffer = {
   /** The save's own sentence, where it produced one. */
   message?: string;
   /**
-   * Required, never optional: the register identifies `Änderung gespeichert` by its description
-   * (`docs/frontend/spec.md :: I42`), so a site sparing the Rückgängig control a row would raise
+   * Required, never optional: the register identifies `Änderung gespeichert` by its description,
+   * so a site sparing the Rückgängig control a row would raise
    * the shared title with nothing telling it apart.
    */
   fallback: string;
@@ -50,7 +50,7 @@ export function offerUndo({ undo, message, fallback, warn = false, unrestorable 
   const raise = warn ? appToast.warning : appToast.success;
 
   // The title moves with the grade: one outcome per title, or the colour carries a meaning the same
-  // words deny (`docs/frontend/spec.md :: I42`).
+  // words deny.
   raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
     description: message ?? fallback,
     timeout: UNDO_TIMEOUT_MS,
@@ -60,14 +60,13 @@ export function offerUndo({ undo, message, fallback, warn = false, unrestorable 
         appToast.clear();
         if (unrestorable !== null) {
           // One title for every way the change stands: the outcome is the same one, and the
-          // description separates a refusal from a dispatch that never landed
-          // (`docs/frontend/spec.md :: I42`).
+          // description separates a refusal from a dispatch that never landed.
           appToast.danger("Änderung nicht zurückgenommen", { description: unrestorable });
           return;
         }
 
         // Asked in the press itself, whose user activation the prompt needs; nothing is sent where
-        // it is refused (`docs/frontend/spec.md :: I431`).
+        // it is refused.
         if (stepUp?.isStale(Date.now()) === true) {
           void stepUp.confirm().then((confirmed) => {
             if (confirmed) dispatch();

@@ -49,13 +49,12 @@ export type ZielMailOutcome = {
   withheld: readonly string[];
   /**
    * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
-   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
-   * (`docs/frontend/spec.md :: I366`).
+   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome.
    */
   ungewiss: readonly string[];
   /**
    * How many addresses the ban list kept the message from: in no list above, and a count rather than
-   * addresses, so nothing a caller reports can name one (`docs/frontend/spec.md :: I542`).
+   * addresses, so nothing a caller reports can name one.
    */
   gesperrt: number;
 };
@@ -116,7 +115,7 @@ async function meldeAngenommen(auftrag: ZielAuftrag, nachrichtId: string, operat
     }
   } catch (error) {
     // Never thrown on: the message HAS gone, and a caller told otherwise would report a send that
-    // happened as one that did not. Name only, never the error (`docs/logging/spec.md :: L9`).
+    // happened as one that did not. Name only, never the error.
     logger.error("zustellung.angenommen_ungemeldet", undefined, {
       error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
@@ -155,7 +154,7 @@ async function meldeAbgewiesen(auftrag: ZielAuftrag, reason: unknown, operation:
     });
   } catch (error) {
     // Never thrown on: the person's page is answered from the fan-out's own result, and the next
-    // send repairs the record. Name only, never the error (`docs/logging/spec.md :: L9`).
+    // send repairs the record. Name only, never the error.
     logger.error("zustellung.abweisung_ungemeldet", undefined, {
       error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
@@ -183,7 +182,7 @@ export async function sendZielMail({
   const settled = await Promise.allSettled(
     // `async`, so a compose that throws is inside the settled boundary too: without it the throw
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
-    // failure for a written decision (`docs/frontend/spec.md :: I39`).
+    // failure for a written decision.
     recipients.map(async (address) => {
       const mail = buildMail(address);
 
@@ -218,7 +217,7 @@ export async function sendZielMail({
     const ausfall = versandAusfallOf(result.reason);
 
     // Counted and nothing more: no failure line, the gate's own being the record, and no refusal
-    // recorded, which would store on the record that its address is barred (`docs/frontend/spec.md :: I542`).
+    // recorded, which would store on the record that its address is barred.
     if (ausfall === "gesperrt") {
       gesperrt += 1;
       return;
@@ -238,7 +237,7 @@ export async function sendZielMail({
     // event will ever carry this to the record the clocks read.
     if (versandIstAbgewiesen(result.reason)) gemeldet.push(meldeAbgewiesen(auftrag, result.reason, operation));
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
-    // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
+    // message and a stack, and the address stays off the stream.
     logger.error("zustellung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: result.reason instanceof Error ? result.reason.name : undefined,

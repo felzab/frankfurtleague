@@ -8,7 +8,7 @@ export const PASSKEY_NAME_MAX = 50;
 
 /**
  * Shared rather than private to the action: the card's form blocks its own submit against this, and a
- * second copy of the rule is how the browser comes to refuse what the server accepts (`docs/frontend/spec.md` I18).
+ * second copy of the rule is how the browser comes to refuse what the server accepts.
  */
 export const PasskeyNamePayloadSchema = z.object({
   name: z
