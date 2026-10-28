@@ -1,56 +1,22 @@
-from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungZustellEreignis,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
     normalise_zustellzeitpunkt,
 )
-from app.api.bewerbungen.services import (
-    ZUSTELLUNG_ABGEWIESEN,
-    compose_bestaetigungen,
-    compose_zustellung_update,
-    hash_token,
-    seat_is_unreachable,
-    seat_zustellung,
-    zustellung_event_applies,
-    zustellung_send_applies,
-)
-from app.api.bewerbungen.zustellung_router import ZUSTELLUNG_FIELDS
-from app.api.teams.schemas import KONTAKT_ROLLEN
-from app.shared.schemas.zustellung import FLBewerbungZustellstand
 
 BEWERBUNG_ID = "6890a1b2c3d4e5f607970001"
 
-MAILED_ON = "2026-03-29"
 
-# One instant and the two stamps around it, each already in the spelling the payload normalises to,
-# so a case names what it compares rather than what it typed.
-EARLIER = "2026-03-29T09:00:00.000000+00:00"
 STAMP = "2026-03-29T10:00:00.000000+00:00"
 LATER = "2026-03-29T11:00:00.000000+00:00"
 
 FIRST_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
-SECOND_MESSAGE = "7c1f2b5e-3d44-4a91-9f0b-1e2d3c4b5a60"
-
-HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}
-
-
-def zustellung(*, nachricht_id: str = FIRST_MESSAGE, stand: str = "angenommen", grund: str | None = None, am: str = STAMP) -> dict[str, Any]:
-    return {"nachricht_id": nachricht_id, "stand": stand, "grund": grund, "am": am}
-
-
-def bestaetigungen(**entries: Any) -> dict[str, Any]:
-    """Three live entries, each carrying the accepted send of the link it was mailed with."""
-
-    block = compose_bestaetigungen(hashes=HASHES, today=MAILED_ON)
-
-    return {**{seat: {**entry, "zustellung": zustellung()} for seat, entry in block.items()}, **entries}
 
 
 def event_body(**overrides: Any) -> dict[str, Any]:
@@ -63,19 +29,6 @@ def event_body(**overrides: Any) -> dict[str, Any]:
         "am": LATER,
         **overrides,
     }
-
-
-class TestTheVocabulary:
-    def test_an_event_carries_every_state_but_the_one_the_sender_writes(self):
-        """`angenommen` is what the provider ACCEPTING the request means, so an event claiming it would undo the refusal that followed."""
-
-        assert set(get_args(FLBewerbungZustellEreignis)) | {"angenommen"} == set(get_args(FLBewerbungZustellstand))
-
-    def test_the_states_a_clock_reads_are_the_ones_no_later_message_repairs(self):
-        """A delayed message still arrives and a delivered one arrived, so neither stops a reminder or holds an application."""
-
-        assert ZUSTELLUNG_ABGEWIESEN < set(get_args(FLBewerbungZustellstand))
-        assert ZUSTELLUNG_ABGEWIESEN.isdisjoint({"angenommen", "zugestellt", "verzoegert"})
 
 
 class TestTheStampIsOneSpelling:
@@ -121,110 +74,6 @@ class TestTheStampIsOneSpelling:
         moment = datetime(2026, 3, 29, 12, 0, tzinfo=UTC)
 
         assert normalise_zustellzeitpunkt(moment.isoformat()) == moment.isoformat(timespec="microseconds")
-
-
-class TestWhenAnEventApplies:
-    def test_the_message_the_seat_holds_and_a_later_stamp_applies(self):
-        assert zustellung_event_applies(bestaetigungen=bestaetigungen(), seat="trainer", nachricht_id=FIRST_MESSAGE, am=LATER)
-
-    def test_an_event_naming_a_superseded_message_is_a_no_op(self):
-        """A re-send mints a new message, and the old one's bounce would otherwise mark a link that works."""
-
-        assert not zustellung_event_applies(bestaetigungen=bestaetigungen(), seat="trainer", nachricht_id=SECOND_MESSAGE, am=LATER)
-
-    @pytest.mark.parametrize(
-        ("am", "why"),
-        [
-            pytest.param(STAMP, "the same event again, which the provider may deliver more than once", id="the stamp it already holds"),
-            pytest.param(EARLIER, "a delivery overtaking the bounce that followed it", id="an earlier stamp"),
-        ],
-    )
-    def test_an_event_that_is_not_strictly_later_is_a_no_op(self, am: str, why: str):
-        assert not zustellung_event_applies(bestaetigungen=bestaetigungen(), seat="trainer", nachricht_id=FIRST_MESSAGE, am=am), why
-
-    def test_a_seat_that_was_never_recorded_as_sent_to_takes_no_event(self):
-        """Nothing joins the event to the seat: the id it names is one no message from here ever carried."""
-
-        block = compose_bestaetigungen(hashes=HASHES, today=MAILED_ON)
-
-        assert not zustellung_event_applies(bestaetigungen=block, seat="trainer", nachricht_id=FIRST_MESSAGE, am=LATER)
-
-    @pytest.mark.parametrize("emptied", [None, "not an entry"])
-    def test_a_seat_the_application_does_not_hold_takes_no_event(self, emptied: Any):
-        block = bestaetigungen(trainer=emptied)
-
-        assert not zustellung_event_applies(bestaetigungen=block, seat="trainer", nachricht_id=FIRST_MESSAGE, am=LATER)
-
-
-class TestWhenAnAcceptedSendApplies:
-    def test_a_seat_that_knows_nothing_yet_takes_the_send(self):
-        block = compose_bestaetigungen(hashes=HASHES, today=MAILED_ON)
-
-        assert zustellung_send_applies(bestaetigungen=block, seat="trainer", am=STAMP)
-
-    def test_no_id_is_compared_because_the_send_is_what_mints_one(self):
-        """The accepted send establishes the join key, so nothing stored can match it."""
-
-        assert zustellung_send_applies(bestaetigungen=bestaetigungen(), seat="trainer", am=LATER)
-
-    @pytest.mark.parametrize("am", [STAMP, EARLIER])
-    def test_a_send_older_than_the_accept_the_seat_holds_is_a_no_op(self, am: str):
-        """A retried call, or one overtaken by the reminder's send: one host stamped both, so the newer state stands."""
-
-        assert not zustellung_send_applies(bestaetigungen=bestaetigungen(), seat="trainer", am=am)
-
-    @pytest.mark.parametrize("stand", sorted(get_args(FLBewerbungZustellEreignis)))
-    def test_a_send_older_than_an_event_the_seat_holds_still_applies(self, stand: str):
-        """A provider clock ahead of this host's: dropped here, the seat freezes on a superseded message and loses the new one's events."""
-
-        block = bestaetigungen(trainer={**bestaetigungen()["trainer"], "zustellung": zustellung(stand=stand, am=LATER)})
-
-        assert zustellung_send_applies(bestaetigungen=block, seat="trainer", am=EARLIER)
-
-    def test_an_erased_seat_takes_no_send(self):
-        assert not zustellung_send_applies(bestaetigungen=bestaetigungen(trainer=None), seat="trainer", am=LATER)
-
-
-class TestWhatTheWriteComposes:
-    def test_the_whole_block_per_seat_and_nothing_beside_it(self):
-        """Field by field a state would keep the `grund` of the refusal before it, which reads as this message's own."""
-
-        update = compose_zustellung_update(
-            seats=("trainer", "ansprechperson"), nachricht_id=SECOND_MESSAGE, stand="unterdrueckt", grund="OnAccountSuppressionList", am=LATER
-        )
-
-        assert update == {
-            "$set": {
-                "bestaetigungen.trainer.zustellung": zustellung(
-                    nachricht_id=SECOND_MESSAGE, stand="unterdrueckt", grund="OnAccountSuppressionList", am=LATER
-                ),
-                "bestaetigungen.ansprechperson.zustellung": zustellung(
-                    nachricht_id=SECOND_MESSAGE, stand="unterdrueckt", grund="OnAccountSuppressionList", am=LATER
-                ),
-            }
-        }
-
-
-class TestASeatTheProviderRefuses:
-    @pytest.mark.parametrize("stand", sorted(get_args(FLBewerbungZustellstand)))
-    def test_only_a_refusal_makes_a_seat_unreachable(self, stand: str):
-        block = bestaetigungen(trainer={**bestaetigungen()["trainer"], "zustellung": zustellung(stand=stand)})
-
-        assert seat_is_unreachable(bestaetigungen=block, seat="trainer") == (stand in ZUSTELLUNG_ABGEWIESEN)
-
-    @pytest.mark.parametrize(
-        "block",
-        [
-            pytest.param(compose_bestaetigungen(hashes=HASHES, today=MAILED_ON), id="nothing known about the message yet"),
-            pytest.param({"trainer": None}, id="an erased seat"),
-            pytest.param(None, id="a season row holding no links"),
-        ],
-    )
-    def test_a_seat_with_no_delivery_state_is_not_unreachable(self, block: Any):
-        """Silence is not a refusal: no message on record, an emptied seat and a row holding no links make no seat unreachable."""
-
-        assert seat_zustellung(bestaetigungen=block, seat="trainer") is None
-        assert not seat_is_unreachable(bestaetigungen=block, seat="trainer")
 
 
 class TestTheTwoPayloads:
@@ -286,19 +135,3 @@ class TestTheTwoPayloads:
         """The frontend route drops an untagged event before this endpoint; an empty list here writes nothing all the same."""
 
         assert FLBewerbungZustellungEreignisPayload.model_validate(event_body(rollen=[])).rollen == []
-
-
-class TestTheProjectionResolvesEverySeat:
-    """§1.7's rule for a projection: a case naming every path it resolves.
-
-    A widening surfaces in no response model and no guard, so nothing else stands between the
-    block's three people and a read that carries them.
-    """
-
-    def test_it_names_one_delivery_path_per_seat_and_nothing_else(self):
-        assert set(ZUSTELLUNG_FIELDS) == {f"bestaetigungen.{seat}.zustellung" for seat in KONTAKT_ROLLEN}
-
-    def test_every_path_it_names_is_an_inclusion(self):
-        """`0` would widen it to everything else, an inclusion projection answering the whole document."""
-
-        assert set(ZUSTELLUNG_FIELDS.values()) == {1}

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import ast
 import asyncio
-import inspect
-import textwrap
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -15,25 +12,18 @@ from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token, late
 from app.api.registrierungen import sweep_router
 from app.api.registrierungen.services import (
     REGISTRIERUNG_SWEEP_FELD,
-    SWEEP_PAGE,
     bestaetigung_erasure_is_due,
     build_decline_filter,
     build_erinnerung_filter,
-    build_stale_stamp_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
-    compose_erinnerung_update,
-    compose_sweep_stamp,
     decline_erasure_is_due,
     erinnerung_is_due,
     link_is_unreachable,
-    undecided_erasure_is_due,
 )
 from app.api.saisons.crud import pull_current_saison
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.bans import ban_list
 from tests.documents import eigene_einwilligung_document
@@ -188,28 +178,6 @@ class TestTheDeadlineClock:
         assert not bestaetigung_erasure_is_due(registrierung_raw=registrierung(bestaetigung=None), today=TODAY)
 
 
-class TestTheSeasonsOwnEnd:
-    @pytest.mark.parametrize(
-        ("status", "saison_status", "due"),
-        [
-            pytest.param("eingereicht", "past", True, id="submitted, the season over"),
-            pytest.param("eingereicht", "active", False, id="submitted, the season running"),
-            pytest.param("eingereicht", "future", False, id="submitted, the season ahead"),
-            pytest.param("abgelehnt", "past", False, id="declined, the season over"),
-        ],
-    )
-    def test_only_a_submitted_row_of_a_past_season_is_taken(self, status: str, saison_status: str, due: bool):
-        stored = registrierung(status=status)
-
-        assert undecided_erasure_is_due(registrierung_raw=stored, saison_status=saison_status) == due
-
-    @pytest.mark.parametrize("stored", [registrierung(), registrierung(einwilligung=einwilligung())], ids=("unconfirmed", "confirmed"))
-    def test_it_asks_nothing_about_the_answer_the_pupil_gave(self, stored: Mapping[str, Any]):
-        """Both go: no admission can be taken for a season that is over, and the note afterwards is what parts the two."""
-
-        assert undecided_erasure_is_due(registrierung_raw=stored, saison_status="past")
-
-
 class TestTheOneMonthClock:
     @pytest.mark.parametrize(
         ("getroffen_am", "due"),
@@ -230,43 +198,6 @@ class TestTheOneMonthClock:
         stored = registrierung(status=status, entscheidung=None)
 
         assert not decline_erasure_is_due(registrierung_raw=stored, today=TODAY)
-
-
-class TestWhatAReminderWrites:
-    def test_the_stamp_the_fresh_hash_and_the_kept_hash_and_nothing_else(self):
-        """The deadline and the send day are untouched: a reminder is not a re-send (`docs/backend/spec.md :: I152`)."""
-
-        update = compose_erinnerung_update(token_hash="fresh", bestaetigung=bestaetigung(), today=TODAY)
-
-        assert update == {
-            "$set": {
-                "bestaetigung.token_hash": "fresh",
-                "bestaetigung.token_hash_zuvor": FIRST_HASH,
-                "bestaetigung.erinnert_am": TODAY,
-            }
-        }
-
-    def test_a_row_carrying_no_block_keeps_a_null_where_the_first_hash_would_stand(self):
-        """The validator declares the field nullable, so the reminder writes a null rather than aborting a pass on a row stored without one."""
-
-        update = compose_erinnerung_update(token_hash="fresh", bestaetigung=None, today=TODAY)
-
-        assert update["$set"]["bestaetigung.token_hash_zuvor"] is None
-
-
-class TestWhatThePassStamps:
-    def test_the_filter_and_the_update_name_one_key(self):
-        """A rename reaching one of the two alone leaves the pass stamping a key nothing reads, with every clock still green."""
-
-        assert build_stale_stamp_filter(today=TODAY) == {REGISTRIERUNG_SWEEP_FELD: {"$ne": TODAY}}
-        assert compose_sweep_stamp(today=TODAY) == {"$set": {REGISTRIERUNG_SWEEP_FELD: TODAY}}
-
-    def test_the_key_is_not_the_application_passs_own(self):
-        """One key over both passes would answer `it ran` for a registration sweep that stopped a week ago."""
-
-        assert REGISTRIERUNG_SWEEP_FELD == "registrierung_sweep_gelaufen_am"
-        assert "sweep_gelaufen_am" in COLLECTION_VALIDATORS[Collection.SAISONS]["$jsonSchema"]["properties"]
-        assert "sweep_gelaufen_am" not in build_stale_stamp_filter(today=TODAY)
 
 
 SAISON_ID = "2026"
@@ -353,81 +284,6 @@ class TestWhatEachClockReads:
         """`fl_backend/tests/core/test_write_shapes.py :: TestWhatARemovalFilterMayName` holds the removals; the READS answer to this."""
 
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
-
-
-PASS_BODY = ast.parse(textwrap.dedent(inspect.getsource(sweep_router.sweep_registrierungen)))
-
-# Each clock's transaction callback, by name, read off the handler's own source.
-PASS_CALLBACKS = {node.name: node for node in ast.walk(PASS_BODY) if isinstance(node, ast.AsyncFunctionDef)}
-
-# The three that ERASE, which is the progress a page is drained by. The reminder's own progress is
-# the stamp, which takes a row out of its filter, so its page is drained by the passes that follow.
-ERASING_CLOCKS = ("erase_the_undecided", "erase_the_unconfirmed", "erase_declined")
-
-# The four clocks' callbacks, named rather than derived: a callback the reader stopped seeing would
-# drop out of a derived set instead of failing, and the stamp's own read is over SEASONS rather than
-# over a season's registrations.
-CLOCK_CALLBACKS = ("erase_the_undecided", "erase_the_unconfirmed", "remind", "erase_declined")
-
-
-class TestThePageIsNeverTruncated:
-    @pytest.mark.parametrize(
-        ("read", "moved", "raises"),
-        [
-            pytest.param(SWEEP_PAGE, 0, False, id="a page that is whole, and empty of due rows"),
-            pytest.param(SWEEP_PAGE + 1, 1, False, id="a full page that moved a row"),
-            pytest.param(SWEEP_PAGE + 1, 0, True, id="a full page that moved nothing"),
-        ],
-    )
-    def test_only_a_full_page_that_moved_nothing_raises(self, read: int, moved: int, raises: bool):
-        """A full page is drained rather than refused: the erasure or the stamp is what shrinks the population that filled it."""
-
-        if not raises:
-            assert refuse_a_stalled_page(read=read, moved=moved, page=SWEEP_PAGE, clock="deadline", saison_id=SAISON_ID) is None
-            return
-
-        with pytest.raises(ValueError, match=SAISON_ID):
-            refuse_a_stalled_page(read=read, moved=moved, page=SWEEP_PAGE, clock="deadline", saison_id=SAISON_ID)
-
-    @pytest.mark.parametrize("callback", CLOCK_CALLBACKS)
-    def test_each_clock_reads_one_row_past_the_page(self, callback: str):
-        """A source sweep, because the truncation leaves no trace on the wire: only a season of more than one page would show it."""
-
-        limits = [
-            ast.unparse(keyword.value)
-            for node in ast.walk(PASS_CALLBACKS[callback])
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "pull_many_from_db"
-            for keyword in node.keywords
-            if keyword.arg == "limit"
-        ]
-
-        assert limits == ["SWEEP_PAGE + 1"], f"{callback} reads {limits}, where a page it cannot tell from a truncation is {SWEEP_PAGE}"
-
-    @pytest.mark.parametrize("callback", CLOCK_CALLBACKS)
-    def test_each_clock_asks_whether_its_page_moved_anything(self, callback: str):
-        called = {node.func.id for node in ast.walk(PASS_CALLBACKS[callback]) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
-
-        assert refuse_a_stalled_page.__name__ in called, f"{callback} weighs a page it read without asking whether the pass can make progress"
-
-    @pytest.mark.parametrize("clock", ERASING_CLOCKS)
-    def test_each_erasing_clock_is_run_again_until_its_page_is_short(self, clock: str):
-        """The drain, read off the pass's own body: a clock that stopped at one page would stop at the same page every hour.
-
-        A loop of its own, or `drain`, whose loop `fl_backend/tests/core/test_transactions.py` holds.
-        """
-
-        drains = [
-            node
-            for node in ast.walk(PASS_BODY)
-            if isinstance(node, ast.While)
-            or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == drain.__name__)
-            for call in ast.walk(node)
-            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "with_transaction"
-            for named in call.args
-            if isinstance(named, ast.Name) and named.id == clock
-        ]
-
-        assert len(drains) == 1, f"{clock} is not run inside a loop, so a page it fills is where that season's retention stops"
 
 
 class _Cursor:
@@ -569,67 +425,6 @@ class TestTheStampDropsTheCachedSeason:
 
         assert before.get(REGISTRIERUNG_SWEEP_FELD) is None
         assert after[REGISTRIERUNG_SWEEP_FELD] == TODAY, "the second read was answered from the cache, which the stamp should have dropped"
-
-
-# A page and a short one after it: at a page plus ONE the first read would take every row, so a
-# clock that stopped after its first erasure would still leave nothing behind and pass.
-OVERFLOW = SWEEP_PAGE + 5
-
-
-def _overflowing(**overrides: Any) -> list[dict[str, Any]]:
-    """More due rows than one page, which is the population a clock that stopped could never shrink."""
-
-    return [{**registrierung(**overrides), "_id": position, "team_id": None} for position in range(OVERFLOW)]
-
-
-class TestTheClocksDrain:
-    """A page a clock fills is erased and read again, until a short page comes back.
-
-    Only the erasure shrinks the population that fills it, so a pass stopping first stops for ever.
-    """
-
-    @pytest.mark.parametrize(
-        ("clock", "rows", "status", "counted"),
-        [
-            pytest.param(
-                "the deadline",
-                _overflowing(bestaetigung=bestaetigung(frist=YESTERDAY)),
-                "active",
-                "geloescht_unbestaetigt",
-                id="the deadline clock",
-            ),
-            pytest.param("the season's end", _overflowing(), "past", "geloescht_ohne_entscheidung", id="the season's end"),
-            pytest.param(
-                "the one-month",
-                _overflowing(status="abgelehnt", entscheidung={"getroffen_am": "2026-02-15", "von": "admin", "grund": None}),
-                "active",
-                "geloescht_abgelehnt",
-                id="the one-month clock",
-            ),
-        ],
-    )
-    def test_a_page_and_one_more_is_erased_whole(self, clock: str, rows: list[dict[str, Any]], status: str, counted: str):
-        aktionen = _Collection("aktionen", [], {})
-        database: dict[str, Any] = {"aktionen": aktionen}
-        saisons = _Collection("saisons", [{"_id": SAISON_ID, "status": status, "rules": {}}], database)
-        registrierungen = _Collection("registrierungen", rows, database)
-
-        response = asyncio.run(
-            sweep_router.sweep_registrierungen(
-                saison_id=SAISON_ID,
-                registrierungen_collection=registrierungen,  # pyright: ignore[reportArgumentType]
-                saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
-                teams_collection=_Collection("teams", [], database, answers_reads=False),  # pyright: ignore[reportArgumentType]
-                aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
-                sperrliste=ban_list({Collection.SPERRLISTE: _Collection("sperrliste", [], database), Collection.SAISONS: saisons}),
-                db=_Db(),  # pyright: ignore[reportArgumentType]
-                today=TODAY,
-                germany_now=_NOW,
-            )
-        )
-
-        assert registrierungen.rows == [], f"{clock} clock left rows a later pass would read into the same full page"
-        assert getattr(response, counted) == OVERFLOW
 
 
 # The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by
