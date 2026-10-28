@@ -50,8 +50,8 @@ export function SectionTitle({ text, level = 2 }: { text: Copy; level?: 2 | 3 })
 }
 
 /**
- * The rung a few entries or fields are named on, 12 px medium muted, a step under a section's title: the
- * rail's groups and the phone sheet's, a dialog's groups of fields. Each place adds its own spacing.
+ * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
+ * groups and the phone sheet's. Each place adds its own spacing.
  */
 export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
