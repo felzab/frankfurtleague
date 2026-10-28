@@ -912,7 +912,7 @@ worker user it refuses.
 the override writes differs, and each difference is argued at its key. What no merge can hold is
 exposure, so `scripts/checks/check_compose_model.py` reads the two models
 `docker compose config` renders, production's alone and the merged pair: production publishes no
-port and declares exactly `:: PRODUCTION_SERVICES`, and locally only nginx leaves loopback. It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
+port and declares exactly `:: PRODUCTION_SERVICES`, and locally every published port, nginx's included, binds loopback. It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
 production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares, and the
 edge's Control API socket and tmpfs to the deploy's. Over every file either edge mounts, the shared
 `nginx/shared/http.conf` among them, it holds both edges to trusting the connector's rendered

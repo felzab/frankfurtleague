@@ -678,11 +678,13 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 def local(model: dict[str, Any], name: str) -> list[Finding]:
-    """Only the edge publishes to every interface; the rest bind a loopback address."""
+    """Every published port binds a loopback address, the edge's included.
+
+    The local stack serves a copy of production's data, so a port on any other interface serves it to
+    the developer's whole network.
+    """
     findings = host_network(model, name)
     for service, definition in sorted(services(model, name).items()):
-        if service == EDGE_SERVICE:
-            continue
         for port in definition.get("ports") or []:
             if not isinstance(port, dict):
                 raise ValueError(f"{name}: {service} has a port Compose did not expand, so this is not its rendered model")
@@ -692,7 +694,7 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
                     Finding(
                         "fail",
                         f"{name}: {service} publishes {port.get('published')}->{port.get('target')} on {where}\n"
-                        f"{CONTINUATION}only {EDGE_SERVICE} is reachable off this host; the rest bind 127.0.0.1",
+                        f"{CONTINUATION}nothing of the local stack is reachable off this host; bind 127.0.0.1",
                     )
                 )
     return findings
@@ -991,7 +993,7 @@ def main() -> int:
         return EXIT_REFUSED
     code = report_findings(findings)
     if not findings:
-        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
+        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally every port binds loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
