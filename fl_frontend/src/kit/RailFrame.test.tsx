@@ -127,16 +127,21 @@ describe("the account menu", () => {
     expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
   });
 
-  it("offers the theme, the one in force marked, and sets the one chosen", async () => {
+  it("offers the theme as one row of three glyphs at its foot, the one in force marked, and sets the one chosen", async () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    const inForce = screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.system });
-    expect(inForce.getAttribute("aria-checked")).toBe("true");
-    // Marked as a form's value is: the tint, which the selected state turns on.
-    expect(inForce.hasAttribute("data-selected")).toBe(true);
-    expect(inForce.className.split(" ")).toEqual(expect.arrayContaining(entryMark({ mark: "value" }).split(" ")));
-    await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.dunkel }));
+    // Outside the menu's own list, so its keyboard model is untouched, in the order dark, light, system.
+    const row = screen.getByRole("radiogroup", { name: COPY.seite.darstellung });
+    expect(screen.getByRole("menu").contains(row)).toBe(false);
+    const { darstellung } = COPY.vorlage;
+    expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toStrictEqual([
+      darstellung.dunkel,
+      darstellung.hell,
+      darstellung.system,
+    ]);
+    expect(screen.getByRole("radio", { name: darstellung.system }).getAttribute("aria-checked")).toBe("true");
+    await userEvent.click(screen.getByRole("radio", { name: darstellung.dunkel }));
 
     expect(theme.setTheme).toHaveBeenCalledWith("dark");
   });

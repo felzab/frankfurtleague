@@ -2,7 +2,6 @@
 
 import { useState, useSyncExternalStore } from "react";
 
-import { Header } from "react-aria-components/Header";
 import {
   Menu as AriaMenu,
   MenuContext,
@@ -24,7 +23,7 @@ import { SheetFrame } from "./Sheet";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactElement } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
 
 /**
@@ -49,19 +48,6 @@ export type MenuEntry =
   /** A second list, beside the menu on desktop and as a second sheet with „Zurück“ on a phone. */
   | { kind: "submenu"; label: Copy; icon?: IconName; links: ReadonlyArray<MenuLink> };
 
-/**
- * A group of its own holding one choice among options, such as the theme: React Aria's single-selection
- * section, its chosen option marked as a form's value is, with the check at the row's end.
- */
-type MenuChoice = {
-  kind: "choice";
-  label: Copy;
-  options: ReadonlyArray<{ id: string; label: Copy }>;
-  /** The option in force; `null` while it is not known, as a theme is not before the page hydrates. */
-  selected: string | null;
-  onChange: (id: string) => void;
-};
-
 export type MenuProps = {
   /** The menu's name. */
   label: Copy;
@@ -69,12 +55,14 @@ export type MenuProps = {
   trigger: ReactElement;
   /** Plain text above the entries, such as a person's name and address: data, not catalogue text. */
   head?: { name: string; detail: string };
-  /** The entries, or a choice, a separator between two groups. */
-  groups: ReadonlyArray<ReadonlyArray<MenuEntry> | MenuChoice>;
+  /** The entries, a separator between two groups. */
+  groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
   /** On desktop, as wide as its entries with the menu's floor, or as wide as a full-width trigger such as the rail's. */
   width?: "content" | "trigger";
+  /** One row after the entries: its words at the start, a control at the end, such as the theme's glyphs. */
+  foot?: { label: Copy; control: ReactNode };
 };
 
 type Size = "desktop" | "phone";
@@ -103,6 +91,17 @@ const item = tv({
     size: {
       desktop: "h-9 text-sm",
       phone: "h-11 text-base",
+    },
+  },
+});
+
+// The foot's row under its separator, at the entries' inset and grade.
+const foot = tv({
+  base: "mt-1 flex items-center justify-between gap-3 border-t border-border px-3",
+  variants: {
+    size: {
+      desktop: "pt-2 pb-1 text-sm",
+      phone: "pt-3 pb-2 text-base",
     },
   },
 });
@@ -301,65 +300,27 @@ function Entries({
               />,
             ]
           : []),
-        "kind" in entries ? (
-          <Choice
-            key={`group-${group}`}
-            choice={entries}
-            size={size}
-          />
-        ) : (
-          <Group
-            key={`group-${group}`}
-            entries={entries}
-            size={size}
-            onOpenSubmenu={(entry) => onOpenSubmenu(group, entry)}
-          />
-        ),
+        <Group
+          key={`group-${group}`}
+          entries={entries}
+          size={size}
+          onOpenSubmenu={(entry) => onOpenSubmenu(group, entry)}
+        />,
       ])}
     </AriaMenu>
   );
 }
 
 /**
- * A choice's options in their own section under its label, which heads the group as the rail heads one, so
- * the options are not three words standing under a separator; the chosen one tinted and checked as a form's
- * value is.
+ * The row at the menu's foot, under a hairline and outside React Aria's menu, whose keyboard model it leaves
+ * whole: the words at the start name what the control at the end sets.
  */
-function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
+function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size: Size }) {
   return (
-    <MenuSection
-      className="grid gap-1"
-      selectionMode="single"
-      disallowEmptySelection
-      selectedKeys={choice.selected === null ? [] : [choice.selected]}
-      onSelectionChange={(keys) => {
-        const [id] = keys === "all" ? [] : [...keys];
-        if (typeof id === "string") choice.onChange(id);
-      }}>
-      <Header className="px-3 py-1 text-xs font-medium text-fg-muted">{choice.label}</Header>
-      {choice.options.map((option) => (
-        <MenuItem
-          key={option.id}
-          id={option.id}
-          textValue={option.label}
-          data-kit-focus="item"
-          className={`${item({ size })} ${entryMark({ mark: "value" })}`}>
-          {({ isSelected }) => (
-            <>
-              <Entry label={option.label} />
-              {isSelected && (
-                <span className="ml-auto">
-                  <Icon
-                    glyph="haken"
-                    size={16}
-                  />
-                </span>
-              )}
-            </>
-          )}
-        </MenuItem>
-      ))}
-    </MenuSection>
+    <div className={foot({ size })}>
+      <span className="font-medium text-fg">{row.label}</span>
+      {row.control}
+    </div>
   );
 }
 
@@ -368,14 +329,13 @@ function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement, width = "content" }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, width = "content", foot: row }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
   const [isSubmenuOpen, setSubmenuOpen] = useState(false);
   const isDesktop = useDesktop();
-  const opened = submenu === null ? undefined : groups[submenu.group];
-  const shown = submenu === null || opened === undefined || "kind" in opened ? undefined : opened[submenu.entry];
+  const shown = submenu === null ? undefined : groups[submenu.group]?.[submenu.entry];
 
   return (
     <MenuTrigger
@@ -403,6 +363,12 @@ export function Menu({ label, trigger, head, groups, placement, width = "content
             size="desktop"
             onOpenSubmenu={() => undefined}
           />
+          {row !== undefined && (
+            <Foot
+              foot={row}
+              size="desktop"
+            />
+          )}
         </Popover>
       ) : (
         <SheetFrame label={label}>
@@ -421,6 +387,12 @@ export function Menu({ label, trigger, head, groups, placement, width = "content
               setSubmenuOpen(true);
             }}
           />
+          {row !== undefined && (
+            <Foot
+              foot={row}
+              size="phone"
+            />
+          )}
           {shown?.kind === "submenu" && (
             <SheetFrame
               label={shown.label}

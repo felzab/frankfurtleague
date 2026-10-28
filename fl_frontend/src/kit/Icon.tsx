@@ -17,9 +17,12 @@ import LoaderCircle from "lucide-react/icons/loader-circle";
 import Mail from "lucide-react/icons/mail";
 import MapPin from "lucide-react/icons/map-pin";
 import Menu from "lucide-react/icons/menu";
+import Monitor from "lucide-react/icons/monitor";
+import Moon from "lucide-react/icons/moon";
 import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
 import Shield from "lucide-react/icons/shield";
+import Sun from "lucide-react/icons/sun";
 import Trash from "lucide-react/icons/trash-2";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
 import User from "lucide-react/icons/user";
@@ -38,11 +41,14 @@ import { tv } from "tailwind-variants/lite";
  */
 const GLYPHS = {
   aufklappen: ChevronDown,
+  // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
+  dunkel: Moon,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
   erledigt: CircleCheck,
   fehler: CircleX,
   filter: ListFilter,
   haken: Check,
+  hell: Sun,
   info: Info,
   kalender: Calendar,
   laedt: LoaderCircle,
@@ -50,6 +56,7 @@ const GLYPHS = {
   menue: Menu,
   schliessen: X,
   suche: Search,
+  system: Monitor,
   vor: ChevronRight,
   warnung: TriangleAlert,
   zurueck: ChevronLeft,

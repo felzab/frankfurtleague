@@ -47,6 +47,48 @@ describe("a segmented control", () => {
   });
 });
 
+const GLYPHS = [
+  { id: "dark", glyph: "dunkel", label: COPY.vorlage.darstellung.dunkel },
+  { id: "light", glyph: "hell", label: COPY.vorlage.darstellung.hell },
+] as const;
+
+describe("a segmented control of glyphs", () => {
+  it("names each segment for assistive technology and in its tooltip, the glyph muted until chosen", async () => {
+    render(
+      <Segmented
+        label={COPY.seite.darstellung}
+        choices={GLYPHS}
+        value="dark"
+      />,
+    );
+    const chosen = screen.getByRole("radio", { name: COPY.vorlage.darstellung.dunkel });
+    expect(chosen.getAttribute("aria-checked")).toBe("true");
+    expect(chosen.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(chosen.textContent).toBe("");
+    expect(chosen.className.split(" ")).toEqual(expect.arrayContaining(["w-9", "text-fg-muted", "data-selected:text-fg"]));
+    expect(chosen.className.split(" ")).not.toContain("min-w-16");
+
+    // Keyboard focus opens the tooltip, as it does on an icon-only button.
+    await userEvent.tab();
+    expect(screen.getByRole("tooltip").textContent).toBe(COPY.vorlage.darstellung.dunkel);
+  });
+
+  it("stands alone in a row the caller writes, named by its label, and chooses none while the answer is not known", () => {
+    const { container } = render(
+      <Segmented
+        placement="inline"
+        label={COPY.seite.darstellung}
+        choices={GLYPHS}
+        value={null}
+      />,
+    );
+    const group = screen.getByRole("radiogroup", { name: COPY.seite.darstellung });
+    expect(container.firstElementChild).toBe(group);
+    expect(screen.queryByText(COPY.seite.darstellung)).toBeNull();
+    expect(screen.getAllByRole("radio").every((radio) => radio.getAttribute("aria-checked") === "false")).toBe(true);
+  });
+});
+
 describe("toggle boxes", () => {
   it("take several answers, each chosen box lifted with a stronger edge", async () => {
     const onChange = vi.fn();

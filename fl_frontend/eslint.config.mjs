@@ -766,7 +766,7 @@ const DESIGN_BANS = [
       ["Tooltip", "TooltipTrigger", "OverlayArrow"],
       "Tooltip",
       ["src/kit/Tooltip.tsx"],
-      "A tooltip is the kit's `Tooltip`, which an icon-only `Button` renders.",
+      "A tooltip is the kit's `Tooltip`, which an icon-only `Button` and a glyph segment render.",
     ],
     [
       ["Popover"],
@@ -798,9 +798,15 @@ const DESIGN_BANS = [
       { allow: homes },
     ),
   ),
-  kitImport({ regex: kitModule("Tooltip"), message: "The kit's `Tooltip` names an icon-only `Button` and nothing else." }, PRODUCTION, {
-    allow: ["src/kit/Button.tsx"],
-  }),
+  // A segmented control's glyph segment is the one other icon-only control: its name is its tooltip too.
+  kitImport(
+    {
+      regex: kitModule("Tooltip"),
+      message: "The kit's `Tooltip` names an icon-only `Button` or a glyph segment of `ChoiceButtons`, and nothing else.",
+    },
+    PRODUCTION,
+    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx"] },
+  ),
   // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
   kitImport(
     {

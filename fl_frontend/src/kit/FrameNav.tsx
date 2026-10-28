@@ -13,6 +13,7 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
+import { Segmented } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
@@ -24,6 +25,7 @@ import { appToast } from "./Toast";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
+import type { GlyphChoice } from "./ChoiceButtons";
 import type { IconName } from "./Icon";
 
 /** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
@@ -158,17 +160,21 @@ async function abmelden() {
   appToast("danger", COPY.shared.toast.fehler);
 }
 
-const THEMES = ["system", "light", "dark"] as const;
+/** The themes as next-themes names them, each by its glyph, in the order the owner set: dark, light, system. */
+const THEMES: readonly GlyphChoice[] = [
+  { id: "dark", glyph: "dunkel", label: COPY.vorlage.darstellung.dunkel },
+  { id: "light", glyph: "hell", label: COPY.vorlage.darstellung.hell },
+  { id: "system", glyph: "system", label: COPY.vorlage.darstellung.system },
+];
 
 /**
- * The account menu, the same in every area: Konto and Abmelden; Impressum and Datenschutz; the theme. A
- * person with a name sees it with their address at the top; an address alone already stands in the row, so
- * the menu does not repeat it.
+ * The account menu, the same in every area: Konto and Abmelden; Impressum and Datenschutz; and at its foot the
+ * theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address at
+ * the top; an address alone already stands in the row, so the menu does not repeat it.
  */
 function AccountMenu({ account, trigger }: { account: Account; trigger: ReactElement }) {
-  // The theme next-themes holds; the menu's options render only once it is opened, after hydration.
+  // The theme next-themes holds; the menu's content renders only once it is opened, after hydration.
   const { theme, setTheme } = useTheme();
-  const words = { system: COPY.vorlage.darstellung.system, light: COPY.vorlage.darstellung.hell, dark: COPY.vorlage.darstellung.dunkel };
   return (
     <Menu
       label={COPY.vorlage.konto}
@@ -183,14 +189,19 @@ function AccountMenu({ account, trigger }: { account: Account; trigger: ReactEle
           { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
           { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
         ],
-        {
-          kind: "choice",
-          label: COPY.seite.darstellung,
-          options: THEMES.map((id) => ({ id, label: words[id] })),
-          selected: theme ?? null,
-          onChange: setTheme,
-        },
       ]}
+      foot={{
+        label: COPY.seite.darstellung,
+        control: (
+          <Segmented
+            placement="inline"
+            label={COPY.seite.darstellung}
+            choices={THEMES}
+            value={theme ?? null}
+            onChange={setTheme}
+          />
+        ),
+      }}
       trigger={trigger}
     />
   );

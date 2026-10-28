@@ -23,7 +23,6 @@
     "src/kit/StatusPage.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
-    "src/kit/ChoiceButtons.tsx",
     "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
     "src/kit/Callout.tsx",
