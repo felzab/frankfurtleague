@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { act, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,14 +63,26 @@ describe("the same page in the other season", () => {
   });
 });
 
+const SEASONS: Seasons = {
+  entries: [
+    { id: "2027", span: "01.09.2026 – 30.06.2027" },
+    { id: "2026", span: "01.09.2025 – 30.06.2026" },
+  ],
+  standard: "2026",
+};
+
 /** The season button in a frame holding these seasons, its seasons settled. */
-async function renderButton(seasons: Seasons | null, navigate: (href: string, options?: { replace?: boolean }) => void = () => undefined) {
+async function renderButton(
+  seasons: Seasons | null,
+  navigate: (href: string, options?: { replace?: boolean }) => void = () => undefined,
+  placement: "rail" | "band" = "rail",
+) {
   await act(async () => {
     render(
       <RouterProvider navigate={navigate}>
         <SeasonScope value={{ seasons: Promise.resolve(seasons), home: "verwaltungUebersicht", pages: VERWALTUNG }}>
           <Suspense fallback={null}>
-            <SeasonButton placement="rail" />
+            <SeasonButton placement={placement} />
           </Suspense>
         </SeasonScope>
       </RouterProvider>,
@@ -87,9 +99,9 @@ describe("the season button", () => {
   });
 
   it("names the season the address names and offers each season's counterpart of the page shown", async () => {
-    await renderButton({ ids: ["2027", "2026"], standard: "2026" });
+    await renderButton(SEASONS);
 
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.saisonName("2027") }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
 
     expect(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }).getAttribute("href")).toBe(
       "/bereich/verwaltung/saisons/2026/spiele",
@@ -99,9 +111,9 @@ describe("the season button", () => {
 
   it("switches by replacing the page in the history, so Back skips the switch", async () => {
     const navigate = vi.fn();
-    await renderButton({ ids: ["2027", "2026"], standard: "2026" }, navigate);
+    await renderButton(SEASONS, navigate);
 
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.saisonName("2027") }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
     await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }));
 
     expect(navigate).toHaveBeenCalledWith("/bereich/verwaltung/saisons/2026/spiele", { replace: true });
@@ -110,9 +122,20 @@ describe("the season button", () => {
   it("names the frame's standard season on a page whose address names none", async () => {
     address.path = "/bereich/verwaltung/spielorte";
     address.params = {};
-    await renderButton({ ids: ["2027", "2026"], standard: "2026" });
+    await renderButton(SEASONS);
 
-    expect(screen.getByRole("button", { name: COPY.shared.saisonName("2026") })).toBeTruthy();
+    expect(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2026")) })).toBeTruthy();
+  });
+
+  it("shows the season's span under its name in the rail, and the name alone on the band", async () => {
+    await renderButton(SEASONS);
+    expect(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).textContent).toBe(
+      `${COPY.shared.saisonName("2027")}01.09.2026 – 30.06.2027`,
+    );
+
+    cleanup();
+    await renderButton(SEASONS, () => undefined, "band");
+    expect(screen.getByRole("button", { name: COPY.shared.saisonName("2027") }).textContent).toBe(COPY.shared.saisonName("2027"));
   });
 
   it("stands nowhere while the person has no season", async () => {

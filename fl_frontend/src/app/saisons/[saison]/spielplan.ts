@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatUhrzeit } from "@/core/format";
+import { formatDatum, formatUhrzeit, formatZeitraum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { getSaisons } from "@/features/saisons/queries";
@@ -40,7 +40,13 @@ export async function readSeasons(): Promise<Seasons | null> {
   const { saisons } = await getSaisons();
   const standard = selectSaison(saisons, undefined);
   if (standard === undefined) return null;
-  return { ids: saisons.map((saison) => saison.id).sort((one, other) => other.localeCompare(one)), standard: standard.id };
+  return {
+    entries: saisons
+      // The season's own strings, which its schema has already held to the stored format.
+      .map((saison) => ({ id: saison.id, span: formatZeitraum(saison.start_date as Kalendertag, saison.end_date as Kalendertag) }))
+      .sort((one, other) => other.id.localeCompare(one.id)),
+    standard: standard.id,
+  };
 }
 
 /**

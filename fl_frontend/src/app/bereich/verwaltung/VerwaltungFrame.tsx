@@ -5,11 +5,13 @@ import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
+import { formatZeitraum } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
+import type { Kalendertag } from "@/core/format";
 import type { Account, RailGroup, Seasons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
@@ -131,5 +133,11 @@ async function readSeasons(session: Session): Promise<Seasons | null> {
   const { saisons } = await getAdminSaisons();
   const standard = selectSaison(saisons, undefined);
   if (standard === undefined) return null;
-  return { ids: saisons.map((entry) => entry.id).sort((one, other) => other.localeCompare(one)), standard: standard.id };
+  return {
+    entries: saisons
+      // The season's own strings, which its schema has already held to the stored format.
+      .map((entry) => ({ id: entry.id, span: formatZeitraum(entry.start_date as Kalendertag, entry.end_date as Kalendertag) }))
+      .sort((one, other) => other.id.localeCompare(one.id)),
+    standard: standard.id,
+  };
 }

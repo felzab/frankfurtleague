@@ -55,7 +55,6 @@ export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zei
  * runtime's ICU data decides the spaces around the dash (`format.test.ts` holds Node's thin spaces), and a
  * browser's may write others, so a span is formatted on the server and handed to a client component as a
  * string: formatted during a client component's server render, it hydrates against different text.
- * @awaitsProduction its first page
  */
 export const formatZeitraum = (von: Kalendertag | Date, bis: Kalendertag | Date): string => DATUM.formatRange(alsInstant(von), alsInstant(bis));
 
