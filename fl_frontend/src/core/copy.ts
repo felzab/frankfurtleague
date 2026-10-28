@@ -151,4 +151,11 @@ export const COPY = katalog({
     loeschungen: "Löschungen",
     adressaenderungen: "Adressänderungen",
   },
+
+  /** The league's own name, which ends every tab title, and what an installed app calls itself. */
+  marke: {
+    name: "Frankfurt League",
+    kurzname: "FL",
+    beschreibung: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+  },
 });

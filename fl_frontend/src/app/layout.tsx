@@ -3,6 +3,7 @@ import "./globals.css";
 import { Anton, Inter, Raleway } from "next/font/google";
 
 import { SITE_URL } from "@/core/brand";
+import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
 import { openGraphFor } from "@/shared/utils/metadata";
 
@@ -42,7 +43,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: "%s | Frankfurt League",
+    template: `%s | ${COPY.marke.name}`,
     default: "Frankfurt League | Die Oberstufenliga",
   },
   description:

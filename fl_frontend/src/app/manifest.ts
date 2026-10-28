@@ -1,10 +1,12 @@
+import { COPY } from "@/core/copy";
+
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Frankfurt League",
-    short_name: "FL",
-    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    name: COPY.marke.name,
+    short_name: COPY.marke.kurzname,
+    description: COPY.marke.beschreibung,
     start_url: "/",
     display: "standalone",
     // `fl_frontend/src/app/tokens.css :: --brand-solid`, copied because the manifest is JSON. Not
