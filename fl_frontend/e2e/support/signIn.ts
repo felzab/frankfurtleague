@@ -8,7 +8,7 @@ import { expect } from "@playwright/test";
 
 import { filedMessages, mailedCode } from "./mailSink";
 
-import type { BrowserContext, Page, Response } from "@playwright/test";
+import type { BrowserContext, Locator, Page, Response } from "@playwright/test";
 
 export type Passkey = Awaited<ReturnType<BrowserContext["credentials"]["get"]>>[number];
 
@@ -19,8 +19,21 @@ const RELYING_PARTY = "localhost";
 const isTheSend = async (response: Response): Promise<boolean> =>
   response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null;
 
+/** The step a send that mailed a code, or would have, shows in the address step's place. */
+export const codeStep = (page: Page): Locator => page.getByRole("status").filter({ hasText: "Prüfe Dein Postfach" });
+
 /** Asks for a code on `/signin`; answers the send's response and the text of the step it shows. */
 export async function askForCode(page: Page, address: string): Promise<{ response: Response; answer: string }> {
+  const response = await pressSend(page, address);
+
+  const step = codeStep(page);
+  await expect(step).toBeVisible();
+
+  return { response, answer: await step.innerText() };
+}
+
+/** Presses „Code senden“ for `address` on a fresh `/signin`; answers the send's response, whatever it answered. */
+export async function pressSend(page: Page, address: string): Promise<Response> {
   await page.goto("/signin");
   const field = page.getByLabel("E-Mail-Adresse");
   // Tapped first, as a person reaches the field: React hydrates what a press lands on during the
@@ -32,12 +45,7 @@ export async function askForCode(page: Page, address: string): Promise<{ respons
 
   const sent = page.waitForResponse(isTheSend);
   await page.getByRole("button", { name: "Code senden" }).click();
-  const response = await sent;
-
-  const step = page.getByRole("status").filter({ hasText: "Prüfe Dein Postfach" });
-  await expect(step).toBeVisible();
-
-  return { response, answer: await step.innerText() };
+  return sent;
 }
 
 /** Signs in on `/signin` with the code the stack mails `address`. */
