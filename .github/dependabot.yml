@@ -99,6 +99,19 @@ updates:
       # `fl_backend/app/shared/schemas/custom.py` imports pydantic_core.
       - dependency-name: pydantic-core
 
+  # --- Gate tooling (pip) ---------------------------------------------------------------------
+
+  # zizmor alone: `scripts/gate/verify.sh :: run_zizmor` runs the release this requirements file
+  # pins, so a bump here is what the ops scope runs next, locally and in CI alike.
+  - package-ecosystem: pip
+    directory: /scripts/gate/zizmor
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 1
+    commit-message:
+      prefix: "Repo"
+
   # --- Base images ----------------------------------------------------------------------------
 
   # Both Dockerfiles pin their base image, and the backend's `FROM ghcr.io/astral-sh/uv ... AS uv`

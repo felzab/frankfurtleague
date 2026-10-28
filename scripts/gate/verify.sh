@@ -380,13 +380,14 @@ OPS_SCRATCH=""
 NGINX_CHECK="${REPO_ROOT}/.tmp-nginx-check"
 cleanup_ops() { rm -rf "$NGINX_CHECK" || true; if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure. Run by uv at an exact release, being
-# no backend dependency; no Dependabot ecosystem reads this string, so a bump is by hand.
+# zizmor answers 11 to 14 for findings and 1 for its own failure. Run by uv at the release
+# scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves that file.
 run_zizmor() {
   local rc=0
   # `--offline`, or a token in the environment turns on rules that reach the network;
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  uvx zizmor@1.31.1 --offline --strict-collection --persona regular . || rc=$?
+  uv tool run --constraints scripts/gate/zizmor/requirements.txt zizmor \
+    --offline --strict-collection --persona regular . || rc=$?
   case "$rc" in
     0) return 0 ;;
     11|12|13|14) return 1 ;;
