@@ -62,6 +62,10 @@ describe("formatZeitpunkt", () => {
   it("joins the long date and the time with „um“", async (t) => {
     await gleich(t, formatZeitpunkt(new Date("2026-10-24T13:30:00Z")), "24. Oktober 2026 um 15:30");
   });
+
+  it("prints an unreadable stored instant as it was stored rather than throw and lose the page or the mail", async (t) => {
+    await gleich(t, formatZeitpunkt("kein Zeitpunkt"), "kein Zeitpunkt");
+  });
 });
 
 describe("formatZeitraum", () => {

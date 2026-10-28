@@ -10,8 +10,9 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
+import { formatZeitpunkt } from "@/core/format";
 import { LINK_AN_NEUE_ADRESSE } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import { gibAdresswechselFreiAction, starteAdresswechselAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
 import { FLKontoAdresswechselPayloadSchema } from "@/features/konto/schemas";
@@ -82,13 +83,13 @@ export type AdresswechselBestaetigung = ConfirmedUntil & {
  * person typed it and masked where the league did, so a mistyped one is caught here before a stranger confirms it.
  */
 function offenSatz(offen: FLKontoAdresswechselOffen): string {
-  const bis = offen.gueltig_bis === null ? null : adresswechselZeitpunkt(offen.gueltig_bis);
+  const bis = offen.gueltig_bis === null ? null : formatZeitpunkt(offen.gueltig_bis);
   const { email, genehmigung } = offen;
   // Owed besides the link: until it is given, the address on file keeps its grant and signs in as before.
   const zugang =
     genehmigung === null || genehmigung.genehmigt
       ? ""
-      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
+      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${formatZeitpunkt(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
 
   if (offen.wartet_auf === "freigabe") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
@@ -97,7 +98,7 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
     return `Die neue E-Mail-Adresse ${email} ist bestätigt.${zugang}`;
   }
   if (offen.wartet_auf === "wartezeit") {
-    const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${adresswechselZeitpunkt(offen.wirksam_ab)}`;
+    const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${formatZeitpunkt(offen.wirksam_ab)}`;
     return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt Deine bisherige Adresse. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
   if (offen.weg === "wartezeit") {

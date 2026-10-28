@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
 import {
   buildAdresswechselEmail,
   buildAdresswechselHinweisEmail,
@@ -9,6 +9,7 @@ import {
 } from "@/core/adresswechselEmail";
 import { carryAccount } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { formatZeitpunkt } from "@/core/format";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
@@ -188,7 +189,7 @@ export function describeAdresswechselMail(mint: Pick<AdresswechselMint, "email" 
 
 /** The request to the address on file, the one message a change waiting on its approval sends: worded by how it ended. */
 function describeAnfrage(hinweis: HinweisVersand | null, gueltigBis: string): string {
-  const bis = adresswechselZeitpunkt(gueltigBis);
+  const bis = formatZeitpunkt(gueltigBis);
   switch (hinweis) {
     case "gesendet":
       return `Die bisherige Adresse ist gebeten, die Änderung in ihrem Konto freizugeben, bis ${bis}. Erst danach geht der Link an die neue.`;

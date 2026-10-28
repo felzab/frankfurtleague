@@ -130,7 +130,7 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
   if (urheber === null) return OHNE_VERWALTUNG;
 
   const von = urheberName(urheber.von, wer);
-  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(formatZeitpunkt(new Date(urheber.am)))}.`;
+  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(formatZeitpunkt(urheber.am))}.`;
 }
 
 /** How a request ended, told to its requester alone. */

@@ -1,5 +1,3 @@
-import { formatZeitpunkt } from "./format";
-
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: how long an address change's link stays open,
  * so a page and a mail state the instant the backend refuses at.
@@ -41,10 +39,3 @@ export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];
  * address (`REQ-PURGE-003`), or a grant holder's without an owner's power (`REQ-PURGE-005`).
  */
 export const ADRESSWECHSEL_EINSEHBAR_VERWEHRT = ["eigene", "verwaltung"] as const;
-
-/** An instant of a change as every page and mail states it, to the minute: a link open 24 hours lapses mid-day. */
-export function adresswechselZeitpunkt(instant: string | Date): string {
-  const datum = typeof instant === "string" ? new Date(instant) : instant;
-  // `Intl.format` throws on an unreadable instant, which would take a whole page or mail with it.
-  return Number.isNaN(datum.getTime()) ? String(instant) : formatZeitpunkt(datum);
-}
