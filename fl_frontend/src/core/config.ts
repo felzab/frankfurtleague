@@ -330,6 +330,9 @@ export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYS
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
 
+/** The port Next's standalone server listens on, which the container's healthcheck reaches it on too. */
+export const serverPort = (): number => Number.parseInt(process.env.PORT ?? "", 10) || 3000;
+
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
  * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default

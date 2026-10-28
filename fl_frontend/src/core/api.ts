@@ -6,7 +6,7 @@ import z from "zod";
 
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
-import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
+import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, serverPort } from "./config";
 import {
   APIBadStatusError,
   APIMalformedDataError,
@@ -304,9 +304,7 @@ const REVALIDATION_TIMEOUT_MS = 10000;
  * drops a tag only inside a request, and a timer's call throws (`docs/frontend/spec.md` §1.5).
  */
 export async function postRevalidation(tags: readonly string[]): Promise<number> {
-  // The port Next's standalone server reads, and the address the container's healthcheck reaches it on.
-  const port = Number.parseInt(process.env.PORT ?? "", 10) || 3000;
-  const response = await fetch(`http://127.0.0.1:${String(port)}/api/revalidate`, {
+  const response = await fetch(`http://127.0.0.1:${String(serverPort())}/api/revalidate`, {
     method: "POST",
     headers: getFetchHeaders("system"),
     body: JSON.stringify({ tags: tags }),
