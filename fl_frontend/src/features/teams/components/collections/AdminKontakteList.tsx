@@ -93,7 +93,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
           <span className="truncate fluid-xs text-foreground-muted">{seat.person.email}</span>
-          <span className="truncate font-numeric fluid-xs text-foreground-muted tabular-nums">{seat.person.telefon}</span>
+          <span className="truncate font-numeric fluid-xs text-foreground-muted">{seat.person.telefon}</span>
         </div>
       )}
     </div>

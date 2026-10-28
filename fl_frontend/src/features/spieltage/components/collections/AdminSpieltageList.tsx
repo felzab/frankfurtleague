@@ -165,7 +165,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={`${BRAND_TILE_CLASSES} font-numeric fluid-sm font-extrabold tabular-nums`}>
+                    className={`${BRAND_TILE_CLASSES} font-numeric fluid-sm font-extrabold`}>
                     {spieltag.position}
                   </span>
 
@@ -182,7 +182,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                         <Leer>Noch kein Zeitraum</Leer>
                       </span>
                     ) : (
-                      <span className="font-numeric fluid-xs text-foreground-muted tabular-nums">
+                      <span className="font-numeric fluid-xs text-foreground-muted">
                         {spieltag.beginn === spieltag.ende
                           ? formatSpielDatum(spieltag.beginn)
                           : `${formatSpielDatum(spieltag.beginn)} – ${formatSpielDatum(spieltag.ende)}`}

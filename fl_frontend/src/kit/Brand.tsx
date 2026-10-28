@@ -1,9 +1,9 @@
 import NextLink from "next/link";
 
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
+
+import { tv } from "./tv";
 
 const brand = tv({
   slots: {

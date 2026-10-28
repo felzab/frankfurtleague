@@ -1,8 +1,7 @@
 import NextLink from "next/link";
 
-import { tv } from "tailwind-variants/lite";
-
 import { buttonLook } from "./buttonStyles";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

@@ -1,10 +1,9 @@
-import { tv } from "tailwind-variants/lite";
-
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -70,7 +69,7 @@ const table = tv({
       centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
     },
     figures: {
-      true: { cell: "font-numeric tabular-nums" },
+      true: { cell: "font-numeric" },
     },
     strong: {
       true: { cell: "font-semibold" },

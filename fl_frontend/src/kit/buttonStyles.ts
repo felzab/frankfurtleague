@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 /**
  * The look of everything that acts or leads on as a button: the kit's `Button`, and the kit's `Link` where

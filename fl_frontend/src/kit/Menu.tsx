@@ -12,7 +12,6 @@ import {
   Separator,
   SubmenuTrigger,
 } from "react-aria-components/Menu";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 
@@ -21,6 +20,7 @@ import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -89,6 +89,8 @@ function useDesktop() {
   );
 }
 
+// An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
+// as every link does, so it takes `menuEntry` alone.
 const item = tv({ extend: menuEntry, base: "cursor-default" });
 
 // The foot's row under its separator, at the entries' inset and grade.
@@ -143,7 +145,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       routerOptions={link.routerOptions}
       textValue={link.label ?? link.text}
       data-kit-focus="item"
-      className={`${item({ size })} ${entryMark({ mark: "place" })}`}>
+      className={`${menuEntry({ size })} ${entryMark({ mark: "place" })}`}>
       <Entry
         label={link.label ?? link.text}
         icon={link.icon}
@@ -266,7 +268,7 @@ function Head({ head, size }: { head: NonNullable<MenuProps["head"]>; size: Size
   return (
     <div className={size === "desktop" ? "grid px-3 py-2 text-sm" : "grid px-3 pt-3 pb-2 text-base"}>
       <span className="truncate font-semibold">{head.name}</span>
-      <span className="truncate font-numeric text-xs text-fg-muted tabular-nums">{head.detail}</span>
+      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail}</span>
     </div>
   );
 }

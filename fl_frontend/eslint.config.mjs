@@ -11,7 +11,6 @@ import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/type
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-import recipeSizes from "./eslint-rules/recipe-sizes.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 // ---------------------------------------------------------------------------------------------------
@@ -307,19 +306,6 @@ const PICKED_STRING = [1, 2, 3]
 const TOKEN_START = String.raw`(?:^|\s)(?:\S*:)?`;
 const TOKEN_END = String.raw`(?:\s|$)`;
 
-const wholeClass = (token) => `(?:^|\\s)${token.replaceAll(".", "\\.")}(?:\\s|$)`;
-
-/**
- * One class list holding every token of `all` and none of `none`. A string or JSX text is one list;
- * a template is one list across its holes, so its chunks are asked together rather than one by one.
- */
-function classList({ all, none = [] }) {
-  const text = `^${all.map((token) => `(?=[\\s\\S]*${wholeClass(token)})`).join("")}${none.map((token) => `(?![\\s\\S]*${wholeClass(token)})`).join("")}`;
-  const chunk = (token) => `:has(> TemplateElement[value.raw=/${wholeClass(token)}/])`;
-  const template = `TemplateLiteral${all.map(chunk).join("")}${none.map((token) => `:not(${chunk(token)})`).join("")}`;
-  return `:matches(Literal[value=/${text}/], JSXText[value=/${text}/], ${template})`;
-}
-
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
 const CLASS_LIST_CONSTANT = {
   kind: SelectorKind.Variable,
@@ -478,18 +464,6 @@ const SOURCE_BANS = [
     SOURCE,
     // `NewTabLink` is the old pages' new-tab link, which goes with the last page importing it.
     { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
-  ),
-  ...[
-    ["tabular-nums", "font-numeric"],
-    ["font-numeric", "tabular-nums"],
-  ].map(([alone, partner]) =>
-    syntaxBan(
-      syntax(
-        classList({ all: [alone], none: [partner] }),
-        "`font-numeric` and `tabular-nums` go together: the page face has no tabular figures.",
-      ),
-      SOURCE,
-    ),
   ),
   syntaxBan(
     // Tailwind's `screen` height is 100vh, and lvh is by definition the chrome-hidden height; svh and
@@ -657,6 +631,8 @@ const KIT_SPACING = String.raw`0|0\.5|1|1\.5|2|2\.5|3|3\.5|4|6|8|12|16`;
 const STEP_REM = String.raw`(?:0\.125|0\.25|0\.375|0\.5|0\.625|0\.75|0\.875|1|1\.5|2|3|4)rem`;
 const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
 const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
+/** The dialog box's padding, a step of the scale declared once on the box, which a part reaching its edges takes back. */
+const DIALOG_PADDING = String.raw`\(--dialog-padding\)`;
 
 /**
  * A spacing class off the scale; `except` is a lookahead sparing one exact class. `(?![xy]-)` keeps `gap-x-4`
@@ -664,7 +640,7 @@ const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}
  */
 const OFF_SCALE = (except) =>
   CLASS(
-    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
+    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET}|${DIALOG_PADDING})!?$).+`,
   );
 
 /** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
@@ -869,8 +845,8 @@ const DESIGN_BANS = [
     PRODUCTION,
     { only: [TOGGLE_OFFSET.home] },
   ),
-  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`, `src/app/globals.css`), as a step of
-  // spacing is: a literal is a second width for a box the tokens already name.
+  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`), as a step of spacing is: a literal is
+  // a second width for a box the tokens already name.
   classBan(
     CLASS(String.raw`(?:max-w|tracking)-\[.+\]`),
     "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
@@ -1169,14 +1145,6 @@ const eslintConfig = defineConfig([
     language: "css/css",
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
-  },
-
-  // A `tailwind-variants/lite` recipe states each size in one place: the lite build merges no classes, so
-  // two of its parts setting one size together would leave the stylesheet's order to pick.
-  {
-    files: ["src/**/*.{ts,tsx}"],
-    plugins: { recipes: { rules: { "one-size": recipeSizes } } },
-    rules: { "recipes/one-size": "error" },
   },
 
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),

@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
-import { tv } from "tailwind-variants/lite";
 
 import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
@@ -11,6 +10,7 @@ import { CodeField } from "./CodeField";
 import { StatusLine } from "./FieldParts";
 import { Link } from "./Link";
 import { TextField } from "./TextField";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -103,7 +103,7 @@ const look = tv({
 
 /**
  * The sign-in template, centred as the prototype drew it: the heading, the sentences, the address and the code
- * boxes centred, every button full width in the 384-px column. Each view is one step of a sign-in; the page
+ * boxes centred, every button full width in the 352-px column. Each view is one step of a sign-in; the page
  * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
  * and the code's in their field's own line.
  */

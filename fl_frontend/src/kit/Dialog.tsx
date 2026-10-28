@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { StatusLine } from "./FieldParts";
+import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";
@@ -45,10 +45,12 @@ const dim = tv({
  * The centred box every dialog shares; `width` is the drawn measure of its kind. It is never taller than
  * the visible window less the 1-rem margin its centring wrapper keeps, and scrolls inside past that, so a
  * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
- * writes for its modal to cap itself by.
+ * writes for its modal to cap itself by. Its padding is declared once, as a variable, so a part running out to
+ * the box's edges (a field group's line, the pop-up's band) takes back the same measure, as Radix Themes'
+ * `Inset` reads its card's.
  */
 const dialogBox = tv({
-  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-6 text-fg shadow-dialog",
+  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:--spacing(6)]",
   variants: {
     width: {
       question: "max-w-question",

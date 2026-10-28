@@ -233,7 +233,7 @@ export function CodeStep({
                 Code erneut senden
                 {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
                     never a number a second. */}
-                {isCoolingDown && <span className="font-numeric tabular-nums"> ({asClock(secondsLeft)})</span>}
+                {isCoolingDown && <span className="font-numeric"> ({asClock(secondsLeft)})</span>}
               </button>
             </Hint>
           </div>

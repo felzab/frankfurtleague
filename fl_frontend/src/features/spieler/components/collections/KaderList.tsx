@@ -24,7 +24,7 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]
   const renderNummer = (zeile: FLKaderZeile) => (
     <span
       // A fixed height, as the admin list's chip: an empty span has no line box to size it.
-      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
+      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
         zeile.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
