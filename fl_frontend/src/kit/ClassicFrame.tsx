@@ -134,7 +134,7 @@ export function ClassicFrame({
                       fill
                       unoptimized
                       sizes="6rem"
-                      className="object-contain grayscale"
+                      className="object-contain object-left grayscale"
                     />
                   </a>
                 ))}
