@@ -45,7 +45,8 @@ export type Verb = keyof typeof VERB;
 
 const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
-const UNERWARTET = "Etwas ist schiefgelaufen. Versuch es erneut.";
+// One line for every failure no reason names, the same in a toast and in a status line.
+const UNERWARTET = "Etwas ist schiefgelaufen";
 
 export const COPY = katalog({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
