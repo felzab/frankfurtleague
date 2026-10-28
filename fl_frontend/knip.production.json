@@ -34,19 +34,18 @@
     "src/kit/Card.tsx",
     "src/kit/Switch.tsx"
   ],
+  // An export no production module reads yet but its own says so on itself, `@awaitsProduction` and the
+  // page it waits for, which exempts it here (`knip.json` has the other tag). A tagged export that gains
+  // its reader is a tag hint, which fails the run until the tag goes.
+  "tags": ["-awaitsProduction"],
+  "treatTagHintsAsErrors": true,
   "ignoreIssues": {
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
     // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
     // one is named here.
     "src/**/schemas.ts": ["types", "duplicates"],
     // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"],
-    // Session 1, the spike's pages: the formatters wait for their first page.
-    "src/core/format.ts": ["exports"],
-    // Kit exports the spike's pages reach, read so far only by files above that wait for their first
-    // page: the field looks with session 5's last readers, the rest with session 1's other spike pages.
-    "src/kit/fieldStyles.ts": ["exports"],
-    "src/kit/Toast.tsx": ["exports"]
+    "src/features/system/queries.ts": ["exports"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.

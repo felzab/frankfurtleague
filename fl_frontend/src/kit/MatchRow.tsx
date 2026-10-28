@@ -30,7 +30,10 @@ export type MatchRowProps = {
   chip?: ChipProps;
 };
 
-// No result yet: a dash for each side's goals.
+/**
+ * No result yet: a dash for each side's goals.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export const NONE = "–";
 
 const row = tv({
@@ -56,9 +59,16 @@ const row = tv({
   },
 });
 
+/**
+ * Each side's figure, or `null` before a result.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export type Figures = { home: number; away: number; shootOut: boolean } | null;
 
-/** Each side's figure: its goals, a shoot-out's goals added, as the league reports it. */
+/**
+ * Each side's figure: its goals, a shoot-out's goals added, as the league reports it.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export function figures(result: MatchRowProps["result"]): Figures {
   if (result === undefined) return null;
   const { tore, elfmeterschiessen } = result;
@@ -69,6 +79,10 @@ export function figures(result: MatchRowProps["result"]): Figures {
   };
 }
 
+/**
+ * How one side reads: its name bold where it won, its goals bold, regular where it lost a shoot-out.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export function look(score: Figures, side: "home" | "away") {
   if (score === null) return { winner: false, goals: "none" } as const;
   const own = score[side];

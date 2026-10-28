@@ -29,11 +29,16 @@ import type { IconName } from "./Icon";
 /**
  * A link in a menu; `isCurrent` marks the one in force as the rail marks the current page, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's.
+ * @awaitsPage the first page that builds a menu's entries
  */
 export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
   { label: Copy; text?: never } | { text: string; label?: never }
 );
 
+/**
+ * One entry of a menu: a link, an action, or a second list of links.
+ * @awaitsPage the first page that builds a menu's entries
+ */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
   | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }

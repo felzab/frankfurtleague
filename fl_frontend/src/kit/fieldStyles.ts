@@ -135,10 +135,14 @@ export const calendarCell = tv({
 /**
  * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
  * the row starts where the label does, whatever the box's width.
+ * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
 export const toggleField = tv({ base: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
-/** A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. */
+/**
+ * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
+ * @awaitsProduction session 4's `Checkbox` and `RadioGroup`, session 5's `Switch`
+ */
 export const toggleRow = tv({
   base: "items-start text-sm text-fg data-disabled:opacity-50",
   variants: {
@@ -154,6 +158,7 @@ export const toggleRow = tv({
  * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or
  * chosen, it fills with the link green: a checkbox's tick on it is the page's ground, white in the light
  * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
+ * @awaitsProduction session 4's `Checkbox` and `RadioGroup`
  */
 export const toggleBox = tv({
   base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
@@ -181,10 +186,14 @@ export const toggleBox = tv({
 /**
  * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
  * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
+ * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
 export const toggleLine = tv({ base: "col-start-2 grid" });
 
-/** A radio group's answers: one under another, or, where each answer is described, side by side as cards. */
+/**
+ * A radio group's answers: one under another, or, where each answer is described, side by side as cards.
+ * @awaitsProduction session 4's `RadioGroup`
+ */
 export const radioList = tv({
   variants: {
     layout: {
@@ -197,6 +206,7 @@ export const radioList = tv({
 /**
  * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
  * label are; the chosen card edged 2 px in the link green.
+ * @awaitsProduction session 4's `RadioGroup`
  */
 export const choiceCard = tv({
   slots: {
@@ -207,12 +217,16 @@ export const choiceCard = tv({
   },
 });
 
-/** The dot inside a chosen radio, in the page's ground. */
+/**
+ * The dot inside a chosen radio, in the page's ground.
+ * @awaitsProduction session 4's `RadioGroup`
+ */
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 
 /**
  * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
+ * @awaitsProduction session 5's `Switch`
  */
 export const switchTrack = tv({
   base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
@@ -225,6 +239,10 @@ export const switchTrack = tv({
   },
 });
 
+/**
+ * The switch's thumb, in the page's ground, sliding to the track's end when on.
+ * @awaitsProduction session 5's `Switch`
+ */
 export const switchThumb = tv({
   base: "size-4 rounded-full bg-bg transition-transform duration-(--motion-state)",
   variants: {
@@ -270,6 +288,7 @@ export const entryMark = tv({
 /**
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
  * surface, and the toggle boxes of a small multi-select, each box standing alone.
+ * @awaitsProduction session 4's `ChoiceButtons`
  */
 export const choiceGroup = tv({
   base: "flex flex-wrap",
@@ -285,6 +304,7 @@ export const choiceGroup = tv({
  * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
  * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
  * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
+ * @awaitsProduction session 4's `ChoiceButtons`
  */
 export const choiceButton = tv({
   base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",

@@ -13,7 +13,10 @@ import type { ReactNode } from "react";
 import type { EmptyStateProps } from "./EmptyState";
 import type { TableProps, TableRow } from "./Table";
 
-/** One page of a list past one read's cap, and where the next starts, or `null` where none follows. */
+/**
+ * One page of a list past one read's cap, and where the next starts, or `null` where none follows.
+ * @awaitsPage session 7's Protokoll, the one list that pages
+ */
 export type ListPageOfRows = { rows: ReadonlyArray<TableRow>; cursor: string | null };
 
 /**
