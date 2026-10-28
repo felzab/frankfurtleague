@@ -65,6 +65,7 @@ const LOGGING_DOUBLE = {
 // Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
 // ever prove one side of it.
 const CONFIG_DOUBLE = {
+  bootCheck: () => undefined,
   frontend_config: {
     LOG_FORMAT: "console",
     // The boot reads the signing key before it arms anything.

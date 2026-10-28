@@ -119,6 +119,7 @@ const LOGGING_DOUBLE = {
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
 const CONFIG_DOUBLE = {
+  bootCheck: () => undefined,
   frontend_config: {
     LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",

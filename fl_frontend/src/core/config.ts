@@ -333,6 +333,9 @@ export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?
 /** The port Next's standalone server listens on, which the container's healthcheck reaches it on too. */
 export const serverPort = (): number => Number.parseInt(process.env.PORT ?? "", 10) || 3000;
 
+/** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
+export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
+
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
  * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
