@@ -85,6 +85,17 @@ export const fieldFrame = tv({
   ],
 });
 
+/**
+ * A unit after its field and outside it, as „€“ follows a price: 10 px off, as a box's label is, in the field's
+ * own text, so the figure and its unit read as one value.
+ */
+export const fieldUnit = tv({
+  slots: {
+    row: "flex items-center gap-2.5",
+    unit: "text-sm text-fg pointer-coarse:text-base",
+  },
+});
+
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
 export const fieldButton = tv({ base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted pointer-coarse:w-11" });
 

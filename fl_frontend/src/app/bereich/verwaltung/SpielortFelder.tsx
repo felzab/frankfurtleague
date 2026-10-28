@@ -44,7 +44,8 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         kind="digits"
         isRequired={pflicht.plz}
         // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
-        // the dialog must hold itself: it shows no refusal of the server's.
+        // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
+        // failure, their words being the old pages'.
         maxLength={5}
         minLength={5}
       />
@@ -70,6 +71,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         name="mietpreis"
         width="C5"
         kind="digits"
+        unit={COPY.shared.einheit.euro}
         isRequired={pflicht.mietpreis}
       />
     </>

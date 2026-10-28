@@ -96,6 +96,7 @@ export function SpielEditor({
                   name="mietpreis"
                   width="C5"
                   kind="digits"
+                  unit={COPY.shared.einheit.euro}
                   isRequired={mietpreisPflicht}
                   value={draft.mietpreis}
                   onChange={(mietpreis) => set("mietpreis", mietpreis)}
