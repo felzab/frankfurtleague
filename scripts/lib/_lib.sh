@@ -40,9 +40,8 @@ IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
 
-# `FL_GATE_COLOR`, never an exported `NO_COLOR` or `FORCE_COLOR`, which prettier and pnpm read too.
-# A worker cannot answer for itself: its stdout is a file, so `[[ -t 1 ]]` comes back uncoloured.
-# `FORCE_COLOR=0` means off, per npm.
+# `FL_GATE_COLOR`, never an exported `NO_COLOR` or `FORCE_COLOR`, which prettier and pnpm read too: a
+# scope run beside others writes to a file, so `[[ -t 1 ]]` cannot answer. `FORCE_COLOR=0` is off.
 if [[ -n "${FL_GATE_COLOR:-}" ]]; then
   if [[ "$FL_GATE_COLOR" == "1" ]]; then _colour=1; else _colour=0; fi
 elif [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then
@@ -76,28 +75,11 @@ _ENDED=0
 _RUN_FINDINGS=0
 _RUN_ADVISORIES=0
 
-# Held here, not at the call site: most endings exit where they stand, so a line printed there
-# would be lost by a replayed failure.
-_NOT_RUN=""
-
-# What the run announced it covers, which `_NOT_RUN` is not: that holds the scopes nobody asked
-# for. A selected scope the run stopped short of is in neither list, and has no row either.
-_SELECTED=""
-
 VERBOSE="${VERBOSE:-0}"
-
-# A worker prints no summary: the parent prints the table once, into bytes replayed verbatim.
-# Carried in the environment rather than as a flag, which `scripts/gate/selfcheck.sh` would read out
-# of the header into `--help`.
-_WORKER=0
-if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
 # the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed" "crashed")
-# Adopted alone, for a scope that crashed after the run's ending was set: the row reports it, and
-# `finish` reads no verdict from it.
-RANK_CRASHED=6
+_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed")
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -124,12 +106,6 @@ fmt_ms() {
 
 # Call it in a condition: bare, a false answer is a non-zero status that `set -e` acts on.
 verbose() { (( VERBOSE )); }
-
-# In a condition, for `verbose`'s reason.
-worker() { (( _WORKER )); }
-
-set_not_run() { _NOT_RUN="$*"; }
-set_selected() { _SELECTED="$*"; }
 
 _RUN_T0="$(_now_ms)"
 
@@ -252,14 +228,6 @@ step() {
   printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"
 }
 
-# Re-dates the open step to the work's own length, for a step whose work ran beside its neighbours
-# rather than between them, where the order they are collected in is not the order they ran in.
-# `docs/ops/spec.md` §1.6.
-step_took_ms() { # $1 how long this step's work actually took, in milliseconds
-  _STEP_MS0=$(( $(_now_ms) - $1 ))
-  _STEP_T0=$(( SECONDS - $1 / 1000 ))
-}
-
 # Under a section every step carries its duration, because a total no line itemises is one
 # nobody can act on. The section's own row is a wall clock, which its steps sum to only while
 # they run in order.
@@ -362,8 +330,6 @@ add_findings() {
   return 0
 }
 
-# Per section as well as per run, so a worker's ledger can carry it home: a count held only as a
-# run total has no row to travel in.
 _record_advisory() {
   _RUN_ADVISORIES=$(( _RUN_ADVISORIES + 1 ))
   if (( _CHROME && _SECTION_OPEN >= 0 )); then
@@ -416,35 +382,12 @@ end_section() {
   _SECTION_OPEN=-1
 }
 
-# A selected scope that opened no section: the run ended before it. No rank can say this -- each
-# of those is a verdict some section reached, and this scope reached none.
-_UNREACHED=()
-_find_unreached() {
-  local IFS=' ' scope i found count="${#_SECTION_NAMES[@]}"
-  _UNREACHED=()
-  for scope in $_SELECTED; do
-    found=0
-    for (( i = 0; i < count; i++ )); do
-      if [[ "${_SECTION_NAMES[i]}" == "$scope" ]]; then found=1; break; fi
-    done
-    if (( ! found )); then _UNREACHED+=("$scope"); fi
-  done
-  return 0
-}
-
 # Padded before the colour wraps it: printf counts an escape sequence's bytes as width.
 _summary_table() {
-  local count="${#_SECTION_NAMES[@]}" i w=7 rank colour left
-  _find_unreached
-  left="${#_UNREACHED[@]}"
-  if (( count == 0 && left == 0 )); then return 0; fi
+  local count="${#_SECTION_NAMES[@]}" i w=7 rank colour
+  if (( count == 0 )); then return 0; fi
   for (( i = 0; i < count; i++ )); do
     if (( ${#_SECTION_NAMES[i]} > w )); then w=${#_SECTION_NAMES[i]}; fi
-  done
-  # The unreached names widen the same column: measured after the loop above, a longer one
-  # here would print past the width every row above it already took.
-  for (( i = 0; i < left; i++ )); do
-    if (( ${#_UNREACHED[i]} > w )); then w=${#_UNREACHED[i]}; fi
   done
   printf '\n      %s%-*s  %-10s  %9s  %8s%s\n' "$C_DIM" "$w" "section" "result" "duration" "findings" "$C_RESET"
   for (( i = 0; i < count; i++ )); do
@@ -452,18 +395,12 @@ _summary_table() {
     case "$rank" in
       2) colour="$C_GREEN" ;;
       3) colour="$C_YELLOW" ;;
-      4|5|6) colour="$C_RED" ;;
+      4|5) colour="$C_RED" ;;
       *) colour="$C_DIM" ;;
     esac
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
       "$w" "${_SECTION_NAMES[i]}" "$colour" "${_RANK_LABELS[rank]}" "$C_RESET" \
       "$(fmt_ms "${_SECTION_MS[i]}")" "${_SECTION_FINDINGS[i]}"
-  done
-  # Dashes rather than zeros: a duration and a finding count are what a section that ran
-  # leaves behind, so `0.0s  0` under this label would read as a scope that ran and passed.
-  for (( i = 0; i < left; i++ )); do
-    printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
-      "$w" "${_UNREACHED[i]}" "$C_DIM" "unreached" "$C_RESET" "-" "-"
   done
 }
 
@@ -474,12 +411,6 @@ _closing() {
   if (( _ENDED )); then return 0; fi
   _ENDED=1
   end_section
-  # This line is what makes every ending verb safe in a worker: none may summarise a run it sees
-  # one scope of. Below `end_section`, because a duration read from a running section is not one.
-  if (( _WORKER )); then return 0; fi
-
-  # Below the worker's return: a worker's idea of what was left out is every scope but its own.
-  if [[ -n "$_NOT_RUN" ]]; then skip "not run:${_NOT_RUN}"; fi
   _summary_table
   count="${#_SECTION_NAMES[@]}"
   elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
@@ -510,24 +441,19 @@ ran, so nothing here is a verdict on the change (exit 130)." >&2 ;;
 # Exits rather than returning: a script free to carry on past its closing statement prints a
 # second one. A sentence passed in is appended to the green statement alone.
 finish() {
-  local i count worst=0 crashed=0
+  local i count worst=0
   end_section
   count="${#_SECTION_NAMES[@]}"
   # A section closing with no verdict is a caller defect: green would print "no findings" beside a
   # row reading `no verdict`. `fail`, not `warn` — a section proving nothing must not pass.
   for (( i = 0; i < count; i++ )); do
-    if (( _SECTION_RANKS[i] == RANK_CRASHED )); then crashed=1; continue; fi
     if (( _SECTION_RANKS[i] == 0 )); then
       fail "section '${_SECTION_NAMES[i]}' closed with no verdict — nothing in it proves anything"
     fi
     if (( _SECTION_RANKS[i] > worst )); then worst=${_SECTION_RANKS[i]}; fi
   done
-  # Reachable through an adopted row as well as a direct `refuse`, so a worker that could not judge
-  # its input ends the same either way.
   if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
   if (( worst == 4 )); then _closing refused; exit 2; fi
-  # Only where no other row set the ending, which a crashed row is adopted behind.
-  if (( crashed )); then _closing crashed; exit 3; fi
   # No row reached `pass`, so nothing judged anything and green would read as a run that did.
   # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
   # plainly opens no section at all.
@@ -537,119 +463,6 @@ no verdict to report. Each skip above names what was not run and why."
   fi
   _closing green "$*"
   exit 0
-}
-
-# --- Sections a worker ran ---------------------------------------------------------------------------
-
-# Concurrent scopes print nothing where they stand: each captures its own output, and the parent
-# replays the captures in a fixed order, so a parallel run reads as a serial one.
-
-# The name goes last, being the only field that may hold a space. Redirect this to a file: a
-# worker's stdout is the output its parent replays.
-emit_section_ledger() {
-  local i count="${#_SECTION_NAMES[@]}" sum_f=0 sum_a=0
-  for (( i = 0; i < count; i++ )); do
-    sum_f=$(( sum_f + _SECTION_FINDINGS[i] ))
-    sum_a=$(( sum_a + _SECTION_ADVISORIES[i] ))
-  done
-  # Refused rather than dropped: anything recorded before the section opened has no row to travel
-  # in, and a parent never hearing of it reports a clean scope over a real finding.
-  if (( _RUN_FINDINGS > sum_f || _RUN_ADVISORIES > sum_a )); then
-    die "emit_section_ledger: $(( _RUN_FINDINGS - sum_f )) finding(s) and $(( _RUN_ADVISORIES - sum_a )) advisory
-line(s) were recorded outside any section, so no row can carry them to the parent.
-Open the section before the first verb that records."
-  fi
-  for (( i = 0; i < count; i++ )); do
-    printf '%s\t%s\t%s\t%s\t%s\n' \
-      "${_SECTION_RANKS[i]}" "${_SECTION_MS[i]}" "${_SECTION_FINDINGS[i]}" \
-      "${_SECTION_ADVISORIES[i]}" "${_SECTION_NAMES[i]}"
-  done
-}
-
-# A worker may never call `finish`, which speaks for every scope in the run. It owes its parent
-# only the status its rows already imply, which the parent re-derives, so the two cannot disagree.
-end_worker() {
-  end_section
-  if (( _RUN_FINDINGS > 0 )); then exit 1; fi
-  exit 0
-}
-
-# What one worker's rows add up to, reset by `adopt_ending`. A run total cannot answer this — a
-# finding from an earlier scope would stand in for the next scope's silence and hide the
-# disagreement below.
-_ADOPTED_FINDINGS=0
-_ADOPTED_WORST=0
-_ADOPTED_UNPROVEN=0
-
-# Prints nothing: bytes and ledger travel apart, so a line appears twice or out of order. An
-# adopted row must stay indistinguishable from an in-process one, or a parallel run's table stops
-# matching the serial one but for its durations.
-adopt_section() {
-  local name="$1" rank="$2" ms="$3" findings="$4" advisories="${5:-0}" value
-  # A worker reports these through a file, so they are input, not literals: an unchecked one indexes
-  # past the label table and takes the closing summary down with it.
-  for value in "$rank" "$ms" "$findings" "$advisories"; do
-    # Every fault in this function crashes rather than naming a finding: a mangled row is the
-    # gate's own handoff, and nothing in the tree could be fixed to answer for one.
-    [[ "$value" =~ ^[0-9]+$ ]] \
-      || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]." "${BASH_SOURCE[1]}"
-  done
-  (( rank <= RANK_CRASHED )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-${RANK_CRASHED}." "${BASH_SOURCE[1]}"
-  # A row appended under an open section sorts before the section still running, and the fixed
-  # order is the point of adopting rather than printing.
-  (( _SECTION_OPEN < 0 )) \
-    || on_error 3 "${BASH_LINENO[0]}" "adopt_section: a section is still open. Call end_section first." "${BASH_SOURCE[1]}"
-  _CHROME=1
-  _SECTION_NAMES+=("$name"); _SECTION_RANKS+=("$rank"); _SECTION_MS+=("$ms")
-  _SECTION_FINDINGS+=("$findings"); _SECTION_ADVISORIES+=("$advisories")
-  _RUN_FINDINGS=$(( _RUN_FINDINGS + findings ))
-  _RUN_ADVISORIES=$(( _RUN_ADVISORIES + advisories ))
-  # What the worker's own status is checked against below: a finding is what a 1 has to name and a
-  # rank of 4 what a 2 has to, while a rank under 1 is a scope nothing proved.
-  _ADOPTED_FINDINGS=$(( _ADOPTED_FINDINGS + findings ))
-  if (( rank > _ADOPTED_WORST )); then _ADOPTED_WORST="$rank"; fi
-  if (( rank < 1 )); then _ADOPTED_UNPROVEN=1; fi
-  return 0
-}
-
-# The endings a row cannot carry: `on_error` and `on_interrupt` rank their section `failed`, so a
-# parent reading rows alone would report a crash or an interrupt as findings. Every other status
-# returns, the rows being the whole story there.
-adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a refusal
-  local rc="$1" who="${2:-a worker}"
-  # Crashes for `adopt_section`'s reason: a status the handoff mangled is not something the change
-  # could be fixed to answer for.
-  [[ "$rc" =~ ^[0-9]+$ ]] \
-    || on_error 3 "${BASH_LINENO[0]}" "adopt_ending: '${rc}' is not an exit status." "${BASH_SOURCE[1]}"
-  if (( rc == 130 )); then _closing interrupted; exit 130; fi
-
-  # The status a kill leaves is not a number `exit` can return: on Windows `kill -9` reports 2304,
-  # which masks to 0. Classified on the raw value, because masking first closes the run green over
-  # a killed scope.
-  if (( rc > 255 )); then rc=3; fi
-  if (( rc >= 3 )); then _closing crashed; exit "$rc"; fi
-
-  # 1 and 2 are the statuses whose whole meaning lives in the rows, so rows naming neither leave
-  # the run contradicting itself. A rank under 1 is exempt: `finish` already refuses to call that
-  # green, and no row could have explained a scope nothing proved.
-  if (( ! _ADOPTED_UNPROVEN )); then
-    if (( rc == 1 && _ADOPTED_FINDINGS == 0 )); then _contradicted "$who" 1 "carries no finding"; fi
-    if (( rc == 2 && _ADOPTED_WORST < 4 )); then _contradicted "$who" 2 "carries no refusal"; fi
-  fi
-  _ADOPTED_FINDINGS=0
-  _ADOPTED_WORST=0
-  _ADOPTED_UNPROVEN=0
-  return 0
-}
-
-# Graded 3, never 2: against `scripts/lib/checker_kernel.py`'s contract 2 asks for the input to be
-# fixed, and no input made a worker and its parent disagree. The fault is the handoff's.
-_contradicted() { # $1 what to call the worker, $2 its exit status, $3 what its rows lack
-  # One frame further out than `adopt_ending`'s own call: the line named is where the caller
-  # adopted the worker, not the line of `adopt_ending` that noticed.
-  on_error 3 "${BASH_LINENO[1]}" "${1} exited ${2}, and every section row it sent home ${3}.
-A status and the rows it travelled with are two accounts of one run, and these two disagree, so
-neither stands as a verdict. scripts/lib/_lib.sh :: emit_section_ledger is what fills those rows." "${BASH_SOURCE[2]}"
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
@@ -723,8 +536,7 @@ trap '_on_err_trap "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
 # dies by its signal, with no statement and `quietly`'s capture left behind, a hangup exiting 129,
 # which the exit contract never names.
 on_interrupt() {
-  # Once: a second signal would re-enter here from inside the EXIT trap and exit it half done, and a
-  # stopped Windows gate takes the console's interrupt and the watcher's SIGTERM both.
+  # Once: a second signal would re-enter here from inside the EXIT trap and exit it half done.
   trap '' INT TERM HUP
   spinner_stop
   if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
@@ -776,8 +588,8 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`: the step pool and the ops scope's checkers run on any interpreter at the
-# floor, and skipping them for a missing backend virtualenv buys a prerequisite for nothing.
+# Wider than `venv_python`, for `nginx/edge_test.sh`, which needs an interpreter at the floor and no
+# package.
 any_python() {
   if venv_python; then return 0
   elif command -v python3 >/dev/null 2>&1; then printf 'python3'
@@ -790,30 +602,19 @@ any_python() {
 # (`docs/ops/spec.md` §1.5).
 PYTHON_FLOOR="3.14"
 
-# What the last `python_at_floor` read, so a caller can name both halves. Empty where the
-# interpreter answered nothing a version could be taken from.
-PYTHON_FOUND=""
-
 # Called bare in a condition, for `verbose`'s reason. `--version` rather than a `-c` snippet, whose
 # own syntax an interpreter this refuses would have to be trusted to parse.
 python_at_floor() { # $1 an interpreter
   local said major minor
-  PYTHON_FOUND=""
   # A python 2 writes its version to stderr and a Windows Store stub prints nothing at all, so an
   # answer no version reads out of counts as below the floor rather than passing unread.
   said="$("$1" --version 2>/dev/null)" || return 1
   [[ "$said" =~ ^Python[[:space:]]+([0-9]+)\.([0-9]+) ]] || return 1
   major="${BASH_REMATCH[1]}"; minor="${BASH_REMATCH[2]}"
-  PYTHON_FOUND="python ${major}.${minor}"
   # `10#`, or a component arriving with a leading zero is read as octal.
   local -i found=$(( (10#$major * 1000) + 10#$minor ))
   local -i floor=$(( (10#${PYTHON_FLOOR%%.*} * 1000) + 10#${PYTHON_FLOOR##*.} ))
   (( found >= floor ))
-}
-
-require_python_floor() { # $1 the interpreter this run cannot go on without
-  python_at_floor "$1" || refuse "This is ${PYTHON_FOUND:-an interpreter no version could be read from}; the gate's checkers are written for ${PYTHON_FLOOR} or newer.
-Run them from the backend virtualenv, which 'cd fl_backend && uv sync --dev' creates."
 }
 
 require_file() { [[ -f "$1" ]] || refuse "Missing required file: $1${2:+
@@ -1236,9 +1037,8 @@ image_created_display() {
 
 # --- What a successful build does not prove ------------------------------------------------------------
 
-# Asked of the image itself, by the gate's images scope and by `.github/workflows/publish.yml` before
-# it pushes. Each answers 0, 1 for what it found, and 3 for an image that would not run, which says
-# nothing about the image.
+# Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and 3
+# for an image that would not run, which says nothing about the image.
 
 # From the repo root `instrumentation.ts` compiles but is not traced into the standalone output,
 # which silently disables the startup env gate and onRequestError.

@@ -202,8 +202,7 @@ KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_ac
 class RefusalDriver(StrEnum):
     """The suite that makes a dependency's refusal happen, which holds the table's entry to what a request meets."""
 
-    #: Met before any handler, by `fl_backend/tests/api/test_dependency_refusals.py`'s probe of every
-    #: operation against an application holding no database.
+    #: Met before any handler, against an application holding no database.
     PROBE = "probe"
     #: Met only past the database, where the handler calls the check: `fl_backend/tests/api/test_step_up_execution.py`.
     STEP_UP = "step_up"

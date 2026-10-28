@@ -1,0 +1,97 @@
+"use client";
+
+import { useContext } from "react";
+
+import { FieldError, FieldErrorContext } from "react-aria-components/FieldError";
+import { Label } from "react-aria-components/Label";
+import { Text } from "react-aria-components/Text";
+
+import { COPY } from "@/core/copy";
+
+import { fieldLabel, messageLine, requiredMark } from "./fieldStyles";
+
+import type { Copy } from "@/core/copy";
+import type { ValidationResult } from "react-aria-components/FieldError";
+
+/** What a field's message needs to name the rule its value broke. */
+export type Constraints = {
+  maxLength?: number;
+  minLength?: number;
+  /** The example a malformed value is shown, as in „Format: name@example.com“. */
+  beispiel?: Copy;
+};
+
+/**
+ * The browser's validity flags as the fixed field messages, so no browser wording and no schema reaches
+ * the client. A message the server or the form sent stands as it came.
+ */
+function fieldMessage({ validationDetails, validationErrors }: ValidationResult, constraints: Constraints) {
+  const { feld } = COPY.shared;
+  if (validationDetails.valueMissing) return feld.pflichtfeld;
+  if (validationDetails.tooLong && constraints.maxLength !== undefined) return feld.hoechstensZeichen(constraints.maxLength);
+  if (validationDetails.tooShort && constraints.minLength !== undefined) return feld.mindestensZeichen(constraints.minLength);
+  if (
+    (validationDetails.typeMismatch || validationDetails.patternMismatch || validationDetails.badInput) &&
+    constraints.beispiel !== undefined
+  ) {
+    return feld.format(constraints.beispiel);
+  }
+  return validationErrors[0];
+}
+
+/** The label above a field, an asterisk after it where a value is required. */
+export function FieldLabel({ label, isRequired }: { label: Copy; isRequired: boolean }) {
+  return (
+    <Label className={fieldLabel()}>
+      {label}
+      {/* Hidden from assistive technology, which hears the field's required state instead. */}
+      {isRequired && (
+        <span
+          aria-hidden
+          className={requiredMark()}>
+          {" *"}
+        </span>
+      )}
+    </Label>
+  );
+}
+
+/**
+ * The line under a field, always there: the error once the value is committed or the form submitted,
+ * else a change's consequence, else the description, else empty.
+ */
+export function MessageLine({
+  description,
+  consequence,
+  constraints = {},
+}: {
+  description?: Copy;
+  consequence?: Copy;
+  constraints?: Constraints;
+}) {
+  const validation = useContext(FieldErrorContext);
+
+  if (validation?.isInvalid) {
+    return <FieldError className={messageLine({ tone: "error" })}>{(result) => fieldMessage(result, constraints)}</FieldError>;
+  }
+  if (consequence !== undefined) {
+    return (
+      <Text
+        slot="description"
+        className={messageLine({ tone: "consequence" })}>
+        {consequence}
+      </Text>
+    );
+  }
+  if (description !== undefined) {
+    return (
+      <Text
+        slot="description"
+        className={messageLine({ tone: "description" })}>
+        {description}
+      </Text>
+    );
+  }
+  // An empty line holds the place, describing nothing.
+  return <div className={messageLine({ tone: "description" })} />;
+}

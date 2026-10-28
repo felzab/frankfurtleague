@@ -473,8 +473,8 @@ async def sweep_saison(
         junction_rows = await batch.saw(
             pull_many_from_db(
                 collection=saison_teams_collection,
-                # Either block standing, not `kontakte` alone: an image that predates the links clears the
-                # people and leaves their links, and their delivery records, behind.
+                # Either block standing, not `kontakte` alone, so no row's links, and their delivery records,
+                # outlive its people whichever write cleared them.
                 db_filter=batch.within({"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}]}),
                 projection=["_id"],
                 limit=SWEEP_PAGE + 1,

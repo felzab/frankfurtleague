@@ -22,11 +22,11 @@ from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, spieler_document
 from tests.erasure import erased
+from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 from .test_erasure_auf_anfrage import ANOTHER_SURNAME, SURNAME_OF
 from .test_funktionen_erasure import NACHNAME, SAISON_ID, TYPED, VORNAME, a_person_holding_everything, everything_in
-from .test_sperrliste_isolation import SeasonsRunningARivalAfterTheFirstRead
 
 pytestmark = pytest.mark.db
 
@@ -65,6 +65,16 @@ LAST_COVERED = "2031"
 SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+
+
+class SeasonsRunningARivalAfterTheFirstRead(InterleavedCollection):
+    """Runs a rival write once, just after the first `find_one`: the ban's reference season, so the rival lands before the list check."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+
+        return found
 
 
 def on_a_clean_list(url: str, body: Body) -> Any:

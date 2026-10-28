@@ -369,7 +369,7 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
-    """`main` over two rendered models: its exit code and what it printed, as `test_check_gate_budget.py :: run_main` drives its own."""
+    """`main` over two rendered models: its exit code and what it printed."""
     for name, rendered in (("production.json", production), ("local.json", local)):
         (project / name).write_bytes(json.dumps(rendered).encode())
     out = io.StringIO()

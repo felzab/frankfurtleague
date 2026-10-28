@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 from fastapi import Depends
-from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
+from httpx2 import ASGITransport, AsyncClient
 
 from app.core.collections import Collection
 from app.core.security import ACTOR_HEADER, PERSON_ACTOR_BINDERS, PERSON_BARRED

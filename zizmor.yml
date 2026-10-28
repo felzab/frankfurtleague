@@ -7,12 +7,12 @@
 # - A rule is disabled here only with its reason and the condition that would re-open it. A
 #   suppression nobody can re-decide is worse than a finding nobody fixed.
 # - Nothing here relaxes `unpinned-uses`. Its default policy refuses a tag-pinned action for every
-#   owner this repository depends on, which is what `docs/_git/spec.md` I8 asks of a `uses:`.
+#   owner this repository depends on: every `uses:` names a commit, its release in a comment.
 
 rules:
   self-repository:
     # actionlint refuses `$/` as a `uses:` format, so taking zizmor's fix reddens
-    # `scripts/gate/selfcheck.sh :: run_actionlint`. Re-open when actionlint accepts it.
+    # `scripts/gate/selfcheck.sh`'s actionlint step. Re-open when actionlint accepts it.
     disable: true
   dependabot-cooldown:
     # One day, the wait `.github/dependabot.yml` sets in every ecosystem; the audit's own floor is

@@ -1,5 +1,7 @@
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from functools import cache
+from http import HTTPStatus
 from itertools import combinations, permutations, product
 from math import factorial
 from typing import Any, get_args
@@ -16,14 +18,40 @@ from app.api.saisons.schedule import (
     schedule_for,
     total_group_matches,
 )
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_refusal
+from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
+from app.api.saisons.services import (
+    DRAW_TWINS,
+    DRAWN_HOLDING_ITS_SIDES,
+    RECORDED_FACT_FIELDS,
+    RULES_BRACKET_IMPOSSIBLE,
+    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+    RULES_DRAW_OUTVALUES_WIN,
+    RULES_DRAW_OUTVALUES_WIN_AS_STORED,
+    RULES_FIXTURES_OVER_ONE_READ,
+    RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+    RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+    RULES_QUALIFIERS_ABOVE_GROUP,
+    RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
+    SAISON_SPAN_BELOW_SCHEDULE,
+    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+    SHAPE_ONLY_CODES,
+    SPIELPLAN_ALREADY_DRAWN,
+    SPIELPLAN_GRUPPEN_OFF_RULES,
+    SPIELPLAN_MATCHDAYS_HELD,
+    SPIELPLAN_SAISON_FINISHED,
+    as_the_draw_answers,
+    find_rules_refusal,
+    find_spielplan_refusal,
+    holds_a_recorded_fact,
+)
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
-from app.api.spiele.schemas import PHASE_RANK, FLSaisonPhase, FLSpiel
+from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSonderereignis, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
+from app.core.exceptions import WriteRefusal
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
 
@@ -878,3 +906,556 @@ class TestADrawRefusesWhatItCannotDrawTruthfully:
 
         with pytest.raises(ValueError, match="does not offer"):
             draw(2, 4, 2, entered=(stray, *entered[1:]))
+
+
+RULES = FLSaisonRules(
+    win_points=3,
+    draw_points=1,
+    qualifiers_per_group=2,
+    number_of_groups=4,
+    teams_per_group=6,
+    tiebreak_order="tordifferenz",
+    max_kadergroesse=20,
+    forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
+    erlaubte_stufen=["Q1"],
+)
+
+FULL: Mapping[FLGruppenNames, int] = {"A": 6, "B": 6, "C": 6, "D": 6}
+
+
+def refusal_for(
+    *,
+    saison_status: str = "future",
+    fixtures_drawn: int = 0,
+    spieltage_held: int = 0,
+    watermark: Mapping[str, Any] | None = None,
+    occupancy: Mapping[FLGruppenNames, int] = FULL,
+    rules: FLSaisonRules = RULES,
+    replace: bool = False,
+    recorded: int = 0,
+) -> WriteRefusal | None:
+    return find_spielplan_refusal(
+        saison_status=saison_status,
+        fixtures_drawn=fixtures_drawn,
+        spieltage_held=spieltage_held,
+        watermark=watermark,
+        rules=rules,
+        occupancy_by_gruppe=occupancy,
+        replace=replace,
+        recorded_fixtures=recorded,
+    )
+
+
+class TestASeasonReadyToBeDrawn:
+    """The one shape that passes, so every refusal below is shown to need its own reason."""
+
+    def test_a_future_season_with_full_groups_and_nothing_drawn_is_permitted(self):
+        assert refusal_for() is None
+
+    def test_a_group_the_season_does_not_offer_may_stand_in_the_map_holding_nobody(self):
+        """The map is counted from stored rows, so an emptied group survives as a key; nobody is stranded by it."""
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+
+        assert refusal_for(occupancy={"A": 6, "B": 6, "C": 0, "D": 0}, rules=two_groups) is None
+
+
+class TestASeasonHoldingMatchdays:
+    """`REQ-SPIELPLAN-002`: the draw writes the whole matchday list, so it cannot join one already there."""
+
+    def test_a_matchday_without_fixtures_refuses_the_draw(self):
+        refusal = refusal_for(spieltage_held=1)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_MATCHDAYS_HELD
+
+
+class TestAFinishedSeason:
+    """`REQ-SPIELPLAN-003`: a finished season's table is the record of what happened, and a draw would reopen it."""
+
+    def test_a_past_season_refuses_the_draw(self):
+        refusal = refusal_for(saison_status="past")
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_SAISON_FINISHED
+        assert "past" in refusal.message
+
+    def test_a_running_season_is_permitted(self):
+        """The pair to `REQ-ACTIVATE-003`, and the whole reason this refuses `past` alone.
+
+        Activation writes `status` one way, so refusing a running season here would leave one
+        activated before its draw unschedulable for good rather than merely out of order.
+        """
+
+        assert refusal_for(saison_status="active") is None
+
+
+class TestWhetherEveryOfferedGroupHoldsItsSize:
+    """`REQ-SPIELPLAN-004`, and all three answers it gives.
+
+    A group short of `teams_per_group`, a group past it, and a club standing in a group the season
+    does not offer -- one class, because `Rule.tested_by` cites one.
+    """
+
+    def test_a_short_group_refuses_the_draw(self):
+        refusal = refusal_for(occupancy={**FULL, "B": 4})
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+
+    def test_a_group_holding_more_than_the_rules_ask_refuses_the_draw(self):
+        """The other direction: a group past `teams_per_group` draws more fixtures than its matchdays account for."""
+
+        refusal = refusal_for(occupancy={**FULL, "A": 7})
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+
+    def test_a_group_beyond_the_offered_ones_refuses_the_draw(self):
+        """A club in a group the season does not run draws into no round robin at all.
+
+        `REQ-ENTER-002` closes every entry and `REQ-RULES-002` the rules patch; this rule closes the
+        draw's own `shape`, judged with `stored` as `None`.
+        """
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1}, rules=two_groups)
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+
+    def test_an_offered_group_nobody_is_entered_into_is_named_as_holding_none(self):
+        """A group nobody is entered into is absent from the map rather than present at 0.
+
+        The ordinary state of a season about to be drawn, so reading the map by subscript would turn
+        its most frequent refusal into a 500.
+        """
+
+        refusal = refusal_for(occupancy={"A": 6, "B": 6})
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert "gruppe C holds 0 of 6" in refusal.message
+        assert "gruppe D holds 0 of 6" in refusal.message
+
+    def test_every_short_group_is_named_at_once(self):
+        """One press, one list: an admin filling them one at a time would meet this refusal per group."""
+
+        refusal = refusal_for(occupancy={"A": 6, "B": 4, "C": 6, "D": 2})
+
+        assert refusal is not None
+        assert refusal.message.split(";")[0] == "gruppe B holds 4 of 6, gruppe D holds 2 of 6"
+
+    def test_the_message_names_the_group_and_what_it_holds(self):
+        """The same sentence the short direction gets, because an admin repairing either reads the same page."""
+
+        refusal = refusal_for(occupancy={"A": 7, "B": 6, "C": 6, "D": 9})
+
+        assert refusal is not None
+        assert "gruppe A holds 7 of 6" in refusal.message
+        assert "gruppe D holds 9 of 6" in refusal.message
+
+    def test_both_directions_are_reported_by_one_press(self):
+        """Repairing a season one refusal at a time is what naming every offending group at once avoids."""
+
+        refusal = refusal_for(occupancy={"A": 7, "B": 4, "C": 6, "D": 6})
+
+        assert refusal is not None
+        assert "gruppe A holds 7 of 6" in refusal.message
+        assert "gruppe B holds 4 of 6" in refusal.message
+
+    def test_the_message_names_the_group_what_it_holds_and_what_the_season_offers(self):
+        """A 500 out of `_squads` names the club and reaches no admin; this is the same fact as an answer to the press."""
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1, "D": 3}, rules=two_groups)
+
+        assert refusal is not None
+        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
+        assert "gruppe D holds 3 and a season of 2 group(s) does not offer it" in refusal.message
+
+    def test_a_stranded_club_is_reported_beside_a_group_off_its_size(self):
+        """One question, so one answer: every group the season cannot draw truthfully, in one message."""
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        refusal = refusal_for(occupancy={"A": 5, "B": 6, "C": 1}, rules=two_groups)
+
+        assert refusal is not None
+        assert "gruppe A holds 5 of 6" in refusal.message
+        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
+
+    def test_the_message_names_every_group_in_one_fixed_order(self):
+        """The refusal is the admin's answer and the log line alike, and an order that moves between runs is neither.
+
+        Offered groups in the season's own order, then the stranded ones by name, whatever order the
+        occupancy map arrived in.
+        """
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        # Out of name order on purpose: `generate_spielplan` counts rows off a cursor no index sorts.
+        refusal = refusal_for(occupancy={"D": 3, "C": 4, "B": 4, "A": 5}, rules=two_groups)
+
+        assert refusal is not None
+        assert refusal.message.split(";")[0] == (
+            "gruppe A holds 5 of 6, gruppe B holds 4 of 6, "
+            "gruppe C holds 4 and a season of 2 group(s) does not offer it, "
+            "gruppe D holds 3 and a season of 2 group(s) does not offer it"
+        )
+
+    def test_a_group_the_season_does_not_offer_is_not_counted(self):
+        """`offered_gruppen` bounds it: a two-group season is not short because C and D are absent from the map."""
+
+        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        refusal = find_spielplan_refusal(
+            saison_status="future",
+            fixtures_drawn=0,
+            spieltage_held=0,
+            watermark=None,
+            rules=two_groups,
+            occupancy_by_gruppe={"A": 6, "B": 6},
+            replace=False,
+            recorded_fixtures=0,
+        )
+
+        assert refusal is None
+
+
+class TestAConfirmedReplaceStepsPastWhatItDeletes:
+    """`REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` name what a replace is about to remove, so neither may turn one away."""
+
+    def test_a_season_already_holding_a_whole_spielplan_is_replaced(self):
+        """Drop `and not replace` from the fixture guard and this fails, the replace refused over the rows it deletes."""
+
+        assert refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8) is None
+
+    def test_a_season_holding_matchdays_and_no_fixture_is_replaced(self):
+        """The matchday guard's own step-aside, and the shape a draw stopped between its two writes would leave."""
+
+        assert refusal_for(replace=True, spieltage_held=8) is None
+
+    def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
+        """Gate `REQ-SPIELPLAN-004` on `replace` too and this fails: a replace draws the same fixtures, so it needs the same groups."""
+
+        refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+
+        assert refusal is not None
+        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+
+
+ADLER = "68f0a1b2c3d4e5f607600011"
+BIEBER = "68f0a1b2c3d4e5f607600012"
+SPIELORT = "68f0a1b2c3d4e5f607600001"
+SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
+
+# Off the enum rather than spelled: every phase but the one the draw seats its sides on is judged
+# the same way, so whichever comes first stands for all of them.
+BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
+
+# A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
+# could land in empty. No `notiz` key at all, which is the shape
+# `app/api/saisons/spielplan.py :: _spiel` leaves.
+UNTOUCHED_FIXTURE: Mapping[str, Any] = {
+    "saison_phase": DRAWN_HOLDING_ITS_SIDES,
+    "ergebnis": None,
+    "elfmeterschiessen": None,
+    "sonderereignis": None,
+    "team1": {"team_id": ADLER, "tore": None},
+    "team2": {"team_id": BIEBER, "tore": None},
+    "team1_quelle": None,
+    "team2_quelle": None,
+    "ort": {"spielort_id": None},
+    "schiedsrichter": {"schiedsrichter_id": None},
+}
+
+# The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
+# a placing and holding nobody.
+UNTOUCHED_BRACKET: Mapping[str, Any] = {
+    **UNTOUCHED_FIXTURE,
+    "saison_phase": BRACKET_PHASE,
+    "team1": None,
+    "team2": None,
+    "team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1},
+    "team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2},
+}
+
+
+def value_at(spiel: Mapping[str, Any], projected: str) -> Any:
+    """What one projected path resolves to, read the way the predicate itself reads it.
+
+    `or {}` rather than a `None` test: the projection delivers a null head where the stored field is
+    null, and a leaf under one is then absent rather than false.
+    """
+
+    head, _, leaf = projected.partition(".")
+    value = spiel.get(head)
+
+    return (value or {}).get(leaf) if leaf else value
+
+
+@dataclass(frozen=True)
+class RecordedEdit:
+    """One projected field, and what somebody entering something in THAT field looks like."""
+
+    # Carried into the assertion, so a narrowed predicate names the fact it stopped seeing.
+    why: str
+    gruppe: Mapping[str, Any]
+    # Declared for the fields the draw leaves inverted between the two shapes, and only those;
+    # `INVERTED_BY_THE_DRAW` below holds the two sets to each other.
+    ko: Mapping[str, Any] | None = None
+
+
+# One entry per `app/api/saisons/services.py :: RECORDED_FACT_FIELDS` path. Keyed by the whole path
+# and never its head: a leaf added under `team1` then owes an entry of its own rather than folding
+# into one already here and passing unweighed.
+RECORDED_EDITS: Mapping[str, RecordedEdit] = {
+    # NO record of its own -- it is the DISCRIMINATOR, so its edit is the flip under a pair of sides
+    # nobody touched. Read the wrong one and every drawn season is misjudged in one direction.
+    "saison_phase": RecordedEdit(
+        why="the phase, which records nothing itself and decides which shape the sides are read against",
+        gruppe={"saison_phase": BRACKET_PHASE},
+        ko={"saison_phase": DRAWN_HOLDING_ITS_SIDES},
+    ),
+    "team1.team_id": RecordedEdit(
+        why="the side a Spieltag release empties, and the bracket slot a resolution seeded",
+        gruppe={"team1": None},
+        ko={"team1": {"team_id": ADLER, "tore": None}},
+    ),
+    "team2.team_id": RecordedEdit(
+        why="the same on the other side, which a loop over one slot would miss",
+        gruppe={"team2": None},
+        ko={"team2": {"team_id": BIEBER, "tore": None}},
+    ),
+    # Its side left SEATED and unwired, so nothing but the goal count can be what answers.
+    "team1.tore": RecordedEdit(why="a goal count standing without a result", gruppe={"team1": {"team_id": ADLER, "tore": 0}}),
+    "team2.tore": RecordedEdit(why="the same count on the other side", gruppe={"team2": {"team_id": BIEBER, "tore": 0}}),
+    "team1_quelle": RecordedEdit(
+        why="wiring `REQ-WIRING-001` refuses on a group fixture, and a bracket slot whose wiring an admin cleared",
+        gruppe={"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
+        ko={"team1_quelle": None},
+    ),
+    "team2_quelle": RecordedEdit(
+        why="the same on the other side",
+        gruppe={"team2_quelle": {"type": "gruppe", "gruppe": "B", "platz": 2}},
+        ko={"team2_quelle": None},
+    ),
+    "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
+    # Beside a result rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where it
+    # stores a result too, so one standing alone came by the hand edit route the goals above did.
+    "elfmeterschiessen": RecordedEdit(why="a shoot-out standing without a result", gruppe={"elfmeterschiessen": {"team1": 4, "team2": 3}}),
+    # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
+    # that narrower question instead of this window is the mistake this entry is here to fail.
+    "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
+    "ort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"ort": {"spielort_id": SPIELORT}}),
+    "schiedsrichter.schiedsrichter_id": RecordedEdit(why="a booked referee", gruppe={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER}}),
+    "notiz": RecordedEdit(why="an admin's note, which only `PATCH /spiele/{spiel_id}` writes", gruppe={"notiz": "Platz gesperrt"}),
+}
+
+# The projected paths the two drawn shapes disagree about -- the sides half, which
+# `app/api/saisons/services.py :: _a_side_is_off_the_draw` reads. Derived, so a field that becomes
+# inverted is asked for both directions with nobody listing it.
+INVERTED_BY_THE_DRAW: frozenset[str] = frozenset(
+    path for path in RECORDED_FACT_FIELDS if value_at(UNTOUCHED_FIXTURE, path) != value_at(UNTOUCHED_BRACKET, path)
+)
+
+
+class TestWhatCountsAsRecordedAgainstAFixture:
+    """`holds_a_recorded_fact`, which is what the endpoint counts for `REQ-SPIELPLAN-005`.
+
+    The refusal reads a COUNT, so no test of it reaches this: the window closes on a cancellation
+    and on a booking as well as on a result.
+    """
+
+    def test_the_projection_the_map_and_the_two_drawn_shapes_are_read_before_anything_below(self):
+        """The floor: a derivation that quietly finds nothing makes every case under it vacuous.
+
+        The tuple is IMPORTED rather than parsed, so what stands in for "did the parse work" is
+        every derivation here being non-empty and the two fixtures genuine inverses.
+        """
+
+        assert RECORDED_FACT_FIELDS
+        assert RECORDED_EDITS
+        assert INVERTED_BY_THE_DRAW
+        assert BRACKET_PHASE != DRAWN_HOLDING_ITS_SIDES
+
+        # A PROPER subset, so the breadth below is asked of values `has_taken_place` answers for
+        # and of the ones it does not; equality would make the two questions one.
+        assert set(SONDEREREIGNIS_WITHOUT_A_RESULT) < set(get_args(FLSonderereignis))
+
+        for slot in ("team1", "team2"):
+            assert UNTOUCHED_FIXTURE[slot] is not None and UNTOUCHED_FIXTURE[f"{slot}_quelle"] is None, "the group fixture is not as drawn"
+            assert UNTOUCHED_BRACKET[slot] is None and UNTOUCHED_BRACKET[f"{slot}_quelle"] is not None, "the bracket fixture is not as drawn"
+
+    def test_a_fixture_the_draw_left_alone_does_not(self):
+        """The floor: a predicate answering True for everything would pass every case below."""
+
+        assert holds_a_recorded_fact(UNTOUCHED_FIXTURE) is False
+
+    def test_a_bracket_slot_the_draw_left_alone_does_not_either(self):
+        """The second floor, and the one that matters: read a WIRED empty slot as touched and no drawn season is ever replaceable."""
+
+        assert holds_a_recorded_fact(UNTOUCHED_BRACKET) is False
+
+    def test_every_projected_field_is_answered_by_an_edit_and_nothing_else_is(self):
+        """THE COUPLING: add a field to `RECORDED_FACT_FIELDS` and this fails naming it.
+
+        Projected and never read is the defect it is against -- the field reaches the predicate,
+        changes no answer, and every other test stays green.
+        """
+
+        unanswered = sorted(set(RECORDED_FACT_FIELDS) - set(RECORDED_EDITS))
+        stale = sorted(set(RECORDED_EDITS) - set(RECORDED_FACT_FIELDS))
+
+        assert (unanswered, stale) == ([], [])
+
+    def test_the_bracket_direction_is_declared_for_every_field_the_draw_inverts(self):
+        """Declare a group edit alone for one of these and the rule is pinned in one direction only.
+
+        A group fixture is drawn occupied and unwired and a bracket fixture wired and empty, so each
+        of these records by moving the OPPOSITE way on the two shapes.
+        """
+
+        assert {path for path, edit in RECORDED_EDITS.items() if edit.ko is not None} == INVERTED_BY_THE_DRAW
+
+    @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
+    def test_an_edit_departs_from_the_draw_in_its_own_field_and_no_other(self, projected: str, edit: RecordedEdit):
+        """An entry closing the window through a NEIGHBOUR proves nothing about the field it is filed under.
+
+        `team1.tore` without its side's id is the case: the fixture then reads as recorded for an
+        emptied side, so dropping the goal counts leaves it green.
+        """
+
+        for drawn, change in ((UNTOUCHED_FIXTURE, edit.gruppe), (UNTOUCHED_BRACKET, edit.ko)):
+            if change is None:
+                continue
+
+            edited = {**drawn, **change}
+            assert set(change) == {projected.partition(".")[0]}, f"{projected}'s edit does not write its own field"
+            assert value_at(edited, projected) != value_at(drawn, projected), f"{projected}'s edit leaves what the draw wrote there"
+
+            moved = [other for other in RECORDED_FACT_FIELDS if other != projected and value_at(edited, other) != value_at(drawn, other)]
+            assert moved == [], f"{projected}'s edit also moves {moved}"
+
+    @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
+    def test_a_fixture_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
+        """Stop reading any one of these and a replace deletes the work it records, the endpoint answering 200."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **edit.gruppe}) is True, f"{projected} left the group window open: {edit.why}"
+
+        if edit.ko is not None:
+            assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
+
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    def test_every_sonderereignis_closes_the_window_whatever_it_awards(self, sonderereignis: str):
+        """Reach for `has_taken_place`'s narrower set and the two awarding nothing stop closing it.
+
+        The map above weighs the field once; this asks it of every value the enum offers, so one
+        added later is judged rather than assumed.
+        """
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "sonderereignis": sonderereignis}) is True
+
+    @pytest.mark.parametrize(
+        ("empty", "why"),
+        [
+            ({"notiz": None}, "how CLEARING a note is stored: the patch `$set`s the whole model"),
+            ({"notiz": ""}, "unreachable through the API, and `spiele`'s validator takes it from a hand edit"),
+            ({"notiz": "   "}, "whitespace, which `empty_strings_to_none` catches on the API route alone"),
+        ],
+    )
+    def test_a_note_that_says_nothing_leaves_the_window_open(self, empty: Mapping[str, Any], why: str):
+        """Compare `notiz` to None rather than stripping it and the last two close a window nothing was entered in."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, **empty}) is False, why
+
+    def test_a_date_and_a_kickoff_time_leave_the_window_open(self):
+        """Rescheduling is what a replace is FOR, so a dated fixture stays replaceable and the log keeps the dates."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_FIXTURE, "datum": "2026-05-01", "uhrzeit": "18:00:00"}) is False
+
+
+class TestASideMovedOffTheDrawClosesTheWindow:
+    """What the map above cannot state: a pair moved together, and a move no stored field records.
+
+    Bracket seeding is what a `future` season accumulates, and `future` is the only status either
+    window opens on.
+    """
+
+    def test_a_slot_whose_wiring_was_cleared_and_then_filled_is_recorded(self):
+        """The manual pick `find_wiring_refusal` invites -- clear the quelle, then name the team.
+
+        Each half has an entry of its own above; neither of those is this shape, which is the one an
+        admin actually reaches through the editor.
+        """
+
+        picked = {**UNTOUCHED_BRACKET, "team1_quelle": None, "team1": {"team_id": ADLER, "tore": None}}
+
+        assert holds_a_recorded_fact(picked) is True
+
+    def test_swapping_one_group_occupant_for_another_is_NOT_seen(self):
+        """The rule's limit, stated so it is not mistaken for a gap nobody noticed.
+
+        The draw seats both sides of every group fixture, so "holds a side" is true of all of them
+        and no stored field tells the draw's occupant from a replacement.
+        """
+
+        swapped = {**UNTOUCHED_FIXTURE, "team1": {"team_id": "68f0a1b2c3d4e5f607600013", "tore": None}}
+
+        assert holds_a_recorded_fact(swapped) is False
+
+    def test_a_fixture_reaching_the_predicate_without_a_phase_is_recorded(self):
+        """Drop `saison_phase` from the projection and every window shuts rather than opening on a season somebody drew by hand."""
+
+        no_phase = {key: value for key, value in UNTOUCHED_FIXTURE.items() if key != "saison_phase"}
+
+        assert holds_a_recorded_fact(no_phase) is True
+
+
+def shared(code: str) -> WriteRefusal:
+    """A refusal as the season's own write answers it, which the draw then re-codes."""
+
+    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT, message="the shared check's detail")
+
+
+def on_the_draw(code: str, *, shape_stated: bool) -> tuple[str, HTTPStatus] | None:
+    answered = as_the_draw_answers(shared(code), shape_stated=shape_stated)
+
+    return None if answered is None else (answered.error_code, answered.status)
+
+
+class TestTheDrawAnswersStoredValuesUnderItsTwins:
+    """A refusal reading a stored value is a conflict with state on the draw, so it answers 409 under a code of its own."""
+
+    def test_a_draw_stating_no_shape_answers_every_shared_code_under_its_twin(self):
+        """No shape overlays anything, so every rule the draw asks judges the season's stored rules or dates."""
+
+        assert on_the_draw(RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
+            RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (RULES_FIXTURES_OVER_ONE_READ_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
+
+    @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
+    def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: str):
+        """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""
+
+        assert on_the_draw(code, shape_stated=True) == (code, HTTPStatus.UNPROCESSABLE_CONTENT)
+
+    @pytest.mark.parametrize("code", sorted(set(DRAW_TWINS) - SHAPE_ONLY_CODES))
+    def test_a_stated_shape_still_twins_a_rule_reading_a_stored_value(self, code: str):
+        """The points, the forfeit award and the dates are no part of a shape, so they are the season's stored ones."""
+
+        assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)
+
+    def test_a_code_the_draw_shares_with_nothing_is_left_alone(self):
+        assert on_the_draw(SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
+        assert as_the_draw_answers(None, shape_stated=False) is None
+
+    def test_the_twin_keeps_the_shared_checks_detail(self):
+        answered = as_the_draw_answers(shared(RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
+
+        assert answered is not None
+        assert answered.message == "the shared check's detail"

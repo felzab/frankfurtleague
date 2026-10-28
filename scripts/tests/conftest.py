@@ -1,11 +1,7 @@
-"""SCRIPTS · the throwaway repository the gate-facing suites build, and the readers that drive one
+"""SCRIPTS · the readers and runners the scripts' suites share
 
-The gate-facing modules copy scripts/ into a temporary tree and import the gate out of the copy, so
-the checker under test roots at a planted corpus rather than at this repository. Of that tree only
-the building and the removal are shared: each module keeps its own corpus, its own plants and its
-own reset, because a fixture shared where a case mutates it would let a planted violation stop being
-found. The readers below hold no state and are shared whole -- a module spelling one for itself
-answers a question nothing else is held to, which is how two copies of one reader come to disagree.
+The readers hold no state and are shared whole -- a module spelling one for itself answers a question
+nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
   Every fixture tree is registered here and removed by `pytest_sessionfinish`, inside the run rather than after it.
@@ -33,17 +29,6 @@ import pytest
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
-# pytest's own, for the guard's test to run a session through it; and the refusal of a test module
-# that collects nothing.
-pytest_plugins = ("pytester", "collection")
-
-# So no case depends on the machine's git config.
-IDENTITY: Final[tuple[tuple[str, str], ...]] = (
-    ("user.name", "fixture"),
-    ("user.email", "fixture@example.invalid"),
-    ("commit.gpgsign", "false"),
-)
-
 # Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
 # the gate at all, and a contract silently skipped is what the suites driving one exist to stop.
 BASH: Final = shutil.which("bash")
@@ -55,36 +40,6 @@ MSYS_RUNTIME: Final = "msys-2.0.dll"
 _OWNED: list[Path] = []
 
 
-def _failure(args: tuple[str, ...], said: str) -> RuntimeError:
-    """The failure both readers below raise, carrying git's own words.
-
-    Without them the next case fails for a reason nothing explains.
-    """
-    return RuntimeError("git " + " ".join(args) + " failed: " + said)
-
-
-def git(root: Path, *args: str) -> str:
-    """One git command answering its stdout as a message, inside a fixture repository or this one."""
-    # `errors="replace"`: a non-utf-8 byte in a fixture's path or message would end the run in a
-    # decode error rather than in the finding.
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
-    if done.returncode != 0:
-        raise _failure(args, done.stderr.strip() or done.stdout.strip())
-    return done.stdout.strip()
-
-
-def _listed(root: Path, *args: str) -> list[str]:
-    """One git listing's NUL-separated paths, decoded as a filename.
-
-    `git` above reads a message: it strips a leading space off a path and replaces a byte it cannot
-    decode, either of which rewrites a name a caller opens.
-    """
-    done = subprocess.run(("git", *args), cwd=root, capture_output=True, check=False)
-    if done.returncode != 0:
-        raise _failure(args, done.stderr.decode("utf-8", "replace").strip())
-    return [os.fsdecode(entry) for entry in done.stdout.split(b"\0") if entry]
-
-
 def write(root: Path, rel: str, text: str) -> None:
     """One corpus file under a fixture repository, its parents made as needed."""
     path = root / rel
@@ -93,49 +48,8 @@ def write(root: Path, rel: str, text: str) -> None:
     path.write_bytes(text.encode("utf-8"))
 
 
-def copy_scripts(destination: Path, *, source: Path = REPO_ROOT / "scripts") -> None:
-    """Every file in one tree that git does not ignore, copied into a fresh directory.
-
-    A walk raises on a path that vanished mid-listing, and the scripts scope has its own tools
-    reading this tree while a fixture copies it.
-    """
-    destination.mkdir(parents=True, exist_ok=True)
-    # `--others` beside `--cached`: a module a branch has only just written is one the copy must
-    # still hold. The tree's own ignore files and never `--exclude-standard`, whose global half
-    # would leave a fixture holding what one developer's configuration says.
-    for rel in _listed(source, "ls-files", "--cached", "--others", "--exclude-per-directory=.gitignore", "-z"):
-        # The fixture holds the gate's own corpus, and the suite that drives the gate is no part of it.
-        if rel.startswith("tests/"):
-            continue
-        origin = source / rel
-        # A tracked path the working tree has dropped is still in the index, and git reads it as
-        # deleted: copying it would take out every module's fixture at build time, naming no cause.
-        if not origin.is_file():
-            continue
-        target = destination / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # copy2 rather than a read and a write: it copies bytes and carries the executable bit.
-        shutil.copy2(origin, target)
-
-
-def configure(root: Path, hooks: str) -> None:
-    """A fresh repository on main, committing as the fixture identity and running no hook.
-
-    The hooks path is the caller's: the fixtures disagree on it.
-    """
-    git(root, "init", "-b", "main")
-    for name, value in IDENTITY:
-        git(root, "config", name, value)
-    git(root, "config", "core.hooksPath", hooks)
-
-
 def withdraw(*names: str) -> None:
-    """Drop a module and its submodules from the cache.
-
-    `scripts/tests/test_check_docs.py :: _load` imports a copy of scripts/ under the names
-    `import_scripts` gives this repository's modules, and `checker_kernel` holds REPO_ROOT: whichever
-    loads second is otherwise handed the first one's tree.
-    """
+    """Drop a module and its submodules from the cache, so a case's import is never another case's copy."""
     for cached in [name for name in sys.modules if any(name == root or name.startswith(root + ".") for root in names)]:
         del sys.modules[cached]
 
@@ -159,11 +73,7 @@ def import_scripts(*names: str, directories: tuple[str, ...] = ("checks",)) -> l
 
 
 def base_env() -> dict[str, str]:
-    """The environment a gate-driving fixture must not inherit.
-
-    A parent's own run state would decide the answer: FL_GATE_WORKER silences every summary, and
-    the pool's variables point the fixture at a ledger belonging to another run.
-    """
+    """The environment a script-driving case must not inherit: a parent gate run's colour and Actions state."""
     env = {name: value for name, value in os.environ.items() if not name.startswith("FL_GATE_")}
     env.pop("GITHUB_ACTIONS", None)
     env.pop("VERBOSE", None)
@@ -202,46 +112,6 @@ def run_shell(
         cwd=cwd,
         check=False,
     )
-
-
-# What `shell: bash` expands to on the runner, less the two flags that only skip start-up files.
-RUNNER_SHELL: Final = "set -eo pipefail\n"
-# A job's step, and the keys under it, at the indents both workflows keep.
-_STEP_OPEN_RE: Final = re.compile(r"^      - ")
-_STEP_NAME_RE: Final = re.compile(r"^      (?:- |  )name: (.+)$")
-_RUN_BLOCK_RE: Final = re.compile(r"^        run: \|$")
-_RUN_LINE: Final = "          "
-
-
-def step_script(workflow: Path, name: str) -> str:
-    """The `run: |` text of the step `name`, dedented to the margin, behind the runner's shell flags.
-
-    Read rather than copied, for `lift_function`'s reason.
-    """
-    steps: list[list[str]] = []
-    inside = False
-    for line in workflow.read_text(encoding="utf-8").splitlines():
-        if _STEP_OPEN_RE.match(line):
-            steps.append([line])
-            inside = True
-        elif inside and (not line or line.startswith("        ")):
-            steps[-1].append(line)
-        else:
-            inside = False
-    named = [step for step in steps if any((found := _STEP_NAME_RE.match(line)) and found[1] == name for line in step)]
-    assert len(named) == 1, f"{_cited(workflow)} names {len(named)} steps {name!r}, where the case reads exactly one"
-    opened = next((i for i, line in enumerate(named[0]) if _RUN_BLOCK_RE.match(line)), -1)
-    assert opened >= 0, f"{_cited(workflow)}'s {name!r} has no `run: |` block"
-    block: list[str] = []
-    for line in named[0][opened + 1 :]:
-        # A key after the block, such as an `env:`, ends it.
-        if line and not line.startswith(_RUN_LINE):
-            break
-        block.append(line.removeprefix(_RUN_LINE))
-    text = "\n".join(block).strip("\n") + "\n"
-    # An expression would reach the runner substituted and this case unsubstituted.
-    assert "${{" not in text, f"{name!r} interpolates an expression into its script"
-    return RUNNER_SHELL + text
 
 
 _SECOND_DEFINITION_RE: Final = re.compile(r"\b[A-Za-z_][\w-]*\s*\(\)\s*\{")

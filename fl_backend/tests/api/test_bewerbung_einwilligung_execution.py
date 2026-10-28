@@ -491,8 +491,6 @@ class TestThePageALinkOpens:
         ],
     )
     def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], fassung: str):
-        """The wiring alone; the unit table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`."""
-
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
 
         assert response.laufende_fassung == fassung

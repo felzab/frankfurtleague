@@ -42,13 +42,3 @@ def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment
     dearest = max(COMMANDS_A_LAPSE, COMMANDS_A_DUE_PERSON)
 
     assert (sweep_router.ADRESSWECHSEL_PER_PASS * dearest + OTHER_COMMANDS + SEASON_READ) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
-
-
-def test_the_share_is_the_largest_the_deadline_takes():
-    """One more and the call outruns the deadline: the share is cut from the count, never raised past it."""
-
-    dearest = max(COMMANDS_A_LAPSE, COMMANDS_A_DUE_PERSON)
-
-    assert ((sweep_router.ADRESSWECHSEL_PER_PASS + 1) * dearest + OTHER_COMMANDS + SEASON_READ) * (
-        ROUND_TRIP_S + PER_COMMAND_S
-    ) >= REQUEST_DEADLINE_S

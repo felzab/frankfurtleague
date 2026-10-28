@@ -1,8 +1,7 @@
 """
 API · every read of the ban list that reaches a collection
 
-Here rather than in `services.py`, which decides from its arguments and names no handle at all
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+Here rather than in `services.py`, which decides from its arguments and names no handle at all.
 The router opens the collection and the client; what it does not do is compose a query.
 """
 

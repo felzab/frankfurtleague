@@ -1,8 +1,7 @@
 """
 API · what a registration is read and judged by, and the erasure's removal of an address's registrations
 
-Here rather than in `services.py`, which decides from its arguments and names no handle
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+Here rather than in `services.py`, which decides from its arguments and names no handle.
 """
 
 from collections.abc import Mapping, Sequence
