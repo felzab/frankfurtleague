@@ -2,124 +2,107 @@
 
 **Scope:** `fl_frontend/`
 
-A Next.js application on the App Router, with React, HeroUI and Tailwind. It is both the website and,
-in effect, the system's application server: **no browser reaches FastAPI for application data** — the
-edge routes every `/api` path but the backend's liveness probe here
-([`../ops/spec.md`](../ops/spec.md) I13). Every application read is a server-side fetch made from this
-container, which is why the page-level caching and its tag invalidation live here rather than in the
-backend.
+A Next.js application on the App Router, with React and Tailwind. It is both the website and, in
+effect, the system's application server: **no browser reaches FastAPI for application data**. Every
+application read is a server-side fetch made from this container, which is why the page caching and
+its invalidation live here rather than in the backend.
 
 ## How it is organised
 
-**Routes under `src/app/` are thin**: fetch, then hand off to a feature component. **Slices** are the
-unit of organisation — one directory per business entity under `src/features/`, holding only the
-modules it needs ([`spec.md`](spec.md) §1.1). Within a slice, components sit in category folders —
-`views`, `collections`, `forms`, `modals`, `providers`, `ui` — with one extra level permitted for a
-multi-section form; nothing nests deeper and nothing sits flat in `components/`.
+| Folder                   | Holds                                                                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | The routes: the public pages, `dashboard/` for the season pages, `bereich/` for every signed-in area                                                        |
+| `src/kit/`               | The design system's components, built on React Aria Components                                                                                              |
+| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module |
+| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                           |
+| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                             |
+| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                          |
 
-`src/core/` imports neither `src/shared/` nor `src/features/`, and `src/shared/` does not import
-`src/features/` — **enforced by ESLint**, not convention ([`spec.md`](spec.md) I9). `admin` is the
-deliberate exception to slice independence, an **aggregator** that legitimately imports from other
-slices, which is why the lint is scoped to `src/core/` and `src/shared/` rather than banning
-cross-feature imports generally. There are no
-barrel files and exports are named ([`spec.md`](spec.md) I10, I11).
+**Routes are thin**: a page fetches, then hands off to its slice. A slice holds only the modules it
+needs: `queries.ts` for reads, `mutations.ts` for the calls that write, `actions.ts` for the server
+actions a form calls, `schemas.ts` for its Zod schemas.
 
-**That rule says what may import what, and not which of the two folders a module belongs in.**
-`src/core/` is what the server process is and what every surface needs before a page exists —
-configuration, the API client, auth, mail, logging, the domain constants a schema and an email both
-read. `src/shared/` is what a rendered page is built from — components, hooks and the utilities
-those call. **No lint decides it**: ESLint reads an import graph rather than what a module is for,
-so the test is applied when the module is written and the rule stays scoped to the direction
-([`spec.md`](spec.md) I9).
-
-**Where I9 forecloses the answer, the test is not consulted.** A module some `core` module imports
-cannot sit in `shared`, and a module importing anything from `shared` cannot sit in `core` — so a
-test-only reader a `core` test needs belongs in `core` however little it resembles the server
-process (`fl_frontend/src/core/treeWalk.ts`, `fl_frontend/src/core/stdoutCapture.ts`), and a
-route-handler spine reaching a `shared` utility belongs in `shared` however much it resembles one
-(`fl_frontend/src/shared/utils/publicRoute.ts`). **The test decides only what I9 leaves open**, and
-a module whose importers all sit outside both folders is always open.
-
-**Neither folder invents grouping subfolders to express membership** — a second nesting level is
-refused ([`../../.claude/CLAUDE.md`](../../.claude/CLAUDE.md) §7), so a module whose folder is
-arguable is argued about rather than filed under a new name.
+**Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`, and
+`src/shared/` does not import `src/features/`; ESLint refuses both (`fl_frontend/eslint.config.mjs`).
+Which of the two folders a module belongs in, that rule does not decide: `src/core/` is what the
+server process is and what every surface needs before a page exists, and `src/shared/` is what a
+rendered page is built from. A module some `src/core/` module imports belongs in `src/core/`, and one
+importing anything from `src/shared/` cannot sit there. Exports are named and no folder has a barrel
+file.
 
 ## Data flow
 
-Reads are cached with `"use cache"`, and a write is a server action that invalidates tags. The
-function-by-function table, the reads deliberately left uncached, the tag design and what an edit made
-straight in MongoDB costs are [`spec.md`](spec.md) §1.2–§1.5.
+**Reads are cached with `"use cache"`, and a write is a server action that invalidates tags.** A
+cached read declares its lifetime and tags beside it in its slice's `queries.ts`. Only two tags are
+granular, `spiele:saison_id:*` and `teams:saison_id:*`, because an edit to one season's matches must
+not evict every other season's lists; the league table is computed from the matches, so a match
+write drops the team tags too. Every other tag names a whole resource. **The administration's reads
+are not cached**: each runs through `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`,
+which judges the session first.
 
-Backend and frontend models are **hand-mirrored** — Pydantic on one side, Zod on the other, with no
-generation step. This is the main drift risk in the codebase and the first thing to check when
-behaviour looks impossible; what holds the two together is [`spec.md`](spec.md) I17.
+**An edit made straight in MongoDB, or a call to the API that bypasses an action, is served stale**
+until its cache lifetime lets a visit refresh it, since invalidation lives in the action and not in
+the endpoint. One route,
+`fl_frontend/src/app/api/revalidate/route.ts`, drops the base tags from outside a request, on the
+system key; [`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb) gives the
+command.
+
+**Backend and frontend models are hand-mirrored**: Pydantic on one side, Zod on the other, with no
+generation step. A disagreement between them is the first thing to check when behaviour looks
+impossible.
 
 ## Rendering
 
 Data-fetching pages call `await connection()` before fetching. This looks like it defeats static
 rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that
-tried to prerender its data would fail the image build rather than merely render slowly
-([`spec.md`](spec.md) I6).
+tried to prerender its data would fail the image build.
 
-## Styling
+## Styling and copy
 
-**HeroUI is imported component by component**, because that package's entry pulls in everything it
-ships and Tailwind does not tree-shake CSS imported from a dependency. The cost is one maintenance
-rule, and the checklist for it is [`spec.md`](spec.md) §1.11.
+Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
+The pages not yet rebuilt on the kit still render HeroUI components. `browserslist` in
+`fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet uses `oklch()`,
+`color-mix()` and `@property`; it does not govern Next's own polyfills.
 
-`browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix rather than a guess
-about the audience: the stylesheet uses `oklch()`, `color-mix()` and `@property`, so a browser below
-that line cannot render this app at all. It does **not** govern Next's own polyfill bundle
-([`spec.md`](spec.md) §4).
+**Every string a visitor reads comes from the catalogue**, `fl_frontend/src/core/copy.ts`, and
+every date and number from `fl_frontend/src/core/format.ts`. How a string is written is
+[`copy.md`](copy.md).
 
 ## Authentication and authorization
 
-Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback. The administration
-admits only a session a passkey signed in, never one a code made ([`spec.md`](spec.md) I260,
-[`../backend/spec.md`](../backend/spec.md) I478). **This is
-the one place the frontend touches MongoDB directly** — a separate `auth` database, no business
-entities — and it exists because the adapter has no HTTP transport and sits on the hot path of every
+Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback; the administration
+admits only a session a passkey signed in. **This is the one place the frontend touches MongoDB
+directly**: a separate `auth` database holding sessions and passkeys and no league data
+(`fl_frontend/src/core/db.ts`), because the library's adapter has no HTTP transport and sits on every
 authorization check. Application data goes through FastAPI without exception.
 
-**Admin is a stored grant, read on every request.** A row of `berechtigungen` (the glossary's
-`Berechtigung`) makes an address an administrator: the frontend reads it on the subject lookup,
-through `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend reads it on every
-admin-tier request and refuses one naming an actor who holds none, but a signed-in person's, whose
-router judges a ban and the seat or record the call names instead
-([`../backend/spec.md`](../backend/spec.md) I383). A backend that cannot answer admits nobody
-([`spec.md`](spec.md) I121). Grants are made on `/bereich/admin/administratoren`, and every change to
-them, one made in the database included, is mailed to every holder by a pass this process runs
-([`spec.md`](spec.md) I455). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
-return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
+**Administration is a stored grant, read on every request.** A row of `berechtigungen`
+(`Berechtigung`) makes an address an administrator; the frontend reads it through
+`fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
+administration request. A backend that cannot answer admits nobody, and a revoked grant admits
+nothing from the next request on. Every admin server action runs through
+`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which opens on
+`fl_frontend/src/core/auth.ts :: getAdminSession`.
 
-**Route protection is layered**: `fl_frontend/src/proxy.ts` runs on every page a session serves,
-and under `/bereich`, the administrator's subtree included, it turns away a request carrying no
-session cookie before any read, a prefetch among them, so a visitor holding none meets sign-in
-rather than an area's frame ([`spec.md`](spec.md) I243). Past the cookie it judges nothing, as Next's
-and Better Auth's guidance has a proxy check: it slides the session a person only reads
-([`spec.md`](spec.md) I495), and the slide's answer turns nobody away. So a cookie whose session
-ended, or that no passkey made, meets the area's frame and the page's static chrome before the
-page's own check, which reads the session it serves, sends it on: no layout turns a session away, a
-redirect thrown in the frame unmounting the whole area ([`spec.md`](spec.md) I834). The session, its factor and the grant are judged where the data
-is read: every admin-tier read checks the administrator verdict through
-`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
-sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders
-a page whatever its layout decides, so rendering fails closed even
-if the matcher stops matching ([`spec.md`](spec.md) I122). The admin layout's hold,
-`fl_frontend/src/features/admin/components/providers/AdminSessionHold.tsx :: AdminSessionHold`, rendered
-inside the admin layout's `Suspense` boundary so the shell still prerenders, shows nothing it wraps
-before the same check, and turns nobody away. A revoke ends no session: the grant
-is read on every request, so a revoked one admits nothing from the next ([`spec.md`](spec.md) §4).
+**Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
+session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
+proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
+layout turns a session away, because Next renders a page whatever its layout decides.
 
-**A person's sign-in is managed on one account page, `/bereich/konto`, whichever area they hold**:
-every signed-in shell links it, and its passkeys and sign-ins change only behind a sign-in or a
-confirmation inside the step-up window, in either lane ([`spec.md`](spec.md) I422). It reads the
-sign-in store directly for the same reason the guards do, and never through the library's session
-list, which answers every session's cookie value ([`spec.md`](spec.md) I420).
+**A person's sign-in is managed on one account page, `/bereich/konto`**, whichever area they hold:
+every signed-in shell links it, and its passkeys and sign-ins change only behind a recent sign-in or
+confirmation.
+
+## Configuration and tests
+
+`fl_frontend/src/core/config.ts` validates the environment at startup with one Zod schema and hands
+each secret to the one module that may read it; a failure names the variables, never their values,
+and the process exits. Tests sit beside the module they test as `*.test.ts`, a `*.db.test.ts` needing
+the sign-in store's MongoDB; the scripts in `fl_frontend/package.json` run them.
 
 ## Read next
 
-- [`spec.md`](spec.md) — the cache design, the copy rules, the contracts and the invariants
+- [`copy.md`](copy.md) — how every string a visitor reads is written
 - [`../glossary.md`](../glossary.md) — the German domain vocabulary
 - [`../backend/overview.md`](../backend/overview.md) — the API this consumes
 - [`../ops/overview.md`](../ops/overview.md) — the container this runs in

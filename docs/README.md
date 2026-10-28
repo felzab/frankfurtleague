@@ -9,8 +9,8 @@
 | [`glossary.md`](glossary.md)       | The German domain vocabulary, and the pitfall in each term             |
 | [`domain.md`](domain.md)           | What depends on what, when a field may be edited, and what is refused  |
 | [`datenschutz.md`](datenschutz.md) | The data-protection rulings, held there until each reaches its home    |
-| [`frontend/`](frontend/)           | The Next.js app — what it is for, and its contract                     |
-| [`backend/`](backend/)             | The FastAPI service — what it is for, and its contract                 |
+| [`frontend/`](frontend/)           | The Next.js app — what it is for, and how it is organised              |
+| [`backend/`](backend/)             | The FastAPI service — what it is for, and how it is organised          |
 | [`ops/`](ops/)                     | Building, routing, deploying and running the system                    |
 | [`logging/`](logging/)             | Following a request through the logs                                   |
 | [`writing.md`](writing.md)         | How documents, comments, commit messages and pull requests are written |
@@ -31,4 +31,5 @@ Read in this order:
    [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision.
 5. **[`writing.md`](writing.md)** — how a change and its documents are written.
 
-The specs are reference, not reading. Look things up in them; do not read them through.
+The ops spec and the runbooks are reference, not reading. Look things up in them; do not read them
+through.
