@@ -8,10 +8,11 @@ import { ListPage } from "./ListPage";
 
 import type { ComponentProps } from "react";
 
-// The strip's own links, which need no router to be read.
+// The strip's own links, which need no router to be read, and the address the tabs link from.
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027" }));
 
 const SPIELTAGE = COPY.spielplan.spieltage;
 
@@ -35,7 +36,7 @@ describe("the list template's matchday list", () => {
         head={{ area: "saison", title: { route: "spielplan" } }}
         list={{
           kind: "spieltage",
-          tabs: { label: SPIELTAGE, defaultKey: "1", tabs: [{ id: "1", label: "1. Spieltag", panel: null }] },
+          tabs: { label: SPIELTAGE, selectedKey: "1", tabs: [{ id: "1", label: "1. Spieltag", panel: null }] },
           empty: { kind: "noch", plural: SPIELTAGE },
         }}
       />,

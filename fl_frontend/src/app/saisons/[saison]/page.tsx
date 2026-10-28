@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { ListPage } from "@/kit/ListPage";
 import { MatchList } from "@/kit/MatchRow";
+import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -16,18 +17,31 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]"
   return { title: ROUTES.spielplan.titel, alternates: { canonical: path }, openGraph: openGraphFor(path) };
 }
 
-/** The Spielplan: the season's matchdays as tabs, one at a time, opening on the current one. */
-export default function SpielplanPage({ params }: PageProps<"/saisons/[saison]">) {
+/**
+ * The Spielplan: the season's matchdays as tabs, one at a time, opening on the one the address names
+ * (`?tab=`), else on the current one.
+ */
+export default function SpielplanPage({ params, searchParams }: PageProps<"/saisons/[saison]">) {
   return (
     <Suspense fallback={null}>
-      <Spielplan params={params} />
+      <Spielplan
+        params={params}
+        searchParams={searchParams}
+      />
     </Suspense>
   );
 }
 
-async function Spielplan({ params }: { params: Promise<{ saison: string }> }) {
+async function Spielplan({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ saison: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { saison } = await readSaison((await params).saison);
   const { matchdays, current } = await readSpielplan(saison);
+  const address = await searchParams;
 
   return (
     <ListPage
@@ -39,7 +53,11 @@ async function Spielplan({ params }: { params: Promise<{ saison: string }> }) {
             ? null
             : {
                 label: COPY.spielplan.spieltage,
-                defaultKey: current,
+                selectedKey: chosenTab(
+                  address,
+                  matchdays.map((matchday) => matchday.id),
+                  current,
+                ),
                 tabs: matchdays.map((matchday) => ({
                   id: matchday.id,
                   label: matchday.label,
