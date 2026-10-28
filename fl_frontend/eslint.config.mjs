@@ -797,12 +797,13 @@ const classBan = (pattern, message, reach, options) => ban("better-tailwindcss/n
 /** Any variant prefix, then the class; `!` is Tailwind's important flag. */
 const CLASS = (body) => String.raw`^(?:[^:]*:)*${body}!?$`;
 
-const KIT_SPACING = "0|1|2|3|4|6|8|12|16";
+/** The tokens' spacing steps: every 4 px to 16, then 24, 32, 48 and 64, and the half-steps below 16 px. */
+const KIT_SPACING = String.raw`0|0\.5|1|1\.5|2|2\.5|3|3\.5|4|6|8|12|16`;
 /**
  * A step of the scale plus an offset no design sets: the phone's safe-area inset, or the room React Aria's
  * sheet measures at run time, as `pb-[calc(1.5rem+var(--sheet-scroll-padding-y))]`.
  */
-const STEP_REM = String.raw`(?:0\.25|0\.5|0\.75|1|1\.5|2|3|4)rem`;
+const STEP_REM = String.raw`(?:0\.125|0\.25|0\.375|0\.5|0\.625|0\.75|0\.875|1|1\.5|2|3|4)rem`;
 const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
 const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
 
@@ -990,7 +991,7 @@ const DESIGN_BANS = [
     { pending: notYetRebuilt().focus },
   ),
 
-  // The scale: one 4-px spacing scale, six type sizes, three corners and a round shape, two shadows and
+  // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
   // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
   // classes are held here.
   classBan(
@@ -998,7 +999,7 @@ const DESIGN_BANS = [
     CLASS(
       String.raw`-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
     ),
-    "Spacing is one 4-px scale: 0, 1, 2, 3, 4, 6, 8, 12 or 16.",
+    "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.",
     PRODUCTION,
     { pending: notYetRebuilt().spacing },
   ),
@@ -1011,8 +1012,8 @@ const DESIGN_BANS = [
     },
   ),
   classBan(
-    CLASS(String.raw`rounded(?:-${SIDES})?(?:-(?:none|xs|sm|2xl|3xl|4xl))?`),
-    "A corner is rounded-md (6 px), rounded-lg (8 px) or rounded-xl (12 px), or rounded-full for a shape round by nature.",
+    CLASS(String.raw`rounded(?:-${SIDES})?(?:-(?:none|xs|2xl|3xl|4xl))?`),
+    "A corner is rounded-sm (4 px), rounded-md (6 px), rounded-lg (8 px) or rounded-xl (12 px), or rounded-full for a shape round by nature.",
     PRODUCTION,
     { pending: notYetRebuilt().radius },
   ),
@@ -2266,8 +2267,8 @@ function notYetRebuilt() {
       ],
     },
     spacing: {
-      // The kit's fix round: its 1-px offsets and its 2-px and 30-px steps, and the tab's 1-px overlap.
-      1: ["src/kit/Tabs.tsx", "src/kit/fieldStyles.ts"],
+      // The 1-px offset that sets a toggle's drawn box and the switch's track a pixel down to its label's first line.
+      1: ["src/kit/fieldStyles.ts"],
       3: [
         "src/app/(public)/(meta)/layout.tsx",
         "src/app/(public)/page.tsx",

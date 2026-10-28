@@ -10,9 +10,9 @@ export const buttonLook = tv({
   base: "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:opacity-50 pointer-coarse:h-11",
   variants: {
     look: {
-      primary: "border-transparent bg-brand-solid px-4 text-on-brand",
-      secondary: "border-border-control bg-bg px-4 text-fg",
-      danger: "border-transparent bg-danger px-4 text-on-brand",
+      primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
+      secondary: "border-border-control bg-bg px-3.5 text-fg",
+      danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
       icon: "w-9 border-transparent bg-transparent text-fg pointer-coarse:w-11",
     },
     // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
@@ -22,10 +22,14 @@ export const buttonLook = tv({
       link: "",
     },
   },
+  // A press takes the hover's colour, so under a mouse the two are one state and a touch, which never
+  // hovers, still answers the press: React Aria's `data-pressed` on its button, `:active` on an anchor.
   compoundVariants: [
-    { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover" },
-    { look: "primary", host: "link", class: "hover:bg-brand-solid-hover" },
-    { look: ["secondary", "icon"], host: "aria", class: "data-hovered:bg-bg-muted" },
-    { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover" },
+    { look: "primary", host: "aria", class: "data-hovered:bg-brand-solid-hover data-pressed:bg-brand-solid-hover" },
+    { look: "primary", host: "link", class: "hover:bg-brand-solid-hover active:bg-brand-solid-hover" },
+    // The lighter surface keeps the edge at 3:1 against the fill under the pointer.
+    { look: "secondary", host: "aria", class: "data-hovered:bg-bg-surface data-pressed:bg-bg-surface" },
+    { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
+    { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });
