@@ -12,6 +12,7 @@ import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { StatusLine } from "./FieldParts";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";
@@ -203,7 +204,10 @@ function ActForm({
         </Heading>
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
-          <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{status?.text}</p>
+          <StatusLine
+            status={status}
+            placement="row"
+          />
           <Button
             variant="secondary"
             label={COPY.shared.zurueck}

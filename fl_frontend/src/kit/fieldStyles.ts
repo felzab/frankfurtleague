@@ -39,6 +39,27 @@ export const messageLine = tv({
 });
 
 /**
+ * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
+ * nothing. Beside the acts in a row it shares the row and is cut at its second line; under them in a column,
+ * as on the sign-in, it takes every line a refusal needs.
+ */
+export const statusLine = tv({
+  base: "min-h-5 text-sm",
+  variants: {
+    placement: {
+      row: "line-clamp-2 min-w-0 flex-1",
+      column: "",
+    },
+    tone: {
+      none: "",
+      changes: "text-fg",
+      saved: "text-success",
+      error: "text-danger",
+    },
+  },
+});
+
+/**
  * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
  * surface one step up from the page inside its control edge.
  */

@@ -1,29 +1,17 @@
 "use client";
 
 import { Form } from "react-aria-components/Form";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { StatusLine } from "./FieldParts";
 import { HelpPopover } from "./HelpPopover";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ActionAnswer, FormStatus } from "./useFormAction";
-
-const statusLine = tv({
-  base: "line-clamp-2 min-w-0 flex-1 text-sm",
-  variants: {
-    tone: {
-      none: "",
-      changes: "text-fg",
-      saved: "text-success",
-      error: "text-danger",
-    },
-  },
-});
 
 /**
  * One section of a Konto page that saves on its own: a box exactly as tall as its content, its 16-px title,
@@ -71,7 +59,10 @@ export function KontoBox({
           <div className="grid justify-items-start gap-4">{children}</div>
         </div>
         <div className="flex items-center gap-3 border-t border-border bg-bg-surface px-4 py-3">
-          <p className={statusLine({ tone: status?.tone ?? "none" })}>{status?.text}</p>
+          <StatusLine
+            status={status}
+            placement="row"
+          />
           <Button
             variant="primary"
             type="submit"

@@ -6,6 +6,7 @@ import { Form } from "react-aria-components/Form";
 
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
+import { StatusLine } from "./FieldParts";
 import { StatusPage } from "./StatusPage";
 import { statusOf, useFormAction } from "./useFormAction";
 
@@ -97,7 +98,10 @@ export function OneShotForm({
               }}
             />
           )}
-          <p className="line-clamp-2 min-h-5 text-sm text-danger">{status?.text}</p>
+          <StatusLine
+            status={status}
+            placement="column"
+          />
         </div>
       </Form>
     </ClassicPage>

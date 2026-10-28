@@ -6,6 +6,7 @@ import { tv } from "tailwind-variants/lite";
 import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
+import { StatusLine } from "./FieldParts";
 import { Link } from "./Link";
 import { TextField } from "./TextField";
 
@@ -90,7 +91,6 @@ const look = tv({
     form: "grid gap-4 text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
     rule: "h-px flex-1 bg-border",
-    line: "min-h-5 text-sm text-danger",
   },
 });
 
@@ -110,14 +110,11 @@ export function SignInPage(props: SignInView) {
       {props.view === "adresse" && <ClassicTitle text={props.titel} />}
       <div className={slots.column()}>
         <Body {...props} />
-        {/* An alert standing from the first render, so a failure written into it is announced at once: it
-            answers a press the reader just made. */}
-        <p
-          role="alert"
-          className={slots.line()}>
-          {/* The code view's line is the code field's own, under the boxes. */}
-          {props.view === "code" ? null : props.zeile}
-        </p>
+        {/* The code view's refusal is the code field's own, under the boxes. */}
+        <StatusLine
+          status={props.view === "code" || props.zeile === null ? null : { tone: "error", text: props.zeile }}
+          placement="column"
+        />
       </div>
     </ClassicPage>
   );

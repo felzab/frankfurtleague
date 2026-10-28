@@ -8,11 +8,12 @@ import { Text } from "react-aria-components/Text";
 
 import { COPY } from "@/core/copy";
 
-import { fieldLabel, messageLine, requiredMark } from "./fieldStyles";
+import { fieldLabel, messageLine, requiredMark, statusLine } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
 import type { Kalendertag } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
+import type { FormStatus } from "./useFormAction";
 
 /** What a field's message needs to name the rule its value broke. */
 export type Constraints = {
@@ -68,6 +69,21 @@ export function FieldLabel({ label, isRequired }: { label: Copy; isRequired: boo
       {label}
       <RequiredMark isRequired={isRequired} />
     </Label>
+  );
+}
+
+/**
+ * A form's status line at its acts: a refusal, a done save, or the editor's count of unsaved fields. An outcome
+ * is announced politely, from a live region standing from the first render, so it answers the press that sent
+ * the form; the running count stays outside the region, since it would speak on every edit that changes it.
+ */
+export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
+  const tone = status?.tone ?? "none";
+  return (
+    <p className={statusLine({ placement, tone })}>
+      <span role="status">{tone === "changes" ? null : status?.text}</span>
+      {tone === "changes" && status?.text}
+    </p>
   );
 }
 

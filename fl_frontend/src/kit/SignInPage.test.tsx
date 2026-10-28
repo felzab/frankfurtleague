@@ -91,10 +91,9 @@ describe("the sign-in template", () => {
       />,
     );
 
-    const sentence = screen.getByRole("status").querySelector("p");
-    expect(sentence?.textContent).toBe(`${WORTE.codeUnterwegs.vor} ${ADRESSE} ${WORTE.codeUnterwegs.nach}`);
-    const marked = sentence?.querySelector("strong");
-    expect(marked?.textContent).toBe(ADRESSE);
+    const marked = screen.getByText(ADRESSE);
+    expect(marked.tagName).toBe("STRONG");
+    expect(marked.parentElement?.textContent).toBe(`${WORTE.codeUnterwegs.vor} ${ADRESSE} ${WORTE.codeUnterwegs.nach}`);
     expect(classesOf(marked)).toContain("font-semibold");
     expect(classesOf(screen.getByRole("button", { name: WORTE.andereAdresse }))).toEqual(expect.arrayContaining(QUIET));
   });
