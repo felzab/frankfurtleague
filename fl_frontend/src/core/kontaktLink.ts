@@ -1,6 +1,6 @@
 // Outside `./kontaktEmail.ts`, which is server-only: an application's seat link is spelled on this
 // path too, by modules a test reaches without the server's guard.
-export const KONTAKT_BESTAETIGUNG_PATH = "/bestaetigung/kontakt";
+const KONTAKT_BESTAETIGUNG_PATH = "/bestaetigung/kontakt";
 
 /**
  * The one place a contact seat's link is spelled, an application's and a season row's alike.

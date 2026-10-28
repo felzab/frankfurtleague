@@ -120,7 +120,7 @@ export class MailRecipientError extends Error {
  * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
  * may have gone.
  */
-export class MailUnsentError extends Error {
+class MailUnsentError extends Error {
   constructor() {
     super("Nothing reached the provider, so the message was not sent.");
 

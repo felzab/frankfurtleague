@@ -58,7 +58,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
  * A token the backend will not parse matches no record, so the page calls the link void rather than
  * offering a reload that cannot succeed.
  */
-export function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
+function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
   if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";

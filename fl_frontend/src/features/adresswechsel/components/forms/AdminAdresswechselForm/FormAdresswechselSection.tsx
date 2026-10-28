@@ -35,8 +35,8 @@ import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/f
 import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
 import type { FLAdresswechselVerwaltungAnsichtPayload, FLAdresswechselVerwaltungBestand } from "@/features/adresswechsel/schemas";
 
-export const ANZEIGEN = "Anzeigen";
-export const NEUE_ADRESSE_EINTRAGEN = "Neue Adresse eintragen";
+const ANZEIGEN = "Anzeigen";
+const NEUE_ADRESSE_EINTRAGEN = "Neue Adresse eintragen";
 
 /** What the last read left the panel holding. */
 type Gelesen = VerwaltungAnsichtGelesen | { status: "reading" };

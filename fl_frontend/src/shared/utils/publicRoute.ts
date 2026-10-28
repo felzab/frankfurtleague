@@ -26,7 +26,7 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. ${UNKNOWN_REF
  * What a member of the public is told for a unique index's refusal, which no route maps: the shared
  * reader's sentence is the administrator's, about an entry they can open, and a public form has none.
  */
-export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
+const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
 
 /** A route's error line, carrying the codes a thrown API error holds. */
 function logRouteError(message: string, error: unknown): void {

@@ -10,11 +10,11 @@ import type { RefusableOption } from "@/shared/components/ui/refusableOption";
  * Mirrors `fl_backend/app/api/teams/schemas.py :: MAX_NUMBER_OF_GROUPS`: a season runs a prefix of
  * the closed name set, so the set's own size is what caps it.
  */
-export const MAX_GROUPS = GRUPPEN_OPTIONS.length;
+const MAX_GROUPS = GRUPPEN_OPTIONS.length;
 
 // Mirrored from `fl_frontend/src/features/saisons/schemas.ts :: FLSaisonRulesSchema`, which says why
 // each one is where it is: a field offering a number the submit refuses is one that wasted the trip.
-export const MIN_TEAMS_PER_GROUP = 2;
+const MIN_TEAMS_PER_GROUP = 2;
 export const MAX_TEAMS_PER_GROUP = 16;
 
 /** By doubling rather than through `Math.log2`, whose float can land a boundary either way. */
@@ -30,10 +30,10 @@ function powersOfTwoUpTo(ceiling: number): number[] {
  * exactly when both factors are: membership here is that rule read once rather than a second copy of
  * the schema's refinement.
  */
-export const SHAPE_COUNT_UNIVERSE: readonly number[] = powersOfTwoUpTo(MAX_QUALIFIERS);
+const SHAPE_COUNT_UNIVERSE: readonly number[] = powersOfTwoUpTo(MAX_QUALIFIERS);
 
 /** Narrower than the universe only where the closed name set is smaller than the bracket. */
-export const GROUP_COUNT_UNIVERSE: readonly number[] = SHAPE_COUNT_UNIVERSE.filter((count) => count <= MAX_GROUPS);
+const GROUP_COUNT_UNIVERSE: readonly number[] = SHAPE_COUNT_UNIVERSE.filter((count) => count <= MAX_GROUPS);
 
 /** Two kinds for `REQ-RULES-001` and not one: a bracket too large comes down, one too small goes up. */
 export type ShapeRefusal = "noBracket" | "bracketTooLarge" | "overQualifies" | "groupsInUse" | "gruppenOffSize";
@@ -42,7 +42,7 @@ export type ShapeRefusal = "noBracket" | "bracketTooLarge" | "overQualifies" | "
  * A closed row's note, in `RefusableSelect`'s register — a state phrase, no sentence. One table for
  * every panel, so each words these refusals identically.
  */
-export const SHAPE_REFUSAL_NOTE: Record<ShapeRefusal, string> = {
+const SHAPE_REFUSAL_NOTE: Record<ShapeRefusal, string> = {
   noBracket: "keine KO-Runde",
   bracketTooLarge: "zu viele für die KO-Runde",
   overQualifies: "mehr als die Gruppe fasst",

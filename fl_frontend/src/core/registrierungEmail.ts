@@ -23,7 +23,7 @@ import {
 
 import type { Aktion } from "./emailShell";
 
-export const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
+const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
 // Beside the builders that spend it rather than in the slice: `core` may not import a feature, and
 // minting inside them is what puts a normalised origin under `emailShell.test.ts`'s sweep.
@@ -34,7 +34,7 @@ export const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
  * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
  * a second spelling reaches the access line and the referer unredacted.
  */
-export function spielerBestaetigungsLink(origin: string, token: string): string {
+function spielerBestaetigungsLink(origin: string, token: string): string {
   return `${origin}${SPIELER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 

@@ -32,7 +32,7 @@ export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
  * What a person whose address was barred after their session was judged is told: the ban outlasts a
  * retry and a sign-in alike, so neither is offered.
  */
-export const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
+const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
 
 /**
  * What a signed-in person is told at the ceiling of the kind of person they write as

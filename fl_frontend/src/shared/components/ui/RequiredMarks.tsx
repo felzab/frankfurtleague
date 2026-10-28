@@ -44,7 +44,7 @@ function leafAt(schema: ZodType, path: string): ZodType | undefined {
  * Whether a field is required: its own schema refuses both `null` and the value its control writes when
  * emptied. A leaf taking `null` is optional however its box is spelled, the form sending `null` for it.
  */
-export function requiredBy(schemas: readonly ZodType[], path: string, empty: unknown): boolean {
+function requiredBy(schemas: readonly ZodType[], path: string, empty: unknown): boolean {
   return schemas.some((schema) => {
     const leaf = leafAt(schema, path);
     return leaf !== undefined && !leaf.safeParse(null).success && !leaf.safeParse(empty).success;

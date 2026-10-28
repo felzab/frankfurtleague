@@ -32,7 +32,7 @@ const LOESCHUNG_PATH = "/loeschung";
  * which deletes on a GET (`docs/frontend/spec.md :: I674`). `token` is the name
  * `nginx/shared/http.conf :: $credential_free_uri` redacts.
  */
-export function loeschungsLink(origin: string, token: string): string {
+function loeschungsLink(origin: string, token: string): string {
   return `${origin}${LOESCHUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 
