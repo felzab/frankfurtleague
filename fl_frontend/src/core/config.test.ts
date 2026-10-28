@@ -574,7 +574,7 @@ describe("the switch the fixture confirmations are armed by", () => {
   });
 });
 
-/* The default is what keeps a deploy from opening the report form before the pupils' reset. */
+/* The default is what keeps a deploy from opening the report form before the day it is switched on. */
 describe("the switch the match reports are opened by", () => {
   it("leaves the reports closed where the server sets nothing", async () => {
     assert.equal((await bootWith({ SPIELBERICHT_EINGABE: undefined })).frontend_config.SPIELBERICHT_EINGABE, "off");
