@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
@@ -41,8 +42,8 @@ describe("the document's locale", () => {
     const expected = new Intl.DateTimeFormat(lang, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(
       new Date(`${DAY}T12:00:00Z`),
     );
-    // The segments each render in an element of their own, so the text is read with the tags taken out.
-    const shown = html.replaceAll(/<[^>]*>/g, "");
+    // The segments each render in an element of their own, so the text is read from the parsed document.
+    const shown = new DOMParser().parseFromString(html, "text/html").documentElement.textContent;
     expect(shown, `the document declares lang="${lang}", whose ${expected} the field does not show`).toContain(expected);
   });
 });
