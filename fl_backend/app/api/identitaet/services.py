@@ -1,9 +1,8 @@
 """
 API · the subject read's judgements, apart from the handles they are asked of
 
-Here rather than in `crud.py`, which opens collections: a services module is what
-`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments` sweeps,
-so a judgement left beside a handle is one nothing stops from growing a read of its own.
+Here rather than in `crud.py`, which opens collections: a services module decides from its
+arguments, so a judgement left beside a handle is one that can grow a read of its own.
 """
 
 import re
@@ -638,7 +637,7 @@ def adresswechsel_einsehbar_verwehrt(
 ) -> FLAdresswechselEinsehbarVerwehrt | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
-    Their judgements, never their finders: a read reaching a finder publishes that code (`tests/core/test_rule_publication.py`).
+    Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
     """
 
     if ist_eigene_adresse(identifier=identifier, akteur=akteur):

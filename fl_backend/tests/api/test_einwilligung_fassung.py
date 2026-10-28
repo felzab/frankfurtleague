@@ -119,8 +119,6 @@ PREFIX = f"/api/v{API_VERSION}/einwilligung"
 
 
 class TestTheReadsOverHttp:
-    """A missing or wrong key is `tests/api/test_dependency_refusals.py`'s, which probes every operation."""
-
     def test_every_label_is_answered_as_the_registry_holds_it(self):
         for label in FASSUNGEN:
             response = CLIENT.get(f"{PREFIX}/fassungen/{label}", headers=BASE_AUTH)

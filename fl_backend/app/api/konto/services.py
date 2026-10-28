@@ -2,8 +2,8 @@
 API · the account page's consent controls: what every kind of own record's share
 
 One module for every kind, so their PATCHes cannot answer one press differently and the account page's
-read judges a grant exactly as the PATCH it offers does. Pure: `fl_backend/tests/core/test_write_shapes.py`
-sweeps every services module for a read of its own.
+read judges a grant exactly as the PATCH it offers does. Pure: the routers read, and this module decides
+from what they pass.
 """
 
 from collections.abc import Collection, Mapping, Sequence

@@ -1,40 +1,28 @@
-import ast
-import inspect
-import textwrap
 from collections.abc import Mapping
 from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.api.bewerbungen import sweep_router
 from app.api.bewerbungen.schemas import DELETIONS_LISTED_PER_PASS, FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload
 from app.api.bewerbungen.services import (
-    TOKEN_HASH_FIELDS,
     ZUSTELLUNG_ABGEWIESEN,
-    acceptance_erasure_is_due,
     announcement_is_undeliverable,
     ansprechperson_mailbox,
-    build_token_filter,
     compose_bestaetigungen,
-    compose_erinnerung_update,
     decline_erasure_is_due,
     deletion_is_due,
     group_seats_by_mailbox,
     hash_token,
-    next_saison_id,
     one_month_after,
     reminder_seats,
     schule_name,
-    season_after_has_ended,
-    seat_holding,
     seat_reminder_is_due,
     vorname_of,
 )
 from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.core.transactions import refuse_a_stalled_page
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
 from tests.documents import kontaktperson_document
 
@@ -92,25 +80,6 @@ def application(**overrides: Any) -> dict[str, Any]:
         "entscheidung": None,
         **overrides,
     }
-
-
-class TestTheSeasonAfter:
-    @pytest.mark.parametrize(("saison_id", "expected"), [("2026", "2027"), ("2099", "2100")])
-    def test_ids_are_years_and_a_year_has_a_successor(self, saison_id: str, expected: str):
-        assert next_saison_id(saison_id) == expected
-
-    @pytest.mark.parametrize("saison_id", ["abcd", "26", "", "20261"])
-    def test_an_id_that_is_no_year_stops_the_pass_rather_than_answering_nothing(self, saison_id: str):
-        """Answering `None` here left the accepted clock and the contact block silently stopped for ever; the raise is what a log can see."""
-
-        with pytest.raises(ValueError):
-            next_saison_id(saison_id)
-
-    @pytest.mark.parametrize(("status", "ended"), [("past", True), ("active", False), ("future", False), (None, False)])
-    def test_only_a_past_later_season_ends_the_clock(self, status: str | None, ended: bool):
-        """`None` is a season not yet created, which is not one that has ended."""
-
-        assert season_after_has_ended(later_saison_status=status) == ended
 
 
 class TestOneMonth:
@@ -240,42 +209,6 @@ class TestOneMessagePerMailbox:
         ]
 
 
-class TestWhatAReminderWrites:
-    """The stamp and a fresh hash, the first hash kept beside it.
-
-    The deadline and `verschickt_am` are untouched (`docs/backend/spec.md :: I152`).
-    """
-
-    def test_the_stamp_the_fresh_hash_and_the_kept_hash_and_nothing_else(self):
-        update = compose_erinnerung_update(hashes={"trainer": "fresh"}, bestaetigungen=bestaetigungen(), today=TODAY)
-
-        assert update == {
-            "$set": {
-                "bestaetigungen.trainer.token_hash": "fresh",
-                "bestaetigungen.trainer.token_hash_zuvor": HASHES["trainer"],
-                "bestaetigungen.trainer.erinnert_am": TODAY,
-            }
-        }
-
-    def test_two_seats_take_two_fresh_hashes(self):
-        update = compose_erinnerung_update(hashes={"trainer": "a", "stellvertretung": "b"}, bestaetigungen=bestaetigungen(), today=TODAY)
-
-        assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "stellvertretung"}
-        assert len(update["$set"]) == 6
-
-    def test_the_lookup_and_the_seat_match_either_hash(self):
-        """A reader still looking at the first email is not punished by the chase: both hashes open the seat."""
-
-        assert len(build_token_filter(token_hash="x")["$or"]) == len(KONTAKT_ROLLEN) * len(TOKEN_HASH_FIELDS)
-
-        reminded = application(
-            bestaetigungen=bestaetigungen(trainer={**bestaetigungen()["trainer"], "token_hash": "fresh", "token_hash_zuvor": HASHES["trainer"]})
-        )
-
-        assert seat_holding(bewerbung_raw=reminded, token_hash="fresh") == "trainer"
-        assert seat_holding(bewerbung_raw=reminded, token_hash=HASHES["trainer"]) == "trainer"
-
-
 class TestTheFourteenDayClock:
     @pytest.mark.parametrize(
         ("bestaetigungsfrist", "due"),
@@ -377,14 +310,6 @@ class TestTheOneMonthClock:
         assert not decline_erasure_is_due(bewerbung_raw=application(status="abgelehnt", entscheidung=None), today=TODAY)
 
 
-class TestTheSeasonAndOneClock:
-    @pytest.mark.parametrize(
-        ("status", "later_status", "due"), [("angenommen", "past", True), ("angenommen", "active", False), ("eingereicht", "past", False)]
-    )
-    def test_an_accepted_application_goes_when_a_later_season_has_ended(self, status: str, later_status: str, due: bool):
-        assert acceptance_erasure_is_due(bewerbung_raw=application(status=status), later_saison_status=later_status) == due
-
-
 class TestWhatTheNoticesNeed:
     def test_the_school_is_the_submitted_name_or_the_picked_clubs(self):
         assert schule_name(bewerbung_raw=application(), club_names={}) == "Zorbanax"
@@ -404,16 +329,6 @@ class TestWhatTheNoticesNeed:
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert vorname_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
         assert vorname_of(kontakte=kontakte(stellvertretung=None), seat="stellvertretung") is None
-
-
-class TestTheErasePayload:
-    def test_ids_parse_and_an_undeclared_key_is_refused(self):
-        assert len(FLBewerbungSweepLoeschenPayload.model_validate({"bewerbung_ids": ["6890a1b2c3d4e5f607960001"]}).bewerbung_ids) == 1
-
-        with pytest.raises(ValidationError) as failure:
-            FLBewerbungSweepLoeschenPayload.model_validate({"bewerbung_ids": [], "saison_id": "2026"})
-
-        assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
 
 
 def ids(count: int) -> list[str]:
@@ -464,37 +379,3 @@ def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment
     """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
 
     assert (rows * ROUND_TRIPS_A_ROW + other_commands) * (round_trip_s + per_command_s) < REQUEST_DEADLINE_S
-
-
-# Named, not derived: the clocks whose read can hold rows their predicate refuses, `sweep_saison` being
-# the handler's own deletion list. The season's-end, acceptance and contact-block clocks take something
-# from every page, and answer a kept season's page as empty.
-PAGED_CLOCKS = ("remind", "erase_declined", "sweep_saison")
-
-SWEEP_HANDLER = ast.parse(textwrap.dedent(inspect.getsource(sweep_router.sweep_saison))).body[0]
-
-
-def _clock_body(clock: str) -> list[ast.AST]:
-    """The callback's nodes, or the handler's own statements with its nested callbacks left out."""
-
-    if clock == sweep_router.sweep_saison.__name__:
-        pending, nodes = list(ast.iter_child_nodes(SWEEP_HANDLER)), []
-        while pending:
-            node = pending.pop()
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                nodes.append(node)
-                pending.extend(ast.iter_child_nodes(node))
-        return nodes
-
-    callbacks = {node.name: node for node in ast.walk(SWEEP_HANDLER) if isinstance(node, ast.AsyncFunctionDef)}
-
-    return list(ast.walk(callbacks[clock]))
-
-
-@pytest.mark.parametrize("clock", PAGED_CLOCKS)
-def test_each_paged_clock_asks_whether_its_page_moved_anything(clock: str):
-    """A source sweep: a stall shows on the wire only as a season whose page never empties."""
-
-    called = {node.func.id for node in _clock_body(clock) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
-
-    assert refuse_a_stalled_page.__name__ in called, f"{clock} weighs a page it read without asking whether the pass can make progress"

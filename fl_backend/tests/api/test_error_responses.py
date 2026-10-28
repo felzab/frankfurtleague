@@ -462,8 +462,7 @@ REFUSING_OPERATIONS_FLOOR = 59
 def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
     """Read off `RULES`, the routes and the dependencies here rather than through the publisher, which is what this is compared against.
 
-    A dependency's codes are taken from `app/main.py :: dependency_refusals`, which
-    `tests/api/test_dependency_refusals.py` holds against what a request meets.
+    A dependency's codes are taken from `app/main.py :: dependency_refusals`.
     """
 
     declared: dict[str, dict[str, set[str]]] = {}

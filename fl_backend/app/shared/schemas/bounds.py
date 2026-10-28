@@ -160,8 +160,6 @@ SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7
 # `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: `docs/logging/spec.md` accepts a
 # link's token in the edge's error log because it answers nothing past such a deadline.
 SPIEL_ANFRAGE_VORLAUF_TAGE: Final = 14
-# Two integers rather than a list: a tuple is no `int`, so neither register of
-# `fl_backend/tests/shared/test_frontend_mirrors.py` would see it.
 SPIEL_ERINNERUNG_TAGE_ERSTE: Final = 3
 SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
 

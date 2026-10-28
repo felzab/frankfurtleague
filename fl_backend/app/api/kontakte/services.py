@@ -209,7 +209,7 @@ def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
     blocks = {key: image.get(key) for key in ("kontakte", "bestaetigungen")}
     held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks.values())
 
-    # The fields the image holds alone: one recorded before links existed gains no `bestaetigungen`.
+    # The fields the image holds alone: a row no save has minted a link on holds no `bestaetigungen`.
     return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
