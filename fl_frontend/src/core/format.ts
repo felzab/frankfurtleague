@@ -1,0 +1,63 @@
+/** A calendar day as the API stores it, `YYYY-MM-DD`. */
+export type Kalendertag = `${number}-${number}-${number}`;
+
+/** A time of day as the API stores it, `HH:MM` or `HH:MM:SS`. */
+export type Uhrzeit = `${number}:${number}` | `${number}:${number}:${number}`;
+
+/** One side's figure each, as a fixture and its shoot-out store them. */
+export type Paar = { readonly team1: number; readonly team2: number };
+
+// Every instant is shown on the league's clock: without a zone the runtime's decides, so a server in
+// UTC and a browser elsewhere disagree about the day and the hour.
+const ZEITZONE = "Europe/Berlin";
+
+const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATUM_LANG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "numeric", month: "long", year: "numeric" });
+const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
+const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, hour: "2-digit", minute: "2-digit" });
+// A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
+const UHRZEIT_GESPEICHERT = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+const ZAHL = new Intl.NumberFormat("de-DE");
+const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+
+function alsInstant(tag: Kalendertag | Date): Date {
+  if (tag instanceof Date) return tag;
+  const [jahr = 0, monat = 1, tagImMonat = 1] = tag.split("-").map(Number);
+  // Midday UTC is the same calendar day in Berlin in summer and in winter, so the zone cannot shift it.
+  return new Date(Date.UTC(jahr, monat - 1, tagImMonat, 12));
+}
+
+/** „24.10.2026“: a date in a list, a table or a field message. */
+export const formatDatum = (tag: Kalendertag | Date): string => DATUM.format(alsInstant(tag));
+
+/** „24. Oktober 2026“: a date inside a sentence or a mail. */
+export const formatDatumLang = (tag: Kalendertag | Date): string => DATUM_LANG.format(alsInstant(tag));
+
+/** „15:30“. */
+export function formatUhrzeit(zeit: Uhrzeit | Date): string {
+  if (zeit instanceof Date) return UHRZEIT.format(zeit);
+  const [stunde = 0, minute = 0] = zeit.split(":").map(Number);
+  return UHRZEIT_GESPEICHERT.format(Date.UTC(1970, 0, 1, stunde, minute));
+}
+
+/** „24. Oktober 2026 um 15:30“. */
+export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zeitpunkt);
+
+/** „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. */
+export const formatZeitraum = (von: Kalendertag | Date, bis: Kalendertag | Date): string => DATUM.formatRange(alsInstant(von), alsInstant(bis));
+
+/** „1.234,5“. */
+export const formatZahl = (zahl: number): string => ZAHL.format(zahl);
+
+/** „25,00 €“. */
+export const formatEuro = (betrag: number): string => EURO.format(betrag);
+
+/** „3:1“; after a shoot-out, each side's goals and shoot-out goals added, „n. E.“ placed beside it. */
+export function formatErgebnis(tore: Paar, elfmeterschiessen?: Paar | null): string {
+  const team1 = tore.team1 + (elfmeterschiessen?.team1 ?? 0);
+  const team2 = tore.team2 + (elfmeterschiessen?.team2 ?? 0);
+  return `${team1}:${team2}`;
+}
+
+/** „Saison 2027“. A season's id is its year, which takes no thousands separator. */
+export const formatSaison = (saisonId: string): string => `Saison ${saisonId}`;
