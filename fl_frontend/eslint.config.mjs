@@ -10,6 +10,7 @@ import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/type
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import recipeSizes from "./eslint-rules/recipe-sizes.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 // ---------------------------------------------------------------------------------------------------
@@ -1325,6 +1326,14 @@ const eslintConfig = defineConfig([
     language: "css/css",
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
+  },
+
+  // A `tailwind-variants/lite` recipe states each size in one place: the lite build merges no classes, so
+  // two of its parts setting one size together would leave the stylesheet's order to pick.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    plugins: { recipes: { rules: { "one-size": recipeSizes } } },
+    rules: { "recipes/one-size": "error" },
   },
 
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
