@@ -3,8 +3,7 @@ import path from "node:path";
 
 /**
  * Both spellings, decided once. `.test.ts` is a strict prefix of `.test.tsx`, which is how an
- * exclusion written for one suffix misses half of what it was written for
- * (`.claude/rules/cross-surface.md`).
+ * exclusion written for one suffix misses half of what it was written for.
  */
 export function isTestFile(name: string): boolean {
   return /\.test\.tsx?$/.test(name);

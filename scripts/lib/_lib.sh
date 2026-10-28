@@ -188,8 +188,8 @@ skip() { _emit "$C_DIM"    "  --" "$*"; _escalate 1; }
 warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; _record_advisory; }
 
 # Under Actions, one error annotation per finding, on stdout beside the output it follows, and none
-# for a statement summing findings already annotated: `.claude/skills/orchestration/tools/ci.py`
-# reads a run's findings off these lines.
+# for a statement summing findings already annotated, which would list them a second time among the
+# run's annotations.
 _annotate() {
   if [[ -z "${GITHUB_ACTIONS:-}" ]]; then return 0; fi
   local message="${*//'%'/%25}"

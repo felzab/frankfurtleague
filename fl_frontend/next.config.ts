@@ -85,7 +85,7 @@ const nextConfig: NextConfig = {
   // two admin views, both hand-written.
 
   // Off, or `next dev` run by an agent writes its own block into an `AGENTS.md` here, which an agent
-  // then loads as instructions nobody reviewed; `.claude/CLAUDE.md` §4 names this repository's docs.
+  // then loads as instructions nobody reviewed.
   agentRules: false,
 };
 

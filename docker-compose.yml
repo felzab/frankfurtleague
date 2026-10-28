@@ -8,7 +8,7 @@
 # - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
 #   connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently.
-# - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
+# - One package per service; the two images are never merged into one (`docs/decisions.md`, **images**).
 # - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
 #   this file, so a setting here reaches both stacks and a difference exists only where that file
 #   writes one. No database service, here or ever.

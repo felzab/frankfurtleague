@@ -391,7 +391,7 @@ jobs:
             exit 1
           fi
           echo "verify needs every job: $(printf '%s' "$jobs" | tr '\n' ' ')"
-      # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition someone
+      # Every event runs every scope (`docs/decisions.md`, **ci**), so a skip is a condition someone
       # added. Pure expressions, no shell parsing of the needs context.
       - name: Fail if any scope job failed, was cancelled or was skipped
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
