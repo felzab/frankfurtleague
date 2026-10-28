@@ -34,9 +34,28 @@
     "src/kit/fieldStyles.ts",
     "src/kit/OptionList.tsx",
     "src/kit/dateParts.tsx",
+    "src/kit/Tabs.tsx",
+    "src/kit/MatchRow.tsx",
+    "src/kit/Table.tsx",
+    "src/kit/EmptyState.tsx",
+    "src/kit/Section.tsx",
+    "src/kit/HelpPopover.tsx",
+    "src/kit/ConfirmDialog.tsx",
+    "src/kit/Dialog.tsx",
+    "src/kit/Sheet.tsx",
+    "src/kit/Menu.tsx",
+    "src/kit/SeasonButton.tsx",
+    "src/kit/Toast.tsx",
+    // Session 3.
+    "src/kit/BracketCard.tsx",
+    "src/kit/Filters.tsx",
+    "src/kit/Facts.tsx",
+    "src/kit/Skeleton.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
+    "src/kit/Prose.tsx",
+    "src/kit/Callout.tsx",
     // Session 5.
     "src/kit/Switch.tsx",
     "src/kit/SearchField.tsx"
