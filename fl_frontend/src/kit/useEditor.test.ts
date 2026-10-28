@@ -100,6 +100,25 @@ describe("an editor's draft", () => {
     expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.gespeichert });
   });
 
+  it("takes nobody else's read as its own after a save the write stored as already stored", async () => {
+    const { result, rerender, save } = editorOn(STORED);
+
+    // A price of blanks, which the write stores as the empty price it already holds.
+    act(() => result.current.set("miete", "  "));
+    await press(result.current.submit);
+    // The page serves the record anew, under the fingerprint the save was sent from.
+    rerender({ shown: { ...STORED, values: { ...STORED.values } } });
+    expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.gespeichert });
+    expect(result.current.draft.miete).toBeNull();
+
+    act(() => result.current.set("plz", "60439"));
+    // Someone else renames the venue; the edit rests on the read before it.
+    rerender({ shown: { id: "ort-1", fingerprint: "f2", values: { ...STORED.values, name: "SC Riedberg" } } });
+    await press(result.current.submit);
+
+    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", fingerprint: "f1", changes: { plz: "60439" } });
+  });
+
   it("says what else the save moved in place of „Gespeichert“", async () => {
     const note = COPY.verwaltung.spiel.gespeichertMitFolgen("Die Paarung in Spiel 31 wurde ebenfalls aktualisiert.");
     const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: undefined, note }));
