@@ -67,11 +67,14 @@ export type MenuProps = {
 
 type Size = "desktop" | "phone";
 
-// The rail's breakpoint: from it the rail stands, below it the phone's bars and sheets.
-const DESKTOP = "(min-width: 64rem)";
+/**
+ * The rail's breakpoint, `lg`, read from its token on the root as Tailwind's guide reads a theme variable in
+ * script: from it the rail stands, below it the phone's bars and sheets.
+ */
+const desktop = () => window.matchMedia(`(min-width: ${getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-lg")})`);
 
 function subscribe(onChange: () => void) {
-  const query = window.matchMedia(DESKTOP);
+  const query = desktop();
   query.addEventListener("change", onChange);
   return () => query.removeEventListener("change", onChange);
 }
@@ -80,7 +83,7 @@ function subscribe(onChange: () => void) {
 function useDesktop() {
   return useSyncExternalStore(
     subscribe,
-    () => window.matchMedia(DESKTOP).matches,
+    () => desktop().matches,
     () => true,
   );
 }

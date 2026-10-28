@@ -50,8 +50,8 @@ const dialogBox = tv({
   base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-6 text-fg shadow-dialog",
   variants: {
     width: {
-      question: "max-w-[25rem]",
-      form: "max-w-[35rem]",
+      question: "max-w-question",
+      form: "max-w-dialog",
     },
   },
 });

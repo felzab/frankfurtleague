@@ -78,12 +78,14 @@ export function RailFrame({
   const frame = (
     <MenuScope value={{ groups, bar, extra, account }}>
       <LeaveGuardProvider>
-        {/* `--rail-foot` is the signed-in rail foot's height, which an editor's bar takes too, so the two top
-            hairlines are one line: its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
-        <div className="min-h-dvh [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+        {/* The frame's measures, declared once for the parts drawn to them and for the toasts placed under them:
+            the phone's band, the desktop rail's width and its head, which the title strip shares, and the
+            signed-in rail foot's height, which an editor's bar takes too, so the two top hairlines are one line:
+            its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
+        <div className="min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:16rem] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)]">
           <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
-            <div className="flex h-12 shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
+            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
             <Suspense fallback={null}>
@@ -111,8 +113,9 @@ export function RailFrame({
           </aside>
 
           <div className="flex min-h-dvh min-w-0 flex-col">{columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}</div>
+          {/* Fixed, so no grid cell: inside the frame for the measures it is placed by. */}
+          <ToastRegion frame="rail" />
         </div>
-        <ToastRegion frame="rail" />
       </LeaveGuardProvider>
     </MenuScope>
   );
@@ -127,7 +130,7 @@ export function RailFrame({
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
   return (
     <>
-      <header className="@container sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
           <Suspense fallback={null}>
@@ -169,7 +172,7 @@ function titleOf(title: PageTitle): string {
 
 const strip = tv({
   slots: {
-    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-12 lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
+    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-[0.02em] break-words uppercase lg:truncate",
   },
@@ -207,7 +210,7 @@ export function RailPage({
     <>
       {/* The title and the content in one column of at most 1280 px, centred beside the rail on a wide screen, so
           the two keep one left edge at every width; the editor's bar spans the whole width under it. */}
-      <div className="mx-auto flex w-full max-w-[80rem] min-w-0 flex-1 flex-col">
+      <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col">
         <header className={head()}>
           <h1 className={heading()}>{titleOf(title)}</h1>
           {chip !== undefined && (

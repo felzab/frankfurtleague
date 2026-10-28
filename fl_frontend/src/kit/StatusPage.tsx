@@ -21,7 +21,7 @@ export type StatusCardProps = {
 
 const card = tv({
   slots: {
-    root: "mx-auto grid w-full max-w-[30rem] justify-items-center gap-4 rounded-lg border border-border bg-bg px-6 py-8 text-center max-lg:justify-items-stretch",
+    root: "mx-auto grid w-full max-w-card justify-items-center gap-4 rounded-lg border border-border bg-bg px-6 py-8 text-center max-lg:justify-items-stretch",
     mark: "flex size-10 items-center justify-center justify-self-center rounded-full",
     sentence: "text-base text-fg",
   },
