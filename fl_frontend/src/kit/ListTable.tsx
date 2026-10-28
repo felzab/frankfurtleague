@@ -42,9 +42,8 @@ const matches = (query: string, columns: ReadonlyArray<string>) => {
   return (row: TableRow) => [row.name, ...columns.map((key) => row.cells[key] ?? "")].some((text) => text.toLowerCase().includes(wanted));
 };
 
-/** The empty state a search leaves, where the list names its plural; else the list's own. */
-const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps =>
-  empty.kind === "satz" ? empty : { kind: "suche", plural: empty.plural, action: empty.action };
+/** The empty state a search leaves, every other field kept, where the list names its plural; else the list's own. */
+const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps => (empty.kind === "satz" ? empty : { ...empty, kind: "suche" });
 
 type Shown = {
   /** The rows the page was served with, so a new render of the page starts the list afresh. */
@@ -68,7 +67,7 @@ export function ListTable({
 }: {
   table: TableProps;
   search?: ListSearch;
-  /** The filter block and the create act, between the search field and the table. */
+  /** The filter block and the create act, in the search field's row after it. */
   toolbar?: ReactNode;
   more?: ListMore;
 }) {
@@ -111,14 +110,22 @@ export function ListTable({
 
   return (
     <>
-      {search !== undefined && (
-        <SearchField
-          label={search.label}
-          value={current.query}
-          onChange={onSearch}
-        />
+      {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
+          end; on a phone the search keeps the width and the buttons share the next line. */}
+      {(search !== undefined || toolbar !== undefined) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {search !== undefined && (
+            <div className="w-full lg:max-w-96 lg:flex-1">
+              <SearchField
+                label={search.label}
+                value={current.query}
+                onChange={onSearch}
+              />
+            </div>
+          )}
+          {toolbar}
+        </div>
       )}
-      {toolbar}
       <Table
         {...table}
         rows={rows}

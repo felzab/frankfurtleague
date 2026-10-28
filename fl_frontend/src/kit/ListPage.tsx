@@ -39,11 +39,12 @@ function Matchdays({ label, selectedKey, tabs }: MatchdayTabs) {
 }
 
 /**
- * The list template: the page's title in the strip; the search field where the list is long enough to need
- * one; the filter block, its values in the address, with the act creating a record over the list beside
- * it; then the list. The list is a table whose rows open their records, „Weitere 50 laden“ under it only
- * while the server reports more rows; or, for the season's matches, the matchday tabs, one matchday at a
- * time, opening on the one the server names. A list with nothing in it shows its empty state in its place.
+ * The list template: the page's title in the strip; one toolbar row holding the search field where the list
+ * is long enough to need one, the filter block, its values in the address, and at the row's end the act
+ * creating a record over the list; then the list. The list is a table whose rows open their records,
+ * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
+ * matchday tabs, one matchday at a time, opening on the one the server names. A list with nothing in it
+ * shows its empty state in its place.
  */
 export function ListPage({
   head,
@@ -74,22 +75,27 @@ export function ListPage({
         ? COPY.shared.verb[create.act.verb]
         : COPY.shared.mitObjekt(create.act.objekt, create.act.verb);
 
-  const toolbar = (filters !== undefined || create !== undefined) && (
-    <div className="flex flex-wrap items-start gap-3">
-      {filters !== undefined && <Filters filters={filters} />}
-      {create !== undefined && label !== undefined && (
-        <Dialog
-          {...create}
-          trigger={
-            <Button
-              variant="primary"
-              label={label}
+  // The filters and the create act, which stands at the toolbar's end.
+  const toolbar =
+    filters === undefined && create === undefined ? undefined : (
+      <>
+        {filters !== undefined && <Filters filters={filters} />}
+        {create !== undefined && label !== undefined && (
+          <div className="ms-auto">
+            <Dialog
+              {...create}
+              trigger={
+                <Button
+                  variant="primary"
+                  leadingIcon="anlegen"
+                  label={label}
+                />
+              }
             />
-          }
-        />
-      )}
-    </div>
-  );
+          </div>
+        )}
+      </>
+    );
 
   return (
     <RailPage
@@ -105,8 +111,15 @@ export function ListPage({
         />
       ) : (
         <>
-          {toolbar}
-          {list.tabs === null ? <EmptyState {...list.empty} /> : <Matchdays {...list.tabs} />}
+          {toolbar !== undefined && <div className="flex flex-wrap items-center gap-3">{toolbar}</div>}
+          {list.tabs === null ? (
+            // Inside the list's box, as `Table` places its own.
+            <div className="overflow-hidden rounded-lg border border-border bg-bg">
+              <EmptyState {...list.empty} />
+            </div>
+          ) : (
+            <Matchdays {...list.tabs} />
+          )}
         </>
       )}
     </RailPage>
