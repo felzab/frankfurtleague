@@ -25,7 +25,7 @@ const RAIL_GROUPS: RailGroup[] = [
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
       { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "saisons" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spiele" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spielplan" },
       { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "spielorte" },
       {
         id: "schiedsrichter",
