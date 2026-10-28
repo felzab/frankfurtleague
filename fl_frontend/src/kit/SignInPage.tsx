@@ -54,7 +54,7 @@ type CodeView = Head & {
   zurueck: Act;
 };
 
-/** A passkey view: one sentence, the address, one primary press; the offer adds a quiet „Später“. */
+/** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
 type PasskeyView = Head & {
   view: "passkey";
   satz: Copy;
@@ -226,7 +226,7 @@ function Body(props: SignInView) {
             />
             {spaeter !== undefined && (
               <Button
-                variant="secondary"
+                variant="quiet"
                 label={spaeter.label}
                 isBusy={spaeter.isBusy}
                 isDisabled={spaeter.isDisabled}

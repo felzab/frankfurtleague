@@ -13,6 +13,8 @@ export const buttonLook = tv({
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
       secondary: "border-border-control bg-bg px-3.5 text-fg",
       danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
+      // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
+      quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-9 border-transparent bg-transparent text-fg pointer-coarse:w-11",
     },
     // React Aria's button marks its own hover, which a touch never sets; a plain anchor takes the pointer's
@@ -30,6 +32,7 @@ export const buttonLook = tv({
     // The lighter surface keeps the edge at 3:1 against the fill under the pointer.
     { look: "secondary", host: "aria", class: "data-hovered:bg-bg-surface data-pressed:bg-bg-surface" },
     { look: "icon", host: "aria", class: "data-hovered:bg-bg-muted data-pressed:bg-bg-muted" },
+    { look: "quiet", host: "aria", class: "data-hovered:bg-bg-muted data-hovered:text-fg data-pressed:bg-bg-muted data-pressed:text-fg" },
     { look: "danger", host: "aria", class: "data-hovered:bg-danger-solid-hover data-pressed:bg-danger-solid-hover" },
   ],
 });
