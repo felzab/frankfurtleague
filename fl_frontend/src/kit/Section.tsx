@@ -43,10 +43,11 @@ function DangerRow({ act }: { act: DangerAct }) {
 
 /**
  * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
- * page's group, the filter sheet.
+ * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title.
  */
-export function SectionTitle({ text }: { text: Copy }) {
-  return <h2 className="text-base font-semibold">{text}</h2>;
+export function SectionTitle({ text, level = 2 }: { text: Copy; level?: 2 | 3 }) {
+  const Heading = level === 2 ? "h2" : "h3";
+  return <Heading className="text-base font-semibold">{text}</Heading>;
 }
 
 /**
