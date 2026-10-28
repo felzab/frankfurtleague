@@ -5,10 +5,12 @@ isolation: worktree
 disallowedTools: Agent, Skill, mcp__*
 ---
 
+# Implementer
+
 These sections bind you whatever your brief says; your brief carries its BAR line, sections 1
-(ownership) and 3 (the work), the traps specific to your work, and the values its VALUES line gives: your agent
-name, the session branch and the commit your worktree forked from, the coordinator's checkout, the
-scratch path and the invariant ids reserved for you.
+(ownership) and 3 (the work), the traps specific to your work, and the values its VALUES line gives:
+your agent name, the session branch and the commit your worktree forked from, the coordinator's
+checkout and the scratch path.
 
 Your dispatch prompt names your brief's file and its messages file, where every later order to you
 is appended. **If your context opens with a summary of earlier work, re-read both before your next
@@ -42,24 +44,18 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   holds your commits: a rebase rewrites commits another branch has merged, and the landing refuses
   the twins. Never push, and no `gh` at all. The stash list is shared by every worktree, so name what
   you stash and pop it by its `stash@{n}`.
-- One commit per reason: `commit-msg` checks the message and `.githooks/pre-commit` formats what you
-  stage, where prettier is installed in your worktree. Commit with `git commit -F <file>`, its
-  subject within the length `scripts/checks/check_commits.py :: SUBJECT_TARGET` sets, read there:
-  past it the hook reports GitHub's truncation, and a reword costs a `reset --soft`. The hook prints
-  its advisory tier as a notice on a message it lets through, so report the commit's exit code and
-  any notice. The hook judges a
-  `Closes:` trailer against the staged diff: write one exactly when your commit retires a roadmap
-  entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
-  `--amend`, which the hook reads as the amend's delta alone. To fold commits, `git reset --soft`
-  onto a hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves
-  as I land, and a reset onto a newer tip commits the reversal of everything landed since. Both
-  rewrite the commits they pass: reword only a tip that is no merge commit, since `HEAD~1` of a
-  merge recommits what it merged as your own diff, and rewrite no commit another branch holds -- one
-  your brief had you merge, or one a message of mine names; report the false body or the fold
-  instead. A commit fixing findings-ledger
-  rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
-  each one routed to you, and a row named anywhere else stays open. The coordinator merges your
-  branch into the session branch whole, your commits as you made them.
+- One commit per reason, its message written to `docs/writing.md`, its subject within the 72
+  characters that page sets, with `git commit -F <file>`. No git hook runs on a commit: format what
+  you stage as `.claude/CLAUDE.md` §6 says, and read the message back before you commit. To reword
+  your tip, `git reset --soft HEAD~1` and commit again. To fold commits, `git reset --soft` onto a
+  hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves as I
+  land, and a reset onto a newer tip commits the reversal of everything landed since. Both rewrite
+  the commits they pass: reword only a tip that is no merge commit, since `HEAD~1` of a merge
+  recommits what it merged as your own diff, and rewrite no commit another branch holds -- one your
+  brief had you merge, or one a message of mine names; report the false body or the fold instead. A
+  commit fixing findings-ledger rows says so in body lines `Rows fixed: <id>, <id>.`: the landing
+  closes each one routed to you, and a row named anywhere else stays open. The coordinator merges
+  your branch into the session branch whole, your commits as you made them.
 - **Commit each checklist item as soon as its acceptance evidence holds, and everything before you
   report**: a usage-limit stop kills you mid-call and loses what is uncommitted, and the landing
   merges your branch's commits and nothing else, refusing a worktree holding uncommitted work.
@@ -77,8 +73,8 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   registry gaining a member, and the sweeps, which read a whole tree's source rather than import
   what they judge: where you touched `fl_backend/app`, every test importing
   `fl_backend/tests/core/app_source.py`, and where you touched `fl_frontend/src`, every test
-  importing `fl_frontend/src/core/treeWalk.ts`, each directly or through a module importing it; run
-  as `pnpm run test:base <files>`, split into several runs where Windows refuses the line as
+  importing `fl_frontend/src/test-support/treeWalk.ts`, each directly or through a module importing
+  it; run as `pnpm run test:base <files>`, split into several runs where Windows refuses the line as
   too long, and `uv run --project fl_backend --frozen pytest <paths>` (the root holds no
   `pyproject.toml`, so a bare `uv run` there spawns no pytest), a path under `scripts/tests` from Git
   Bash alone, the one shell whose bash `scripts/tests/conftest.py :: pytest_configure` lets run the cases;
@@ -86,22 +82,20 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `pnpm run knip:prod` where you touched `fl_frontend` (typecheck runs `next typegen` before tsc,
   without which a fresh worktree's tsc passes a page breaking Next's route types; the two knip runs
   fail an export or file your change left unread, which no test file of yours reaches), pyright over
-  the backend, and from `scripts/` over the scripts, where you touched either; `ruff check` and
-  `ruff format --check` over every Python scope you touched, as the gate runs them -- each of the
-  three through `uv run --project fl_backend --frozen`, since neither is on PATH -- `app tests`
-  from `fl_backend`, `scripts .claude/skills/orchestration/tools` from the root
-  (`scripts/gate/verify.sh :: do_backend_ruff`, `:: do_ruff`); `shellcheck -e SC1091` over every
-  shell script you changed, a hook without a suffix among them
-  (`scripts/gate/selfcheck.sh :: run_shellcheck`), which a selfcheck step run alone never reaches; every
-  `scripts/checks/` checker whose population you add to, from the root as `uv run --project fl_backend --frozen python
-scripts/checks/<name>.py` -- `check_tracked_text.py` always, `check_public_routes.py` for a route
-  handler, a page or `nginx/shared/site.conf`, `check_test_estate.py` for a backend test or fixture;
-  and every plant your items need. CI
+  the backend, from `scripts/` over the scripts, and from `.claude/skills/orchestration/` over the
+  coordinator's tools, where you touched one; `ruff check` and `ruff format --check` over every
+  Python scope you touched -- each of the three through `uv run --project fl_backend --frozen`,
+  since neither is on PATH -- `app tests` from `fl_backend` and `scripts` from the root as the gate
+  runs them (`scripts/gate/verify.sh :: scope_backend`, `:: scope_scripts`), and
+  `.claude/skills/orchestration` from the root, which no gate runs;
+  `shellcheck -e SC1091` over every shell script you changed, a hook without a suffix among them, as
+  `scripts/gate/selfcheck.sh` runs it; from the root, `uv run --project fl_backend --frozen python
+scripts/checks/check_public_routes.py` for a route handler, a page or `nginx/shared/site.conf`; and
+  every plant your items need. CI
   runs every scope over the combined head once a wave lands, and the gate runs once, in the
   coordinator's checkout, over the finished branch, so never a whole suite, a whole test tree,
-  `./scripts/gate/verify.sh` or `./scripts/ops/local.sh`. `.claude/hooks/implementer-whole-suite.sh`
-  refuses their common forms; a form it lets through is no permission. A blast radius your set cannot
-  reach goes in (d).
+  `./scripts/gate/verify.sh` in any form or `./scripts/ops/local.sh`: on a machine every agent
+  shares, each slows every other agent's checks. A blast radius your set cannot reach goes in (d).
 - **Where your change moves `fl_backend/openapi.json` or `fl_backend/einwilligung.json`, regenerate
   it and commit it with the change**: the landing merges your branch whole, and answers a conflict
   in either document by regenerating it from the merged code.
@@ -148,16 +142,11 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
 - Where the clean shape seems impossible -- a dependency patch, a hook compensating for a library bug,
   a stand-in for upstream behaviour -- stop and report with the evidence: each is the workaround
   `.claude/CLAUDE.md` §3 forbids.
-- The database tier runs one file at a time, `uv run --frozen pytest -m db <file>`, and only where
-  your brief allows database files; never the tier whole, which holds a machine-wide lock and which
-  the hook refuses (`pytest -m db` with no path, `pnpm run test:db`). Never a formatter over a
+- The database tier runs one file at a time, `uv run --frozen pytest -m db <file>` from
+  `fl_backend`, and only where your brief allows database files; never the tier whole, which is a
+  whole suite (`pytest -m db` with no path, `pnpm run test:db`). Never a formatter over a
   directory, which rewrites files other agents own, or a check against an environment's database,
   which reaches real data, unless your brief names that exact command.
-- An invariant row you add takes the lowest unused id of the block your brief reserves, never one
-  outside it, which another agent may hold; where the block runs out, ask me for more. Never write
-  a placeholder id: a longer id re-pads a whole spec-sheet table, and every agent editing that table
-  collides with you at landing. `check_docs.py`'s `invariant-number` finding on your id while a
-  lower reserved id has not landed is expected: report it, never renumber to clear it.
 - A programme's rulings are numbered in a register outside this public repository, so no ruling's
   number goes into a tracked file -- code, comment, test name or document. Cite one in a commit body
   only where your brief gives its number.
@@ -175,19 +164,17 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   a loop handing a computed value to a command have each been refused. Run each git command as a
   plain line of its own, and time it with separate `date +%s` calls.
 - A worktree nests inside the repository, and hooks run from the coordinator's checkout: its
-  `.claude/hooks/` scripts whatever your directory, and its `.githooks/` on your commits while the
-  shared `core.hooksPath` is an absolute path into it (`git config core.hooksPath` prints it). A
-  change you make to either is tested by invoking your worktree's copy directly, never by committing.
-  A `node_modules` or `.venv` linked in from another tree breaks the build and rewrites the other
-  tree's install.
+  `.claude/hooks/` scripts whatever your directory. A change you make to one is tested by invoking
+  your worktree's copy directly, never by triggering it. A `node_modules` or `.venv` linked in from
+  another tree breaks the build and rewrites the other tree's install.
 - The machine is not per worktree. Never run `./scripts/ops/local.sh` in yours: ports 3000 and 27017
   are fixed, and `--seed` would take a second copy of production data into your tree's `.local-db`.
-  The database test tier refuses a second concurrent run on the machine: report the refusal, never
-  retry it in a loop.
+  The database tier starts its own containers for each run, so a failure you suspect a concurrent
+  run caused is reported as that, never retried in a loop.
 - A test run carries a memory ceiling and a timeout: a failing assertion over a DOM node can serialise
   a whole tree.
 - No page is yours to open, by any route: this definition holds no MCP tool, the browser pane's
-  included, whose calls carry no timeout. The look is the owner's browser pass; you judge by tests,
+  included, whose calls carry no timeout. The look is the owner's review; you judge by tests,
   `tsc` and source.
 - `.claude/CLAUDE.md` binds you except where this definition keeps a step as the coordinator's: §2's
   branch-cutting, push, pull request and gate (section 5); §3's finding outside the task, which you
@@ -249,8 +236,7 @@ this order:
   cheaper shape shipped where a mature, documented, widely adopted one was available;
 - (h) your model id, as your environment states it, and whether you hold an `Agent` tool.
 
-15 THE STANDARD. A type-checker, linter, formatter and test run read no comment bound and resolve no
-citation, so a documentation-shaped write is green only once
-`uv run --project fl_backend --frozen python scripts/checks/check_docs.py`, run from your worktree's
-root, has come back clean. It reads the whole corpus, so a finding naming a file you do not own is
-somebody else's.
+15 THE DOCUMENTS. A type-checker, linter and test run read no Markdown, so a documentation-shaped
+write is green only once markdownlint (`pnpm run lint:md` in `fl_frontend`) and lychee (the command
+`scripts/gate/verify.sh :: check_links` runs, from your worktree's root) have come back clean. Each
+reads the whole tree, so a finding naming a file you do not own is somebody else's.
