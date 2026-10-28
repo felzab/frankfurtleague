@@ -14,7 +14,7 @@ import { werteOf } from "./spielLesen";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
 import type { Copy } from "@/core/copy";
-import type { FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
 import type { EditorSave } from "@/kit/useEditor";
 import type { ActionAnswer } from "@/kit/useFormAction";
 import type { SpielFeld, SpielWerte } from "./spielWerte";
@@ -45,6 +45,9 @@ type Antwort = { success: true; antwort: ActionAnswer } | { success: false; antw
 
 const abgelehnt = (antwort: ActionAnswer): Antwort => ({ success: false, antwort });
 
+const isNichtantreten = (sonderereignis: FLSonderereignis | null) =>
+  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
+
 /**
  * The fixture as it stands with the editor's changes over it. Today's write replaces the whole fixture, so
  * every field the editor does not show is sent as it is stored: the sides, their sources and the referee.
@@ -59,8 +62,16 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Partial<SpielWerte>): { p
   }
 
   const sonderereignis = werte.sonderereignis === KEIN_SONDEREREIGNIS ? null : FLSonderereignisSchema.parse(werte.sonderereignis);
-  const team1 = toStoredSide(gespeichert.team1);
-  const team2 = toStoredSide(gespeichert.team2);
+  // A no-show's goals are the award the write composed, never a score anyone played: taken back, the award
+  // goes with it, else the write keeps the goals as a played result. Cleared, they also meet the rule that an
+  // event leaving the match unscored carries no goals.
+  const awardTakenBack = isNichtantreten(gespeichert.sonderereignis) && !isNichtantreten(sonderereignis);
+  const sideOf = (stored: FLSpielAdmin["team1"]) => {
+    const side = toStoredSide(stored);
+    return side === null ? null : { ...side, tore: awardTakenBack ? null : side.tore };
+  };
+  const team1 = sideOf(gespeichert.team1);
+  const team2 = sideOf(gespeichert.team2);
 
   return {
     payload: {

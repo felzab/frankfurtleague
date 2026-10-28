@@ -5,6 +5,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { spielStateKey } from "@/features/spiele/utils";
 
 import { spielSpeichern } from "./spielSpeichern";
+import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielAdmin } from "@/features/spiele/schemas";
 
@@ -151,6 +152,30 @@ describe("the match editor's save", () => {
     await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { sonderereignis: "nichtantreten_team2" } });
 
     expect(stand.gesendet).toMatchObject([{ sonderereignis: "nichtantreten_team2", elfmeterschiessen: null }]);
+  });
+
+  it("drops a no-show's awarded goals with the no-show, so they never stand as a played result", async () => {
+    const nichtangetreten: FLSpielAdmin = {
+      ...GESPEICHERT,
+      team1: { team_id: "64b000000000000000000003", name: "Woehlerschule", shorthand: "WO", tore: 3, austritt_type: null },
+      team2: { team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule", shorthand: "ER", tore: 0, austritt_type: null },
+      ergebnis: "3:0",
+      elfmeterschiessen: null,
+      sonderereignis: "nichtantreten_team2",
+    };
+    stand.gelesen = nichtangetreten;
+    const fingerprint = spielStateKey(nichtangetreten);
+
+    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: KEIN_SONDEREREIGNIS } });
+    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: "annulliert" } });
+    // Still a no-show, the other side's: the write composes the award afresh, whatever goals it is sent.
+    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: "nichtantreten_team1" } });
+
+    expect(stand.gesendet).toMatchObject([
+      { sonderereignis: null, team1: { tore: null }, team2: { tore: null } },
+      { sonderereignis: "annulliert", team1: { tore: null }, team2: { tore: null } },
+      { sonderereignis: "nichtantreten_team1", team1: { tore: 3 }, team2: { tore: 0 } },
+    ]);
   });
 
   it("books no venue and no price where the venue is cleared", async () => {
