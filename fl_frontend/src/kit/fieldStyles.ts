@@ -19,14 +19,16 @@ export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * One line, always there, so a message appearing or going moves nothing. The code's line holds a refusal
- * of two sentences, so it wraps and grows from its one line rather than cutting the refusal off.
+ * One line, always there, so a message appearing or going moves nothing. The one line is cut, and its words
+ * add nothing to the width a field is laid out at, so a long message never widens a field sized by its
+ * content, such as a pair's short side. The code's line holds a refusal of two sentences, so it wraps and
+ * grows from its one line rather than cutting the refusal off.
  */
 export const messageLine = tv({
   base: "text-xs",
   variants: {
     lines: {
-      one: "h-4 truncate",
+      one: "h-4 truncate contain-inline-size",
       several: "min-h-4",
     },
     tone: {
