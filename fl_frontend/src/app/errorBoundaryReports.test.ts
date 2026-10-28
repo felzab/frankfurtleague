@@ -13,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ComponentType } from "react";
+import type { MockInstance } from "vitest";
 
 const APP_DIR = import.meta.dirname;
 
@@ -38,7 +39,7 @@ function Held({ until }: { until: Promise<void> }): null {
 }
 
 // Each case below renders a boundary, which posts its crash report, so none reaches a network.
-let sent: ReturnType<typeof vi.spyOn<typeof globalThis, "fetch">>;
+let sent: MockInstance<typeof fetch>;
 
 beforeEach(() => {
   sent = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
