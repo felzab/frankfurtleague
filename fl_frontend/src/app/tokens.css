@@ -178,7 +178,7 @@
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 30rem; /* a status card, and the classic column holding one */
   --container-dialog: 35rem; /* a dialog holding a form */
-  --container-form: 47.5rem; /* the classic frame's form column */
+  --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 65rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's title and content */
 }

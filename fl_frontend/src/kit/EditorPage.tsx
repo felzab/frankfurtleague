@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { Form } from "react-aria-components/Form";
 
 import { EditorBar } from "./EditorBar";
-import { RailPage } from "./RailFrame";
+import { formColumn, RailPage } from "./RailFrame";
 import { Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
@@ -20,10 +20,9 @@ import type { Editor, EditorValue } from "./useEditor";
 export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactNode };
 
 /**
- * The editor template: its sections one under another across the page's whole content column, from the
- * title's left edge as Vercel's project settings stand, each a box exactly as tall as its content under its
- * 16-px title with its fields at their own widths at the box's start, and the record's one save in
- * `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the way out is the frame's „← Zurück“ to the record's list, which an
+ * The editor template: its sections one under another in the column of at most 760 px centred in the
+ * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
+ * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the way out is the frame's „← Zurück“ to the record's list, which an
  * editor's route group places (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
  * one place an editor's irreversible and retiring acts stand. The fields are the kit's, bound to `editor`'s
  * draft by the page's own client code.
@@ -69,7 +68,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           event.preventDefault();
           editor.submit();
         }}
-        className="grid gap-6">
+        className={formColumn()}>
         {sections.map((section, index) => (
           <Section
             key={section.id}

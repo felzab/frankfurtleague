@@ -187,9 +187,16 @@ const strip = tv({
 });
 
 /**
- * A rail page's title and content. On desktop the title stands in the 48-px strip over the content, on a
- * public season page with „Impressum“ and „Datenschutz“ at its right; on a phone it heads the content under
- * the band. The page's templates place it; `main` holds their content.
+ * The column an editor and a read page set their blocks in, inside a rail page's content: at most 760 px,
+ * centred, the blocks 24 px apart.
+ */
+export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
+
+/**
+ * A rail page's title and content. On desktop the title stands at the start of the 48-px strip, which runs
+ * the full width beside the rail with its hairline continuing the rail head's edge, on a public season page
+ * with „Impressum“ and „Datenschutz“ at its end; on a phone it heads the content under the band. The page's
+ * templates place it; `main` holds their content.
  */
 export function RailPage({
   area,
@@ -209,35 +216,35 @@ export function RailPage({
   const { head, heading } = strip({ area });
   return (
     <>
-      {/* The title and the content in one column of at most 1280 px, centred beside the rail on a wide screen, so
-          the two keep one left edge at every width; the editor's bar spans the whole width under it. */}
-      <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col">
-        <header className={head()}>
-          <h1 className={heading()}>{titleOf(title)}</h1>
-          {chip !== undefined && (
-            <Chip
-              tone={chip.tone}
-              label={chip.label}
-            />
-          )}
-          {area === "saison" && (
-            <nav
-              aria-label={COPY.vorlage.navigation}
-              className="ms-auto hidden gap-1 lg:flex">
-              {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
-                <NextLink
-                  key={page.pfad()}
-                  href={page.pfad()}
-                  data-kit-focus="ring"
-                  className={frameLink({ tone: "strip" })}>
-                  {page.titel}
-                </NextLink>
-              ))}
-            </nav>
-          )}
-        </header>
-        <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
-      </div>
+      <header className={head()}>
+        <h1 className={heading()}>{titleOf(title)}</h1>
+        {chip !== undefined && (
+          <Chip
+            tone={chip.tone}
+            label={chip.label}
+          />
+        )}
+        {area === "saison" && (
+          <nav
+            aria-label={COPY.vorlage.navigation}
+            className="ms-auto hidden gap-1 lg:flex">
+            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+              <NextLink
+                key={page.pfad()}
+                href={page.pfad()}
+                data-kit-focus="ring"
+                className={frameLink({ tone: "strip" })}>
+                {page.titel}
+              </NextLink>
+            ))}
+          </nav>
+        )}
+      </header>
+      {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen; the editor's
+          bar spans the whole width under it. */}
+      <main className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
+        {children}
+      </main>
       {bar}
     </>
   );
