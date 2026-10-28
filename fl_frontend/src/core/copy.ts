@@ -160,6 +160,36 @@ export const COPY = katalog({
     adressaenderungen: "Adressänderungen",
   },
 
+  /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
+  vorlage: {
+    /** The phone bar's place opening the rest of the menu, without the ellipsis a truncated text's link takes. */
+    mehr: "Mehr",
+    /** The name of a frame's menu, the rail's and the phone bar's. */
+    navigation: "Navigation",
+    /** The account's place: the rail's account row and the phone bar's avatar. */
+    konto: "Konto",
+    /** The classic header's button opening its links on a phone. */
+    menue: "Menü",
+
+    /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
+    liga: "Liga",
+    oberstufenliga: "Die Frankfurter Oberstufenliga",
+    mitUnterstuetzungVon: "Mit Unterstützung von",
+    instagram: "Instagram",
+    threads: "Threads",
+    copyright: (jahr: number, marke: Copy) => `© ${String(jahr)} ${marke}`,
+
+    /** An editor's changes not yet saved: the status line names their count, the discard dialog asks before they go. */
+    aenderungen: "Änderungen",
+    aenderungenOffen: (anzahl: number) => (anzahl === 1 ? "1 Änderung" : `${formatZahl(anzahl)} Änderungen`),
+    aenderungenVerloren: (anzahl: number) => (anzahl === 1 ? "1 Änderung geht verloren." : `${formatZahl(anzahl)} Änderungen gehen verloren.`),
+    /** A save refused for its fields: the fields say what, the status line says where to look. */
+    felderPruefen: "Prüfe die markierten Felder.",
+
+    /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
+    linkUngueltig: "Link nicht mehr gültig",
+  },
+
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
   marke: {
     name: "Frankfurt League",

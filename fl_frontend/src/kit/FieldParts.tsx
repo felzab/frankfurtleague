@@ -11,6 +11,7 @@ import { COPY } from "@/core/copy";
 import { fieldLabel, messageLine, requiredMark } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
+import type { Kalendertag } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
 
 /** What a field's message needs to name the rule its value broke. */
@@ -19,6 +20,9 @@ export type Constraints = {
   minLength?: number;
   /** The example a malformed value is shown, as in „Format: name@example.com“. */
   beispiel?: Copy;
+  /** A date's bounds, which an earlier or a later day is shown. */
+  earliest?: Kalendertag;
+  latest?: Kalendertag;
 };
 
 /**
@@ -30,6 +34,8 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
   if (validationDetails.valueMissing) return feld.pflichtfeld;
   if (validationDetails.tooLong && constraints.maxLength !== undefined) return feld.hoechstensZeichen(constraints.maxLength);
   if (validationDetails.tooShort && constraints.minLength !== undefined) return feld.mindestensZeichen(constraints.minLength);
+  if (validationDetails.rangeUnderflow && constraints.earliest !== undefined) return feld.fruehestens(constraints.earliest);
+  if (validationDetails.rangeOverflow && constraints.latest !== undefined) return feld.spaetestens(constraints.latest);
   if (
     (validationDetails.typeMismatch || validationDetails.patternMismatch || validationDetails.badInput) &&
     constraints.beispiel !== undefined

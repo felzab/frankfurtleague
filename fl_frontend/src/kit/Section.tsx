@@ -42,7 +42,7 @@ function DangerRow({ act }: { act: DangerAct }) {
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content under its 16-px
  * title, a one-control section included. One ⓘ may follow the title. An editor's last box holds the
- * danger row, the one place its irreversible and retiring acts stand.
+ * danger rows, the one place its irreversible and retiring acts stand.
  */
 export function Section({
   title,
@@ -53,7 +53,8 @@ export function Section({
   title: Copy;
   /** The section's one short help text, behind the ⓘ after its title. */
   help?: Copy;
-  danger?: DangerAct;
+  /** An editor's irreversible and retiring acts, one row each, after the box's fields. */
+  danger?: ReadonlyArray<DangerAct>;
   children?: ReactNode;
 }) {
   return (
@@ -69,7 +70,12 @@ export function Section({
         )}
       </div>
       {children !== undefined && <div className="grid gap-4">{children}</div>}
-      {danger !== undefined && <DangerRow act={danger} />}
+      {danger?.map((act) => (
+        <DangerRow
+          key={act.name}
+          act={act}
+        />
+      ))}
     </section>
   );
 }

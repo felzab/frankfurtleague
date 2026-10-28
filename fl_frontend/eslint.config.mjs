@@ -966,7 +966,8 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    { allow: ["src/kit/Table.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx"] },
+    // The four blocks carrying a name: a table row's, a match's, a record's facts and the page header's title.
+    { allow: ["src/kit/Table.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
   ),
   // Only a confirmation asks a question.
   syntaxBan(

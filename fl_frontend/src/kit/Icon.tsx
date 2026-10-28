@@ -3,10 +3,13 @@ import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
 import ChevronRight from "lucide-react/icons/chevron-right";
+import Ellipsis from "lucide-react/icons/ellipsis";
 import Info from "lucide-react/icons/info";
 import ListFilter from "lucide-react/icons/list-filter";
 import LoaderCircle from "lucide-react/icons/loader-circle";
+import Menu from "lucide-react/icons/menu";
 import Search from "lucide-react/icons/search";
+import TriangleAlert from "lucide-react/icons/triangle-alert";
 import X from "lucide-react/icons/x";
 
 /**
@@ -21,9 +24,12 @@ const GLYPHS = {
   info: Info,
   kalender: Calendar,
   laedt: LoaderCircle,
+  mehr: Ellipsis,
+  menue: Menu,
   schliessen: X,
   suche: Search,
   vor: ChevronRight,
+  warnung: TriangleAlert,
   zurueck: ChevronLeft,
 };
 
