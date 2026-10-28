@@ -72,6 +72,8 @@ export const COPY = katalog({
       unerwartet: UNERWARTET,
       veraltet: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
       abgelaufen: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
+      /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
+      zuVieleVersuche: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
     },
 
     /** Beside the save button once the record is stored. */

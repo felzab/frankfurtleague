@@ -4,6 +4,7 @@ import { startTransition, useActionState, useLayoutEffect, useRef } from "react"
 import { unstable_rethrow } from "next/navigation";
 
 import { COPY } from "@/core/copy";
+import { edgeRefusedSend } from "@/shared/utils/actionError";
 
 import type { Copy } from "@/core/copy";
 
@@ -16,7 +17,10 @@ import type { Copy } from "@/core/copy";
 export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
 
-/** Anything the action throws becomes the unexpected-failure answer, but Next's redirect and not-found pass through. */
+/**
+ * Anything the action throws becomes the unexpected-failure answer, but Next's redirect and not-found pass
+ * through, and the edge's own rate refusal, which reached nothing behind the edge, says so and when to retry.
+ */
 export function answering<Payload, Value>(
   action: (payload: Payload) => Promise<ActionAnswer<Value>>,
 ): (payload: Payload) => Promise<ActionAnswer<Value>> {
@@ -26,7 +30,7 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      return { ok: false, reason: COPY.shared.fehler.unerwartet };
+      return { ok: false, reason: edgeRefusedSend(thrown) === null ? COPY.shared.fehler.unerwartet : COPY.shared.fehler.zuVieleVersuche };
     }
   };
 }
