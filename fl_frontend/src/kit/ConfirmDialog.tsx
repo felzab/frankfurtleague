@@ -3,12 +3,11 @@
 import { useTransition } from "react";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
-import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ActRow, dialogBox, dim, useOpenUntilHidden } from "./Dialog";
+import { ActRow, DialogOverlay, useOpenUntilHidden } from "./Dialog";
 
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
@@ -41,45 +40,39 @@ export function ConfirmDialog({ verb, subject, consequence, tone, trigger, onCon
       isOpen={isOpen}
       onOpenChange={setOpen}>
       {trigger}
-      <ModalOverlay className={dim()}>
-        <div className="grid size-full place-items-center p-4">
-          <Modal
-            data-kit-focus
-            className={dialogBox({ width: "question" })}>
-            <AriaDialog
-              role="alertdialog"
-              data-kit-focus
-              className="grid gap-6">
-              <Heading
-                slot="title"
-                level={2}
-                className="text-base font-semibold">
-                {COPY.shared.frage(subject, verb)}
-              </Heading>
-              <p className="text-sm text-fg-muted">{consequence}</p>
-              <ActRow>
-                <Button
-                  variant="secondary"
-                  label={COPY.shared.zurueck}
-                  isDisabled={isBusy}
-                  onPress={() => setOpen(false)}
-                />
-                <Button
-                  variant={tone}
-                  label={COPY.shared.verb[verb]}
-                  isBusy={isBusy}
-                  onPress={() =>
-                    startAct(async () => {
-                      await onConfirm();
-                      startAct(() => setOpen(false));
-                    })
-                  }
-                />
-              </ActRow>
-            </AriaDialog>
-          </Modal>
-        </div>
-      </ModalOverlay>
+      <DialogOverlay width="question">
+        <AriaDialog
+          role="alertdialog"
+          data-kit-focus
+          className="grid gap-6">
+          <Heading
+            slot="title"
+            level={2}
+            className="text-base font-semibold">
+            {COPY.shared.frage(subject, verb)}
+          </Heading>
+          <p className="text-sm text-fg-muted">{consequence}</p>
+          <ActRow>
+            <Button
+              variant="secondary"
+              label={COPY.shared.zurueck}
+              isDisabled={isBusy}
+              onPress={() => setOpen(false)}
+            />
+            <Button
+              variant={tone}
+              label={COPY.shared.verb[verb]}
+              isBusy={isBusy}
+              onPress={() =>
+                startAct(async () => {
+                  await onConfirm();
+                  startAct(() => setOpen(false));
+                })
+              }
+            />
+          </ActRow>
+        </AriaDialog>
+      </DialogOverlay>
     </DialogTrigger>
   );
 }

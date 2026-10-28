@@ -17,6 +17,7 @@ import { useFormAction } from "./useFormAction";
 import type { Copy, Verb } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
+import type { ModalOverlayProps } from "react-aria-components/Modal";
 import type { ActionAnswer } from "./useFormAction";
 
 /**
@@ -31,20 +32,21 @@ export function useOpenUntilHidden() {
 }
 
 /**
- * The dim behind a pop-up that holds the page: a 10 % black scrim and a 4-px blur, fading in and out on
- * the overlay tokens. Every dimming overlay takes it from here; a menu dims nothing.
+ * The dim behind a dialog: a 10 % black scrim and a 4-px blur, fading in and out on the overlay tokens. It
+ * covers the whole page, as tall as React Aria's `ModalOverlay` measures the page (`--page-height`), and
+ * the centring wrapper inside it stands in the visible part.
  */
-export const dim = tv({
-  base: "fixed inset-0 z-50 bg-[rgb(0_0_0/0.1)] backdrop-blur-[4px] transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
+const dim = tv({
+  base: "absolute top-0 left-0 z-50 h-(--page-height) w-full bg-[rgb(0_0_0/0.1)] backdrop-blur-[4px] transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
 /**
  * The centred box every dialog shares; `width` is the drawn measure of its kind. It is never taller than
- * the visible window less the 1-rem margin its centring grid keeps, and scrolls inside past that, so a
+ * the visible window less the 1-rem margin its centring wrapper keeps, and scrolls inside past that, so a
  * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
  * writes for its modal to cap itself by.
  */
-export const dialogBox = tv({
+const dialogBox = tv({
   base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-6 text-fg shadow-dialog",
   variants: {
     width: {
@@ -53,6 +55,36 @@ export const dialogBox = tv({
     },
   },
 });
+
+/**
+ * The overlay every dialog stands in, in React Aria's documented layout: the dim over the whole page, and
+ * inside it a wrapper exactly as tall as the visible window, stuck to its top, which centres the box. A
+ * phone's open keyboard shrinks the visible window and not the layout one, so the box is centred, and
+ * capped, in the part of the screen the keyboard leaves.
+ */
+export function DialogOverlay({
+  width,
+  children,
+  ...overlay
+}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "onOpenChange"> & {
+  width: "question" | "form";
+  /** The React Aria `Dialog` the box holds. */
+  children: ReactNode;
+}) {
+  return (
+    <ModalOverlay
+      {...overlay}
+      className={dim()}>
+      <div className="sticky top-0 left-0 grid h-(--visual-viewport-height) w-full place-items-center p-4">
+        <Modal
+          data-kit-focus
+          className={dialogBox({ width })}>
+          {children}
+        </Modal>
+      </div>
+    </ModalOverlay>
+  );
+}
 
 /** The way back and the act: the act on the right, stacked on a phone with the act on top. */
 export function ActRow({ children }: { children: ReactNode }) {
@@ -78,31 +110,25 @@ export function RouteDialog({
 }) {
   const router = useRouter();
   return (
-    <ModalOverlay
+    <DialogOverlay
+      width="form"
       isOpen
       isDismissable
       onOpenChange={(open) => {
         if (!open) goBackOrPush(router, beneath);
-      }}
-      className={dim()}>
-      <div className="grid size-full place-items-center p-4">
-        <Modal
-          data-kit-focus
-          className={dialogBox({ width: "form" })}>
-          <AriaDialog
-            data-kit-focus
-            className="grid gap-6">
-            <Heading
-              slot="title"
-              level={2}
-              className="text-xl font-semibold">
-              {title}
-            </Heading>
-            {children}
-          </AriaDialog>
-        </Modal>
-      </div>
-    </ModalOverlay>
+      }}>
+      <AriaDialog
+        data-kit-focus
+        className="grid gap-6">
+        <Heading
+          slot="title"
+          level={2}
+          className="text-xl font-semibold">
+          {title}
+        </Heading>
+        {children}
+      </AriaDialog>
+    </DialogOverlay>
   );
 }
 
@@ -216,25 +242,19 @@ export function Dialog({
       isOpen={isOpen}
       onOpenChange={setOpen}>
       {trigger}
-      <ModalOverlay
-        isDismissable
-        className={dim()}>
-        <div className="grid size-full place-items-center p-4">
-          <Modal
-            data-kit-focus
-            className={dialogBox({ width: "form" })}>
-            <AriaDialog data-kit-focus>
-              <ActForm
-                title={title}
-                label={label}
-                action={action}
-                close={() => setOpen(false)}>
-                {children}
-              </ActForm>
-            </AriaDialog>
-          </Modal>
-        </div>
-      </ModalOverlay>
+      <DialogOverlay
+        width="form"
+        isDismissable>
+        <AriaDialog data-kit-focus>
+          <ActForm
+            title={title}
+            label={label}
+            action={action}
+            close={() => setOpen(false)}>
+            {children}
+          </ActForm>
+        </AriaDialog>
+      </DialogOverlay>
     </DialogTrigger>
   );
 }

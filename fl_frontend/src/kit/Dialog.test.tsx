@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { TextField } from "./TextField";
@@ -84,6 +85,46 @@ async function createThroughTheDialog() {
   await userEvent.click(screen.getByRole("button", { name: COPY.shared.mitObjekt(NAME, "anlegen") }));
 }
 
+/**
+ * React Aria's documented modal layout, which keeps a box above a phone's open keyboard: the dim as tall as
+ * the page, and the wrapper centring the box as tall as the visible window and stuck to its top. jsdom draws
+ * nothing, so the layout is read from the classes and the heights React Aria writes for them.
+ */
+function expectTheSharedOverlay(dialog: HTMLElement) {
+  const wrapper = dialog.parentElement?.parentElement;
+  const overlay = wrapper?.parentElement;
+  expect(wrapper?.className.split(" ")).toEqual(
+    expect.arrayContaining(["sticky", "top-0", "h-(--visual-viewport-height)", "place-items-center"]),
+  );
+  expect(overlay?.className.split(" ")).toEqual(expect.arrayContaining(["absolute", "top-0", "h-(--page-height)"]));
+  expect(overlay?.className.split(" ")).not.toContain("fixed");
+  expect(overlay?.style.getPropertyValue("--page-height")).not.toBe("");
+  expect(overlay?.style.getPropertyValue("--visual-viewport-height")).not.toBe("");
+}
+
+describe("the kit's confirmation", () => {
+  it("stands in the overlay every dialog shares", async () => {
+    render(
+      <ConfirmDialog
+        verb="loeschen"
+        subject={NAME}
+        consequence={COPY.shared.fehler.veraltet}
+        tone="danger"
+        trigger={
+          <Button
+            variant="secondary"
+            label={COPY.shared.verb.loeschen}
+          />
+        }
+        onConfirm={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.loeschen }));
+
+    expectTheSharedOverlay(screen.getByRole("alertdialog"));
+  });
+});
+
 describe("the kit's dialog", () => {
   it("sends its inputs to its action", async () => {
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
@@ -157,6 +198,13 @@ describe("the kit's dialog", () => {
 
     await waitFor(() => expect(screen.getByText(COPY.shared.fehler.unerwartet)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("stands in the overlay every dialog shares", async () => {
+    render(<CreateDialog create={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+
+    expectTheSharedOverlay(screen.getByRole("dialog"));
   });
 
   it("opens again without the refusal it showed before it closed", async () => {
