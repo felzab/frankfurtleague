@@ -34,10 +34,11 @@
   outline-offset: 0;
 }
 
-/* A field shows its edge however it was focused, a dropdown trigger while its list is open. Every
-   other control rings on the keyboard alone: React Aria's `data-focus-visible`, or `:focus-visible`
-   on the kit's `next/link` anchor, which React Aria never marks. */
-[data-kit-focus="field"]:is(:focus, :focus-within, [aria-expanded="true"]),
+/* A field shows its edge however it was focused, a dropdown trigger while its list is open, and a drawn
+   code box while the code's input is focused and its caret stands in that box. Every other control rings
+   on the keyboard alone: React Aria's `data-focus-visible`, or `:focus-visible` on the kit's `next/link`
+   anchor, which React Aria never marks. */
+[data-kit-focus="field"]:is(:focus, :focus-within, [aria-expanded="true"], [data-focused]),
 :is([data-kit-focus="ring"], [data-kit-focus="inset"], [data-kit-focus="text"]):is([data-focus-visible], a:focus-visible),
 [data-focus-visible] > [data-kit-focus="box"] {
   outline-width: 2px;

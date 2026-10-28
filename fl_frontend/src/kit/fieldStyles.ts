@@ -15,16 +15,24 @@ export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 /** The asterisk after a required field's label. */
 export const requiredMark = tv({ base: "text-danger" });
 
-/** One line, always there, so a message appearing or going moves nothing. */
+/**
+ * One line, always there, so a message appearing or going moves nothing. The code's line holds a refusal
+ * of two sentences, so it wraps and grows from its one line rather than cutting the refusal off.
+ */
 export const messageLine = tv({
-  base: "h-4 truncate text-xs",
+  base: "text-xs",
   variants: {
+    lines: {
+      one: "h-4 truncate",
+      several: "min-h-4",
+    },
     tone: {
       description: "text-fg-muted",
       consequence: "text-warn",
       error: "text-danger",
     },
   },
+  defaultVariants: { lines: "one" },
 });
 
 /** The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen. */
@@ -83,12 +91,20 @@ export const searchClear = tv({
   base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-11",
 });
 
-/** The six code boxes, sharing the column. */
-export const codeRow = tv({ base: "group grid grid-cols-6 gap-2" });
+/** The six code boxes, sharing the column, with the code's one input laid over them. */
+export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
 
-/** One code box: a field's frame and height, its digit large and centred. */
+/** One drawn code box: a field's frame and height, its digit large and centred. */
 export const codeBox = tv({
-  base: "h-9 w-full rounded-lg border border-border-control bg-bg text-center font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-invalid:border-danger disabled:opacity-50 pointer-coarse:h-11",
+  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+});
+
+/**
+ * The code's input over its boxes: its own text, caret and selection transparent, so the boxes show the
+ * digits; 16 px, so a phone does not zoom in on focus.
+ */
+export const codeInput = tv({
+  base: "absolute inset-0 size-full bg-transparent text-base text-transparent caret-transparent selection:bg-transparent",
 });
 
 /** One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. */
