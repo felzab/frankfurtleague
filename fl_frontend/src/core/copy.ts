@@ -349,7 +349,9 @@ export const COPY = katalog({
       objekt: "Spielort",
       suchen: "Spielorte suchen",
       name: "Name",
+      /** The create dialog's two groups: the address's lines, and the record's terms, the price among them. */
       adresse: "Adresse",
+      konditionen: "Konditionen",
       strasse: "Straße",
       hausnummer: "Nr.",
       plz: "PLZ",
