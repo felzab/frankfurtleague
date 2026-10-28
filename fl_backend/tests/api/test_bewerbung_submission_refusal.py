@@ -439,6 +439,13 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert parsed.schule is not None and parsed.schule.website_url == website_url
 
+    def test_an_empty_website_box_is_stored_as_null(self):
+        """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""
+
+        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="")))
+
+        assert parsed.schule is not None and parsed.schule.website_url is None
+
     @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
     def test_a_school_name_carrying_one_of_them_inside_is_refused(self, refused: str):
         """Both name fields, so a pattern applied to one of the pair fails here rather than shipping half-narrowed."""

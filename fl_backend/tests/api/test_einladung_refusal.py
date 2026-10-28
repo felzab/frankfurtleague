@@ -3,6 +3,7 @@ from typing import Any
 from app.api.einladungen.services import (
     bestaetigte_empfaenger,
     einladung_ist_versendet,
+    plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
 from tests.documents import kontaktperson_document
@@ -137,3 +138,20 @@ class TestWhetherAnythingWasEverMailed:
         bounced = {**ZUSTELLUNG, "stand": "unzustellbar", "grund": "NoEmail"}
 
         assert einladung_ist_versendet(einladung_raw=einladung(versand={"zustellung": bounced}))
+
+
+class TestATeamTheBanListKeepsTheLinkFrom:
+    """The mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
+
+    def test_a_re_send_does_not_reach_past_the_ban(self):
+        """Each press would mint over the team's live link while nobody on it can be reached."""
+
+        decided = plan_einladung_versand(
+            austritt=None,
+            kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=CONFIRMED_ON)),
+            einladung_raw=einladung(versand={"zustellung": ZUSTELLUNG}),
+            erneut=True,
+            gesperrt=frozenset({"bramblewick@example.com"}),
+        )
+
+        assert decided == ([], "kontakte_gesperrt", False)

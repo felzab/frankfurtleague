@@ -15,6 +15,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
+    find_expired_token_refusal,
     persons_named,
     seite_of,
     sole_person,
@@ -86,6 +87,13 @@ class TestWhatAReopenedLinkShows:
 
         assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=False) == zustand
         assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=True) == "gesperrt"
+
+
+class TestALinkWhoseTimeIsOver:
+    def test_the_deadlines_own_day_still_takes_the_answer(self):
+        """The mail names that day, and a link dying at the midnight before it lies."""
+
+        assert find_expired_token_refusal(bestaetigung={"frist": TODAY}, status="eingereicht", today=TODAY) is None
 
 
 class TestWhichPageTheLinkOpens:

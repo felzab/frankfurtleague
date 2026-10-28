@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.schemas import ANFRAGEN_LISTED_PER_PASS
 from app.api.spielbestaetigungen.services import (
+    anfrage_is_due,
     compose_ansetzung,
     compose_erinnerung_update,
     frist_of,
@@ -55,6 +56,13 @@ class TestTheDeadline:
 
     def test_today_inside_the_notice_period(self):
         assert frist_of(datum=days_after(day=TODAY, days=3), today=TODAY) == TODAY
+
+
+class TestTheMintAsksInsideItsWindowAlone:
+    def test_a_fixture_today_is_not_asked(self):
+        """The floor's edge: both clubs and the referee would be asked to confirm a match already under way."""
+
+        assert anfrage_is_due(spiel=spiel(datum=TODAY), austritte={}, today=TODAY) is False
 
 
 class TestWhyARowCloses:

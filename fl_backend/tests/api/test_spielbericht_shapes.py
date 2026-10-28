@@ -29,6 +29,7 @@ from app.api.spielberichte.services import (
     find_name_in_bemerkungen_refusal,
     find_nicht_gespielt_refusal,
     judge_bericht,
+    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from app.core.exceptions import WriteRefusalException
@@ -227,6 +228,11 @@ class TestACalledOffFixtureTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", [None, "abgebrochen", "nichtantreten_team1"])
     def test_one_that_took_place_is_reported_on(self, sonderereignis: str | None):
         assert find_abgesagt_refusal(sonderereignis=sonderereignis) is None
+
+    def test_its_form_serves_no_squads(self):
+        """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report."""
+
+        assert nimmt_einen_bericht(spiel(sonderereignis="ausgefallen"), today=TODAY) is False
 
 
 class TestTheRemarksNameNobody:

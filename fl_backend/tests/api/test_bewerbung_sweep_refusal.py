@@ -170,7 +170,9 @@ class TestTheReminderMark:
     def test_every_open_seat_at_its_mark_is_listed_in_declaration_order(self):
         assert reminder_seats(bewerbung_raw=application(), today=TODAY) == list(KONTAKT_ROLLEN)
 
-    @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
+    # Spelled out rather than read off `ZUSTELLUNG_ABGEWIESEN`, so a state the set loses fails here: a person who
+    # reported the first mail as spam is never mailed again.
+    @pytest.mark.parametrize("stand", ["beschwerde", "unterdrueckt", "unzustellbar"])
     def test_a_seat_the_provider_refuses_is_not_chased(self, stand: str):
         """The one reminder a seat gets is spent on nobody where the address is already known to reject it."""
 
