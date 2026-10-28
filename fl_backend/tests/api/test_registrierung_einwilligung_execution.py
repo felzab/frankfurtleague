@@ -169,10 +169,10 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None, registrierungen_collection: Any = None) -> Any:
     return await get_bestaetigung_ansicht(
         ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=token),
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen_collection is None else registrierungen_collection,
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
         sperrliste=ban_list(database),
@@ -335,6 +335,34 @@ class TestWhatTheLinksPersonReadLoads:
 
         assert loaded, "the person read found nobody, so nothing below is judged"
         assert set().union(*(leaf_paths(document) for document in loaded)) <= PERSON_ANSICHT_RESOLVES
+
+
+# What the view resolves off the registration the link opens: its state, its team and season, the name and address the
+# person is matched by, and the stamp. Never the birthdate the pupil answered, and never a hash of the link.
+REGISTRIERUNG_ANSICHT_RESOLVES = frozenset(
+    {"bestaetigung.frist", "status", "saison_id", "team_id", "vorname", "nachname", "email", "einwilligung.bestaetigt_am"}
+)
+
+
+class TestWhatTheLinksRegistrationReadLoads:
+    """Holds the narrowing alone: an anonymous holder of the link is not yet known to be the pupil.
+
+    The answer's model drops what the read holds beyond it, so only the read itself tells a widened projection.
+    """
+
+    def test_the_view_never_holds_the_registration_beyond_what_it_resolves(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            recorder = ReadsRecorded(database[Collection.REGISTRIERUNGEN])
+            await ansicht(database, RAW, registrierungen_collection=recorder)
+
+            return [document for _, document in recorder.answered if document is not None]
+
+        # Confirmed, so the birthdate and the record are stored for a widened read to load.
+        confirmed = registrierung_document(geburtsdatum=AT_THE_FLOOR, einwilligung=einwilligung())
+        loaded = on_a_league(mongo_replica_set_url, body, registrierungen=[confirmed])
+
+        assert loaded, "the link's own read found nothing, so nothing below is judged"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= REGISTRIERUNG_ANSICHT_RESOLVES
 
 
 class TestWhatAConfirmationWrites:
