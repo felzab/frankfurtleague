@@ -11,11 +11,9 @@
     // Session 1, the spike's pages.
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/Select.tsx",
     "src/kit/ComboBox.tsx",
     "src/kit/TimeField.tsx",
     "src/kit/TeamPlaque.tsx",
-    "src/kit/OptionList.tsx",
     "src/kit/Tabs.tsx",
     "src/kit/MatchRow.tsx",
     "src/kit/Table.tsx",
@@ -24,21 +22,17 @@
     "src/kit/ListTable.tsx",
     // Session 3.
     "src/kit/BracketCard.tsx",
-    "src/kit/Filters.tsx",
     "src/kit/Facts.tsx",
     "src/kit/Skeleton.tsx",
     "src/kit/StatusPage.tsx",
     "src/kit/ReadPage.tsx",
     // Session 4.
-    "src/kit/Checkbox.tsx",
-    "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
     "src/kit/Callout.tsx",
     "src/kit/KontoBox.tsx",
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
-    "src/kit/Switch.tsx",
     "src/kit/SearchField.tsx"
   ],
   // Each entry is a reader knip cannot see, or a kit export waiting for its first page. An export nothing
