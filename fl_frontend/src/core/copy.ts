@@ -346,6 +346,8 @@ export const COPY = katalog({
       /** The example a figure's message line shows. */
       mietpreisBeispiel: "60",
       stillgelegt: "Stillgelegt",
+      /** The venue list's last entry, which opens the create dialog with the name typed so far. */
+      anlegenEintrag: "Spielort anlegen …",
       /** One line of a venue's address: its street and number. */
       strasseMitNummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
     },

@@ -1,9 +1,10 @@
 "use client";
 
-import { Button } from "@/kit/Button";
+import { useState } from "react";
+
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
-import { Dialog } from "@/kit/Dialog";
+import { Dialog, useOpenUntilHidden } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
 import { Select } from "@/kit/Select";
@@ -55,6 +56,9 @@ export function SpielEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
+  // The create dialog, opened from the venue list's last entry with the name typed into the field.
+  const [neu, setNeu] = useOpenUntilHidden();
+  const [neuerName, setNeuerName] = useState("");
 
   return (
     <EditorPage
@@ -97,6 +101,13 @@ export function SpielEditor({
                     const gewaehlt = spielorte.find((ort) => ort.option.id === spielort);
                     if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
                   }}
+                  create={{
+                    label: ORT.anlegenEintrag,
+                    onCreate: (typed) => {
+                      setNeuerName(typed);
+                      setNeu(true);
+                    },
+                  }}
                 />
                 {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
                 {draft.spielort !== null && (
@@ -116,13 +127,11 @@ export function SpielEditor({
                 title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
                 act={{ verb: "anlegen", objekt: ORT.objekt }}
                 action={spielortAnlegen}
-                trigger={
-                  <Button
-                    variant="secondary"
-                    label={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                  />
-                }>
-                <SpielortFelder regeln={spielortRegeln} />
+                open={{ isOpen: neu, onOpenChange: setNeu }}>
+                <SpielortFelder
+                  regeln={spielortRegeln}
+                  name={neuerName}
+                />
               </Dialog>
             </>
           ),

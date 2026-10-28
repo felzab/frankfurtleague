@@ -13,7 +13,14 @@ const WORTE = COPY.verwaltung.spielort;
  * number, and the postcode and its town, each form one line of the address and share a row at every width, the
  * postcode before its town as a German address writes it.
  */
-export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
+export function SpielortFelder({
+  regeln,
+  name,
+}: {
+  regeln: SpielortRegeln;
+  /** The name typed into the match editor's venue field before its create entry was chosen. */
+  name?: string;
+}) {
   const { pflicht, hoechstens } = regeln;
   return (
     <>
@@ -22,6 +29,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         name="name"
         width="W3"
         kind="text"
+        defaultValue={name}
         isRequired={pflicht.name}
       />
       <FieldPair
