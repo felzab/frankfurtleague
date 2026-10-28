@@ -36,7 +36,8 @@ export function SignedIn({ address }: { address: string }) {
     <SignInPage
       view="angemeldet"
       titel={COPY.anmeldung.titel}
-      satz={COPY.anmeldung.angemeldetAls(address)}
+      satz={COPY.anmeldung.angemeldetAls}
+      adresse={address}
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
       weiter={{ label: COPY.shared.uebersicht, href: SIGN_IN_LANDING }}
       // One press, as every sign-out is.

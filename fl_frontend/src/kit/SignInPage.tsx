@@ -73,10 +73,13 @@ type PasskeyView = Head & {
   spaeter?: Act;
 };
 
-/** `/signin` for somebody signed in: who they are, the way on, and signing out. */
+/** `/signin` for somebody signed in: who they are, the address set semibold inside the sentence, the way on, and signing out. */
 type AngemeldetView = Head & {
   view: "angemeldet";
-  satz: Copy;
+  /** The sentence's two parts around the address. */
+  satz: { vor: Copy; nach: Copy };
+  /** The account signed in: data, not catalogue text. */
+  adresse: string;
   weiter: { label: Copy; href: Route };
   abmelden: Act;
 };
@@ -89,8 +92,7 @@ const look = tv({
     column: "flex flex-col gap-4 text-center",
     head: "grid justify-items-center gap-3",
     sentence: "text-base text-fg",
-    // The address on its own line under a passkey sentence, or marked inside the code view's sentence.
-    address: "text-base font-semibold break-all text-fg",
+    // Every address a view names: inside its sentence, or on its own line under a passkey sentence.
     marked: "font-semibold break-all",
     acts: "grid gap-3",
     form: "grid gap-4 text-left",
@@ -170,7 +172,9 @@ function Body(props: SignInView) {
           <div className={slots.head()}>
             <ClassicTitle text={props.titel} />
             <p className={slots.sentence()}>{props.satz}</p>
-            <p className={slots.address()}>{props.adresse}</p>
+            <p className={slots.sentence()}>
+              <strong className={slots.marked()}>{props.adresse}</strong>
+            </p>
           </div>
           <div className={slots.acts()}>
             <Button
@@ -194,7 +198,9 @@ function Body(props: SignInView) {
         <>
           <div className={slots.head()}>
             <ClassicTitle text={props.titel} />
-            <p className={slots.sentence()}>{props.satz}</p>
+            <p className={slots.sentence()}>
+              {props.satz.vor} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.nach}
+            </p>
           </div>
           <div className={slots.acts()}>
             <Link

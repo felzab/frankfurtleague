@@ -129,12 +129,43 @@ describe("the sign-in template", () => {
         view="angemeldet"
         titel={WORTE.titel}
         zeile={null}
-        satz={WORTE.angemeldetAls(ADRESSE)}
+        satz={WORTE.angemeldetAls}
+        adresse={ADRESSE}
         weiter={{ label: COPY.shared.uebersicht, href: "/" }}
         abmelden={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
       />,
     );
 
     expect(classesOf(screen.getByRole("button", { name: COPY.shared.verb.abmelden }))).toEqual(expect.arrayContaining(QUIET));
+  });
+
+  it("marks the address wherever a view names it, inside the signed-in sentence and on a passkey view's own line", () => {
+    const { unmount } = render(
+      <SignInPage
+        view="angemeldet"
+        titel={WORTE.titel}
+        zeile={null}
+        satz={WORTE.angemeldetAls}
+        adresse={ADRESSE}
+        weiter={{ label: COPY.shared.uebersicht, href: "/" }}
+        abmelden={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
+      />,
+    );
+    const marked = screen.getByText(ADRESSE);
+    expect(marked.tagName).toBe("STRONG");
+    expect(marked.parentElement?.textContent).toBe(`${WORTE.angemeldetAls.vor} ${ADRESSE} ${WORTE.angemeldetAls.nach}`);
+    unmount();
+
+    render(
+      <SignInPage
+        view="passkey"
+        titel={WORTE.passkey.anmelden.titel}
+        zeile={null}
+        satz={WORTE.passkey.anmelden.satz}
+        adresse={ADRESSE}
+        los={{ label: WORTE.passkey.anmelden.knopf, onPress: () => undefined }}
+      />,
+    );
+    expect(screen.getByText(ADRESSE).tagName).toBe("STRONG");
   });
 });
