@@ -16,11 +16,10 @@ const anton = Anton({
 });
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the
-// tree spells to the browser to fake, with nothing reporting it. The italic is loaded rather
-// than faked: `fl_frontend/src/app/globals.css` turns font synthesis off.
+// tree spells to the browser to fake, with nothing reporting it. No italic either: with font
+// synthesis off (`fl_frontend/src/app/globals.css`), an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
   variable: "--font-raleway",
 });
