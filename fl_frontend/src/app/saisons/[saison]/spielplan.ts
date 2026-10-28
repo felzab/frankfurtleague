@@ -96,10 +96,15 @@ export async function readSpiel(saison: FLSaison, spielId: string): Promise<{ sp
 const tagOf = (datum: string | null): Kalendertag | null => (datum === null ? null : (datum as Kalendertag));
 const zeitOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
 
-/** The goals of a stored result „3:1“ as a pair, the first side's first. */
-function toreOf(ergebnis: string): Paar {
-  const [team1 = 0, team2 = 0] = ergebnis.split(":").map(Number);
-  return { team1, team2 };
+/**
+ * A played match's goals, the first side's first, as each side carries them: the backend writes
+ * `ergebnis` from these and reads it only as the mark that the match was played. A hand edit holding
+ * `ergebnis` without both sides' goals shows no result, as the bracket counts none.
+ */
+function toreOf(spiel: FLSpiel): Paar | null {
+  const team1 = spiel.team1?.tore ?? null;
+  const team2 = spiel.team2?.tore ?? null;
+  return spiel.ergebnis === null || team1 === null || team2 === null ? null : { team1, team2 };
 }
 
 function quelleWords(quelle: FLSpielQuelle | null): { kurz: Copy; lang: Copy } | null {
@@ -125,10 +130,9 @@ export function sidesOf(spiel: FLSpiel): { heim: MatchSide; gast: MatchSide } {
 
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
 function resultOf(spiel: FLSpiel): Pick<MatchRowProps, "result"> {
-  if (spiel.ergebnis === null) return {};
-  return {
-    result: { tore: toreOf(spiel.ergebnis), ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) },
-  };
+  const tore = toreOf(spiel);
+  if (tore === null) return {};
+  return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
 }
 
 /** A match as a row of the Spielplan, the row opening the match's page. */
@@ -212,10 +216,9 @@ export function factsOf(spiel: FLSpiel, spieltag: string): Fact[] {
   const { fakt } = COPY.spielplan;
   const tag = tagOf(spiel.datum);
   const zeit = zeitOf(spiel.uhrzeit);
+  const tore = toreOf(spiel);
   const facts: (Fact | null)[] = [
-    spiel.ergebnis === null
-      ? null
-      : { label: fakt.ergebnis, value: COPY.spielplan.ergebnis(toreOf(spiel.ergebnis), spiel.elfmeterschiessen), figures: true },
+    tore === null ? null : { label: fakt.ergebnis, value: COPY.spielplan.ergebnis(tore, spiel.elfmeterschiessen), figures: true },
     spiel.sonderereignis === null ? null : { label: fakt.sonderereignis, value: sonderereignisOf(spiel.sonderereignis, spiel) },
     { label: fakt.spieltag, value: spieltag },
     tag === null ? null : { label: fakt.datum, value: formatDatum(tag), figures: true },
