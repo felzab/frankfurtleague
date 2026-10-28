@@ -13,16 +13,11 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
+import { formatZeitpunkt } from "./format";
 
 import type { Aktion } from "./emailShell";
 
 export type PasskeyEmail = { subject: string; html: string; text: string };
-
-/**
- * Named here rather than taken from the server's clock: the image runs UTC, and a notice a reader
- * checks against their own evening has to be stamped in the zone they live in.
- */
-const ZEITZONE = "Europe/Berlin";
 
 /** The reader's own account page, which is the only place either event can be acted on. */
 const ZIEL_LABEL = "Zu Deinem Konto";
@@ -32,10 +27,6 @@ const ZIEL_LABEL = "Zu Deinem Konto";
  * make is the one signal that a session of theirs is somebody else's.
  */
 const WARNSATZ = "Warst Du das nicht? Dann melde Dich sofort bei uns.";
-
-function zeitText(zeitpunkt: Date): string {
-  return zeitpunkt.toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
-}
 
 /** The heading, the sentence and the subject of one event; nothing here names a row or a device. */
 interface Ereignis {
@@ -84,7 +75,7 @@ type Anlass = { zeitpunkt: Date; origin: string; konto: string };
 
 function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): PasskeyEmail {
   const site = mailOrigin(origin);
-  const zeit = zeitText(zeitpunkt);
+  const zeit = formatZeitpunkt(zeitpunkt);
 
   return { subject: ereignis.betreff, html: renderHtml(ereignis, zeit, site, konto), text: renderText(ereignis, zeit, site, konto) };
 }

@@ -44,10 +44,7 @@ export function formatUhrzeit(zeit: Uhrzeit | Date): string {
   return UHRZEIT_GESPEICHERT.format(Date.UTC(1970, 0, 1, stunde, minute));
 }
 
-/**
- * „24. Oktober 2026 um 15:30“.
- * @awaitsProduction its first page
- */
+/** „24. Oktober 2026 um 15:30“: an instant a reader checks against their own day, in a page or a mail. */
 export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zeitpunkt);
 
 /**

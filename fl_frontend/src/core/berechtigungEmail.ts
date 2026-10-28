@@ -15,12 +15,10 @@ import {
   textFooter,
 } from "./emailShell";
 import { ERASED_ACTOR_MARKER } from "./erasedActor";
+import { formatZeitpunkt } from "./format";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 export type BerechtigungEmail = { subject: string; html: string; text: string };
-
-/** The zone a reader checks the stamp against, never the image's UTC. */
-const ZEITZONE = "Europe/Berlin";
 
 const BETREFF = `Änderung beim Zugang zur Verwaltung der ${BRAND_NAME}`;
 const UEBERSCHRIFT = "Änderung beim Zugang zur Verwaltung";
@@ -91,10 +89,6 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 /** The acting administrator where they have been erased since. */
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
-function zeitText(instant: string): string {
-  return new Date(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
-}
-
 /** The change's sentence, the address marked up by `wer` so the two parts each take their own form. */
 function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => string): string {
   const { adresse } = aenderung;
@@ -136,7 +130,7 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
   if (urheber === null) return OHNE_VERWALTUNG;
 
   const von = urheberName(urheber.von, wer);
-  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
+  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(formatZeitpunkt(new Date(urheber.am)))}.`;
 }
 
 /** How a request ended, told to its requester alone. */
