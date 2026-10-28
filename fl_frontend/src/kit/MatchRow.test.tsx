@@ -2,6 +2,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { formatErgebnis } from "@/core/format";
+
 import { MatchList } from "./MatchRow";
 
 const MATCH = {
@@ -11,6 +13,15 @@ const MATCH = {
   home: { name: "Goethe", plaque: { kuerzel: "GOE" } },
   away: { name: "Helmholtz", plaque: { kuerzel: "HEL" } },
 } as const;
+
+describe("a match row's score", () => {
+  it("sets the two figures apart by the mark the formatting module writes between them", () => {
+    render(<MatchList matches={[{ ...MATCH, result: { tore: { team1: 3, team2: 1 } } }]} />);
+    const [desktop] = [...screen.getByRole("link").children];
+    const score = desktop?.children[2];
+    expect(score?.textContent).toBe(formatErgebnis({ team1: 3, team2: 1 }));
+  });
+});
 
 describe("a match row's chevron", () => {
   it("ends the desktop row, which stands in a list, and is left off the phone's card", () => {

@@ -2729,8 +2729,6 @@ function notYetRebuilt() {
       ],
     },
     literalText: {
-      // The kit's fix round: the score's colon, which the formatting module writes.
-      1: ["src/kit/MatchRow.tsx"],
       2: ["src/features/system/components/ui/ServerIsLive.tsx"],
       3: [
         "src/app/(public)/page.tsx",

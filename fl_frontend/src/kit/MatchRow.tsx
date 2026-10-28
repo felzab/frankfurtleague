@@ -1,6 +1,7 @@
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
+import { ERGEBNIS_TRENNER } from "@/core/format";
 
 import { Chip } from "./Chip";
 import { Link } from "./Link";
@@ -131,7 +132,7 @@ export function MatchRow({ href, when, home, away, result, phase, chip }: MatchR
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>:</span>
+            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_TRENNER}</span>
             <Goals
               score={score}
               part="away"
