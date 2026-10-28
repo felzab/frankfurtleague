@@ -1,0 +1,413 @@
+"use client";
+
+import { Fragment } from "react";
+import NextLink from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+
+import { Button as AriaButton } from "react-aria-components/Button";
+import { tv } from "tailwind-variants/lite";
+
+import { COPY } from "@/core/copy";
+
+import { ConfirmDialog } from "./ConfirmDialog";
+import { Icon } from "./Icon";
+import { useLeaveGuard } from "./LeaveGuard";
+import { Menu } from "./Menu";
+import { Sheet } from "./Sheet";
+
+import type { Copy } from "@/core/copy";
+import type { Route } from "next";
+import type { ReactNode } from "react";
+import type { IconName } from "./Icon";
+import type { MenuProps } from "./Menu";
+
+/** One page a frame's menu leads to: its name, its address, its glyph in the rail and in the phone bar. */
+export type RailEntry = { id: string; label: Copy; href: Route; icon: IconName };
+
+/** Entries the rail sets together under one heading; the first group of an area may stand without one. */
+export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
+
+/** The person signed in, as the rail's foot and the phone bar's account place show them. */
+export type Account = {
+  name: string;
+  /** The role the area is for, the row's second line. */
+  role: Copy;
+  /** The sign-in address, beside the name at the top of the menu. */
+  address: string;
+  /** The account menu's entries, a separator between two groups. */
+  menu: MenuProps["groups"];
+};
+
+/**
+ * The entry the address belongs to: the longest one the path equals or lies under, so an area's Übersicht
+ * is not marked on a page beneath it that has an entry of its own.
+ */
+function currentOf(path: string, hrefs: ReadonlyArray<string>) {
+  return hrefs
+    .filter((href) => path === href || path.startsWith(`${href}/`))
+    .reduce<string | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
+}
+
+function useCurrent(entries: ReadonlyArray<RailEntry>) {
+  return currentOf(
+    usePathname(),
+    entries.map((entry) => entry.href),
+  );
+}
+
+/**
+ * Its children afresh on every page: a sheet the layout keeps would otherwise stay open after one of its links
+ * led on, since a layout outlives the page it surrounds.
+ */
+export function FreshPerPage({ children }: { children: ReactNode }) {
+  return <Fragment key={usePathname()}>{children}</Fragment>;
+}
+
+const railEntry = tv({
+  base: "flex h-[2.125rem] items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
+  variants: {
+    current: {
+      true: "bg-bg-muted text-brand",
+      false: "text-fg-muted hover:bg-bg-muted hover:text-fg",
+    },
+  },
+});
+
+/** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
+export function RailEntries({ groups }: { groups: ReadonlyArray<RailGroup> }) {
+  const current = useCurrent(groups.flatMap((group) => group.entries));
+  return (
+    <nav
+      aria-label={COPY.vorlage.navigation}
+      className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-3 py-2">
+      {groups.map((group, index) => (
+        <div
+          key={group.heading ?? index}
+          className="grid gap-1">
+          {group.heading !== undefined && <h2 className="px-3 py-1 text-xs font-medium text-fg-muted">{group.heading}</h2>}
+          {group.entries.map((entry) => (
+            <NextLink
+              key={entry.id}
+              href={entry.href}
+              aria-current={entry.href === current ? "page" : undefined}
+              data-kit-focus="inset"
+              className={railEntry({ current: entry.href === current })}>
+              <Icon
+                glyph={entry.icon}
+                size={18}
+              />
+              {entry.label}
+            </NextLink>
+          ))}
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+/** A person's initials, for the round avatar standing in for them. */
+function initials(name: string) {
+  const words = name.trim().split(/\s+/);
+  return `${words[0]?.charAt(0) ?? ""}${words.length > 1 ? (words.at(-1)?.charAt(0) ?? "") : ""}`.toUpperCase();
+}
+
+const avatar = tv({
+  base: "flex shrink-0 items-center justify-center rounded-full bg-bg-muted font-semibold text-fg",
+  variants: {
+    size: {
+      rail: "size-8 text-xs",
+      bar: "size-6 text-xs",
+    },
+  },
+});
+
+/** The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu. */
+export function AccountRow({ account }: { account: Account }) {
+  return (
+    <Menu
+      label={COPY.vorlage.konto}
+      placement="above"
+      head={{ name: account.name, detail: account.address }}
+      groups={account.menu}
+      trigger={
+        <AriaButton
+          data-kit-focus="ring"
+          className="flex h-12 w-full items-center gap-3 rounded-lg px-2 text-start text-sm transition-colors duration-(--motion-state) data-hovered:bg-bg-muted">
+          <span
+            aria-hidden
+            className={avatar({ size: "rail" })}>
+            {initials(account.name)}
+          </span>
+          <span className="grid min-w-0 flex-1">
+            <span className="truncate font-semibold text-fg">{account.name}</span>
+            <span className="truncate text-xs text-fg-muted">{account.role}</span>
+          </span>
+          <span className="text-fg-muted">
+            <Icon
+              glyph="mehr"
+              size={16}
+            />
+          </span>
+        </AriaButton>
+      }
+    />
+  );
+}
+
+const barPlace = tv({
+  base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium",
+  variants: {
+    current: {
+      true: "text-brand",
+      false: "text-fg-muted",
+    },
+  },
+});
+
+/**
+ * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
+ * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
+ */
+export function BarPlaces({
+  groups,
+  bar,
+  extra,
+  account,
+}: {
+  groups: ReadonlyArray<RailGroup>;
+  bar: ReadonlyArray<string>;
+  /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
+  extra: ReadonlyArray<{ label: Copy; href: Route }>;
+  account?: Account;
+}) {
+  const entries = groups.flatMap((group) => group.entries);
+  const current = useCurrent(entries);
+  const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
+  const rest = groups
+    .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
+    .filter((group) => group.entries.length > 0);
+
+  return (
+    <nav
+      aria-label={COPY.vorlage.navigation}
+      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+      {placed.map((entry) => (
+        <NextLink
+          key={entry.id}
+          href={entry.href}
+          aria-current={entry.href === current ? "page" : undefined}
+          data-kit-focus="inset"
+          className={barPlace({ current: entry.href === current })}>
+          <Icon
+            glyph={entry.icon}
+            size={18}
+          />
+          <span className="max-w-full truncate px-1">{entry.label}</span>
+        </NextLink>
+      ))}
+      {(rest.length > 0 || extra.length > 0) && (
+        <FreshPerPage>
+          <Sheet
+            label={COPY.vorlage.mehr}
+            trigger={
+              <AriaButton
+                data-kit-focus="inset"
+                className={barPlace({ current: false })}>
+                <Icon
+                  glyph="mehr"
+                  size={18}
+                />
+                {COPY.vorlage.mehr}
+              </AriaButton>
+            }>
+            <div className="grid gap-4 pt-2">
+              {rest.map((group, index) => (
+                <div
+                  key={group.heading ?? index}
+                  className="grid gap-1">
+                  {group.heading !== undefined && <h2 className="px-3 py-1 text-xs font-medium text-fg-muted">{group.heading}</h2>}
+                  {group.entries.map((entry) => (
+                    <NextLink
+                      key={entry.id}
+                      href={entry.href}
+                      aria-current={entry.href === current ? "page" : undefined}
+                      data-kit-focus="inset"
+                      className="flex h-11 items-center gap-3 rounded-md px-3 font-medium text-fg">
+                      <Icon
+                        glyph={entry.icon}
+                        size={18}
+                      />
+                      {entry.label}
+                    </NextLink>
+                  ))}
+                </div>
+              ))}
+              {extra.length > 0 && (
+                <div className="grid gap-1 border-t border-border pt-2">
+                  {extra.map((link) => (
+                    <NextLink
+                      key={link.href}
+                      href={link.href}
+                      data-kit-focus="inset"
+                      className="flex h-11 items-center rounded-md px-3 font-medium text-fg">
+                      {link.label}
+                    </NextLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Sheet>
+        </FreshPerPage>
+      )}
+      {account !== undefined && (
+        <Menu
+          label={COPY.vorlage.konto}
+          placement="above"
+          head={{ name: account.name, detail: account.address }}
+          groups={account.menu}
+          trigger={
+            <AriaButton
+              data-kit-focus="inset"
+              className={barPlace({ current: false })}>
+              <span
+                aria-hidden
+                className={avatar({ size: "bar" })}>
+                {initials(account.name)}
+              </span>
+              {COPY.vorlage.konto}
+            </AriaButton>
+          }
+        />
+      )}
+    </nav>
+  );
+}
+
+// On the dark-green band, as tall as a touch target; the arrow stands where the logo's edge would.
+const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 font-medium text-on-brand" });
+
+/**
+ * „← Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
+ * unsaved changes it asks first, and going back drops them.
+ */
+export function BackControl({ href }: { href: Route }) {
+  const guard = useLeaveGuard();
+  const router = useRouter();
+  const content = (
+    <>
+      <Icon
+        glyph="zurueck"
+        size={18}
+      />
+      {COPY.shared.zurueck}
+    </>
+  );
+
+  if (guard === null) {
+    return (
+      <NextLink
+        href={href}
+        data-kit-focus="ring"
+        className={back()}>
+        {content}
+      </NextLink>
+    );
+  }
+  return (
+    <ConfirmDialog
+      verb="verwerfen"
+      subject={COPY.vorlage.aenderungen}
+      consequence={COPY.vorlage.aenderungenVerloren(guard.count)}
+      tone="danger"
+      onConfirm={() => {
+        guard.discard();
+        router.push(href);
+      }}
+      trigger={
+        <AriaButton
+          data-kit-focus="ring"
+          className={back()}>
+          {content}
+        </AriaButton>
+      }
+    />
+  );
+}
+
+/** A link of the classic header: catalogue words and an address the layout gives. */
+export type HeaderLink = { label: Copy; href: Route };
+
+const headerLink = tv({
+  base: "flex h-9 items-center rounded-lg px-3 font-medium whitespace-nowrap",
+  variants: {
+    current: {
+      true: "text-on-brand",
+      false: "text-on-brand/75 hover:text-on-brand",
+    },
+  },
+});
+
+/**
+ * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
+ * button opening them as a sheet.
+ */
+export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLink>; anmelden: Route }) {
+  const current = currentOf(
+    usePathname(),
+    links.map((link) => link.href),
+  );
+  return (
+    <>
+      <nav
+        aria-label={COPY.vorlage.navigation}
+        className="hidden gap-2 lg:flex">
+        {links.map((link) => (
+          <NextLink
+            key={link.href}
+            href={link.href}
+            aria-current={link.href === current ? "page" : undefined}
+            data-kit-focus="ring"
+            className={headerLink({ current: link.href === current })}>
+            {link.label}
+          </NextLink>
+        ))}
+      </nav>
+      <NextLink
+        href={anmelden}
+        data-kit-focus="ring"
+        className="ms-auto hidden h-9 items-center rounded-lg px-3 font-medium whitespace-nowrap text-on-brand lg:flex">
+        {COPY.shared.verb.anmelden}
+      </NextLink>
+      <div className="ms-auto lg:hidden">
+        <FreshPerPage>
+          <Sheet
+            label={COPY.vorlage.menue}
+            trigger={
+              <AriaButton
+                aria-label={COPY.vorlage.menue}
+                data-kit-focus="ring"
+                className="flex size-11 items-center justify-center rounded-lg text-on-brand">
+                <Icon
+                  glyph="menue"
+                  size={18}
+                />
+              </AriaButton>
+            }>
+            <div className="grid gap-1 pt-2">
+              {[...links, { label: COPY.shared.verb.anmelden, href: anmelden }].map((link) => (
+                <NextLink
+                  key={link.href}
+                  href={link.href}
+                  aria-current={link.href === current ? "page" : undefined}
+                  data-kit-focus="inset"
+                  className="flex h-11 items-center rounded-md px-3 font-medium text-fg">
+                  {link.label}
+                </NextLink>
+              ))}
+            </div>
+          </Sheet>
+        </FreshPerPage>
+      </div>
+    </>
+  );
+}
