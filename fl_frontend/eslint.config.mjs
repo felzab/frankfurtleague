@@ -222,6 +222,14 @@ const SPERRE_NOTICE = {
     "sendSperreNotice sends past the ban list's gate: fl_frontend/src/features/sperrliste/actions.ts imports it, and a *.test.ts(x) file may; nothing else may.",
 };
 
+/** The eraser is whatever its caller hands in, so a second caller could delete an account erasing nothing. */
+const OWN_ACCOUNT_DELETION = {
+  regex: moduleNamed("auth"),
+  importNames: ["deleteOwnAccount"],
+  message:
+    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/konto/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
+};
+
 /**
  * A package root loads whole under the test runner, which hands a package to Node unbundled.
  * `useOverlayState` is published at the root alone.
@@ -333,6 +341,7 @@ const IMPORT_BANS = [
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(SPERRE_NOTICE, PRODUCTION, { allow: ["src/features/sperrliste/actions.ts"] }),
+  importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
 ];
 
 // ---------------------------------------------------------------------------------------------------

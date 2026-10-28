@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -20,7 +18,6 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
-import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
 import { isAPIError } from "better-auth/api";
 import { jwtVerify } from "jose";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -3598,18 +3595,6 @@ describe("a person's own account deletion", () => {
     expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
-  });
-
-  /* The eraser is whatever its caller hands in, so a second production caller could delete an account
-     erasing nothing: only the action sending the backend's own erasure may name it, a comment included. */
-  it("is reached in production from the deletion's own action alone", () => {
-    const src = path.resolve(import.meta.dirname, "..");
-    const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
-      .filter((file) => /\bdeleteOwnAccount\b/.test(readFileSync(file, "utf8")))
-      .map((file) => path.relative(src, file).split(path.sep).join("/"))
-      .filter((file) => file !== "core/auth.ts");
-
-    expect(naming).toStrictEqual(["features/konto/personActions.ts"]);
   });
 
   /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
