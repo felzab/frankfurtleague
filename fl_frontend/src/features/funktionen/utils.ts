@@ -18,7 +18,6 @@ function funktionHref(funktion: Funktion): string {
     case "schiedsrichter":
       return "/bereich/schiedsrichter";
     case "administration":
-      // eslint-disable-next-line local/admin-link -- a Funktion's own address; no season is in scope where a person lands
       return "/bereich/admin";
   }
 }

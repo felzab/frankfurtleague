@@ -26,7 +26,6 @@ const BETREFF = `Änderung beim Zugang zur Verwaltung der ${BRAND_NAME}`;
 const UEBERSCHRIFT = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
 
-// eslint-disable-next-line local/admin-link -- a mailed link names no season; the page lists every grant whatever the season
 const ZIEL_PFAD = "/bereich/admin/administratoren";
 
 /** A change made outside the application names nobody, and says where it was made instead. */
