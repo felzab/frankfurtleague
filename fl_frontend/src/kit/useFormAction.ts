@@ -43,13 +43,15 @@ export function answering<Payload, Value>(
 export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | null;
 
 /**
- * The status line of a send the browser kept back for a field's own rule, or that the server refused: a
- * refusal its fields carry is pointed at, not repeated, since the fields say what and the line where to look;
- * any other says its reason, or the shared failure line. Nothing for no answer or a done one.
+ * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
+ * a server refusal its fields carry, since the fields say what and the line where to look; any other refusal
+ * says its reason, or the shared failure line; a done one says what else the write moved, or „Gespeichert“.
+ * Nothing for no answer.
  */
-export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean): { tone: "error"; text: Copy } | null {
+export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean): FormStatus {
   if (isBlocked) return { tone: "error", text: COPY.vorlage.felderPruefen };
-  if (answer === null || answer.ok) return null;
+  if (answer === null) return null;
+  if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
   return {
     tone: "error",
     text: answer.fieldErrors === undefined ? (answer.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen,

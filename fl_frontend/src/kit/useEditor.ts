@@ -146,13 +146,10 @@ export function useEditor<Values extends Record<string, EditorValue>>(
 
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.version === current.sentVersion ? answer : null;
-  let status: FormStatus = statusOf(refused, current.blockedVersion === current.version);
-  if (status === null && count > 0) {
-    status = { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) };
-  } else if (status === null && answer?.ok === true) {
-    // A save that moved more than this record says what else it moved, in place of the plain „Gespeichert“.
-    status = { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
-  }
+  // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
+  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedVersion === current.version);
+  const status: FormStatus =
+    answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) } : answered;
 
   return {
     /** The values the fields show. */
