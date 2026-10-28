@@ -2,6 +2,8 @@ import NextLink from "next/link";
 
 import { tv } from "tailwind-variants/lite";
 
+import { buttonLook } from "./buttonStyles";
+
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactNode } from "react";
@@ -17,13 +19,16 @@ const link = tv({
       // A row's name takes its row's colour, muted in a row that no longer counts.
       row: "text-inherit after:absolute after:inset-0 after:content-['']",
       card: "block text-fg transition-colors duration-(--motion-state) hover:bg-bg-surface",
+      // A page's one next step, drawn as the primary button: a status card's and a mailed page's way on.
+      button: buttonLook({ look: "primary", host: "link" }),
     },
   },
 });
 
 // The focus file's mark for each placement: a ring hugging the words, a ring with its gap, a ring drawn
-// inside the row the link covers, or one inside the card, which a list's card would otherwise clip.
-const FOCUS = { text: "text", standalone: "ring", row: "row", card: "inset" } as const;
+// inside the row the link covers, or one inside the card, which a list's card would otherwise clip; a link
+// drawn as a button rings as a button does.
+const FOCUS = { text: "text", standalone: "ring", row: "row", card: "inset", button: "ring" } as const;
 
 type Words =
   | { /** Catalogue words. */ label: Copy; text?: never; children?: never }
@@ -56,8 +61,8 @@ export function Link<T extends string>({
   newTab?: boolean;
 } & (
   | ({
-      /** `row` only inside a table row, which `Table` writes. */
-      placement: "text" | "standalone" | "row";
+      /** `row` only inside a table row, which `Table` writes; `button` for a page's one next step. */
+      placement: "text" | "standalone" | "row" | "button";
     } & Words)
   | Card
 )) {
