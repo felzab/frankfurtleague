@@ -104,15 +104,25 @@ export const ROUTES = {
     titel: COPY.seite.schiedsrichter,
     indexiert: false,
   },
+  // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
+  // every season page does; venues and referees are the league's and keep addresses without one.
   verwaltungBewerbungen: {
-    pfad: () => "/bereich/verwaltung/bewerbungen" as const,
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/bewerbungen` as const,
     titel: COPY.seite.bewerbungen,
     indexiert: false,
   },
-  verwaltungTeams: { pfad: () => "/bereich/verwaltung/teams" as const, titel: COPY.seite.teams, indexiert: false },
-  verwaltungSpieler: { pfad: () => "/bereich/verwaltung/spieler" as const, titel: COPY.seite.spieler, indexiert: false },
+  verwaltungTeams: {
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/teams` as const,
+    titel: COPY.seite.teams,
+    indexiert: false,
+  },
+  verwaltungSpieler: {
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spieler` as const,
+    titel: COPY.seite.spieler,
+    indexiert: false,
+  },
   verwaltungRegistrierungen: {
-    pfad: () => "/bereich/verwaltung/registrierungen" as const,
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/registrierungen` as const,
     titel: COPY.seite.registrierungen,
     indexiert: false,
   },
