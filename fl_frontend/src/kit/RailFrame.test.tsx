@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -130,6 +130,8 @@ describe("the rail's collapse", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: COPY.vorlage.seitenleiste.ausklappen })).toBe(toggle);
     expect(railLink(rail)?.textContent).toBe(COPY.seite.spielorte);
+    // The signed-out foot is an entry too: its words fade, and stay its name.
+    expect(within(rail).getByRole("link", { name: COPY.shared.verb.anmelden })).toBeTruthy();
     logo.focus();
     await userEvent.tab();
     expect(document.activeElement).toBe(railLink(rail));
