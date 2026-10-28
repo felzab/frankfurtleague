@@ -8,6 +8,7 @@
 | ---------------------------- | --------------------------------------------------------------------------------------------------- |
 | [`overview.md`](overview.md) | What the app is for, and how `src/` is organised                                                    |
 | [`spec.md`](spec.md)         | The contract — slices, cached reads and their tags, admin mutations, lint rules, environment, tests |
+| [`copy.md`](copy.md)         | How every string a visitor reads is written, and where it lives                                     |
 
 ## Read next
 

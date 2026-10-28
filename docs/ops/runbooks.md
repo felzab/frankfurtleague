@@ -369,7 +369,7 @@ deploy, or the boot raises on the difference that is left.
 is a different index rather than a changed one: `collMod`'s `index` option reaches four properties —
 `expireAfterSeconds`, `hidden`, `prepareUnique` and `unique` — and never the filter deciding which
 rows the rule indexes, so an index can be made unique in place and cannot be made to cover fewer
-rows. Mirrored from https://www.mongodb.com/docs/manual/reference/command/collMod/, which moves
+rows. Mirrored from <https://www.mongodb.com/docs/manual/reference/command/collMod/>, which moves
 without us; read 2026-09-09. The live index is dropped by hand while the stack is down, and the boot
 that follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The
 drop is the whole procedure, and it belongs in the deploy's own window rather than ahead of it —
@@ -1311,7 +1311,9 @@ whatever closed the host's inbound 80 and 443 is opened.
 **One call answers it for the retention sweep**, on the system key, from inside the frontend container: the backend publishes
 no port on the host, and the container holds the key, so it never passes through your shell.
 
-    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+```bash
+docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+```
 
 **`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
 and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
@@ -1346,7 +1348,9 @@ so this count is the only sign of it. Each pass writes one line for each half, i
 summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
 under `FE-SWEEP-001` above it. The backend's lines then name each row, as above:
 
-    docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
+```bash
+docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
+```
 
 **A clock owing a message answers what it had done when the deadline stops it taking rows apart;
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
@@ -1373,7 +1377,9 @@ files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store 
 `:: VERSUCHE_HOECHSTENS` allows, the notice is given up under `FE-MAIL-016`, the account left at the
 replaced address, and nobody can be named afterwards, so repair the refusal while those lines stand:
 
-    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
+```bash
+docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
+```
 
 A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
 held an account of its own, and the person signs in there anew.
@@ -1388,7 +1394,9 @@ under `FE-SWEEP-001` besides. A `loeschung.sweep_skipped` line says a tick found
 still running, and one in every hour says that pass is stuck, which recreating the frontend service
 ends:
 
-    docker compose logs --since 2h frontend | grep loeschung.sweep_
+```bash
+docker compose logs --since 2h frontend | grep loeschung.sweep_
+```
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
@@ -1473,7 +1481,9 @@ minute after the frontend starts and then hourly, whatever any other switch read
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep`). One call answers
 whether they ran, as the retention sweep's does:
 
-    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+```bash
+docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+```
 
 **`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
 with the switch on, and null where none ever has. Each pass that could list the seasons writes one
@@ -1497,7 +1507,9 @@ and referees hourly: switch the confirmations off until it is repaired. Every li
 carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
 recreating the frontend service ends:
 
-    docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+```bash
+docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+```
 
 **Turn the confirmations on once, on a day you choose, in the same edit as the report form's switch
 below: the first armed passes are a burst.**
@@ -1526,7 +1538,9 @@ set to `off` and a deploy; it stops no mail, which is `SPIEL_SWEEP`'s alone.
 counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
 failure left for the next pass, never naming an address:
 
-    docker compose logs --since 2h frontend | grep konto.sweep_
+```bash
+docker compose logs --since 2h frontend | grep konto.sweep_
+```
 
 **`KONTO_SWEEP=off` in the server's `fl_frontend/.env`, and a deploy (§1), stop it**: the frontend
 reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
@@ -1557,8 +1571,10 @@ every request at `INFO`, its own health probe's among them, so at the default `L
 day it ran has a file, today's from that day's first pass, and a day missing among them is one no
 pass read while the stream or a deploy copy still held it:
 
-    systemctl status frankfurtleague-journal.service
-    ls -l /var/log/frankfurtleague/*-erasure-journal.log
+```bash
+systemctl status frankfurtleague-journal.service
+ls -l /var/log/frankfurtleague/*-erasure-journal.log
+```
 
 **A run that ended at 2 says why in its status, and only one of its reasons wrote anything.** Where
 the backend's stream alone could not be read, the deploy copies' lines reached the day files all the
@@ -1699,7 +1715,9 @@ the digest their fixture answers carry, whether its commit landed or lost its an
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
-    sudo systemctl start frankfurtleague-journal.service
+```bash
+sudo systemctl start frankfurtleague-journal.service
+```
 
 A pass before the restore's end can have left its last hour's lines in the stream alone, so the
 replay below refuses until a pass has read the stream since. Each pass that read it stamps
@@ -1717,7 +1735,9 @@ through it, and without it judges no line, exiting 2 on a database it cannot rea
 
 **Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
 
-    docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
+```bash
+docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
+```
 
 A restore can bring back the snapshot's validators with its data, older than the build that writes
 below: one refuses a replay's write, as the log's did before it admitted the pseudonym replay's row,
@@ -1727,7 +1747,9 @@ collections, until every validator is this build's
 
 **Then list what the lines ask for, giving both moments written down above, each with its offset:**
 
-    ./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z 2026-10-15T09:40:00Z
+```bash
+./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z 2026-10-15T09:40:00Z
+```
 
 It hands the day files from the snapshot's day on to the backend's container, which reads every line
 written after the first moment and no later than the second, and matches it against the restored
@@ -2107,7 +2129,7 @@ needs nothing more on a machine than the next `pnpm install`.
 
 **A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh`,
 `.claude/hooks/implementer-whole-suite.sh` and `scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
-https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
+<https://nodejs.org/en/download>, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.
 
 ## 19. The database's storage alert
@@ -2137,9 +2159,9 @@ to leave the indexes room, and the fixed alert reading both stays on behind it:
 The condition names and figures are copied from MongoDB's Atlas documentation, which moves without
 us; read 2026-10-07:
 
-- the conditions and what each measures: https://www.mongodb.com/docs/atlas/reference/alert-conditions/
-- the limit and what it counts: https://www.mongodb.com/docs/atlas/reference/flex-limitations/
-- the alerts a new project gets: https://www.mongodb.com/docs/atlas/configure-alerts/
+- the conditions and what each measures: <https://www.mongodb.com/docs/atlas/reference/alert-conditions/>
+- the limit and what it counts: <https://www.mongodb.com/docs/atlas/reference/flex-limitations/>
+- the alerts a new project gets: <https://www.mongodb.com/docs/atlas/configure-alerts/>
 
 **When either fires, find the collection that grew**, from the cluster's collection and index sizes
 in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
@@ -2155,7 +2177,9 @@ week ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)).
 from inside the frontend container**, which reads the system key there, so the key never passes
 through your shell or its history. It prints `204`:
 
-    docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
+```bash
+docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
+```
 
 **It names every tag whatever the edit touched**: one costs a cold read on the next visit to each
 page carrying it, where naming fewer means working out which reads the edited document reaches, and

@@ -78,7 +78,7 @@ Start with [`docs/README.md`](docs/README.md). The domain vocabulary is German (
 like mistakes are deliberate: each is listed in section 7 of [`.claude/CLAUDE.md`](.claude/CLAUDE.md)
 or under [`.claude/rules/`](.claude/rules/), the instructions my coding agents work under.
 
-```
+```text
 fl_frontend/     Next.js app: routes under src/app/, feature slices under src/features/
 fl_backend/      FastAPI app: one package per slice under app/api/
 nginx/           reverse proxy configuration, local and production

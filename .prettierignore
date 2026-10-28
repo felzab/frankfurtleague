@@ -6,7 +6,6 @@
 # Prettier's own .git exclusion does not match under the `..` root it runs from.
 .git
 
-docs/audit
 certs
 fl_backend/.venv
 __pycache__
