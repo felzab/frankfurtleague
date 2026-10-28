@@ -31,7 +31,7 @@ async function SaisonFrame({ params, children }: { params: Promise<{ saison: str
       groups={[{ entries: [{ id: "spielplan", label: COPY.seite.spielplan, href: ROUTES.spielplan.pfad(saison.id), icon: "kalender" }] }]}
       bar={["spielplan"]}
       season={seasonMenu(saison, saisons)}
-      foot={{ kind: "anmelden", href: "/signin" }}>
+      foot={{ kind: "anmelden", href: ROUTES.anmeldung.pfad() }}>
       {children}
     </RailFrame>
   );
