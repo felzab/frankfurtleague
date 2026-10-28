@@ -89,6 +89,8 @@ function useDesktop() {
   );
 }
 
+// An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
+// as every link does, so it takes `menuEntry` alone.
 const item = tv({ extend: menuEntry, base: "cursor-default" });
 
 // The foot's row under its separator, at the entries' inset and grade.
@@ -143,7 +145,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       routerOptions={link.routerOptions}
       textValue={link.label ?? link.text}
       data-kit-focus="item"
-      className={`${item({ size })} ${entryMark({ mark: "place" })}`}>
+      className={`${menuEntry({ size })} ${entryMark({ mark: "place" })}`}>
       <Entry
         label={link.label ?? link.text}
         icon={link.icon}
