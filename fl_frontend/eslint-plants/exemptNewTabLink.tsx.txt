@@ -1,5 +1,0 @@
-// Linted as src/shared/components/ui/NewTabLink.tsx.
-// The one spelling of a new tab's target, and every other ban still reaches it, shared's own included.
-export const NEW_TAB_ATTRIBUTES = { target: "_blank", rel: "noopener noreferrer" } as const;
-export const GAP = "flex gap-5"; // expect: gap
-export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

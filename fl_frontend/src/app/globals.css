@@ -97,9 +97,11 @@
 @import "@heroui/styles/utilities";
 @import "@heroui/styles/variants";
 
-/* Exactly one season scheme, and last: an `@import` may follow only `@charset`, a `@layer`
+/* Exactly one season scheme, after HeroUI's run: an `@import` may follow only `@charset`, a `@layer`
    statement and another `@import`, and HeroUI's run above takes no entry that is not HeroUI's. */
 @import "./schemes/2027.css";
+@import "./tokens.css";
+@import "./focus.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -143,7 +145,6 @@
   --color-muted: var(--bg-muted);
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
-  --color-border: var(--border-base);
   /* A FIELD's border, never a box's: what alone identifies a control answers WCAG 1.4.11's 3:1. */
   --color-control: var(--border-control);
   /* A control's hover is one of these tokens, never an alpha at a call site. */
@@ -154,23 +155,16 @@
   --color-picked-hover: var(--bg-picked-hover);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
-  --color-brand: var(--accent-brand);
-  --color-brand-solid: var(--accent-brand-solid);
-  --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
   --color-brand-solid-accent: var(--accent-on-brand);
   /* Spelled `warning`, not `warn`: this shadows HeroUI's own --color-warning rather than competing. */
   --color-warning: var(--accent-warn);
-  --color-danger: var(--accent-danger);
-  --color-success: var(--accent-success);
-  --color-info: var(--accent-info);
   --color-warning-strong: var(--accent-warn-strong);
   --color-danger-strong: var(--accent-danger-strong);
   --color-success-strong: var(--accent-success-strong);
   --color-info-strong: var(--accent-info-strong);
   --color-warning-solid: var(--accent-warn-solid);
   --color-danger-solid: var(--accent-danger-solid);
-  --color-danger-solid-hover: var(--accent-danger-solid-hover);
   --color-success-solid: var(--accent-success-solid);
   --color-info-solid: var(--accent-info-solid);
   --color-warning-solid-foreground: var(--fg-on-warn);

@@ -7,7 +7,7 @@
   // Production code no `start` script reaches: the image build runs the first under the third, and
   // the deploy's preflight runs the second.
   "entry": ["scripts/emit-environment-names.mjs!", "scripts/check-environment-names.mjs!", "scripts/tsconfig-alias-hook.mjs!"],
-  // The suite's own modules, `fl_frontend/eslint.config.mjs :: TEST_ONLY` among them, the test
+  // The suite's own modules, `fl_frontend/eslint.config.mjs :: TEST_SUPPORT` among them, the test
   // runner's reporter and the gate's shard lister. A module added to that list is added here too, or
   // this run names it unused.
   "project": [

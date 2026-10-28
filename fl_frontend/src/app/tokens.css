@@ -1,0 +1,107 @@
+/* Every colour is a light and a dark value on one name, switched by the `data-theme` attribute
+   next-themes sets on the root, and `@theme inline` hands a utility the variable rather than a
+   value, so `bg-bg` follows the theme. */
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-muted: #e5e5e5;
+    --fg: #0a0a0a;
+    --fg-muted: #525252;
+    --border: #d4d4d4;
+    --border-control: #8e8e8e;
+    --brand: #216c2d;
+    --brand-solid: #033f11;
+    --brand-solid-hover: #1b5123;
+    --on-brand: #ffffff;
+    --brand-accent: #8fc752;
+    --success: #006a3e;
+    --info: #1853c6;
+    --warn: #865400;
+    --danger: #b71920;
+    --danger-solid-hover: #d22e30;
+
+    --menu-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);
+    --dialog-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04), 0 24px 32px -8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* The brand fills, their text and the accent on them keep their light values. */
+  [data-theme="dark"] {
+    --bg: #030303;
+    --bg-surface: #121212;
+    --bg-muted: #262626;
+    --fg: #ffffff;
+    --fg-muted: #a3a3a3;
+    --border: #333333;
+    --border-control: #616161;
+    --brand: #8dbf6c;
+    --success: #57c886;
+    --info: #7ea7f3;
+    --warn: #ecae30;
+    --danger: #e96c64;
+    --danger-solid-hover: #e64340;
+
+    --menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
+     is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
+     default `ease` applies. */
+  @media (prefers-reduced-motion: no-preference) {
+    :root {
+      --motion-state: 100ms;
+      --motion-in: 200ms;
+      --motion-out: 150ms;
+    }
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-muted: var(--bg-muted);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-border: var(--border);
+  --color-border-control: var(--border-control);
+  --color-brand: var(--brand);
+  --color-brand-solid: var(--brand-solid);
+  --color-brand-solid-hover: var(--brand-solid-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-accent: var(--brand-accent);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+
+  --shadow-menu: var(--menu-shadow);
+  --shadow-dialog: var(--dialog-shadow);
+}
+
+/* No namespace is reset to `initial` while HeroUI's stylesheets `@apply` Tailwind's default scale, so
+   the steps below are the only ones the kit may use, and the defaults stay for those stylesheets. */
+@theme {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}

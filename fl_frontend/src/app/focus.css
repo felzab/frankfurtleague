@@ -1,0 +1,51 @@
+/* The whole focus look, for every element the kit marks with `data-kit-focus`; the value names where
+   the line goes. Unlayered, so no utility and no older focus rule in `globals.css` outranks it. */
+
+/* The ring's colour: an element whose ground the near-black ring would vanish on, the brand band,
+   redeclares it as `var(--on-brand)`. */
+:root {
+  --focus-ring: var(--fg);
+}
+
+/* Rest: a zero-width outline already in its focus colour, so the browser draws no ring of its own and
+   a colour transition cannot fade the ring in from the text colour. */
+[data-kit-focus] {
+  outline: 0 solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* A field's edge lies over its 1-px border and one pixel in, so nothing moves and no grey shows
+   inside it; an item of a scrolling list draws its ring inside itself, where the scroller cannot cut it. */
+[data-kit-focus="field"],
+[data-kit-focus="inset"] {
+  outline-offset: -2px;
+}
+
+[data-kit-focus="field"] {
+  outline-color: var(--brand);
+}
+
+[data-kit-focus="field"]:is([data-invalid], [data-invalid] *) {
+  outline-color: var(--danger);
+}
+
+/* A link in running text hugs its words. */
+[data-kit-focus="text"] {
+  outline-offset: 0;
+}
+
+/* A field shows its edge however it was focused, a dropdown trigger while its list is open. Every
+   other control rings on the keyboard alone: React Aria's `data-focus-visible`, or `:focus-visible`
+   on the kit's `next/link` anchor, which React Aria never marks. */
+[data-kit-focus="field"]:is(:focus, :focus-within, [aria-expanded="true"]),
+:is([data-kit-focus="ring"], [data-kit-focus="inset"], [data-kit-focus="text"]):is([data-focus-visible], a:focus-visible),
+[data-focus-visible] > [data-kit-focus="box"] {
+  outline-width: 2px;
+  /* Lifts a flex or grid item's ring over the neighbour painted after it. */
+  z-index: 1;
+}
+
+/* The active part of a composite control is a fill, the same under the pointer and the arrow keys. */
+[data-kit-focus="item"][data-focused] {
+  background-color: var(--bg-muted);
+}

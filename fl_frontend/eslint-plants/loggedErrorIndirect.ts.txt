@@ -1,9 +1,0 @@
-// Linted as src/features/kontakte/actions.ts.
-// A module reaching the mailer only through another module hands the log no error, though it imports no mailer.
-import { mailKontaktAbgang } from "./notifications";
-
-export const send = mailKontaktAbgang;
-export function planted(error: Error): void {
-  logger.error("kontakt.abgang_failed", error); // expect: logged-error
-  logger.error("kontakt.abgang_failed", undefined, { error_code: "FE-MAIL-002", name: error.name });
-}

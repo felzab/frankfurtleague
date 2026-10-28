@@ -303,21 +303,15 @@ mistake — a season being set up passes through several of these on its way to 
 is reported, the report is a page and never a stored flag**, so nothing about these states is queryable and
 no later feature can quietly come to depend on one.
 
-A reason a reader nods at is not evidence, so each entry is checked in full: the refusal codes it claims to
+A reason a reader nods at is not evidence, so each entry is checked: the refusal codes it claims to
 sit near must exist, a state sitting near none surprising nobody; the class of
 `fl_backend/tests/core/test_unenforced.py` it pairs with must execute the state, exactly and in **both**
-directions, so an entry nothing runs fails and a test class no entry claims fails with it; the surface it
-names is resolved against the frontend tree, so an entry cannot go on claiming a person can see a state after
-the page showing it has gone; and every anchor the reason argues from — a rule code, an invariant, a route, a
-repository path, an index — is resolved as well, so a reason arguing from something renamed away fails rather
-than reading as the evidence it is not. A bare name is resolved weakly on purpose, against every word either
-source tree spells outside the declaration itself, so one still written anywhere else in either tree passes
-whatever it names there.
+directions, so an entry nothing runs fails and a test class no entry claims fails with it.
+`fl_backend/tests/core/test_domain.py` holds those claims. The surface an entry names and the addresses its
+reason argues from are not checked, so a page or a rule renamed away leaves the reason reading as evidence it
+no longer is.
 
-**Most of what a model change owes is caught at the gate**: the documentation gate imports the declaration and
-resolves every address it names — each anchor a reason argues from, each entry's surface and each rule's route
-(`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`) — and `test_domain.py` holds the claims it
-makes rather than the addresses. Two obligations are not caught, because no check can see a row nobody wrote:
+Two obligations are not caught, because no check can see a row nobody wrote:
 
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks

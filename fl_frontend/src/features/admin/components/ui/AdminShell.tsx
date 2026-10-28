@@ -26,7 +26,6 @@ export function AdminShell({
   return (
     <AppShell
       structure={ADMIN_SIDEMENU_STRUCTURE}
-      // eslint-disable-next-line local/admin-link -- the sidemenu's link prefix; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds
       linkPrefix="/bereich/admin"
       keepsSaisonQuery
       iconDictionary={ADMIN_SIDEMENU_ICONS}
