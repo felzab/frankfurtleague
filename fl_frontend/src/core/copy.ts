@@ -293,6 +293,80 @@ export const COPY = katalog({
     },
   },
 
+  /** The administration's own words: its frame, the Spielorte list and the match editor. */
+  verwaltung: {
+    /** The role an administrator acts in, the account row's second line. */
+    rolle: "Verwaltung",
+    /** The rail's headings over its groups; the Übersicht stands above them with none. */
+    gruppe: {
+      saisonsUndSpiele: "Saisons und Spiele",
+      schulenUndSpieler: "Schulen und Spieler",
+      zugangUndDatenschutz: "Zugang und Datenschutz",
+    },
+    /** A record's own page, named by the record. */
+    datensatz: (name: string) => name,
+
+    spielort: {
+      /** The object of „Spielort anlegen“. */
+      objekt: "Spielort",
+      suchen: "Spielorte suchen",
+      name: "Name",
+      adresse: "Adresse",
+      strasse: "Straße",
+      hausnummer: "Nr.",
+      plz: "PLZ",
+      stadtteil: "Stadtteil",
+      stadt: "Stadt",
+      /** What a new venue's city starts as: the league plays in one city. */
+      stadtVorgabe: "Frankfurt am Main",
+      mietpreis: "Mietpreis",
+      /** The example a figure's message line shows. */
+      mietpreisBeispiel: "60",
+      stillgelegt: "Stillgelegt",
+      /** One line of a venue's address: its street and number. */
+      strasseMitNummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+    },
+
+    spiel: {
+      /** The editor of a match whose two teams are not both known yet, named by its number. */
+      nummer: (nummer: number) => `Spiel ${formatZahl(nummer)}`,
+      ansetzung: "Ansetzung",
+      ergebnis: "Ergebnis",
+      notiz: "Notiz",
+      datum: "Datum",
+      uhrzeit: "Uhrzeit",
+      sonderereignis: "Sonderereignis",
+      /** The Sonderereignis' first entry: nothing beyond the match being played. */
+      keines: "Keines",
+      ausgefallen: "Ausgefallen",
+      nichtantretenTeam1: "Nichtantreten Team 1",
+      nichtantretenTeam2: "Nichtantreten Team 2",
+      abgebrochen: "Abgebrochen",
+      annulliert: "Annulliert",
+      /** Why a no-show cannot be picked while a side is open. */
+      beideSeitenNoetig: "beide Seiten nötig",
+
+      /** The save's refusals, by the rule the backend names, in the words today's editor shows. */
+      abgelehnt: {
+        datumAusserhalb: "Dieses Datum liegt außerhalb des Spieltags.",
+        unbestaetigt: "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
+        teamMitErgebnis:
+          "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
+        stillgelegt:
+          "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
+        zeitgleich:
+          "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
+        doppeltAmSpieltag:
+          "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
+        ausgeschieden: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
+        nichtInSaison: "Dieses Team nimmt nicht an dieser Saison teil.",
+        ohneWertung: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
+        beideTeamsNoetig: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
+        schonAmSpieltag: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
+      },
+    },
+  },
+
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
   marke: {
     name: "Frankfurt League",

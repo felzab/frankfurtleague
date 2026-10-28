@@ -98,21 +98,43 @@ export const ROUTES = {
     titel: COPY.seite.spiele,
     indexiert: false,
   },
+  /** The match editor, named by the match's two teams as the match's own page is. */
+  verwaltungSpiel: {
+    pfad: (saison: string, spiel: string) => `/bereich/verwaltung/saisons/${saison}/spiele/${spiel}` as const,
+    titel: COPY.seite.spiel,
+    indexiert: false,
+  },
   verwaltungSpielorte: { pfad: () => "/bereich/verwaltung/spielorte" as const, titel: COPY.seite.spielorte, indexiert: false },
+  /** A venue's own page, named by the venue. */
+  verwaltungSpielort: {
+    pfad: (spielort: string) => `/bereich/verwaltung/spielorte/${spielort}` as const,
+    titel: COPY.verwaltung.datensatz,
+    indexiert: false,
+  },
   verwaltungSchiedsrichter: {
     pfad: () => "/bereich/verwaltung/schiedsrichter" as const,
     titel: COPY.seite.schiedsrichter,
     indexiert: false,
   },
+  // Applications, teams, squads and registrations are a season's in the data, so their lists carry the season as
+  // every season page does; venues and referees are the league's and keep addresses without one.
   verwaltungBewerbungen: {
-    pfad: () => "/bereich/verwaltung/bewerbungen" as const,
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/bewerbungen` as const,
     titel: COPY.seite.bewerbungen,
     indexiert: false,
   },
-  verwaltungTeams: { pfad: () => "/bereich/verwaltung/teams" as const, titel: COPY.seite.teams, indexiert: false },
-  verwaltungSpieler: { pfad: () => "/bereich/verwaltung/spieler" as const, titel: COPY.seite.spieler, indexiert: false },
+  verwaltungTeams: {
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/teams` as const,
+    titel: COPY.seite.teams,
+    indexiert: false,
+  },
+  verwaltungSpieler: {
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/spieler` as const,
+    titel: COPY.seite.spieler,
+    indexiert: false,
+  },
   verwaltungRegistrierungen: {
-    pfad: () => "/bereich/verwaltung/registrierungen" as const,
+    pfad: (saison: string) => `/bereich/verwaltung/saisons/${saison}/registrierungen` as const,
     titel: COPY.seite.registrierungen,
     indexiert: false,
   },
@@ -136,4 +158,5 @@ export const ROUTES = {
     titel: COPY.seite.adressaenderungen,
     indexiert: false,
   },
+  verwaltungProtokoll: { pfad: () => "/bereich/verwaltung/log" as const, titel: COPY.shared.protokoll, indexiert: false },
 } as const satisfies Record<string, RouteEntry>;

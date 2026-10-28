@@ -11,8 +11,6 @@
     // Session 1, the spike's pages.
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/ComboBox.tsx",
-    "src/kit/TimeField.tsx",
     // Session 3.
     "src/kit/BracketCard.tsx",
     "src/kit/Skeleton.tsx",
@@ -45,15 +43,12 @@
     // field looks go with session 5's (the last of their readers, `Switch` and `SearchField`); the
     // rest with session 1's spike pages.
     "src/kit/fieldStyles.ts": ["exports"],
-    "src/kit/Dialog.tsx": ["exports"],
+    // Session 7, the Protokoll: the one list that pages, whose page names the type of a page of rows.
+    "src/kit/ListTable.tsx": ["types"],
     "src/kit/Toast.tsx": ["exports"],
     "src/kit/Menu.tsx": ["types"],
-    "src/kit/FrameNav.tsx": ["exports", "types"],
-    "src/kit/RailFrame.tsx": ["exports", "types"],
-    // The table's column and paged-rows types wait for session 1's admin table; the match row's figures
-    // for session 3's `BracketCard`, which reads them, and the lone `MatchRow` for session 3's pages.
-    "src/kit/Table.tsx": ["types"],
-    "src/kit/ListTable.tsx": ["types"],
+    // The match row's figures for session 3's `BracketCard`, which reads them, and the lone `MatchRow`
+    // for session 3's pages.
     "src/kit/MatchRow.tsx": ["exports", "types"]
   }
 }

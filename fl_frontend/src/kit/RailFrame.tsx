@@ -12,6 +12,7 @@ import { LeaveGuardProvider } from "./LeaveGuard";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
 
+import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ComponentProps, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
@@ -123,7 +124,8 @@ export function RailFrame({
   );
 }
 
-type TitledRoute = Exclude<keyof typeof ROUTES, "spiel">;
+// The routes named by a fixed title; a record page is named by its record, a match by its two teams.
+type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["titel"] extends Copy ? K : never }[keyof typeof ROUTES];
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
