@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync } from "node:fs";
+import { existsSync, globSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -1026,20 +1026,17 @@ const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
 /**
- * Every file a ban names and every file the suppressions count, each of which must exist. A renamed
- * module drops out of its ban in silence, and ESLint never flags a deleted file's counts: they stand
- * until they spare whatever file is written at that path next.
+ * Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. A
+ * deleted file's counts in eslint-suppressions.json are the gate's to find, as a prune that changes the
+ * file (`scripts/gate/verify.sh :: scope_frontend`): a throw here would read as a crash.
  */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
-const SUPPRESSED = Object.keys(JSON.parse(readFileSync(join(HERE, "eslint-suppressions.json"), "utf8")));
 const GONE = [
-  ...[...NAMED_FILES, ...SUPPRESSED].filter((path) => !existsSync(join(HERE, path))),
+  ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
   ...NAMED_DIRECTORIES.filter((glob) => globSync(glob, { cwd: HERE }).length === 0),
 ];
 if (GONE.length > 0) {
-  throw new Error(
-    `eslint.config.mjs or eslint-suppressions.json names what no longer exists: ${GONE.join(", ")}. Point a ban at the file's new path, and drop a deleted file's counts with \`pnpm exec eslint --prune-suppressions\`.`,
-  );
+  throw new Error(`eslint.config.mjs names what no longer exists: ${GONE.join(", ")}. Point each ban at the file's new path.`);
 }
 
 const fileBlocks = () => {

@@ -360,21 +360,21 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
 
   # ESLint exits 2 for a count in eslint-suppressions.json larger than what its file still breaks, the
-  # code it gives a crash. The first run passes such a count over, so its 2 is a crash alone; the second
-  # runs on a clean lint, so its 2 is a count alone, which is a finding.
+  # code it gives a crash, and never reads a deleted file's counts. The lint runs against a copy it
+  # prunes as it goes, so its 2 is a crash alone; a copy the prune changed held either kind of stale
+  # count, which is a finding.
   step "frontend · eslint"
-  if check "eslint failed." in_dir fl_frontend pnpm lint --pass-on-unpruned-suppressions; then
+  local pruned=node_modules/.cache/eslint/pruned-suppressions.json
+  in_dir fl_frontend mkdir -p node_modules/.cache/eslint
+  in_dir fl_frontend cp eslint-suppressions.json "$pruned"
+  if check "eslint failed." in_dir fl_frontend pnpm lint --prune-suppressions --suppressions-location "$pruned"; then
     ok "lint clean"
-    step "frontend · eslint  (every suppression still used)"
-    local stale=0
-    quietly in_dir fl_frontend pnpm lint || stale=$?
-    case "$stale" in
-      0)   ok "every suppression still used" ;;
-      2)   fail "fl_frontend/eslint-suppressions.json counts a violation its file no longer has.
-Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file; its diff names each entry." ;;
-      130) on_interrupt ;;
-      *)   on_error "$stale" "${LINENO}" "pnpm lint" ;;
-    esac
+    step "frontend · eslint  (every suppression still counts what its file breaks)"
+    check "fl_frontend/eslint-suppressions.json counts a violation its file no longer has, or a file that no longer
+exists; the diff above names each entry.
+Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file." \
+      in_dir fl_frontend diff eslint-suppressions.json "$pruned" \
+      && ok "every suppression still used"
   fi
 
   step "frontend · knip  (unused files, exports and dependencies)"

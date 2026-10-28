@@ -35,7 +35,7 @@ file.
 file and rule in `fl_frontend/eslint-suppressions.json`, which ESLint's
 [bulk suppressions](https://eslint.org/docs/latest/use/suppressions) write and read. A file breaking
 a rule more often than its count fails the lint, and so does a count larger than what the file still
-breaks. A session rebuilding a file removes that file's entries by running
+breaks; the gate also fails a count kept for a file that no longer exists. A session rebuilding a file removes that file's entries by running
 `pnpm exec eslint --prune-suppressions <its files>` in `fl_frontend`, and commits the rewritten list
 with the rebuild.
 
