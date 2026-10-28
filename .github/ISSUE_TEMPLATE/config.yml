@@ -5,8 +5,8 @@ blank_issues_enabled: true
 
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/felzab/frankfurtleague/security/advisories/new
-    about: Never file a suspected vulnerability as a public issue. Report it privately here, or through frankfurtleague.de/kontakt. See SECURITY.md for what is in scope.
+    url: https://github.com/felzab/frankfurtleague/security/policy
+    about: Never file a suspected vulnerability as a public issue. The security policy says how to report one privately and what is in scope.
   - name: A question about the league
     url: https://frankfurtleague.de/kontakt
     about: Questions about the league itself, its seasons, teams or matches, go to the league through its contact page.
