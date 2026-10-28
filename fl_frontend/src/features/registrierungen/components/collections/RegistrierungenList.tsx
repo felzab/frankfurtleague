@@ -136,7 +136,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
       {...focusRow(registrierung.registrierung_id)}>
       <div className={IDENTITY_ROW_CLASSES}>
         <span
-          className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
+          className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
             registrierung.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
           }`}>
           {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}

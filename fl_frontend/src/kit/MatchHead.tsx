@@ -25,7 +25,7 @@ const head = tv({
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",
-    score: "font-numeric tabular-nums",
+    score: "font-numeric",
   },
   // The winner as the bracket card marks it: the name semibold, the counted goals bold.
   variants: {

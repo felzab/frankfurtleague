@@ -151,7 +151,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
     return (
       <div className={IDENTITY_STACK_CLASSES}>
-        <div className="flex flex-row flex-wrap items-baseline gap-x-2 font-numeric tabular-nums">
+        <div className="flex flex-row flex-wrap items-baseline gap-x-2 font-numeric">
           <span className="fluid-sm font-bold text-foreground">{datum}</span>
           {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
         </div>
@@ -204,7 +204,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
         {datensatz.betroffen !== null && (
           <span className="muted-meta">
-            Betroffen: <span className="font-numeric font-bold text-foreground tabular-nums">{datensatz.betroffen}</span>
+            Betroffen: <span className="font-numeric font-bold text-foreground">{datensatz.betroffen}</span>
           </span>
         )}
       </div>

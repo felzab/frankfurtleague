@@ -122,7 +122,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>
-              <p className="font-numeric fluid-sm font-medium text-foreground tabular-nums">{erteiltTag(berechtigung.erteilt_am)}</p>
+              <p className="font-numeric fluid-sm font-medium text-foreground">{erteiltTag(berechtigung.erteilt_am)}</p>
             </div>
           </div>
 

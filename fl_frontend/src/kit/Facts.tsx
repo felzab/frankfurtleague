@@ -49,7 +49,7 @@ const facts = tv({
       },
     },
     figures: {
-      true: { detail: "font-numeric tabular-nums" },
+      true: { detail: "font-numeric" },
     },
   },
 });

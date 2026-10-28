@@ -36,7 +36,7 @@ const row = tv({
   slots: {
     side: "flex min-w-0 items-center gap-2",
     name: "min-w-0 truncate",
-    goals: "font-numeric tabular-nums",
+    goals: "font-numeric",
   },
   variants: {
     winner: {
@@ -119,7 +119,7 @@ function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps
         href={href}
         placement="card">
         <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm max-lg:hidden">
-          <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted tabular-nums">{when}</span>
+          <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted">{when}</span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
               side={home}
@@ -156,7 +156,7 @@ function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps
           </span>
         </span>
         <span className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base lg:hidden">
-          <span className="truncate font-numeric text-xs text-fg-muted tabular-nums">{when}</span>
+          <span className="truncate font-numeric text-xs text-fg-muted">{when}</span>
           <span className="text-end text-xs text-fg-muted">{shootOut}</span>
           <span className="flex min-w-0 items-center gap-2">
             <Side

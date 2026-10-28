@@ -266,7 +266,7 @@ function Head({ head, size }: { head: NonNullable<MenuProps["head"]>; size: Size
   return (
     <div className={size === "desktop" ? "grid px-3 py-2 text-sm" : "grid px-3 pt-3 pb-2 text-base"}>
       <span className="truncate font-semibold">{head.name}</span>
-      <span className="truncate font-numeric text-xs text-fg-muted tabular-nums">{head.detail}</span>
+      <span className="truncate font-numeric text-xs text-fg-muted">{head.detail}</span>
     </div>
   );
 }

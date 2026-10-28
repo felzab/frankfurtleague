@@ -87,7 +87,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     );
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
-    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground tabular-nums">
+    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
   );
@@ -115,7 +115,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           <span className={IDENTITY_LINE_CLASSES}>
             {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
-          <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
+          <span className={`${IDENTITY_LINE_CLASSES} font-numeric`}>
             {schiedsrichter.kontakt.telefon || <Leer>{nichtHinterlegt("Telefon")}</Leer>}
           </span>
         </span>

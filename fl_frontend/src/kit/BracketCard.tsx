@@ -10,7 +10,7 @@ const card = tv({
   slots: {
     line: "flex min-h-6 min-w-0 items-center justify-between gap-2",
     name: "flex min-w-0 items-center gap-2",
-    goals: "font-numeric whitespace-nowrap tabular-nums",
+    goals: "font-numeric whitespace-nowrap",
   },
   variants: {
     winner: {
@@ -72,7 +72,7 @@ export function BracketCard({
             score={score}
             part="away"
           />
-          <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted tabular-nums max-lg:hidden">{when}</span>
+          <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden">{when}</span>
         </span>
       </Link>
     </div>

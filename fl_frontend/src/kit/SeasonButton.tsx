@@ -17,7 +17,7 @@ const trigger = tv({
     root: "inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap transition-colors duration-(--motion-state)",
     lines: "grid min-w-0 gap-1 text-start",
     name: "truncate",
-    span: "font-numeric text-xs font-normal text-fg-muted tabular-nums",
+    span: "font-numeric text-xs font-normal text-fg-muted",
     arrow: "flex",
   },
   variants: {

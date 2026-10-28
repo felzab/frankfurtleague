@@ -17,7 +17,7 @@ const card = tv({
     root: "grid overflow-hidden rounded-lg border border-border bg-bg text-fg",
     head: "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 border-b border-border bg-bg-surface px-4 py-3",
     title: "text-base font-semibold break-words",
-    count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted tabular-nums",
+    count: "col-start-2 row-start-1 font-numeric text-sm text-fg-muted",
     line: "col-span-2 text-sm text-fg-muted",
     body: "",
     foot: "flex justify-end p-4",
@@ -105,7 +105,7 @@ export function CardRow({ href, name, chip, detail }: { href: Route; name: strin
           />
         )}
       </span>
-      {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted tabular-nums">{detail}</span>}
+      {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted">{detail}</span>}
       <RowEnd />
     </div>
   );

@@ -25,7 +25,7 @@ function Fakt({ label, children, numeric = false }: { label: string; children: R
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className={FACT_LABEL_CLASSES}>{label}</span>
-      <p className={`fluid-sm font-medium break-words text-foreground ${numeric ? "font-numeric tabular-nums" : ""}`}>{children}</p>
+      <p className={`fluid-sm font-medium break-words text-foreground ${numeric ? "font-numeric" : ""}`}>{children}</p>
     </div>
   );
 }

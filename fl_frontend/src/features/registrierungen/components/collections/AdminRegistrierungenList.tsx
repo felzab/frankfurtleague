@@ -121,7 +121,7 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
                 <span className="truncate fluid-sm font-semibold text-foreground">{registrierung.teamName}</span>
               ),
             )}
-            {renderFact("Saison", <span className="font-numeric fluid-sm text-foreground tabular-nums">{registrierung.saison_id}</span>)}
+            {renderFact("Saison", <span className="font-numeric fluid-sm text-foreground">{registrierung.saison_id}</span>)}
             {renderFact("Stufe", <span className="fluid-sm text-foreground">{registrierung.stufe ?? <Leer />}</span>)}
           </div>
 

@@ -35,7 +35,7 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: FLSpielberichtAnsi
               // Entries carry no id of their own; their place in the stored list is stable while this read stands.
               key={index}
               className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
-              <span className="font-numeric fluid-sm font-semibold tabular-nums">{`${tor.minute}.`}</span>
+              <span className="font-numeric fluid-sm font-semibold">{`${tor.minute}.`}</span>
               <span className="min-w-0 flex-1 fluid-sm">{person(tor.spieler_id)}</span>
               <span className="muted-meta">{team(tor.seite)}</span>
               {tor.eigentor && <span className={labelBadge("warning")}>Eigentor</span>}
@@ -52,7 +52,7 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: FLSpielberichtAnsi
             <li
               key={index}
               className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
-              <span className="font-numeric fluid-sm font-semibold tabular-nums">{`${karte.minute}.`}</span>
+              <span className="font-numeric fluid-sm font-semibold">{`${karte.minute}.`}</span>
               <span className="min-w-0 flex-1 fluid-sm">{person(karte.spieler_id)}</span>
               <span className="muted-meta">{team(karte.seite)}</span>
               <span className={labelBadge(karte.farbe === "gelb" ? "warning" : "danger")}>{KARTEN_FARBE_LABELS[karte.farbe]}</span>

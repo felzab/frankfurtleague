@@ -69,7 +69,7 @@ const table = tv({
       centre: { head: "w-11 text-center", cell: "w-11 text-center text-fg-muted" },
     },
     figures: {
-      true: { cell: "font-numeric tabular-nums" },
+      true: { cell: "font-numeric" },
     },
     strong: {
       true: { cell: "font-semibold" },

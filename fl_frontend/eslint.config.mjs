@@ -306,19 +306,6 @@ const PICKED_STRING = [1, 2, 3]
 const TOKEN_START = String.raw`(?:^|\s)(?:\S*:)?`;
 const TOKEN_END = String.raw`(?:\s|$)`;
 
-const wholeClass = (token) => `(?:^|\\s)${token.replaceAll(".", "\\.")}(?:\\s|$)`;
-
-/**
- * One class list holding every token of `all` and none of `none`. A string or JSX text is one list;
- * a template is one list across its holes, so its chunks are asked together rather than one by one.
- */
-function classList({ all, none = [] }) {
-  const text = `^${all.map((token) => `(?=[\\s\\S]*${wholeClass(token)})`).join("")}${none.map((token) => `(?![\\s\\S]*${wholeClass(token)})`).join("")}`;
-  const chunk = (token) => `:has(> TemplateElement[value.raw=/${wholeClass(token)}/])`;
-  const template = `TemplateLiteral${all.map(chunk).join("")}${none.map((token) => `:not(${chunk(token)})`).join("")}`;
-  return `:matches(Literal[value=/${text}/], JSXText[value=/${text}/], ${template})`;
-}
-
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
 const CLASS_LIST_CONSTANT = {
   kind: SelectorKind.Variable,
@@ -477,18 +464,6 @@ const SOURCE_BANS = [
     SOURCE,
     // `NewTabLink` is the old pages' new-tab link, which goes with the last page importing it.
     { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
-  ),
-  ...[
-    ["tabular-nums", "font-numeric"],
-    ["font-numeric", "tabular-nums"],
-  ].map(([alone, partner]) =>
-    syntaxBan(
-      syntax(
-        classList({ all: [alone], none: [partner] }),
-        "`font-numeric` and `tabular-nums` go together: the page face has no tabular figures.",
-      ),
-      SOURCE,
-    ),
   ),
   syntaxBan(
     // Tailwind's `screen` height is 100vh, and lvh is by definition the chrome-hidden height; svh and
