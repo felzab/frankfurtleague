@@ -20,7 +20,7 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLBerechtigungAdresswechsel } from "@/features/berechtigungen/schemas";
 
-export const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
+const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
 
 /**
  * Who started the change and how, which is what a pretext hides: the starter is absent where the row withholds them

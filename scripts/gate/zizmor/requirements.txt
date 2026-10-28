@@ -1,0 +1,4 @@
+# The zizmor release `scripts/gate/verify.sh :: run_zizmor` runs, locally and in CI, as a uv
+# constraint. A file of its own so Dependabot's pip ecosystem moves it, and outside fl_backend's dev
+# group because it audits `.github/`, not the backend.
+zizmor==1.31.1

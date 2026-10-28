@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { formatTraceparent, mintSpanId, mintTraceId, readTraceparent } from "./trace.ts";
 
@@ -9,35 +8,35 @@ const WELL_FORMED = `00-${TRACE}-${SPAN}-01`;
 
 describe("mintTraceId", () => {
   it("produces 32 lowercase hex, format-identical to nginx's $request_id", () => {
-    assert.match(mintTraceId(), /^[a-f0-9]{32}$/);
+    expect(mintTraceId()).toMatch(/^[a-f0-9]{32}$/);
   });
 
   it("produces distinct ids", () => {
-    assert.notEqual(mintTraceId(), mintTraceId());
+    expect(mintTraceId()).not.toBe(mintTraceId());
   });
 });
 
 describe("mintSpanId", () => {
   it("produces 16 lowercase hex, the W3C span width", () => {
-    assert.match(mintSpanId(), /^[a-f0-9]{16}$/);
+    expect(mintSpanId()).toMatch(/^[a-f0-9]{16}$/);
   });
 
   it("produces distinct ids", () => {
-    assert.notEqual(mintSpanId(), mintSpanId());
+    expect(mintSpanId()).not.toBe(mintSpanId());
   });
 
   it("never produces the all-zero span the format reserves", () => {
-    for (let attempt = 0; attempt < 64; attempt += 1) assert.notEqual(mintSpanId(), "0".repeat(16));
+    for (let attempt = 0; attempt < 64; attempt += 1) expect(mintSpanId()).not.toBe("0".repeat(16));
   });
 });
 
 describe("readTraceparent", () => {
   it("takes both ids off the header the edge minted", () => {
-    assert.deepEqual(readTraceparent(WELL_FORMED), { traceId: TRACE, spanId: SPAN });
+    expect(readTraceparent(WELL_FORMED)).toStrictEqual({ traceId: TRACE, spanId: SPAN });
   });
 
   it("accepts any flags byte, an unsampled one included", () => {
-    assert.deepEqual(readTraceparent(`00-${TRACE}-${SPAN}-00`), { traceId: TRACE, spanId: SPAN });
+    expect(readTraceparent(`00-${TRACE}-${SPAN}-00`)).toStrictEqual({ traceId: TRACE, spanId: SPAN });
   });
 
   it("accepts what the minters produce", () => {
@@ -48,13 +47,13 @@ describe("readTraceparent", () => {
   // written by somebody else.
   it("refuses a version segment other than 00", () => {
     for (const version of ["01", "ff", "0", "000"]) {
-      assert.equal(readTraceparent(`${version}-${TRACE}-${SPAN}-01`), undefined, version);
+      expect(readTraceparent(`${version}-${TRACE}-${SPAN}-01`), version).toBe(undefined);
     }
   });
 
   it("refuses the all-zero trace and the all-zero span the format reserves", () => {
-    assert.equal(readTraceparent(`00-${"0".repeat(32)}-${SPAN}-01`), undefined);
-    assert.equal(readTraceparent(`00-${TRACE}-${"0".repeat(16)}-01`), undefined);
+    expect(readTraceparent(`00-${"0".repeat(32)}-${SPAN}-01`)).toBe(undefined);
+    expect(readTraceparent(`00-${TRACE}-${"0".repeat(16)}-01`)).toBe(undefined);
   });
 
   // Mirrored by `fl_backend/tests/core/test_logging.py :: TestResolveTraceId` entry for entry, in
@@ -83,26 +82,26 @@ describe("readTraceparent", () => {
     ];
 
     for (const value of hostile) {
-      assert.equal(readTraceparent(value), undefined, String(value));
+      expect(readTraceparent(value), String(value)).toBe(undefined);
     }
   });
 
   // Beyond the mirrored list: the backend's reader is typed to a string or nothing, while this one
   // is handed whatever a header record holds.
   it("refuses a value that is not a string at all", () => {
-    assert.equal(readTraceparent(undefined), undefined);
-    assert.equal(readTraceparent(42), undefined);
+    expect(readTraceparent(undefined)).toBe(undefined);
+    expect(readTraceparent(42)).toBe(undefined);
   });
 });
 
 describe("formatTraceparent", () => {
   it("writes the version, both ids and the sampled flag", () => {
-    assert.equal(formatTraceparent({ traceId: TRACE, spanId: SPAN }), WELL_FORMED);
+    expect(formatTraceparent({ traceId: TRACE, spanId: SPAN })).toBe(WELL_FORMED);
   });
 
   it("writes a header its own reader accepts", () => {
     const ids = { traceId: mintTraceId(), spanId: mintSpanId() };
 
-    assert.deepEqual(readTraceparent(formatTraceparent(ids)), ids);
+    expect(readTraceparent(formatTraceparent(ids))).toStrictEqual(ids);
   });
 });

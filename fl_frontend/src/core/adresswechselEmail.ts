@@ -35,7 +35,7 @@ const ADMINISTRATOREN_PFAD = "/bereich/admin/administratoren";
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
  * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
  */
-export function adresswechselLink(origin: string, token: string): string {
+function adresswechselLink(origin: string, token: string): string {
   return `${origin}${ADRESSWECHSEL_PFAD}?token=${encodeURIComponent(token)}`;
 }
 

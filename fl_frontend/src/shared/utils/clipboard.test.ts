@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { copyTextToClipboard } from "./clipboard.ts";
 
@@ -30,8 +29,8 @@ describe("copyTextToClipboard", () => {
   it("hands the composed string over and reports the copy", async () => {
     withClipboard(RECORDER);
 
-    assert.equal(await copyTextToClipboard("Anna Schmidt, anna@example.org"), true);
-    assert.deepEqual(handedOver, ["Anna Schmidt, anna@example.org"]);
+    expect(await copyTextToClipboard("Anna Schmidt, anna@example.org")).toBe(true);
+    expect(handedOver).toStrictEqual(["Anna Schmidt, anna@example.org"]);
   });
 
   /* Drop the guard and this fails on the second assertion: the empty write goes through, the answer
@@ -39,13 +38,13 @@ describe("copyTextToClipboard", () => {
   it("refuses an empty string without reaching the clipboard", async () => {
     withClipboard(RECORDER);
 
-    assert.equal(await copyTextToClipboard(""), false);
-    assert.deepEqual(handedOver, [], "an empty write reached the clipboard, over whatever the reader had there");
+    expect(await copyTextToClipboard("")).toBe(false);
+    expect(handedOver, "an empty write reached the clipboard, over whatever the reader had there").toStrictEqual([]);
   });
 
   it("reports no copy where the browser hands out no clipboard", async () => {
     withClipboard(undefined);
 
-    assert.equal(await copyTextToClipboard("Anna Schmidt"), false);
+    expect(await copyTextToClipboard("Anna Schmidt")).toBe(false);
   });
 });

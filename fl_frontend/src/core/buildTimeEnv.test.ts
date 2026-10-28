@@ -1,11 +1,9 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
 import ts from "typescript";
-
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { assert, describe, expect, it } from "vitest";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -327,22 +325,21 @@ describe("what a module does with the environment while the image builds", () =>
        value, and the validator's own input: none is a subject. Each line that is one says why beside it. */
     const found = moduleScopeConsumers("sample.ts", sample);
 
-    assert.deepEqual(
+    expect(
       found.map((finding) => `${String(finding.line)} ${finding.shape}`),
-      [
-        "5 passed to a call",
-        "9 reached through",
-        "17 passed to a call",
-        "19 passed to a call",
-        "23 passed to a call",
-        "25 reached through",
-        "33 passed to a call",
-        "35 passed to a call",
-        "37 passed to a call",
-        "39 passed to a call",
-      ],
       `the reader saw: ${found.map((finding) => `${String(finding.line)}:${finding.source}`).join(" | ")}`,
-    );
+    ).toStrictEqual([
+      "5 passed to a call",
+      "9 reached through",
+      "17 passed to a call",
+      "19 passed to a call",
+      "23 passed to a call",
+      "25 reached through",
+      "33 passed to a call",
+      "35 passed to a call",
+      "37 passed to a call",
+      "39 passed to a call",
+    ]);
   });
 
   it("parsed the tree and found the modules that read the environment", () => {
@@ -366,10 +363,9 @@ describe("what a module does with the environment while the image builds", () =>
       ),
     );
 
-    assert.deepEqual(
+    expect(
       consumers,
-      [],
       "a module reads an environment value the builder leaves undefined, while it loads. Defer it into a function, or give it a fallback.",
-    );
+    ).toStrictEqual([]);
   });
 });

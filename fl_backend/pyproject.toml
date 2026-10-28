@@ -116,6 +116,14 @@ select = [
     # A root-logger call's record is no child of ours, so `app/core/logging.py ::
     # ForwardedFailureFilter` codes it as a library's failure, hiding a missing code.
     "LOG015",  # root-logger-call
+    # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
+    # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
+    "PLE2502",  # bidirectional-unicode
+    "PLE2510",  # invalid-character-backspace
+    "PLE2512",  # invalid-character-sub
+    "PLE2513",  # invalid-character-esc
+    "PLE2514",  # invalid-character-nul
+    "PLE2515",  # invalid-character-zero-width-space
 ]
 ignore = ["B008"]
 

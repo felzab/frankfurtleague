@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
@@ -12,45 +11,45 @@ import type { FLAktor } from "./schemas.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
-    assert.deepEqual(formatAktionZeitpunkt("2026-08-20T14:23:05+00:00"), { datum: "20.08.2026", uhrzeit: "16:23" });
+    expect(formatAktionZeitpunkt("2026-08-20T14:23:05+00:00")).toStrictEqual({ datum: "20.08.2026", uhrzeit: "16:23" });
   });
 
   // The offset can carry the write into the next day, which is the whole reason the zone is pinned.
   it("applies the winter offset and the day it moves the instant to", () => {
-    assert.deepEqual(formatAktionZeitpunkt("2026-01-05T23:30:00+00:00"), { datum: "06.01.2026", uhrzeit: "00:30" });
+    expect(formatAktionZeitpunkt("2026-01-05T23:30:00+00:00")).toStrictEqual({ datum: "06.01.2026", uhrzeit: "00:30" });
   });
 
   it("passes an unreadable value through instead of throwing", () => {
-    assert.deepEqual(formatAktionZeitpunkt("irgendwann"), { datum: "irgendwann", uhrzeit: null });
+    expect(formatAktionZeitpunkt("irgendwann")).toStrictEqual({ datum: "irgendwann", uhrzeit: null });
   });
 });
 
 describe("labelForCollection", () => {
   it("names a junction collection in words", () => {
-    assert.equal(labelForCollection("saison_teams"), "Team in Saison");
+    expect(labelForCollection("saison_teams")).toBe("Team in Saison");
   });
 
   it("falls back to a name it does not know", () => {
-    assert.equal(labelForCollection("pokale"), "pokale");
+    expect(labelForCollection("pokale")).toBe("pokale");
   });
 
   it("falls back for a name that is a prototype key, which `??` would let through", () => {
     // A prototype key selects a FUNCTION, which is not nullish, so `??` keeps it and the cell renders
     // `function Object() { [native code] }` where a collection name belongs.
-    assert.equal(labelForCollection("constructor"), "constructor");
+    expect(labelForCollection("constructor")).toBe("constructor");
   });
 });
 
 describe("describeAktionDatensatz", () => {
   it("names a single document by its id", () => {
-    assert.deepEqual(describeAktionDatensatz({ document_id: "68c1f0a2b3c4d5e6f7a8b9c0", db_filter: null, modified_count: null }), {
+    expect(describeAktionDatensatz({ document_id: "68c1f0a2b3c4d5e6f7a8b9c0", db_filter: null, modified_count: null })).toStrictEqual({
       kind: "dokument",
       id: "68c1f0a2b3c4d5e6f7a8b9c0",
     });
   });
 
   it("carries a fan-out's filter beside its count", () => {
-    assert.deepEqual(describeAktionDatensatz({ document_id: null, db_filter: { saison_id: "2026" }, modified_count: 12 }), {
+    expect(describeAktionDatensatz({ document_id: null, db_filter: { saison_id: "2026" }, modified_count: 12 })).toStrictEqual({
       kind: "menge",
       filterPaare: [["saison_id", "2026"]],
       betroffen: 12,
@@ -59,7 +58,7 @@ describe("describeAktionDatensatz", () => {
 
   // Every Spielplan draw writes two of these, and the count is the whole of what the row has to say.
   it("keeps a bulk create's count, which carries no id and no filter", () => {
-    assert.deepEqual(describeAktionDatensatz({ document_id: null, db_filter: null, modified_count: 42 }), {
+    expect(describeAktionDatensatz({ document_id: null, db_filter: null, modified_count: 42 })).toStrictEqual({
       kind: "menge",
       filterPaare: [],
       betroffen: 42,
@@ -67,7 +66,7 @@ describe("describeAktionDatensatz", () => {
   });
 
   it("reports nothing named only where the row names nothing", () => {
-    assert.deepEqual(describeAktionDatensatz({ document_id: null, db_filter: null, modified_count: null }), { kind: "ohne" });
+    expect(describeAktionDatensatz({ document_id: null, db_filter: null, modified_count: null })).toStrictEqual({ kind: "ohne" });
   });
 });
 
@@ -87,7 +86,7 @@ function actorOf(kind: FLAktor["kind"]): FLAktor {
 describe("herkunftOfAktor", () => {
   /* First: a mirror the cut no longer finds would leave every sweep below iterating nothing and passing. */
   it("reads the kinds off the mirror at all", () => {
-    assert.deepEqual([...AKTOR_KINDS].sort(), ["admin_session", "person_session", "public", "system"]);
+    expect([...AKTOR_KINDS].sort()).toStrictEqual(["admin_session", "person_session", "public", "system"]);
   });
 
   /* The binary this replaced filed anything that was not `system` under the signed-in people. A kind
@@ -96,7 +95,7 @@ describe("herkunftOfAktor", () => {
     for (const kind of AKTOR_KINDS) {
       const herkunft = herkunftOfAktor(actorOf(kind));
 
-      assert.equal(herkunft, AKTOR_HERKUNFT[kind], `\`${kind}\` is read as something other than the origin it is filed under`);
+      expect(herkunft, `\`${kind}\` is read as something other than the origin it is filed under`).toBe(AKTOR_HERKUNFT[kind]);
       assert.ok(AKTION_HERKUNFT_LABELS[herkunft], `\`${kind}\` is filed under \`${herkunft}\`, which nothing names`);
     }
   });
@@ -104,13 +103,11 @@ describe("herkunftOfAktor", () => {
   /* Its own value and not the people's: nobody signed in for a public submission, and nobody is named
      by the `PUBLIC` its `email` holds. */
   it("keeps a public submission off both of the origins it is not", () => {
-    assert.equal(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }), "public");
-    assert.notEqual(
-      herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }),
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).toBe("public");
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).not.toBe(
       herkunftOfAktor({ kind: "admin_session", email: "a@b.de", email_gesperrt: false }),
     );
-    assert.notEqual(
-      herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }),
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).not.toBe(
       herkunftOfAktor({ kind: "system", email: "SYSTEM", email_gesperrt: false }),
     );
   });
@@ -120,14 +117,14 @@ describe("herkunftOfAktor", () => {
   it("names each origin in its own words", () => {
     const labels = Object.values(AKTION_HERKUNFT_LABELS);
 
-    assert.equal(new Set(labels).size, labels.length, "two origins are offered under one wording");
+    expect(new Set(labels).size, "two origins are offered under one wording").toBe(labels.length);
     for (const label of labels) assert.ok(!/^[A-Z]+$/.test(label), `\`${label}\` is a stored sentinel rather than a wording`);
   });
 });
 
 describe("personAkteurLabel", () => {
   it("names the Funktion and the start of the pseudonym", () => {
-    assert.equal(personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: "spieler" }), "Spieler · 3f9a07c2");
+    expect(personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: "spieler" })).toBe("Spieler · 3f9a07c2");
   });
 
   /* Read off the mirror, so a Funktion added there without a word fails here rather than rendering `undefined`. */
@@ -136,14 +133,13 @@ describe("personAkteurLabel", () => {
       personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
     );
 
-    assert.deepEqual(labels, ["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
-    assert.equal(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size, FLAktorPersonSchema.shape.funktion.options.length);
+    expect(labels).toStrictEqual(["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
+    expect(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size).toBe(FLAktorPersonSchema.shape.funktion.options.length);
   });
 
   /* The redacted actor of a person erased since: the marker read as a pseudonym's start would name somebody. */
   it("names a person erased since in the admin cards' words, keeping the Funktion", () => {
-    assert.equal(
-      personAkteurLabel({ kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "spieler" }),
+    expect(personAkteurLabel({ kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "spieler" })).toBe(
       `Spieler · ${GELOESCHTE_PERSON}`,
     );
   });

@@ -52,10 +52,10 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
 
-export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
+const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
 /** The fixtures whose day has gone by, listed apart below the ones to come, which a season's past would bury. */
-export const VERGANGENE_EINSAETZE = "Vergangene Einsätze";
+const VERGANGENE_EINSAETZE = "Vergangene Einsätze";
 
 /** The place each answer's control holds in every open row, so an answered row hands the focus to the same control in the next. */
 const ZUSAGEN = "zusagen";

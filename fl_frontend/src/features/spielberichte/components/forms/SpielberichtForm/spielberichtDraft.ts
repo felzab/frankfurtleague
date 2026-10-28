@@ -72,7 +72,7 @@ export type SpielberichtDraft = {
 const kaderOptionOf = (spieler: FLSpielberichtSpieler): KaderOption => ({ id: spieler.spieler_id, label: spielerLabel(spieler) });
 
 /** The stored block as the form's draft; entry keys count from zero, the form's own counter continuing past them. */
-export function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft {
+function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft {
   if (stored === null) {
     return {
       team1Tore: null,

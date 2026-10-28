@@ -6,11 +6,9 @@ export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
- * confirmation, so the address on file can still stop it. Exported for the mirror test, which reads its
- * `export const` line.
- * @internal
+ * confirmation, so the address on file can still stop it.
  */
-export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days an ended change's record, holding no address,
@@ -20,11 +18,9 @@ export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a write waits for a second administrator's approval
- * before it lapses, which the notice states for a moved grant and a grant request. Exported for the mirror test, as the
- * waiting time is.
- * @internal
+ * before it lapses, which the notice states for a moved grant and a grant request.
  */
-export const GENEHMIGUNG_TAGE = 7;
+const GENEHMIGUNG_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.

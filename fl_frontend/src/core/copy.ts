@@ -128,4 +128,42 @@ export const COPY = katalog({
     /** The season button's menu. */
     saison: "Saison",
   },
+
+  /** Each page's own name, which its tab title and its strip show; the route table names the key. */
+  seite: {
+    spielplan: "Spielplan",
+    tabelle: "Tabelle",
+    teams: "Teams",
+    spielsuche: "Spielsuche",
+    /** A match's page, named by its two teams in the order the fixture lists them. */
+    spiel: (heim: string, gast: string) => `${heim} gegen ${gast}`,
+    about: "About",
+    kontakt: "Kontakt",
+    sponsoren: "Sponsoren",
+    impressum: "Impressum",
+    datenschutz: "Datenschutz",
+    anmeldung: "Anmeldung",
+    sicherheit: "Sicherheit",
+    darstellung: "Darstellung",
+    deineEintraege: "Deine Einträge",
+    saisons: "Saisons",
+    spiele: "Spiele",
+    spielorte: "Spielorte",
+    schiedsrichter: "Schiedsrichter",
+    bewerbungen: "Bewerbungen",
+    spieler: "Spieler",
+    registrierungen: "Registrierungen",
+    kader: "Kader",
+    administratoren: "Administratoren",
+    sperrliste: "Sperrliste",
+    loeschungen: "Löschungen",
+    adressaenderungen: "Adressänderungen",
+  },
+
+  /** The league's own name, which ends every tab title, and what an installed app calls itself. */
+  marke: {
+    name: "Frankfurt League",
+    kurzname: "FL",
+    beschreibung: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+  },
 });

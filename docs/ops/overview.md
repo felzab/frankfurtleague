@@ -38,9 +38,9 @@ graph TB
 
 **The diagram is production's** — the local stack adds its own database service to the application
 network and points both application services at it ([`spec.md`](spec.md) §1.5). **nginx alone
-joins both networks** ([`spec.md`](spec.md) I471), so the connector reaches nothing else.
+joins both networks**, so the connector reaches nothing else.
 
-**The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
+**The host publishes no port at all**: the connector dials out, so nginx's
 routing table is the whole of what the internet can address on this host, and there is no address to
 reach it at otherwise.
 
@@ -49,8 +49,8 @@ reach it at otherwise.
 alone. No file here records either grant — the backend's was read from the cluster's users
 2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
-user also needs `collMod`, and the replay after a restore `listCollections`, which `readWrite` carries;
-`python -m app.core.constraints --check` asks for both ([`../backend/spec.md`](../backend/spec.md) §4).
+user also needs `collMod`, a `dbAdmin` action `readWrite` does not carry, and the replay after a restore
+`listCollections`, which `readWrite` carries; `python -m app.core.constraints --check` asks for both.
 
 ## The Cloudflare proxy
 
@@ -65,7 +65,7 @@ visible from a configuration file in this repository.
   verified 2026-08-01, which makes them a property to re-verify rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
   than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
-  precompressed at build time ([`../../.claude/rules/ops.md`](../../.claude/rules/ops.md)).
+  precompressed at build time (`.claude/rules/ops.md`).
 - **The AI-crawler opt-out is a request here and an enforcement there.**
   `fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, which each crawler chooses
   whether to obey; what the edge does about them is [`spec.md`](spec.md) §1.8. **The failure to
@@ -88,18 +88,17 @@ Cloudflare can promote to a 103. What is actually set is readable only in the Cl
 
 ## Routing
 
-A backend route is unreachable from the internet unless an nginx location publishes it
-([`spec.md`](spec.md) I13); **a frontend route runs the other way round** — the catch-all carries every
+A backend route is unreachable from the internet unless an nginx location publishes it; **a frontend route runs the other way round** — the catch-all carries every
 path nginx does not name to Next, so a route handler is reachable the moment it exists, and its own
-authorization is all that stands in front of it ([`spec.md`](spec.md) I133).
+authorization is all that stands in front of it.
 
 FastAPI's Swagger UI sits at the app root (`/docs`), which the catch-all sends to Next, so the API
-documentation is a development and in-network tool ([`spec.md`](spec.md) I134).
+documentation is a development and in-network tool.
 
 ## Security posture
 
 **The origin is hardened even though a proxy sits above it** — TLS 1.2/1.3 only, the header set at
-[`spec.md`](spec.md) §1.4, and I3's `default_server` rejecting an unknown `Host` at TLS time.
+[`spec.md`](spec.md) §1.4, and a `default_server` block rejecting an unknown `Host` at TLS time.
 
 **The published unauthenticated writes are rate-limited at the edge**, the sign-in POST among them,
 whose action id ships in a client chunk, and so is every page a mailed or shared link opens. Which paths carry a zone, their pairing and what carries no
@@ -107,12 +106,12 @@ zone at all are [`spec.md`](spec.md) §1.3.
 
 ## Images and deployment
 
-**The builder stage has no reachable backend and no real environment** ([`spec.md`](spec.md) I5):
+**The builder stage has no reachable backend and no real environment**:
 anything reaching the API or constructing a URL from `AUTH_URL` at module scope fails the image build
 rather than at runtime.
 
 A deploy pulls, recreates the two application containers in place and reloads nginx across the swap
-([`spec.md`](spec.md) I6 and I9). What a failed health wait puts back, what it costs, and what to
+. What a failed health wait puts back, what it costs, and what to
 deploy afterwards are [`runbooks.md`](runbooks.md) §1.
 
 ## Read next

@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/test-support/openapiDocument.ts";
+import { assert, describe, expect, it } from "vitest";
 
-import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { AKTION_HERKUNFT_LABELS } from "./constants.ts";
@@ -62,21 +61,15 @@ describe("the origin facet on the change log", () => {
   /* First: a facet the cut no longer finds would leave every assertion below reading `undefined`. */
   it("offers the origin as a facet at all", () => {
     assert.ok(HERKUNFT_FACET, "no facet reads the origin parameter");
-    assert.equal(HERKUNFT_FACET.label, "Herkunft");
+    expect(HERKUNFT_FACET.label).toBe("Herkunft");
     assert.ok(PUBLIC_ROW, "no row was built for a public submission, so nothing below tests one");
   });
 
   /* Derived from the label map rather than spelled here as well: an origin named there and offered
      nowhere is a filter that cannot reach the rows filed under it. */
   it("offers every origin the app names, in the order it names them", () => {
-    assert.deepEqual(
-      HERKUNFT_FACET?.options.map((option) => option.value),
-      Object.keys(AKTION_HERKUNFT_LABELS),
-    );
-    assert.deepEqual(
-      HERKUNFT_FACET?.options.map((option) => option.label),
-      Object.values(AKTION_HERKUNFT_LABELS),
-    );
+    expect(HERKUNFT_FACET?.options.map((option) => option.value)).toStrictEqual(Object.keys(AKTION_HERKUNFT_LABELS));
+    expect(HERKUNFT_FACET?.options.map((option) => option.label)).toStrictEqual(Object.values(AKTION_HERKUNFT_LABELS));
   });
 
   /* Every row answers with exactly one offered value, so no write can fall out of the filter and
@@ -87,7 +80,7 @@ describe("the origin facet on the change log", () => {
     for (const item of ROWS) {
       const held = HERKUNFT_FACET?.read(item) ?? [];
 
-      assert.equal(held.length, 1, `a ${item.actor.kind} row answers with ${String(held.length)} values`);
+      expect(held.length, `a ${item.actor.kind} row answers with ${String(held.length)} values`).toBe(1);
       assert.ok(offered.has(held[0]!), `a ${item.actor.kind} row answers with ${String(held[0])}, which the facet does not offer`);
     }
   });
@@ -97,7 +90,7 @@ describe("the origin facet on the change log", () => {
   it("narrows to the public submissions on their own", () => {
     const selection = readFacetSelection(AKTIONEN_FACETS, new URLSearchParams(`${AKTIONEN_HERKUNFT_PARAM}=public`));
 
-    assert.deepEqual(applyFacets([...ROWS], AKTIONEN_FACETS, selection), [PUBLIC_ROW]);
+    expect(applyFacets([...ROWS], AKTIONEN_FACETS, selection)).toStrictEqual([PUBLIC_ROW]);
   });
 
   it("leaves a public submission out of the signed-in people", () => {
@@ -142,16 +135,14 @@ describe("the dimensions the read itself narrows on", () => {
       published.length > 0,
       `no GET /aktionen query parameters in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
     );
-    assert.deepEqual(
+    expect(
       sent.filter((name) => !published.includes(name)),
-      [],
       `the endpoint publishes ${published.join(", ")} — refresh the document with the command ${REGENERATE_CITATION} declares if a term was just added`,
-    );
+    ).toStrictEqual([]);
   });
 
   /* Held by `tsc` rather than by an assertion, a declaration reaching no runtime: a term the read does
-     not declare rides the spread in `./queries.ts` past the excess-property check, and
-     `fl_frontend/src/core/apiRequests.test.ts` reads the declared properties alone. */
+     not declare rides the spread in `./queries.ts` past the excess-property check. */
   it("names every term as a filter the read itself declares", () => {
     type Undeclared = Exclude<keyof ReturnType<typeof aktionenLogFacetTerms>, keyof NonNullable<Parameters<typeof getAktionen>[0]>>;
     /** Instantiable while nothing is undeclared, and by no other argument. */
@@ -160,40 +151,40 @@ describe("the dimensions the read itself narrows on", () => {
     const undeclared: EveryTermDeclared<Undeclared> = [];
 
     // The declaration above is the case; this is what reaches the runner, which passes an empty one.
-    assert.deepEqual(undeclared, []);
+    expect(undeclared).toStrictEqual([]);
 
     // One key per facet, so a dimension the bar offers and the reader forgets fails here too.
-    assert.deepEqual(Object.keys(aktionenLogFacetTerms({})).sort(), AKTIONEN_FACETS.map((facet) => facet.param).sort());
+    expect(Object.keys(aktionenLogFacetTerms({})).sort()).toStrictEqual(AKTIONEN_FACETS.map((facet) => facet.param).sort());
   });
 });
 
 describe("what the log asks the endpoint to narrow to", () => {
   it("asks for none of them while the URL names none", () => {
-    assert.deepEqual(aktionenLogFacetTerms({}), { collection: undefined, operation: undefined, herkunft: undefined });
+    expect(aktionenLogFacetTerms({})).toStrictEqual({ collection: undefined, operation: undefined, herkunft: undefined });
   });
 
   it("forwards a picked area", () => {
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection, "teams");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection).toBe("teams");
   });
 
   it("carries a two-area selection, which is why the parameter is a list on both sides", () => {
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection, "teams,spiele");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection).toBe("teams,spiele");
   });
 
   it("forwards a picked operation on its own parameter", () => {
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation, "insert,delete_many");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation).toBe("insert,delete_many");
   });
 
   it("drops a value the facet does not offer rather than sending one the endpoint refuses with a 422", () => {
     // A pasted or hand-edited link is the live case, and the operation parameter is a closed set on
     // the endpoint, so an invented member reaches it as a refusal the page has nothing to render.
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "erfunden" }).collection, undefined);
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation, "insert");
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft, "system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "erfunden" }).collection).toBe(undefined);
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation).toBe("insert");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft).toBe("system");
   });
 
   it("asks for nothing once a parameter is emptied, which is the facet turned off", () => {
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "" }).collection, undefined);
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "" }).collection).toBe(undefined);
   });
 });
 
@@ -211,7 +202,7 @@ describe("the counts the area facet is told", () => {
   /* The endpoint counts the whole log, so an area whose rows the cap cut stays pressable — or the
      control that hid the rest of the log is what stands between an administrator and it. */
   it("keeps an area reachable whose rows a cut answer never carried", () => {
-    assert.deepEqual(pressableAreas({ teams: 40, spielorte: 5 }, ["teams"]), ["teams", "spielorte"]);
+    expect(pressableAreas({ teams: 40, spielorte: 5 }, ["teams"])).toStrictEqual(["teams", "spielorte"]);
   });
 
   /* Non-vacuity, and the defect itself: counted against the rows one narrowed read served, every
@@ -219,14 +210,14 @@ describe("the counts the area facet is told", () => {
   it("loses that area where the counts are taken off the rows served instead", () => {
     const offRows = countFacetOptions([...ONLY_TEAMS], AKTIONEN_FACETS, { [AKTIONEN_COLLECTION_PARAM]: ["teams"] }, AREA_FACET!);
 
-    assert.equal(offRows.spielorte, 0);
-    assert.deepEqual(pressableAreas(offRows, ["teams"]), ["teams"]);
+    expect(offRows.spielorte).toBe(0);
+    expect(pressableAreas(offRows, ["teams"])).toStrictEqual(["teams"]);
   });
 
   /* An area nothing in the log holds still counts zero, and an option leading nowhere is worth saying
      so about — the told counts are what tells those two cases apart. */
   it("still refuses an area the log really is empty of", () => {
-    assert.deepEqual(pressableAreas({ teams: 40, spielorte: 0 }, ["teams"]), ["teams"]);
+    expect(pressableAreas({ teams: 40, spielorte: 0 }, ["teams"])).toStrictEqual(["teams"]);
   });
 });
 
@@ -251,16 +242,13 @@ describe("the counts the endpoint can answer", () => {
   /* Every dimension, or a told count stands beside a narrowing the endpoint never saw. The cap is what
      makes the two uncomposable: an area's whole-log number cannot say what the loaded page still holds. */
   it("narrows the read on every dimension the bar offers", () => {
-    assert.deepEqual(
-      AKTIONEN_FACETS.filter((facet) => facet.narrowsTheRead !== true).map((facet) => facet.param),
-      [],
-    );
+    expect(AKTIONEN_FACETS.filter((facet) => facet.narrowsTheRead !== true).map((facet) => facet.param)).toStrictEqual([]);
   });
 
   /* Non-vacuity, and the reading the case below turns on: unnarrowed, both areas hold rows and both
      are offered. */
   it("offers both areas while no origin is picked", () => {
-    assert.deepEqual(pressableAreas(toldCounts(MIXED_LOG, {}, AREA_FACET!), []), ["teams", "spielorte"]);
+    expect(pressableAreas(toldCounts(MIXED_LOG, {}, AREA_FACET!), [])).toStrictEqual(["teams", "spielorte"]);
   });
 
   /* The defect's mirror image: an area counted without the origin selection applied is offered, pressed,
@@ -268,13 +256,13 @@ describe("the counts the endpoint can answer", () => {
   it("leaves out an area the picked origin empties", () => {
     const selection = readFacetSelection(AKTIONEN_FACETS, new URLSearchParams(`${AKTIONEN_HERKUNFT_PARAM}=system`));
 
-    assert.deepEqual(pressableAreas(toldCounts(MIXED_LOG, selection, AREA_FACET!), []), ["teams"]);
+    expect(pressableAreas(toldCounts(MIXED_LOG, selection, AREA_FACET!), [])).toStrictEqual(["teams"]);
   });
 
   /* The request half: the endpoint cannot count what it is not told, so the term rides with the two the
      bar already sends. */
   it("asks the endpoint to narrow to a picked origin", () => {
-    assert.equal(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft, "system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft).toBe("system");
   });
 
   /* A facet absent from the map is counted off the rows served instead (`FilterPanel :: FilterPanelBody`),
@@ -286,9 +274,6 @@ describe("the counts the endpoint can answer", () => {
       anzahl_je_herkunft: { system: 2 },
     });
 
-    assert.deepEqual(
-      AKTIONEN_FACETS.filter((facet) => told[facet.param] === undefined).map((facet) => facet.param),
-      [],
-    );
+    expect(AKTIONEN_FACETS.filter((facet) => told[facet.param] === undefined).map((facet) => facet.param)).toStrictEqual([]);
   });
 });

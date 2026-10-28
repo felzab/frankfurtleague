@@ -1,23 +1,20 @@
-import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { beforeEach, describe, it } from "node:test";
 
-import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
-
+import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
-  asDataUrl,
   Barrier,
   BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
   ORIGIN,
+  overriding,
   registerAuthDoubles,
   signInByCode,
-} from "@/core/authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
-import { overridingModule } from "@/core/exportingModule.ts";
-import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+} from "@/test-support/authDoubles.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 // A replica set: the property under test is a transaction's.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -25,9 +22,9 @@ const { mongod, closing } = await startJudgedReplicaSet();
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);
 
-// A second URL for the production module, which the load hook's match on a path's end lets past the
-// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
-const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
+// The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
+// under test is the one it builds.
+const PRODUCTION_DB = "@/core/db.ts";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -93,7 +90,7 @@ const wrapDb = (db: object): object =>
 /* The real client, held where a removal makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. The session
    `deleteMany` runs `signingOut` first, inside the removal's transaction. */
-const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
+const DB_DOUBLE = overriding(PRODUCTION_DB, {
   signInStore: (db) => {
     productionClient = (db.signInStore as () => object)();
     const wrapped = new Proxy(productionClient as object, {
@@ -133,7 +130,7 @@ const LOGGING_DOUBLE = {
 
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({}, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
-  specifiers: { "next/headers": HEADERS_DOUBLE, "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
+  specifiers: { "next/headers": HEADERS_DOUBLE, "next/cache": NEXT_CACHE_DOUBLE },
 });
 
 /**
@@ -188,7 +185,7 @@ let committing: (session: HeldSession) => Promise<unknown> = async () => undefin
 /** What runs once a removal's commit has been taken by the server, before its answer reaches the removal. */
 let committed: () => Promise<unknown> = async () => undefined;
 
-// Imported after the hooks above are registered: a static import resolves before they exist.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
 const { removePasskeyAction } = await import("./actions.ts");
@@ -219,7 +216,7 @@ beforeEach(async () => {
   // Production's indexes under every case, so the library is driven over what it meets there.
   errors.length = 0;
   await buildAuthIndexes();
-  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
+  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
@@ -306,7 +303,7 @@ describe("two removals by one administrator at once, against a real database (`d
     const { cookie, userId } = await steppedUpAdmin();
     const ids = await seedPasskeys(userId, 2);
 
-    assert.deepEqual(await removeAtOnce(cookie, ids), { ...ONE_WINS, refusals: [LETZTER_PASSKEY], rows: 1 });
+    expect(await removeAtOnce(cookie, ids)).toStrictEqual({ ...ONE_WINS, refusals: [LETZTER_PASSKEY], rows: 1 });
   });
 
   it("removes one row once when the same row is asked for twice at once, the second finding it gone", async () => {
@@ -314,7 +311,7 @@ describe("two removals by one administrator at once, against a real database (`d
     const [first] = await seedPasskeys(userId, 3);
     assert.ok(first);
 
-    assert.deepEqual(await removeAtOnce(cookie, [first, first]), { ...ONE_WINS, refusals: [GLEICHZEITIG_GEAENDERT], rows: 2 });
+    expect(await removeAtOnce(cookie, [first, first])).toStrictEqual({ ...ONE_WINS, refusals: [GLEICHZEITIG_GEAENDERT], rows: 2 });
   });
 
   /* The other order: the second removal's snapshot is taken only once the first has committed whole,
@@ -334,10 +331,11 @@ describe("two removals by one administrator at once, against a real database (`d
       const first = await removePasskeyAction(through);
       gate.release();
 
-      assert.deepEqual(
-        { first: first.success, second: await second, rows: (await passkeyRows()).length },
-        { first: true, second: { success: false, error: LETZTER_PASSKEY }, rows: 1 },
-      );
+      expect({ first: first.success, second: await second, rows: (await passkeyRows()).length }).toStrictEqual({
+        first: true,
+        second: { success: false, error: LETZTER_PASSKEY },
+        rows: 1,
+      });
     } finally {
       gate.release();
     }
@@ -364,11 +362,13 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
-    assert.equal((await removePasskeyAction(first)).success, true);
-    assert.deepEqual(
-      [await opens(other.cookie), await opens(third.cookie), await opens(byCode), await opens(own.cookie)],
-      [false, true, true, true],
-    );
+    expect((await removePasskeyAction(first)).success).toBe(true);
+    expect([await opens(other.cookie), await opens(third.cookie), await opens(byCode), await opens(own.cookie)]).toStrictEqual([
+      false,
+      true,
+      true,
+      true,
+    ]);
   });
 
   /* Another device's `updatedAt` refresh, landing while the sign-out runs on every run the adapter
@@ -387,15 +387,12 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
 
     const answer = await removePasskeyAction(first);
 
-    assert.deepEqual(
-      {
-        answer: answer,
-        rows: (await passkeyRows()).length,
-        open: [await opens(other.cookie), await opens(own.cookie)],
-        warnings: [...warnings],
-      },
-      { answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] },
-    );
+    expect({
+      answer: answer,
+      rows: (await passkeyRows()).length,
+      open: [await opens(other.cookie), await opens(own.cookie)],
+      warnings: [...warnings],
+    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
   });
 
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the removal
@@ -429,17 +426,14 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
 
     const answer = await removePasskeyAction(first);
 
-    assert.equal(runs, 2, "the adapter ran the removal once, so no retry followed a commit");
+    expect(runs, "the adapter ran the removal once, so no retry followed a commit").toBe(2);
 
-    assert.deepEqual(
-      {
-        answer: answer,
-        rows: (await passkeyRows()).length,
-        open: [await opens(other.cookie), await opens(own.cookie)],
-        warnings: [...warnings],
-      },
-      { answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] },
-    );
+    expect({
+      answer: answer,
+      rows: (await passkeyRows()).length,
+      open: [await opens(other.cookie), await opens(own.cookie)],
+      warnings: [...warnings],
+    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
   });
 
   // A failure the adapter does not retry rolls the delete back with it, before any commit.
@@ -455,15 +449,12 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
 
     const answer = await removePasskeyAction(first);
 
-    assert.deepEqual(
-      {
-        answer: answer,
-        rows: (await passkeyRows()).length,
-        open: [await opens(other.cookie), await opens(own.cookie)],
-        warnings: [...warnings],
-      },
-      { answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] },
-    );
+    expect({
+      answer: answer,
+      rows: (await passkeyRows()).length,
+      open: [await opens(other.cookie), await opens(own.cookie)],
+      warnings: [...warnings],
+    }).toStrictEqual({ answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] });
   });
 
   /* The commit landed and the client timed out before its answer came back: nobody can tell from the
@@ -480,21 +471,18 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
 
     const answer = await removePasskeyAction(first);
 
-    assert.deepEqual(
-      {
-        answer: answer,
-        rows: (await passkeyRows()).length,
-        open: [await opens(other.cookie), await opens(own.cookie)],
+    expect({
+      answer: answer,
+      rows: (await passkeyRows()).length,
+      open: [await opens(other.cookie), await opens(own.cookie)],
+    }).toStrictEqual({
+      answer: {
+        success: false,
+        error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
+        outcome: "unknown",
       },
-      {
-        answer: {
-          success: false,
-          error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
-          outcome: "unknown",
-        },
-        rows: 1,
-        open: [false, true],
-      },
-    );
+      rows: 1,
+      open: [false, true],
+    });
   });
 });

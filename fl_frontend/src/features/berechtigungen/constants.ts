@@ -55,7 +55,7 @@ export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): stri
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
-export const PLAYGROUND_MARKER = "PLAYGROUND";
+const PLAYGROUND_MARKER = "PLAYGROUND";
 
 /** Shown for that marker under „Erteilt von“: the row came from the database, not from an administrator. */
 export const DIREKT_IN_DER_DATENBANK = "Direkt in der Datenbank";

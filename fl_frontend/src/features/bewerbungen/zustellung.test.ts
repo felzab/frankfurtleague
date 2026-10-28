@@ -1,9 +1,7 @@
-import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
 
@@ -57,15 +55,11 @@ const ZIEL_MUTATIONS_DOUBLE = { meldeZielZustellEreignis: reporting(zielCalls, (
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
 const TRACE_DOUBLE = { runWithIncomingTrace: async (fn: () => unknown) => fn() };
 
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG_DOUBLE,
-    "core/logging.ts": LOGGER_DOUBLE,
-    "features/bewerbungen/mutations.ts": MUTATIONS_DOUBLE,
-    "features/zustellung/mutations.ts": ZIEL_MUTATIONS_DOUBLE,
-    "shared/utils/traceScope.ts": TRACE_DOUBLE,
-  },
-});
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+vi.doMock("@/core/logging.ts", () => LOGGER_DOUBLE);
+vi.doMock("@/features/bewerbungen/mutations.ts", () => MUTATIONS_DOUBLE);
+vi.doMock("@/features/zustellung/mutations.ts", () => ZIEL_MUTATIONS_DOUBLE);
+vi.doMock("@/shared/utils/traceScope.ts", () => TRACE_DOUBLE);
 
 const {
   hatUnerreichbarenSitz,
@@ -77,7 +71,7 @@ const {
   zustellungTags,
 } = await import("./zustellung.ts");
 const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
@@ -165,7 +159,7 @@ describe("what one delivery event says about a seat", () => {
       ["email.failed", { failed: { reason: "reached_daily_quota" } }],
     ].map(([type, data]) => bewerbungsMeldung(eventFor(String(type), data as Record<string, unknown>))?.stand);
 
-    assert.deepEqual(readBack, ["zugestellt", "unzustellbar", "unterdrueckt", "beschwerde", "verzoegert", "verzoegert"]);
+    expect(readBack).toStrictEqual(["zugestellt", "unzustellbar", "unterdrueckt", "beschwerde", "verzoegert", "verzoegert"]);
   });
 
   /* A full mailbox and a greylisting server both bounce Temporary. Reading one as permanent stops
@@ -173,8 +167,8 @@ describe("what one delivery event says about a seat", () => {
   it("reads a temporary bounce as trouble rather than as a refusal for good", () => {
     const provisional = bewerbungsMeldung(eventFor("email.bounced", { bounce: { type: "Temporary", subType: "MailboxFull" } }));
 
-    assert.equal(provisional?.stand, "verzoegert");
-    assert.equal(istDauerhaftUnzustellbar(provisional === undefined ? null : { stand: provisional.stand }), false);
+    expect(provisional?.stand).toBe("verzoegert");
+    expect(istDauerhaftUnzustellbar(provisional === undefined ? null : { stand: provisional.stand })).toBe(false);
   });
 
   /* The reason the provider documents for this event is the league's own daily quota, which says
@@ -182,8 +176,8 @@ describe("what one delivery event says about a seat", () => {
   it("does not read a failed send as an address that refuses", () => {
     const failedSend = bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "reached_daily_quota" } }));
 
-    assert.equal(istDauerhaftUnzustellbar(failedSend === undefined ? null : { stand: failedSend.stand }), false);
-    assert.equal(failedSend?.grund, "reached_daily_quota");
+    expect(istDauerhaftUnzustellbar(failedSend === undefined ? null : { stand: failedSend.stand })).toBe(false);
+    expect(failedSend?.grund).toBe("reached_daily_quota");
   });
 
   it("takes the provider's own token as the reason, never its prose", () => {
@@ -191,7 +185,7 @@ describe("what one delivery event says about a seat", () => {
       eventFor("email.bounced", { bounce: { type: "Permanent", subType: "Suppressed", message: `No mailbox for ${ADDRESS}` } }),
     );
 
-    assert.equal(turnedAway?.grund, "Suppressed");
+    expect(turnedAway?.grund).toBe("Suppressed");
     assert.ok(!inspect(turnedAway, { depth: null }).includes(ADDRESS), "the recipient reached the write");
   });
 
@@ -202,10 +196,10 @@ describe("what one delivery event says about a seat", () => {
     const prose = bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "Q".repeat(129) } }));
     const multiLine = bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "quota\nexceeded" } }));
 
-    assert.equal(prose?.stand, "verzoegert");
-    assert.equal(prose?.grund, null);
-    assert.equal(multiLine?.grund, null);
-    assert.equal(bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "Q".repeat(128) } }))?.grund, "Q".repeat(128));
+    expect(prose?.stand).toBe("verzoegert");
+    expect(prose?.grund).toBe(null);
+    expect(multiLine?.grund).toBe(null);
+    expect(bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "Q".repeat(128) } }))?.grund).toBe("Q".repeat(128));
   });
 
   /* Neither is repairable the way a reason is: the message id is what tells a superseded link apart,
@@ -213,11 +207,11 @@ describe("what one delivery event says about a seat", () => {
   it("says nothing where the message id or the instant is one the endpoint refuses", () => {
     const longFraction = `2026-09-08T10:15:00.${"0".repeat(50)}Z`;
 
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { email_id: "x".repeat(129) })), null);
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { email_id: "" })), null);
-    assert.equal(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: "2026-09-08T10:15:00" }), null);
-    assert.equal(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: "2026-09-08" }), null);
-    assert.equal(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: longFraction }), null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { email_id: "x".repeat(129) }))).toBe(null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { email_id: "" }))).toBe(null);
+    expect(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: "2026-09-08T10:15:00" })).toBe(null);
+    expect(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: "2026-09-08" })).toBe(null);
+    expect(leseZustellEreignis({ ...eventFor("email.delivered"), created_at: longFraction })).toBe(null);
   });
 
   /* `datetime.fromisoformat` reads more offset spellings than one UTC `Z`, and refusing the others
@@ -225,42 +219,42 @@ describe("what one delivery event says about a seat", () => {
   it("takes an offset the provider spells as hours and minutes", () => {
     const shifted = bewerbungsMeldung({ ...eventFor("email.delivered"), created_at: "2026-09-08T12:15:00+02:00" });
 
-    assert.equal(shifted?.am, "2026-09-08T12:15:00+02:00");
+    expect(shifted?.am).toBe("2026-09-08T12:15:00+02:00");
   });
 
   it("says nothing about a seat for an event no state is stored for", () => {
-    assert.equal(leseZustellEreignis(eventFor("email.sent")), null);
-    assert.equal(leseZustellEreignis(eventFor("email.opened")), null);
-    assert.equal(leseZustellEreignis(eventFor("contact.created")), null);
+    expect(leseZustellEreignis(eventFor("email.sent"))).toBe(null);
+    expect(leseZustellEreignis(eventFor("email.opened"))).toBe(null);
+    expect(leseZustellEreignis(eventFor("contact.created"))).toBe(null);
   });
 
   /* A message outside every tagged lane, which has no record to hang a state on. */
   it("says nothing for a message this application did not tag", () => {
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: undefined })), null);
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: { anlass: "eingang" } })), null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { tags: undefined }))).toBe(null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { tags: { anlass: "eingang" } }))).toBe(null);
   });
 
   it("refuses a tag block naming something other than an application and its seats", () => {
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: { bewerbung_id: "nicht-hex", rollen: "trainer" } })), null);
-    assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: { bewerbung_id: BEWERBUNG_ID, rollen: "hausmeister" } })), null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { tags: { bewerbung_id: "nicht-hex", rollen: "trainer" } }))).toBe(null);
+    expect(leseZustellEreignis(eventFor("email.delivered", { tags: { bewerbung_id: BEWERBUNG_ID, rollen: "hausmeister" } }))).toBe(null);
   });
 
   /* The guard against a superseded message: a re-send mints a new one, and the backend applies an
      event only where this id is still the seat's. Dropping it here would grade the fresh link. */
   it("carries the event's own message id, which is what tells a superseded message apart", () => {
-    assert.equal(bewerbungsMeldung(eventFor("email.delivered"))?.nachricht_id, MESSAGE_ID);
+    expect(bewerbungsMeldung(eventFor("email.delivered"))?.nachricht_id).toBe(MESSAGE_ID);
   });
 
   /* `data.created_at` is when the MESSAGE was made and repeats on every event about it, so ordering
      on it would make a bounce and the delivery after it indistinguishable. */
   it("orders on the envelope's instant rather than the message's", () => {
-    assert.equal(bewerbungsMeldung(eventFor("email.delivered"))?.am, EVENT_AT);
+    expect(bewerbungsMeldung(eventFor("email.delivered"))?.am).toBe(EVENT_AT);
   });
 
   it("names every seat one message covered, so a mirrored pair moves together", () => {
     const pairedSeat = bewerbungsMeldung(eventFor("email.bounced", { tags: { bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer" } }));
 
-    assert.deepEqual(pairedSeat?.rollen, ["ansprechperson", "trainer"]);
+    expect(pairedSeat?.rollen).toStrictEqual(["ansprechperson", "trainer"]);
   });
 });
 
@@ -273,14 +267,14 @@ describe("which record one event names", () => {
   it("reads a message carrying no target as the application's own", () => {
     const gelesen = leseZustellEreignis(eventFor("email.delivered"));
 
-    assert.equal(gelesen?.ziel, "bewerbung");
+    expect(gelesen?.ziel).toBe("bewerbung");
   });
 
   it("reads a tagged target as the record that target names", () => {
     const gelesen = leseZustellEreignis(zielEvent({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" }));
 
-    assert.equal(gelesen?.ziel, "schiedsrichter");
-    assert.deepEqual(gelesen?.meldung, {
+    assert(gelesen?.ziel === "schiedsrichter", `the event read as ${String(gelesen?.ziel)}`);
+    expect(gelesen.meldung).toStrictEqual({
       ziel: "schiedsrichter",
       ziel_id: ZIEL_ID,
       rollen: [],
@@ -296,8 +290,8 @@ describe("which record one event names", () => {
   it("reads a season row's seats off the message's own tag", () => {
     const gelesen = leseZustellEreignis(zielEvent({ ziel: "kontakt", ziel_id: ZIEL_ID, rollen: "ansprechperson-trainer", anlass: "empfang" }));
 
-    assert.equal(gelesen?.ziel, "kontakt");
-    assert.deepEqual(gelesen?.ziel === "kontakt" ? gelesen.meldung.rollen : undefined, ["ansprechperson", "trainer"]);
+    expect(gelesen?.ziel).toBe("kontakt");
+    expect(gelesen?.ziel === "kontakt" ? gelesen.meldung.rollen : undefined).toStrictEqual(["ansprechperson", "trainer"]);
   });
 
   /* A team's fixture confirmation goes to up to three mailboxes, and its record is kept per seat: read
@@ -307,8 +301,8 @@ describe("which record one event names", () => {
       zielEvent({ ziel: "spielbestaetigung", ziel_id: ZIEL_ID, rollen: "trainer-stellvertretung", anlass: "anfrage" }),
     );
 
-    assert.equal(gelesen?.ziel, "spielbestaetigung");
-    assert.deepEqual(gelesen?.ziel === "spielbestaetigung" ? gelesen.meldung : undefined, {
+    expect(gelesen?.ziel).toBe("spielbestaetigung");
+    expect(gelesen?.ziel === "spielbestaetigung" ? gelesen.meldung : undefined).toStrictEqual({
       ziel: "spielbestaetigung",
       ziel_id: ZIEL_ID,
       rollen: ["trainer", "stellvertretung"],
@@ -326,11 +320,11 @@ describe("which record one event names", () => {
       const tags: Record<string, string> = { ziel: "kontakt", ziel_id: ZIEL_ID, anlass: "empfang" };
       if (rollen !== undefined) tags["rollen"] = rollen;
 
-      assert.deepEqual(
-        leseZustellEreignis(zielEvent(tags)),
-        { ziel: "unplatzierbar", grund: "rollen_unlesbar", art: "kontakt" },
-        `rollen ${String(rollen)} was placed`,
-      );
+      expect(leseZustellEreignis(zielEvent(tags)), `rollen ${String(rollen)} was placed`).toStrictEqual({
+        ziel: "unplatzierbar",
+        grund: "rollen_unlesbar",
+        art: "kontakt",
+      });
     }
   });
 
@@ -339,7 +333,7 @@ describe("which record one event names", () => {
   it("drops a seat tag on a kind that has none", () => {
     const gelesen = leseZustellEreignis(zielEvent({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, rollen: "trainer", anlass: "eingang" }));
 
-    assert.deepEqual(gelesen?.ziel === "schiedsrichter" ? gelesen.meldung.rollen : undefined, []);
+    expect(gelesen?.ziel === "schiedsrichter" ? gelesen.meldung.rollen : undefined).toStrictEqual([]);
   });
 
   /* Read as `null` this is dropped exactly as the untagged sign-in mail is, and a slice's bounces
@@ -348,8 +342,8 @@ describe("which record one event names", () => {
     const ohneId = leseZustellEreignis(zielEvent({ ziel: "schiedsrichter", anlass: "eingang" }));
     const unlesbar = leseZustellEreignis(zielEvent({ ziel: "schiedsrichter", ziel_id: "nicht-hex", anlass: "eingang" }));
 
-    assert.deepEqual(ohneId, { ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: "schiedsrichter" });
-    assert.deepEqual(unlesbar, { ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: "schiedsrichter" });
+    expect(ohneId).toStrictEqual({ ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: "schiedsrichter" });
+    expect(unlesbar).toStrictEqual({ ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: "schiedsrichter" });
   });
 
   /* The tag is a value the provider echoes back from whatever it was handed, so a kind that failed
@@ -358,11 +352,11 @@ describe("which record one event names", () => {
     // „bewerbung“ among them because an application's event is placed by its own id rather than by
     // this tag, so the kind reading like the one this file is about is exactly the one refused here.
     for (const ziel of ["bewerbung", "spieler", "<script>"]) {
-      assert.deepEqual(
-        leseZustellEreignis(zielEvent({ ziel: ziel, ziel_id: ZIEL_ID, anlass: "eingang" })),
-        { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null },
-        `${ziel} was placed`,
-      );
+      expect(leseZustellEreignis(zielEvent({ ziel: ziel, ziel_id: ZIEL_ID, anlass: "eingang" })), `${ziel} was placed`).toStrictEqual({
+        ziel: "unplatzierbar",
+        grund: "ziel_unbekannt",
+        art: null,
+      });
     }
   });
 
@@ -373,7 +367,7 @@ describe("which record one event names", () => {
       zielEvent({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson", anlass: "eingang" }),
     );
 
-    assert.equal(gelesen?.ziel, "schiedsrichter");
+    expect(gelesen?.ziel).toBe("schiedsrichter");
   });
 });
 
@@ -384,13 +378,13 @@ describe("the tags one message rides out with", () => {
      message nobody got and no state anywhere. */
   it("keeps every name and value inside the alphabet the provider admits", () => {
     for (const [name, value] of Object.entries(zustellungTags(delivery))) {
-      assert.match(name, /^[A-Za-z0-9_-]+$/, `the tag name ${name} is outside the provider's alphabet`);
-      assert.match(value, /^[A-Za-z0-9_-]+$/, `the value of ${name} is outside the provider's alphabet`);
+      expect(name, `the tag name ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
+      expect(value, `the value of ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
     }
   });
 
   it("routes an event back by application and seat rather than by the message alone", () => {
-    assert.deepEqual(zustellungTags(delivery), { bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
+    expect(zustellungTags(delivery)).toStrictEqual({ bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
   });
 });
 
@@ -404,29 +398,27 @@ describe("an application holding a seat no message reaches", () => {
 
   it("is marked for any of the three states no further message beats", () => {
     for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
-      assert.equal(
+      expect(
         hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
-        true,
         `${stand} left the row unmarked`,
-      );
+      ).toBe(true);
     }
   });
 
   it("is not marked while the trouble can still clear, or before anything is known", () => {
     for (const stand of ["angenommen", "zugestellt", "verzoegert", null] as const) {
-      assert.equal(
+      expect(
         hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
-        false,
         `${String(stand)} marked the row`,
-      );
+      ).toBe(false);
     }
   });
 
   /* `danger` where the duplicate mark is `warning`: a colliding pair is waited out and an address
      refused for good is not. Never grey (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("is marked in the queue's own words, at a tone a reader can act on", () => {
-    assert.equal(ZUSTELLUNG_QUEUE_TINT, "danger");
-    assert.equal(ZUSTELLUNG_QUEUE_LABEL, "Kontakt unerreichbar");
+    expect(ZUSTELLUNG_QUEUE_TINT).toBe("danger");
+    expect(ZUSTELLUNG_QUEUE_LABEL).toBe("Kontakt unerreichbar");
   });
 });
 
@@ -438,28 +430,28 @@ describe("what a seat's row says about the last message to it", () => {
       .filter(([, chip]) => chip === null)
       .map(([stand]) => stand);
 
-    assert.deepEqual(withoutChip, ["angenommen", "zugestellt"]);
-    assert.equal(Object.values(ZUSTELLUNG_CHIP).filter((chip) => chip !== null).length, 4);
+    expect(withoutChip).toStrictEqual(["angenommen", "zugestellt"]);
+    expect(Object.values(ZUSTELLUNG_CHIP).filter((chip) => chip !== null).length).toBe(4);
   });
 
   /* The ban list's verb names an act on an address; this chip names a message the provider refused,
      so an administrator meeting „gesperrt“ here would look the address up in a Sperrliste that
      never held it. */
   it("names the provider's suppression as the message's fate rather than in the ban list's verb", () => {
-    assert.equal(ZUSTELLUNG_CHIP.unterdrueckt?.label, "Zustellung blockiert");
+    expect(ZUSTELLUNG_CHIP.unterdrueckt?.label).toBe("Zustellung blockiert");
 
     for (const chip of Object.values(ZUSTELLUNG_CHIP)) {
-      assert.doesNotMatch(chip?.label ?? "", /gesperrt/i, `a chip wears the ban list's verb: ${chip?.label ?? ""}`);
+      expect(chip?.label ?? "", `a chip wears the ban list's verb: ${chip?.label ?? ""}`).not.toMatch(/gesperrt/i);
     }
   });
 
   /* One label for the temporary bounce and the failed send both, because neither is the address
      refusing for good and the administrator can act on neither differently. */
   it("grades the trouble that can still clear apart from the three that cannot", () => {
-    assert.equal(ZUSTELLUNG_CHIP.verzoegert?.tone, "warning");
+    expect(ZUSTELLUNG_CHIP.verzoegert?.tone).toBe("warning");
 
     for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
-      assert.equal(ZUSTELLUNG_CHIP[stand]?.tone, "danger", `${stand} is graded as trouble that clears`);
+      expect(ZUSTELLUNG_CHIP[stand]?.tone, `${stand} is graded as trouble that clears`).toBe("danger");
     }
   });
 });
@@ -468,12 +460,12 @@ describe("POST /api/mail/zustellung", () => {
   it("applies a correctly signed event and answers 200", async () => {
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.bounced", { bounce: { type: "Permanent" } }))));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: ["ansprechperson"] });
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0]?.["stand"], "unzustellbar");
-    assert.equal(calls[0]?.["bewerbung_id"], BEWERBUNG_ID);
-    assert.deepEqual(zielCalls, [], "an untagged event reached the generic endpoint");
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: ["ansprechperson"] });
+    expect(calls.length).toBe(1);
+    expect(calls[0]?.["stand"]).toBe("unzustellbar");
+    expect(calls[0]?.["bewerbung_id"]).toBe(BEWERBUNG_ID);
+    expect(zielCalls, "an untagged event reached the generic endpoint").toStrictEqual([]);
   });
 
   /* The two endpoints judge one provider's message against two different records, so a misrouted
@@ -486,11 +478,11 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(tagged)));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: true });
-    assert.deepEqual(calls, [], "a tagged event reached the application's endpoint");
-    assert.equal(zielCalls[0]?.["ziel_id"], ZIEL_ID);
-    assert.equal(zielCalls[0]?.["stand"], "unzustellbar");
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: true });
+    expect(calls, "a tagged event reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls[0]?.["ziel_id"]).toBe(ZIEL_ID);
+    expect(zielCalls[0]?.["stand"]).toBe("unzustellbar");
   });
 
   /* 200 because no retry repairs it, and a LINE because the alternative is a drop indistinguishable
@@ -500,14 +492,14 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(unplatzierbar)));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, []);
-    assert.deepEqual(zielCalls, []);
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-006");
-    assert.equal(logs[0]?.meta?.["grund"], "ziel_id_unlesbar");
-    assert.equal(logs[0]?.meta?.["ziel"], "schiedsrichter");
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls).toStrictEqual([]);
+    expect(zielCalls).toStrictEqual([]);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-006");
+    expect(logs[0]?.meta?.["grund"]).toBe("ziel_id_unlesbar");
+    expect(logs[0]?.meta?.["ziel"]).toBe("schiedsrichter");
   });
 
   /* The tag is a value the provider echoes back from whatever it was handed, so a kind outside the
@@ -517,9 +509,9 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status } = await answerTo(signed(JSON.stringify(fremd)));
 
-    assert.equal(status, 200);
-    assert.equal(logs[0]?.meta?.["grund"], "ziel_unbekannt");
-    assert.equal(logs[0]?.meta?.["ziel"], undefined);
+    expect(status).toBe(200);
+    expect(logs[0]?.meta?.["grund"]).toBe("ziel_unbekannt");
+    expect(logs[0]?.meta?.["ziel"]).toBe(undefined);
     assert.ok(!inspect(logs, { depth: null }).includes("<script>"), "the reported kind reached the stream");
   });
 
@@ -534,17 +526,17 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, [], "the sign-in lane reached the application's endpoint");
-    assert.deepEqual(zielCalls, [], "the sign-in lane reached the generic endpoint");
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls, "the sign-in lane reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls, "the sign-in lane reached the generic endpoint").toStrictEqual([]);
 
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.level, "warn");
-    assert.equal(logs[0]?.message, "mail.anmeldecode_nicht_zugestellt");
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-007");
-    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
-    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.level).toBe("warn");
+    expect(logs[0]?.message).toBe("mail.anmeldecode_nicht_zugestellt");
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-007");
+    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
+    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -555,9 +547,9 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(logs, []);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(logs).toStrictEqual([]);
   });
 
   /* The notice telling every holder who administers: its outbox row is gone once stamped, so a holder it
@@ -567,21 +559,21 @@ describe("POST /api/mail/zustellung", () => {
       eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { berechtigung: "hinweis" } });
 
     const zugestellt = await answerTo(signed(JSON.stringify(eventFor("email.delivered", { tags: { berechtigung: "hinweis" } }))));
-    assert.equal(logs.length, 0, "a delivered notice wrote a line");
+    expect(logs.length, "a delivered notice wrote a line").toBe(0);
 
     const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
 
-    assert.equal(zugestellt.status, 200);
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, [], "the notice lane reached the application's endpoint");
-    assert.deepEqual(zielCalls, [], "the notice lane reached the generic endpoint");
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.level, "warn");
-    assert.equal(logs[0]?.message, "mail.berechtigungshinweis_nicht_zugestellt");
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-010");
-    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
-    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    expect(zugestellt.status).toBe(200);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls, "the notice lane reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls, "the notice lane reached the generic endpoint").toStrictEqual([]);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.level).toBe("warn");
+    expect(logs[0]?.message).toBe("mail.berechtigungshinweis_nicht_zugestellt");
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-010");
+    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
+    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -590,21 +582,21 @@ describe("POST /api/mail/zustellung", () => {
     const notiz = (type: string) => eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { saisonende: "notiz" } });
 
     const zugestellt = await answerTo(signed(JSON.stringify(notiz("email.delivered"))));
-    assert.equal(logs.length, 0, "a delivered note wrote a line");
+    expect(logs.length, "a delivered note wrote a line").toBe(0);
 
     const { status, body } = await answerTo(signed(JSON.stringify(notiz("email.bounced"))));
 
-    assert.equal(zugestellt.status, 200);
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, [], "the note's lane reached the application's endpoint");
-    assert.deepEqual(zielCalls, [], "the note's lane reached the generic endpoint");
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.level, "warn");
-    assert.equal(logs[0]?.message, "mail.saisonendenotiz_nicht_zugestellt");
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-013");
-    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
-    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    expect(zugestellt.status).toBe(200);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls, "the note's lane reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls, "the note's lane reached the generic endpoint").toStrictEqual([]);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.level).toBe("warn");
+    expect(logs[0]?.message).toBe("mail.saisonendenotiz_nicht_zugestellt");
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-013");
+    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
+    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -615,21 +607,21 @@ describe("POST /api/mail/zustellung", () => {
       eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { spielleitung: "hinweis" } });
 
     const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
-    assert.equal(logs.length, 0, "a delivered message wrote a line");
+    expect(logs.length, "a delivered message wrote a line").toBe(0);
 
     const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
 
-    assert.equal(zugestellt.status, 200);
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, [], "the referee's lane reached the application's endpoint");
-    assert.deepEqual(zielCalls, [], "the referee's lane reached the generic endpoint");
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.level, "warn");
-    assert.equal(logs[0]?.message, "mail.spielleitung_nicht_zugestellt");
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-014");
-    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
-    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    expect(zugestellt.status).toBe(200);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls, "the referee's lane reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls, "the referee's lane reached the generic endpoint").toStrictEqual([]);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.level).toBe("warn");
+    expect(logs[0]?.message).toBe("mail.spielleitung_nicht_zugestellt");
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-014");
+    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
+    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -640,21 +632,21 @@ describe("POST /api/mail/zustellung", () => {
       eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { kontakt_abgang: "hinweis" } });
 
     const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
-    assert.equal(logs.length, 0, "a delivered notice wrote a line");
+    expect(logs.length, "a delivered notice wrote a line").toBe(0);
 
     const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
 
-    assert.equal(zugestellt.status, 200);
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, [], "the leaving notice's lane reached the application's endpoint");
-    assert.deepEqual(zielCalls, [], "the leaving notice's lane reached the generic endpoint");
-    assert.equal(logs.length, 1);
-    assert.equal(logs[0]?.level, "warn");
-    assert.equal(logs[0]?.message, "mail.kontakt_abgang_nicht_zugestellt");
-    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-015");
-    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
-    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    expect(zugestellt.status).toBe(200);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls, "the leaving notice's lane reached the application's endpoint").toStrictEqual([]);
+    expect(zielCalls, "the leaving notice's lane reached the generic endpoint").toStrictEqual([]);
+    expect(logs.length).toBe(1);
+    expect(logs[0]?.level).toBe("warn");
+    expect(logs[0]?.message).toBe("mail.kontakt_abgang_nicht_zugestellt");
+    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-015");
+    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
+    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -665,8 +657,8 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(tagged)));
 
-    assert.equal(status, 200, "a settled event was sent back for thirty-two hours of retries");
-    assert.deepEqual(body, { angewendet: false });
+    expect(status, "a settled event was sent back for thirty-two hours of retries").toBe(200);
+    expect(body).toStrictEqual({ angewendet: false });
   });
 
   /* 400 and not 503: a forgery is not worth the provider's thirty-two hours of retries, and the
@@ -680,8 +672,8 @@ describe("POST /api/mail/zustellung", () => {
       new NextRequest("http://localhost/api/mail/zustellung", { method: "POST", headers: request.headers, body: forged }),
     );
 
-    assert.equal(status, 400);
-    assert.deepEqual(calls, []);
+    expect(status).toBe(400);
+    expect(calls).toStrictEqual([]);
   });
 
   /* The signature is over the bytes the provider sent: parsed first and re-serialised, a body written
@@ -693,8 +685,8 @@ describe("POST /api/mail/zustellung", () => {
       new NextRequest("http://localhost/api/mail/zustellung", { method: "POST", headers: request.headers, body: "{ kein json" }),
     );
 
-    assert.equal(spaced.status, 200, "a genuine event written with other whitespace is refused as a forgery");
-    assert.equal(unreadable.status, 400, "an unverified body is parsed before it is refused");
+    expect(spaced.status, "a genuine event written with other whitespace is refused as a forgery").toBe(200);
+    expect(unreadable.status, "an unverified body is parsed before it is refused").toBe(400);
   });
 
   it("answers 400 for a signature that is not this secret's", async () => {
@@ -706,8 +698,8 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered")), { headers: { "svix-signature": foreignId } }));
 
-    assert.equal(status, 400);
-    assert.deepEqual(calls, []);
+    expect(status).toBe(400);
+    expect(calls).toStrictEqual([]);
   });
 
   /* A deployment other than production holds no key, the provider sending it nothing: a signed event
@@ -718,25 +710,22 @@ describe("POST /api/mail/zustellung", () => {
     try {
       const { status } = await answerTo(request);
 
-      assert.equal(status, 400);
+      expect(status).toBe(400);
     } finally {
       heldSecret = webhookSecret;
     }
-    assert.deepEqual(calls, []);
-    assert.deepEqual(
-      logs.map(({ message, meta }) => [message, meta?.error_code]),
-      [["mail.zustellung_unsigniert", "FE-MAIL-003"]],
-    );
+    expect(calls).toStrictEqual([]);
+    expect(logs.map(({ message, meta }) => [message, meta?.error_code])).toStrictEqual([["mail.zustellung_unsigniert", "FE-MAIL-003"]]);
   });
 
   it("answers 400 with any one of the three signing headers missing", async () => {
     for (const missingField of ["svix-id", "svix-timestamp", "svix-signature"]) {
       const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered")), { headers: { [missingField]: "" } }));
 
-      assert.equal(status, 400, `a request without ${missingField} was accepted`);
+      expect(status, `a request without ${missingField} was accepted`).toBe(400);
     }
 
-    assert.deepEqual(calls, []);
+    expect(calls).toStrictEqual([]);
   });
 
   /* The verifier's own tolerance is five minutes either way, read from the installed
@@ -746,16 +735,16 @@ describe("POST /api/mail/zustellung", () => {
     const justUnder = await answerTo(signed(JSON.stringify(eventFor("email.delivered")), { alter: 4 * 60 * 1000 }));
     const tooOld = await answerTo(signed(JSON.stringify(eventFor("email.delivered")), { alter: 6 * 60 * 1000 }));
 
-    assert.equal(justUnder.status, 200, "a signature inside the tolerance was refused");
-    assert.equal(tooOld.status, 400);
+    expect(justUnder.status, "a signature inside the tolerance was refused").toBe(200);
+    expect(tooOld.status).toBe(400);
   });
 
   it("answers 200 and writes nothing for a message this application never tagged", async () => {
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered", { tags: undefined }))));
 
-    assert.equal(status, 200);
-    assert.deepEqual(body, { angewendet: [] });
-    assert.deepEqual(calls, []);
+    expect(status).toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
+    expect(calls).toStrictEqual([]);
   });
 
   it("answers 200 where the backend applied the event to no seat", async () => {
@@ -763,8 +752,8 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
-    assert.equal(status, 200, "a settled event was sent back for thirty-two hours of retries");
-    assert.deepEqual(body, { angewendet: [] });
+    expect(status, "a settled event was sent back for thirty-two hours of retries").toBe(200);
+    expect(body).toStrictEqual({ angewendet: [] });
   });
 
   /* The retention sweep erases an application while its last message's events are still in flight.
@@ -776,11 +765,10 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
-    assert.equal(status, 200);
-    assert.deepEqual(
-      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
-      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
-    );
+    expect(status).toBe(200);
+    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
+      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
+    ]);
   });
 
   it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
@@ -792,11 +780,10 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status } = await answerTo(signed(JSON.stringify(tagged)));
 
-    assert.equal(status, 200);
-    assert.deepEqual(
-      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
-      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
-    );
+    expect(status).toBe(200);
+    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
+      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
+    ]);
   });
 
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
@@ -819,7 +806,7 @@ describe("POST /api/mail/zustellung", () => {
       return (await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status;
     };
 
-    assert.equal(await answered(409, "DB-COMMON-002")(), 200, "an event the store already holds was sent back");
+    expect(await answered(409, "DB-COMMON-002")(), "an event the store already holds was sent back").toBe(200);
     for (const [statusCode, code] of [
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
@@ -827,7 +814,7 @@ describe("POST /api/mail/zustellung", () => {
       [401, "REQ-AUTH-003"],
       [422, "REQ-VAL-001"],
     ] as const) {
-      assert.equal(await answered(statusCode, code)(), 503, `${String(code)} at ${String(statusCode)} settled the event`);
+      expect(await answered(statusCode, code)(), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);
     }
   });
 
@@ -847,8 +834,8 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
-    assert.equal(status, 503);
-    assert.deepEqual(body, { error: "backend" });
+    expect(status).toBe(503);
+    expect(body).toStrictEqual({ error: "backend" });
   });
 
   /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
@@ -859,8 +846,8 @@ describe("POST /api/mail/zustellung", () => {
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
-    assert.equal(status, 503);
-    assert.deepEqual(body, { error: "backend" });
+    expect(status).toBe(503);
+    expect(body).toStrictEqual({ error: "backend" });
   });
 
   it("answers 503 where the backend answered a server error", async () => {
@@ -876,7 +863,7 @@ describe("POST /api/mail/zustellung", () => {
       });
     };
 
-    assert.equal((await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status, 503);
+    expect((await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status).toBe(503);
   });
 
   /* `docs/logging/spec.md :: L9`, and the tag block carries the application id besides. Asserted over
@@ -900,6 +887,6 @@ describe("POST /api/mail/zustellung", () => {
     const written = inspect(logs, { depth: null });
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(BEWERBUNG_ID), "an application id reached the stream");
-    for (const line of logs) assert.equal(line.meta?.["error_code"], "FE-MAIL-003");
+    for (const line of logs) expect(line.meta?.["error_code"]).toBe("FE-MAIL-003");
   });
 });

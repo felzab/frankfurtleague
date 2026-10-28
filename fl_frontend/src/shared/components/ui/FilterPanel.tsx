@@ -188,15 +188,7 @@ type FilterPanelContent<TItem> = {
  * The scroller and its cells, for a host that brings its own dialog and width — `FilterPanel` is a `Popover.Dialog`, so a host
  * that is already one would nest a second dialog inside the first.
  */
-export function FilterPanelBody<TItem>({
-  facets,
-  shown = facets,
-  items,
-  facetCounts,
-  selection,
-  onSelect,
-  onClear,
-}: FilterPanelContent<TItem>) {
+function FilterPanelBody<TItem>({ facets, shown = facets, items, facetCounts, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
   return (
     <div className="scrollbar-line max-h-[70dvh] overflow-x-hidden overflow-y-auto p-3">
       {/* No `items-start`: the default cross-axis stretch equalises each line's cells, and it is per line. */}

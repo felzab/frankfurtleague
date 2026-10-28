@@ -9,7 +9,7 @@ import { logger } from "./logging";
  * Every tag a caller of `fl_frontend/src/app/api/revalidate/route.ts` may name, and no other: the base tag of each
  * cached league read (`docs/frontend/spec.md` §1.2). A granular tag rides on its base tag's entries, so the base clears it.
  */
-export const REVALIDATION_TAGS = ["saisons", "spiele", "spieler", "spieltage", "teams"] as const;
+const REVALIDATION_TAGS = ["saisons", "spiele", "spieler", "spieltage", "teams"] as const;
 
 type RevalidationTag = (typeof REVALIDATION_TAGS)[number];
 

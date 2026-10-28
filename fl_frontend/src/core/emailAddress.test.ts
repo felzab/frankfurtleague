@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareMailbox, withAsciiDomain } from "@/core/emailAddress";
@@ -22,13 +21,13 @@ const hostOf = (middle: string): string => `person@x${middle}y.de`;
 
 describe("the host alphabet an address is held to", () => {
   it("takes a plain host, so a refusal below is the alphabet and not the function refusing everything", () => {
-    assert.equal(isDeliverableAddress("person@xy.de"), true);
+    expect(isDeliverableAddress("person@xy.de")).toBe(true);
     assert.ok(TAKEN.length > 0 && REFUSED_PAST_THE_URL.length > 0, "a table is empty, so this case compares nothing");
   });
 
   it("takes a hyphen, a dot and a character above ASCII", () => {
     for (const middle of TAKEN) {
-      assert.equal(isDeliverableAddress(hostOf(middle)), true, `expected a host carrying ${JSON.stringify(middle)} to be deliverable`);
+      expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be deliverable`).toBe(true);
     }
   });
 
@@ -36,14 +35,14 @@ describe("the host alphabet an address is held to", () => {
      accepted, because every check after the alphabet reads the host `new URL` already cleaned. */
   it("refuses what survives the URL parse to reach a later check as a different host", () => {
     for (const middle of REFUSED_PAST_THE_URL) {
-      assert.equal(isDeliverableAddress(hostOf(middle)), false, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+      expect(isDeliverableAddress(hostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(false);
     }
   });
 
   /* One character class cannot backtrack, so a host of nothing but hyphens answers rather than
      hangs. The runner's own timeout is what a regression here would trip. */
   it("answers on a host of twenty thousand hyphens", () => {
-    assert.equal(isDeliverableAddress(`person@${"-".repeat(20000)} .de`), false);
+    expect(isDeliverableAddress(`person@${"-".repeat(20000)} .de`)).toBe(false);
   });
 });
 
@@ -54,8 +53,8 @@ const umlautAddressOf = (pad: number): string => `${"a".repeat(64)}@${"müller."
    octets rather than six characters: read as typed, the refused one is ninety characters short. */
 describe("the whole-address ceiling an umlaut domain reaches", () => {
   it("takes the address whose punycoded form is 254 octets and refuses the one at 255", () => {
-    assert.equal(isDeliverableAddress(umlautAddressOf(4)), true);
-    assert.equal(isDeliverableAddress(umlautAddressOf(5)), false);
+    expect(isDeliverableAddress(umlautAddressOf(4))).toBe(true);
+    expect(isDeliverableAddress(umlautAddressOf(5))).toBe(false);
     assert.ok(umlautAddressOf(5).length < 254, "the refused address is already over the ceiling as typed, so this compares nothing");
   });
 
@@ -64,9 +63,9 @@ describe("the whole-address ceiling an umlaut domain reaches", () => {
   it("refuses an address whose typed form alone passes the ceiling in UTF-8 octets", () => {
     const address = `a@${Array.from({ length: 3 }, () => "ä".repeat(57)).join(".")}.de`;
 
-    assert.equal(new TextEncoder().encode(address).length, 349);
+    expect(new TextEncoder().encode(address).length).toBe(349);
     assert.ok(address.length < 254, "the address is over the ceiling in characters, so this compares nothing");
-    assert.equal(isDeliverableAddress(address), false);
+    expect(isDeliverableAddress(address)).toBe(false);
   });
 });
 
@@ -82,19 +81,19 @@ const BEYOND_ASCII = [
 describe("a local part above ASCII", () => {
   it("is refused wherever the character stands, and worded apart from every other refusal", () => {
     for (const address of BEYOND_ASCII) {
-      assert.equal(isDeliverableAddress(address), false, `expected ${JSON.stringify(address)} to be refused`);
-      assert.equal(hasAsciiLocalPart(address), false, `expected ${JSON.stringify(address)} to be worded as its local part`);
+      expect(isDeliverableAddress(address), `expected ${JSON.stringify(address)} to be refused`).toBe(false);
+      expect(hasAsciiLocalPart(address), `expected ${JSON.stringify(address)} to be worded as its local part`).toBe(false);
     }
   });
 
   /* The control: a rule refusing every character above ASCII fails here rather than passing the case above. */
   it("is told apart from one whose domain alone is above ASCII", () => {
-    assert.equal(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`), true);
-    assert.equal(hasAsciiLocalPart(`anna@m${String.fromCodePoint(0xfc)}ller.de`), true);
+    expect(isDeliverableAddress(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(true);
+    expect(hasAsciiLocalPart(`anna@m${String.fromCodePoint(0xfc)}ller.de`)).toBe(true);
   });
 
   it("leaves a value without an at sign to the generic refusal", () => {
-    assert.equal(hasAsciiLocalPart(`j${String.fromCodePoint(0xfc)}rgen`), true);
+    expect(hasAsciiLocalPart(`j${String.fromCodePoint(0xfc)}rgen`)).toBe(true);
   });
 });
 
@@ -114,10 +113,10 @@ describe("the address table the API is held to as well", () => {
       const { stored, folded } = row.frontend ?? row;
       // Trimmed first, as the address box trims before the rule reads the value.
       const typed = row.typed.trim();
-      assert.equal(isDeliverableAddress(typed), stored !== null);
-      assert.equal(asSignInIdentifier(row.typed), folded);
+      expect(isDeliverableAddress(typed)).toBe(stored !== null);
+      expect(asSignInIdentifier(row.typed)).toBe(folded);
       // The API stores the fold itself, so the address this side folds meets the stored row by equality.
-      if (stored !== null) assert.equal(asSignInIdentifier(typed), stored);
+      if (stored !== null) expect(asSignInIdentifier(typed)).toBe(stored);
     });
   }
 });
@@ -134,7 +133,7 @@ const REFUSED_BY_THE_PARSE = [" ", ":"];
 
 describe("the domain the conversion is willing to rewrite", () => {
   it("converts a host above ASCII, so a refusal below is the alphabet and not the function refusing everything", () => {
-    assert.equal(withAsciiDomain("person@münchen.de"), "person@xn--mnchen-3ya.de");
+    expect(withAsciiDomain("person@münchen.de")).toBe("person@xn--mnchen-3ya.de");
     assert.ok(ANSWERED_AS_ANOTHER_HOST.length > 0 && REFUSED_BY_THE_PARSE.length > 0, "a table is empty, so a case below compares nothing");
   });
 
@@ -142,13 +141,13 @@ describe("the domain the conversion is willing to rewrite", () => {
      typed -- `xü` alone for the punctuation, `xüy.de` for the rest -- and the message goes there. */
   it("refuses a host the parse would answer a different name on", () => {
     for (const middle of ANSWERED_AS_ANOTHER_HOST) {
-      assert.equal(withAsciiDomain(convertedHostOf(middle)), undefined, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+      expect(withAsciiDomain(convertedHostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(undefined);
     }
   });
 
   it("refuses a host the parse throws over too", () => {
     for (const middle of REFUSED_BY_THE_PARSE) {
-      assert.equal(withAsciiDomain(convertedHostOf(middle)), undefined, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+      expect(withAsciiDomain(convertedHostOf(middle)), `expected a host carrying ${JSON.stringify(middle)} to be refused`).toBe(undefined);
     }
   });
 });
@@ -176,7 +175,7 @@ describe("one bare mailbox, the only recipient the mailer takes", () => {
 
   for (const [what, spelled] of AROUND_A_MAILBOX) {
     it(`refuses ${what}`, () => {
-      assert.equal(isOneBareMailbox(spelled), false);
+      expect(isOneBareMailbox(spelled)).toBe(false);
     });
   }
 
@@ -190,7 +189,7 @@ describe("one bare mailbox, the only recipient the mailer takes", () => {
       "vorstand@münchen-schule.de",
       "jörg@schule.de",
     ]) {
-      assert.equal(isOneBareMailbox(address), true, address);
+      expect(isOneBareMailbox(address), address).toBe(true);
     }
   });
 });

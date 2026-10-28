@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { inlineBannersAt, resolveBlockingBanners, resolveRailBanners } from "./railBanner.ts";
 
@@ -27,19 +26,19 @@ describe("resolveRailBanners", () => {
   it("sorts danger before warning before info", () => {
     const resolved = resolveRailBanners([banner("i", "info"), banner("w", "warning"), banner("d", "danger")]);
 
-    assert.deepEqual(ids(resolved), ["d", "w", "i"]);
+    expect(ids(resolved)).toStrictEqual(["d", "w", "i"]);
   });
 
   it("keeps the authoring order within one severity", () => {
     const resolved = resolveRailBanners([banner("first", "info"), banner("second", "info"), banner("third", "info")]);
 
-    assert.deepEqual(ids(resolved), ["first", "second", "third"]);
+    expect(ids(resolved)).toStrictEqual(["first", "second", "third"]);
   });
 
   it("drops a banner a survivor supersedes", () => {
     const resolved = resolveRailBanners([banner("general", "info"), banner("specific", "warning", ["general"])]);
 
-    assert.deepEqual(ids(resolved), ["specific"]);
+    expect(ids(resolved)).toStrictEqual(["specific"]);
   });
 
   it("fires an equal-severity edge whichever way round the editor authored the pair", () => {
@@ -48,57 +47,57 @@ describe("resolveRailBanners", () => {
     const generalFirst = resolveRailBanners([banner("general", "info"), banner("specific", "info", ["general"])]);
     const specificFirst = resolveRailBanners([banner("specific", "info", ["general"]), banner("general", "info")]);
 
-    assert.deepEqual(ids(generalFirst), ["specific"]);
-    assert.deepEqual(ids(specificFirst), ["specific"]);
+    expect(ids(generalFirst)).toStrictEqual(["specific"]);
+    expect(ids(specificFirst)).toStrictEqual(["specific"]);
   });
 
   it("does not let a milder banner silence a more severe one", () => {
     const resolved = resolveRailBanners([banner("loud", "danger"), banner("quiet", "info", ["loud"])]);
 
-    assert.deepEqual(ids(resolved), ["loud", "quiet"]);
+    expect(ids(resolved)).toStrictEqual(["loud", "quiet"]);
   });
 
   it("does not reorder a self-naming banner ahead of its equals", () => {
     const resolved = resolveRailBanners([banner("first", "info"), banner("second", "info", ["second"])]);
 
-    assert.deepEqual(ids(resolved), ["first", "second"]);
+    expect(ids(resolved)).toStrictEqual(["first", "second"]);
   });
 
   it("keeps a superseded banner when its suppressor is absent", () => {
     const resolved = resolveRailBanners([banner("general", "info")]);
 
-    assert.deepEqual(ids(resolved), ["general"]);
+    expect(ids(resolved)).toStrictEqual(["general"]);
   });
 
   it("is not transitive through a dropped banner", () => {
     // B is gone, so C is not redundant: only what is on screen can make something else redundant.
     const resolved = resolveRailBanners([banner("a", "danger", ["b"]), banner("b", "warning", ["c"]), banner("c", "info")]);
 
-    assert.deepEqual(ids(resolved), ["a", "c"]);
+    expect(ids(resolved)).toStrictEqual(["a", "c"]);
   });
 
   it("resolves a two-member cycle to the more severe member, dropping neither pair silently", () => {
     const resolved = resolveRailBanners([banner("mild", "info", ["severe"]), banner("severe", "danger", ["mild"])]);
 
-    assert.deepEqual(ids(resolved), ["severe"]);
+    expect(ids(resolved)).toStrictEqual(["severe"]);
   });
 
   it("resolves a same-severity cycle to the earlier-authored member", () => {
     const resolved = resolveRailBanners([banner("earlier", "info", ["later"]), banner("later", "info", ["earlier"])]);
 
-    assert.deepEqual(ids(resolved), ["earlier"]);
+    expect(ids(resolved)).toStrictEqual(["earlier"]);
   });
 
   it("lets a banner name itself without dropping itself", () => {
     const resolved = resolveRailBanners([banner("self", "warning", ["self"])]);
 
-    assert.deepEqual(ids(resolved), ["self"]);
+    expect(ids(resolved)).toStrictEqual(["self"]);
   });
 
   it("treats an id no banner carries as a no-op", () => {
     const resolved = resolveRailBanners([banner("only", "info", ["a-banner-from-another-editor"])]);
 
-    assert.deepEqual(ids(resolved), ["only"]);
+    expect(ids(resolved)).toStrictEqual(["only"]);
   });
 
   it("leaves the input untouched", () => {
@@ -106,7 +105,7 @@ describe("resolveRailBanners", () => {
 
     resolveRailBanners(input);
 
-    assert.deepEqual(ids(input), ["i", "d"]);
+    expect(ids(input)).toStrictEqual(["i", "d"]);
   });
 });
 
@@ -115,7 +114,7 @@ describe("resolveBlockingBanners", () => {
   const blockingOf = (banners: readonly RailBanner[]): readonly RailBanner[] => {
     const blocking = resolveBlockingBanners(banners);
 
-    assert.notEqual(blocking, null, "expected these banners to stop a save");
+    expect(blocking, "expected these banners to stop a save").not.toBe(null);
     return blocking ?? [];
   };
 
@@ -124,22 +123,22 @@ describe("resolveBlockingBanners", () => {
 
     // Null rather than an empty list is what makes "open the dialog" and "there is something to show"
     // one answer — the modal takes this value and cannot be handed a list with nothing in it.
-    assert.equal(clean, null);
+    expect(clean).toBe(null);
   });
 
   it("returns the warning itself, so the dialog lists what it is asking about", () => {
     const blocking = blockingOf([banner("standing-fact", "info"), banner("name-changed", "warning")]);
 
-    assert.deepEqual(ids(blocking), ["name-changed"]);
-    assert.equal(blocking[0]?.title, "name-changed");
+    expect(ids(blocking)).toStrictEqual(["name-changed"]);
+    expect(blocking[0]?.title).toBe("name-changed");
   });
 
   it("keeps a danger ahead of a warning, as the rail shows them", () => {
-    assert.deepEqual(ids(blockingOf([banner("w", "warning"), banner("d", "danger")])), ["d", "w"]);
+    expect(ids(blockingOf([banner("w", "warning"), banner("d", "danger")]))).toStrictEqual(["d", "w"]);
   });
 
   it("drops a warning a surviving banner supersedes, so one situation is never asked about twice", () => {
-    assert.deepEqual(ids(blockingOf([banner("general", "warning"), banner("specific", "warning", ["general"])])), ["specific"]);
+    expect(ids(blockingOf([banner("general", "warning"), banner("specific", "warning", ["general"])]))).toStrictEqual(["specific"]);
   });
 
   it("never confirms a situation the save did not cause, however grave it is", () => {
@@ -147,7 +146,7 @@ describe("resolveBlockingBanners", () => {
     // every unrelated edit, forever. Severity is what it looks like; `raisedBy` is what it asks.
     const standing = resolveBlockingBanners([banner("hand-set-slot", "danger", undefined, "state")]);
 
-    assert.equal(standing, null);
+    expect(standing).toBe(null);
   });
 
   it("asks about the consequence and not the company it keeps", () => {
@@ -155,13 +154,13 @@ describe("resolveBlockingBanners", () => {
 
     // The danger outranks the warning on the rail and still says nothing here, so the dialog names
     // the one thing this save does rather than leading with the loudest thing on the page.
-    assert.deepEqual(ids(blocking), ["kickoff-moved"]);
+    expect(ids(blocking)).toStrictEqual(["kickoff-moved"]);
   });
 
   it("leaves a standing banner its severity, which is what the rail paints", () => {
     const [first] = resolveRailBanners([banner("hand-set-slot", "danger", undefined, "state")]);
 
-    assert.equal(first?.severity, "danger");
+    expect(first?.severity).toBe("danger");
   });
 
   it("leaves the input untouched", () => {
@@ -169,7 +168,7 @@ describe("resolveBlockingBanners", () => {
 
     resolveBlockingBanners(input);
 
-    assert.deepEqual(ids(input), ["i", "d"]);
+    expect(ids(input)).toStrictEqual(["i", "d"]);
   });
 });
 
@@ -178,7 +177,7 @@ describe("inlineBannersAt", () => {
     const at = (id: string, spot: string | null): RailBanner => ({ ...banner(id, "info"), inline: spot });
     const banners = [at("one", "absage"), at("two", null), at("three", "absage")];
 
-    assert.deepEqual(ids(inlineBannersAt(banners, "absage")), ["one", "three"]);
+    expect(ids(inlineBannersAt(banners, "absage"))).toStrictEqual(["one", "three"]);
   });
 
   it("does not suppress a banner the rail's list would drop", () => {
@@ -187,6 +186,6 @@ describe("inlineBannersAt", () => {
     const general: RailBanner = { ...banner("general", "info"), inline: "saison" };
     const specific: RailBanner = { ...banner("specific", "warning", ["general"]), inline: "saison" };
 
-    assert.deepEqual(ids(inlineBannersAt([general, specific], "saison")), ["general", "specific"]);
+    expect(ids(inlineBannersAt([general, specific], "saison"))).toStrictEqual(["general", "specific"]);
   });
 });

@@ -8,14 +8,6 @@ import { buildRefusal } from "@/shared/utils/refusal";
  */
 export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
 
-/**
- * Retyped from `fl_backend/app/shared/schemas/bounds.py` for the privacy notice, `SPERRE_DAUER_HINWEIS`
- * and the ban list's sidemenu note, which state the ban's length in a word. The notice's render test
- * holds all three words to this number.
- * @internal
- */
-export const SPERRE_DAUER_SAISONS = 5;
-
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SPERRLISTE_CRUD_COPY = {
   // The reason and the administrator are what a row carries, so they are what the bar can reach: the

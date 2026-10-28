@@ -274,7 +274,7 @@ export async function sendBewerbungLinkMail({
  * over a different body is refused rather than ignored, so any message carrying a freshly minted
  * token must go without one.
  */
-export function zustellungIdempotenzSchluessel({ bewerbungId, rollen, anlass }: ZustellSendung, tag: string, address: string): string {
+function zustellungIdempotenzSchluessel({ bewerbungId, rollen, anlass }: ZustellSendung, tag: string, address: string): string {
   return mailIdempotencyKey([anlass, bewerbungId, [...rollen].join("-"), tag], address);
 }
 

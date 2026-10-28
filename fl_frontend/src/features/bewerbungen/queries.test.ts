@@ -1,34 +1,36 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import type * as AdminRead from "@/shared/utils/adminRead.ts";
 
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
 let failure: unknown;
 
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
+// administrator's, and only how often it reaches the backend is judged. Doubled where `queries.ts`
+// imports it, so nothing on the path loads the sign-in store.
+vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof AdminRead>()),
+  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
+}));
+// The public reads forward the visitor's headers, which Next answers only inside a request it serves.
+vi.doMock("next/headers", () => NEXT_HEADERS_DOUBLE);
 
 const calls = doubleApiClient(() => {
   if (failure !== undefined) throw failure;
   return {};
 });
 
-/** The module under test, whose `react` import the server build must answer. */
-const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
-
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
+serveServerReact();
 
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
 
 const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
   await import("./queries.ts");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
 
 /**
  * Runs `read` against a client that throws, and leaves `calls` as it found it: the cases below
@@ -55,10 +57,7 @@ describe("the two admin-tier triage reads", () => {
     await getBewerbungen();
     await getBewerbungById(ONE_ID);
 
-    assert.deepEqual(
-      calls.map((call) => call.endpoint),
-      ["/bewerbungen", `/bewerbungen/${ONE_ID}`],
-    );
+    expect(calls.map((call) => call.endpoint)).toStrictEqual(["/bewerbungen", `/bewerbungen/${ONE_ID}`]);
   });
 });
 
@@ -96,8 +95,8 @@ describe("the four base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on either window as no window rather than as a failure", async () => {
-    assert.equal(await failing(refusedOn("GET /bewerbungen/fenster", "DB-COMMON-001"), () => getOffenesBewerbungFenster()), null);
-    assert.equal(await failing(refusedOn("GET /bewerbungen/fenster/{saison_id}", "DB-COMMON-001"), () => getBewerbungFenster("2627")), null);
+    expect(await failing(refusedOn("GET /bewerbungen/fenster", "DB-COMMON-001"), () => getOffenesBewerbungFenster())).toBe(null);
+    expect(await failing(refusedOn("GET /bewerbungen/fenster/{saison_id}", "DB-COMMON-001"), () => getBewerbungFenster("2627"))).toBe(null);
   });
 });
 
@@ -111,7 +110,7 @@ describe("the one path segment a caller interpolates", () => {
     try {
       await getBewerbungById(`${ONE_ID}/../teams`);
 
-      assert.equal(calls.at(-1)?.endpoint, `/bewerbungen/${ONE_ID}%2F..%2Fteams`);
+      expect(calls.at(-1)?.endpoint).toBe(`/bewerbungen/${ONE_ID}%2F..%2Fteams`);
     } finally {
       // Restored because the harness case above asserts the WHOLE recorded array, not a membership.
       calls.length = before;
@@ -132,7 +131,7 @@ describe("the two memoised reads across a render pass", () => {
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungById(ONE_ID), getBewerbungById(OTHER_ID)]);
     await Promise.all([getBewerbungFenster("2627"), getBewerbungFenster("2627"), getBewerbungFenster("2728")]);
 
-    assert.deepEqual(endpointsSince(before).sort(), [
+    expect(endpointsSince(before).sort()).toStrictEqual([
       `/bewerbungen/${ONE_ID}`,
       `/bewerbungen/${OTHER_ID}`,
       "/bewerbungen/fenster/2627",
@@ -151,6 +150,6 @@ describe("the two memoised reads across a render pass", () => {
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
 
-    assert.deepEqual(endpointsSince(before).sort(), [`/bewerbungen/${ONE_ID}`, "/bewerbungen/fenster/2627"]);
+    expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/fenster/2627"]);
   });
 });

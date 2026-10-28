@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 
@@ -55,7 +54,7 @@ describe("the level filter the players list offers", () => {
   it("offers the level as a facet at all, in the constant and in the built set", () => {
     assert.ok(STUFE_FACET, "no facet of `SPIELER_FACETS` reads the level parameter");
     assert.ok(OFFERED_STUFE_FACET, "no facet `buildSpielerFacets` returns reads the level parameter");
-    assert.equal(STUFE_FACET.label, "Stufe");
+    expect(STUFE_FACET.label).toBe("Stufe");
   });
 
   /* Non-vacuity: were a season's own list the league's whole set, every case below would pass under
@@ -70,11 +69,10 @@ describe("the level filter the players list offers", () => {
   /* `erlaubte_stufen` bounds the squad FORM and never a stored row (`docs/glossary.md :: stufe`), so
      a level a season dropped still stands in the table and has to stay filterable. */
   it("offers every level the league has, whatever the season allows", () => {
-    assert.deepEqual(
+    expect(
       OFFERED_STUFE_FACET?.options.map((option) => option.value),
-      [...STUFE_OPTIONS],
       "cut to a season's `erlaubte_stufen`, this filter offers no value that reaches a squad row on a level the season dropped",
-    );
+    ).toStrictEqual([...STUFE_OPTIONS]);
   });
 
   /* What an admin loses if it is cut: `readFacetSelection` drops a value the facet does not offer,
@@ -82,8 +80,8 @@ describe("the level filter the players list offers", () => {
   it("reaches a squad row on a level the season has since dropped", () => {
     const selection = readFacetSelection(OFFERED, new URLSearchParams("stufe=E1"));
 
-    assert.deepEqual(selection.stufe, ["E1"], "`stufe=E1` selects nothing, so a level the season dropped cannot be filtered on at all");
-    assert.deepEqual(applyFacets([ON_A_DROPPED_STUFE, ON_AN_ALLOWED_STUFE], OFFERED, selection), [ON_A_DROPPED_STUFE]);
+    expect(selection.stufe, "`stufe=E1` selects nothing, so a level the season dropped cannot be filtered on at all").toStrictEqual(["E1"]);
+    expect(applyFacets([ON_A_DROPPED_STUFE, ON_AN_ALLOWED_STUFE], OFFERED, selection)).toStrictEqual([ON_A_DROPPED_STUFE]);
   });
 
   /* The builder is the only place a season could reach this facet, and a narrowed copy is a new
@@ -97,11 +95,10 @@ describe("the level filter the players list offers", () => {
    value is what a filtered read carries rather than only what the panel prints. */
 describe("the late-entry marker among the role filter's values", () => {
   it("offers the marker beside the two roles", () => {
-    assert.deepEqual(
+    expect(
       ROLLE_FACET?.options.map((option) => option.value),
-      ["kapitaen", "co_kapitaen", "nachnominiert"],
       "the role filter offers no value a URL can name the marker by",
-    );
+    ).toStrictEqual(["kapitaen", "co_kapitaen", "nachnominiert"]);
   });
 
   /* A label moved without its value leaves the superseded spelling in every saved link and in the
@@ -109,7 +106,7 @@ describe("the late-entry marker among the role filter's values", () => {
   it("reaches a marked squad row and leaves an unmarked one", () => {
     const selection = readFacetSelection(OFFERED, new URLSearchParams("rolle=nachnominiert"));
 
-    assert.deepEqual(selection.rolle, ["nachnominiert"], "the value the panel offers is not the one a filtered read carries");
-    assert.deepEqual(applyFacets([NACHNOMINIERT, ON_AN_ALLOWED_STUFE], OFFERED, selection), [NACHNOMINIERT]);
+    expect(selection.rolle, "the value the panel offers is not the one a filtered read carries").toStrictEqual(["nachnominiert"]);
+    expect(applyFacets([NACHNOMINIERT, ON_AN_ALLOWED_STUFE], OFFERED, selection)).toStrictEqual([NACHNOMINIERT]);
   });
 });

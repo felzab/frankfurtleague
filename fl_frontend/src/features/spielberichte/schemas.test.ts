@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { spielberichtReadFixture } from "@/test-support/spielberichtFixtures.ts";
+import { assert, describe, expect, it } from "vitest";
 
-import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
 const { FLSpielberichtAdminResponseSchema, FLSpielberichtPayloadSchema, FLSpielberichtSchiedsrichterResponseSchema, spielberichtFormSchema } =
@@ -24,7 +23,7 @@ describe("what a report's mirror refuses before the backend does", () => {
   it("credits an own goal to the other side", () => {
     const eigentor = { seite: "team2", spieler_id: SPIELER, minute: "12", eigentor: true };
 
-    assert.deepEqual(fehler(bericht({ team1_tore: 1, team2_tore: 0 }, [eigentor])), {});
+    expect(fehler(bericht({ team1_tore: 1, team2_tore: 0 }, [eigentor]))).toStrictEqual({});
     assert.ok(
       fehler(bericht({ team1_tore: 0, team2_tore: 1 }, [eigentor]))["bericht.torschuetzen"],
       "an own goal counted for the scorer's side",
@@ -37,7 +36,7 @@ describe("what a report's mirror refuses before the backend does", () => {
     const gegentor = { seite: "team2", spieler_id: SPIELER, minute: "50", eigentor: false };
 
     assert.ok(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor]))["bericht.torschuetzen"]);
-    assert.deepEqual(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor, { ...tor, spieler_id: null, minute: "90+3" }])), {});
+    expect(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor, { ...tor, spieler_id: null, minute: "90+3" }]))).toStrictEqual({});
   });
 
   /* The form's own rule, the backend judging the wire against the stored report (`REQ-BERICHT-008`): the strip once
@@ -49,9 +48,9 @@ describe("what a report's mirror refuses before the backend does", () => {
       return parsed.success ? {} : toFieldErrors(parsed.error);
     };
 
-    assert.equal(formFehler([], [karte])["bericht.karten.0.grund"], "Bei Gelb und Gelb-Rot gehört ein Grund dazu.");
-    assert.deepEqual(formFehler([], [{ ...karte, farbe: "rot" }]), {});
-    assert.deepEqual(formFehler([karte], [{ ...karte, minute: "31" }]), {}, "a stripped caution owes its reason again");
+    expect(formFehler([], [karte])["bericht.karten.0.grund"]).toBe("Bei Gelb und Gelb-Rot gehört ein Grund dazu.");
+    expect(formFehler([], [{ ...karte, farbe: "rot" }])).toStrictEqual({});
+    expect(formFehler([karte], [{ ...karte, minute: "31" }]), "a stripped caution owes its reason again").toStrictEqual({});
     assert.ok(formFehler([karte], [{ ...karte, farbe: "gelb_rot" }])["bericht.karten.0.grund"], "another colour is a new card");
   });
 
@@ -64,26 +63,24 @@ describe("what a report's mirror refuses before the backend does", () => {
       return parsed.success ? {} : toFieldErrors(parsed.error);
     };
 
-    assert.deepEqual(formFehler([karte, { ...karte, minute: "70" }]), {
+    expect(formFehler([karte, { ...karte, minute: "70" }])).toStrictEqual({
       "bericht.karten.1.grund": "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
     });
-    assert.deepEqual(
+    expect(
       formFehler([
         { ...karte, grund: "foulspiel" },
         { ...karte, minute: "70" },
       ]),
-      {},
-    );
+    ).toStrictEqual({});
     // Judged over the list, yet beside another card's untouched picker: both faults show at the one press.
-    assert.deepEqual(
+    expect(
       Object.keys(
         formFehler([
           { ...karte, spieler_id: "", grund: "foulspiel" },
           { ...karte, seite: "team2" },
         ]),
       ).sort(),
-      ["bericht.karten.0.spieler_id", "bericht.karten.1.grund"],
-    );
+    ).toStrictEqual(["bericht.karten.0.spieler_id", "bericht.karten.1.grund"]);
   });
 
   /* The season-end strip takes every card's reason and the remarks: the rule is a write's, so the read of a stripped

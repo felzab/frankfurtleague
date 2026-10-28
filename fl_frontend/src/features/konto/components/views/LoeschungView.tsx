@@ -35,7 +35,7 @@ import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
 
 /** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
-export type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
+type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
 
 /**
  * What the page opens on. The token rides only where a press can spend it: a browser holding no session

@@ -1,25 +1,23 @@
-import "@/shared/testing/dom.ts";
-
-import assert from "node:assert/strict";
-import { afterEach, describe, it, mock } from "node:test";
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "@heroui/react/toast";
 
 import { appToast } from "./appToast.ts";
 
-const danger = mock.method(toast, "danger", () => "0");
+const danger = vi.spyOn(toast, "danger").mockImplementation(() => "0");
 
-afterEach(() => danger.mock.resetCalls());
+afterEach(() => void danger.mockClear());
 
-const raisedTitles = (): unknown[] => danger.mock.calls.map((call) => call.arguments[0]);
-const raisedDescriptions = (): unknown[] => danger.mock.calls.map((call) => (call.arguments[1] as { description?: string }).description);
+const raisedTitles = (): unknown[] => danger.mock.calls.map((call) => call[0]);
+const raisedDescriptions = (): unknown[] => danger.mock.calls.map((call) => (call[1] as { description?: string }).description);
 
 describe("appToast.failure", () => {
   it("raises the site's title over the failure's own sentence", () => {
     appToast.failure("Änderung nicht gespeichert", { error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." });
 
-    assert.deepEqual(raisedTitles(), ["Änderung nicht gespeichert"]);
-    assert.deepEqual(raisedDescriptions(), ["Der Eintrag wurde nicht gefunden. Lade die Seite neu."]);
+    expect(raisedTitles()).toStrictEqual(["Änderung nicht gespeichert"]);
+    expect(raisedDescriptions()).toStrictEqual(["Der Eintrag wurde nicht gefunden. Lade die Seite neu."]);
   });
 
   /* The site's title says the change did not happen, which is the one false sentence where the
@@ -28,8 +26,8 @@ describe("appToast.failure", () => {
     const error = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";
     appToast.failure("Änderung nicht gespeichert", { error, outcome: "unknown" });
 
-    assert.deepEqual(raisedTitles(), ["Unklar, ob es gespeichert wurde"]);
-    assert.deepEqual(raisedDescriptions(), [error]);
+    expect(raisedTitles()).toStrictEqual(["Unklar, ob es gespeichert wurde"]);
+    expect(raisedDescriptions()).toStrictEqual([error]);
   });
 
   /* A send saves nothing, so „gespeichert“ misstates what is unknown there: the site's own title for
@@ -39,7 +37,7 @@ describe("appToast.failure", () => {
     appToast.failure("Link nicht gesendet", { error, outcome: "unknown" }, "Unklar, ob der Link verschickt wurde");
     appToast.failure("Link nicht gesendet", { error: "Der Link wurde nicht gesendet." }, "Unklar, ob der Link verschickt wurde");
 
-    assert.deepEqual(raisedTitles(), ["Unklar, ob der Link verschickt wurde", "Link nicht gesendet"]);
+    expect(raisedTitles()).toStrictEqual(["Unklar, ob der Link verschickt wurde", "Link nicht gesendet"]);
   });
 
   /* A press whose first write stands and whose second was refused saved something, so the site's
@@ -48,8 +46,8 @@ describe("appToast.failure", () => {
     const error = "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden.";
     appToast.failure("Änderung nicht gespeichert", { error, outcome: "partial" });
 
-    assert.deepEqual(raisedTitles(), ["Nur teilweise gespeichert"]);
-    assert.deepEqual(raisedDescriptions(), [error]);
+    expect(raisedTitles()).toStrictEqual(["Nur teilweise gespeichert"]);
+    expect(raisedDescriptions()).toStrictEqual([error]);
   });
 
   /* An undo saves nothing, so „gespeichert“ misstates what went back: the site's own partial title stands
@@ -59,7 +57,7 @@ describe("appToast.failure", () => {
     appToast.failure("Änderung nicht zurückgenommen", { error, outcome: "partial" }, "Rücknahme unklar", "Nur teilweise zurückgenommen");
     appToast.failure("Änderung nicht zurückgenommen", { error: "Nein." }, "Rücknahme unklar", "Nur teilweise zurückgenommen");
 
-    assert.deepEqual(raisedTitles(), ["Nur teilweise zurückgenommen", "Änderung nicht zurückgenommen"]);
+    expect(raisedTitles()).toStrictEqual(["Nur teilweise zurückgenommen", "Änderung nicht zurückgenommen"]);
   });
 
   /* A toast marks nothing, so „Überprüfe Deine Eingaben.“ would point at marks nobody can see on
@@ -70,6 +68,6 @@ describe("appToast.failure", () => {
       unplacedError: "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.",
     });
 
-    assert.deepEqual(raisedDescriptions(), ["Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
+    expect(raisedDescriptions()).toStrictEqual(["Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
   });
 });

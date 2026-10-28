@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { toFieldErrors } from "../../shared/utils/validation.ts";
 import { buildPatchSpieltagPayloadSchema } from "./schemas.ts";
@@ -19,29 +18,29 @@ function refusals(payload: unknown, span?: { start: string; end: string }) {
 
 describe("the season span a matchday is dated inside", () => {
   it("accepts a day the season covers", () => {
-    assert.deepEqual(refusals(WITHIN, SPAN), {});
+    expect(refusals(WITHIN, SPAN)).toStrictEqual({});
   });
 
   it("refuses a start before the season, on the field that holds it", () => {
     // The span is the schema's rule, so it is judged on the blur and named in German on the field that
     // holds the day — never on each keystroke of a year still being typed.
-    assert.deepEqual(refusals({ ...WITHIN, beginn: "2026-08-31", ende: "2026-08-31" }, SPAN), {
+    expect(refusals({ ...WITHIN, beginn: "2026-08-31", ende: "2026-08-31" }, SPAN)).toStrictEqual({
       beginn: "Wähle einen Tag innerhalb der Saison.",
       ende: "Wähle einen Tag innerhalb der Saison.",
     });
   });
 
   it("refuses an end after the season without touching the start", () => {
-    assert.deepEqual(refusals({ ...WITHIN, ende: "2027-07-01" }, SPAN), { ende: "Wähle einen Tag innerhalb der Saison." });
+    expect(refusals({ ...WITHIN, ende: "2027-07-01" }, SPAN)).toStrictEqual({ ende: "Wähle einen Tag innerhalb der Saison." });
   });
 
   it("still refuses an end before its own start, which is the rule the span does not replace", () => {
-    assert.deepEqual(refusals({ ...WITHIN, beginn: "2026-10-06", ende: "2026-10-05" }, SPAN), {
+    expect(refusals({ ...WITHIN, beginn: "2026-10-06", ende: "2026-10-05" }, SPAN)).toStrictEqual({
       ende: "Das Ende darf nicht vor dem Beginn liegen.",
     });
   });
 
   it("says nothing about a span it was not given, so a matchday with no season loaded still saves", () => {
-    assert.deepEqual(refusals({ ...WITHIN, beginn: "2020-01-01", ende: "2020-01-01" }, undefined), {});
+    expect(refusals({ ...WITHIN, beginn: "2020-01-01", ende: "2020-01-01" }, undefined)).toStrictEqual({});
   });
 });

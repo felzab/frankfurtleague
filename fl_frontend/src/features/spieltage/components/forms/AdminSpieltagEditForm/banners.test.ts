@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { assert, describe, expect, it } from "vitest";
+
 import { resolveBlockingBanners } from "../../../../../shared/components/ui/railBanner.ts";
 import { buildSpieltagBanners } from "./banners.ts";
 
@@ -22,15 +21,15 @@ describe("buildSpieltagBanners", () => {
   /* Nothing stands unconditionally. The name has no field to be refused at, so a reader never asks
      why it cannot be changed, and a banner nothing raised is deleted rather than shortened. */
   it("raises nothing for a settled matchday with no pending edit", () => {
-    assert.deepEqual(ids(build()), []);
+    expect(ids(build())).toStrictEqual([]);
   });
 
   it("grades a moved span as a warning, so a save stops on it", () => {
     const spanChange = build({ isZeitraumChanged: true }).find((banner) => banner.id === "spieltag.zeitraum-changed");
 
-    assert.equal(spanChange?.severity, "warning");
-    assert.equal(spanChange?.inline, "zeitraum");
-    assert.equal(spanChange?.raisedBy, "change");
+    expect(spanChange?.severity).toBe("warning");
+    expect(spanChange?.inline).toBe("zeitraum");
+    expect(spanChange?.raisedBy).toBe("change");
   });
 
   /* Both refusals a moved span draws, one per slot: the fixtures inside the new span in the title,
@@ -39,9 +38,9 @@ describe("buildSpieltagBanners", () => {
   it("names both save conditions a moved span is held to", () => {
     const banner = build({ isZeitraumChanged: true }).find((entry) => entry.id === "spieltag.zeitraum-changed");
 
-    assert.match(banner?.title ?? "", /zu den Spielen passen/);
-    assert.match(banner?.body ?? "", /Beginn/);
-    assert.match(banner?.body ?? "", /schon einen Zeitraum haben/);
+    expect(banner?.title ?? "").toMatch(/zu den Spielen passen/);
+    expect(banner?.body ?? "").toMatch(/Beginn/);
+    expect(banner?.body ?? "").toMatch(/schon einen Zeitraum haben/);
   });
 
   /* `Zeitraum` is a matchday's span and `Termin` a fixture's date and time, and this banner is about
@@ -49,17 +48,17 @@ describe("buildSpieltagBanners", () => {
   it("calls the span a Zeitraum on the banner that reports it moving", () => {
     const banner = build({ isZeitraumChanged: true }).find((entry) => entry.id === "spieltag.zeitraum-changed");
 
-    assert.match(banner?.title ?? "", /Zeitraum/);
+    expect(banner?.title ?? "").toMatch(/Zeitraum/);
     assert.ok(!`${banner?.title ?? ""} ${banner?.body ?? ""}`.includes("Termin"));
   });
 
   it("grades a reversed span as the one danger this editor can raise", () => {
     const banner = build({ isEndeVorBeginn: true }).find((entry) => entry.id === "spieltag.ende-vor-beginn");
 
-    assert.equal(banner?.severity, "danger");
-    assert.equal(banner?.inline, "zeitraum");
+    expect(banner?.severity).toBe("danger");
+    expect(banner?.inline).toBe("zeitraum");
     // Both dates arrive from the stored row in an order the schema already held, so only a pick reverses them.
-    assert.equal(banner?.raisedBy, "change");
+    expect(banner?.raisedBy).toBe("change");
   });
 
   it("reports a fixture count that disagrees with the derived expectation, in both directions", () => {
@@ -75,9 +74,9 @@ describe("buildSpieltagBanners", () => {
     const standing = build({ spieleAngelegt: 2 });
     const banner = standing.find((entry) => entry.id === "spieltag.anzahl-offen");
 
-    assert.equal(banner?.severity, "info");
-    assert.equal(banner?.raisedBy, "state");
-    assert.equal(resolveBlockingBanners(standing), null);
+    expect(banner?.severity).toBe("info");
+    expect(banner?.raisedBy).toBe("state");
+    expect(resolveBlockingBanners(standing)).toBe(null);
   });
 
   /* The pair the confirmation exists for, in the order it renders them: a reversed span is refused
@@ -85,9 +84,9 @@ describe("buildSpieltagBanners", () => {
   it("confirms a save that moves the span, over both entries the move raises", () => {
     const pending = build({ isZeitraumChanged: true, isEndeVorBeginn: true, spieleAngelegt: 2 });
 
-    assert.deepEqual(
-      resolveBlockingBanners(pending)?.map((banner) => banner.id),
-      ["spieltag.ende-vor-beginn", "spieltag.zeitraum-changed"],
-    );
+    expect(resolveBlockingBanners(pending)?.map((banner) => banner.id)).toStrictEqual([
+      "spieltag.ende-vor-beginn",
+      "spieltag.zeitraum-changed",
+    ]);
   });
 });

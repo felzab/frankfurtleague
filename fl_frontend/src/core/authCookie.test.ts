@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
+import { assert, describe, expect, it } from "vitest";
 
 const STORE = "__flAuthCookieStore";
 
@@ -15,7 +13,7 @@ registerAuthDoubles({
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
-// Imported here rather than at the top: a static import resolves before the hooks above are registered.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth.ts");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
@@ -38,7 +36,7 @@ describe("the session cookie over https", () => {
     const session = written.find((cookie) => cookie.name.endsWith(".session_token"));
     assert.ok(session, `no session cookie among ${written.map((cookie) => cookie.name).join(", ")}`);
 
-    assert.equal(session.name, "__Host-auth.session_token");
+    expect(session.name).toBe("__Host-auth.session_token");
     assert.ok(session.attributes.includes("secure"), "the host-bound cookie travels over plain http too");
     assert.ok(session.attributes.includes("path=/"));
     assert.ok(!session.attributes.some((attribute) => attribute.startsWith("domain=")), "the cookie reaches other hosts");

@@ -1,18 +1,16 @@
-import "@/shared/testing/dom.ts";
-import "@/shared/testing/renderTest.ts";
-
-import assert from "node:assert/strict";
+// @vitest-environment jsdom
 import path from "node:path";
-import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { underNext } from "@/test-support/nextContexts.ts";
+import { filesUnder } from "@/test-support/treeWalk.ts";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import { assert, describe, expect, it } from "vitest";
 
-import { filesUnder } from "@/core/treeWalk.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { AdminCrudView } from "@/shared/components/ui/AdminCrudView.tsx";
 
 import {
   applyFacets,
@@ -26,9 +24,6 @@ import {
 
 import type { ComponentProps, ComponentType } from "react";
 import type { Facet } from "./facets";
-
-/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdminCrudView } = await import("@/shared/components/ui/AdminCrudView.tsx");
 
 type Row = { id: string; status: string; gruppe: string | null; stufen: string[] };
 
@@ -79,33 +74,33 @@ describe("applyFacets", () => {
     // Identity, not just equality: `AdminCrudView` feeds this to `useFuzzySearch`, whose memo and whose
     // react-aria collection both key on the reference. A fresh array here would defeat the memo on every
     // unfiltered page in the app.
-    assert.equal(applyFacets(ROWS, FACETS, {}), ROWS);
-    assert.equal(applyFacets(ROWS, FACETS, { status: [] }), ROWS);
+    expect(applyFacets(ROWS, FACETS, {})).toBe(ROWS);
+    expect(applyFacets(ROWS, FACETS, { status: [] })).toBe(ROWS);
   });
 
   it("ORs within one facet", () => {
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { gruppe: ["A", "B"] })), ["1", "2", "3"]);
+    expect(ids(applyFacets(ROWS, FACETS, { gruppe: ["A", "B"] }))).toStrictEqual(["1", "2", "3"]);
   });
 
   it("ANDs across facets", () => {
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { status: ["aktiv"], gruppe: ["A"] })), ["1"]);
+    expect(ids(applyFacets(ROWS, FACETS, { status: ["aktiv"], gruppe: ["A"] }))).toStrictEqual(["1"]);
   });
 
   it("drops an item that holds no value of an active facet", () => {
     // Row 4 has no group, so asking for any group excludes it. That is the honest answer rather than a
     // pass-through: it is not in a group.
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { gruppe: ["A", "B"] })).includes("4"), false);
+    expect(ids(applyFacets(ROWS, FACETS, { gruppe: ["A", "B"] })).includes("4")).toStrictEqual(false);
   });
 
   it("matches an item on any of the several values it holds", () => {
     // Row 1 holds both levels, so either selection finds it. A season's `erlaubte_stufen` is the real
     // case this covers.
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { stufe: ["E1"] })), ["1", "4"]);
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { stufe: ["Q1"] })), ["1", "2"]);
+    expect(ids(applyFacets(ROWS, FACETS, { stufe: ["E1"] }))).toStrictEqual(["1", "4"]);
+    expect(ids(applyFacets(ROWS, FACETS, { stufe: ["Q1"] }))).toStrictEqual(["1", "2"]);
   });
 
   it("ignores a facet the caller selected nothing in", () => {
-    assert.deepEqual(ids(applyFacets(ROWS, FACETS, { status: ["aktiv"], gruppe: [] })), ["1", "2"]);
+    expect(ids(applyFacets(ROWS, FACETS, { status: ["aktiv"], gruppe: [] }))).toStrictEqual(["1", "2"]);
   });
 });
 
@@ -113,7 +108,7 @@ describe("countFacetOptions", () => {
   it("counts every option over the whole list when nothing is selected", () => {
     const counts = countFacetOptions(ROWS, FACETS, {}, FACETS[1]!);
 
-    assert.deepEqual(counts, { A: 2, B: 1 });
+    expect(counts).toStrictEqual({ A: 2, B: 1 });
   });
 
   it("EXCLUDES the facet's own selection, so an unpicked option still reports what it would leave", () => {
@@ -121,19 +116,19 @@ describe("countFacetOptions", () => {
     // B: 0, and the reader concludes there are no group B rows.
     const counts = countFacetOptions(ROWS, FACETS, { gruppe: ["A"] }, FACETS[1]!);
 
-    assert.deepEqual(counts, { A: 2, B: 1 });
+    expect(counts).toStrictEqual({ A: 2, B: 1 });
   });
 
   it("applies every OTHER facet's selection", () => {
     const counts = countFacetOptions(ROWS, FACETS, { status: ["aktiv"], gruppe: ["A"] }, FACETS[1]!);
 
-    assert.deepEqual(counts, { A: 1, B: 1 });
+    expect(counts).toStrictEqual({ A: 1, B: 1 });
   });
 
   it("reports zero for an option nothing holds rather than omitting it", () => {
     const counts = countFacetOptions([], FACETS, {}, FACETS[0]!);
 
-    assert.deepEqual(counts, { aktiv: 0, stillgelegt: 0 });
+    expect(counts).toStrictEqual({ aktiv: 0, stillgelegt: 0 });
   });
 });
 
@@ -141,7 +136,7 @@ describe("readFacetSelection", () => {
   it("splits a comma-joined parameter", () => {
     const selection = readFacetSelection(FACETS, new URLSearchParams("gruppe=A,B"));
 
-    assert.deepEqual(selection, { gruppe: ["A", "B"] });
+    expect(selection).toStrictEqual({ gruppe: ["A", "B"] });
   });
 
   it("drops a value the facet does not offer", () => {
@@ -149,40 +144,40 @@ describe("readFacetSelection", () => {
     // would leave the two halves of the control disagreeing.
     const selection = readFacetSelection(FACETS, new URLSearchParams("gruppe=A,Z"));
 
-    assert.deepEqual(selection, { gruppe: ["A"] });
+    expect(selection).toStrictEqual({ gruppe: ["A"] });
   });
 
   it("omits a facet whose every value was invalid, rather than leaving an empty array", () => {
-    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z")), {});
+    expect(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z"))).toStrictEqual({});
   });
 
   it("ignores an empty parameter and every parameter that is not a facet", () => {
-    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&order=asc&saison_id=2026")), {});
+    expect(readFacetSelection(FACETS, new URLSearchParams("gruppe=&order=asc&saison_id=2026"))).toStrictEqual({});
   });
 
   it("answers with a facet's default while its parameter is absent", () => {
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("")), { status: ["aktiv"] });
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams(""))).toStrictEqual({ status: ["aktiv"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("gruppe=A"))).toStrictEqual({ status: ["aktiv"], gruppe: ["A"] });
   });
 
   it("lets a chosen value replace a default", () => {
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=stillgelegt")), { status: ["stillgelegt"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status=stillgelegt"))).toStrictEqual({ status: ["stillgelegt"] });
   });
 
   it("lets an EMPTY parameter turn a default off, which is the only thing that can", () => {
     // `useUrlFilters` writes this form instead of deleting the parameter, so a reader who unticks a defaulted
     // facet reaches the unnarrowed list. The two halves have to agree on the form or the default reasserts.
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=")), {});
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=&gruppe=A")), { gruppe: ["A"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status="))).toStrictEqual({});
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status=&gruppe=A"))).toStrictEqual({ gruppe: ["A"] });
   });
 
   it("falls back to the default when a NON-EMPTY parameter matches nothing the facet offers", () => {
     // A pasted or bookmarked link reaches the wrong list carrying a value this facet has no row for,
     // and reading that as the off-switch would silently unnarrow the list
     // (`fl_frontend/src/shared/utils/facets.ts :: readFacetSelection`).
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=aufgenommen")), { status: ["aktiv"] });
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=aktiv,unsinn")), { status: ["aktiv"] });
-    assert.deepEqual(readFacetSelection(DEFAULTED, new URLSearchParams("status=unsinn&gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status=aufgenommen"))).toStrictEqual({ status: ["aktiv"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status=aktiv,unsinn"))).toStrictEqual({ status: ["aktiv"] });
+    expect(readFacetSelection(DEFAULTED, new URLSearchParams("status=unsinn&gruppe=A"))).toStrictEqual({ status: ["aktiv"], gruppe: ["A"] });
   });
 
   it("reads a NON-EMPTY selection back as the same object while the query string is unchanged", () => {
@@ -191,15 +186,15 @@ describe("readFacetSelection", () => {
     const first = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
     const second = readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"));
 
-    assert.equal(first, second);
+    expect(first).toBe(second);
   });
 
   it("reads a CHANGED query string as a new object", () => {
     const before = readFacetSelection(FACETS, new URLSearchParams("status=aktiv"));
     const after = readFacetSelection(FACETS, new URLSearchParams("status=stillgelegt"));
 
-    assert.notEqual(before, after);
-    assert.deepEqual(after, { status: ["stillgelegt"] });
+    expect(before).not.toBe(after);
+    expect(after).toStrictEqual({ status: ["stillgelegt"] });
   });
 
   it("keeps one facet array's reads apart from another's", () => {
@@ -207,8 +202,8 @@ describe("readFacetSelection", () => {
     // other's read.
     const other: readonly Facet<Row>[] = [FACETS[0]!];
 
-    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"], gruppe: ["A"] });
-    assert.deepEqual(readFacetSelection(other, new URLSearchParams("status=aktiv&gruppe=A")), { status: ["aktiv"] });
+    expect(readFacetSelection(FACETS, new URLSearchParams("status=aktiv&gruppe=A"))).toStrictEqual({ status: ["aktiv"], gruppe: ["A"] });
+    expect(readFacetSelection(other, new URLSearchParams("status=aktiv&gruppe=A"))).toStrictEqual({ status: ["aktiv"] });
   });
 });
 
@@ -235,12 +230,12 @@ describe("a value a link names that no row on hand holds", () => {
   /* A link from another list carries a real value nothing here holds, and dropping it shows the reader
      a page nobody asked anything of in place of an empty answer naming what they came for. */
   it("is kept in the selection where the facet knows it", () => {
-    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z")), { gruppe: ["Z"] });
-    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=A,Z")), { gruppe: ["A", "Z"] });
+    expect(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z"))).toStrictEqual({ gruppe: ["Z"] });
+    expect(readFacetSelection(LINKED, new URLSearchParams("gruppe=A,Z"))).toStrictEqual({ gruppe: ["A", "Z"] });
   });
 
   it("is offered under its own label, once, after the options the rows hold", () => {
-    assert.deepEqual(offeredOptions(GRUPPE_LINKED, ["Z"]), [
+    expect(offeredOptions(GRUPPE_LINKED, ["Z"])).toStrictEqual([
       { value: "A", label: "A" },
       { value: "B", label: "B" },
       { value: "Z", label: "Gruppe Z" },
@@ -250,29 +245,29 @@ describe("a value a link names that no row on hand holds", () => {
   it("counts zero, and stays reachable while picked so it can be removed", () => {
     const counts = countFacetOptions(ROWS, LINKED, { gruppe: ["Z"] }, GRUPPE_LINKED);
 
-    assert.deepEqual(counts, { A: 2, B: 1, Z: 0 });
-    assert.equal(isFacetOptionReachable(counts["Z"] ?? -1, true), true);
+    expect(counts).toStrictEqual({ A: 2, B: 1, Z: 0 });
+    expect(isFacetOptionReachable(counts["Z"] ?? -1, true)).toBe(true);
   });
 
   it("narrows the rows to nothing rather than to everything", () => {
-    assert.deepEqual(applyFacets(ROWS, LINKED, readFacetSelection(LINKED, new URLSearchParams("gruppe=Z"))), []);
+    expect(applyFacets(ROWS, LINKED, readFacetSelection(LINKED, new URLSearchParams("gruppe=Z")))).toStrictEqual([]);
   });
 
   it("is dropped where it names nothing the facet knows either", () => {
-    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=6890a1b2c3d4e5f6071900ff")), {});
-    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z,unsinn")), { gruppe: ["Z"] });
+    expect(readFacetSelection(LINKED, new URLSearchParams("gruppe=6890a1b2c3d4e5f6071900ff"))).toStrictEqual({});
+    expect(readFacetSelection(LINKED, new URLSearchParams("gruppe=Z,unsinn"))).toStrictEqual({ gruppe: ["Z"] });
   });
 
   /* Once removed nothing names it, so it leaves the panel rather than standing there as a dead row. */
   it("is offered no longer once the URL stops naming it", () => {
-    assert.deepEqual(readFacetSelection(LINKED, new URLSearchParams("")), {});
-    assert.equal(offeredOptions(GRUPPE_LINKED, []), GRUPPE_LINKED.options);
-    assert.deepEqual(countFacetOptions(ROWS, LINKED, {}, GRUPPE_LINKED), { A: 2, B: 1 });
+    expect(readFacetSelection(LINKED, new URLSearchParams(""))).toStrictEqual({});
+    expect(offeredOptions(GRUPPE_LINKED, [])).toBe(GRUPPE_LINKED.options);
+    expect(countFacetOptions(ROWS, LINKED, {}, GRUPPE_LINKED)).toStrictEqual({ A: 2, B: 1 });
   });
 
   it("leaves a facet that declares no vocabulary exactly as it was", () => {
-    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z")), {});
-    assert.equal(offeredOptions(FACETS[1]!, ["Z"]), FACETS[1]!.options);
+    expect(readFacetSelection(FACETS, new URLSearchParams("gruppe=Z"))).toStrictEqual({});
+    expect(offeredOptions(FACETS[1]!, ["Z"])).toBe(FACETS[1]!.options);
   });
 });
 
@@ -283,44 +278,44 @@ describe("readFacetSelectionFromRoute", () => {
     for (const search of ["", "status=aktiv", "status=aktiv,stillgelegt", "status=", "status=unsinn&gruppe=A"]) {
       const params = Object.fromEntries(new URLSearchParams(search));
 
-      assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, params), readFacetSelection(DEFAULTED, new URLSearchParams(search)));
+      expect(readFacetSelectionFromRoute(DEFAULTED, params)).toStrictEqual(readFacetSelection(DEFAULTED, new URLSearchParams(search)));
     }
   });
 
   it("reads a repeated parameter, which a route hands over as an array", () => {
-    assert.deepEqual(readFacetSelectionFromRoute(FACETS, { status: ["aktiv", "stillgelegt"] }), { status: ["aktiv"] });
+    expect(readFacetSelectionFromRoute(FACETS, { status: ["aktiv", "stillgelegt"] })).toStrictEqual({ status: ["aktiv"] });
   });
 
   it("answers an absent parameter with the default and an empty one with nothing", () => {
-    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, {}), { status: ["aktiv"] });
-    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, { status: undefined }), { status: ["aktiv"] });
-    assert.deepEqual(readFacetSelectionFromRoute(DEFAULTED, { status: "" }), {});
+    expect(readFacetSelectionFromRoute(DEFAULTED, {})).toStrictEqual({ status: ["aktiv"] });
+    expect(readFacetSelectionFromRoute(DEFAULTED, { status: undefined })).toStrictEqual({ status: ["aktiv"] });
+    expect(readFacetSelectionFromRoute(DEFAULTED, { status: "" })).toStrictEqual({});
   });
 });
 
 describe("isFacetOptionReachable", () => {
   it("offers an option that would leave something", () => {
-    assert.equal(isFacetOptionReachable(1, false), true);
+    expect(isFacetOptionReachable(1, false)).toBe(true);
   });
 
   it("keeps a picked option reachable at zero, or it could not be deselected", () => {
-    assert.equal(isFacetOptionReachable(0, true), true);
+    expect(isFacetOptionReachable(0, true)).toBe(true);
   });
 
   it("stops offering an unpicked option that would leave nothing", () => {
     // The rule a server-narrowed facet must be given real counts for: told what its own read served,
     // every status the server left out counts zero here and the control that would fetch them dies.
-    assert.equal(isFacetOptionReachable(0, false), false);
+    expect(isFacetOptionReachable(0, false)).toBe(false);
   });
 });
 
 describe("countActiveFacets", () => {
   it("counts facets, not values", () => {
-    assert.equal(countActiveFacets({ status: ["aktiv", "stillgelegt"], gruppe: ["A"] }), 2);
+    expect(countActiveFacets({ status: ["aktiv", "stillgelegt"], gruppe: ["A"] })).toBe(2);
   });
 
   it("does not count a facet whose selection is empty", () => {
-    assert.equal(countActiveFacets({ status: [], gruppe: ["A"] }), 1);
+    expect(countActiveFacets({ status: [], gruppe: ["A"] })).toBe(1);
   });
 });
 
@@ -371,11 +366,10 @@ describe("every facet set in the app", () => {
   const EXPECTED_SETS = 9;
 
   it("discovers every slice's facets", () => {
-    assert.equal(
+    expect(
       discovered.length,
-      EXPECTED_SETS,
       `discovered ${String(discovered.length)} facet sets, expected ${String(EXPECTED_SETS)}: ${discovered.map(([name]) => name).join(", ")}`,
-    );
+    ).toBe(EXPECTED_SETS);
   });
 
   it("never claims a parameter another control owns, or the search query's name", () => {
@@ -395,7 +389,7 @@ describe("every facet set in the app", () => {
     for (const [name, facets] of discovered) {
       const params = facets.map((facet) => facet.param);
 
-      assert.equal(new Set(params).size, params.length, `${name} has two facets on one parameter: ${params.join(", ")}`);
+      expect(new Set(params).size, `${name} has two facets on one parameter: ${params.join(", ")}`).toBe(params.length);
     }
   });
 
@@ -405,7 +399,7 @@ describe("every facet set in the app", () => {
         const values = facet.options.map((option) => option.value);
 
         assert.ok(values.length > 0, `${name} facet "${facet.label}" offers nothing`);
-        assert.equal(new Set(values).size, values.length, `${name} facet "${facet.label}" repeats an option value`);
+        expect(new Set(values).size, `${name} facet "${facet.label}" repeats an option value`).toBe(values.length);
       }
     }
   });
@@ -483,16 +477,15 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
   const panel = within(screen.getByRole("dialog"));
   const shown = panel.getAllByRole("option");
 
-  assert.equal(shown.length, expected.length, "the panel offers a different number of options");
+  expect(shown.length, "the panel offers a different number of options").toBe(expected.length);
 
   // `String.raw`, or the `\s` is a bare `s` and the pattern matches a label nothing renders.
   const found = expected.map(([label, count]) => panel.getByRole("option", { name: new RegExp(String.raw`^${label}\s*${count}$`) }));
 
-  assert.deepEqual(
+  expect(
     found.map((option) => shown.indexOf(option)),
-    expected.map((_, at) => at),
     "the panel lists its options in another order",
-  );
+  ).toStrictEqual(expected.map((_, at) => at));
 }
 
 /** What each option was told, per facet parameter: the numbers a view hands on as `facetCounts`. */
@@ -505,8 +498,8 @@ const aktionenView = async () => (await import("@/features/aktionen/components/v
 const bewerbungenView = async () => (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView;
 
 /**
- * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded behind
- * the harness, as `AdminCrudView` is above.
+ * The view of each slice whose facets narrow the read, served no rows and told `told`, each loaded by
+ * the case that renders it.
  */
 const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
   "aktionen/AKTIONEN_FACETS": {
@@ -566,7 +559,7 @@ describe("the counts a server-narrowed facet is told", () => {
 
   it("is rendered here for every slice whose facets say the server narrows", () => {
     assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so nothing below compares anything");
-    assert.deepEqual(narrowing.map(([name]) => name).sort(), Object.keys(NARROWING_VIEWS).sort());
+    expect(narrowing.map(([name]) => name).sort()).toStrictEqual(Object.keys(NARROWING_VIEWS).sort());
   });
 
   for (const [name, facets] of narrowing) {

@@ -1,12 +1,9 @@
-import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
-import { beforeEach, describe, it } from "node:test";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /** One line a pass wrote, as the logger was handed it: an error's message is kept, since that is where an address would hide. */
 type Line = { level: string; event: string; error: unknown; fields: unknown };
@@ -24,13 +21,10 @@ const deleteOutcomes = new Map<string, "gone" | "throws">();
 /** Every load of `fl_frontend/src/core/mail.ts`, the one module reaching the mail provider, which the sweep never reaches. */
 const mailerLoads: string[] = [];
 
-// Watched rather than doubled: a suite's own double must be served
-// (`fl_frontend/src/core/exportingModule.ts :: Registration`), and any load is the regression, at import or at a send.
-registerHooks({
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/mail.ts")) mailerLoads.push(url);
-    return nextLoad(url, context);
-  },
+// Watched rather than doubled, the real module standing: any load is the regression, at import or at a send.
+vi.doMock("@/core/mail.ts", async (importOriginal) => {
+  mailerLoads.push("@/core/mail.ts");
+  return importOriginal();
 });
 
 /** Which of `identifiers` the doubled read answers unreferenced, handed the batch alone or an address re-asked alone. */
@@ -50,22 +44,19 @@ const record =
     lines.push({ level, event, error: error instanceof Error ? error.message : error, fields });
   };
 
-registerDoubles({
-  modules: {
-    // The store's two calls, whose rows `fl_frontend/src/core/auth.db.test.ts` holds; the sweep decides only which to make.
-    "core/auth.ts": {
-      listAccounts: () => listing(),
-      deleteAccountFor: (identifier: string) => {
-        deleteCalls.push(identifier);
-        const outcome = deleteOutcomes.get(identifier);
-        // A failure on this path names the address it was about, as a driver's or the store's would.
-        if (outcome === "throws") return Promise.reject(new TypeError(`no transaction for ${identifier}`));
-        return Promise.resolve(outcome !== "gone");
-      },
-    },
-    "core/logging.ts": { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } },
+vi.doMock("@/core/auth.ts", () => ({
+  listAccounts: () => listing(),
+  deleteAccountFor: (identifier: string) => {
+    deleteCalls.push(identifier);
+    const outcome = deleteOutcomes.get(identifier);
+    // A failure on this path names the address it was about, as a driver's or the store's would.
+    if (outcome === "throws") return Promise.reject(new TypeError(`no transaction for ${identifier}`));
+    return Promise.resolve(outcome !== "gone");
   },
-});
+}));
+vi.doMock("@/core/logging.ts", () => ({
+  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
+}));
 
 const { runKontoSweep } = await import("./sweep.ts");
 const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
@@ -105,7 +96,7 @@ describe("which accounts a pass deletes", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, ["erika@schule.de"]);
+    expect(deleteCalls).toStrictEqual(["erika@schule.de"]);
   });
 
   /* The record can arrive between the batch's answer and the delete: asked again alone, just before
@@ -116,12 +107,11 @@ describe("which accounts a pass deletes", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, ["erika@schule.de"]);
-    assert.deepEqual(
-      calls.slice(1).map(askedIn),
-      [["erika@schule.de"], ["neu@schule.de"]],
-      "each unreferenced address is asked again, alone, before its delete",
-    );
+    expect(deleteCalls).toStrictEqual(["erika@schule.de"]);
+    expect(calls.slice(1).map(askedIn), "each unreferenced address is asked again, alone, before its delete").toStrictEqual([
+      ["erika@schule.de"],
+      ["neu@schule.de"],
+    ]);
   });
 });
 
@@ -134,19 +124,16 @@ describe("the batches a pass asks in", () => {
     await runKontoSweep();
 
     const asked = calls.map(askedIn);
-    assert.deepEqual(
-      asked.map((batch) => batch.length),
-      [REFERENZEN_ADRESSEN_MAX, 1],
-    );
-    assert.deepEqual(asked.flat(), accounts, "an address was asked twice, or not at all");
+    expect(asked.map((batch) => batch.length)).toStrictEqual([REFERENZEN_ADRESSEN_MAX, 1]);
+    expect(asked.flat(), "an address was asked twice, or not at all").toStrictEqual(accounts);
   });
 
   // An empty batch is refused whole too.
   it("asks the backend nothing for an empty store, and still writes its completion line", async () => {
     await runKontoSweep();
 
-    assert.deepEqual(calls, []);
-    assert.deepEqual(lines.at(-1)?.event, "konto.sweep_completed");
+    expect(calls).toStrictEqual([]);
+    expect(lines.at(-1)?.event).toStrictEqual("konto.sweep_completed");
   });
 });
 
@@ -161,11 +148,10 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, zweiter);
-    assert.deepEqual(
-      failures().map(({ event, fields }) => ({ event, fields })),
-      [{ event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } }],
-    );
+    expect(deleteCalls).toStrictEqual(zweiter);
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
+      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
+    ]);
   });
 
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
@@ -175,8 +161,8 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, accounts);
-    assert.deepEqual(failures(), [
+    expect(deleteCalls).toStrictEqual(accounts);
+    expect(failures()).toStrictEqual([
       {
         level: "ERROR",
         event: "konto.delete_failed",
@@ -195,11 +181,10 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, ["a@schule.de", "c@schule.de"]);
-    assert.deepEqual(
-      failures().map(({ event, fields }) => ({ event, fields })),
-      [{ event: "konto.delete_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined } }],
-    );
+    expect(deleteCalls).toStrictEqual(["a@schule.de", "c@schule.de"]);
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
+      { event: "konto.delete_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined } },
+    ]);
   });
 
   /* The store unreachable: an unhandled rejection an hour after its tick otherwise, and a completion line
@@ -209,8 +194,8 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(calls, []);
-    assert.deepEqual(lines, [
+    expect(calls).toStrictEqual([]);
+    expect(lines).toStrictEqual([
       {
         level: "ERROR",
         event: "konto.sweep_failed",
@@ -240,23 +225,20 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, []);
-    assert.deepEqual(
-      failures().map(({ event, fields }) => ({ event, fields })),
-      [
-        {
-          event: "konto.referenzen_failed",
-          fields: {
-            error_code: "FE-SWEEP-003",
-            name: "APIBadStatusError",
-            status: 409,
-            server_error_code: "REQ-REFERENZEN-001",
-            trace_id: TRACE_ID,
-            anzahl: 2,
-          },
+    expect(deleteCalls).toStrictEqual([]);
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
+      {
+        event: "konto.referenzen_failed",
+        fields: {
+          error_code: "FE-SWEEP-003",
+          name: "APIBadStatusError",
+          status: 409,
+          server_error_code: "REQ-REFERENZEN-001",
+          trace_id: TRACE_ID,
+          anzahl: 2,
         },
-      ],
-    );
+      },
+    ]);
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
@@ -276,11 +258,10 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, []);
-    assert.deepEqual(
-      failures().map(({ event, fields }) => ({ event, fields })),
-      [{ event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } }],
-    );
+    expect(deleteCalls).toStrictEqual([]);
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
+      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
+    ]);
   });
 
   it("names a malformed answer's status and trace on its failure line", async () => {
@@ -299,16 +280,13 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(deleteCalls, []);
-    assert.deepEqual(
-      failures().map(({ event, fields }) => ({ event, fields })),
-      [
-        {
-          event: "konto.referenzen_failed",
-          fields: { error_code: "FE-SWEEP-003", name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
-        },
-      ],
-    );
+    expect(deleteCalls).toStrictEqual([]);
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
+      {
+        event: "konto.referenzen_failed",
+        fields: { error_code: "FE-SWEEP-003", name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
+      },
+    ]);
   });
 
   /* Every kind of line a pass writes, each failure carrying an address in its message the way a real
@@ -323,12 +301,9 @@ describe("a pass meeting a failure", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(
-      lines.map(({ event }) => event),
-      ["konto.referenzen_failed", "konto.delete_failed", "konto.sweep_completed"],
-    );
+    expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed", "konto.sweep_completed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
-    assert.deepEqual(mailerLoads, [], "the sweep reached the mailer");
+    expect(mailerLoads, "the sweep reached the mailer").toStrictEqual([]);
   });
 });
 
@@ -349,11 +324,8 @@ describe("one pass at a time", () => {
     for (const release of held) release([]);
     await Promise.all([first, second]);
 
-    assert.equal(lists, 1, "the second tick listed the store beside the running pass");
-    assert.deepEqual(
-      lines.map(({ level, event }) => `${level} ${event}`),
-      ["INFO konto.sweep_skipped", "INFO konto.sweep_completed"],
-    );
+    expect(lists, "the second tick listed the store beside the running pass").toBe(1);
+    expect(lines.map(({ level, event }) => `${level} ${event}`)).toStrictEqual(["INFO konto.sweep_skipped", "INFO konto.sweep_completed"]);
   });
 });
 
@@ -369,7 +341,7 @@ describe("the line a completed pass writes", () => {
 
     await runKontoSweep();
 
-    assert.deepEqual(lines.at(-1), {
+    expect(lines.at(-1)).toStrictEqual({
       level: "WARN",
       event: "konto.sweep_completed",
       error: undefined,

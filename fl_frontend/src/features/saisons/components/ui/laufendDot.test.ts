@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { laufendDot } from "./laufendDot.ts";
 
@@ -39,6 +38,6 @@ describe("the mark a running season wears on both surfaces", () => {
   /* Two sizes for two type steps, so an ornament never outweighs the word beside it; one size for
      both would be a parameter nothing reads. */
   it("gives the two steps different sizes", () => {
-    assert.notEqual(laufendDot("xxs"), laufendDot("xs"), "both steps compose the same dot");
+    expect(laufendDot("xxs"), "both steps compose the same dot").not.toBe(laufendDot("xs"));
   });
 });

@@ -80,7 +80,7 @@ export type Gewaehrung<U extends Umfang = Umfang> =
   | { readonly erteilbar: false; readonly worte: EinwilligungWorte<U> & { readonly nurWiderruf: string } };
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
-export type EinwilligungAntwort<U extends Umfang = Umfang> = EinwilligungWahl<U> & {
+type EinwilligungAntwort<U extends Umfang = Umfang> = EinwilligungWahl<U> & {
   readonly text_version: string;
   readonly nachweis_stand: FLEinwilligungStand;
 };

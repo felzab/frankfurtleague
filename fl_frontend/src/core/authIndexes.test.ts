@@ -1,10 +1,7 @@
-import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { beforeEach, describe, it } from "node:test";
 
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
-
-import { registerDoubles } from "./exportingModule.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** One `createIndex` the build issued, by collection and name, and the time budget it carried. */
 type Build = { collection: string; name: string; timeoutMS?: number };
@@ -55,12 +52,8 @@ const LOGGING_DOUBLE = {
   },
 };
 
-registerDoubles({
-  modules: {
-    "core/db.ts": DB_DOUBLE,
-    "core/logging.ts": LOGGING_DOUBLE,
-  },
-});
+vi.doMock("@/core/db.ts", () => DB_DOUBLE);
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
@@ -106,8 +99,8 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
     await buildAuthIndexes();
 
     const refused = builds.filter(({ collection }) => collection === "user").map(({ name }) => name);
-    assert.equal(refused.length, 1, "the address index was not asked for, so no refusal was driven");
-    assert.deepEqual(lines, [
+    expect(refused.length, "the address index was not asked for, so no refusal was driven").toBe(1);
+    expect(lines).toStrictEqual([
       {
         event: "auth.index_unbuilt",
         fields: { error_code: "FE-AUTH-011", index: refused[0], name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
@@ -123,8 +116,8 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
 
     await buildAuthIndexes();
 
-    assert.equal(lines.length, builds.length);
-    assert.deepEqual(new Set(lines.map(({ fields }) => (fields as { name: string }).name)), new Set(["MongoServerSelectionError"]));
+    expect(lines.length).toBe(builds.length);
+    expect(new Set(lines.map(({ fields }) => (fields as { name: string }).name))).toStrictEqual(new Set(["MongoServerSelectionError"]));
 
     // The rebuild it arms is the next case's subject; run it out here, so no case inherits it.
     answer = () => Promise.resolve("built");
@@ -140,14 +133,14 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
 
     answer = () => Promise.resolve("built");
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(builds.length, first, "the build ran again before the store answered");
+    expect(builds.length, "the build ran again before the store answered").toBe(first);
     await afterChange("Unknown");
-    assert.equal(builds.length, first, "the build ran again on a topology holding no writable server");
+    expect(builds.length, "the build ran again on a topology holding no writable server").toBe(first);
 
     await afterChange();
 
     const names = (from: Build[]) => from.map(({ name }) => name).sort();
-    assert.deepEqual(names(builds.slice(first)), names(builds.slice(0, first)));
+    expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
 
   // A refusal the server answered meets the same answer on every recovery, so it waits for the next release.
@@ -158,7 +151,7 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
 
     await afterChange();
 
-    assert.equal(builds.length, first, "a refusal the server answered was built again on a recovery");
+    expect(builds.length, "a refusal the server answered was built again on a recovery").toBe(first);
   });
 
   /* The client's `timeoutMS` is a visitor's, and a build cut short by it is abandoned by the server. */
@@ -177,7 +170,7 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
     await buildAuthIndexes();
 
     assert.ok(builds.length > 1);
-    assert.equal(mostAtOnceInOneCollection, 1);
+    expect(mostAtOnceInOneCollection).toBe(1);
   });
 
   // The boot and a recovery can each start a run while the other is building: the second waits.
@@ -187,6 +180,6 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
     await Promise.all([first, second]);
 
     assert.ok(builds.length > 1);
-    assert.equal(mostAtOnceInOneCollection, 1);
+    expect(mostAtOnceInOneCollection).toBe(1);
   });
 });

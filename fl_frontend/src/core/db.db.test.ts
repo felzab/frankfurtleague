@@ -1,4 +1,3 @@
-import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
@@ -6,9 +5,10 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { isAPIError } from "better-auth/api";
 import {
   MongoNetworkTimeoutError,
@@ -17,10 +17,7 @@ import {
   MongoServerSelectionError,
   MongoClient as StoreProbe,
 } from "mongodb";
-
-import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
-import { overridingModule } from "./exportingModule.ts";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import type { MongoClient } from "mongodb";
 import type { Socket } from "node:net";
@@ -219,14 +216,14 @@ const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnecti
 
 const logged: Record<string, unknown>[] = [];
 
-// The query suffix takes the real module past the load hook's match on a path's end: the client
-// under test is the one `fl_frontend/src/core/db.ts` builds, over the relay.
-const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
+// The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
+// under test is the one it builds.
+const PRODUCTION_DB = "@/core/db.ts";
 
 registerAuthDoubles({
   core: {
     config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
-    db: overridingModule(PRODUCTION_DB, {}),
+    db: overriding(PRODUCTION_DB, {}),
     logging: {
       logger: {
         debug: () => undefined,
@@ -246,7 +243,7 @@ async function storeOf(url: string): Promise<MongoClient> {
   return client;
 }
 
-// Imported after the hooks above are registered: a static import resolves before they exist.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const client = await storeOf(PRODUCTION_DB);
 const { auth, readServedSession, removePasskey } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
@@ -285,10 +282,7 @@ async function settledWithin(bound: number, what: string, run: () => Promise<unk
     return await Promise.race([
       run().catch((error: unknown) => error),
       new Promise<never>((_, reject) => {
-        deadline = setTimeout(
-          () => reject(new assert.AssertionError({ message: `${what} had not settled ${bound + LATENESS_MS} ms in` })),
-          bound + LATENESS_MS,
-        );
+        deadline = setTimeout(() => reject(new Error(`${what} had not settled ${bound + LATENESS_MS} ms in`)), bound + LATENESS_MS);
       }),
     ]);
   } finally {
@@ -334,13 +328,13 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
 
     // The control: the same read answers through the relay while it passes requests on.
     const answered = await readServedSession(headers);
-    assert.equal(answered?.user.email, ADMIN_EMAIL);
+    expect(answered?.user.email).toBe(ADMIN_EMAIL);
     logged.length = 0;
 
     const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => readServedSession(headers)));
 
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
-    assert.deepEqual(logged, [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A code's sign-in runs the adapter's own transaction to consume its row, and the commit's own
@@ -361,21 +355,22 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     // collections until its own lifetime ran out, a minute any later case writing them would wait.
     // Inside the container: the client's strict Stable API refuses the command.
     const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
-    assert.equal(killed.output.trim(), "1", `the hung commit's transaction was left standing: ${killed.output}`);
+    expect(killed.output.trim(), `the hung commit's transaction was left standing: ${killed.output}`).toBe("1");
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
     // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
     // commit's own failure being its caller's to log.
-    assert.deepEqual(logged, [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A passkey removal runs from a server action, outside every endpoint, where the library writes this
      line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`
      (`docs/frontend/spec.md :: I678`). */
-  it("writes a removal's transaction left open to the console when its commit and its abort both hang", async (t) => {
+  it("writes a removal's transaction left open to the console when its commit and its abort both hang", async ({ onTestFinished }) => {
     const printed: unknown[][] = [];
-    t.mock.method(console, "error", (...line: unknown[]) => void printed.push(line));
+    const printing = vi.spyOn(console, "error").mockImplementation((...line: unknown[]) => void printed.push(line));
+    onTestFinished(() => void printing.mockRestore());
     await signInByCode(auth, ADMIN_EMAIL);
     const { adapter } = await auth.$context;
     const account = await adapter.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: ADMIN_EMAIL }] });
@@ -400,14 +395,14 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     );
     // As the case above: the transaction the hung commit left would hold the store's rows for a minute.
     const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
-    assert.equal(killed.output.trim(), "1", `the hung removal's transaction was left standing: ${killed.output}`);
+    expect(killed.output.trim(), `the hung removal's transaction was left standing: ${killed.output}`).toBe("1");
 
     assert.ok(relay.triggered, "the removal sent no commit, so nothing here was hung");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung removal settled with ${String(outcome)}`);
-    assert.deepEqual(
-      { logged: logged, printed: printed.map(([line]) => String(line).includes("Failed to abort a MongoDB transaction")) },
-      { logged: [], printed: [true] },
-    );
+    expect({ logged: logged, printed: printed.map(([line]) => String(line).includes("Failed to abort a MongoDB transaction")) }).toStrictEqual({
+      logged: [],
+      printed: [true],
+    });
   });
 
   /* One request lost on its way to a store that answers everything else: the case above's whole hang
@@ -424,11 +419,11 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
 
     assert.ok(relay.dropped, "the sign-in sent no commit, so nothing here was lost");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the lost commit settled with ${String(outcome)}`);
-    assert.deepEqual(await transactionsHeld(), []);
+    expect(await transactionsHeld()).toStrictEqual([]);
     // The control for the case above's line: an abort that lands says nothing.
-    assert.deepEqual(logged, []);
+    expect(logged).toStrictEqual([]);
     // Aborted rather than committed: the code the transaction would have spent still signs in.
-    assert.equal(await codeStillSignsIn(otp), true);
+    expect(await codeStillSignsIn(otp)).toBe(true);
   });
 
   /* The commit lands and its answer does not: the abort after it finds the transaction committed,
@@ -446,10 +441,10 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
 
     assert.ok(relay.silenced, "the sign-in sent no commit, so no answer was lost");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the unanswered commit settled with ${String(outcome)}`);
-    assert.deepEqual(await transactionsHeld(), []);
-    assert.deepEqual(logged, []);
+    expect(await transactionsHeld()).toStrictEqual([]);
+    expect(logged).toStrictEqual([]);
     // Committed: the code is spent, which is what makes the abort's answer TransactionCommitted.
-    assert.equal(await codeStillSignsIn(otp), false);
+    expect(await codeStillSignsIn(otp)).toBe(false);
   });
 });
 
@@ -492,7 +487,7 @@ describe("the sign-in store's client recovers from a cold start it could not com
 
     // One attempt already under way, then the pause before the next.
     await settledWithin(OPERATION_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the reconnect", () => reopened);
-    assert.equal(await settledWithin(OPERATION_BOUND, "the read after the store answered again", probe), null);
+    expect(await settledWithin(OPERATION_BOUND, "the read after the store answered again", probe)).toBe(null);
   });
 
   it("stays closed once closed, its first connect having been refused", async () => {
@@ -513,7 +508,7 @@ describe("the sign-in store's client recovers from a cold start it could not com
     await pause(OPERATION_BOUND + closingClient.options.minHeartbeatFrequencyMS + LATENESS_MS);
     const closedRead = await settledWithin(OPERATION_BOUND, "the read after the close", read);
 
-    assert.equal(reopened, false, "the client its owner closed opened again once the store answered");
+    expect(reopened, "the client its owner closed opened again once the store answered").toBe(false);
     assert.ok(closedRead instanceof MongoNotConnectedError, `the read after the close settled with ${String(closedRead)}`);
   });
 
@@ -551,13 +546,13 @@ process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
         const first = await settledWithin(CHILD_LOAD_MS + OPERATION_BOUND, "the child's read", () =>
           Promise.race([settled.then(() => CHILD_SETTLED), exited.then(() => "an exit")]),
         );
-        assert.equal(first, CHILD_SETTLED, "the child exited before its read settled");
+        expect(first, "the child exited before its read settled").toBe(CHILD_SETTLED);
         const [code] = (await settledWithin(
           recoveringClient.options.minHeartbeatFrequencyMS,
           "the child's exit once its read had failed",
           () => exited,
         )) as [number | null];
-        assert.equal(code, 0);
+        expect(code).toBe(0);
       });
       assert.ok(childRelay.refused > 0, "the child's read was refused by no store here, so its exit proves nothing");
     } finally {
@@ -595,8 +590,8 @@ describe("the sign-in store's indexes recover with the store (`docs/frontend/spe
       const deadline = Date.now() + client.options.minHeartbeatFrequencyMS + OPERATION_BOUND + LATENESS_MS;
       while (!(await indexed()) && Date.now() < deadline) await pause(200);
 
-      assert.equal(await indexed(), true, "the index was not built again once the store answered");
-      assert.equal(opens, 0, "the client emitted `open`, so this drove a new topology rather than a recovered one");
+      expect(await indexed(), "the index was not built again once the store answered").toBe(true);
+      expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);
       logged.length = 0;

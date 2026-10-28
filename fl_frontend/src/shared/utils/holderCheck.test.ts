@@ -1,9 +1,6 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
+import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
-  asDataUrl,
   configDouble,
   GATE_BACKEND_CONFIG,
   madeByPasskey,
@@ -13,8 +10,8 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
   sessionByCode,
-} from "@/core/authDoubles.ts";
-import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+} from "@/test-support/authDoubles.ts";
+import { beforeEach, describe, expect, it } from "vitest";
 
 const STORE = "__flHolderCheckStore";
 
@@ -41,14 +38,14 @@ registerAuthDoubles({
   },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
-    "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
+    "next/cache": NEXT_CACHE_DOUBLE,
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
 
 const store = memoryStore(STORE);
 
-// Imported here rather than at the top: a static import resolves before the hooks above are registered.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { pruefeInhaberAction } = await import("@/features/konto/actions.ts");
 const { pruefeAdministratorAction } = await import("@/features/admin/actions.ts");
 const { auth } = await import("@/core/auth");
@@ -74,17 +71,17 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 describe("which session a holder check calls the holder's (docs/frontend/spec.md :: I428)", () => {
   it("answers held for the account page's holder, and not held for another person's session", async () => {
     const holder = await arriveSignedIn(PERSON_EMAIL);
-    assert.deepEqual(await pruefeInhaberAction(holder), { success: true, gleich: true });
+    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: true });
 
     await arriveSignedIn(OTHER_EMAIL);
-    assert.deepEqual(await pruefeInhaberAction(holder), { success: true, gleich: false });
+    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: false });
   });
 
   it("answers held for the administrator who asked, and not held for another administrator's session", async () => {
     const holder = await arriveSignedIn(ADMIN_EMAIL, { byPasskey: true });
-    assert.deepEqual(await pruefeAdministratorAction(holder), { success: true, gleich: true });
+    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: true });
 
     await arriveSignedIn(SECOND_ADMIN_EMAIL, { byPasskey: true });
-    assert.deepEqual(await pruefeAdministratorAction(holder), { success: true, gleich: false });
+    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: false });
   });
 });

@@ -1,14 +1,11 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { cacheCalls, doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through, the session and the
-   request are the doubles. A file of its own, `actions.test.ts` and `editor.test.ts` replacing this
-   slice's actions module for the components they render. */
+   request are the doubles. */
 const VORSTAND = { user: { email: "vorstand@example.org" } };
 const { setSession } = doubleActionRequest({ session: VORSTAND });
 
@@ -44,7 +41,7 @@ describe("what the season's contacts save sends", () => {
   it("addresses the junction row by its natural key and sends the block alone", async () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.deepEqual(requestsOf(sent), [
+    expect(requestsOf(sent)).toStrictEqual([
       {
         endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`,
         method: "PATCH",
@@ -59,38 +56,35 @@ describe("what the season's contacts save sends", () => {
     const { kontakte: _omitted, ...withoutBlock } = CLEARED;
 
     const refused = await patchSaisonTeamKontakteAction(withoutBlock as FLPatchSaisonTeamKontaktePayload);
-    assert.equal(refused.success, false, "a save that forgot the block was sent");
-    assert.deepEqual(sent, [], "a save that forgot the block reached the client, where a default writes one");
+    expect(refused.success, "a save that forgot the block was sent").toBe(false);
+    expect(sent, "a save that forgot the block reached the client, where a default writes one").toStrictEqual([]);
 
     await patchSaisonTeamKontakteAction(CLEARED);
-    assert.deepEqual(
-      requestsOf(sent).map(({ body }) => body),
-      [{ kontakte: null, kontakte_stand: "9f2c" }],
-    );
+    expect(requestsOf(sent).map(({ body }) => body)).toStrictEqual([{ kontakte: null, kontakte_stand: "9f2c" }]);
   });
 
   /* The session first, because `runAdminMutation` seeds the scope the actor header is read from, then
      the parse, then the write, then the acknowledgement. */
   it("sends nothing without a session or over a body its parse refuses, and reports an unacknowledged save", async () => {
     setSession(null);
-    assert.deepEqual(await patchSaisonTeamKontakteAction(CLEARED), { success: false, error: ANMELDUNG_ABGELAUFEN });
-    assert.deepEqual(sent, [], "the save reached the client for a request with no session");
+    expect(await patchSaisonTeamKontakteAction(CLEARED)).toStrictEqual({ success: false, error: ANMELDUNG_ABGELAUFEN });
+    expect(sent, "the save reached the client for a request with no session").toStrictEqual([]);
 
     setSession(VORSTAND);
     const malformed = await patchSaisonTeamKontakteAction({ ...CLEARED, team_id: "kein-team" });
-    assert.equal(malformed.success, false, "a malformed club id was saved");
-    assert.deepEqual(sent, [], "a body the parse refuses reached the client");
+    expect(malformed.success, "a malformed club id was saved").toBe(false);
+    expect(sent, "a body the parse refuses reached the client").toStrictEqual([]);
 
     blockAnswer = { ...blockAnswer, acknowledged: 0 };
     const unacknowledged = await patchSaisonTeamKontakteAction(CLEARED);
-    assert.equal(sent.length, 1, "the acknowledged control sent nothing, so the answer below is judged over no write");
-    assert.equal(unacknowledged.success, false, "an unacknowledged save reports success");
+    expect(sent.length, "the acknowledged control sent nothing, so the answer below is judged over no write").toBe(1);
+    expect(unacknowledged.success, "an unacknowledged save reports success").toBe(false);
   });
 
   it("hands the editor the token of the block the save left", async () => {
     const result = await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.equal("saison_team" in result ? result.saison_team?.kontakte_stand : undefined, "a1b2");
+    expect("saison_team" in result ? result.saison_team?.kontakte_stand : undefined).toBe("a1b2");
   });
 });
 
@@ -100,7 +94,7 @@ describe("what the contacts save clears", () => {
   it("moves no tag, and re-reads the page the save stands on", async () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.equal(sent.length, 1, "the save never reached the client, so what it clears is judged over nothing");
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }]);
+    expect(sent.length, "the save never reached the client, so what it clears is judged over nothing").toBe(1);
+    expect(cacheCalls).toStrictEqual([{ name: "refresh", args: [] }]);
   });
 });

@@ -43,7 +43,7 @@ function isAbsent(value: unknown): boolean {
  * What one path publishes. **Missing is never a blur's business**: focusing a field and leaving it says nothing,
  * whatever the schema thinks. It becomes sayable only once send has been pressed.
  */
-export function verdictMessage(
+function verdictMessage(
   found: FieldErrors,
   draft: unknown,
   path: string,
@@ -58,7 +58,7 @@ export function verdictMessage(
  * **Per call rather than per path.** A cross-field rule reports where the schema puts it rather than where the user
  * was, so editing one side has to unlock the other side's verdict or the message never clears.
  */
-export function differsFromSubmitted(submitted: unknown, draft: unknown, paths: readonly string[]): boolean {
+function differsFromSubmitted(submitted: unknown, draft: unknown, paths: readonly string[]): boolean {
   if (submitted === undefined) return true;
 
   return paths.some((path) => JSON.stringify(valueAtPath(draft, path)) !== JSON.stringify(valueAtPath(submitted, path)));
@@ -68,7 +68,7 @@ export function differsFromSubmitted(submitted: unknown, draft: unknown, paths: 
  * The submit's messages, with the verdicts that judged a **moved** value over them: a verdict says only that the schema
  * is happy, and recency cannot stand in, `focusFirstRefusal` moving focus into the very field it refused.
  */
-export function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVerdicts): FieldErrors {
+function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVerdicts): FieldErrors {
   const merged: FieldErrors = { ...submitErrors };
 
   for (const [path, verdict] of Object.entries(verdicts)) {
@@ -85,7 +85,7 @@ export function mergeFieldVerdicts(submitErrors: FieldErrors, verdicts: FieldVer
  * The paths a re-judge now accepts, or `null` where none moved. **It only ever retracts**: a path showing nothing is
  * never considered, so no message can appear between keystrokes (`.claude/rules/frontend.md`), and one still refused stands.
  */
-export function forgivenVerdicts<TSchema extends string>({
+function forgivenVerdicts<TSchema extends string>({
   shown,
   payloads,
   schemas,
@@ -126,7 +126,7 @@ export function forgivenVerdicts<TSchema extends string>({
  * Every missing value, once send has been pressed. In `aria` validation the browser refuses nothing, so this is the
  * only voice a required field has — and WCAG 3.3.1 wants that error named in text rather than left silent.
  */
-export function missingVerdicts<TSchema extends string>({
+function missingVerdicts<TSchema extends string>({
   payloads,
   schemas,
   submitted,
@@ -153,13 +153,13 @@ export function missingVerdicts<TSchema extends string>({
   return Object.keys(published).length === 0 ? null : published;
 }
 
-export const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
+const BLOCKED_SUBMIT_TITLE = "Noch nicht abgeschickt";
 
 /**
  * Spelled per count rather than interpolated: `1` and the rest need their own German. It names no
  * direction: every editor shares this hook, and `focusFirstRefusal` moves the caret to the mark anyway.
  */
-export const blockedSubmitDetail = (marked: number): string =>
+const blockedSubmitDetail = (marked: number): string =>
   // Never a missing answer: the same press refuses a value that is wrong or already taken.
   marked === 1
     ? "Ein Feld ist noch nicht richtig ausgefüllt. Es ist markiert."
@@ -169,7 +169,7 @@ export const blockedSubmitDetail = (marked: number): string =>
  * Each control the form holds by a refused name, once. Never the paths, which outnumber the marks wherever one
  * control writes several — the consent switch writes three seats — or a mirrored copy renders no box.
  */
-export function markedFieldCount(form: HTMLFormElement | null, refusals: FieldErrors): number {
+function markedFieldCount(form: HTMLFormElement | null, refusals: FieldErrors): number {
   const marked = new Set<string>();
 
   for (const control of Array.from(form?.elements ?? [])) {
@@ -186,7 +186,7 @@ export function markedFieldCount(form: HTMLFormElement | null, refusals: FieldEr
  */
 export type SubmitDecision = { blocked: true; refusals: FieldErrors } | { blocked: false };
 
-export function submitDecision<TSchema extends string>(args: {
+function submitDecision<TSchema extends string>(args: {
   payloads: Readonly<Partial<Record<TSchema, unknown>>>;
   schemas: Readonly<Record<TSchema, ZodType>>;
 }): SubmitDecision {
@@ -199,7 +199,7 @@ export function submitDecision<TSchema extends string>(args: {
  * Every refusal across the payloads one press writes, keyed as the payload spells it. Separate from the hook so the
  * decision can be exercised without a renderer, and so a two-schema editor's halves merge in one place.
  */
-export function submitRefusals<TSchema extends string>({
+function submitRefusals<TSchema extends string>({
   payloads,
   schemas,
 }: {
@@ -220,7 +220,7 @@ export function submitRefusals<TSchema extends string>({
  * `current` ITSELF wherever nothing moved. These verdicts are recomputed after every render, so a fresh object for
  * an unchanged one would re-render forever. Never simplify to an unconditional spread.
  */
-export function applyVerdicts(current: FieldVerdicts, incoming: FieldVerdicts | null): FieldVerdicts {
+function applyVerdicts(current: FieldVerdicts, incoming: FieldVerdicts | null): FieldVerdicts {
   if (incoming === null) return current;
 
   const moved = Object.entries(incoming).some(
@@ -231,7 +231,7 @@ export function applyVerdicts(current: FieldVerdicts, incoming: FieldVerdicts | 
 }
 
 /** `current` ITSELF wherever nothing moves: identity is how `useForgiveFixed` knows a commit has nothing to queue. */
-export function settledVerdicts<TSchema extends string>(
+function settledVerdicts<TSchema extends string>(
   current: FieldVerdicts,
   {
     shown,

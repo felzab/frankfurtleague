@@ -12,5 +12,4 @@
 
 ## Read next
 
-- [`../_git/spec.md`](../_git/spec.md) — the pipeline a change travels before any of this runs
-- [`../logging/spec.md`](../logging/spec.md) — what each service writes, and how one request is followed across them
+- [`../logging/overview.md`](../logging/overview.md) — what each service writes, and how one request is followed across them
