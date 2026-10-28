@@ -100,6 +100,17 @@ describe("an editor's draft", () => {
     expect(result.current.status).toStrictEqual({ tone: "saved", text: COPY.shared.gespeichert });
   });
 
+  it("says what else the save moved in place of „Gespeichert“", async () => {
+    const note = COPY.verwaltung.spiel.gespeichertMitFolgen("Die Paarung in Spiel 31 wurde ebenfalls aktualisiert.");
+    const { result, rerender } = editorOn(STORED, async () => ({ ok: true, value: undefined, note }));
+
+    act(() => result.current.set("plz", "60439"));
+    await press(result.current.submit);
+    rerender({ shown: { id: "ort-1", fingerprint: "f2", values: { ...STORED.values, plz: "60439" } } });
+
+    expect(result.current.status).toStrictEqual({ tone: "saved", text: note });
+  });
+
   it("starts fresh on another record", () => {
     const { result, rerender } = editorOn(STORED);
 

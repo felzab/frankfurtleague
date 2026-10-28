@@ -145,7 +145,8 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   } else if (count > 0) {
     status = { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) };
   } else if (answer?.ok === true) {
-    status = { tone: "saved", text: COPY.shared.gespeichert };
+    // A save that moved more than this record says what else it moved, in place of the plain „Gespeichert“.
+    status = { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
   }
 
   return {

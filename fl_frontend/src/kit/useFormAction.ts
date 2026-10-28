@@ -9,13 +9,14 @@ import { edgeRefusedSend } from "@/shared/utils/actionError";
 import type { Copy } from "@/core/copy";
 
 /**
- * What a server action answers a form: done, with what the page needs next, or not done, with each field's
- * message by the field's `name` and the one line the status line shows. A refusal a person can cause from
- * the screen brings its reason, a stale read the stale-page line, anything unexpected the shared failure
- * line; a refusal for its fields alone may leave the line to the form.
+ * What a server action answers a form: done, with what the page needs next and, where the write did more
+ * than the form asked, the line saying so; or not done, with each field's message by the field's `name` and
+ * the one line the status line shows. A refusal a person can cause from the screen brings its reason, a
+ * stale read the stale-page line, anything unexpected the shared failure line; a refusal for its fields
+ * alone may leave the line to the form.
  */
 export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
+  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
 
 /**
  * Anything the action throws becomes the unexpected-failure answer, but Next's redirect and not-found pass

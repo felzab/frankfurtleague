@@ -6,7 +6,7 @@ import { spielStateKey } from "@/features/spiele/utils";
 
 import { spielSpeichern } from "./spielSpeichern";
 
-import type { FLPatchSpielDataPayload, FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielAdmin } from "@/features/spiele/schemas";
 
 const SPIEL_ID = "64b000000000000000000001";
 
@@ -32,11 +32,22 @@ const GESPEICHERT: FLSpielAdmin = {
   ansetzung_bestaetigt: null,
 };
 
-/** The fixture the save reads afresh, and every payload it sends to the write. */
+/** The write's answer where it moved no other fixture. */
+const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
+  acknowledged: 1,
+  advanced_to: [],
+  released_sides: [],
+  bracket_faults: [],
+  prior_paarungen: [],
+  prior_bericht: null,
+};
+
+/** The fixture the save reads afresh, every payload it sends to the write, and what the write answers. */
 const stand = vi.hoisted(() => ({
   gelesen: null as unknown,
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
+  antwort: null as unknown,
 }));
 
 vi.mock("@/features/spiele/queries", () => ({
@@ -47,7 +58,7 @@ vi.mock("@/features/spiele/mutations", () => ({
   patchAdminSpielData: async (payload: unknown) => {
     stand.gesendet.push(payload);
     if (stand.ablehnung !== null) throw stand.ablehnung;
-    return { acknowledged: true };
+    return stand.antwort;
   },
 }));
 
@@ -73,6 +84,7 @@ beforeEach(() => {
   stand.gelesen = GESPEICHERT;
   stand.gesendet = [];
   stand.ablehnung = null;
+  stand.antwort = NICHTS_BEWEGT;
 });
 
 const FINGERPRINT = spielStateKey(GESPEICHERT);
@@ -99,6 +111,31 @@ describe("the match editor's save", () => {
         schiedsrichter_stand: "64b000000000000000000006",
       } satisfies FLPatchSpielDataPayload,
     ]);
+  });
+
+  it("says which other fixture the write moved, and the result it deleted there", async () => {
+    stand.antwort = {
+      ...NICHTS_BEWEGT,
+      advanced_to: [
+        {
+          spiel_id: "64b000000000000000000007",
+          spiel_nr: 31,
+          voided_ergebnis: "1:0",
+          voided_elfmeterschiessen: null,
+          voided_sonderereignis: null,
+        },
+      ],
+    } satisfies FLPatchSpielDataResponse;
+
+    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { sonderereignis: "nichtantreten_team1" } });
+
+    expect(answer).toEqual({
+      ok: true,
+      value: undefined,
+      note: COPY.verwaltung.spiel.gespeichertMitFolgen(
+        "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
+      ),
+    });
   });
 
   it("refuses as stale a save on a fixture changed since the editor read it, writing nothing", async () => {

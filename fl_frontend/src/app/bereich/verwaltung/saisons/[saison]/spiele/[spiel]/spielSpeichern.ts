@@ -5,7 +5,7 @@ import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { patchAdminSpielData } from "@/features/spiele/mutations";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { FLPatchSpielDataPayloadSchema, FLSonderereignisSchema } from "@/features/spiele/schemas";
-import { spielStateKey, toStoredSide } from "@/features/spiele/utils";
+import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spiele/utils";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { isRefusal } from "@/shared/utils/actionError";
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -41,7 +41,7 @@ const ABLEHNUNGEN: Readonly<Record<string, { feld?: SpielFeld; text: Copy }>> = 
   "REQ-STATE-003": { feld: "sonderereignis", text: ABGELEHNT.beideTeamsNoetig },
 };
 
-type Antwort = { success: true } | { success: false; antwort: ActionAnswer };
+type Antwort = { success: true; antwort: ActionAnswer } | { success: false; antwort: ActionAnswer };
 
 const abgelehnt = (antwort: ActionAnswer): Antwort => ({ success: false, antwort });
 
@@ -111,7 +111,11 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     invalidatesOnWrite(`spiele:saison_id:${saison}`, `teams:saison_id:${saison}`);
     try {
       const geschrieben = await patchAdminSpielData(payload.data, null);
-      return geschrieben.acknowledged ? { success: true } : abgelehnt({ ok: false });
+      if (!geschrieben.acknowledged) return abgelehnt({ ok: false });
+      // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
+      const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
+      if (folgen === undefined) return { success: true, antwort: { ok: true, value: undefined } };
+      return { success: true, antwort: { ok: true, value: undefined, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) } };
     } catch (error) {
       if (!isRefusal(error)) throw error;
       const ablehnung = error.serverErrorCode === undefined ? undefined : ABLEHNUNGEN[error.serverErrorCode];
@@ -122,7 +126,7 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     }
   });
 
-  if (result.success) return { ok: true, value: undefined };
+  if (result.success) return result.antwort;
   // The guard's own refusals, a session ended among them, carry no words of the catalogue's: the unexpected failure.
   return "antwort" in result ? result.antwort : { ok: false };
 }
