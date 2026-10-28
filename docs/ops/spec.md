@@ -492,7 +492,7 @@ or a hash on the inline hydration scripts of a prerendered shell**, and every pa
 `cacheComponents` turns on, "incompatible" with a nonce-based CSP, and its experimental SRI puts
 `integrity` on script files alone — the installed release's copy,
 `fl_frontend/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`, and a Next
-maintainer's open correction to it, https://github.com/vercel/next.js/pull/96281, both read
+maintainer's open correction to it, <https://github.com/vercel/next.js/pull/96281>, both read
 2026-09-25 and moving without us. A nonce for the stream beside build-time hashes for the shell and
 `'self'` for its chunks would cover every script, and is refused: three mechanisms is a patchwork
 rather than a rule. The compensating control is the `react/no-danger` rule in
@@ -522,7 +522,7 @@ no other directive**: the bot check on the sign-in and the two public forms load
 there and renders its widget in a frame of that origin, so a policy losing it from either breaks all
 three while every location still sends the file's value. `nginx/edge_test.sh` fails a response
 whose policy does. Cloudflare's own list for the check adds `connect-src 'self'` for pre-clearance
-alone, which the widget does not use (https://developers.cloudflare.com/turnstile/reference/content-security-policy/,
+alone, which the widget does not use (<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>,
 read 2026-10-04).
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
