@@ -247,6 +247,21 @@ export const menuItem = tv({
 });
 
 /**
+ * How a list marks its chosen entry, by what choosing it means, in every list that has one. A form's value,
+ * in a select's, a combo box's or a menu's choice: the row tinted 12 % of the link green, its check at the
+ * end. A navigating menu's current place: the rail's mark of the current page, the muted fill with the words
+ * in the link green, and no check.
+ */
+export const entryMark = tv({
+  variants: {
+    mark: {
+      value: "data-selected:bg-brand/12",
+      place: "data-selected:bg-bg-muted data-selected:text-brand",
+    },
+  },
+});
+
+/**
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
  * surface, and the toggle boxes of a small multi-select, each box standing alone.
  */

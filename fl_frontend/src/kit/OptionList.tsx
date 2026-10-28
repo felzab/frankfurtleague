@@ -3,7 +3,7 @@
 import { ListBox, ListBoxItem } from "react-aria-components/ListBox";
 import { Popover } from "react-aria-components/Popover";
 
-import { menuItem, menuPopover, messageLine } from "./fieldStyles";
+import { entryMark, menuItem, menuPopover, messageLine } from "./fieldStyles";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -15,8 +15,9 @@ import type { Copy } from "@/core/copy";
 export type Option = { id: string; label: string } & ({ isDisabled?: false; note?: never } | { isDisabled: true; note: Copy });
 
 /**
- * The menu of choices under a select or a combo box, as wide as its field. A select hands it the
- * options; a combo box hands them to itself, which filters them as it is typed into.
+ * The menu of choices under a select or a combo box, as wide as its field, the chosen one marked as a form's
+ * value. A select hands it the options; a combo box hands them to itself, which filters them as it is typed
+ * into.
  */
 export function OptionList({ options }: { options?: readonly Option[] }) {
   return (
@@ -33,7 +34,7 @@ export function OptionList({ options }: { options?: readonly Option[] }) {
             id={option.id}
             textValue={option.label}
             isDisabled={option.isDisabled}
-            className={menuItem()}>
+            className={`${menuItem()} ${entryMark({ mark: "value" })}`}>
             {({ isSelected }) => (
               <>
                 <span className="flex min-w-0 flex-col">
