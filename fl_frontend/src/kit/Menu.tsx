@@ -26,8 +26,13 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { IconName } from "./Icon";
 
-/** A link in a menu; `isCurrent` marks the one in force with the dot, in a list that has one. */
-export type MenuLink = { label: Copy; href: Route; icon?: IconName; isCurrent?: boolean };
+/**
+ * A link in a menu; `isCurrent` marks the one in force with the dot, in a list that has one. Its words are
+ * catalogue text, or a record's own name such as a season's.
+ */
+export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
+  { label: Copy; text?: never } | { text: string; label?: never }
+);
 
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
@@ -81,7 +86,7 @@ const item = tv({
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
 const surface = () => menuPopover({ fit: "content" });
 
-function Entry({ label, icon, isMarked, hasMore }: { label: Copy; icon?: IconName; isMarked?: boolean; hasMore?: boolean }) {
+function Entry({ label, icon, isMarked, hasMore }: { label: string; icon?: IconName; isMarked?: boolean; hasMore?: boolean }) {
   return (
     <>
       {isMarked !== undefined && <span className={isMarked ? "mx-1 size-2 shrink-0 rounded-full bg-current" : "mx-1 size-2 shrink-0"} />}
@@ -116,11 +121,11 @@ function LinkItem({ link, size, marks }: { link: MenuLink; size: Size; marks: bo
     <MenuItem
       id={link.href}
       href={link.href}
-      textValue={link.label}
+      textValue={link.label ?? link.text}
       data-kit-focus="item"
       className={item({ size })}>
       <Entry
-        label={link.label}
+        label={link.label ?? link.text}
         icon={link.icon}
         isMarked={marks ? link.isCurrent === true : undefined}
       />
@@ -135,9 +140,8 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
     <AriaMenu
       aria-label={label}
       data-kit-focus
-      selectionMode={key === null ? "none" : "single"}
-      selectedKeys={key === null ? [] : [key]}
       className="grid gap-1">
+      {/* „Zurück“ stands outside the links' section, so it is no choice among them. */}
       {onBack !== undefined && (
         <MenuItem
           textValue={COPY.shared.zurueck}
@@ -151,14 +155,20 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           />
         </MenuItem>
       )}
-      {links.map((link) => (
-        <LinkItem
-          key={link.href}
-          link={link}
-          size={size}
-          marks={key !== null}
-        />
-      ))}
+      <MenuSection
+        aria-label={label}
+        className="grid gap-1"
+        selectionMode={key === null ? "none" : "single"}
+        selectedKeys={key === null ? [] : [key]}>
+        {links.map((link) => (
+          <LinkItem
+            key={link.href}
+            link={link}
+            size={size}
+            marks={key !== null}
+          />
+        ))}
+      </MenuSection>
     </AriaMenu>
   );
 }
