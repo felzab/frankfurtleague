@@ -1,6 +1,6 @@
 /**
  * One passkey as its card renders it. `publicKey` and `credentialID` stay on the server: nothing the
- * card draws needs either, and I198's argument is that what a script cannot read it cannot leak.
+ * card draws needs either, and the argument is that what a script cannot read it cannot leak.
  */
 export interface PasskeyKarte {
   readonly id: string;

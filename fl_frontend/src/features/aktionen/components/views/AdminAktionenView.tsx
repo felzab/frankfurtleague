@@ -20,7 +20,7 @@ import type { Leserichtung } from "@/shared/utils/leserichtung";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
 const SEARCH_KEYS: readonly SearchKey<AdminAktionRow>[] = [
-  // As its cell prints it, never as stored (`docs/frontend/spec.md :: I681`).
+  // As its cell prints it, never as stored.
   { name: "actor", getFn: (aktion) => aktorAnzeige(aktion.actor) },
   "document_id",
   "trace_id",
@@ -97,7 +97,7 @@ export function AdminAktionenView({
       {/* „Ein Filter holt dagegen auch Zeilen“ holds only while every facet narrows the read
           (`fl_frontend/src/features/aktionen/facets.ts :: AKTIONEN_FACETS`). */}
 
-      {/* The tally narrows by the trace and document terms as well (`docs/backend/spec.md :: I208`),
+      {/* The tally narrows by the trace and document terms as well,
           so a sentence counting rows would need a scope word; what picking a value would leave holds
           under every narrowing. */}
       {!vollstaendig && (

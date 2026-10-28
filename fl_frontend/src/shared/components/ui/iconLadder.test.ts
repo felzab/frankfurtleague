@@ -126,7 +126,7 @@ describe("every icon the tree renders", () => {
     const found = icons.filter((icon) => icon.names.includes("width") || icon.names.includes("height"));
     expect(
       found.map((icon) => icon.where),
-      `a width or height prop sizes an icon in pixels, off §1.21's ladder:\n${found.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
+      `a width or height prop sizes an icon in pixels, off the ladder:\n${found.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
     ).toStrictEqual([]);
   });
 });

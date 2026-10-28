@@ -109,7 +109,7 @@ describe("FLPostSaisonPayloadSchema", () => {
 describe("FLPatchSaisonPayloadSchema", () => {
   it("takes rules that already breach either rule, so a dates-only edit reaches the server", () => {
     /* Both breaches at once. Each turns on the step from the stored rules, which this payload does not
-       carry, so judging them here would refuse the repair (`docs/backend/spec.md :: I44`). */
+       carry, so judging them here would refuse the repair. */
     const breaching = { ...create({ number_of_groups: 3, qualifiers_per_group: 5, teams_per_group: 4 }), start_date: "2025-10-01" };
 
     expect(pathsRefused(FLPatchSaisonPayloadSchema, breaching)).toStrictEqual([]);

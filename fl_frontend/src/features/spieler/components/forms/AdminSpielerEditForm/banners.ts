@@ -115,8 +115,8 @@ export function buildSpielerBanners({
     });
   }
 
-  // Both lines are dictated copy. Where they and `docs/frontend/spec.md` §1.12's title rules
-  // disagree the copy wins, §1.12 having been derived from sentences like these.
+  // Both lines are dictated copy. Where they and the title rules
+  // disagree the copy wins, the rules having been derived from sentences like these.
   if (isTeamChanged) {
     banners.push({
       id: "spieler.team-changed",

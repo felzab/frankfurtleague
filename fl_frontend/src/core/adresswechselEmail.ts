@@ -55,7 +55,7 @@ const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Se
 
 /** What the link to the new address is built from. */
 export interface AdresswechselLinkData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
@@ -123,7 +123,7 @@ const HINWEIS_BETREFF = `Deine E-Mail-Adresse bei der ${BRAND_NAME} soll sich ä
 
 /** What the notice to the address on file is built from. */
 export interface AdresswechselHinweisData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /** The raw stop token, a bearer credential like the link's. */
   stoppToken: string;

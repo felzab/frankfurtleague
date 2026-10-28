@@ -158,7 +158,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           />
         </RowActionMenuItem>
         {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by: a link never
-            carries a search query (`docs/frontend/spec.md :: I680`). */}
+            carries a search query. */}
         <RowActionMenuItem
           id="spiele"
           href={saisonHref(`/bereich/admin/spielsuche?ort=${ort.id}`)}
@@ -196,8 +196,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         className="hidden w-full md:block"
         {...focusSection("spielorte-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* Never scrolled at a width this table renders at
-              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+          {/* Never scrolled at a width this table renders at. It stays for a platform
               scrollbar wider than the step allows for and for text zoom, where a clipped column would
               hide a cell a bar reaches. */}
           <Table.ScrollContainer>
@@ -217,8 +216,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 {/* Sized to the euro chip rather than to the heading over it: a chip holds one line,
                     so a column under its width draws it across the cell beside it. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-36`}>Mietpreis</Table.Column>
-                {/* Four controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-                holds the arithmetic, and it is the count a new action changes. */}
+                {/* Four controls — it is the count a new action changes. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-60 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 

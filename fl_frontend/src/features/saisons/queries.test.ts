@@ -79,7 +79,7 @@ describe("the deletion count the season page reads", () => {
     expect(declared, "the administrator's count is declared into a cache every caller shares").toStrictEqual([]);
   });
 
-  /* The admin tier's guard, which the page's layout does not give a page's own read (`docs/frontend/spec.md :: I122`). */
+  /* The admin tier's guard, which the page's layout does not give a page's own read. */
   it("sends nothing for a session holding no administrator", async () => {
     setSession(null);
     const before = reads.length;

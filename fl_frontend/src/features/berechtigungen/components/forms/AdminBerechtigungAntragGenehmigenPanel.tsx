@@ -51,7 +51,7 @@ export function AdminBerechtigungAntragGenehmigenPanel({
   const { isConfirming, press } = twoPress;
 
   const handleGenehmigen = () => {
-    // The request's row leaves the list once approved, so the focus moves to the next one's (`docs/frontend/spec.md :: I536`).
+    // The request's row leaves the list once approved, so the focus moves to the next one's.
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.

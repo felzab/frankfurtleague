@@ -125,7 +125,7 @@ export type SpielberichtLeser = "schiedsrichter" | "admin";
 /** The remarks' name refusal lands on the box, the one control that can repair it. */
 export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 
-// The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
+// The box's hint already asks for a shirt number, so the message names the fault alone.
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.

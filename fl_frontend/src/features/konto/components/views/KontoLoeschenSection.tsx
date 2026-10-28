@@ -18,7 +18,7 @@ import { fordereKontoLoeschungAnAction } from "../../actions";
 
 /**
  * The account page's „Konto löschen“, which every stamped page's `{loeschung}` names: the press mails a
- * link, and the deletion waits on the interstitial that link opens (`docs/frontend/spec.md :: I677`).
+ * link, and the deletion waits on the interstitial that link opens.
  */
 export function KontoLoeschenSection() {
   const router = useRouter();

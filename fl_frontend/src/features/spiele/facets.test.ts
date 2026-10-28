@@ -160,7 +160,7 @@ describe("the facets a fixture list is narrowed by", () => {
   });
 
   /* The set `fl_frontend/src/shared/utils/facets.test.ts` holds every discovered slice to: three a control
-     spends, and the search query's name, which no URL may carry (`docs/frontend/spec.md :: I680`). */
+     spends, and the search query's name, which no URL may carry. */
   it("gives every facet a parameter of its own, and none another control already spends", () => {
     const params = ADMIN_FACETS.map((facet) => facet.param);
     const claimed = params.filter((param) => ["q", "order", "saison_id", "section"].includes(param));

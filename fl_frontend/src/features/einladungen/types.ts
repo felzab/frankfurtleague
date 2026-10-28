@@ -25,7 +25,7 @@ export type EinladungVersandErgebnis = {
    * reads; `null` where the press failed before reading it.
    */
   hatte_link: boolean | null;
-  /** Empty outside `production`, where every send is withheld (`docs/frontend/spec.md :: I228`). */
+  /** Empty outside `production`, where every send is withheld. */
   zugestellt: readonly string[];
   unerreichbar: readonly string[];
   /**
@@ -33,6 +33,6 @@ export type EinladungVersandErgebnis = {
    * send apart from a refused mailbox, which outside production is every row on the panel.
    */
   zurueckgehalten: readonly string[];
-  /** How many addresses the ban list kept the link from, in neither list above and never named (`docs/frontend/spec.md :: I542`). */
+  /** How many addresses the ban list kept the link from, in neither list above and never named. */
   gesperrt: number;
 };

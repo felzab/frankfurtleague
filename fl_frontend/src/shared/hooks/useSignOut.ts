@@ -15,7 +15,7 @@ import type { SignOutResult } from "@/shared/types/types";
  */
 export function useSignOut(onSignOut: () => Promise<SignOutResult>) {
   // The panels' own two-press control, whose double-press window keeps a double-click from ending the
-  // session before the armed control was read (`docs/frontend/spec.md :: I37`).
+  // session before the armed control was read.
   const confirm = useTwoPressConfirm();
   const { isConfirming, press, cancel } = confirm;
 

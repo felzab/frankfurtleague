@@ -8,13 +8,12 @@ import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { StepUpRequired } from "./adminMutation";
 
-/** The signed-in holder of the account page, in either lane; never the row's `token` (`docs/frontend/spec.md :: I198`). */
+/** The signed-in holder of the account page, in either lane; never the row's `token`. */
 export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
 
 /**
  * Whether the served session is the one the page was drawn for: a confirmation made once the page's
- * session has ended answers a challenge naming nobody, and can sign another account in
- * (`docs/frontend/spec.md :: I428`).
+ * session has ended answers a challenge naming nobody, and can sign another account in.
  */
 export function isHeldBy(served: { readonly user: { readonly id: string } }, holderId: string): boolean {
   return served.user.id === holderId;
@@ -27,7 +26,7 @@ function freshUntil(served: KontoSession): number | null {
 
 /**
  * Until when the served session may add a passkey, or `null` where it already may not: the enrolment
- * guard's narrower window, inside the confirmation every change takes (`docs/frontend/spec.md :: I411`).
+ * guard's narrower window, inside the confirmation every change takes.
  */
 export function enrolmentUntil(served: KontoSession): number | null {
   if (!isFreshlySignedIn(served) || !isWithinEnrolmentWindow(served.session.createdAt)) return null;
@@ -41,7 +40,7 @@ export function confirmedUntil(served: KontoSession): ConfirmedUntil {
 
 /**
  * The account page's guard without the step-up window, for a press that only mails the holder's own
- * mailbox: the code that renews the window, and the deletion link (`docs/frontend/spec.md :: I676`).
+ * mailbox: the code that renews the window, and the deletion link.
  */
 export async function runKontoStepUp<T extends { success: boolean }>(
   mutationName: string,
@@ -52,7 +51,7 @@ export async function runKontoStepUp<T extends { success: boolean }>(
 
 /**
  * The account page's spine: every change there is refused past the step-up window, whichever lane the
- * holder signs in by (`docs/frontend/spec.md :: I422`).
+ * holder signs in by.
  */
 export async function runKontoMutation<T extends { success: boolean }>(
   mutationName: string,

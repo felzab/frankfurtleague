@@ -29,7 +29,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
 /**
- * **A card per ban at every width, never a table** (`docs/frontend/spec.md :: I237`). Memoised per
+ * **A card per ban at every width, never a table**. Memoised per
  * `AdminCrudView`'s collection-identity note.
  */
 export const AdminSperrlisteList = memo(function AdminSperrlisteList({

@@ -43,7 +43,7 @@ export interface SpielAnsetzungText {
  * behind a typo its reader is a stranger, owed none.
  */
 export interface SpielAnfrageData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   readonly origin: string;
   /** The finished absolute URL. The token inside it is a bearer credential and is never taken apart here. */
   readonly link: string;
@@ -99,7 +99,7 @@ const ABGESAGT_UEBERSCHRIFT = "Spiel abgesagt";
 const TEAM_EMPFAENGER_SATZ = "Diese E-Mail geht an die Kontaktpersonen Deines Teams.";
 const EINZEL_EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
-/** Every value folded once, before any part or the subject prints it: these messages render no column of facts that would fold them (`docs/frontend/spec.md :: I89`). */
+/** Every value folded once, before any part or the subject prints it: these messages render no column of facts that would fold them. */
 function gefaltet(ansetzung: SpielAnsetzungText): SpielAnsetzungText {
   return {
     team1: einzeilig(ansetzung.team1),
@@ -248,12 +248,12 @@ export function buildSpielEinteilungEmail({ origin, ansetzung }: SpielEinteilung
   const site = mailOrigin(origin);
   const fakten = gefaltet(ansetzung);
   const panel = `${site}${SCHIEDSRICHTER_PANEL_PATH}`;
-  // The heading the button opens on, read from its constant (`docs/frontend/spec.md` §1.12).
+  // The heading the button opens on, read from its constant.
   const label = EINSAETZE_TITEL;
 
   const eingeteilt = (markup: boolean): string =>
     `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter für das Spiel ${paarung(fakten.team1, fakten.team2, markup)} eingeteilt.`;
-  // The area by its name on screen, read from its constant (`docs/frontend/spec.md` §1.12).
+  // The area by its name on screen, read from its constant.
   const bereich = `Nach der Anmeldung findest Du das Spiel auf der Website unter „${DEIN_BEREICH_TITEL}“. Dort sagst Du zu oder ab.`;
 
   const html = renderKarte({

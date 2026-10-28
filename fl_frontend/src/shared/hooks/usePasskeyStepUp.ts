@@ -12,9 +12,9 @@ export interface PasskeyStepUp {
 }
 
 /**
- * A confirmation is a fresh sign-in (`docs/frontend/spec.md :: I422`). Once the page's session has
+ * A confirmation is a fresh sign-in. Once the page's session has
  * ended, its challenge names nobody and any account's passkey answers it: `istInhaber` asks whose
- * session the assertion minted (`docs/frontend/spec.md :: I428`).
+ * session the assertion minted.
  */
 export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeyStepUp {
   const [isPending, setIsPending] = useState(false);

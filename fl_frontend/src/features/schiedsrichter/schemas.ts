@@ -151,7 +151,7 @@ export type FLPostSchiedsrichterResponse = z.infer<typeof FLPostSchiedsrichterRe
 
 export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLSchiedsrichterSchema,
-  // How many fixtures the rename reached. Reported because the fan-out fails silently (`docs/backend/spec.md :: I13`).
+  // How many fixtures the rename reached. Reported because the fan-out fails silently.
   fanned_out_to_spiele: z.int().nonnegative(),
   // Non-null only where the correction moved an UNCONFIRMED referee's address: the old link was
   // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.

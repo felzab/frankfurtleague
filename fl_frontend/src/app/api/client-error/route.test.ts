@@ -21,7 +21,7 @@ function report(headers: Record<string, string>): InstanceType<typeof NextReques
 
 describe("POST /api/client-error", () => {
   // The route runs under no request scope, so the line's ids come from the header it reads itself;
-  // a real trace beside the sentinel span would file the ingest under no hop (L12).
+  // a real trace beside the sentinel span would file the ingest under no hop.
   it("logs the ingest request's trace under a span of this hop's own", async () => {
     let status = 0;
     const written = await documentsWrittenByAsync(async () => {

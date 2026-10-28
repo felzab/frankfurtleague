@@ -32,7 +32,7 @@ export function KontoPanel({
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         {/* `h2` panels under the bar's `h1`, which reads „Konto“: a page carries no second `h1`. „Zugang“
             is the administration grant's word, so the address a person signs in with is not headed by it. */}
-        {/* A section, so a write that takes the address control away lands on this heading (`docs/frontend/spec.md :: I536`). */}
+        {/* A section, so a write that takes the address control away lands on this heading. */}
         <section
           className={panel.root()}
           {...focusSection("anmeldung")}>

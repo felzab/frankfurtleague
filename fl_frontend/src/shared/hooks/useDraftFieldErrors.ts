@@ -260,9 +260,9 @@ function settledVerdicts<TSchema extends string>(
 export type SubmitConfirmation = { banners: readonly RailBanner[]; confirm: (blocking: BlockingBanners) => void };
 
 /**
- * The one field-error map an editor renders, so no form wires the merge's order wrong
- * (`docs/frontend/spec.md` I19 and I56). Each key's schema is the one its server action parses
- * (`docs/frontend/spec.md` I18), or browser and server state different rules.
+ * The one field-error map an editor renders, so no form wires the merge's order wrong.
+ * Each key's schema is the one its server action parses,
+ * or browser and server state different rules.
  */
 export function useDraftFieldErrors<TSchema extends string>({
   schemas,
@@ -398,7 +398,7 @@ export function useDraftFieldErrors<TSchema extends string>({
     setHasAttemptedSubmit(true);
 
     // Never ahead of the block above, where a dialog accepted over a refused draft would be asked again once the draft
-    // is fixed (`docs/frontend/spec.md :: I255`).
+    // is fixed.
     const blocking = resolveBlockingBanners(confirmation?.banners ?? []);
     if (confirmation !== undefined && blocking !== null) {
       confirmation.confirm(blocking);

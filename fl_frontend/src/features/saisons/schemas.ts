@@ -170,7 +170,7 @@ export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSche
 
 /**
  * The rules a CREATE judges alone. A patch judges none of the family: each one turns on the step
- * from the stored rules, which the payload does not carry (`docs/backend/spec.md :: I44`), so the
+ * from the stored rules, which the payload does not carry, so the
  * server's 409 is what names them.
  */
 const groupCannotOverQualify = {
@@ -231,8 +231,7 @@ const saisonPayloadFields = {
 };
 
 /**
- * Retyped from `fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_YEAR`, which
- * `fl_frontend/src/features/saisons/saisonIdMirror.test.ts` holds it to. A literal on both sides, being a fact about this
+ * Retyped from `fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_YEAR`. A literal on both sides, being a fact about this
  * league's own history; the ceiling below is a fact about the calendar and is read from the clock.
  */
 export const FIRST_SAISON_YEAR = 2026;
@@ -240,8 +239,7 @@ export const FIRST_SAISON_YEAR = 2026;
 // The width is the length bound beside it, on both tiers, so neither states one number twice.
 /**
  * The ALPHABET, character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload`
- * spells it and compared to that spelling by `saisonIdMirror.test.ts` — a form offering what the write
- * path refuses being what drift looks like here.
+ * spells it.
  */
 export const SAISON_ID_PATTERN = /^[0-9]+$/;
 

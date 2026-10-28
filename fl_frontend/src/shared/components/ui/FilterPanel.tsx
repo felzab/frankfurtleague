@@ -155,8 +155,7 @@ function FacetCell<TItem>({
               <span className="min-w-0 truncate">{option.label}</span>
               <span className={`${countBadge("brandSolid")} shrink-0`}>{count}</span>
               {/* The second carrier of a picked row: its tint sits under 3:1 on the ground in both themes,
-                  and under the keyboard the hover fill replaces the tint outright
-                  (`docs/frontend/spec.md :: I231`). */}
+                  and under the keyboard the hover fill replaces the tint outright. */}
               <ListBox.ItemIndicator className="text-brand" />
             </ListBox.Item>
           );

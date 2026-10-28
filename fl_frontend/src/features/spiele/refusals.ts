@@ -20,7 +20,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
   if (error.serverErrorCode === "REQ-BOOKING-002") {
     return {
       fieldErrors: {
-        // One sentence: picking another referee is the box's own repair (`docs/frontend/spec.md` §1.12).
+        // One sentence: picking another referee is the box's own repair.
         "schiedsrichter.schiedsrichter_id": "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
       },
     };

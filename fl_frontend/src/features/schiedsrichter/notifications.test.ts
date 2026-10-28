@@ -19,7 +19,7 @@ const TOKEN = "abc123";
 
 describe("the link the referee's minter mails", () => {
   /* A link built on the published origin sends a reader of the local stack into production, and the
-     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
+     two origins are separate settings. */
   it("is mailed by its minter on the configured origin", async () => {
     const versand = await mailSchiedsrichterLink({
       operation: "POST /schiedsrichter",
@@ -37,7 +37,7 @@ describe("the link the referee's minter mails", () => {
   });
 
   /* Its own outcome, apart from a failure: a press reading „fehlgeschlagen“ offers a second route to a
-     person the ban keeps the league from writing to (`docs/frontend/spec.md :: I542`). */
+     person the ban keeps the league from writing to. */
   it("ends as barred where the ban list kept the link from the address", async () => {
     mail.answerWith(() => "barred");
 

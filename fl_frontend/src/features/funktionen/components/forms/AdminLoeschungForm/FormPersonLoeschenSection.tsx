@@ -76,7 +76,7 @@ function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
 }
 
 /**
- * One person's erasure, keyed on the address they asked from (`docs/frontend/spec.md :: I685`, `:: I686`). In no
+ * One person's erasure, keyed on the address they asked from. In no
  * `<form>`: Enter in the retyped address would submit it.
  */
 export function FormPersonLoeschenSection() {
@@ -193,7 +193,7 @@ export function FormPersonLoeschenSection() {
             setEmail(next);
             setFehler({ ...fehler, email: undefined });
             // The arming and its read alike: the read's answer, a refusal of the box among them, speaks of the
-            // address the box held before (`docs/frontend/spec.md :: I686`).
+            // address the box held before.
             letzteLesung.current += 1;
             confirm.cancel();
           }}

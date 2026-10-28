@@ -29,7 +29,7 @@ export async function getSpielbestaetigungen(filters: FLSpielbestaetigungenFilte
  * The signed-in referee's own rows, refused `REQ-FUNKTION-001` where the backend holds no confirmed referee record
  * for the address the page's own check passed.
  */
-// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getEigeneSpielbestaetigungen = cache(async (): Promise<FLSpielbestaetigungenSelbstResponse> =>
   runPersonRead(() =>
     apiClient<FLSpielbestaetigungenSelbstResponse>("/spielbestaetigungen/selbst", FLSpielbestaetigungenSelbstResponseSchema, {

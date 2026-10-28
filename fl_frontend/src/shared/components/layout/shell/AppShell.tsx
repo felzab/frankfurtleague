@@ -17,8 +17,7 @@ type ShellSection = { label: string; hint: SidemenuHint };
 
 /**
  * Owns both pieces of shell state, each split across two places: the hamburger in the bar, its panel in the sidemenu;
- * the rail's toggle in the footer, its width sizing the brand. **Nothing here reads the address**
- * (`docs/frontend/spec.md :: I735`).
+ * the rail's toggle in the footer, its width sizing the brand. **Nothing here reads the address**.
  */
 export function AppShell<TIcon extends string>({
   structure,

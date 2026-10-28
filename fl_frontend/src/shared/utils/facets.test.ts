@@ -375,7 +375,7 @@ describe("every facet set in the app", () => {
   it("never claims a parameter another control owns, or the search query's name", () => {
     // `order`, `saison_id` and `section` belong to the read order's control, the season selector and the
     // action-required strip, which a facet claiming one fights invisibly. `q` is refused outright and
-    // blanked on every access line (`docs/frontend/spec.md :: I680`).
+    // blanked on every access line.
     const reserved = new Set(["q", "order", "saison_id", "section"]);
 
     for (const [name, facets] of discovered) {

@@ -7,7 +7,7 @@ import type { HinweisVersand, LinkVersand, VersandGrad } from "./linkVersand";
 
 /**
  * A press's title for each way its link ended. **No title here is a press's failure title**, which
- * `appToast.failure` raises at another variant (`docs/frontend/spec.md :: I42`).
+ * `appToast.failure` raises at another variant.
  */
 export type VersandTitel = Readonly<Record<VersandGrad, string>>;
 
@@ -53,7 +53,7 @@ const ANFRAGE_TITEL: VersandTitel = {
 
 /**
  * An address change's toast: its link's, and a warning titled for the notice where that failed or may
- * have (`docs/frontend/spec.md :: I679`). With no link the notice titles the toast.
+ * have. With no link the notice titles the toast.
  */
 export function meldeAdresswechselVersand(
   { versand, hinweis }: { versand: LinkVersand | null; hinweis?: HinweisVersand | null },
@@ -71,7 +71,7 @@ export function meldeAdresswechselVersand(
   else meldeLinkVersand(versand, LINK_TITEL, description);
 }
 
-/** The toast of a write that landed and sent a link: a success only where the link went out (`docs/frontend/spec.md :: I725`). */
+/** The toast of a write that landed and sent a link: a success only where the link went out. */
 export function meldeLinkVersand(versand: LinkVersand, titel: VersandTitel, description: string): void {
   const grad = versandGrad(versand);
   const raise = grad === "gesendet" ? appToast.success : appToast.warning;

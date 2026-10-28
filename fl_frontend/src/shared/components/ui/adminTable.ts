@@ -7,7 +7,7 @@ export const TABLE_HEADING_CLASSES = "border-b border-border py-4 fluid-xs font-
 /**
  * The column inset pair. A table padding every column `px-6` spends 24 pixels more per inner column
  * than its floor was measured with, so the floors
- * `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` holds only stand while both
+ * only stand while both
  * spellings come from here.
  */
 export const COLUMN_EDGE_CLASSES = "px-6";

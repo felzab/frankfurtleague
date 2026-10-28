@@ -25,8 +25,8 @@ function walk(dir: string, accepts: (name: string) => boolean): string[] {
 /**
  * Every file under `root` whose name `accepts` takes, absolute, recursively.
  *
- * `floor` is positional and undefaulted so no sweep can exist without naming one
- * (`docs/frontend/spec.md`); a default would be a floor nobody chose.
+ * `floor` is positional and undefaulted so no sweep can exist without naming one;
+ * a default would be a floor nobody chose.
  */
 export function filesUnder(root: string, accepts: (name: string) => boolean, floor: number): string[] {
   const found = walk(root, accepts);

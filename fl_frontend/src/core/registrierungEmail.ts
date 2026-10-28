@@ -25,8 +25,7 @@ import type { Aktion } from "./emailShell";
 
 const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
-// Beside the builders that spend it rather than in the slice: `core` may not import a feature, and
-// minting inside them is what puts a normalised origin under `emailShell.test.ts`'s sweep.
+// Beside the builders that spend it rather than in the slice: `core` may not import a feature.
 
 /**
  * The one place a pupil's confirmation link is spelled.
@@ -48,7 +47,7 @@ export type RegistrierungEmail = { subject: string; html: string; text: string }
 export interface RegistrierungLinkEmailData {
   readonly teamName: string;
   readonly saisonId: string;
-  /** The serving origin (`docs/frontend/spec.md :: I186`), RAW: the builder normalises it once. */
+  /** The serving origin, RAW: the builder normalises it once. */
   readonly origin: string;
   /** A bearer credential, spelled into the link here and never taken apart. */
   readonly token: string;
@@ -84,7 +83,7 @@ export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailDat
 
 /**
  * Every value a link message prints, folded once before either part or the subject reads it: no
- * column of facts folds them on the way to the prose (`docs/frontend/spec.md :: I89`).
+ * column of facts folds them on the way to the prose.
  */
 function linkDaten(data: RegistrierungLinkEmailData): RegistrierungLinkEmailData {
   return { ...data, teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };

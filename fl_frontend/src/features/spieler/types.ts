@@ -13,7 +13,7 @@ type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
 
 /**
  * A `team_id` without a `saison_id` reads the running season, and 404s while none is active; naming
- * neither lists every season the base tier is not withheld from (`docs/backend/spec.md :: I4`).
+ * neither lists every season the base tier is not withheld from.
  */
 export type FLSpielerFilterParams = {
   team_id?: string;

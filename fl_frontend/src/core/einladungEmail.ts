@@ -23,7 +23,7 @@ import type { Aktion } from "./emailShell";
 const UEBERSCHRIFT = "Registrierungslink";
 
 /**
- * The containment the link rests on (`docs/backend/spec.md :: I144`'s twin): it authorises a PENDING
+ * The containment the link rests on: it authorises a PENDING
  * registration and nothing else, so a reader who forwards it widely is told what that costs before
  * they do it rather than afterwards.
  */
@@ -35,7 +35,7 @@ export interface EinladungEmailData {
   /** The club as the season's junction row names it, so a seat holding two teams can tell them apart. */
   readonly teamName: string;
   readonly saisonId: string;
-  /** The serving origin (`docs/frontend/spec.md :: I186`), which the shell's close is drawn on too. */
+  /** The serving origin, which the shell's close is drawn on too. */
   readonly origin: string;
   /** The finished absolute URL. The token inside it is a bearer credential and is never taken apart here. */
   readonly link: string;
@@ -96,7 +96,7 @@ export function buildEinladungEmail(data: EinladungEmailData): EinladungEmail {
   // arrives finished, so a second derivation here could send the two halves to different hosts.
   const site = mailOrigin(data.origin);
   // Folded once, before either part or the subject prints them: this message has no column of facts
-  // to fold them on the way (`docs/frontend/spec.md :: I89`).
+  // to fold them on the way.
   const fakten: EinladungEmailData = {
     teamName: einzeilig(data.teamName),
     saisonId: einzeilig(data.saisonId),

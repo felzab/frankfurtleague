@@ -174,8 +174,8 @@ export async function meldeZustellEreignis(payload: FLBewerbungZustellungEreigni
  * because every read there is cached for a render, and this one answers a timer.
  */
 export async function getBewerbungSweepSaisons(): Promise<FLBewerbungSweepSaisonsResponse> {
-  // `GET /saisons` cannot serve this: it withholds a `future` season
-  // (`docs/backend/spec.md :: I47`), which is the status every season with an open application holds.
+  // `GET /saisons` cannot serve this: it withholds a `future` season,
+  // which is the status every season with an open application holds.
   return apiClient<FLBewerbungSweepSaisonsResponse>("/bewerbungen/sweep", FLBewerbungSweepSaisonsResponseSchema, {
     // The system tier, not admin: the sweep holds no session, and inventing an actor for a machine
     // is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.

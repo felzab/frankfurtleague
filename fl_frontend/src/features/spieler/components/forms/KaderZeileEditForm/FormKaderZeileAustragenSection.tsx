@@ -44,7 +44,7 @@ export function FormKaderZeileAustragenSection({
   const austragen = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
-    // Read at the press: the refresh draws this page anew with the row read-only (`docs/frontend/spec.md :: I536`).
+    // Read at the press: the refresh draws this page anew with the row read-only.
     const landing = focusAfterWrite();
     startWriting(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.

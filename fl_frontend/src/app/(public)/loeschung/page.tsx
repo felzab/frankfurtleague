@@ -12,8 +12,8 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 /**
- * `noindex` as the confirmation pages spell it, which `fl_frontend/src/app/sitemap.test.ts` matches by
- * path; `referrer` keeps the link's token off the referer a press on any link here would send.
+ * `noindex` as the confirmation pages spell it;
+ * `referrer` keeps the link's token off the referer a press on any link here would send.
  */
 export const metadata: Metadata = {
   title: "Konto löschen",
@@ -48,8 +48,7 @@ async function LoeschungContent(props: NextPageProps) {
   const subject = await getSubjectSession();
   if (subject === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
 
-  // A grant holder's press asks for the passkey first, whichever factor made the session
-  // (`docs/frontend/spec.md :: I707`).
+  // A grant holder's press asks for the passkey first, whichever factor made the session.
   const verwaltend = subject.subjekt.verwaltung === null ? null : await readGrantHolderStepUp();
   if (subject.subjekt.verwaltung !== null && verwaltend === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
   if (verwaltend !== null && !verwaltend.hasPasskey) return <LoeschungView start={{ zustand: "ohnePasskey" }} />;

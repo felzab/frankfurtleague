@@ -114,7 +114,7 @@ function refusedFieldErrors(error: APIBadStatusError): FieldErrors | null {
 
 /**
  * Where no rendered box takes the refusal, the slice's own sentence stands and never
- * `UNHANDLED_FIELD_REFUSAL`, whose retry resends the body just refused (`docs/frontend/spec.md :: I344`).
+ * `UNHANDLED_FIELD_REFUSAL`, whose retry resends the body just refused.
  */
 export function refusedPayloadAnswer(error: APIBadStatusError, sentence: string): RefusedAnswer {
   return answerBeside(refusedFieldErrors(error), sentence);
@@ -265,8 +265,7 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
 
 /**
  * `rejectedWrite`'s repair on a control sending a confirmation link from a page its reload shows again. A rejection says
- * nothing of whether the link left, and a new link replaces the earlier one; the reload comes first
- * (`docs/frontend/spec.md` §1.12).
+ * nothing of whether the link left, and a new link replaces the earlier one; the reload comes first.
  */
 export const LINK_ERNEUT_OHNE_ANTWORT =
   "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
@@ -275,8 +274,8 @@ export const LINK_ERNEUT_OHNE_ANTWORT =
 export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
 
 /**
- * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
- * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.
+ * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is,
+ * never `unansweredAction`'s unclear save. One sentence for every read.
  */
 export function unansweredRead(): ActionFailure {
   return { success: false, error: UNKNOWN_REFUSAL };

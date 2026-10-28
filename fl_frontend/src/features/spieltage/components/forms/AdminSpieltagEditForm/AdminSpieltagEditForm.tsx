@@ -112,8 +112,8 @@ export function AdminSpieltagEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-    // (`docs/frontend/spec.md :: I255`). The dialog holds the gate's snapshot, which a revalidation cannot move.
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
+    // The dialog holds the gate's snapshot, which a revalidation cannot move.
     guardSubmit({ spieltag: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 

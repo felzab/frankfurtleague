@@ -62,7 +62,7 @@ export function FormSonderereignisSection({
           className={styles.heading()}
           title="Sonderereignis">
           {/* The two Nichtantreten members are one line: the list is counted against what the reader
-              can reach (`docs/frontend/spec.md` §1.12), and either is the same award. */}
+              can reach, and either is the same award. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Sonderereignis"

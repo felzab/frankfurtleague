@@ -46,11 +46,11 @@ export const FLAktionSchema = z.object({
   collection: z.string(),
   operation: z.enum(["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]),
   // An ObjectId everywhere but `saisons`, whose id is the season string. Null on a fan-out, which named a filter
-  // instead, and on a bulk create, which named nothing at all (`docs/backend/spec.md :: I40`).
+  // instead, and on a bulk create, which named nothing at all.
   document_id: z.string().nullable(),
   db_filter: z.record(z.string(), z.string()).nullable(),
   // In the replaced document's place: the list never carries an image, only whether the row secured
-  // one — `GET /aktionen/{aktion_id}` is the read that serves it (`docs/backend/spec.md :: I43`).
+  // one — `GET /aktionen/{aktion_id}` is the read that serves it.
   stand_gesichert: z.boolean(),
   modified_count: z.int().nullable(),
   // Set once a person's erasure has overwritten the values this row recorded.

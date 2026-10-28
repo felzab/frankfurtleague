@@ -22,7 +22,7 @@ const SCHON_ZUGANG = "Diese Adresse hat bereits Zugang zur Verwaltung.";
 export function mapErteilenRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
+  // No repair sentence: the box carrying the message is itself the way out.
   if (error.serverErrorCode === "REQ-BERECHTIGUNG-001" || error.serverErrorCode === "DB-COMMON-002") {
     return { fieldErrors: { email: SCHON_ZUGANG } };
   }

@@ -21,7 +21,7 @@ import type { SpielberichtFieldPath, SpielberichtKontext, TorschuetzeDraft } fro
 
 /**
  * One entry per goal, „unbekannt“ at the head of every picker: the referee names a person or chooses not to, and
- * cannot leave the goal out. Entries are cards (`docs/frontend/spec.md :: I237`): a goal is a record.
+ * cannot leave the goal out. Entries are cards: a goal is a record.
  */
 export function FormTorschuetzenSection({
   kontext,

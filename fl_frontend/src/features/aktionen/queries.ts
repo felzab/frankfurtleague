@@ -17,13 +17,13 @@ export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string 
 const einzeln = (value: string | string[] | undefined): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /**
- * Uncached, as every admin-authed read is — `docs/frontend/spec.md` §1.2. Every filter is optional;
+ * Uncached, as every admin-authed read is. Every filter is optional;
  * an omitted key means the whole log.
  */
 export const getAktionen = async (
   // The bar's terms derived rather than respelled: a spread is exempt from the excess-property check,
   // so a term declared in `./facets` alone reaches the wire with nothing comparing it against the
-  // published parameter (`fl_frontend/src/core/apiRequests.test.ts`).
+  // published parameter.
   filters: ReturnType<typeof aktionenLogFacetTerms> & {
     trace_id?: string;
     document_id?: string;

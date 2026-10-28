@@ -1,6 +1,6 @@
 /**
  * The brand box a glyph, an initial or a number sits in. A tile is not a block, so a page carries as
- * many as it has cards without spending its one `bg-brand-solid` block (`docs/frontend/spec.md` §1.17).
+ * many as it has cards without spending its one `bg-brand-solid` block.
  */
 export const BRAND_TILE_CLASSES =
   "flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-brand-solid-foreground shadow-sm";

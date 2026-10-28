@@ -1,5 +1,5 @@
 /**
- * The name a search query took in a URL. No page writes one (`docs/frontend/spec.md :: I680`); one a
+ * The name a search query took in a URL. No page writes one; one a
  * bookmark still holds is left behind by every URL built from the current one.
  */
 export const SEARCH_QUERY_PARAM = "q";

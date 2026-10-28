@@ -45,8 +45,8 @@ type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: fal
 const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
- * A second press is safe from this panel alone, which holds the key the first one carried
- * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
+ * A second press is safe from this panel alone, which holds the key the first one carried;
+ * unchanged, because other details under that key are refused.
  */
 const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
@@ -76,7 +76,7 @@ export function RegistrierungFormPanel({
   const [isPending, startSending] = useTransition();
   const humanCheck = useTurnstile(siteKey);
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
-  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
+  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it. */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   const [isEingereicht, setIsEingereicht] = useState(false);
 
@@ -137,8 +137,7 @@ export function RegistrierungFormPanel({
           }
 
           // Renewed only where a box carries the judgement: the row whose mail was refused is stored, so
-          // the corrected address is a new registration. A sentence alone keeps its replay
-          // (`docs/frontend/spec.md :: I348`).
+          // the corrected address is a new registration. A sentence alone keeps its replay.
           if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
 
           // The invite died between the open and the press: the answer is the whole page, never a toast.
@@ -198,7 +197,7 @@ export function RegistrierungFormPanel({
       data-required-marks="on"
       className="flex w-full flex-col gap-6"
       onSubmit={() => {
-        // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
+        // The block keeping an incomplete draft off the wire; it RUNS the write.
         guardSubmit({ registrierung: registrierungPayload(draft, token) }, writeAfterBlock);
       }}>
       <section className={panel.root()}>

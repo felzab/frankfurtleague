@@ -20,7 +20,7 @@ export async function mayReceiveMail(to: string): Promise<MailVerdict> {
 
   try {
     // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-    // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
+    // line, which nothing downstream un-logs.
     ({ gesperrt } = await apiClient("/identitaet/gesperrt", FLGesperrtResponseSchema, {
       method: "POST",
       readOnly: true,
@@ -29,7 +29,7 @@ export async function mayReceiveMail(to: string): Promise<MailVerdict> {
     }));
   } catch (failed) {
     // Closed: a send past a failed read would defeat the ban. The name alone, an error on this path
-    // carrying the address it was asked about (`docs/logging/spec.md :: L9`).
+    // carrying the address it was asked about.
     logger.error("mail.gate_failed", undefined, {
       error_code: "FE-MAIL-012",
       name: failed instanceof Error ? failed.name : "unknown",

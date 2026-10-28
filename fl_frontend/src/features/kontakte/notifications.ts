@@ -55,7 +55,7 @@ export async function mailKontaktLink({
     buildMail: () =>
       buildKontaktBestaetigungEmail({
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-        // production must not mail production links (`docs/frontend/spec.md :: I186`).
+        // production must not mail production links.
         origin: frontend_config.AUTH_URL,
         rollenText: rollenText(mint.rollen),
         schule: mint.schule,
@@ -83,7 +83,7 @@ export async function mailKontaktAbgang({
   quelle: KontaktAbgangData["quelle"];
 }): Promise<void> {
   try {
-    // A cut or a lost answer here is this notice's own doubt, never the saved write's (`docs/frontend/spec.md :: I372`).
+    // A cut or a lost answer here is this notice's own doubt, never the saved write's.
     await runAnsweringOwnCut(() =>
       sendMail({
         to: abgang.email,
@@ -105,7 +105,7 @@ export async function mailKontaktAbgang({
     // A barred or a withheld message is the mailer's own line, as on every lane.
     const ausfall = versandAusfallOf(error);
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return;
-    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    // Name only, never the error: its message can carry the address.
     logger.error("kontakt.abgang_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,

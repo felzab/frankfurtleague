@@ -184,7 +184,7 @@ export function AdminBracketWiringView({
                   </Table.Header>
 
                   {/* No `renderEmptyState`: a Server Component may not pass a render prop to a Client
-                      Component (frontend spec I13), and the branch above covers the case. */}
+                      Component, and the branch above covers the case. */}
                   <Table.Body>
                     {[...round.spiele]
                       .sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)

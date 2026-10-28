@@ -298,7 +298,7 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   bisherige_email: z.string().nonempty(),
   // What the notice greets with, read in the mint's own transaction; null on the lost-mailbox way, greeting nobody.
   vorname: z.string().nullable(),
-  // How many could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); 0 where none moves.
+  // How many could approve the grant's move, whom the grants' outbox tells; 0 where none moves.
   genehmiger_anzahl: z.int().nonnegative(),
 });
 export type FLAdresswechselVerwaltungMintResponse = z.infer<typeof FLAdresswechselVerwaltungMintResponseSchema>;

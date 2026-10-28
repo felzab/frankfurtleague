@@ -79,7 +79,7 @@ export function SpielsucheView({
   austritte?: Readonly<Record<string, string>>;
 }) {
   // Held here, the one ancestor of both the bar and the list, and never in the URL: the search
-  // reaches a referee's name (`docs/frontend/spec.md :: I680`).
+  // reaches a referee's name.
   const [spielQuery, setSpielQuery] = useState("");
 
   // A reader types the spelling they have seen, so the rendered date is the only one `SEARCH_KEYS` names.

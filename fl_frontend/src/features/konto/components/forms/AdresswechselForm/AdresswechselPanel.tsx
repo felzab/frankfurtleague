@@ -60,7 +60,7 @@ type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string }
 
 /**
  * The one place every control of this panel stands in, so a landed write's focus goes to whatever control the
- * refresh puts there (`docs/frontend/spec.md :: I536`): the start's to the stop, the stop's to the start.
+ * refresh puts there: the start's to the stop, the stop's to the start.
  */
 const ADRESSWECHSEL_PLACE = "adresswechsel";
 
@@ -118,8 +118,8 @@ function abgelaufenSatz(offen: FLKontoAdresswechselOffen): string {
 
 /**
  * The account page's address control: the person's own start, and a pending change's approval and stop.
- * A start or an approval hands the records over, so each asks a confirmation first
- * (`docs/frontend/spec.md :: I806`); the stop asks nothing.
+ * A start or an approval hands the records over, so each asks a confirmation first;
+ * the stop asks nothing.
  */
 export function AdresswechselPanel({
   adresswechsel,
@@ -355,7 +355,7 @@ export function AdresswechselPanel({
           hinweis={STEP_UP_HINT}
           hasPasskey={bestaetigung.hasPasskey}
           codeHalf={
-            // A grant's address confirms by passkey alone (`docs/backend/spec.md :: I790`); any other's code goes to the
+            // A grant's address confirms by passkey alone; any other's code goes to the
             // address on file, the holder the change asks.
             bestaetigung.verwaltung !== null ? null : (
               <CodeConfirmation

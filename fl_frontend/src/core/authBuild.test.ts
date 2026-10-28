@@ -21,8 +21,7 @@ const LIBRARY_DOUBLE = overriding("better-auth", {
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = { user: [], session: [], account: [], verification: [], passkey: [] };
 
-// The config `next build` loads the module under, in every page-data worker
-// (`docs/frontend/spec.md :: I45`).
+// The config `next build` loads the module under, in every page-data worker.
 const CONFIG = configDouble({ AUTH_URL: undefined }, { authSecret: () => undefined });
 
 registerAuthDoubles({

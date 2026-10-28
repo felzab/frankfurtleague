@@ -162,7 +162,7 @@ export function FormEinladungSection({
   };
 
   const versenden = (offen: FrischeEinladung) => {
-    // It mails a bearer link to the club's seats (`docs/frontend/spec.md :: I432`).
+    // It mails a bearer link to the club's seats.
     mailStepUp.confirmThen(true, () =>
       startMailing(async () => {
         // A rejected action may still have saved, and uncaught here it takes the page down with it.

@@ -32,7 +32,7 @@ const EINGEGANGEN = "Deine Bewerbung ist bei uns eingegangen.";
 /**
  * One school's application, submitted by a visitor with no session.
  *
- * A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
+ * A route handler and not a server action.
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
@@ -74,13 +74,13 @@ export async function POST(request: NextRequest) {
 
       const seats = eingang.bestaetigungen;
       // A replay whose links may already be in an inbox hands none, and a second mail would ask each
-      // reader twice (`docs/backend/spec.md :: I347`).
+      // reader twice.
       if (seats === null) return { success: true as const, message: EINGEGANGEN };
 
       const { kontakte } = parsed.data;
       const fristText = formatSpielDatum(eingang.bestaetigungsfrist);
       // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-      // production must not mail production links (`docs/frontend/spec.md :: I186`).
+      // production must not mail production links.
       const origin = frontend_config.AUTH_URL;
 
       // Read rather than taken from the payload, which names a picked club by id alone. A failed or cut

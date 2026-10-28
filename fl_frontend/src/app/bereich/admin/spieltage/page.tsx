@@ -37,7 +37,7 @@ export default function AdminSpieltagePage(props: NextPageProps) {
 
 /**
  * The labels are built HERE, over the whole season rather than in the view that filters: a knockout
- * round's label counts the matchdays its phase holds (`docs/frontend/spec.md` I27).
+ * round's label counts the matchdays its phase holds.
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

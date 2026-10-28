@@ -242,7 +242,7 @@ describe("a pass meeting a failure", () => {
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all (`docs/logging/error-codes.md`, `FE-SWEEP-003`). */
+     arrived there at all (`FE-SWEEP-003`). */
   it("names an unanswered call's trace on its failure line", async () => {
     accounts = ["a@schule.de"];
     referenzen = () => {

@@ -264,7 +264,7 @@ describe("a person's own account deletion, from the account page's press to the 
   }
 
   /* A grant goes with the account, so a grant holder is held to a revoke's own window, a passkey confirmation
-     of the last five minutes, judged before the library spends the link (`docs/frontend/spec.md :: I707`). */
+     of the last five minutes, judged before the library spends the link. */
   for (const [label, email, pressedFrom, proceeds] of [
     ["the mailbox alone", "verwaltung-code@example.org", "code", false],
     ["a passkey ten minutes ago", "verwaltung-spaet@example.org", 10, false],
@@ -287,7 +287,7 @@ describe("a person's own account deletion, from the account page's press to the 
       expect(answer, "the press was not answered with the page's passkey prompt").toStrictEqual(stepUpRequired());
       assert.ok(
         cacheCalls.some(({ name }) => name === "refresh"),
-        "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I433`)",
+        "the page's figures were not read again, so its next press would send unasked",
       );
       expect(erasures).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
@@ -317,7 +317,7 @@ describe("a person's own account deletion, from the account page's press to the 
   });
 
   /* The backend refuses the league's last owner, whose erasure would leave the administration owned by nobody. */
-  /* Refused before the library spends the link (`docs/frontend/spec.md :: I708`): the same link completes once
+  /* Refused before the library spends the link: the same link completes once
      another owner is made, which a refusal after the spend could not offer. */
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
     const { row, token } = await verwaltendMitLink("letzte-inhaberin@example.org");
@@ -368,7 +368,7 @@ describe("a person's own account deletion, from the account page's press to the 
     expect(answer).toStrictEqual({ ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
     assert.ok(
       cacheCalls.some(({ name }) => name === "refresh"),
-      "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I493`)",
+      "the page's figures were not read again, so its next press would send unasked",
     );
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
@@ -396,7 +396,7 @@ describe("a person's own account deletion, from the account page's press to the 
   });
 
   /* Every press mints a token row and mails a link, so the press counts on the address's own mail bound: past
-     its fifth, it answers as sent and mints and mails nothing (`docs/frontend/spec.md :: I713`). */
+     its fifth, it answers as sent and mints and mails nothing. */
   it("answers every press past the address's fifth link as sent, minting no token row and mailing nothing", async () => {
     const email = "loeschlink-schleife@example.org";
     const { cookie, row } = await sessionByCode(auth, store, email);
@@ -417,8 +417,7 @@ describe("a person's own account deletion, from the account page's press to the 
     ).toBe(5);
   });
 
-  /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one
-     (`docs/frontend/spec.md :: I676`). */
+  /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one. */
   it("mails the link from a session signed in past the step-up window", async () => {
     const { cookie, row } = await sessionByCode(auth, store, "spaeter@example.org");
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);

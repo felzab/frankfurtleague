@@ -5,7 +5,7 @@ import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
 import type { GrantHolderStepUp } from "./components/views/LoeschungView";
 
-/** What the interstitial reads of a grant holder's session before their press (`docs/frontend/spec.md :: I707`). */
+/** What the interstitial reads of a grant holder's session before their press. */
 export interface GrantHolderReading {
   readonly stepUp: GrantHolderStepUp;
   /** Without one there is nothing to confirm by, so the page sends them to set one up rather than to the prompt. */

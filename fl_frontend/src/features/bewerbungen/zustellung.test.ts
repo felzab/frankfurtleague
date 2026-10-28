@@ -866,7 +866,7 @@ describe("POST /api/mail/zustellung", () => {
     expect((await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status).toBe(503);
   });
 
-  /* `docs/logging/spec.md :: L9`, and the tag block carries the application id besides. Asserted over
+  /* The tag block carries the application id besides. Asserted over
      the whole line, so a field added later cannot reopen it. */
   it("names no recipient and no application on any line it writes", async () => {
     zustellungAnswer = () => {

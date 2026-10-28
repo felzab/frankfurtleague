@@ -180,7 +180,7 @@ const fixture = ({
   saison_phase: phase,
   ergebnis,
   // `austritt_type` respelled: the shared fixture types it structurally, `shared` being unable to
-  // import the slice's own schema (`docs/frontend/spec.md :: I9`), and this shape wants the literal.
+  // import the slice's own schema, and this shape wants the literal.
   team1: { ...side(heim), austritt_type: null },
   team2: { ...side(gast), austritt_type: null },
   team1_quelle: heimQuelle,

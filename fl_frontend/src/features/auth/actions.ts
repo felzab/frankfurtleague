@@ -62,7 +62,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     const requestHeaders = await headers();
 
     // Folded HERE, which is the boundary: below this line the code row, the mailed recipient, the
-    // gate and the stored `user` row all carry one string (`docs/frontend/spec.md :: I446`).
+    // gate and the stored `user` row all carry one string.
 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
     // one to is the only spelling in which that person signs in at all.

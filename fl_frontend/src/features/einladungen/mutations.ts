@@ -11,7 +11,7 @@ import type {
 } from "./schemas";
 
 // Both ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
-// body (`docs/frontend/spec.md` §1.3).
+// body.
 /** Mints, revoking any live invite of that team and season in the same transaction, and answers the raw link value once. */
 export async function postEinladung({ team_id, saison_id }: FLEinladungKeyPayload): Promise<FLEinladungMintResponse> {
   return apiClient<FLEinladungMintResponse>(`/teams/${team_id}/saisons/${saison_id}/einladung`, FLEinladungMintResponseSchema, {

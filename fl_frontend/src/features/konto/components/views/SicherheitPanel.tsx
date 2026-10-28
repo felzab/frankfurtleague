@@ -63,7 +63,7 @@ const wantsStepUp = (result: { success: boolean }): result is StepUpRefusalAnswe
 
 /**
  * The „Sicherheit“ section: the passkeys, the sign-ins, and the one confirmation every change on it
- * passes (`docs/frontend/spec.md :: I422`).
+ * passes.
  */
 export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const router = useRouter();
@@ -234,7 +234,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
         <StepUpRefused refused={hinzufuegenStepUp.refused} />
         {/* A person's other way to a fresh sign-in, and their only one while they hold no passkey; an
-            administrator's confirmation is the passkey's alone (`docs/frontend/spec.md :: I422`). */}
+            administrator's confirmation is the passkey's alone. */}
         {!verwaltung && (
           <CodeConfirmation
             address={sicherheit.inhaberAdresse}
@@ -378,7 +378,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
     if (error.status === 404) return enrolmentRefused();
 
     // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
-    // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
+    // either may follow a stored passkey; the browser's refusals are 400s.
     if (error.status >= 500) return { error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
 
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
@@ -391,7 +391,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
 
 /**
  * The enrolment guard answers the cap, a stale sign-in and an authenticator already held alike 404, so
- * the page asks again which it was (`docs/frontend/spec.md :: I427`); the third is the one left.
+ * the page asks again which it was; the third is the one left.
  */
 async function enrolmentRefused(): Promise<EnrolmentHeld> {
   const stand = await readPasskeyStandAction().catch(unansweredAction);

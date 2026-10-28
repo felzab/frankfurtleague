@@ -26,7 +26,7 @@ function log(level: LogLevel, message: string, meta?: LogMeta) {
 
   const traceId = meta?.trace_id ?? getRequestTraceId();
   // A caller naming a trace outside any scope gets a span minted beside it: a real trace under the
-  // sentinel span would file this hop's work under no hop (`docs/logging/spec.md :: L12`).
+  // sentinel span would file this hop's work under no hop.
   const spanId = meta?.span_id ?? getRequestSpanId() ?? (traceId === undefined ? undefined : mintSpanId());
   const withScope: LogMeta = { ...meta, trace_id: traceId, span_id: spanId };
   const line = formatLogLine(frontend_config.LOG_FORMAT, level, message, withScope);

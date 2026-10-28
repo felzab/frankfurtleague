@@ -102,7 +102,7 @@ export async function postAdresswechselZugestellt(payload: FLAdresswechselZugest
 
 /**
  * The new address of the live change a link's token or a change's id names, on the system tier alone: the link's own read
- * serves no address, and this one reaches this server and never a page (`docs/backend/spec.md :: READ-ADRESSWECHSEL-002`).
+ * serves no address, and this one reaches this server and never a page.
  */
 export async function postAdresswechselAdresse(payload: FLAdresswechselAdressePayload): Promise<FLAdresswechselAdresseResponse> {
   return apiClient<FLAdresswechselAdresseResponse>("/adresswechsel/sweep/adresse", FLAdresswechselAdresseResponseSchema, {

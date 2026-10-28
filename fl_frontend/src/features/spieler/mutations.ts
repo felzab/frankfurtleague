@@ -24,7 +24,7 @@ import type {
 } from "./schemas";
 
 // The ids go in the PATH, never the body — a backend payload model that saw one refuses the whole
-// body (frontend spec 1.3). No fan-out: squad lists read the name through a `$lookup`.
+// body. No fan-out: squad lists read the name through a `$lookup`.
 export async function patchSpieler({ id, ...fields }: FLPatchSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}`, FLSpielerAdminSingleResponseSchema, {
     method: "PATCH",

@@ -11,8 +11,7 @@ import type { LogLevel } from "./logFormat";
 const SOURCE = { source: "console" } as const;
 
 // A code of the shim's own rather than a caller's: what arrives here — Next's `⨯ Error` dumps among
-// it — has no call site of ours to take one from, and a failure line carries one
-// (`docs/logging/spec.md` §1.2).
+// it — has no call site of ours to take one from, and a failure line carries one.
 const FORWARDED_FAILURE = { error_code: "FE-CONSOLE-001", ...SOURCE } as const;
 
 // Through the logger rather than a second envelope: a dependency's `console.debug` then falls

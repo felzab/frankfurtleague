@@ -387,7 +387,7 @@ describe("which first requests the pass stamps", () => {
 });
 
 /* A mint or a close moves the verdict a public fixture card reads, and a call whose
-   answer was lost may have done either where no count shows it (`docs/frontend/spec.md :: I741`). */
+   answer was lost may have done either where no count shows it. */
 describe("the fixtures cache's drop", () => {
   const PASSES = [
     ["that asked nobody", () => undefined],

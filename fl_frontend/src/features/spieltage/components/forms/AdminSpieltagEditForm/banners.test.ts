@@ -44,7 +44,7 @@ describe("buildSpieltagBanners", () => {
   });
 
   /* `Zeitraum` is a matchday's span and `Termin` a fixture's date and time, and this banner is about
-     the span alone. One word per concept (`docs/frontend/spec.md` §1.12). */
+     the span alone. One word per concept. */
   it("calls the span a Zeitraum on the banner that reports it moving", () => {
     const banner = build({ isZeitraumChanged: true }).find((entry) => entry.id === "spieltag.zeitraum-changed");
 

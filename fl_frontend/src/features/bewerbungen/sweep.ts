@@ -133,7 +133,7 @@ async function sweepAdresswechsel(): Promise<void> {
   }
 
   // Whatever the calls came to: every notice an end queued, this pass's and any whose answer a confirmation or an
-  // approval lost, is delivered from the outbox (`docs/backend/spec.md :: I846`).
+  // approval lost, is delivered from the outbox.
   await runAdresswechselPostausgang();
 }
 
@@ -178,8 +178,7 @@ function logPass(
 /**
  * One season, as TWO independent halves: a throw in either leaves the other's clocks running.
  *
- * A shared `try` holds the registrations past their deadline every hour the application half fails
- * (`docs/backend/spec.md :: I294`).
+ * A shared `try` holds the registrations past their deadline every hour the application half fails.
  */
 async function sweepSaison(saisonId: string, uebergangen: Uebergangen): Promise<void> {
   try {
@@ -197,7 +196,7 @@ async function sweepSaison(saisonId: string, uebergangen: Uebergangen): Promise<
   }
 }
 
-/** The application's own clocks: the endpoint takes one season because a retention removal's filter names one (`docs/backend/spec.md :: I150`). */
+/** The application's own clocks: the endpoint takes one season because a retention removal's filter names one. */
 async function sweepBewerbungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
   const { erinnerungen, loeschungen, fehlgeschlagen } = await postBewerbungSweep(saisonId);
   // Added as each call answers, so a later call that throws keeps the earlier counts.
@@ -251,7 +250,7 @@ async function sweepRegistrierungen(saisonId: string, uebergangen: Uebergangen):
 /** One reminder to one pupil, carrying the fresh link the pass minted; the first link stays valid beside it. */
 async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinnerung): Promise<void> {
   // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  // production must not mail production links.
   const origin = frontend_config.AUTH_URL;
 
   await sendZielMail({
@@ -297,7 +296,7 @@ async function mailRegistrierungNotiz(notiz: FLRegistrierungSweepBenachrichtigun
     // A withheld or a barred note is the mailer's own line, as on every lane.
     const ausfall = versandAusfallOf(error);
     if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    // Name only, never the error: its message can carry the address.
     logger.error("registrierung.saisonende_notiz_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
@@ -309,7 +308,7 @@ async function mailRegistrierungNotiz(notiz: FLRegistrierungSweepBenachrichtigun
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */
 async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<void> {
   // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  // production must not mail production links.
   const origin = frontend_config.AUTH_URL;
   const [erster, ...weitere] = erinnerung.seats.map((seat) => ({
     vorname: seat.vorname,
@@ -339,7 +338,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
         origin: origin,
         schule: erinnerung.schule,
         seats: seats,
-        // The deadline the first message gave; a reminder does not move it (`docs/backend/spec.md :: I152`).
+        // The deadline the first message gave; a reminder does not move it.
         fristText: formatSpielDatum(erinnerung.bestaetigungsfrist),
       }),
   });
@@ -383,7 +382,7 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
   return (
     delivered.length > 0 ||
     // A barred mailbox is as told as the league may make it, anywhere: waiting on it would keep the
-    // application for as long as the ban stands (`docs/frontend/spec.md :: I538`).
+    // application for as long as the ban stands.
     gesperrt > 0 ||
     // Off production a filed notice is as told as anyone there is; waiting on a send that never comes
     // would re-file it hourly. Production waits for a real send: withheld there means a missing key.

@@ -81,8 +81,8 @@ export function SpielberichtForm({
   const nextKey = useRef(Math.max(gespeichert.torschuetzen.length, gespeichert.karten.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which `docs/frontend/spec.md`
-    // §1.12 keeps for a press refused before anything went out.
+    // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which the register
+    // keeps for a press refused before anything went out.
     useDraftFieldErrors({
       schemas: { spielbericht: spielberichtFormSchema(stored?.karten ?? []) },
       failureTitle: "Spielbericht nicht gespeichert",
