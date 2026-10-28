@@ -118,15 +118,18 @@ SCOPE="${SELECTED[0]}"
 
 # Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
 # verdict. `--checker` adds the 2 a checker built on `scripts/lib/checker_kernel.py :: run` answers
-# for an input it could not judge.
-check() { # [--checker] $1 what to say on a finding · the command
+# for an input it could not judge. `--summary` is for a tool raising an annotation per finding itself
+# under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
+check() { # [--checker] [--summary] $1 what to say on a finding · the command
   local checker=0 said rc=0
+  local -a summary=()
   if [[ "$1" == --checker ]]; then checker=1; shift; fi
+  if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   said="$1"; shift
   quietly "$@" || rc=$?
   case "$rc" in
     0) return 0 ;;
-    1) fail "$said"; return 1 ;;
+    1) fail "${summary[@]}" "$said"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above."; fi
@@ -182,7 +185,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -319,7 +322,7 @@ scope_format() {
 scope_frontend_units() {
   section frontend-units
   step "frontend-units · unit tests"
-  check "frontend unit tests failed." in_dir fl_frontend pnpm test \
+  check --summary "frontend unit tests failed." in_dir fl_frontend pnpm test \
     && ok "unit tests pass"
   return 0
 }
@@ -360,21 +363,21 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
 
   # ESLint exits 2 for a count in eslint-suppressions.json larger than what its file still breaks, the
-  # code it gives a crash. The first run passes such a count over, so its 2 is a crash alone; the second
-  # runs on a clean lint, so its 2 is a count alone, which is a finding.
+  # code it gives a crash, and never reads a deleted file's counts. The lint runs against a copy it
+  # prunes as it goes, so its 2 is a crash alone; a copy the prune changed held either kind of stale
+  # count, which is a finding.
   step "frontend · eslint"
-  if check "eslint failed." in_dir fl_frontend pnpm lint --pass-on-unpruned-suppressions; then
+  local pruned=node_modules/.cache/eslint/pruned-suppressions.json
+  in_dir fl_frontend mkdir -p node_modules/.cache/eslint
+  in_dir fl_frontend cp eslint-suppressions.json "$pruned"
+  if check "eslint failed." in_dir fl_frontend pnpm lint --prune-suppressions --suppressions-location "$pruned"; then
     ok "lint clean"
-    step "frontend · eslint  (every suppression still used)"
-    local stale=0
-    quietly in_dir fl_frontend pnpm lint || stale=$?
-    case "$stale" in
-      0)   ok "every suppression still used" ;;
-      2)   fail "fl_frontend/eslint-suppressions.json counts a violation its file no longer has.
-Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file; its diff names each entry." ;;
-      130) on_interrupt ;;
-      *)   on_error "$stale" "${LINENO}" "pnpm lint" ;;
-    esac
+    step "frontend · eslint  (every suppression still counts what its file breaks)"
+    check "fl_frontend/eslint-suppressions.json counts a violation its file no longer has, or a file that no longer
+exists; the diff above names each entry.
+Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file." \
+      in_dir fl_frontend diff eslint-suppressions.json "$pruned" \
+      && ok "every suppression still used"
   fi
 
   step "frontend · knip  (unused files, exports and dependencies)"
@@ -515,7 +518,7 @@ own message above says which." \
 
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   step "db · the frontend's *.db.test.ts files"
-  check "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
+  check --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
 own message above says which." in_dir fl_frontend pnpm run test:db \
     && ok "frontend db-tier tests pass"
   return 0

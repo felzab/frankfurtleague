@@ -3,20 +3,15 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { getPasskeyStep } from "@/core/auth";
-import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { PasskeyStep } from "@/features/auth/components/forms/PasskeyStep";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
-/** `noindex` as `/signin` spells it, and no description either. */
-export const metadata: Metadata = {
-  title: COPY.anmeldung.passkeyTitel,
-  robots: { index: false, follow: false },
-  openGraph: openGraphFor("/signin/passkey"),
-  alternates: { canonical: "/signin/passkey" },
-};
+/** No description, as `/signin` carries none. */
+export const metadata: Metadata = pageMetadata(ROUTES.anmeldungPasskey, ROUTES.anmeldungPasskey.pfad());
 
 // Never under `/bereich/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.

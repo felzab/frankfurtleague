@@ -7,10 +7,11 @@ import { COPY } from "@/core/copy";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getSpielorte } from "@/features/spielorte/queries";
+import { pageMetadata } from "@/shared/utils/metadata";
 
-import { spielortAnlegen } from "../../../spielortAnlegen";
-import { SpielortFelder } from "../../../SpielortFelder";
-import { SPIELORT_REGELN } from "../../../spielortRegeln";
+import { spielortAnlegen } from "../../spielortAnlegen";
+import { SpielortFelder } from "../../SpielortFelder";
+import { SPIELORT_REGELN } from "../../spielortRegeln";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { TableRow } from "@/kit/Table";
@@ -18,7 +19,7 @@ import type { Metadata } from "next";
 
 const WORTE = COPY.verwaltung.spielort;
 
-export const metadata: Metadata = { title: ROUTES.verwaltungSpielorte.titel };
+export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.pfad());
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({

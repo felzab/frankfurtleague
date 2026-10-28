@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
+import { filesUnder } from "@/test-support/treeWalk.ts";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
@@ -39,14 +38,5 @@ describe("the administration's route groups", () => {
     );
     const lost = editors.filter((editor) => !entries.some((entry) => entry.every((segment, at) => segments(editor)[at] === segment)));
     expect(lost).toStrictEqual([]);
-  });
-
-  it("place the editor template inside an editors' group alone", () => {
-    const sources = filesUnder(APP, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 50);
-    const outside = sources
-      .filter((file) => readFileSync(file, "utf8").includes('from "@/kit/EditorPage"'))
-      .map((file) => shown(APP, file))
-      .filter((file) => !file.split("/").includes("(editor)"));
-    expect(outside).toStrictEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync } from "node:fs";
+import { existsSync, globSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -290,6 +290,18 @@ const IMPORT_BANS = [
  * comment is none of these, so prose naming a spelling never trips its ban.
  */
 const inLiteral = (pattern) => `:matches(Literal[value=/${pattern}/], TemplateElement[value.raw=/${pattern}/], JSXText[value=/${pattern}/])`;
+
+/**
+ * A string a JSX child renders through a ternary or a logical operator, up to three of them deep, which
+ * `react/jsx-no-literals` passes over: it reports a string whose parent is the child's braces and nothing
+ * else. Props stay free, as that rule's `ignoreProps` leaves them; the required mark `*` is a glyph.
+ */
+const PICKED_STRING = [1, 2, 3]
+  .flatMap((depth) => {
+    const picked = `:matches(JSXElement, JSXFragment) > JSXExpressionContainer${" > :matches(ConditionalExpression, LogicalExpression)".repeat(depth)}`;
+    return [`${picked} > Literal[value=/[^\\s*]/]`, `${picked} > TemplateLiteral > TemplateElement[value.raw=/\\S/]`];
+  })
+  .join(", ");
 
 /** A class token, whole: bounded by whitespace or the literal's end, any variant prefix allowed. */
 const TOKEN_START = String.raw`(?:^|\s)(?:\S*:)?`;
@@ -678,14 +690,6 @@ const DESIGN_BANS = [
     ),
     PAGE_CODE,
   ),
-  kitImport(
-    {
-      regex: kitModule("Stack", "Inline"),
-      message: "Only the kit and its templates lay out with the layout primitives: page code places the kit's named blocks.",
-    },
-    PAGE_CODE,
-  ),
-
   // Every control is the kit's, which takes no `className` or `style`.
   ...["className", "style"].map((propName) =>
     ban(
@@ -723,8 +727,10 @@ const DESIGN_BANS = [
     }),
   ),
   // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
-  // the mailed-page template, a Konto box to Konto's pages.
+  // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
+  // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
   ...[
+    ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["KontoBox", ["src/app/bereich/**/konto/**"], "A `KontoBox` saves one section of Konto, on Konto's own pages."],
@@ -758,6 +764,16 @@ const DESIGN_BANS = [
       message: "The old icon set goes with the last page importing it: draw a glyph with the kit's `Icon`.",
     },
     PRODUCTION,
+  ),
+  // The old shared components go the same way. The kit's `Brand` draws the old logo until the logo moves
+  // into the kit.
+  kitImport(
+    {
+      regex: String.raw`^(?:@\x2F|\.{1,2}\x2F(?:.*\x2F)?)shared\x2Fcomponents\x2F`,
+      message: "The old components go with the last page importing them: build on the kit.",
+    },
+    PRODUCTION,
+    { allow: ["src/kit/Brand.tsx"] },
   ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
@@ -853,6 +869,13 @@ const DESIGN_BANS = [
     PRODUCTION,
     { only: [TOGGLE_OFFSET.home] },
   ),
+  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`, `src/app/globals.css`), as a step of
+  // spacing is: a literal is a second width for a box the tokens already name.
+  classBan(
+    CLASS(String.raw`(?:max-w|tracking)-\[.+\]`),
+    "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
+    KIT,
+  ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
     "Type is six sizes: text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
@@ -897,6 +920,7 @@ const DESIGN_BANS = [
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
+  syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
   syntaxBan(
     syntax(
       'TSAsExpression > TSTypeReference.typeAnnotation[typeName.name="Copy"], TSTypeAssertion > TSTypeReference.typeAnnotation[typeName.name="Copy"]',
@@ -1001,20 +1025,17 @@ const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
 /**
- * Every file a ban names and every file the suppressions count, each of which must exist. A renamed
- * module drops out of its ban in silence, and ESLint never flags a deleted file's counts: they stand
- * until they spare whatever file is written at that path next.
+ * Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. A
+ * deleted file's counts in eslint-suppressions.json are the gate's to find, as a prune that changes the
+ * file (`scripts/gate/verify.sh :: scope_frontend`): a throw here would read as a crash.
  */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
-const SUPPRESSED = Object.keys(JSON.parse(readFileSync(join(HERE, "eslint-suppressions.json"), "utf8")));
 const GONE = [
-  ...[...NAMED_FILES, ...SUPPRESSED].filter((path) => !existsSync(join(HERE, path))),
+  ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
   ...NAMED_DIRECTORIES.filter((glob) => globSync(glob, { cwd: HERE }).length === 0),
 ];
 if (GONE.length > 0) {
-  throw new Error(
-    `eslint.config.mjs or eslint-suppressions.json names what no longer exists: ${GONE.join(", ")}. Point a ban at the file's new path, and drop a deleted file's counts with \`pnpm exec eslint --prune-suppressions\`.`,
-  );
+  throw new Error(`eslint.config.mjs names what no longer exists: ${GONE.join(", ")}. Point each ban at the file's new path.`);
 }
 
 const fileBlocks = () => {

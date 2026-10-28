@@ -20,6 +20,13 @@ defaults:
   run:
     shell: bash
 
+env:
+  # How long a cache restore waits on a stuck download before the job goes on without the cache, in
+  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 6, which a stuck
+  # restore would cancel instead; every job's `timeout-minutes` stays above it
+  # (`scripts/tests/test_ci_timeouts.py`). A warm restore takes seconds.
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+
 concurrency:
   group: verify-${{ github.ref }}
   # Supersede an in-flight run on a PR, but never on main, whose run publishes.

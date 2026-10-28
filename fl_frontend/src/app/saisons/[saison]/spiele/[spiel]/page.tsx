@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { ROUTES } from "@/core/routes";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import { factsOf, readSaison, readSpiel, sidesOf } from "../../spielplan";
 
@@ -14,8 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/saisons/[saison]/
   const { saison } = await readSaison(saisonId);
   const { spiel } = await readSpiel(saison, spielId);
   const { heim, gast } = sidesOf(spiel);
-  const path = ROUTES.spiel.pfad(saison.id, spiel.id);
-  return { title: ROUTES.spiel.titel(heim.name, gast.name), alternates: { canonical: path }, openGraph: openGraphFor(path) };
+  return pageMetadata(ROUTES.spiel, ROUTES.spiel.pfad(saison.id, spiel.id), ROUTES.spiel.titel(heim.name, gast.name));
 }
 
 /**

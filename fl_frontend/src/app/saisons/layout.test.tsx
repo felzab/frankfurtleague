@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import SaisonLayout from "./[saison]/layout";
 import SaisonsLayout from "./layout";
 
 vi.mock("next/navigation", () => ({
@@ -36,17 +35,5 @@ describe("the public season pages' frame", () => {
 
     expect(screen.getAllByRole("link", { name: COPY.seite.spielplan }).map((link) => link.getAttribute("href"))).toContain("/saisons/2027");
     expect(screen.getAllByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).length).toBeGreaterThan(0);
-  });
-
-  it("is not drawn again by the season's segment, which holds the page and its pop-up alone", () => {
-    const { container } = render(
-      <SaisonLayout
-        params={Promise.resolve({ saison: "2027" })}
-        modal={<p>Pop-up</p>}>
-        <p>Seite</p>
-      </SaisonLayout>,
-    );
-
-    expect(container.innerHTML).toBe("<p>Seite</p><p>Pop-up</p>");
   });
 });
