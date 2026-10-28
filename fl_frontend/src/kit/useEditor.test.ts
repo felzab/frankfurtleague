@@ -42,6 +42,9 @@ describe("an editor's draft", () => {
     const { result, save } = editorOn(STORED);
 
     act(() => result.current.set("miete", "120"));
+    // Typed and typed back: the stored postcode is no change, so the save leaves it alone.
+    act(() => result.current.set("plz", "60439"));
+    act(() => result.current.set("plz", "60438"));
     await press(result.current.submit);
 
     expect(save).toHaveBeenCalledWith({ id: "ort-1", fingerprint: "f1", changes: { miete: "120" } });
