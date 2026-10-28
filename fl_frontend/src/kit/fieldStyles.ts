@@ -116,12 +116,12 @@ export const searchClear = tv({
   base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-11",
 });
 
-/** The six code boxes, sharing the column, with the code's one input laid over them. */
-export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
+/** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
+export const codeRow = tv({ base: "relative flex justify-center gap-2" });
 
-/** One drawn code box: a field's frame, fill and height, its digit large and centred. */
+/** One drawn code box: a 44-px square in a field's frame and fill, whatever the pointer, its digit large and centred. */
 export const codeBox = tv({
-  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+  base: "flex size-11 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**

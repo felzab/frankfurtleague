@@ -28,6 +28,23 @@ describe("the code field", () => {
     expect(inputs[0]?.getAttribute("name")).toBe("code");
   });
 
+  it("draws six 44-px squares centred in the column, whatever the pointer", () => {
+    const { container } = render(
+      <CodeField
+        label={code}
+        name="code"
+      />,
+    );
+    const drawn = boxes(container);
+    expect(drawn).toHaveLength(6);
+    for (const box of drawn) {
+      const classes = box.className.split(" ");
+      expect(classes).toContain("size-11");
+      expect(classes.some((name) => name.startsWith("pointer-coarse:"))).toBe(false);
+    }
+    expect(drawn[0]?.parentElement?.className.split(" ")).toEqual(expect.arrayContaining(["flex", "justify-center"]));
+  });
+
   it("takes focus as it appears, in place of the button pressed to send the code", () => {
     render(
       <CodeField

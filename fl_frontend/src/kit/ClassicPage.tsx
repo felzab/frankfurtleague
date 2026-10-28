@@ -8,10 +8,12 @@ const column = tv({
   // the footer starts just below the screen and is reached by scrolling.
   base: "mx-auto flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col gap-6 px-4 py-8 lg:py-12",
   variants: {
-    // A form or a mailed page in the form column, or one card centred on the page, as a status page stands.
+    // A form or a mailed page in the form column, one card centred on the page as a status page stands, or
+    // the sign-in's 384-px column, which proportions its full-width controls as Vercel's sign-in does.
     width: {
       form: "max-w-[47.5rem]",
       card: "max-w-[30rem] justify-center",
+      signin: "max-w-[24rem] justify-center",
     },
   },
 });
@@ -21,7 +23,7 @@ const column = tv({
  * frame's layout places the header and the footer around it; a template places this, which with `RailPage`
  * writes every page's `main`.
  */
-export function ClassicPage({ width, children }: { width: "form" | "card"; children: ReactNode }) {
+export function ClassicPage({ width, children }: { width: "form" | "card" | "signin"; children: ReactNode }) {
   return <main className={column({ width })}>{children}</main>;
 }
 
