@@ -1,14 +1,11 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, describe, expect, it, vi } from "vitest";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN, LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } } } });
+vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN, LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } }));
 
 /* The real minter and the fan-out it hands the link to, called: the backend client the delivery
    report goes through and the mailer are the doubles. */
@@ -34,8 +31,8 @@ describe("the link the referee's minter mails", () => {
     const texts = mail.sent.map(({ text }) => text);
 
     // Delivered first, so a minter that mailed nothing cannot pass the origin check over no message.
-    assert.equal(versand, "gesendet");
-    assert.equal(texts.length, 1);
+    expect(versand).toBe("gesendet");
+    expect(texts.length).toBe(1);
     assert.ok(texts[0]?.includes(schiedsrichterBestaetigungsLink(ORIGIN, TOKEN)), `the mailed link stands elsewhere: ${texts[0] ?? ""}`);
   });
 
@@ -52,6 +49,6 @@ describe("the link the referee's minter mails", () => {
       anlass: "empfang",
     });
 
-    assert.equal(versand, "gesperrt");
+    expect(versand).toBe("gesperrt");
   });
 });

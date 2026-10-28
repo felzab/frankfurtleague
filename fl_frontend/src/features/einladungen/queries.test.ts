@@ -1,19 +1,18 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import type * as AdminRead from "@/shared/utils/adminRead.ts";
 
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
+// administrator's, and only how often it reaches the backend is judged. Doubled where `queries.ts`
+// imports it, so nothing on the path loads the sign-in store.
+vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof AdminRead>()),
+  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
+}));
 
-/** The module under test, whose `react` import the server build must answer. */
-const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
-
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
+serveServerReact();
 
 // Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
 beforeEach(beginRenderPass);
@@ -40,7 +39,7 @@ describe("the invite slice's reads", () => {
     await getEinladungVersandVorschau(SAISON_ID, true);
 
     const vorschau = `/saisons/${SAISON_ID}/einladungen/versand/vorschau`;
-    assert.deepEqual(requestsOf(calls), [
+    expect(requestsOf(calls)).toStrictEqual([
       { endpoint: `${vorschau}?erneut=false`, method: undefined, body: undefined },
       { endpoint: `${vorschau}?erneut=true`, method: undefined, body: undefined },
     ]);
@@ -49,7 +48,9 @@ describe("the invite slice's reads", () => {
   it("addresses one team's invite by both ids in the path", async () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    assert.deepEqual(requestsOf(calls), [{ endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined }]);
+    expect(requestsOf(calls)).toStrictEqual([
+      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined },
+    ]);
   });
 });
 
@@ -66,7 +67,7 @@ describe("one team's invite across a render pass", () => {
 
     await Promise.all([getEinladung(TEAM_ID, SAISON_ID), getEinladung(TEAM_ID, SAISON_ID), getEinladung(OTHER_TEAM_ID, SAISON_ID)]);
 
-    assert.deepEqual(endpointsSince(before).sort(), [
+    expect(endpointsSince(before).sort()).toStrictEqual([
       `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`,
       `/teams/${OTHER_TEAM_ID}/saisons/${SAISON_ID}/einladung`,
     ]);
@@ -81,6 +82,6 @@ describe("one team's invite across a render pass", () => {
     await getEinladung(TEAM_ID, SAISON_ID);
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    assert.deepEqual(endpointsSince(before), [`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
+    expect(endpointsSince(before)).toStrictEqual([`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
   });
 });

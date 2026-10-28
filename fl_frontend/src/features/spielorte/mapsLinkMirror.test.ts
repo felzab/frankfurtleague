@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { buildMapsSearchUrl } from "@/shared/utils/format.ts";
@@ -26,8 +25,7 @@ describe("the venue line against the one the backend stores", () => {
   for (const { case: shape, ...venue } of CASES) {
     it(`links the venue table to the stored line's search for ${shape}`, () => {
       // The fixture dialog wraps the stored line; the venue table rebuilds it from name and address.
-      assert.equal(
-        formatMapsLink({ ...venue, id: "6890a1b2c3d4e5f607182930", default_mietpreis: 0, inactive_since: null }),
+      expect(formatMapsLink({ ...venue, id: "6890a1b2c3d4e5f607182930", default_mietpreis: 0, inactive_since: null })).toBe(
         buildMapsSearchUrl(venue.maps_link),
       );
     });

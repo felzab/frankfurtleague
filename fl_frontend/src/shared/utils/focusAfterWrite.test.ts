@@ -1,7 +1,5 @@
-import "@/shared/testing/dom.ts";
-
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+// @vitest-environment jsdom
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { FOCUS_HEADING, focusAfterWrite, focusRow, focusSection, focusSlot } from "./focusAfterWrite.ts";
 
@@ -68,7 +66,7 @@ describe("where a landed write's focus goes", () => {
     control.replaceWith(button("a reaktivieren"));
     await settle();
 
-    assert.equal(focused(), "a reaktivieren");
+    expect(focused()).toBe("a reaktivieren");
   });
 
   it("takes the same control in the next row where the pressed row went", async () => {
@@ -79,7 +77,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector(`[data-focus-row="b"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "c löschen");
+    expect(focused()).toBe("c löschen");
   });
 
   it("takes the previous row's where the pressed row was the last, the nearest first", async () => {
@@ -90,7 +88,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector(`[data-focus-row="c"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "b löschen");
+    expect(focused()).toBe("b löschen");
   });
 
   /* A row holding no such control, as this device's own sign-in holds no sign-out, is passed over. */
@@ -103,7 +101,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector(`[data-focus-row="a"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "c löschen");
+    expect(focused()).toBe("c löschen");
   });
 
   it("takes the section's heading where the list emptied", async () => {
@@ -125,7 +123,7 @@ describe("where a landed write's focus goes", () => {
     document.querySelector("section")?.replaceWith(list(["b"]));
     await settle();
 
-    assert.equal(focused(), "b löschen");
+    expect(focused()).toBe("b löschen");
   });
 
   it("takes the enclosing section's heading where its own section went", async () => {
@@ -169,7 +167,7 @@ describe("where a landed write's focus goes", () => {
       );
     await settle();
 
-    assert.equal(focused(), "Grund");
+    expect(focused()).toBe("Grund");
   });
 
   it("passes over an enabled control an inert box holds", async () => {
@@ -211,7 +209,7 @@ describe("what a landing leaves alone", () => {
     document.body.append(el("p", {}, "Toast"));
     await settle();
 
-    assert.equal(focused(), "a löschen");
+    expect(focused()).toBe("a löschen");
   });
 
   /* A dialog confirming the write holds the focus while the row behind it is drawn anew. */
@@ -224,11 +222,11 @@ describe("what a landing leaves alone", () => {
     landing.landed();
     document.querySelector("li button")?.replaceWith(button("a reaktivieren"));
     await settle();
-    assert.equal(focused(), "Ja, stilllegen");
+    expect(focused()).toBe("Ja, stilllegen");
 
     dialog.remove();
     await settle();
-    assert.equal(focused(), "a reaktivieren");
+    expect(focused()).toBe("a reaktivieren");
   });
 
   /* react-aria's grid focuses the cell once the control inside it goes, before the landing has run. */
@@ -274,7 +272,7 @@ describe("what a landing leaves alone", () => {
 
     landing.landed();
 
-    assert.equal(focused(), "b löschen");
+    expect(focused()).toBe("b löschen");
   });
 
   it("stands down once the reader presses a key", async () => {
@@ -395,7 +393,7 @@ describe("what a landing leaves alone", () => {
     document.querySelector(`[data-focus-row="a"]`)?.remove();
     await settle();
 
-    assert.equal(focused(), "b löschen");
+    expect(focused()).toBe("b löschen");
   });
 
   /* Without the section the rows and the slot are keyed in, the page's heading would be a guess. */

@@ -1,8 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { EINWILLIGUNG_SEITEN } from "@/core/einwilligungSeiten.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 
@@ -10,8 +8,6 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./
 
 import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
 import type { EinwilligungSeite } from "@/core/einwilligungSeiten.ts";
-
-registerDoubles();
 
 const {
   buildBewerbungBestaetigungEmail,
@@ -21,7 +17,7 @@ const {
   buildBewerbungVollstaendigEmail,
   buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
-const { readEinwilligungDocument } = await import("@/core/einwilligungDocument.ts");
+const { readEinwilligungDocument } = await import("@/test-support/einwilligungDocument.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -156,7 +152,7 @@ describe("the two clocks the workflow messages state", () => {
     assert.ok(gelesen.length > 0, "no stored wording states a day count, so this case compares nothing");
     for (const [label, seite, number] of gelesen) {
       assert.ok(istSeite(seite), `${label} names the page ${seite}, which this frontend renders nowhere`);
-      assert.equal(number, STAMPED_CLOCK[seite], `${label} states a deletion clock no bound of its flow sets`);
+      expect(number, `${label} states a deletion clock no bound of its flow sets`).toBe(STAMPED_CLOCK[seite]);
     }
   });
 });

@@ -1,14 +1,11 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, it, mock } from "node:test";
 
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { ACTOR_KEY_FILE } from "@/test-support/authDoubles.ts";
+import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
 import ts from "typescript";
-
-import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
@@ -46,7 +43,7 @@ doubleApiClient(async ({ endpoint, params }, schema) => {
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
   if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
-  assert.equal(endpoint, LAUF, `the pass reached a route nothing here answers: ${endpoint}`);
+  expect(endpoint, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
   const carried = (params ?? {}) as Record<string, string>;
   laufCalls.push({ params: carried });
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
@@ -65,6 +62,12 @@ const LOGGING_DOUBLE = {
 // Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
 // ever prove one side of it.
 const CONFIG_DOUBLE = {
+  // Each boot runs in-process with no preflight naming a deployment.
+  bootCheck: () => undefined,
+  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
+  refuseInvalidEnvironment: (): never => {
+    throw new Error("the doubled config refuses no environment");
+  },
   frontend_config: {
     LOG_FORMAT: "console",
     // The boot reads the signing key before it arms anything.
@@ -81,18 +84,12 @@ const CONFIG_DOUBLE = {
 /** Each loopback drop a pass asked for, with how many deletion calls had run by then. */
 const drops: { tags: readonly string[]; laufCalls: number }[] = [];
 
-registerDoubles({
-  modules: {
-    "core/logging.ts": LOGGING_DOUBLE,
-    "core/config.ts": CONFIG_DOUBLE,
-    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-    "core/authIndexes.ts": { buildAuthIndexes: () => Promise.resolve() },
-    // The loopback call reaches a server no test process runs; its pairing with the route is the route's own suite's.
-    "core/revalidation.ts": {
-      revalidateOverLoopback: async (tags: readonly string[]) => void drops.push({ tags: tags, laufCalls: laufCalls.length }),
-    },
-  },
-});
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
+vi.doMock("@/core/revalidation.ts", () => ({
+  revalidateOverLoopback: async (tags: readonly string[]) => void drops.push({ tags: tags, laufCalls: laufCalls.length }),
+}));
 
 const { register } = await import("../../instrumentation.ts");
 const { runLoeschungSweep } = await import("./sweep.ts");
@@ -132,17 +129,17 @@ describe("what register arms for the pupils' deletion", () => {
     const before = env.NODE_ENV;
     env.NODE_ENV = nodeEnv;
     loeschungSwitch = value;
-    mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
     const counted: number[] = [];
     try {
       await register();
       for (const step of steps) {
-        mock.timers.tick(step);
+        vi.advanceTimersByTime(step);
         await new Promise((resolve) => setImmediate(resolve));
         counted.push(laufCalls.length);
       }
     } finally {
-      mock.timers.reset();
+      vi.useRealTimers();
       if (before === undefined) delete env.NODE_ENV;
       else env.NODE_ENV = before;
     }
@@ -155,22 +152,22 @@ describe("what register arms for the pupils' deletion", () => {
   it("waits its minute after a production boot reading on, then runs hourly, the application sweep's switch off", async () => {
     const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
 
-    assert.equal(bewerbungSwitch, "off", "the application sweep's switch is on, so the case proves nothing");
-    assert.deepEqual(await bootAndStep("production", "on", steps), [0, 1, 1, 2]);
+    expect(bewerbungSwitch, "the application sweep's switch is on, so the case proves nothing").toBe("off");
+    expect(await bootAndStep("production", "on", steps)).toStrictEqual([0, 1, 1, 2]);
   });
 
   it("arms nothing where the switch is off", async () => {
-    assert.deepEqual(await bootAndStep("production", "off", [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("production", "off", [3 * HOUR_MS])).toStrictEqual([0]);
   });
 
   // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
   it("arms nothing where the value is missing", async () => {
-    assert.deepEqual(await bootAndStep("production", undefined, [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("production", undefined, [3 * HOUR_MS])).toStrictEqual([0]);
   });
 
   /* `next dev` reaches whatever backend the developer's own environment names, and deletes from it. */
   it("arms nothing under a development build, whatever the switch says", async () => {
-    assert.deepEqual(await bootAndStep("development", "on", [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("development", "on", [3 * HOUR_MS])).toStrictEqual([0]);
   });
 });
 
@@ -184,10 +181,7 @@ describe("one pass of the pupils' deletion", () => {
     await runLoeschungSweep();
 
     // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
-    assert.deepEqual(
-      laufCalls.map(({ params }) => params),
-      [{}, { nach: ORT }],
-    );
+    expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
   });
 
   /* A press's call its deadline cut deletes after the press dropped the tag, and no count shows those pupils, so the
@@ -209,7 +203,7 @@ describe("one pass of the pupils' deletion", () => {
 
       await runLoeschungSweep();
 
-      assert.deepEqual(drops, [{ tags: ["spieler"], laufCalls: 1 }]);
+      expect(drops).toStrictEqual([{ tags: ["spieler"], laufCalls: 1 }]);
     });
   }
 
@@ -228,7 +222,7 @@ describe("one pass of the pupils' deletion", () => {
     await runLoeschungSweep();
 
     // A warning, the pass leaving pupils it failed: a level above INFO would drop the line counting them.
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       {
         level: "warn",
         event: "loeschung.sweep_pass",
@@ -255,7 +249,7 @@ describe("one pass of the pupils' deletion", () => {
 
     await runLoeschungSweep();
 
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       {
         level: "warn",
         event: "loeschung.sweep_pass",
@@ -284,11 +278,8 @@ describe("one pass of the pupils' deletion", () => {
 
       await runLoeschungSweep();
 
-      assert.deepEqual(
-        laufCalls.map(({ params }) => params),
-        [{}, { nach: ORT }],
-      );
-      assert.deepEqual(passLines(), [
+      expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
+      expect(passLines()).toStrictEqual([
         {
           level: "info",
           event: "loeschung.sweep_pass",
@@ -306,7 +297,7 @@ describe("one pass of the pupils' deletion", () => {
 
     await runLoeschungSweep();
 
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       {
         level: "info",
         event: "loeschung.sweep_pass",
@@ -337,11 +328,11 @@ describe("one pass of the pupils' deletion", () => {
     for (const release of held) release();
     await running;
 
-    assert.equal(laufCalls.length, 1, "the second tick called the backend beside the running pass");
-    assert.deepEqual(
-      passLines().map(({ level, event }) => `${level} ${event}`),
-      ["info loeschung.sweep_skipped", "info loeschung.sweep_pass"],
-    );
+    expect(laufCalls.length, "the second tick called the backend beside the running pass").toBe(1);
+    expect(passLines().map(({ level, event }) => `${level} ${event}`)).toStrictEqual([
+      "info loeschung.sweep_skipped",
+      "info loeschung.sweep_pass",
+    ]);
   });
 });
 
@@ -387,7 +378,7 @@ describe("the deletion pass's callers", () => {
       visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
     }
 
-    assert.deepEqual(uses.sort(), ["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
-    assert.deepEqual(senders, [`${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
+    expect(uses.sort()).toStrictEqual(["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
+    expect(senders).toStrictEqual([`${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
   });
 });

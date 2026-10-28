@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { deriveDraftStatus, emptyAsNull, fieldStatus, numberAsNull } from "./draftStatus.ts";
 
@@ -57,10 +56,7 @@ const EMPTY_AS_NULL: readonly (readonly [string | null, string | null])[] = [
 
 describe("emptyAsNull", () => {
   it("reads empty and whitespace alone as nothing, and hands back every other value as typed", () => {
-    assert.deepEqual(
-      EMPTY_AS_NULL.map(([value]) => [value, emptyAsNull(value)]),
-      EMPTY_AS_NULL,
-    );
+    expect(EMPTY_AS_NULL.map(([value]) => [value, emptyAsNull(value)])).toStrictEqual(EMPTY_AS_NULL);
   });
 });
 
@@ -73,10 +69,7 @@ const NUMBER_AS_NULL: readonly (readonly [number | null, string | null])[] = [
 
 describe("numberAsNull", () => {
   it("reads an emptied number as nothing and every figure as its digits", () => {
-    assert.deepEqual(
-      NUMBER_AS_NULL.map(([value]) => [value, numberAsNull(value)]),
-      NUMBER_AS_NULL,
-    );
+    expect(NUMBER_AS_NULL.map(([value]) => [value, numberAsNull(value)])).toStrictEqual(NUMBER_AS_NULL);
   });
 });
 
@@ -101,32 +94,25 @@ describe("deriveDraftStatus", () => {
   it("reports a clean draft as not dirty, with a row per descriptor carrying its label and its group", () => {
     const status = derive({ draft: draftFrom({}) });
 
-    assert.equal(status.isDirty, false);
-    assert.deepEqual(status.changed, []);
-    assert.deepEqual(
-      status.fields.map((field) => [field.path, field.label, field.group, field.isChanged, field.error, field.storedText]),
-      [
-        ["name", "Name", "Main", false, null, "Alpha"],
-        ["note", "Note", "Main", false, null, "Eine Notiz"],
-        ["count", "Count", "Aside", false, null, "3"],
-        ["slot", "Slot", "Aside", false, null, "Links"],
-      ],
-    );
+    expect(status.isDirty).toBe(false);
+    expect(status.changed).toStrictEqual([]);
+    expect(status.fields.map((field) => [field.path, field.label, field.group, field.isChanged, field.error, field.storedText])).toStrictEqual([
+      ["name", "Name", "Main", false, null, "Alpha"],
+      ["note", "Note", "Main", false, null, "Eine Notiz"],
+      ["count", "Count", "Aside", false, null, "3"],
+      ["slot", "Slot", "Aside", false, null, "Links"],
+    ]);
   });
 
   it("reports one edited field as the only change, carrying both texts", () => {
     const status = derive({ draft: draftFrom({ name: "Beta" }) });
 
-    assert.equal(status.isDirty, true);
-    assert.deepEqual(
-      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
-      [["name", "Alpha", "Beta"]],
-    );
+    expect(status.isDirty).toBe(true);
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["name", "Alpha", "Beta"]]);
   });
 
   it("reports each field under its own descriptor path, so no row can answer for its neighbour", () => {
-    assert.deepEqual(
-      ONE_FIELD_CHANGED.map(([path, draft]) => [path, derive({ draft }).changed.map((field) => field.path)]),
+    expect(ONE_FIELD_CHANGED.map(([path, draft]) => [path, derive({ draft }).changed.map((field) => field.path)])).toStrictEqual(
       ONE_FIELD_CHANGED.map(([path]) => [path, [path]]),
     );
   });
@@ -134,10 +120,7 @@ describe("deriveDraftStatus", () => {
   it("carries several changes in the descriptor table's order", () => {
     const status = derive({ draft: draftFrom({ count: 7, name: "Beta" }) });
 
-    assert.deepEqual(
-      status.changed.map((field) => field.path),
-      ["name", "count"],
-    );
+    expect(status.changed.map((field) => field.path)).toStrictEqual(["name", "count"]);
   });
 
   it("reads an emptied field as a removal rather than as a change to the empty string", () => {
@@ -145,36 +128,33 @@ describe("deriveDraftStatus", () => {
 
     assert.ok(row?.isChanged);
     // `draftText: null` is what makes the change list render this as a removal.
-    assert.equal(row.draftText, null);
-    assert.equal(row.storedText, "Alpha");
+    expect(row.draftText).toBe(null);
+    expect(row.storedText).toBe("Alpha");
   });
 
   it("reads null, the empty string and whitespace alone as one and the same nothing", () => {
     const clearedToNull = derive({ stored: draftFrom({ note: "" }), draft: draftFrom({ note: null }) });
     const clearedToSpaces = derive({ stored: draftFrom({ note: null }), draft: draftFrom({ note: "   " }) });
 
-    assert.equal(clearedToNull.isDirty, false);
-    assert.equal(clearedToSpaces.isDirty, false);
-    assert.equal(clearedToSpaces.byPath.get("note")?.draftText, null);
+    expect(clearedToNull.isDirty).toBe(false);
+    expect(clearedToSpaces.isDirty).toBe(false);
+    expect(clearedToSpaces.byPath.get("note")?.draftText).toBe(null);
   });
 
   it("keeps a whitespace-only edit visible, because nothing trims before the save", () => {
     const status = derive({ draft: draftFrom({ name: "Alpha " }) });
 
-    assert.equal(status.isDirty, true);
-    assert.equal(status.byPath.get("name")?.draftText, "Alpha ");
+    expect(status.isDirty).toBe(true);
+    expect(status.byPath.get("name")?.draftText).toBe("Alpha ");
   });
 
   it("drops a descriptor whose appliesTo is false, so it neither renders a row nor counts as dirty", () => {
     const status = derive({ draft: draftFrom({ slot: null }) });
 
-    assert.deepEqual(
-      status.fields.map((field) => field.path),
-      ["name", "note", "count"],
-    );
+    expect(status.fields.map((field) => field.path)).toStrictEqual(["name", "note", "count"]);
     // The stored slot is gone and the fold still reports nothing: a filtered descriptor leaves the
     // comparison, not merely the rendering.
-    assert.equal(status.isDirty, false);
+    expect(status.isDirty).toBe(false);
   });
 
   it("asks appliesTo of the draft alone, so a row arriving mid-edit still compares against the stored read", () => {
@@ -182,34 +162,30 @@ describe("deriveDraftStatus", () => {
 
     const row = status.byPath.get("slot");
     assert.ok(row?.isChanged);
-    assert.equal(row.storedText, null);
-    assert.equal(row.draftText, "Rechts");
+    expect(row.storedText).toBe(null);
+    expect(row.draftText).toBe("Rechts");
   });
 
   it("carries a field error onto its own row and into invalid, leaving the row unchanged", () => {
     const status = derive({ draft: draftFrom({}), fieldErrors: { note: "Bitte fülle dieses Feld aus." } });
 
-    assert.equal(status.byPath.get("note")?.error, "Bitte fülle dieses Feld aus.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["note"],
-    );
+    expect(status.byPath.get("note")?.error).toBe("Bitte fülle dieses Feld aus.");
+    expect(status.invalid.map((field) => field.path)).toStrictEqual(["note"]);
     // A message and an edit are independent verdicts: a bar counting changes has nothing to discard
     // here, and one counting errors refuses the save.
-    assert.equal(status.isDirty, false);
+    expect(status.isDirty).toBe(false);
   });
 
   it("looks a row's message up under its own errorPaths, in order, and nowhere else", () => {
-    assert.deepEqual(
+    expect(
       ERROR_LOOKUP.map(([fieldErrors]) => [fieldErrors, derive({ draft: draftFrom({}), fieldErrors }).byPath.get("slot")?.error ?? null]),
-      ERROR_LOOKUP,
-    );
+    ).toStrictEqual(ERROR_LOOKUP);
   });
 
   it("lands a message no descriptor claims on no row at all", () => {
     const status = derive({ draft: draftFrom({}), fieldErrors: { slot: "Auf dem eigenen Pfad.", nirgendwo: "Auf gar keinem Pfad." } });
 
-    assert.deepEqual(status.invalid, []);
+    expect(status.invalid).toStrictEqual([]);
   });
 
   it("answers byPath for exactly the rows it reports, so no marker asks after a row that is not there", () => {
@@ -217,21 +193,18 @@ describe("deriveDraftStatus", () => {
     // lists agree under any fold, one keying `byPath` off the unfiltered `descriptors` included.
     const status = derive({ draft: draftFrom({ slot: null }) });
 
-    assert.deepEqual(
-      [...status.byPath.keys()],
-      status.fields.map((field) => field.path),
-    );
+    expect([...status.byPath.keys()]).toStrictEqual(status.fields.map((field) => field.path));
   });
 });
 
 describe("fieldStatus", () => {
   it("answers no row for a declared path whose descriptor does not apply to the draft", () => {
-    assert.equal(fieldStatus(derive({ draft: draftFrom({ slot: null }) }), "slot"), undefined);
+    expect(fieldStatus(derive({ draft: draftFrom({ slot: null }) }), "slot")).toBe(undefined);
   });
 
   /* The label and the editor's own lookup both read through here, and `undefined` would pass a misspelt
      path off as a field left unchanged. */
   it("throws for a path the table does not declare", () => {
-    assert.throws(() => fieldStatus(derive({ draft: draftFrom({}) }), "nmae"), /nmae is no path/);
+    expect(() => fieldStatus(derive({ draft: draftFrom({}) }), "nmae")).toThrow(/nmae is no path/);
   });
 });

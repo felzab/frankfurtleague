@@ -1,11 +1,9 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /* The real drain over the backend client's double; what it delivers each notice through is a double too, the notices
    themselves being `notifications.test.ts`'s. */
@@ -20,21 +18,19 @@ const record =
 /** Each notice the drain delivered, by its new address. */
 const delivered: string[] = [];
 
-registerDoubles({
-  modules: {
-    "core/logging.ts": { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } },
-    "features/adresswechsel/notifications.ts": {
-      adresswechselWirksam: ({ mitteilung }: { mitteilung: { email: string } }) => {
-        delivered.push(mitteilung.email);
-        return Promise.resolve(true);
-      },
-      mailAdresswechselNichtWirksam: ({ email }: { email: string }) => {
-        delivered.push(email);
-        return Promise.resolve(true);
-      },
-    },
+vi.doMock("@/core/logging.ts", () => ({
+  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
+}));
+vi.doMock("@/features/adresswechsel/notifications.ts", () => ({
+  adresswechselWirksam: ({ mitteilung }: { mitteilung: { email: string } }) => {
+    delivered.push(mitteilung.email);
+    return Promise.resolve(true);
   },
-});
+  mailAdresswechselNichtWirksam: ({ email }: { email: string }) => {
+    delivered.push(email);
+    return Promise.resolve(true);
+  },
+}));
 
 const CLAIM = "/adresswechsel/sweep/postausgang";
 const ROW = "6890a1b2c3d4e5f6071c0001";
@@ -93,10 +89,9 @@ describe("the address change's outbox drain", () => {
 
     await runAdresswechselPostausgang();
 
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
-      [["adresswechsel.postausgang_failed", { error_code: "FE-SWEEP-005", name: "Error" }]],
-    );
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
+      ["adresswechsel.postausgang_failed", { error_code: "FE-SWEEP-005", name: "Error" }],
+    ]);
   });
 
   /* The status and code tell a refusal from a crash, and the trace finds the backend's own line. */
@@ -116,15 +111,12 @@ describe("the address change's outbox drain", () => {
 
     await runAdresswechselPostausgang();
 
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
       [
-        [
-          "adresswechsel.postausgang_failed",
-          { error_code: "FE-SWEEP-005", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
-        ],
+        "adresswechsel.postausgang_failed",
+        { error_code: "FE-SWEEP-005", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
       ],
-    );
+    ]);
   });
 
   /* The notice stays held until the lease lapses and goes again; the runbook greps this line. */
@@ -134,12 +126,11 @@ describe("the address change's outbox drain", () => {
 
     await runAdresswechselPostausgang();
 
-    assert.deepEqual(delivered, ["neu@schule.de"]);
-    assert.equal(claimed(), 1, "a page whose stamp failed was followed by another claim");
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
-      [["adresswechsel.stempel_failed", { error_code: "FE-SWEEP-005", name: "TypeError" }]],
-    );
+    expect(delivered).toStrictEqual(["neu@schule.de"]);
+    expect(claimed(), "a page whose stamp failed was followed by another claim").toBe(1);
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
+      ["adresswechsel.stempel_failed", { error_code: "FE-SWEEP-005", name: "TypeError" }],
+    ]);
   });
 });
 
@@ -157,12 +148,12 @@ describe("two drains asked for at once", () => {
     const third = runAdresswechselPostausgang();
     await second;
     await third;
-    assert.equal(claimed(), 1, "a second drain claimed beside the first");
+    expect(claimed(), "a second drain claimed beside the first").toBe(1);
 
     holdClaim = null;
     release();
     await first;
 
-    assert.equal(claimed(), 2, "the asks made while the first ran were dropped, or each ran a drain of its own");
+    expect(claimed(), "the asks made while the first ran were dropped, or each ran a drain of its own").toBe(2);
   });
 });

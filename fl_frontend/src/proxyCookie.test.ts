@@ -1,6 +1,3 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -9,7 +6,8 @@ import {
   memoryStore,
   registerAuthDoubles,
   signInByCode,
-} from "./core/authDoubles.ts";
+} from "@/test-support/authDoubles.ts";
+import { assert, describe, expect, it } from "vitest";
 
 const STORE = "__flProxyCookieStore";
 
@@ -25,7 +23,7 @@ registerAuthDoubles({
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
-// Imported here rather than at the top: a static import resolves before the hooks above are registered.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth, sessionCookieOf } = await import("./core/auth.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { config } = await import("./proxy.ts");
@@ -40,14 +38,14 @@ describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I243`
     // The control: the name is the host-bound one, which the default prefix does not spell.
     assert.ok(written.includes("__Host-"), `the sign-in wrote ${written}`);
 
-    assert.notEqual(sessionCookieOf(new Headers({ ...HEADERS, cookie: written })), null, "the proxy's check finds no session cookie");
+    expect(sessionCookieOf(new Headers({ ...HEADERS, cookie: written })), "the proxy's check finds no session cookie").not.toBe(null);
   });
 
   // Under the default name a cookie the library never writes there, which a sibling subdomain could plant.
   it("is not the library's default name", () => {
     const planted = new Headers({ ...HEADERS, cookie: "better-auth.session_token=fremd" });
 
-    assert.equal(sessionCookieOf(planted), null, "the proxy's check reads a name this origin never writes");
+    expect(sessionCookieOf(planted), "the proxy's check reads a name this origin never writes").toBe(null);
   });
 
   // The library reads `__Secure-<name>` ahead of `<name>`, and a sibling subdomain can set that spelling where the
@@ -57,9 +55,9 @@ describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I243`
     const name = /__Host-[^=]*\.session_token/.exec(written)?.[0] ?? assert.fail(`the sign-in wrote ${written}`);
     const planted = `__Secure-${name}=fremd`;
 
-    assert.equal(sessionCookieOf(new Headers({ ...HEADERS, cookie: planted })), null, "the proxy's check reads a planted spelling");
+    expect(sessionCookieOf(new Headers({ ...HEADERS, cookie: planted })), "the proxy's check reads a planted spelling").toBe(null);
     // Beside the host-bound cookie, the one this origin wrote is still read.
-    assert.notEqual(sessionCookieOf(new Headers({ ...HEADERS, cookie: `${planted}; ${written}` })), null);
+    expect(sessionCookieOf(new Headers({ ...HEADERS, cookie: `${planted}; ${written}` }))).not.toBe(null);
   });
 });
 
@@ -81,7 +79,7 @@ describe("the proxy's matcher over https", () => {
       Object.keys(cookies).some((name) => name.startsWith("__Host-")),
       `the sign-in wrote ${written}`,
     );
-    assert.equal(runs(cookies), false, "the proxy runs on a signed-in prefetch, sliding the session");
-    assert.equal(runs({}), true, "the control: a signed-out prefetch skips the proxy as well, so the case above reads nothing");
+    expect(runs(cookies), "the proxy runs on a signed-in prefetch, sliding the session").toBe(false);
+    expect(runs({}), "the control: a signed-out prefetch skips the proxy as well, so the case above reads nothing").toBe(true);
   });
 });

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { joinCollections } from "./data.ts";
 
@@ -20,42 +19,36 @@ describe("joinCollections", () => {
   it("groups right rows under the named target key", () => {
     const result = joinCollections({ left: spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
 
-    assert.deepEqual(result[0]?.spiele, [spielA, spielB]);
-    assert.deepEqual(result[1]?.spiele, [spielC]);
+    expect(result[0]?.spiele).toStrictEqual([spielA, spielB]);
+    expect(result[1]?.spiele).toStrictEqual([spielC]);
   });
 
   // A Spieltag with no matches must still render, so an unmatched left row gets [] and not undefined.
   it("gives unmatched left rows an empty array", () => {
     const result = joinCollections({ left: spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(result[2]?.spiele, []);
+    expect(result[2]?.spiele).toStrictEqual([]);
   });
 
   it("preserves left order and left fields", () => {
     const result = joinCollections({ left: spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(
-      result.map((x) => x.nr),
-      [1, 2, 3],
-    );
+    expect(result.map((x) => x.nr)).toStrictEqual([1, 2, 3]);
   });
 
   it("preserves right order within a group", () => {
     const reversed = [spielB, spielA];
     const result = joinCollections({ left: spieltage, right: reversed, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(result[0]?.spiele, [spielB, spielA]);
+    expect(result[0]?.spiele).toStrictEqual([spielB, spielA]);
   });
 
   it("does not mutate the left rows", () => {
     joinCollections({ left: spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(spieltage[0], { id: "st1", nr: 1 });
+    expect(spieltage[0]).toStrictEqual({ id: "st1", nr: 1 });
   });
 
   it("drops right rows whose key matches no left row", () => {
     const orphaned = [{ id: "s9", spieltag_id: "st-missing" }];
     const result = joinCollections({ left: spieltage, right: orphaned, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(
-      result.flatMap((x) => x.spiele),
-      [],
-    );
+    expect(result.flatMap((x) => x.spiele)).toStrictEqual([]);
   });
 
   it("handles empty inputs", () => {
@@ -66,7 +59,7 @@ describe("joinCollections", () => {
       rightIdKey: "spieltag_id",
       targetKey: "spiele",
     });
-    assert.deepEqual(noLeft, []);
+    expect(noLeft).toStrictEqual([]);
     const noRight = joinCollections({
       left: spieltage,
       right: [] as typeof spiele,
@@ -74,10 +67,7 @@ describe("joinCollections", () => {
       rightIdKey: "spieltag_id",
       targetKey: "spiele",
     });
-    assert.deepEqual(
-      noRight.map((x) => x.spiele),
-      [[], [], []],
-    );
+    expect(noRight.map((x) => x.spiele)).toStrictEqual([[], [], []]);
   });
 });
 
@@ -94,8 +84,8 @@ describe("joinCollections — duplicate left ids", () => {
   it("gives each row its own array instance", () => {
     const [a, b] = joinCollections({ left, right, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "items" });
 
-    assert.deepEqual(a!.items, b!.items);
-    assert.notEqual(a!.items, b!.items, "rows sharing an id must not share one array");
+    expect(a!.items).toStrictEqual(b!.items);
+    expect(a!.items, "rows sharing an id must not share one array").not.toBe(b!.items);
   });
 
   it("does not let a mutation of one row's group reach another", () => {
@@ -103,7 +93,7 @@ describe("joinCollections — duplicate left ids", () => {
 
     a!.items.push({ spieltag_id: "st1", n: 99 });
 
-    assert.equal(a!.items.length, 2);
-    assert.equal(b!.items.length, 1);
+    expect(a!.items.length).toBe(2);
+    expect(b!.items.length).toBe(1);
   });
 });

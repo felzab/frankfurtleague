@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { configDouble, registerAuthDoubles } from "./authDoubles.ts";
+import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { assert, describe, it } from "vitest";
 
 /* The library builds its adapter inside its init, which `auth.$context` is the promise of: a factory refusing here
    rejects that promise, as a store unreachable at the first use does. */
@@ -14,7 +12,7 @@ const UNREACHABLE_ADAPTER = {
 const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
 // A module of its own: the library builds its context once per process, so a failing one here would fail every
-// case beside it in `fl_frontend/src/core/auth.test.ts`.
+// case beside it.
 registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE, config: configDouble() },
   specifiers: { "@better-auth/mongo-adapter": UNREACHABLE_ADAPTER },

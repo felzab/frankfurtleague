@@ -1,8 +1,5 @@
-import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it, mock } from "node:test";
-
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The real client, mail transport and fan-out, only their network doubled below: what is driven is
    the chain those three and the admin spine make of one season-wide press, which a double of any of
@@ -24,11 +21,7 @@ const CONFIG = {
 
 doubleActionRequest();
 
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG,
-  },
-});
+vi.doMock("@/core/config.ts", () => CONFIG);
 
 const { postEinladungVersandAction } = await import("./actions.ts");
 const { REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
@@ -84,7 +77,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 let clock = 0;
 const advance = (ms: number) => {
   clock += ms;
-  mock.timers.tick(ms);
+  vi.advanceTimersByTime(ms);
 };
 
 /** Bounded, so a press that stops short of the message fails naming it rather than spinning. */
@@ -99,13 +92,13 @@ async function untilMessage(count: number): Promise<AbortSignal> {
 beforeEach(() => {
   mails.length = 0;
   clock = 0;
-  mock.method(performance, "now", () => clock);
-  mock.timers.enable({ apis: ["setTimeout"] });
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
 });
 
 afterEach(() => {
-  mock.timers.reset();
-  mock.restoreAll();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("a season-wide invite press the request's deadline cuts", () => {
@@ -121,13 +114,13 @@ describe("a season-wide invite press the request's deadline cuts", () => {
 
     const third = await untilMessage(3);
     advance(REQUEST_DEADLINE_MS - 2 * SEND_MS - 1);
-    assert.equal(third.aborted, false, "the third message was aborted before the deadline");
+    expect(third.aborted, "the third message was aborted before the deadline").toBe(false);
     advance(1);
-    assert.equal(third.aborted, true, "the deadline passed and the third message ran on to its own bound");
+    expect(third.aborted, "the deadline passed and the third message ran on to its own bound").toBe(true);
 
     const answer = await pressed;
 
-    assert.equal(mails.length, 3, "a message was handed to the provider after the deadline had passed");
-    assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown", `the cut press answered ${JSON.stringify(answer)}`);
+    expect(mails.length, "a message was handed to the provider after the deadline had passed").toBe(3);
+    expect("outcome" in answer ? answer.outcome : undefined, `the cut press answered ${JSON.stringify(answer)}`).toBe("unknown");
   });
 });

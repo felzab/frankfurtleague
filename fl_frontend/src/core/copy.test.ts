@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "./copy.ts";
 
@@ -19,14 +18,14 @@ describe("Copy", () => {
 describe("a verb with its object", () => {
   // The label is capitalised and the infinitive after an object is not, an umlaut included.
   it("lower-cases the verb behind its object", () => {
-    assert.equal(COPY.shared.mitObjekt(COPY.shared.protokoll, "uebernehmen"), "Protokoll übernehmen");
-    assert.equal(COPY.shared.frage(COPY.shared.protokoll, "loeschen"), "Protokoll löschen?");
+    expect(COPY.shared.mitObjekt(COPY.shared.protokoll, "uebernehmen")).toBe("Protokoll übernehmen");
+    expect(COPY.shared.frage(COPY.shared.protokoll, "loeschen")).toBe("Protokoll löschen?");
   });
 });
 
 describe("a field message", () => {
   it("writes its figure in the German form", () => {
-    assert.equal(COPY.shared.feld.hoechstensZeichen(1000), "Höchstens 1.000 Zeichen");
-    assert.equal(COPY.shared.feld.fruehestens("2027-03-14"), "Frühestens 14.03.2027");
+    expect(COPY.shared.feld.hoechstensZeichen(1000)).toBe("Höchstens 1.000 Zeichen");
+    expect(COPY.shared.feld.fruehestens("2027-03-14")).toBe("Frühestens 14.03.2027");
   });
 });

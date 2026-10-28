@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { assert, describe, expect, it } from "vitest";
+
 import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "../../../constants.ts";
 import { buildSpielerBanners } from "./banners.ts";
 
@@ -26,23 +25,23 @@ const ids = (banners: readonly SpielerBanner[]): string[] => banners.map((banner
 
 describe("buildSpielerBanners", () => {
   it("raises nothing for a settled squad row with no pending edit", () => {
-    assert.deepEqual(ids(build()), []);
+    expect(ids(build())).toStrictEqual([]);
   });
 
   /* The title names the exclusion, the body what survives, and neither points at a control. */
   it("states the retirement as the exclusion plus what survives, and points at no control", () => {
     const [banner] = build({ isRetired: true });
 
-    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.match(banner?.body ?? "", /Kadereinträge dieser Person bleiben erhalten/, "the body stopped naming what survives");
+    expect(banner?.title ?? "").toMatch(/erscheint in keiner Auswahlliste/);
+    expect(banner?.body ?? "", "the body stopped naming what survives").toMatch(/Kadereinträge dieser Person bleiben erhalten/);
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
   it("offers the entry remedy for a player no squad holds", () => {
     const [banner] = build({ isMember: false });
 
-    assert.equal(banner?.id, "spieler.not-in-kader-entry");
-    assert.match(banner?.title ?? "", /Saison 2026/);
+    expect(banner?.id).toBe("spieler.not-in-kader-entry");
+    expect(banner?.title ?? "").toMatch(/Saison 2026/);
   });
 
   /* A pupil can be a girl and this slice's consent panel already writes both forms, so a masculine
@@ -66,14 +65,14 @@ describe("buildSpielerBanners", () => {
       if (maskulin.test(banner.body)) genannt.push(`${id}: body`);
     }
 
-    assert.deepEqual(genannt, [], "a banner names the pupil with a masculine word");
+    expect(genannt, "a banner names the pupil with a masculine word").toStrictEqual([]);
   });
 
   it("dates the retirement of the squad row in its title", () => {
     const [banner] = build({ rowInactiveSince: "2026-03-12" });
 
-    assert.equal(banner?.id, "spieler.row-retired-since");
-    assert.match(banner?.title ?? "", /12\.03\.2026/);
+    expect(banner?.id).toBe("spieler.row-retired-since");
+    expect(banner?.title ?? "").toMatch(/12\.03\.2026/);
   });
 
   /* The banner sits directly above the reactivate button, which reads the row's STORED club — so a
@@ -82,8 +81,8 @@ describe("buildSpielerBanners", () => {
     const [kept] = build({ rowInactiveSince: "2026-03-12" });
     const [gone] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
 
-    assert.match(kept?.body ?? "", /kehren beim Reaktivieren zurück/, "the settled arm stopped saying the values come back");
-    assert.doesNotMatch(gone?.body ?? "", /kehren beim Reaktivieren zurück/, "the blocked arm promises a return the endpoint refuses");
+    expect(kept?.body ?? "", "the settled arm stopped saying the values come back").toMatch(/kehren beim Reaktivieren zurück/);
+    expect(gone?.body ?? "", "the blocked arm promises a return the endpoint refuses").not.toMatch(/kehren beim Reaktivieren zurück/);
     assert.ok((gone?.body ?? "").includes(REACTIVATION_NEEDS_A_TEAM_IN_SAISON), "the blocked arm names no repair");
   });
 
@@ -92,8 +91,8 @@ describe("buildSpielerBanners", () => {
   it("leaves the blocked arm an info", () => {
     const [banner] = build({ rowInactiveSince: "2026-03-12", isRowTeamInSaison: false });
 
-    assert.equal(banner?.id, "spieler.row-retired-since");
-    assert.equal(banner?.severity, "info");
+    expect(banner?.id).toBe("spieler.row-retired-since");
+    expect(banner?.severity).toBe("info");
   });
 
   it("announces the served nachnominiert verdict only where there is no row to enter into yet", () => {
@@ -102,10 +101,10 @@ describe("buildSpielerBanners", () => {
     const entering = build({ isMember: false, nachnominierungLaeuft: true }).find(({ id }) => id === "spieler.entry-nachnominiert");
     const standing = build({ istNachnominiert: true }).find(({ id }) => id === "spieler.nachnominiert");
 
-    assert.match(entering?.title ?? "", /Diese Person wird nachnominiert/);
-    assert.match(standing?.title ?? "", /Diese Person wurde nachnominiert/);
-    assert.match(entering?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
-    assert.match(standing?.body ?? "", /Zu Beginn der Saison war sie nicht im Kader/);
+    expect(entering?.title ?? "").toMatch(/Diese Person wird nachnominiert/);
+    expect(standing?.title ?? "").toMatch(/Diese Person wurde nachnominiert/);
+    expect(entering?.body ?? "").toMatch(/Zu Beginn der Saison war sie nicht im Kader/);
+    expect(standing?.body ?? "").toMatch(/Zu Beginn der Saison war sie nicht im Kader/);
     assert.ok(ids(build({ isMember: false, nachnominierungLaeuft: true })).includes("spieler.entry-nachnominiert"));
     assert.ok(!ids(build({ isMember: false, nachnominierungLaeuft: false })).includes("spieler.entry-nachnominiert"));
     assert.ok(!ids(build({ nachnominierungLaeuft: true })).includes("spieler.entry-nachnominiert"));
@@ -116,10 +115,10 @@ describe("buildSpielerBanners", () => {
   it("grades a transfer as a warning and names the timing over the move it makes", () => {
     const [banner] = build({ isTeamChanged: true });
 
-    assert.equal(banner?.id, "spieler.team-changed");
-    assert.equal(banner?.severity, "warning");
-    assert.equal(banner?.title, "Teamwechsel wirkt sofort");
-    assert.equal(banner?.body, "Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
+    expect(banner?.id).toBe("spieler.team-changed");
+    expect(banner?.severity).toBe("warning");
+    expect(banner?.title).toBe("Teamwechsel wirkt sofort");
+    expect(banner?.body).toBe("Der Spieler verschwindet aus dem alten Kader und erscheint im neuen.");
   });
 
   /* Both sides of the cap, because an id list asserted at the cap alone reads the same for a banner
@@ -128,39 +127,39 @@ describe("buildSpielerBanners", () => {
   it("raises the full squad at the cap and not below it, and names both ways out", () => {
     const raised = build({ isSquadFull: true });
 
-    assert.deepEqual(ids(raised), ["spieler.kader-voll"]);
-    assert.deepEqual(ids(build({ isSquadFull: false })), [], "the banner stands over a squad that still has room");
-    assert.equal(raised[0]?.severity, "info");
-    assert.match(raised[0]?.body ?? "", /trage zuerst einen anderen Spieler aus/, "the nearer repair is gone");
-    assert.match(raised[0]?.body ?? "", /Saisonregeln/, "the reader is left with one way out where the season's rules are the other");
+    expect(ids(raised)).toStrictEqual(["spieler.kader-voll"]);
+    expect(ids(build({ isSquadFull: false })), "the banner stands over a squad that still has room").toStrictEqual([]);
+    expect(raised[0]?.severity).toBe("info");
+    expect(raised[0]?.body ?? "", "the nearer repair is gone").toMatch(/trage zuerst einen anderen Spieler aus/);
+    expect(raised[0]?.body ?? "", "the reader is left with one way out where the season's rules are the other").toMatch(/Saisonregeln/);
   });
 
   /* One wording for one rule: this banner and the disabled reason can stand over one club at once. */
   it("states the cap in the wording every other surface uses", () => {
     const raised = build({ isSquadFull: true })[0];
 
-    assert.equal(`${raised?.title ?? ""}. ${raised?.body ?? ""}`, REACTIVATION_NEEDS_ROOM_IN_SQUAD);
+    expect(`${raised?.title ?? ""}. ${raised?.body ?? ""}`).toBe(REACTIVATION_NEEDS_ROOM_IN_SQUAD);
   });
 
   it("names the role and its holder where the draft team has already given it away", () => {
     const banners = build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } });
 
-    assert.deepEqual(ids(banners), ["spieler.rolle-vergeben"]);
-    assert.match(banners[0]?.title ?? "", /Kapitän/);
-    assert.match(banners[0]?.body ?? "", /Jonas Weber/);
+    expect(ids(banners)).toStrictEqual(["spieler.rolle-vergeben"]);
+    expect(banners[0]?.title ?? "").toMatch(/Kapitän/);
+    expect(banners[0]?.body ?? "").toMatch(/Jonas Weber/);
   });
 
   // `info`, so it never raises the save dialog: the control is unavailable, which leaves the reader
   // nothing to confirm.
   it("raises no save confirmation for a blocked role", () => {
-    assert.equal(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity, "info");
+    expect(build({ blockedRolle: { label: "Co-Kapitän", heldBy: "Nils Kraus" } })[0]?.severity).toBe("info");
   });
 
   /* Neither is this save's doing: the flag is the stored row's, derived by the backend at entry, and
      the role is one another squad row already holds. */
   it("classifies the nachnominiert flag and a taken role as state", () => {
-    assert.equal(build({ istNachnominiert: true })[0]?.raisedBy, "state");
-    assert.equal(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy, "state");
+    expect(build({ istNachnominiert: true })[0]?.raisedBy).toBe("state");
+    expect(build({ blockedRolle: { label: "Kapitän", heldBy: "Jonas Weber" } })[0]?.raisedBy).toBe("state");
   });
 
   /* Colour and confirmation are separate switches: a banner the page load already carries asks
@@ -173,7 +172,7 @@ describe("buildSpielerBanners", () => {
       ...build({ isSquadFull: true }),
     ];
 
-    for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);
-    assert.equal(build({ isTeamChanged: true })[0]?.raisedBy, "change");
+    for (const banner of atLoad) expect(banner.raisedBy, `${banner.id} would confirm a situation the save did not cause`).toBe("state");
+    expect(build({ isTeamChanged: true })[0]?.raisedBy).toBe("change");
   });
 });

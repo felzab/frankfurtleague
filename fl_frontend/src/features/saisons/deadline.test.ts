@@ -1,9 +1,6 @@
-import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it, mock } from "node:test";
-
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
-import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { doubleActionRequest, loggedLines } from "@/test-support/actionDoubles.ts";
+import { saisonRules } from "@/test-support/saisonRules.ts";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The real action, client and request scope, only their network doubled below: what is driven is the deadline
    ending the deletion inside the activation press, which a doubled client would have to restage. */
@@ -24,11 +21,7 @@ const CONFIG = {
 
 doubleActionRequest();
 
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG,
-  },
-});
+vi.doMock("@/core/config.ts", () => CONFIG);
 
 const { activateSaisonAction } = await import("./actions.ts");
 const { REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
@@ -100,7 +93,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 let clock = 0;
 const advance = (ms: number) => {
   clock += ms;
-  mock.timers.tick(ms);
+  vi.advanceTimersByTime(ms);
 };
 
 /** Bounded, so a press that stops short of the call fails naming it rather than spinning. */
@@ -126,13 +119,13 @@ beforeEach(() => {
   loggedLines.length = 0;
   clock = 0;
   aktivierungMs = CALL_MS;
-  mock.method(performance, "now", () => clock);
-  mock.timers.enable({ apis: ["setTimeout"] });
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
 });
 
 afterEach(() => {
-  mock.timers.reset();
-  mock.restoreAll();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 /* `docs/frontend/spec.md :: I733`: a call sent with less left could go on deleting after the spine dropped `spieler`, and
@@ -164,13 +157,12 @@ describe("an activation whose deletion would outrun the request's deadline", () 
 
     const answer = await pressedToItsStop();
 
-    assert.deepEqual(
+    expect(
       sent.map(({ url }) => new URL(url).pathname),
-      [`/api/v0/saisons/${SAISON_ID}/activate`, "/api/v0/identitaet/loeschung/lauf"],
       "a deletion call went out with too little left to wait out its answer",
-    );
-    assert.equal(answer.success, true, `the stopped press answered ${JSON.stringify(answer)}`);
-    assert.equal(answer.success ? answer.message : undefined, UNVOLLSTAENDIG);
+    ).toStrictEqual([`/api/v0/saisons/${SAISON_ID}/activate`, "/api/v0/identitaet/loeschung/lauf"]);
+    expect(answer.success, `the stopped press answered ${JSON.stringify(answer)}`).toBe(true);
+    expect(answer.success ? answer.message : undefined).toBe(UNVOLLSTAENDIG);
   });
 
   /* Wherever more pupils are due than the deadline reaches, this is the run's expected end: filed as an error, it sends
@@ -178,7 +170,7 @@ describe("an activation whose deletion would outrun the request's deadline", () 
   it("files the stop as a warning, never under an error", async () => {
     await pressedToItsStop();
 
-    assert.deepEqual(deletionLines(), [
+    expect(deletionLines()).toStrictEqual([
       {
         level: "warn",
         message: "loeschung.umstellung_cut_short",
@@ -203,16 +195,16 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
     const cut = await untilCall(3);
     assert.ok(cut.url.endsWith(`/identitaet/loeschung/lauf?nach=${ERSTER_LAUF.nach}`));
     advance(WRITE_NEEDS_MS - 1);
-    assert.equal(cut.signal.aborted, false, "the deletion call was aborted before the deadline");
+    expect(cut.signal.aborted, "the deletion call was aborted before the deadline").toBe(false);
     advance(1);
-    assert.equal(cut.signal.aborted, true, "the deadline passed and the deletion call ran on to its own bound");
+    expect(cut.signal.aborted, "the deadline passed and the deletion call ran on to its own bound").toBe(true);
 
     const answer = await pressed;
 
-    assert.equal(sent.length, 3, "a call went out after the deadline had passed");
-    assert.equal(answer.success, true, `the cut press answered ${JSON.stringify(answer)}`);
-    assert.equal(answer.success ? answer.message : undefined, UNVOLLSTAENDIG);
-    assert.deepEqual(deletionLines(), [
+    expect(sent.length, "a call went out after the deadline had passed").toBe(3);
+    expect(answer.success, `the cut press answered ${JSON.stringify(answer)}`).toBe(true);
+    expect(answer.success ? answer.message : undefined).toBe(UNVOLLSTAENDIG);
+    expect(deletionLines()).toStrictEqual([
       {
         level: "warn",
         message: "loeschung.umstellung_cut_short",

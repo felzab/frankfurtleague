@@ -1,8 +1,5 @@
-// Loaded by `--import` in `package.json`'s `test:base` and `environment-names` scripts, the second
-// running in the image's builder; `next build`, `tsc` and ESLint never load it.
-
-// Named clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`: `node --test` collects a file so
-// named as a test and runs it a second time.
+// Loaded by `--import` in `package.json`'s `environment-names` script, which runs in the image's
+// builder; `next build`, `tsc`, ESLint and Vitest never load it.
 import { statSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
@@ -62,7 +59,7 @@ function isNextEntry(specifier) {
 }
 
 // Node reads neither tsconfig's `@/*` paths nor an extensionless specifier, both of which `tsc` and
-// Turbopack resolve, so a module written with either dies under `node --test` with
+// Turbopack resolve, so a module written with either dies under plain `node` with
 // ERR_MODULE_NOT_FOUND unless this hook answers it.
 
 // `registerHooks` runs the hook synchronously and in-thread, so this needs no separate hooks module
@@ -95,7 +92,7 @@ registerHooks({
       `Cannot resolve "${specifier}"` +
         (context.parentURL ? ` imported from ${context.parentURL}` : "") +
         `\n  The "@/*" alias maps to src/*. None of these files exist: ${tried}` +
-        `\n  (resolved by scripts/tsconfig-alias-hook.mjs, which teaches \`node --test\` the tsconfig path alias)`,
+        `\n  (resolved by scripts/tsconfig-alias-hook.mjs, which teaches \`node\` the tsconfig path alias)`,
     );
   },
 });

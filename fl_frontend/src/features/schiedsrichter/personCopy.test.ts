@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE } from "./constants.ts";
 
@@ -11,7 +10,7 @@ const MASKULIN = /\bdiesen schiedsrichter\b|\bsein(?:e|em|en|er|es)?\b|\b(?:er|i
 
 describe("the retirement dialog's second step", () => {
   it("names the referee neutrally in the consequence it escalates to", () => {
-    assert.match(SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE, /Schon eingetragene Spiele behalten/, "the consequence stopped naming what survives");
-    assert.doesNotMatch(SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE, MASKULIN, "the consequence names the referee with a masculine word");
+    expect(SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE, "the consequence stopped naming what survives").toMatch(/Schon eingetragene Spiele behalten/);
+    expect(SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE, "the consequence names the referee with a masculine word").not.toMatch(MASKULIN);
   });
 });

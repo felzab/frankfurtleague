@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { toFieldErrors } from "./validation.ts";
 
@@ -12,7 +11,7 @@ describe("toFieldErrors", () => {
   it("keys each message by its dotted path", () => {
     const found = toFieldErrors(errorWith([{ path: ["kader", "gute_spieler"], message: "Zu viele." }]));
 
-    assert.deepEqual(found, { "kader.gute_spieler": "Zu viele." });
+    expect(found).toStrictEqual({ "kader.gute_spieler": "Zu viele." });
   });
 
   it("keeps the FIRST message on a path, which is the one the field shows", () => {
@@ -24,7 +23,7 @@ describe("toFieldErrors", () => {
       ]),
     );
 
-    assert.deepEqual(found, { ende: "Das Ende darf nicht vor dem Beginn liegen." });
+    expect(found).toStrictEqual({ ende: "Das Ende darf nicht vor dem Beginn liegen." });
   });
 
   it("carries a path named for a prototype key, which `in` would drop in silence", () => {
@@ -32,10 +31,10 @@ describe("toFieldErrors", () => {
     // message is never written. The field then renders nothing and the fallback toast claims no field shows it.
     const found = toFieldErrors(errorWith([{ path: ["constructor"], message: "Bitte gib etwas ein." }]));
 
-    assert.deepEqual(found, { constructor: "Bitte gib etwas ein." });
+    expect(found).toStrictEqual({ constructor: "Bitte gib etwas ein." });
   });
 
   it("attaches nothing for an issue with no path, which belongs to no field", () => {
-    assert.deepEqual(toFieldErrors(errorWith([{ path: [], message: "Etwas stimmt nicht." }])), {});
+    expect(toFieldErrors(errorWith([{ path: [], message: "Etwas stimmt nicht." }]))).toStrictEqual({});
   });
 });

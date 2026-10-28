@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { isPathAsSpelled } from "./apiPath.ts";
 
@@ -20,8 +19,8 @@ describe("isPathAsSpelled", () => {
   it("lets an ordinary id through", () => {
     const { endpoint, pathname } = endpointFor(ECHT);
 
-    assert.equal(isPathAsSpelled(endpoint, pathname, BASE_PATH), true);
-    assert.equal(pathname, `${BASE_PATH}/bewerbungen/${ECHT}`);
+    expect(isPathAsSpelled(endpoint, pathname, BASE_PATH)).toBe(true);
+    expect(pathname).toBe(`${BASE_PATH}/bewerbungen/${ECHT}`);
   });
 
   it("accepts no id the URL parser rewrote", () => {
@@ -30,12 +29,10 @@ describe("isPathAsSpelled", () => {
     for (const id of RENAVIGIEREND) {
       const { endpoint, pathname } = endpointFor(id);
 
-      assert.equal(
-        isPathAsSpelled(endpoint, pathname, BASE_PATH),
+      expect(isPathAsSpelled(endpoint, pathname, BASE_PATH), `"${id}" was judged against the wrong path`).toBe(
         pathname === `${BASE_PATH}${endpoint}`,
-        `"${id}" was judged against the wrong path`,
       );
-      assert.equal(isPathAsSpelled(endpoint, pathname, BASE_PATH), false, `"${id}" reaches ${pathname}`);
+      expect(isPathAsSpelled(endpoint, pathname, BASE_PATH), `"${id}" reaches ${pathname}`).toBe(false);
     }
   });
 
@@ -43,6 +40,6 @@ describe("isPathAsSpelled", () => {
     // A call site may spell `?a=b` into the endpoint, which lands in `search` and never in `pathname`.
     const endpoint = "/bewerbungen?status=offen";
 
-    assert.equal(isPathAsSpelled(endpoint, `${BASE_PATH}/bewerbungen`, BASE_PATH), true);
+    expect(isPathAsSpelled(endpoint, `${BASE_PATH}/bewerbungen`, BASE_PATH)).toBe(true);
   });
 });

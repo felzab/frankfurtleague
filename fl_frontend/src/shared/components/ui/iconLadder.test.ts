@@ -1,11 +1,9 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
 import ts from "typescript";
-
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { assert, describe, expect, it } from "vitest";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -126,10 +124,9 @@ describe("every icon the tree renders", () => {
      raised their browser's font size while every `size-*` icon beside it grows. */
   it("takes its size from a class, never from a width or height prop", () => {
     const found = icons.filter((icon) => icon.names.includes("width") || icon.names.includes("height"));
-    assert.deepEqual(
+    expect(
       found.map((icon) => icon.where),
-      [],
       `a width or height prop sizes an icon in pixels, off §1.21's ladder:\n${found.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
-    );
+    ).toStrictEqual([]);
   });
 });

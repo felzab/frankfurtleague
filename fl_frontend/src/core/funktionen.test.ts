@@ -1,13 +1,12 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { person, sitz, SITZ } from "@/test-support/subjectFixtures.ts";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { funktionenOf, grantsAPanel } from "./funktionen.ts";
 import { FLSubjektSitzSchema } from "./schemas.ts";
-import { person, sitz, SITZ } from "./subjectFixtures.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -21,7 +20,7 @@ const VERDICTS = z
 
 describe("which of a subject's seats grant a panel", () => {
   it("grants nothing for a seat on a past season", () => {
-    assert.deepEqual(funktionenOf(person({ sitze: [sitz({ saison_status: "past" })] })).funktionen, []);
+    expect(funktionenOf(person({ sitze: [sitz({ saison_status: "past" })] })).funktionen).toStrictEqual([]);
   });
 
   /* Judged seat by seat: a resolver reading one seat's status for all, or keeping every seat once any
@@ -31,15 +30,12 @@ describe("which of a subject's seats grant a panel", () => {
       person({ sitze: [sitz({ saison_id: "2024/25", saison_status: "past" }), sitz({ saison_id: "2025/26", saison_status: "active" })] }),
     );
 
-    assert.deepEqual(
-      funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.saison_id : null)),
-      ["2025/26"],
-    );
+    expect(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.saison_id : null))).toStrictEqual(["2025/26"]);
   });
 
   for (const status of ["active", "future"] as const) {
     it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
-      assert.deepEqual(funktionenOf(person({ sitze: [sitz({ saison_status: status })] })).funktionen, [
+      expect(funktionenOf(person({ sitze: [sitz({ saison_status: status })] })).funktionen).toStrictEqual([
         {
           art: "kontakt",
           rolle: "ansprechperson",
@@ -57,10 +53,11 @@ describe("which of a subject's seats grant a panel", () => {
   it("answers two seats on one team as two Funktionen naming that one team", () => {
     const { funktionen } = funktionenOf(person({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
 
-    assert.equal(funktionen.length, 2);
-    assert.deepEqual(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.team_id : null))), new Set([SITZ.team_id]));
-    assert.deepEqual(
-      new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.rolle : null))),
+    expect(funktionen.length).toBe(2);
+    expect(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.team_id : null)))).toStrictEqual(
+      new Set([SITZ.team_id]),
+    );
+    expect(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.rolle : null)))).toStrictEqual(
       new Set(["trainer", "ansprechperson"]),
     );
   });
@@ -70,10 +67,7 @@ describe("which of a subject's seats grant a panel", () => {
       person({ sitze: [sitz({ saison_id: "2025/26" }), sitz({ saison_id: "2026/27", saison_status: "future" })] }),
     );
 
-    assert.deepEqual(
-      funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.saison_id : null)),
-      ["2025/26", "2026/27"],
-    );
+    expect(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.saison_id : null))).toStrictEqual(["2025/26", "2026/27"]);
   });
 });
 
@@ -83,23 +77,23 @@ describe("the Funktionen no season narrows", () => {
       person({ spieler: [{ spieler_id: "b".repeat(24) }], schiedsrichter: [{ schiedsrichter_id: "c".repeat(24) }] }),
     );
 
-    assert.deepEqual(funktionen, [
+    expect(funktionen).toStrictEqual([
       { art: "spieler", spieler_id: "b".repeat(24) },
       { art: "schiedsrichter", schiedsrichter_id: "c".repeat(24) },
     ]);
   });
 
   it("answers the administrator's verdict as the administration Funktion, and nothing without it", () => {
-    assert.deepEqual(funktionenOf(person({}, true)).funktionen, [{ art: "administration" }]);
-    assert.deepEqual(funktionenOf(person()).funktionen, []);
+    expect(funktionenOf(person({}, true)).funktionen).toStrictEqual([{ art: "administration" }]);
+    expect(funktionenOf(person()).funktionen).toStrictEqual([]);
   });
 });
 
 describe("the pending flag", () => {
   /* Both values: a resolver answering a constant passes whichever single one a case asked about. */
   it("passes the lookup's flag through unchanged", () => {
-    assert.equal(funktionenOf(person({ unbestaetigt: true })).unbestaetigt, true);
-    assert.equal(funktionenOf(person({ unbestaetigt: false })).unbestaetigt, false);
+    expect(funktionenOf(person({ unbestaetigt: true })).unbestaetigt).toBe(true);
+    expect(funktionenOf(person({ unbestaetigt: false })).unbestaetigt).toBe(false);
   });
 });
 
@@ -109,13 +103,13 @@ describe("the season predicate against the backend's", () => {
   it("reads one row per status the mirror declares, and no other", () => {
     const statuses = VERDICTS.map((row) => row.saison_status);
 
-    assert.equal(new Set(statuses).size, statuses.length, "the shared table decides one status twice");
-    assert.deepEqual([...statuses].sort(), [...STATUS.options].sort());
+    expect(new Set(statuses).size, "the shared table decides one status twice").toBe(statuses.length);
+    expect([...statuses].sort()).toStrictEqual([...STATUS.options].sort());
   });
 
   for (const { saison_status, grants_a_panel: grants } of VERDICTS) {
     it(`answers a ${saison_status} season as the backend does`, () => {
-      assert.equal(grantsAPanel(saison_status), grants);
+      expect(grantsAPanel(saison_status)).toBe(grants);
     });
   }
 });

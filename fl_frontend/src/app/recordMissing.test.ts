@@ -1,14 +1,9 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { serveServerReact } from "@/test-support/cacheScope.ts";
+import { describe, expect, it } from "vitest";
 
-import { serveServerReactTo } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-
-/** The slice modules under test, whose `react` imports are the ones the server build must answer. */
-const FEATURES_URL = pathToFileURL(`${import.meta.dirname}/../features/`).href;
 
 /** What the doubled client throws for every read, set by each case. */
 let failure: unknown;
@@ -20,7 +15,7 @@ doubleApiClient(() => {
   throw failure;
 });
 
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURES_URL));
+serveServerReact();
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const saisons = await import("@/features/saisons/queries.ts");
@@ -61,7 +56,7 @@ describe("a read of a record the API says is missing", () => {
   it("answers the record-missing code as the caller's none", async () => {
     failure = notFound("DB-COMMON-001");
 
-    for (const [name, read] of Object.entries(READS)) assert.equal(await read(), null, name);
+    for (const [name, read] of Object.entries(READS)) expect(await read(), name).toBe(null);
   });
 
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
@@ -72,7 +67,7 @@ describe("a read of a record the API says is missing", () => {
       failure = thrown;
 
       for (const [name, read] of Object.entries(READS)) {
-        await assert.rejects(read(), (error) => error === thrown, `${name} with ${String(code)}`);
+        await expect(read(), `${name} with ${String(code)}`).rejects.toSatisfy((error) => error === thrown);
       }
     }
   });

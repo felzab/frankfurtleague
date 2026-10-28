@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
+import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import { confirmButton, ctaButton, formButton } from "./formButtons";
 
@@ -284,7 +282,7 @@ describe("a label too long for its button", () => {
       const fixed = [...variant.classes].filter((className) => /^(?:[\w-]+:)*h-(?!fit$|auto$)/.test(className));
 
       assert.ok(variant.classes.has("whitespace-normal"), `${variant.name} cannot wrap, so a long label leaves the button through its side`);
-      assert.deepEqual(fixed, [], `${variant.name} fixes a height, which clips the second line of a wrapped label`);
+      expect(fixed, `${variant.name} fixes a height, which clips the second line of a wrapped label`).toStrictEqual([]);
       assert.ok(
         variant.classes.has(STEP_FLOOR[variant.name] ?? "min-h-12"),
         `${variant.name} no longer measures what it did for a label that fits`,

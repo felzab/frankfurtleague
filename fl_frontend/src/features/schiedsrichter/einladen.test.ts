@@ -1,19 +1,16 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { cacheCalls, doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /* The real actions, their mutations and reads, and the link mailer, called: the request they run in,
    the backend client and the mailer are the doubles. */
 doubleActionRequest();
 const mail = doubleSendMail();
 // The origin the link is minted on, which the real config reads from an environment this run has not got.
-registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
+vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: "http://localhost:3000" } }));
 
 /** What each endpoint answers in this case, returned or, where it is an `Error`, thrown. */
 type Answer = () => unknown;
@@ -42,9 +39,9 @@ const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsricht
   await import("./actions.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
 const { FELD_ABGELEHNT, outcomeUnknown } = await import("@/shared/utils/actionError.ts");
-const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const { bodyField, refusedPayload } = await import("@/test-support/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -101,20 +98,21 @@ describe("the re-send the editor's panel presses", () => {
   it("mints once and mails the stored address", async () => {
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success, true);
-    assert.deepEqual(mints(), [{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/bestaetigung/einladen`, method: "POST", body: undefined }]);
-    assert.deepEqual(mailedTo(), ["anna@example.de"]);
+    expect(res.success).toBe(true);
+    expect(mints()).toStrictEqual([
+      { endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/bestaetigung/einladen`, method: "POST", body: undefined },
+    ]);
+    expect(mailedTo()).toStrictEqual(["anna@example.de"]);
   });
 
   /* The mint replaces the row's confirmation block, which the editor's panel shows, so the page is read again. */
   it("refreshes the editor's page after a re-send that minted", async () => {
-    assert.equal(
+    expect(
       (await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID })).success,
-      true,
       "the re-send never minted, so what it moves is judged on nothing",
-    );
+    ).toBe(true);
 
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }]);
+    expect(cacheCalls).toStrictEqual([{ name: "refresh", args: [] }]);
   });
 
   /* The row is read before the mint, so a save landing between the two moved the mailbox this link
@@ -127,8 +125,8 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(mailedTo(), ["inzwischen@example.de"]);
-    assert.match(res.success ? res.message : "", /inzwischen@example\.de/);
+    expect(mailedTo()).toStrictEqual(["inzwischen@example.de"]);
+    expect(res.success ? res.message : "").toMatch(/inzwischen@example\.de/);
   });
 
   it("says the previous link is dead whichever way the send went", async () => {
@@ -136,7 +134,7 @@ describe("the re-send the editor's panel presses", () => {
       mail.answerWith(() => (delivered ? "accepted" : "refused"));
       const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-      assert.match(res.success ? res.message : "", /Der vorherige Link gilt nicht mehr\./);
+      expect(res.success ? res.message : "").toMatch(/Der vorherige Link gilt nicht mehr\./);
     }
   });
 
@@ -147,8 +145,8 @@ describe("the re-send the editor's panel presses", () => {
     mail.answerWith(() => "barred");
     const barred = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(refused.success && refused.versand, "fehlgeschlagen");
-    assert.equal(barred.success && barred.versand, "gesperrt");
+    expect(refused.success && refused.versand).toBe("fehlgeschlagen");
+    expect(barred.success && barred.versand).toBe("gesperrt");
   });
 
   it("answers a re-send whose link broke off in transit as of unknown outcome", async () => {
@@ -156,7 +154,7 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, outcomeUnknown());
+    expect(res).toStrictEqual(outcomeUnknown());
   });
 
   /* Judged before the mint: a round trip to be told what the panel can already see is one nobody
@@ -166,10 +164,10 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /keine verwendbare E-Mail-Adresse hinterlegt/);
-    assert.deepEqual(mints(), []);
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? "" : res.error).toMatch(/keine verwendbare E-Mail-Adresse hinterlegt/);
+    expect(mints()).toStrictEqual([]);
+    expect(mail.sent).toStrictEqual([]);
   });
 
   it("refuses a row the read no longer finds", async () => {
@@ -177,9 +175,9 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /gibt es nicht mehr/);
-    assert.deepEqual(mints(), []);
+    expect(res.success).toBe(false);
+    expect(res.success ? "" : res.error).toMatch(/gibt es nicht mehr/);
+    expect(mints()).toStrictEqual([]);
   });
 
   /* Every refusal the endpoint declares, worded at the panel rather than falling through to the
@@ -197,9 +195,9 @@ describe("the re-send the editor's panel presses", () => {
 
       const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-      assert.equal(res.success, false);
-      assert.match(res.success ? "" : res.error, fragment);
-      assert.deepEqual(mail.sent, []);
+      expect(res.success).toBe(false);
+      expect(res.success ? "" : res.error).toMatch(fragment);
+      expect(mail.sent).toStrictEqual([]);
     });
   }
 
@@ -210,16 +208,16 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /Der Bestätigungslink wurde nicht gesendet/);
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? "" : res.error).toMatch(/Der Bestätigungslink wurde nicht gesendet/);
+    expect(mail.sent).toStrictEqual([]);
   });
 
   it("refuses a payload that is no identifier, without reaching the endpoint", async () => {
     const res = await einladeSchiedsrichterAction({ id: "nicht-hex" });
 
-    assert.equal(res.success, false);
-    assert.deepEqual(mints(), []);
+    expect(res.success).toBe(false);
+    expect(mints()).toStrictEqual([]);
   });
 });
 
@@ -229,7 +227,7 @@ describe("what the create tells the administrator", () => {
   it("reports the message the mint sent rather than the title the toast already carries", async () => {
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
+    expect(res.success && res.message).toBe(describeLinkMail("anna@example.de", "gesendet"));
   });
 
   it("answers a create whose link broke off in transit as of unknown outcome", async () => {
@@ -237,7 +235,7 @@ describe("what the create tells the administrator", () => {
 
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.deepEqual(res, outcomeUnknown());
+    expect(res).toStrictEqual(outcomeUnknown());
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -249,9 +247,9 @@ describe("what the create tells the administrator", () => {
 
     const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: null, telefon: null } });
 
-    assert.equal(res.success, false);
-    assert.equal(res.success ? undefined : res.fieldErrors?.["kontakt.email"], "Bitte gib eine E-Mail-Adresse ein.");
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? undefined : res.fieldErrors?.["kontakt.email"]).toBe("Bitte gib eine E-Mail-Adresse ein.");
+    expect(mail.sent).toStrictEqual([]);
   });
 
   /* A label RFC 5890 reserves passes the form's rule and only the API refuses it: its 422 names the box,
@@ -263,9 +261,9 @@ describe("what the create tells the administrator", () => {
 
     const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@ab--cd.de", telefon: null } });
 
-    assert.equal(res.success, false);
-    assert.deepEqual(res.success ? undefined : res.fieldErrors, { "kontakt.email": FELD_ABGELEHNT });
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? undefined : res.fieldErrors).toStrictEqual({ "kontakt.email": FELD_ABGELEHNT });
+    expect(mail.sent).toStrictEqual([]);
   });
 });
 
@@ -279,9 +277,9 @@ describe("a save carrying no address", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID, kontakt: { email: null, telefon: null } });
 
-    assert.equal(res.success, false);
-    assert.equal(res.success ? undefined : res.fieldErrors?.["kontakt.email"], "Bitte gib eine E-Mail-Adresse ein.");
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? undefined : res.fieldErrors?.["kontakt.email"]).toBe("Bitte gib eine E-Mail-Adresse ein.");
+    expect(mail.sent).toStrictEqual([]);
   });
 });
 
@@ -292,9 +290,9 @@ describe("what the save hands the editor about the message it sent", () => {
   it("reports the send's own sentence beside the standard one", async () => {
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, "Schiedsrichter bearbeitet");
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "gesendet"));
-    assert.equal(res.success && res.versand, "gesendet");
+    expect(res.success && res.message).toBe("Schiedsrichter bearbeitet");
+    expect(res.success && res.versandSatz).toBe(describeLinkMail("korrigiert@example.de", "gesendet"));
+    expect(res.success && res.versand).toBe("gesendet");
   });
 
   it("reports a send that did not leave, so the editor can grade its toast", async () => {
@@ -302,8 +300,8 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "fehlgeschlagen"));
-    assert.equal(res.success && res.versand, "fehlgeschlagen");
+    expect(res.success && res.versandSatz).toBe(describeLinkMail("korrigiert@example.de", "fehlgeschlagen"));
+    expect(res.success && res.versand).toBe("fehlgeschlagen");
   });
 
   /* Outside production every send is withheld: filed by the deployment, never a failure of the mailbox. */
@@ -312,8 +310,8 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
-    assert.equal(res.success && res.versand, "zurueckgehalten");
+    expect(res.success && res.versandSatz).toBe(ZURUECKGEHALTEN);
+    expect(res.success && res.versand).toBe("zurueckgehalten");
   });
 
   /* A link whose connection broke off may have reached the provider: `mailSchiedsrichterLink`'s own
@@ -323,7 +321,7 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, outcomeUnknown());
+    expect(res).toStrictEqual(outcomeUnknown());
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
@@ -336,8 +334,8 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.versandSatz, undefined);
-    assert.deepEqual(mail.sent, []);
+    expect(res.success && res.versandSatz).toBe(undefined);
+    expect(mail.sent).toStrictEqual([]);
   });
 });
 
@@ -347,12 +345,11 @@ describe("the reactivation of an unanswered referee", () => {
   it("mails the link the reactivation minted, to the address the mint read, and says so", async () => {
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
-    assert.deepEqual(
-      mail.sent.map(({ to, tags }) => ({ to, zielId: tags?.ziel_id })),
-      [{ to: "anna@example.de", zielId: SCHIEDSRICHTER_ID }],
-    );
-    assert.equal(res.success && res.versand, "gesendet");
+    expect(res.success && res.message).toBe(describeLinkMail("anna@example.de", "gesendet"));
+    expect(mail.sent.map(({ to, tags }) => ({ to, zielId: tags?.ziel_id }))).toStrictEqual([
+      { to: "anna@example.de", zielId: SCHIEDSRICHTER_ID },
+    ]);
+    expect(res.success && res.versand).toBe("gesendet");
   });
 
   it("reports a link that did not leave, so the row can grade its toast", async () => {
@@ -360,8 +357,8 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "fehlgeschlagen"));
-    assert.equal(res.success && res.versand, "fehlgeschlagen");
+    expect(res.success && res.message).toBe(describeLinkMail("anna@example.de", "fehlgeschlagen"));
+    expect(res.success && res.versand).toBe("fehlgeschlagen");
   });
 
   it("answers a reactivation whose link broke off in transit as of unknown outcome", async () => {
@@ -369,7 +366,7 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, outcomeUnknown());
+    expect(res).toStrictEqual(outcomeUnknown());
   });
 
   it("mails nothing where the row came back unasked", async () => {
@@ -377,8 +374,8 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success && res.message, "Schiedsrichter reaktiviert");
-    assert.deepEqual(mail.sent, []);
+    expect(res.success && res.message).toBe("Schiedsrichter reaktiviert");
+    expect(mail.sent).toStrictEqual([]);
   });
 
   it("words the ban the mint on return is refused on", async () => {
@@ -388,8 +385,8 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(res.success, false);
-    assert.match(res.success ? "" : res.error, /Sperrliste/);
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(res.success ? "" : res.error).toMatch(/Sperrliste/);
+    expect(mail.sent).toStrictEqual([]);
   });
 });

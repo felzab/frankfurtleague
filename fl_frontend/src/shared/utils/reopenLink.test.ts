@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "./reopenLink.ts";
 
@@ -8,7 +7,7 @@ import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } f
 describe("the sentences that send a visitor back to their link", () => {
   it("ask the link reopened „erneut“, each of them", () => {
     for (const satz of [ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN]) {
-      assert.match(satz, /Öffne den Link [^.]*erneut/, satz);
+      expect(satz, satz).toMatch(/Öffne den Link [^.]*erneut/);
     }
   });
 });
