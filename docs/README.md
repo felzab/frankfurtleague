@@ -27,8 +27,8 @@ Read in this order:
 2. **[`domain.md`](domain.md)** — its aggregate boundaries are where the expensive mistakes are.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md).
-4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7 and the files it indexes under
-   [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision.
+4. **`.claude/CLAUDE.md` §7 and the files it indexes under `.claude/rules/`** — one line per
+   ratified decision.
 5. **[`writing.md`](writing.md)** — how a change and its documents are written.
 
 The ops spec and the runbooks are reference, not reading. Look things up in them; do not read them
