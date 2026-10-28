@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, useId } from "react";
 
 import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
@@ -124,6 +124,7 @@ export function TextField(props: TextFieldProps) {
       />
     );
   const unit = fieldUnit();
+  const unitId = useId();
 
   return (
     <AriaTextField
@@ -139,7 +140,8 @@ export function TextField(props: TextFieldProps) {
       type={keys.type}
       inputMode={keys.inputMode}
       pattern={keys.pattern}
-      autoComplete={props.autofill ?? keys.autoComplete}>
+      autoComplete={props.autofill ?? keys.autoComplete}
+      aria-describedby={props.unit === undefined ? undefined : unitId}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
@@ -149,8 +151,10 @@ export function TextField(props: TextFieldProps) {
       ) : (
         <span className={unit.row()}>
           {field}
-          {/* Hidden from assistive technology, as GOV.UK hides a suffix: the label names what the figure counts. */}
+          {/* Read once, as the input's description, and hidden where it stands, so browsing past the field does
+              not read it a second time: the label names what the figure counts, the unit what it counts in. */}
           <span
+            id={unitId}
             aria-hidden
             className={unit.unit()}>
             {props.unit}

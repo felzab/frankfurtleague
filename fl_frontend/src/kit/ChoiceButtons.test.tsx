@@ -82,6 +82,25 @@ describe("a segmented control of glyphs", () => {
   });
 });
 
+describe("a choice's description", () => {
+  it.each([
+    ["segmented", Segmented],
+    ["boxes", ToggleBoxes],
+  ] as const)("describes the %s group it stands under", (_kind, Group) => {
+    const { container } = render(
+      <Group
+        label={COPY.shared.saison}
+        description={COPY.shared.bank}
+        choices={CHOICES}
+      />,
+    );
+    const group = container.querySelector("[aria-labelledby]");
+    const described = group?.getAttribute("aria-describedby");
+    expect(described).toBeTruthy();
+    expect(document.getElementById(described ?? "")?.textContent).toBe(COPY.shared.bank);
+  });
+});
+
 describe("toggle boxes", () => {
   it("take several answers", async () => {
     const onChange = vi.fn();

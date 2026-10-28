@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { TextContext } from "react-aria-components/Text";
 import { ToggleButton } from "react-aria-components/ToggleButton";
 import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
@@ -36,6 +37,18 @@ function Head({ id, label }: { id: string; label: Copy }) {
       className={fieldLabel()}>
       {label}
     </span>
+  );
+}
+
+/**
+ * The message line under the buttons. React Aria's button group provides no description slot, as a field does,
+ * so this one provides it the id the group's `aria-describedby` names.
+ */
+function GroupMessage({ id, description }: { id: string; description: Copy | undefined }) {
+  return (
+    <TextContext.Provider value={{ slots: { description: { id } } }}>
+      <MessageLine description={description} />
+    </TextContext.Provider>
   );
 }
 
@@ -92,10 +105,12 @@ export function Segmented({
   placement?: "field" | "inline";
 }) {
   const labelId = useId();
+  const descriptionId = useId();
   const group = (
     <ToggleButtonGroup
       aria-label={placement === "inline" ? label : undefined}
       aria-labelledby={placement === "inline" ? undefined : labelId}
+      aria-describedby={placement === "inline" || description === undefined ? undefined : descriptionId}
       selectionMode="single"
       disallowEmptySelection
       isDisabled={isDisabled}
@@ -120,7 +135,10 @@ export function Segmented({
         label={label}
       />
       {group}
-      <MessageLine description={description} />
+      <GroupMessage
+        id={descriptionId}
+        description={description}
+      />
     </div>
   );
 }
@@ -140,6 +158,7 @@ export function ToggleBoxes({
   onChange,
 }: Shared & { value?: readonly string[]; defaultValue?: readonly string[]; onChange?: (ids: string[]) => void }) {
   const labelId = useId();
+  const descriptionId = useId();
   return (
     <div className={fieldRoot()}>
       <Head
@@ -148,6 +167,7 @@ export function ToggleBoxes({
       />
       <ToggleButtonGroup
         aria-labelledby={labelId}
+        aria-describedby={description === undefined ? undefined : descriptionId}
         selectionMode="multiple"
         isDisabled={isDisabled}
         selectedKeys={value}
@@ -164,7 +184,10 @@ export function ToggleBoxes({
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <MessageLine description={description} />
+      <GroupMessage
+        id={descriptionId}
+        description={description}
+      />
     </div>
   );
 }
