@@ -25,6 +25,40 @@ const link = tv({
   },
 });
 
+/**
+ * A link the frames draw themselves, 36 px tall, coloured by the ground it stands on: the classic header's
+ * on the dark-green band, the title strip's legal pages, „Anmelden“ at the rail's foot.
+ */
+export const frameLink = tv({
+  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap",
+  variants: {
+    tone: {
+      // On the band: the page the visitor is on, and „Anmelden“, in full white.
+      band: "text-on-brand",
+      // On the band, every other page: the white dimmed until the pointer is over it.
+      bandMuted: "text-on-brand/75 hover:text-on-brand",
+      // The title strip's: muted until the pointer is over it.
+      strip: "text-fg-muted hover:text-fg",
+      // The rail's foot: filled under the pointer as the rail's entries are.
+      rail: "text-fg hover:bg-bg-muted",
+    },
+  },
+});
+
+/**
+ * An entry of a list a frame opens, its glyph before its words where it has one: a menu's, 36 px on desktop,
+ * and a sheet's, 44 px on a phone.
+ */
+export const menuEntry = tv({
+  base: "flex items-center gap-3 rounded-md px-3 font-medium text-fg",
+  variants: {
+    size: {
+      desktop: "h-9 text-sm",
+      phone: "h-11 text-base",
+    },
+  },
+});
+
 // The focus file's mark for each placement: a ring hugging the words, a ring with its gap, a ring drawn
 // inside the row the link covers, or one inside the card, which a list's card would otherwise clip; a link
 // drawn as a button rings as a button does.

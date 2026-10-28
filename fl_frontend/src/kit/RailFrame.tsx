@@ -10,6 +10,7 @@ import { Brand } from "./Brand";
 import { Chip } from "./Chip";
 import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SeasonScope } from "./FrameNav";
 import { LeaveGuardProvider } from "./LeaveGuard";
+import { frameLink } from "./Link";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
 
@@ -105,7 +106,7 @@ export function RailFrame({
                 <NextLink
                   href={foot.href}
                   data-kit-focus="ring"
-                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium text-fg hover:bg-bg-muted">
+                  className={frameLink({ tone: "rail" })}>
                   {COPY.shared.verb.anmelden}
                 </NextLink>
               )}
@@ -228,7 +229,7 @@ export function RailPage({
                   key={page.pfad()}
                   href={page.pfad()}
                   data-kit-focus="ring"
-                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
+                  className={frameLink({ tone: "strip" })}>
                   {page.titel}
                 </NextLink>
               ))}

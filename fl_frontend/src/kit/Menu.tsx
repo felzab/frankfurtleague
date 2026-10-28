@@ -19,6 +19,7 @@ import { COPY } from "@/core/copy";
 import { useOpenUntilHidden } from "./Dialog";
 import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
 
 import type { Copy } from "@/core/copy";
@@ -88,15 +89,7 @@ function useDesktop() {
   );
 }
 
-const item = tv({
-  base: "flex cursor-default items-center gap-3 rounded-md px-3 font-medium text-fg",
-  variants: {
-    size: {
-      desktop: "h-9 text-sm",
-      phone: "h-11 text-base",
-    },
-  },
-});
+const item = tv({ extend: menuEntry, base: "cursor-default" });
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({

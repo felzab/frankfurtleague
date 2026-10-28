@@ -1,3 +1,5 @@
+import { tv } from "tailwind-variants/lite";
+
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -46,6 +48,12 @@ function DangerRow({ act }: { act: DangerAct }) {
 export function SectionTitle({ text }: { text: Copy }) {
   return <h2 className="text-base font-semibold">{text}</h2>;
 }
+
+/**
+ * The rung a few entries or fields are named on, 12 px medium muted, a step under a section's title: the
+ * rail's groups and the phone sheet's, a dialog's groups of fields. Each place adds its own spacing.
+ */
+export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content under its 16-px

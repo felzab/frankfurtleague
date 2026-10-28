@@ -18,7 +18,9 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
+import { frameLink, menuEntry } from "./Link";
 import { Menu } from "./Menu";
+import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
 
@@ -259,7 +261,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
         <div
           key={group.heading ?? index}
           className="grid gap-1">
-          {group.heading !== undefined && <h2 className="px-3 py-1 text-xs font-medium text-fg-muted">{group.heading}</h2>}
+          {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
           {group.entries.map((entry) => (
             <NextLink
               key={entry.id}
@@ -418,14 +420,14 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                 <div
                   key={group.heading ?? index}
                   className="grid gap-1">
-                  {group.heading !== undefined && <h2 className="px-3 py-1 text-xs font-medium text-fg-muted">{group.heading}</h2>}
+                  {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
                   {group.entries.map((entry) => (
                     <NextLink
                       key={entry.id}
                       href={entry.href}
                       aria-current={entry.href === current ? "page" : undefined}
                       data-kit-focus="inset"
-                      className="flex h-11 items-center gap-3 rounded-md px-3 font-medium text-fg">
+                      className={menuEntry({ size: "phone" })}>
                       <Icon
                         glyph={entry.icon}
                         size={18}
@@ -442,7 +444,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                       key={link.href}
                       href={link.href}
                       data-kit-focus="inset"
-                      className="flex h-11 items-center rounded-md px-3 font-medium text-fg">
+                      className={menuEntry({ size: "phone" })}>
                       {link.label}
                     </NextLink>
                   ))}
@@ -549,16 +551,6 @@ export function EditorBack() {
 /** A link of the classic header: catalogue words and an address the layout gives. */
 export type HeaderLink = { label: Copy; href: Route };
 
-const headerLink = tv({
-  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap",
-  variants: {
-    current: {
-      true: "text-on-brand",
-      false: "text-on-brand/75 hover:text-on-brand",
-    },
-  },
-});
-
 /**
  * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
  * button opening them as a sheet.
@@ -579,17 +571,19 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
             href={link.href}
             aria-current={link.href === current ? "page" : undefined}
             data-kit-focus="ring"
-            className={headerLink({ current: link.href === current })}>
+            className={frameLink({ tone: link.href === current ? "band" : "bandMuted" })}>
             {link.label}
           </NextLink>
         ))}
       </nav>
-      <NextLink
-        href={anmelden}
-        data-kit-focus="ring"
-        className="ms-auto hidden h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-on-brand lg:flex">
-        {COPY.shared.verb.anmelden}
-      </NextLink>
+      <div className="ms-auto hidden lg:block">
+        <NextLink
+          href={anmelden}
+          data-kit-focus="ring"
+          className={frameLink({ tone: "band" })}>
+          {COPY.shared.verb.anmelden}
+        </NextLink>
+      </div>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
           <Sheet
@@ -612,7 +606,7 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
                   href={link.href}
                   aria-current={link.href === current ? "page" : undefined}
                   data-kit-focus="inset"
-                  className="flex h-11 items-center rounded-md px-3 font-medium text-fg">
+                  className={menuEntry({ size: "phone" })}>
                   {link.label}
                 </NextLink>
               ))}
