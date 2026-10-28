@@ -25,12 +25,12 @@ concurrency:
   # Supersede an in-flight run on a PR, but never on main, whose run publishes.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Every job's `timeout-minutes` is its wall-clock ceiling: about twice what the job takes, so a hung
-# job ends rather than holding the run.
+# Each job's `timeout-minutes` is its wall-clock ceiling, about twice what the job takes rounded up
+# to a whole minute, so a hung job ends rather than holding the run.
 jobs:
   scripts:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,7 +47,7 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +65,7 @@ jobs:
   # though what it reads is mostly outside it.
   format:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,7 +76,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,7 +93,7 @@ jobs:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
     # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 9
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,7 +108,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     # Every `next` command a step runs, the build's own variables set on its command alone.
     env:
       NEXT_TELEMETRY_DISABLED: "1"
@@ -145,7 +145,7 @@ jobs:
 
   frontend-units:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -158,7 +158,7 @@ jobs:
   # them, and is the only thing standing between a typo in either and a failed deploy.
   ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -175,7 +175,7 @@ jobs:
   # here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 6
     # What the publish job holds the artifact to. A job's outputs are written by that job alone, where
     # any job of the run holding its runtime token can delete the artifact and upload another under
     # its name, as upload-artifact's `overwrite` does.
@@ -287,7 +287,7 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
@@ -366,7 +366,7 @@ jobs:
     needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images, journeys]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 1
     steps:
       # First, so it prints whether or not the verdict below refuses: a red `verify` names no job.
       - name: Report each scope's result
@@ -408,6 +408,8 @@ jobs:
     needs: [verify, images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Not twice a measured time, as every other job's is: it runs on main alone, so no pull request's
+    # run measures it.
     timeout-minutes: 15
     # A job-level grant replaces the workflow's whole: the push alone, which the package grants this
     # repository's workflows. The artifact comes through the run's own runtime token.
