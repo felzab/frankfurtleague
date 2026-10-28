@@ -2076,11 +2076,14 @@ passkey, and repeat the sweep when it closes again.
 
 ## 18. The Node a checkout runs
 
-**`pnpm install` in `fl_frontend/` downloads the Node release `fl_frontend/pnpm-lock.yaml` resolves
-`fl_frontend/package.json :: devEngines`'s range to,
-and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node the machine has
-installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the lockfile's release
-needs nothing more on a machine than the next `pnpm install`.
+**`pnpm install` in `fl_frontend/` downloads the exact Node release
+`fl_frontend/package.json :: devEngines` names, which `fl_frontend/pnpm-lock.yaml` records, and
+every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node the machine has
+installed; `pnpm exec node --version` there prints the pinned release. The same release is the
+frontend image's `FROM node:` tag, so a new Node is one branch editing `devEngines`, that tag and
+its digest together, then running `pnpm install` to rewrite the lockfile:
+`scripts/tests/test_image_pins.py` refuses a manifest, lockfile and tag naming different releases.
+Once it merges, a machine needs nothing more than the next `pnpm install`.
 
 **A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh`
 and `.claude/hooks/implementer-whole-suite.sh` call it bare. Install the pinned release machine-wide from
