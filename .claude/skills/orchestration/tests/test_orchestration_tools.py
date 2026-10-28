@@ -26,13 +26,9 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from conftest import BASH, REPO_ROOT, base_env, configure, git, import_scripts, run_shell, write, write_shell
+from conftest import BASH, REPO_ROOT, TOOLS, base_env, configure, git, import_tools, run_shell, write, write_shell
 
-TOOLS: Final = REPO_ROOT / ".claude" / "skills" / "orchestration" / "tools"
-
-merge_rows, reg, ledger, land, ci = import_scripts(
-    "merge_rows", "reg", "ledger", "land", "ci", directories=("../.claude/skills/orchestration/tools",)
-)
+merge_rows, reg, ledger, land, ci = import_tools("merge_rows", "reg", "ledger", "land", "ci")
 
 
 def _run(

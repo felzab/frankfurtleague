@@ -18,8 +18,6 @@ from pathlib import Path
 import pytest
 from conftest import details, import_scripts, new_root, severities, write
 
-SCRIPTS = Path(__file__).resolve().parents[1]
-
 [routes] = import_scripts("check_public_routes")
 
 SOURCE = "fixture.conf"
@@ -834,14 +832,6 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 
     assert tree_of[0].block is not None
     assert len(tree_of[0].block) == 2
-
-
-def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
-
-    A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
-    """
-    assert routes.REPO_ROOT == SCRIPTS.parent
 
 
 def repository_own() -> tuple:

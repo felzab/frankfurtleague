@@ -53,8 +53,9 @@ runs:
         # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
         save-cache: ${{ inputs.save-cache }}
         # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names
-        # (`scripts/gate/selfcheck.sh :: check_uv_pin`). Neither unset nor `version-file` serves: each
-        # installs that day's newest uv, fl_backend's `required-version` being a range.
+        # (`scripts/tests/test_image_pins.py :: test_ci_installs_the_uv_the_backend_image_copies_in`).
+        # Neither unset nor `version-file` serves: each installs that day's newest uv, fl_backend's
+        # `required-version` being a range.
         version: "0.13.1"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses

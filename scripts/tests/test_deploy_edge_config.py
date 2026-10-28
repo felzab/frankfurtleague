@@ -25,7 +25,7 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
+# Not a skip condition, for `scripts/tests/conftest.py :: BASH`'s reason.
 BASH: Final = shutil.which("bash")
 
 # `ps` answers one container id, or a second from the second ask where `up` recreated nginx. A

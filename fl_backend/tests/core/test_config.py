@@ -22,11 +22,11 @@ from app.core.config import (
     SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
-    BackendSecrets,  # noqa: TID251
+    BackendSecrets,
     EnvironmentValidationError,
     get_app_config,
     get_config,  # noqa: TID251
-    read_environment,  # noqa: TID251
+    read_environment,
 )
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan

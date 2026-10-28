@@ -1,0 +1,34 @@
+name: ai-tooling
+
+# The orchestration tools' own tests, which live with the tools under `.claude/`. No required check
+# names this job: the AI tooling is kept apart from what decides a merge, and this file is the one
+# piece of it outside `.claude/`.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ai-tooling-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  orchestration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # pytest and its workers from the backend's dev group; no step imports the application.
+      - uses: ./.github/actions/backend-toolchain
+        with:
+          application: false
+      - name: Run the orchestration tools' tests
+        run: fl_backend/.venv/bin/python -m pytest .claude/skills/orchestration/tests -n auto

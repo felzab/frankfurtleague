@@ -14,7 +14,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
-from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
+from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
