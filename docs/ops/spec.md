@@ -645,9 +645,13 @@ only then do the frontend and nginx start, the backend recreated with them.
 merged over the local stack's two files): a compose project of its own, `frankfurtleague-e2e`, so
 its volume and with it its sign-in store are never the local stack's; its settings written in that
 file rather than read from either package's `.env`; its keys generated under `.tmp-e2e/` on every
-start rather than read from `secrets/`; and the made-up seed on an empty volume every start.
-`--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another stack's
-container publishes port 3000 or 27017**, which both publish
+start rather than read from `secrets/`; the made-up seed on an empty volume every start; and the
+local edge with one trust added (`nginx/e2e/e2e.conf`): it takes `CF-Connecting-IP` from
+172.30.1.1, the gateway `docker-compose.e2e.yml` pins on its `frankfurtleague-app` network, which
+is where the host's requests arrive. Each journey therefore meets the rate limits as a visitor of
+its own (`fl_frontend/e2e/support/journey.ts`), as production's edge meets each person behind the
+connector. `--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another
+stack's container publishes port 3000 or 27017**, which both publish
 (`scripts/ops/local.sh :: refuse_another_stack_on_the_ports`). The journeys run against it from
 `fl_frontend` with `pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
 
