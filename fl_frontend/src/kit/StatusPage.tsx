@@ -9,7 +9,7 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { RailPageHead } from "./RailFrame";
 
-/** What the end says at a glance: done, a fact, a link or a page that is no more, a failure. */
+/** What the end says at a glance: done, a fact, a link or a page that is no more, a failure; each names its glyph. */
 export type StatusMark = "erledigt" | "info" | "warnung" | "fehler";
 
 /** One end state: its mark, its one sentence, and its one way on, a label and an address per page in the catalogue. */
@@ -18,8 +18,6 @@ export type StatusCardProps = {
   sentence: Copy;
   next: { label: Copy; href: Route };
 };
-
-const GLYPH = { erledigt: "haken", info: "info", warnung: "warnung", fehler: "schliessen" } as const;
 
 const card = tv({
   slots: {
@@ -45,7 +43,7 @@ export function StatusCard({ mark, sentence, next, title }: StatusCardProps & { 
     <div className={slots.root()}>
       <span className={slots.mark()}>
         <Icon
-          glyph={GLYPH[mark]}
+          glyph={mark}
           size={18}
         />
       </span>

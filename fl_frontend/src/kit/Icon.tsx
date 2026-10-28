@@ -6,6 +6,8 @@ import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
 import ChevronRight from "lucide-react/icons/chevron-right";
+import CircleCheck from "lucide-react/icons/circle-check";
+import CircleX from "lucide-react/icons/circle-x";
 import Ellipsis from "lucide-react/icons/ellipsis";
 import FileText from "lucide-react/icons/file-text";
 import Info from "lucide-react/icons/info";
@@ -36,6 +38,9 @@ import { tv } from "tailwind-variants/lite";
  */
 const GLYPHS = {
   aufklappen: ChevronDown,
+  // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
+  erledigt: CircleCheck,
+  fehler: CircleX,
   filter: ListFilter,
   haken: Check,
   info: Info,
