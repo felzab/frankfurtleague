@@ -259,6 +259,13 @@ const railHeading = groupHeading({
     "mb-1 overflow-hidden px-3 py-1 whitespace-nowrap transition-[margin,opacity] duration-(--motion-in) group-data-collapsed:-mt-6 group-data-collapsed:mb-0 group-data-collapsed:opacity-0",
 });
 
+// Where a heading folds away, a hairline as wide as a glyph fades in, centred in the 16-px gap above its
+// group, so the collapsed rail still reads in groups, as the old rail and Linear's and Vercel's collapsed
+// sidebars do; none above the first group, which nothing precedes.
+const railRule = tv({
+  base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
+});
+
 /** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
 export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
   const groups = useEntries(given);
@@ -271,7 +278,15 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
       aria-label={COPY.vorlage.navigation}
       className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-3 py-2">
       {groups.map((group, index) => (
-        <div key={group.heading ?? index}>
+        <div
+          key={group.heading ?? index}
+          className="relative">
+          {group.heading !== undefined && index > 0 && (
+            <span
+              aria-hidden
+              className={railRule()}
+            />
+          )}
           {group.heading !== undefined && <h2 className={railHeading}>{group.heading}</h2>}
           <div className="grid gap-1">
             {group.entries.map((entry) => (
