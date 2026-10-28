@@ -2267,8 +2267,8 @@ function notYetRebuilt() {
       ],
     },
     spacing: {
-      // The kit's fix round: its 1-px offsets and its 2-px and 30-px steps, and the tab's 1-px overlap.
-      1: ["src/kit/Tabs.tsx", "src/kit/fieldStyles.ts"],
+      // The 1-px offset that sets a toggle's drawn box and the switch's track a pixel down to its label's first line.
+      1: ["src/kit/fieldStyles.ts"],
       3: [
         "src/app/(public)/(meta)/layout.tsx",
         "src/app/(public)/page.tsx",
