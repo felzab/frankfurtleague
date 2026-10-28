@@ -6,17 +6,18 @@ import { useRouter } from "next/navigation";
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
-import { useFormStatus } from "react-dom";
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/shared/hooks/useEditorExit";
 
 import { Button } from "./Button";
+import { useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
+import type { ActionAnswer } from "./useFormAction";
 
 /**
  * An overlay's open state, closed whenever Next hides the page it stands on: Next keeps a departed route
@@ -105,24 +106,90 @@ export function RouteDialog({
   );
 }
 
-/** The act's button inside a form: busy while the form's action runs. */
-function SubmitAct({ label }: { label: Copy }) {
-  const { pending } = useFormStatus();
+/**
+ * The dialog's form, mounted only while the dialog is open, so a refusal it showed goes with the dialog and
+ * never greets the next opening. A done act closes the dialog; a refused one stays with its input kept, each
+ * field's message under its field and the reason in the status line beside the acts, as a Konto box shows it.
+ */
+function ActForm({
+  title,
+  label,
+  action,
+  close,
+  children,
+}: {
+  title: Copy;
+  label: Copy;
+  action: (formData: FormData) => Promise<ActionAnswer>;
+  close: () => void;
+  children: ReactNode;
+}) {
+  const { answer, submit, isPending } = useFormAction(
+    async (formData: FormData) => {
+      const answered = await action(formData);
+      // A form's action runs in a transition, and an update after its `await` commits outside it.
+      if (answered.ok) startTransition(close);
+      return answered;
+    },
+    // The form unmounts as the dialog closes, which clears its answer.
+    { resetOnLeave: false },
+  );
+  // The browser kept the act back for a field's own rule; cleared by the next send.
+  const [isBlocked, setBlocked] = useState(false);
+
+  const refused = answer !== null && !answer.ok ? answer : null;
+  let line: Copy | undefined;
+  if (isBlocked) line = COPY.vorlage.felderPruefen;
+  else if (refused !== null)
+    line = refused.reason ?? (refused.fieldErrors === undefined ? COPY.shared.fehler.unerwartet : COPY.vorlage.felderPruefen);
+
   return (
-    <Button
-      variant="primary"
-      type="submit"
-      label={label}
-      isBusy={pending}
-    />
+    // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
+    // Aria's `Form` would otherwise take the outer form's props from its context, the outer submit handler
+    // among them.
+    <FormContext.Provider value={null}>
+      <Form
+        className="grid gap-6"
+        validationErrors={refused?.fieldErrors}
+        onInvalid={() => setBlocked(true)}
+        onSubmit={(event) => {
+          event.preventDefault();
+          // React's submit event bubbles through the portal to the outer form, whose save would run too.
+          event.stopPropagation();
+          setBlocked(false);
+          submit(new FormData(event.currentTarget));
+        }}>
+        <Heading
+          slot="title"
+          level={2}
+          className="text-xl font-semibold">
+          {title}
+        </Heading>
+        <div className="grid gap-4">{children}</div>
+        <ActRow>
+          <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{line}</p>
+          <Button
+            variant="secondary"
+            label={COPY.shared.zurueck}
+            onPress={close}
+          />
+          <Button
+            variant="primary"
+            type="submit"
+            label={label}
+            isBusy={isPending}
+          />
+        </ActRow>
+      </Form>
+    </FormContext.Provider>
   );
 }
 
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
- * verb. A record's creation opens it over its list. The verb submits the inputs to `action`, which
- * answers whether the act is done; a done act closes the dialog, anything else leaves it open with the
- * input kept.
+ * verb. A record's creation opens it over its list. The verb sends the inputs to `action` through the one
+ * form wrapper: a done act closes the dialog, a refused one leaves it open with the input kept and the
+ * refusal shown.
  */
 export function Dialog({
   title,
@@ -136,7 +203,8 @@ export function Dialog({
   act: { verb: Verb; objekt?: Copy };
   /** The kit `Button` that opens the dialog. */
   trigger: ReactElement;
-  action: (formData: FormData) => Promise<boolean>;
+  /** The server action doing the act, reading the form's fields by their `name`s. */
+  action: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
 }) {
@@ -156,37 +224,13 @@ export function Dialog({
             data-kit-focus
             className={dialogBox({ width: "form" })}>
             <AriaDialog data-kit-focus>
-              {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React
-                  Aria's `Form` would otherwise take the outer form's props from its context, the outer submit
-                  handler among them. */}
-              <FormContext.Provider value={null}>
-                <Form
-                  className="grid gap-6"
-                  // React's submit event bubbles through the portal to the outer form, whose save would run too.
-                  onSubmit={(event) => event.stopPropagation()}
-                  action={async (formData: FormData) => {
-                    if (await action(formData)) {
-                      // A form's action runs in a transition, and an update after its `await` commits outside it.
-                      startTransition(() => setOpen(false));
-                    }
-                  }}>
-                  <Heading
-                    slot="title"
-                    level={2}
-                    className="text-xl font-semibold">
-                    {title}
-                  </Heading>
-                  <div className="grid gap-4">{children}</div>
-                  <ActRow>
-                    <Button
-                      variant="secondary"
-                      label={COPY.shared.zurueck}
-                      onPress={() => setOpen(false)}
-                    />
-                    <SubmitAct label={label} />
-                  </ActRow>
-                </Form>
-              </FormContext.Provider>
+              <ActForm
+                title={title}
+                label={label}
+                action={action}
+                close={() => setOpen(false)}>
+                {children}
+              </ActForm>
             </AriaDialog>
           </Modal>
         </div>
