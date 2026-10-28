@@ -415,12 +415,15 @@ input:focus:placeholder-shown::placeholder {
 
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
    control's font-size, never `maximum-scale` in the viewport tag, which would
-   disable pinch zoom for everyone. */
-@media (hover: none) and (pointer: coarse) {
-  input,
-  select,
-  textarea {
-    font-size: max(16px, 1em);
+   disable pinch zoom for everyone. In the base layer, so a control's own size utility, the kit's
+   16 px on a touch screen among them, outranks it. */
+@layer base {
+  @media (hover: none) and (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: max(16px, 1em);
+    }
   }
 }
 
