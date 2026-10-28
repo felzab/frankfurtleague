@@ -1,9 +1,8 @@
-import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
-import { after, before, beforeEach, describe, it } from "node:test";
+import { afterAll, assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Type-only, so nothing is imported at load: the hook module is pulled in from `before`, below.
 import type { StepUp, StepUpDemand } from "@/shared/components/ui/stepUp.ts";
+// Type-only, so nothing is imported at load: the hook module is pulled in from `beforeAll`, below.
+import type * as ReactModule from "react";
 import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
 
 /** The `useState` cells, by call order, held across the presses of a test the way a mounted component holds them. */
@@ -20,7 +19,7 @@ let refreshHeld: Promise<void> | undefined;
  * The renderer, in the two hooks `press` actually needs. It is DRIVEN rather than read here because a
  * source-order assertion is satisfied by an arming branch that no longer exits.
  */
-export function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
+function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
   const cell = (cells[stateCalls] ??= { value: typeof initial === "function" ? (initial as () => T)() : initial });
   stateCalls += 1;
   // The setter writes the cell and re-renders nothing: a later `render()` reads it back, which is
@@ -28,7 +27,7 @@ export function useState<T>(initial: T | (() => T)): [T, (next: T) => void] {
   return [cell.value as T, (next: T) => void (cell.value = next)];
 }
 
-export function useRef<T>(initial: T): { current: T } {
+function useRef<T>(initial: T): { current: T } {
   const box = (refBoxes[refCalls] ??= { current: initial });
   refCalls += 1;
   return box as { current: T };
@@ -37,11 +36,11 @@ export function useRef<T>(initial: T): { current: T } {
 /** What the page's step-up provider hands the hook, `undefined` standing for a page without one. */
 let stepUpContext: StepUp | undefined;
 
-export function useContext(): StepUp | undefined {
+function useContext(): StepUp | undefined {
   return stepUpContext;
 }
 
-export function useTransition(): [boolean, (scope: () => void) => void] {
+function useTransition(): [boolean, (scope: () => void) => void] {
   return [
     inFlight,
     (scope) => {
@@ -53,33 +52,31 @@ export function useTransition(): [boolean, (scope: () => void) => void] {
   ];
 }
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Narrowed to the file under test and the gate it renders, so nothing else loaded in this process loses React.
-    if (specifier === "react" && context.parentURL !== undefined && /\/(useTwoPressConfirm|useStepUp)\.ts$/.test(context.parentURL)) {
-      return { url: import.meta.url, shortCircuit: true };
-    }
-    return nextResolve(specifier, context);
-  },
-});
-
 type Control = ReturnType<typeof useTwoPressConfirm>;
 
-/* Loaded from `before`, never at the top level: the hook's `react` import resolves back into THIS
-   module, and a top-level await would still be running. Renamed off `use`, which is the whole of what
-   `react-hooks/rules-of-hooks` grades a call site by. */
+/* Loaded from `beforeAll`, never at the top level: React is stood in for by the four hooks above,
+   which `vi.doMock` hands only to modules imported after it. Renamed off `use`, which is the whole of
+   what `react-hooks/rules-of-hooks` grades a call site by. */
 let twoPressConfirm!: typeof useTwoPressConfirm;
 /** The hook's own threshold, so these tests move with it rather than pinning a copy. */
 let DOUBLE_PRESS_MS!: number;
 
-before(async () => {
+beforeAll(async () => {
+  // `createContext` and the rest stay React's own: `stepUp.ts` builds its context with it.
+  vi.doMock("react", async (importOriginal) => ({
+    ...(await importOriginal<typeof ReactModule>()),
+    useState,
+    useRef,
+    useContext,
+    useTransition,
+  }));
   const hookModule = await import("./useTwoPressConfirm.ts");
   twoPressConfirm = hookModule.useTwoPressConfirm;
   DOUBLE_PRESS_MS = hookModule.DOUBLE_PRESS_MS;
   Date.now = () => now;
 });
 
-after(() => {
+afterAll(() => {
   Date.now = realNow;
 });
 
@@ -134,8 +131,8 @@ describe("the two-press confirm", () => {
 
     render().press(gate.write);
 
-    assert.equal(gate.calls(), 0, "the first press wrote");
-    assert.equal(render().isConfirming, true, "the first press did not arm the control");
+    expect(gate.calls(), "the first press wrote").toBe(0);
+    expect(render().isConfirming, "the first press did not arm the control").toBe(true);
   });
 
   /* The second press, and exactly one write out of the pair. A press that armed and wrote would
@@ -149,7 +146,7 @@ describe("the two-press confirm", () => {
     gate.finish();
     await settled();
 
-    assert.equal(gate.calls(), 1, "the pair of presses did not send exactly one write");
+    expect(gate.calls(), "the pair of presses did not send exactly one write").toBe(1);
   });
 
   /* A genuine double-click is two presses to React — a re-render sits between the clicks — so the
@@ -162,8 +159,8 @@ describe("the two-press confirm", () => {
     render().press(gate.write);
     await settled();
 
-    assert.equal(gate.calls(), 0, "a double-click satisfied the confirmation");
-    assert.equal(render().isConfirming, true, "the ignored press disarmed the control");
+    expect(gate.calls(), "a double-click satisfied the confirmation").toBe(0);
+    expect(render().isConfirming, "the ignored press disarmed the control").toBe(true);
   });
 
   /* Ignored, not swallowed: the window is measured from the ARMING press, so a deliberate press
@@ -179,7 +176,7 @@ describe("the two-press confirm", () => {
     gate.finish();
     await settled();
 
-    assert.equal(gate.calls(), 1, "the press after the ignored one did not confirm");
+    expect(gate.calls(), "the press after the ignored one did not confirm").toBe(1);
   });
 
   /* A refused guard leaves the control as it found it. Drop the refusal branch's `return` and the
@@ -189,8 +186,8 @@ describe("the two-press confirm", () => {
 
     render(() => false).press(gate.write);
 
-    assert.equal(gate.calls(), 0, "a refused guard let the write through");
-    assert.equal(render().isConfirming, false, "a refused guard armed the control");
+    expect(gate.calls(), "a refused guard let the write through").toBe(0);
+    expect(render().isConfirming, "a refused guard armed the control").toBe(false);
   });
 
   /* The guard's second run, which is the whole of why it stands ahead of the arming branch: the
@@ -207,8 +204,8 @@ describe("the two-press confirm", () => {
     render(guard).press(gate.write);
     await settled();
 
-    assert.equal(gate.calls(), 0, "a draft typed after arming was written over");
-    assert.equal(render().isConfirming, false, "the refusal left the alert standing over a write it refuses again");
+    expect(gate.calls(), "a draft typed after arming was written over").toBe(0);
+    expect(render().isConfirming, "the refusal left the alert standing over a write it refuses again").toBe(false);
   });
 
   /* The open alert, the destructive fill and the closed cancel are what say a press is in flight,
@@ -221,15 +218,15 @@ describe("the two-press confirm", () => {
     render().press(gate.write);
 
     const during = render();
-    assert.equal(during.isConfirming, true, "the armed state dropped while the write was in flight");
-    assert.equal(during.isPending, true, "the control does not report its own write in flight");
+    expect(during.isConfirming, "the armed state dropped while the write was in flight").toBe(true);
+    expect(during.isPending, "the control does not report its own write in flight").toBe(true);
 
     gate.finish();
     await settled();
 
     const after = render();
-    assert.equal(after.isConfirming, false, "the answered write left the control armed");
-    assert.equal(after.isPending, false, "the answered write left the control reporting a request");
+    expect(after.isConfirming, "the answered write left the control armed").toBe(false);
+    expect(after.isPending, "the answered write left the control reporting a request").toBe(false);
   });
 
   /* A press in the same render that confirmed, before React has reported the write: the one the
@@ -246,7 +243,7 @@ describe("the two-press confirm", () => {
     gate.finish();
     await settled();
 
-    assert.equal(gate.calls(), 1, "a second press before the next render sent the write again");
+    expect(gate.calls(), "a second press before the next render sent the write again").toBe(1);
   });
 
   /* The write has answered while the refresh it started holds the transition: React defers the
@@ -270,7 +267,7 @@ describe("the two-press confirm", () => {
     landRefresh();
     await settled();
 
-    assert.equal(gate.calls(), 1, "a press during the refresh sent the write again");
+    expect(gate.calls(), "a press during the refresh sent the write again").toBe(1);
   });
 
   /* The cancel stands beside a running write, and disarming there drops the alert over a write
@@ -283,7 +280,7 @@ describe("the two-press confirm", () => {
     render().press(gate.write);
     render().cancel();
 
-    assert.equal(render().isConfirming, true, "a cancel mid-write disarmed the control");
+    expect(render().isConfirming, "a cancel mid-write disarmed the control").toBe(true);
     gate.finish();
     await settled();
   });
@@ -296,8 +293,8 @@ describe("the two-press confirm", () => {
     render().press(gate.write);
     render().cancel();
 
-    assert.equal(render().isConfirming, false, "cancel left the control armed");
-    assert.equal(gate.calls(), 0, "cancel wrote");
+    expect(render().isConfirming, "cancel left the control armed").toBe(false);
+    expect(gate.calls(), "cancel wrote").toBe(0);
   });
 });
 
@@ -329,12 +326,12 @@ describe("the two-press confirm of a step-up write", () => {
   it("arms asking for the passkey past the window, and on its own words inside it", () => {
     stepUpUntil(0);
     render(undefined, true).press(() => Promise.resolve());
-    assert.equal(render(undefined, true).asksPasskey, true, "a stale session armed without asking for the passkey");
+    expect(render(undefined, true).asksPasskey, "a stale session armed without asking for the passkey").toBe(true);
 
     cells = [];
     stepUpUntil(1);
     render(undefined, true).press(() => Promise.resolve());
-    assert.equal(render(undefined, true).asksPasskey, false, "a confirmed session was asked for the passkey");
+    expect(render(undefined, true).asksPasskey, "a confirmed session was asked for the passkey").toBe(false);
   });
 
   /* The prompt comes before the write, inside the press: a write sent first is refused by the server,
@@ -350,9 +347,9 @@ describe("the two-press confirm of a step-up write", () => {
     gate.finish();
     await settled();
 
-    assert.equal(stepUp.prompts(), 1, "the armed press sent the write without the prompt");
-    assert.equal(gate.calls(), 1, "a confirmed prompt did not send exactly one write");
-    assert.equal(render(undefined, true).isConfirming, false, "the answered write left the control armed");
+    expect(stepUp.prompts(), "the armed press sent the write without the prompt").toBe(1);
+    expect(gate.calls(), "a confirmed prompt did not send exactly one write").toBe(1);
+    expect(render(undefined, true).isConfirming, "the answered write left the control armed").toBe(false);
   });
 
   /* A refused prompt sends nothing, says so beside the control, and leaves it armed on the prompt's
@@ -367,17 +364,16 @@ describe("the two-press confirm of a step-up write", () => {
     await settled();
 
     const refused = render(undefined, true);
-    assert.equal(gate.calls(), 0, "a refused prompt sent the write");
-    assert.equal(stepUp.prompts(), 1);
-    assert.deepEqual(
+    expect(gate.calls(), "a refused prompt sent the write").toBe(0);
+    expect(stepUp.prompts()).toBe(1);
+    expect(
       [refused.isConfirming, refused.asksPasskey, refused.passkeyRefused],
-      [true, true, true],
       "a refused prompt left the control anywhere but armed on the prompt, saying it was refused",
-    );
+    ).toStrictEqual([true, true, true]);
 
     refused.press(gate.write);
     await settled();
-    assert.equal(stepUp.prompts(), 2, "the press after a refusal did not ask again");
+    expect(stepUp.prompts(), "the press after a refusal did not ask again").toBe(2);
   });
 
   /* The window can close while the alert stands. The label then still says the write's own words, and
@@ -387,15 +383,15 @@ describe("the two-press confirm of a step-up write", () => {
     const gate = gated();
 
     render(undefined, true).press(gate.write);
-    assert.equal(render(undefined, true).asksPasskey, false);
+    expect(render(undefined, true).asksPasskey).toBe(false);
     wait(DOUBLE_PRESS_MS);
     render(undefined, true).press(gate.write);
     await settled();
     gate.finish();
     await settled();
 
-    assert.equal(stepUp.prompts(), 1, "a press after the window closed sent the write unconfirmed");
-    assert.equal(gate.calls(), 1);
+    expect(stepUp.prompts(), "a press after the window closed sent the write unconfirmed").toBe(1);
+    expect(gate.calls()).toBe(1);
   });
 
   /* A panel can learn its demand from a read its arming started, as the erasure learns a grant holder's address:
@@ -404,8 +400,8 @@ describe("the two-press confirm of a step-up write", () => {
     stepUpContext = { isStale: (_at, demand) => demand === "enrolment", confirm: () => Promise.resolve(true) };
 
     render(undefined, true).press(() => Promise.resolve());
-    assert.equal(render(undefined, true).asksPasskey, false, "a session inside the step-up's window was asked for the passkey");
-    assert.equal(render(undefined, "enrolment").asksPasskey, true, "a demand declared after arming left the label on the write's words");
+    expect(render(undefined, true).asksPasskey, "a session inside the step-up's window was asked for the passkey").toBe(false);
+    expect(render(undefined, "enrolment").asksPasskey, "a demand declared after arming left the label on the write's words").toBe(true);
   });
 
   /* The declaration is the site's: a reversible two-press write, and the sign-out, never ask, whatever
@@ -415,14 +411,14 @@ describe("the two-press confirm of a step-up write", () => {
     const gate = gated();
 
     render().press(gate.write);
-    assert.equal(render().asksPasskey, false, "an undeclared control armed on the prompt");
+    expect(render().asksPasskey, "an undeclared control armed on the prompt").toBe(false);
     wait(DOUBLE_PRESS_MS);
     render().press(gate.write);
     gate.finish();
     await settled();
 
-    assert.equal(stepUp.prompts(), 0, "an undeclared control ran the prompt");
-    assert.equal(gate.calls(), 1);
+    expect(stepUp.prompts(), "an undeclared control ran the prompt").toBe(0);
+    expect(gate.calls()).toBe(1);
   });
 
   /* Outside the administrator's shell there is no figure to ask on; the write goes, and the server's
@@ -431,12 +427,12 @@ describe("the two-press confirm of a step-up write", () => {
     const gate = gated();
 
     render(undefined, true).press(gate.write);
-    assert.equal(render(undefined, true).asksPasskey, false);
+    expect(render(undefined, true).asksPasskey).toBe(false);
     wait(DOUBLE_PRESS_MS);
     render(undefined, true).press(gate.write);
     gate.finish();
     await settled();
 
-    assert.equal(gate.calls(), 1);
+    expect(gate.calls()).toBe(1);
   });
 });

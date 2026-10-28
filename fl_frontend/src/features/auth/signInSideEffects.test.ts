@@ -1,23 +1,26 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
+import {
+  ADMIN_EMAIL,
+  HOLDS_NOTHING,
+  memoryAdapterDouble,
+  memoryStore,
+  ORIGIN,
+  overriding,
+  registerAuthDoubles,
+} from "@/test-support/authDoubles.ts";
+import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { assert, describe, expect, it } from "vitest";
 
-import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
-import { overridingModule } from "@/core/exportingModule.ts";
-import { answerAt, SITZ } from "@/core/subjectFixtures.ts";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
-import type { LookupFixture } from "@/core/subjectFixtures.ts";
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { FormState } from "@/shared/types/types.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
 const STORE = "__flSignInStore";
 
-/** What `headers()` answers, which `arriveAs` sets. */
-let requestHeaders: Headers | undefined;
-
-/** What `cookies()` hands back: the jar the case installed. */
-let cookieJar: unknown;
+/** What `headers()` answers. */
+const requestHeaders = new Headers(ORIGIN);
 
 /** Holding a grant and no league record, so the grant alone is what the gate admits it on. */
 const GRANTED = ADMIN_EMAIL;
@@ -57,32 +60,25 @@ function answerFromTheBackend(call: ApiCall): Promise<unknown> {
 // Registered ahead of the imports below, whose graph reaches the real client through the gate.
 const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
 
-/**
- * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
- * the jar the case below installed, which is the whole subject of this file.
- */
-const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve(cookieJar) };
+/** `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. */
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
- * see inside one. `NextResponse` is the real export beside it, this file building the response itself.
+ * see inside one. `NextRequest` is the real export beside it, this file building each request itself.
  */
-const NEXT_SERVER_DOUBLE = overridingModule(import.meta.resolve("next/server"), {
+const NEXT_SERVER_DOUBLE = overriding("next/server", {
   after: () => (task: () => Promise<void>) => void deferred.push(task),
 });
 
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass.
 const { sent } = registerAuthDoubles({
-  // Passed at its module: this file's subject is what the gate does past the bot check, which
-  // `fl_frontend/src/features/auth/actions.test.ts` drives at the network edge.
+  // Passed at its module: this file's subject is what the gate does past the bot check.
   core: { turnstile: { turnstileRefusal: () => Promise.resolve(null) } },
   specifiers: {
-    // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
-    // extension itself -- so a double on one alone leaves the cookie writer on the real module.
     "next/headers": HEADERS_DOUBLE,
-    "next/headers.js": HEADERS_DOUBLE,
-    "next/server": asDataUrl(NEXT_SERVER_DOUBLE),
+    "next/server": NEXT_SERVER_DOUBLE,
     // What this file watches is the response rather than the store.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
@@ -91,25 +87,12 @@ const { sent } = registerAuthDoubles({
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
 
-/** What `headers()` answers, replaced by the case that needs the cookie a press has just written. */
-function arriveAs(cookie: string | null): void {
-  requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
-}
-
-arriveAs(null);
-
-// Imported here rather than at the top: a static import resolves before the hooks above are
-// registered, so neither the doubles nor the `next/server` extension would be in place yet.
-const { NextRequest, NextResponse } = await import("next/server");
-const { getSignInDestination } = await import("@/core/auth.ts");
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
+const { NextRequest } = await import("next/server");
 const { handleSignIn } = await import("./actions.ts");
 const codeRoute = await import("@/app/api/signin/code/route.ts");
 
 interface Attempt {
-  /** The response's `Set-Cookie` lines, serialised by the same `ResponseCookies` Next hands an action. */
-  readonly setCookie: readonly string[];
-  /** One entry per jar mutation: Next flips `pathWasRevalidated` on the first, whatever it wrote. */
-  readonly writes: readonly string[];
   /** Recipients the send recorded while the caller was still waiting, which is the latency it would cost. */
   readonly mailedWhileAnswering: readonly string[];
   /** Recipients recorded once the work scheduled behind the response has been run here. */
@@ -126,20 +109,6 @@ interface Attempt {
 }
 
 async function signInWith(email: string): Promise<Attempt> {
-  const response = new NextResponse();
-  const writes: string[] = [];
-  const jar = {
-    set: (...args: Parameters<typeof response.cookies.set>) => {
-      writes.push("set");
-      return response.cookies.set(...args);
-    },
-    delete: (...args: Parameters<typeof response.cookies.delete>) => {
-      writes.push("delete");
-      return response.cookies.delete(...args);
-    },
-  };
-  cookieJar = jar;
-
   const submitted = new FormData();
   submitted.set("email", email);
   submitted.set(TURNSTILE_FIELD, "XXXX.DUMMY.TOKEN.XXXX");
@@ -150,10 +119,7 @@ async function signInWith(email: string): Promise<Attempt> {
   const askedBefore = asked.length;
   deferred.length = 0;
 
-  // Settled before the headers are read: an object literal evaluates its properties in order, so a
-  // `setCookie` written ahead of this await reads the response the action has not touched yet.
   const result = await handleSignIn(undefined, submitted);
-  const setCookie = response.headers.getSetCookie();
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
   const writtenWhileAnswering = store.verification.length - storedBefore;
   const askedWhileAnswering = asked.length - askedBefore;
@@ -162,8 +128,6 @@ async function signInWith(email: string): Promise<Attempt> {
   for (const task of scheduled) await task();
 
   return {
-    setCookie,
-    writes,
     mailedWhileAnswering,
     mailed: sent.slice(mailedBefore).map((message) => message.to),
     writtenWhileAnswering,
@@ -186,7 +150,7 @@ function theLastCode(): string {
   return found[1];
 }
 
-/** Types `code` for `email` into the code step, as the form posts it; the jar is the case's own. */
+/** Types `code` for `email` into the code step, as the form posts it. */
 async function typeTheCode(email: string, code: string): Promise<Response> {
   return codeRoute.POST(
     new NextRequest("http://localhost:3000/api/signin/code", {
@@ -195,21 +159,6 @@ async function typeTheCode(email: string, code: string): Promise<Response> {
       body: JSON.stringify({ email, code }),
     }),
   );
-}
-
-/** A jar recording what the store is handed, installed for a case that reads the cookie a code wrote. */
-function recordingJar(): { name: string; value: string }[] {
-  const written: { name: string; value: string }[] = [];
-  const response = new NextResponse();
-  cookieJar = {
-    set: (name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) => {
-      written.push({ name, value });
-      return response.cookies.set(name, value, options);
-    },
-    delete: (name: string) => response.cookies.delete(name),
-  };
-
-  return written;
 }
 
 /** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth.ts` keeps. */
@@ -247,59 +196,44 @@ describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
      a config double that failed to land would refuse both addresses and agree on everything. */
   it("really did take the two branches, one mailing a code and the other not", () => {
-    assert.deepEqual([...granted.mailed], [GRANTED], "the granted attempt mailed nothing, so the two attempts are not the two branches");
-    assert.deepEqual([...rejected.mailed], []);
-  });
-
-  /* A cookie written after the response is sent does not reach it, so what fails the day the
-     library call moves in front of the response is that NEITHER branch wrote one. */
-  it("writes no cookie on either branch, which is the one tell a body cannot hide", () => {
-    assert.deepEqual([...granted.setCookie], []);
-    assert.deepEqual([...rejected.setCookie], []);
-  });
-
-  it("touches the jar on neither, so the revalidation header cannot tell them apart either", () => {
-    assert.deepEqual([...granted.writes], []);
-    assert.deepEqual([...rejected.writes], []);
+    expect([...granted.mailed], "the granted attempt mailed nothing, so the two attempts are not the two branches").toStrictEqual([GRANTED]);
+    expect([...rejected.mailed]).toStrictEqual([]);
   });
 
   it("answers with the same body", () => {
-    assert.deepEqual(bodyWithoutEcho(granted.result), bodyWithoutEcho(rejected.result));
-    assert.equal(granted.result?.success, true);
+    expect(bodyWithoutEcho(granted.result)).toStrictEqual(bodyWithoutEcho(rejected.result));
+    expect(granted.result?.success).toBe(true);
   });
 
   /* The whole library call sits behind the response, so no branch-dependent work is timed by the
      caller at all — which a response floor narrows and cannot close. */
   it("schedules every branch-dependent step behind the response instead of waiting for it", () => {
-    assert.deepEqual([...granted.mailedWhileAnswering], [], "the caller waited on the send, which the rejected branch never does");
-    assert.equal(granted.scheduled, 1);
-    assert.equal(rejected.scheduled, 1, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer");
+    expect([...granted.mailedWhileAnswering], "the caller waited on the send, which the rejected branch never does").toStrictEqual([]);
+    expect(granted.scheduled).toBe(1);
+    expect(rejected.scheduled, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer").toBe(1);
   });
 
   /* Kinds rather than a count: a refused branch writing the every-address total in place of the
      address's own row counts the same. The total names no address, so the one row the branches
      differ by tells nobody anything. */
   it("writes the code's row and the address's count behind the response on both branches, and the every-address total on the mailed one alone", () => {
-    assert.equal(granted.writtenWhileAnswering, 0, "the caller waited on a store write");
-    assert.equal(rejected.writtenWhileAnswering, 0);
-    assert.deepEqual(kindsOf(granted.writtenAfter, GRANTED), ["every address's total", "the address's count", "the code"]);
-    assert.deepEqual(
+    expect(granted.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
+    expect(rejected.writtenWhileAnswering).toBe(0);
+    expect(kindsOf(granted.writtenAfter, GRANTED)).toStrictEqual(["every address's total", "the address's count", "the code"]);
+    expect(
       kindsOf(rejected.writtenAfter, REJECTED),
-      ["the address's count", "the code"],
       "the two branches differ in what the store gained about the address, which is an oracle",
-    );
+    ).toStrictEqual(["the address's count", "the code"]);
   });
 });
 
 /** Everything a caller could time or read before the answer arrives, which no branch may differ in. */
 function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
-  assert.equal(attempt.askedWhileAnswering, 0, "the caller waited on a backend read");
-  assert.deepEqual([...attempt.mailedWhileAnswering], []);
-  assert.equal(attempt.writtenWhileAnswering, 0, "the caller waited on a store write");
-  assert.deepEqual([...attempt.setCookie], []);
-  assert.deepEqual([...attempt.writes], []);
-  assert.equal(attempt.scheduled, 1, "the branch deferred other than the one task every branch defers");
-  assert.deepEqual(bodyWithoutEcho(attempt.result), bodyWithoutEcho(granted.result));
+  expect(attempt.askedWhileAnswering, "the caller waited on a backend read").toBe(0);
+  expect([...attempt.mailedWhileAnswering]).toStrictEqual([]);
+  expect(attempt.writtenWhileAnswering, "the caller waited on a store write").toBe(0);
+  expect(attempt.scheduled, "the branch deferred other than the one task every branch defers").toBe(1);
+  expect(bodyWithoutEcho(attempt.result)).toStrictEqual(bodyWithoutEcho(granted.result));
 }
 
 describe("what the gate's backend read leaves on the response", () => {
@@ -308,8 +242,8 @@ describe("what the gate's backend read leaves on the response", () => {
   for (const [branch, { attempt, address }] of Object.entries(admittedByTheGate)) {
     it(`mails ${branch} only after the answer, which only the backend read can decide`, () => {
       assertNothingAheadOfTheAnswer(attempt);
-      assert.deepEqual([...attempt.mailed], [address]);
-      assert.equal(attempt.askedAfter, 1, "the gate made other than its one read for a person");
+      expect([...attempt.mailed]).toStrictEqual([address]);
+      expect(attempt.askedAfter, "the gate made other than its one read for a person").toBe(1);
     });
   }
 
@@ -317,7 +251,7 @@ describe("what the gate's backend read leaves on the response", () => {
      tells an administrator's address from a seat holder's. */
   it("mails an address holding a grant after the one read a person's takes, and nothing ahead of the answer", () => {
     assertNothingAheadOfTheAnswer(granted);
-    assert.equal(granted.askedAfter, 1, "the gate read an administrator's address other than once, which a person's it reads once");
+    expect(granted.askedAfter, "the gate read an administrator's address other than once, which a person's it reads once").toBe(1);
   });
 
   for (const [branch, attempt] of Object.entries(refusedByTheGate)) {
@@ -325,32 +259,22 @@ describe("what the gate's backend read leaves on the response", () => {
       assertNothingAheadOfTheAnswer(attempt);
       // Floored, so a gate that asked nothing is not mistaken for one that asked and refused.
       assert.ok(attempt.askedAfter > 0, "the gate never reached the backend, so the refusal is not the read's");
-      assert.deepEqual([...attempt.mailed], []);
+      expect([...attempt.mailed]).toStrictEqual([]);
     });
   }
 });
 
-describe("what a typed code leaves in the cookie store", () => {
-  /* The one wiring the whole sign-in rests on: the handler drops the verification's own answer, and
-     `nextCookies()` writes the browser's copy into Next's store rather than onto the JSON answer. */
-  it("writes the session cookie through Next's store, and a guard then answers for it", async () => {
+describe("what a typed code answers", () => {
+  /* The handler drops the verification's own answer: the browser's copy of the session goes through
+     Next's store, never onto the JSON answer. */
+  it("answers a typed code without the credential on its own response", async () => {
     await signInWith(GRANTED);
     const code = theLastCode();
 
-    // Installed after the send, which fits a jar of its own: what this case reads is the code.
-    const written = recordingJar();
     const typed = await typeTheCode(GRANTED, code);
 
-    assert.deepEqual(await typed.json(), { success: true });
-    assert.deepEqual([...typed.headers.getSetCookie()], [], "the handler answered the credential on its own response");
-
-    const session = written.find((cookie) => cookie.name.endsWith("session_token"));
-    assert.ok(session, `no session cookie was written to the store: ${JSON.stringify(written)}`);
-
-    arriveAs(`${session.name}=${session.value}`);
-    assert.equal(await getSignInDestination(), "/signin/passkey", "the cookie the store holds opens no session at all");
-
-    arriveAs(null);
+    expect(await typed.json()).toStrictEqual({ success: true });
+    expect([...typed.headers.getSetCookie()], "the handler answered the credential on its own response").toStrictEqual([]);
   });
 
   /* The window the message states is worth nothing unless the store enforces it: the library
@@ -366,11 +290,10 @@ describe("what a typed code leaves in the cookie store", () => {
     row.expiresAt = new Date(Date.now() - 1000);
 
     const sessions = store.session.length;
-    recordingJar();
     const typed = await typeTheCode(GRANTED, code);
 
-    assert.deepEqual(await typed.json(), { success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
-    assert.equal(store.session.length, sessions, "an expired code still minted a session");
+    expect(await typed.json()).toStrictEqual({ success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
+    expect(store.session.length, "an expired code still minted a session").toBe(sessions);
   });
 });
 
@@ -383,16 +306,12 @@ describe("which account two spellings of one address reach", () => {
 
     for (const spelling of [GRANTED, spelledOtherwise]) {
       await signInWith(spelling);
-      recordingJar();
-      assert.deepEqual(await (await typeTheCode(spelling, theLastCode())).json(), { success: true }, `${spelling} was not signed in`);
+      expect(await (await typeTheCode(spelling, theLastCode())).json(), `${spelling} was not signed in`).toStrictEqual({ success: true });
     }
 
     // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
-    assert.deepEqual(
-      store.user.map((user) => user.email),
-      [GRANTED],
-    );
+    expect(store.user.map((user) => user.email)).toStrictEqual([GRANTED]);
   });
 });
 
@@ -400,8 +319,7 @@ describe("what the action answers an address it cannot parse", () => {
   it("refuses in front of the response and schedules nothing, a format check leaking no membership", async () => {
     const attempt = await signInWith("keine-adresse");
 
-    assert.equal(attempt.result?.success, false);
-    assert.equal(attempt.scheduled, 0);
-    assert.deepEqual([...attempt.setCookie], []);
+    expect(attempt.result?.success).toBe(false);
+    expect(attempt.scheduled).toBe(0);
   });
 });

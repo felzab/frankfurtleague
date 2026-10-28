@@ -37,7 +37,7 @@ const UNDO_WORDING: Wording = {
  * A replay refused for want of a recent confirmation, by its body or the backend: the undo's offer is gone, so
  * „Bestätige zuerst“ would ask for a press nobody can make.
  */
-export const UNDO_UNBESTAETIGT = `Deine Bestätigung mit dem Passkey ist abgelaufen. ${AENDERUNG_STEHT_WEITERHIN}`;
+const UNDO_UNBESTAETIGT = `Deine Bestätigung mit dem Passkey ist abgelaufen. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 /** What an undo answers the offer that sent it: the restore, graded by what it cost, or why it did not land. */
 export type UndoOutcome = { success: true; message: string; warn: boolean } | ActionFailure;

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { applyFacets, countFacetOptions, readFacetSelection } from "@/shared/utils/facets.ts";
 
@@ -37,13 +36,10 @@ describe("the Angaben facet of the referee list", () => {
   /* First: every assertion below reads `undefined` where the cut above finds no facet. */
   it("offers a contact split and a school, and counts them off the rows the page holds", () => {
     assert.ok(ANGABEN_FACET, "no facet reads the Angaben parameter");
-    assert.deepEqual(
-      ANGABEN_FACET.options.map((option) => option.label),
-      ["Mit Kontakt", "Ohne Kontakt", "Mit Schule"],
-    );
+    expect(ANGABEN_FACET.options.map((option) => option.label)).toStrictEqual(["Mit Kontakt", "Ohne Kontakt", "Mit Schule"]);
     // The counts come off the served rows, so a facet whose options the endpoint cannot answer for
     // would offer every one of them at zero and disable the lot.
-    assert.deepEqual(countFacetOptions([...SERVED], SCHIEDSRICHTER_FACETS, selection(""), ANGABEN_FACET), {
+    expect(countFacetOptions([...SERVED], SCHIEDSRICHTER_FACETS, selection(""), ANGABEN_FACET)).toStrictEqual({
       kontakt: 2,
       ohne_kontakt: 1,
       schule: 1,
@@ -51,11 +47,11 @@ describe("the Angaben facet of the referee list", () => {
   });
 
   it("reads a referee with neither a phone number nor an email address as a real gap rather than as a missing row", () => {
-    assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=ohne_kontakt")), [OHNE_ALLES]);
-    assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=kontakt")), [MIT_TELEFON, MIT_SCHULE]);
+    expect(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=ohne_kontakt"))).toStrictEqual([OHNE_ALLES]);
+    expect(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=kontakt"))).toStrictEqual([MIT_TELEFON, MIT_SCHULE]);
   });
 
   it("adds rather than narrows where two options are picked, which is what OR within a facet promises", () => {
-    assert.deepEqual(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=schule,ohne_kontakt")), [MIT_SCHULE, OHNE_ALLES]);
+    expect(applyFacets([...SERVED], SCHIEDSRICHTER_FACETS, selection("angaben=schule,ohne_kontakt"))).toStrictEqual([MIT_SCHULE, OHNE_ALLES]);
   });
 });

@@ -1,10 +1,7 @@
-import assert from "node:assert/strict";
-import { after, beforeEach, describe, it } from "node:test";
-
-import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReactTo } from "@/core/cacheScope.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
-import { overridingModule } from "@/core/exportingModule.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { CommandStartedEvent, MongoClient } from "mongodb";
 
@@ -13,9 +10,9 @@ const { mongod, closing } = await startJudgedReplicaSet();
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
-// The query suffix takes the real module past the load hook's match on a path's end: the client
-// counted is the one `fl_frontend/src/core/db.ts` builds.
-const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
+// The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
+// under test is the one it builds.
+const PRODUCTION_DB = "@/core/db.ts";
 
 /** Each error line written, which the index build's failures are among. */
 const errors: string[] = [];
@@ -23,7 +20,7 @@ const errors: string[] = [];
 registerAuthDoubles({
   core: {
     config: configDouble({}, { mongodbUri: () => replicaSetUrl(mongod) }),
-    db: overridingModule(PRODUCTION_DB, {}),
+    db: overriding(PRODUCTION_DB, {}),
     logging: {
       logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },
     },
@@ -35,14 +32,11 @@ registerAuthDoubles({
   },
 });
 
-/** The modules whose `cache` a render's reads go through: the guards, the lookup and the request's scope. */
-const MEMOIZING = ["/src/core/auth.ts", "/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/requestScope.ts"];
-
 // The server build for these alone, whose `cache` memoizes where the client build's passes through;
 // the library's own `react` stays the build it ships against.
-serveServerReactTo((parentURL) => MEMOIZING.some((tail) => parentURL.endsWith(tail)));
+serveServerReact();
 
-// Imported after the hooks above are registered: a static import resolves before they exist.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
@@ -59,7 +53,7 @@ beforeEach(async () => {
   errors.length = 0;
   await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
   await buildAuthIndexes();
-  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
+  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 /** Each subject lookup the backend is asked, counted where the default double answers it. */
@@ -69,7 +63,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   if (String(input instanceof Request ? input.url : input).endsWith("/identitaet/subjekt")) lookups += 1;
   return answering(input, init);
 }) as typeof globalThis.fetch;
-after(() => {
+afterAll(() => {
   globalThis.fetch = answering;
 });
 
@@ -140,14 +134,14 @@ describe("the administrator's session across one render pass", () => {
     const [hold, slot, switcher] = await Promise.all([judgeAdminRequest(), getAdminSession(), getAdminSession()]);
 
     assert.ok("session" in hold, "the hold refused the administrator, so the count below counts a refusal");
-    assert.equal(slot?.user.email, ADMIN_EMAIL);
-    assert.equal(switcher?.user.email, ADMIN_EMAIL);
-    assert.equal(sessionReads.length - before, 1, "the frame's readers of one render pass each read the session store");
+    expect(slot?.user.email).toBe(ADMIN_EMAIL);
+    expect(switcher?.user.email).toBe(ADMIN_EMAIL);
+    expect(sessionReads.length - before, "the frame's readers of one render pass each read the session store").toBe(1);
 
     // The control: the next request is a new pass and reads again, so the counter counts reads.
     beginRenderPass();
     await getAdminSession();
-    assert.equal(sessionReads.length - before, 2, "a second request was answered from the first one's read");
+    expect(sessionReads.length - before, "a second request was answered from the first one's read").toBe(2);
   });
 
   /* `advanced.database.joins` hands the account to the adapter's own `$lookup`; without it the library
@@ -158,7 +152,7 @@ describe("the administrator's session across one render pass", () => {
     beginRenderPass();
     const commands = await sentBy(() => getAdminSession());
 
-    assert.deepEqual(commands, ["aggregate session", "aggregate passkey"], "the guard's read is not one session read and its passkey's");
+    expect(commands, "the guard's read is not one session read and its passkey's").toStrictEqual(["aggregate session", "aggregate passkey"]);
   });
 });
 
@@ -176,14 +170,14 @@ describe("the administrator's guard across a server action", () => {
       await runAdminRead(() => Promise.resolve());
     });
 
-    assert.equal(sessionReads.length - before.reads, 1, "an admin read in the action's body read the session again");
-    assert.equal(lookups - before.lookups, 1, "an admin read in the action's body asked the backend for the grant again");
+    expect(sessionReads.length - before.reads, "an admin read in the action's body read the session again").toBe(1);
+    expect(lookups - before.lookups, "an admin read in the action's body asked the backend for the grant again").toBe(1);
 
     // The render after the write, an admin read in it: a request scope of its own, so a write that
     // changed the grant is seen.
     beginRenderPass();
     await runWithIncomingTrace(() => runAdminRead(() => Promise.resolve()));
-    assert.equal(sessionReads.length - before.reads, 2, "the render after the action was answered from the action's verdict");
+    expect(sessionReads.length - before.reads, "the render after the action was answered from the action's verdict").toBe(2);
   });
 
   /* The control: without it, a harness whose `cache` still memoized would pass the case above. */
@@ -195,7 +189,7 @@ describe("the administrator's guard across a server action", () => {
     await getAdminSession();
     await getAdminSession();
 
-    assert.equal(sessionReads.length - before, 2);
+    expect(sessionReads.length - before).toBe(2);
   });
 });
 
@@ -226,8 +220,8 @@ describe("the account and passkey pages, each across one render pass", () => {
     });
 
     // The guards' one read, the check its passkey stands, the page's passkeys and its sign-ins.
-    assert.deepEqual(commands.toSorted(), ["aggregate passkey", "aggregate passkey", "aggregate session", "aggregate session"]);
-    assert.deepEqual(await stamps(), due, "a read of the account page slid the session");
+    expect(commands.toSorted()).toStrictEqual(["aggregate passkey", "aggregate passkey", "aggregate session", "aggregate session"]);
+    expect(await stamps(), "a read of the account page slid the session").toStrictEqual(due);
   });
 
   it("reads the passkey page's session once and writes no row", async () => {
@@ -242,9 +236,9 @@ describe("the account and passkey pages, each across one render pass", () => {
       step = await getPasskeyStep();
     });
 
-    assert.deepEqual(step, { step: "enrol", email: ADMIN_EMAIL }, "the page offered no step, so the count below counts nothing");
-    assert.deepEqual(commands, ["aggregate session", "aggregate passkey"]);
-    assert.deepEqual(await stamps(), due, "a read of the passkey page slid the session");
+    expect(step, "the page offered no step, so the count below counts nothing").toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
+    expect(commands).toStrictEqual(["aggregate session", "aggregate passkey"]);
+    expect(await stamps(), "a read of the passkey page slid the session").toStrictEqual(due);
   });
 });
 
@@ -283,7 +277,7 @@ describe("the holder's passkeys, with another account's beside them in the store
     assert.ok(served, "the account page's guard refused the administrator");
     const { passkeys } = await readSicherheit(served);
 
-    assert.equal(passkeys.length, 1, "the account page listed another account's passkey");
+    expect(passkeys.length, "the account page listed another account's passkey").toBe(1);
   });
 
   it("offers a holder of no passkey the enrolment, not the sign-in by another account's", async () => {
@@ -292,7 +286,7 @@ describe("the holder's passkeys, with another account's beside them in the store
 
     beginRenderPass();
 
-    assert.deepEqual(await getPasskeyStep(), { step: "enrol", email: ADMIN_EMAIL });
+    expect(await getPasskeyStep()).toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
   });
 
   it("counts the holder's passkeys alone against the cap", async () => {
@@ -322,7 +316,7 @@ describe("the holder's passkeys, with another account's beside them in the store
 
     leaveRenderPass();
 
-    assert.deepEqual(await runWithIncomingTrace(() => readPasskeyStandAction()), { success: true, kannHinzufuegen: true });
+    expect(await runWithIncomingTrace(() => readPasskeyStandAction())).toStrictEqual({ success: true, kannHinzufuegen: true });
   });
 });
 
@@ -342,19 +336,19 @@ describe("the account row the session read joins, against a real store", () => {
       .updateMany({}, { $set: { sessionsEndedAt: new Date(Date.now() + 1000) } });
 
     beginRenderPass();
-    assert.equal(await getAdminSession(), null, "the administrator's guard served a stamped session");
-    assert.equal(await readServedSession(requestHeaders), null, "the served read served a stamped session");
+    expect(await getAdminSession(), "the administrator's guard served a stamped session").toBe(null);
+    expect(await readServedSession(requestHeaders), "the served read served a stamped session").toBe(null);
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
     const { readServedSession } = await import("@/core/auth.ts");
     requestHeaders = await signInAsAdministrator();
     await client.db("auth").collection("user").deleteMany({});
-    assert.equal(await client.db("auth").collection("session").countDocuments({}), 1, "the session row went with the account's");
+    expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
 
     beginRenderPass();
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await readServedSession(requestHeaders), null);
+    expect(await getAdminSession()).toBe(null);
+    expect(await readServedSession(requestHeaders)).toBe(null);
   });
 
   /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as
@@ -366,10 +360,10 @@ describe("the account row the session read joins, against a real store", () => {
     const [ended] = await sessions.find({}).toArray();
     assert.ok(ended, "the sign-in wrote no session row");
 
-    assert.equal(await endSessionsOfAddress(ADMIN_EMAIL), true, "the ending found no account");
+    expect(await endSessionsOfAddress(ADMIN_EMAIL), "the ending found no account").toBe(true);
     // The row the deletion missed, put back as it stood.
     await sessions.insertOne(ended);
-    assert.equal(await readServedSession(endedHeaders), null, "the stamped row is served, so the list below is not the subject");
+    expect(await readServedSession(endedHeaders), "the stamped row is served, so the list below is not the subject").toBe(null);
 
     requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
     const after = await sessions.findOne({ _id: { $ne: ended._id } });
@@ -381,9 +375,6 @@ describe("the account row the session read joins, against a real store", () => {
     assert.ok(served, "the account page's guard refused the sign-in made after the ending");
     const { anmeldungen } = await readSicherheit(served);
 
-    assert.deepEqual(
-      anmeldungen.map(({ id }) => id),
-      [String(after._id)],
-    );
+    expect(anmeldungen.map(({ id }) => id)).toStrictEqual([String(after._id)]);
   });
 });

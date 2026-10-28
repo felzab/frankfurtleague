@@ -33,9 +33,9 @@ import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/features/adresswechsel/schemas";
 
-export const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
-export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
-export const ADRESSWECHSEL_VERWERFEN_ARMED = "Ja, Änderung verwerfen";
+const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
+const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
+const ADRESSWECHSEL_VERWERFEN_ARMED = "Ja, Änderung verwerfen";
 
 /** What the armed discard costs: nothing tells the person, so the administrator who discards is the one who can. */
 const VERWERFEN_FOLGE =

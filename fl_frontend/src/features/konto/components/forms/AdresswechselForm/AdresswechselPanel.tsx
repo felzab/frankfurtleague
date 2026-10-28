@@ -41,9 +41,9 @@ import type { ActionFailure } from "@/shared/types/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The press opening the box: „E-Mail-“ because this panel also lists the passkeys' and sign-ins' neighbours. */
-export const E_MAIL_ADRESSE_AENDERN = "E-Mail-Adresse ändern";
-export const AENDERUNG_FREIGEBEN = "Änderung freigeben";
-export const AENDERUNG_ZURUECKZIEHEN = "Änderung zurückziehen";
+const E_MAIL_ADRESSE_AENDERN = "E-Mail-Adresse ändern";
+const AENDERUNG_FREIGEBEN = "Änderung freigeben";
+const AENDERUNG_ZURUECKZIEHEN = "Änderung zurückziehen";
 
 /** Why the page asks before a start or an approval, said beside the control that asks. */
 const STEP_UP_HINT = "Für eine neue Adresse fragen wir kurz nach, ob Du es bist.";

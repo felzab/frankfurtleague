@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { deriveSpielortDraftStatus } from "./spielortDraftStatus";
 
@@ -33,18 +32,17 @@ describe("deriveSpielortDraftStatus", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored }, fieldErrors: {} });
 
     // `maps_link` is deliberately absent: the backend derives it and no payload carries it.
-    assert.equal(status.fields.length, 7);
+    expect(status.fields.length).toBe(7);
   });
 
   it("reports each field under its own descriptor path, so a mistyped path cannot pass unnoticed", () => {
     for (const [path, draft] of oneFieldChanged) {
       const status = deriveSpielortDraftStatus({ stored, draft, fieldErrors: {} });
 
-      assert.deepEqual(
+      expect(
         status.changed.map((field) => field.path),
-        [path],
         `changing ${path} should report that path and no other`,
-      );
+      ).toStrictEqual([path]);
     }
   });
 
@@ -52,13 +50,13 @@ describe("deriveSpielortDraftStatus", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored }, fieldErrors: {} });
     const covered = new Set(status.fields.map((field) => field.path.split(".")[0]));
 
-    assert.deepEqual([...covered].sort(), Object.keys(stored).sort());
+    expect([...covered].sort()).toStrictEqual(Object.keys(stored).sort());
   });
 
   it("never offers a row for maps_link, which no payload carries", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored }, fieldErrors: {} });
 
-    assert.equal(status.byPath.get("maps_link"), undefined);
+    expect(status.byPath.get("maps_link")).toBe(undefined);
   });
 
   it("reads an emptied optional part of the address as a removal", () => {
@@ -69,15 +67,15 @@ describe("deriveSpielortDraftStatus", () => {
     // `draftText: null` is what makes the change list render this as a removal. It comes from this
     // table's own `read`, so only a case over this table can pin it.
     assert.ok(row);
-    assert.equal(row.draftText, null);
-    assert.equal(row.storedText, "Ostend");
+    expect(row.draftText).toBe(null);
+    expect(row.storedText).toBe("Ostend");
   });
 
   it("keeps a whitespace-only edit visible, because nothing trims before the save", () => {
     const status = deriveSpielortDraftStatus({ stored, draft: { ...stored, name: "Sporthalle Ostend " }, fieldErrors: {} });
 
     // The trailing space survives because this table's `read` is `emptyAsNull`, which trims nothing.
-    assert.equal(status.byPath.get("name")?.draftText, "Sporthalle Ostend ");
+    expect(status.byPath.get("name")?.draftText).toBe("Sporthalle Ostend ");
   });
 
   it("carries a field error onto its own row", () => {
@@ -89,6 +87,6 @@ describe("deriveSpielortDraftStatus", () => {
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
     // answers on a path no input carries.
-    assert.equal(status.byPath.get("address.plz")?.error, "Die PLZ muss genau 5 Ziffern haben.");
+    expect(status.byPath.get("address.plz")?.error).toBe("Die PLZ muss genau 5 Ziffern haben.");
   });
 });

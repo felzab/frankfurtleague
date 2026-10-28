@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner.ts";
 
@@ -25,15 +24,15 @@ const ids = (banners: readonly TeamBanner[]): string[] => banners.map((banner) =
 
 describe("buildTeamBanners", () => {
   it("raises nothing for a settled membership with no pending edit", () => {
-    assert.deepEqual(ids(build()), []);
+    expect(ids(build())).toStrictEqual([]);
   });
 
   /* The title names the exclusion, the body what survives, and neither points at a control. */
   it("states the retirement as the exclusion plus what survives, and points at no control", () => {
     const [banner] = build({ isRetired: true });
 
-    assert.match(banner?.title ?? "", /erscheint in keiner Auswahlliste/);
-    assert.match(banner?.body ?? "", /Kürzel bleibt reserviert/, "the body stopped naming what survives");
+    expect(banner?.title ?? "").toMatch(/erscheint in keiner Auswahlliste/);
+    expect(banner?.body ?? "", "the body stopped naming what survives").toMatch(/Kürzel bleibt reserviert/);
     assert.ok(!/reaktivieren|Kopf der Seite/i.test(banner?.body ?? ""));
   });
 
@@ -42,8 +41,8 @@ describe("buildTeamBanners", () => {
 
     // Pinned by id, so the title below is asserted against a named banner rather than whichever one
     // the builder happens to push first.
-    assert.equal(banner?.id, "team.not-in-saison-future");
-    assert.match(banner?.title ?? "", /Saison 2026/);
+    expect(banner?.id).toBe("team.not-in-saison-future");
+    expect(banner?.title ?? "").toMatch(/Saison 2026/);
   });
 
   it("splits the entry case from the closed one on the season's status", () => {
@@ -65,10 +64,10 @@ describe("buildTeamBanners", () => {
   it("lands the retired club's banner at the panel spot that replaces the entry affordance", () => {
     const banner = build({ isMember: false, isRetired: true }).find(({ id }) => id === "team.not-in-saison-retired");
 
-    assert.equal(banner?.inline, "saison-kein-eintritt");
+    expect(banner?.inline).toBe("saison-kein-eintritt");
     // The league's word, never the season's: `Austritt` and `ausgeschieden` name a club leaving ONE
     // season, which is a different record with a different remedy.
-    assert.match(banner?.body ?? "", /stillgelegte/);
+    expect(banner?.body ?? "").toMatch(/stillgelegte/);
     assert.ok(!/Austritt|ausgeschieden/.test(banner?.body ?? ""));
   });
 
@@ -78,26 +77,26 @@ describe("buildTeamBanners", () => {
 
     // `FormSaisonSection` renders the entry affordance on a `future` season alone. On the other two
     // the banner that replaces it says entry is closed, so an invitation here would be withdrawn.
-    assert.match(retired("future"), /nimm es danach hier auf/);
-    assert.doesNotMatch(retired("active"), /hier auf/);
-    assert.doesNotMatch(retired("past"), /hier auf/);
-    assert.match(retired("active"), /läuft schon/);
-    assert.match(retired("past"), /ist beendet/);
+    expect(retired("future")).toMatch(/nimm es danach hier auf/);
+    expect(retired("active")).not.toMatch(/hier auf/);
+    expect(retired("past")).not.toMatch(/hier auf/);
+    expect(retired("active")).toMatch(/läuft schon/);
+    expect(retired("past")).toMatch(/ist beendet/);
   });
 
   it("says which of the two closed statuses is in the way", () => {
     const closed = (status: "active" | "past") =>
       build({ isMember: false, saisonStatus: status }).find((banner) => banner.id === "team.not-in-saison-closed")?.body ?? "";
 
-    assert.match(closed("active"), /läuft schon/);
-    assert.match(closed("past"), /beendet/);
+    expect(closed("active")).toMatch(/läuft schon/);
+    expect(closed("past")).toMatch(/beendet/);
   });
 
   it("tells entering an austritt apart from lifting one", () => {
     const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
 
-    assert.deepEqual(ids(build({ hasAustritt: true })), ["team.austritt-entering"]);
-    assert.deepEqual(ids(build({ storedAustritt: record })), ["team.austritt-lifting"]);
+    expect(ids(build({ hasAustritt: true }))).toStrictEqual(["team.austritt-entering"]);
+    expect(ids(build({ storedAustritt: record }))).toStrictEqual(["team.austritt-lifting"]);
   });
 
   it("renders the stored reason verbatim, with its date in the title", () => {
@@ -106,8 +105,8 @@ describe("buildTeamBanners", () => {
     // warning ahead of this, which is the case below.
     const [banner] = build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund });
 
-    assert.equal(banner?.body, record.grund);
-    assert.match(banner?.title ?? "", /12\.03\.2026/);
+    expect(banner?.body).toBe(record.grund);
+    expect(banner?.title ?? "").toMatch(/12\.03\.2026/);
   });
 
   it("titles the standing banner from the route, so a withdrawal is not called a disqualification", () => {
@@ -115,23 +114,23 @@ describe("buildTeamBanners", () => {
       build({ hasAustritt: true, storedAustritt: { type, grund: "Schule aufgelöst", datum: "2026-03-12" }, draftGrund: "Schule aufgelöst" })[0]
         ?.title ?? "";
 
-    assert.match(standing("disqualifikation"), /^Disqualifiziert seit/);
-    assert.match(standing("rueckzug"), /^Zurückgezogen seit/);
+    expect(standing("disqualifikation")).toMatch(/^Disqualifiziert seit/);
+    expect(standing("rueckzug")).toMatch(/^Zurückgezogen seit/);
   });
 
   it("warns again when a standing reason is rewritten, because that publishes new words", () => {
     const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
     const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
 
-    assert.deepEqual(ids(raised), ["team.austritt-entering", "team.austritt-standing"]);
+    expect(ids(raised)).toStrictEqual(["team.austritt-entering", "team.austritt-standing"]);
     // The standing banner is `info` and cannot confirm anything, so the rewrite has to carry its own.
-    assert.equal(resolveBlockingBanners(raised)?.[0]?.id, "team.austritt-entering");
+    expect(resolveBlockingBanners(raised)?.[0]?.id).toBe("team.austritt-entering");
   });
 
   it("leaves an untouched reason out of the save confirmation, so an unrelated edit saves straight through", () => {
     const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
 
-    assert.equal(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund })), null);
+    expect(resolveBlockingBanners(build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund }))).toBe(null);
   });
 
   /* The pair `raisedBy` exists for: the record already stands and is on screen at page load, while
@@ -140,8 +139,8 @@ describe("buildTeamBanners", () => {
     const record = { type: "disqualifikation", grund: "Nicht angetreten", datum: "2026-03-12" } as const;
     const raised = build({ hasAustritt: true, storedAustritt: record, draftGrund: "Wiederholt nicht angetreten" });
 
-    assert.equal(raised.find(({ id }) => id === "team.austritt-standing")?.raisedBy, "state");
-    assert.equal(raised.find(({ id }) => id === "team.austritt-entering")?.raisedBy, "change");
+    expect(raised.find(({ id }) => id === "team.austritt-standing")?.raisedBy).toBe("state");
+    expect(raised.find(({ id }) => id === "team.austritt-entering")?.raisedBy).toBe("change");
   });
 
   /* Colour and confirmation are separate switches: a banner the page load already carries asks
@@ -155,12 +154,12 @@ describe("buildTeamBanners", () => {
       ...build({ hasAustritt: true, storedAustritt: record, draftGrund: record.grund }),
     ];
 
-    for (const banner of atLoad) assert.equal(banner.raisedBy, "state", `${banner.id} would confirm a situation the save did not cause`);
+    for (const banner of atLoad) expect(banner.raisedBy, `${banner.id} would confirm a situation the save did not cause`).toBe("state");
   });
 
   it("keeps the group warning off a locked group, whatever the draft says", () => {
-    assert.deepEqual(ids(build({ isGruppeChanged: true })), ["team.gruppe-changed"]);
-    assert.deepEqual(ids(build({ isGruppeChanged: true, isGruppeLocked: true })), []);
+    expect(ids(build({ isGruppeChanged: true }))).toStrictEqual(["team.gruppe-changed"]);
+    expect(ids(build({ isGruppeChanged: true, isGruppeLocked: true }))).toStrictEqual([]);
   });
 
   it("states the move's one certain outcome and leaves the window it was allowed under unsaid", () => {
@@ -168,9 +167,9 @@ describe("buildTeamBanners", () => {
 
     // The picker is open only where `REQ-ENTER-004` already permits the move, so a sentence about
     // that window is reassurance, and one about the seeding promises a change no result decides yet.
-    assert.equal(banner?.id, "team.gruppe-changed");
-    assert.match(banner?.title ?? "", /Tabellen beider Gruppen/);
-    assert.equal(banner?.body, undefined);
-    assert.equal(banner?.raisedBy, "change", "the picker's own move stopped reaching the save confirmation");
+    expect(banner?.id).toBe("team.gruppe-changed");
+    expect(banner?.title ?? "").toMatch(/Tabellen beider Gruppen/);
+    expect(banner?.body).toBe(undefined);
+    expect(banner?.raisedBy, "the picker's own move stopped reaching the save confirmation").toBe("change");
   });
 });

@@ -1,11 +1,13 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import {
+  einwilligungAnswer,
+  publishedFassung,
+  publishedLaufendeFassung,
+  readEinwilligungDocument,
+} from "@/test-support/einwilligungDocument.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { einwilligungAnswer, publishedFassung, publishedLaufendeFassung, readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
 
 import {
   gekeyteFassung,
@@ -38,21 +40,17 @@ const inert = (): undefined => undefined;
 
 // The client replaced at its module, each answer passed through the caller's schema as a real response
 // is; `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
-registerDoubles({
-  modules: {
-    "core/api.ts": {
-      apiClient: async (endpoint: string, schema: { parse: (value: unknown) => unknown }) => {
-        calls.push(endpoint);
-        return schema.parse(await answering(endpoint));
-      },
-    },
+vi.doMock("@/core/api.ts", () => ({
+  apiClient: async (endpoint: string, schema: { parse: (value: unknown) => unknown }) => {
+    calls.push(endpoint);
+    return schema.parse(await answering(endpoint));
   },
-  specifiers: { "next/cache": { cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert } },
-});
+}));
+vi.doMock("next/cache", () => ({ cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert }));
 
 const api = { calls: calls, answerWith: (next: Answer) => void (answering = next) };
 
-serveServerReactTo((parentURL) => parentURL.startsWith(`${pathToFileURL(import.meta.dirname).href}/`));
+serveServerReact();
 
 const { getEinwilligungFassung, getLaufendeFassung, getLaufendesLabel, istFassungBekannt } = await import("./einwilligung.ts");
 
@@ -90,39 +88,39 @@ describe("the words read", () => {
   it("answers a stored label with that label's own words, asked for by the label alone", async () => {
     const fassung = await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
 
-    assert.deepEqual(fassung, publishedFassung("2026-09-bestaetigungsseite-2", DOCUMENT));
-    assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026-09-bestaetigungsseite-2"]);
+    expect(fassung).toStrictEqual(publishedFassung("2026-09-bestaetigungsseite-2", DOCUMENT));
+    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigungsseite-2"]);
   });
 
   // A label read off a stored record is data, so one carrying a separator must not address another path.
   it("sends a label as one path segment whatever it holds", async () => {
     await getEinwilligungFassung("2026/../seiten");
 
-    assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026%2F..%2Fseiten"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026%2F..%2Fseiten"]);
   });
 
   /* The failure this registry exists to prevent: the running words under an old label are a record
      claiming a text its person never read, so an unknown label answers nothing at all. */
   it("answers nothing for a label the backend's registry does not hold", async () => {
     for (const unbekannt of ["2026-07", "toString", "constructor", "2026-09"]) {
-      assert.equal(await getEinwilligungFassung(unbekannt), null, `"${unbekannt}" resolves to a wording nobody was shown`);
+      expect(await getEinwilligungFassung(unbekannt), `"${unbekannt}" resolves to a wording nobody was shown`).toBe(null);
     }
   });
 
   /* What an admin editor marks beside a stored label: a key the registry holds nothing for is a record
      citing words nobody can produce, and a record citing none is worded by the editor itself. */
   it("tells a stored label the registry holds from one it does not, and asks nothing for a record citing none", async () => {
-    assert.equal(await istFassungBekannt("2026-09-bestaetigung-3"), true);
-    assert.equal(await istFassungBekannt("liga-2019-01-erfunden"), false);
-    assert.equal(await istFassungBekannt(null), true);
-    assert.deepEqual(api.calls, ["/einwilligung/fassungen/2026-09-bestaetigung-3", "/einwilligung/fassungen/liga-2019-01-erfunden"]);
+    expect(await istFassungBekannt("2026-09-bestaetigung-3")).toBe(true);
+    expect(await istFassungBekannt("liga-2019-01-erfunden")).toBe(false);
+    expect(await istFassungBekannt(null)).toBe(true);
+    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigung-3", "/einwilligung/fassungen/liga-2019-01-erfunden"]);
   });
 
   it("keeps a label's words, and a label the registry does not hold, at the longest life", async () => {
     await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
     await getEinwilligungFassung("2026-07");
 
-    assert.deepEqual(lifetimes, ["max", "max"]);
+    expect(lifetimes).toStrictEqual(["max", "max"]);
   });
 
   /* Answered inside the cached scope and thrown outside it: a production build redacts a cached
@@ -139,8 +137,11 @@ describe("the words read", () => {
     });
     api.answerWith(() => Promise.reject(malformed));
 
-    await assert.rejects(getEinwilligungFassung("2026-10-spielerseite-5"), { name: "ContractBreakError", message: /2026-10-spielerseite-5/ });
-    assert.deepEqual(lifetimes, ["seconds"], "a malformed answer is kept as long as words are, or declared twice");
+    await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toMatchObject({
+      name: "ContractBreakError",
+      message: expect.stringMatching(/2026-10-spielerseite-5/),
+    });
+    expect(lifetimes, "a malformed answer is kept as long as words are, or declared twice").toStrictEqual(["seconds"]);
   });
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.
@@ -148,7 +149,7 @@ describe("the words read", () => {
     for (const thrown of [failure(404, undefined), failure(500, "SYS-001")]) {
       api.answerWith(() => Promise.reject(thrown));
 
-      await assert.rejects(getEinwilligungFassung("2026-10-spielerseite-5"), (error) => error === thrown);
+      await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toSatisfy((error) => error === thrown);
     }
   });
 });
@@ -167,7 +168,7 @@ describe("the running label", () => {
     beginRenderPass();
     await getLaufendesLabel("bestaetigung_kontakt");
 
-    assert.deepEqual(api.calls, ["/einwilligung/seiten", "/einwilligung/seiten"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/seiten", "/einwilligung/seiten"]);
   });
 
   it("answers each page the label the backend runs there, and that label's words", async () => {
@@ -182,8 +183,8 @@ describe("the running label", () => {
       ["bestaetigung_spieler_wiederkehrend", SPIELER_WIEDERKEHREND],
       ["bestaetigung_schiedsrichter", SCHIEDSRICHTER],
     ] as const) {
-      assert.equal(await getLaufendesLabel(seite), DOCUMENT.laufende_fassungen[seite]);
-      assert.deepEqual(await getLaufendeFassung(seite), fassung);
+      expect(await getLaufendesLabel(seite)).toBe(DOCUMENT.laufende_fassungen[seite]);
+      expect(await getLaufendeFassung(seite)).toStrictEqual(fassung);
     }
   });
 
@@ -191,9 +192,9 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith(() => Promise.resolve({ acknowledged: 1, laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
 
-    await assert.rejects(getLaufendesLabel("bestaetigung_kontakt"), {
+    await expect(getLaufendesLabel("bestaetigung_kontakt")).rejects.toMatchObject({
       name: "ContractBreakError",
-      message: /runs no label for the page bestaetigung_kontakt/,
+      message: expect.stringMatching(/runs no label for the page bestaetigung_kontakt/),
     });
   });
 
@@ -206,7 +207,10 @@ describe("the running label", () => {
         : Promise.resolve(einwilligungAnswer(endpoint)),
     );
 
-    await assert.rejects(getLaufendeFassung("bewerbung"), { name: "ContractBreakError", message: /runs 2026-01-nirgends on bewerbung/ });
+    await expect(getLaufendeFassung("bewerbung")).rejects.toMatchObject({
+      name: "ContractBreakError",
+      message: expect.stringMatching(/runs 2026-01-nirgends on bewerbung/),
+    });
   });
 });
 
@@ -223,12 +227,10 @@ describe("a page's keyed words", () => {
     ]) {
       const { absaetze } = gekeyteFassung(fassung, schluessel, bedien);
 
-      assert.deepEqual(
-        Object.keys(fassung.absaetze_nach_schluessel ?? {}),
-        [...schluessel],
-        `${fassung.text_version} is keyed in another order`,
-      );
-      assert.deepEqual(Object.values(absaetze), fassung.absaetze, `${fassung.text_version}'s keyed words and its frozen array differ`);
+      expect(Object.keys(fassung.absaetze_nach_schluessel ?? {}), `${fassung.text_version} is keyed in another order`).toStrictEqual([
+        ...schluessel,
+      ]);
+      expect(Object.values(absaetze), `${fassung.text_version}'s keyed words and its frozen array differ`).toStrictEqual(fassung.absaetze);
     }
   });
 
@@ -236,23 +238,23 @@ describe("a page's keyed words", () => {
     const { worum: _fehlt, ...ohneWorum } = KONTAKT.absaetze_nach_schluessel ?? {};
 
     // The control keys passed whole, so a throw here is the paragraph map's alone.
-    assert.throws(() =>
+    expect(() =>
       gekeyteFassung({ ...KONTAKT, absaetze_nach_schluessel: ohneWorum }, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL),
-    );
-    assert.throws(() =>
+    ).toThrow();
+    expect(() =>
       gekeyteFassung(
         { ...KONTAKT, absaetze_nach_schluessel: { ...KONTAKT.absaetze_nach_schluessel, mehr: "x" } },
         KONTAKT_ABSATZ_SCHLUESSEL,
         KONTAKT_BEDIEN_SCHLUESSEL,
       ),
-    );
+    ).toThrow();
   });
 
   // An earlier label's keys were never kept, and another page's are not this page's.
   it("refuses a label whose keys were never kept, and another page's label", () => {
     // No controls on that label, so the throw is the paragraph map's alone.
-    assert.throws(() => gekeyteFassung(publishedFassung("2026-09-bestaetigungsseite-5", DOCUMENT), KONTAKT_ABSATZ_SCHLUESSEL));
-    assert.throws(() => gekeyteFassung(SCHIEDSRICHTER, SPIELER_ABSATZ_SCHLUESSEL));
+    expect(() => gekeyteFassung(publishedFassung("2026-09-bestaetigungsseite-5", DOCUMENT), KONTAKT_ABSATZ_SCHLUESSEL)).toThrow();
+    expect(() => gekeyteFassung(SCHIEDSRICHTER, SPIELER_ABSATZ_SCHLUESSEL)).toThrow();
   });
 
   /* A control whose words sit outside the frozen wording is a question a record cannot reproduce
@@ -262,10 +264,8 @@ describe("a page's keyed words", () => {
     const spieler = gekeyt(SPIELER);
     const schiedsrichter = gekeyt(SCHIEDSRICHTER);
 
-    assert.notEqual(
-      spieler.bedienelemente.intern,
+    expect(spieler.bedienelemente.intern, "one page's chip answers the other's page, where the two say different things about a name").not.toBe(
       schiedsrichter.bedienelemente.intern,
-      "one page's chip answers the other's page, where the two say different things about a name",
     );
   });
 });
@@ -323,7 +323,7 @@ describe("the wording the backend runs", () => {
     for (const fassung of [SPIELER, SCHIEDSRICHTER]) {
       const { absaetze } = gekeyt(fassung);
 
-      assert.match(absaetze.art21, /^Der Verarbeitung .* \(Art\. 21 DSGVO\)\.$/, `${fassung.text_version} states no objection of its own`);
+      expect(absaetze.art21, `${fassung.text_version} states no objection of its own`).toMatch(/^Der Verarbeitung .* \(Art\. 21 DSGVO\)\.$/);
       assert.ok(!absaetze.widerruf.includes("Art. 21"), `${fassung.text_version} folds the objection into the rights paragraph`);
     }
   });
@@ -333,10 +333,8 @@ describe("the wording the backend runs", () => {
     for (const fassung of KONTAKTSEITEN) {
       const { absaetze } = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
 
-      assert.match(
-        absaetze.art21,
+      expect(absaetze.art21, `${fassung.text_version} states no objection of its own`).toMatch(
         /^Der Verarbeitung Deiner Daten .* \(Art\. 21 DSGVO\)\.$/,
-        `${fassung.text_version} states no objection of its own`,
       );
       assert.ok(!absaetze.widerruf.includes("Art. 21"), `${fassung.text_version} folds the objection into the rights paragraph`);
     }
@@ -345,13 +343,12 @@ describe("the wording the backend runs", () => {
   /* The form is the submitting Ansprechperson's first contact, so the same article asks the objection
      there, and a live label losing it sends that person to their own page first to learn of it. */
   it("points the live form label at a paragraph holding the objection and nothing else", () => {
-    assert.deepEqual(
+    expect(
       BEWERBUNG.absaetze.filter((absatz) => absatz.includes("Art. 21")),
-      [
-        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
-      ],
       `${BEWERBUNG.text_version} states no objection of its own, or folds it into another paragraph`,
-    );
+    ).toStrictEqual([
+      "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO).",
+    ]);
   });
 
   /* A label dropping either offers a consent with no place, or promises more than the league keeps. */
@@ -434,17 +431,16 @@ describe("the wording the backend runs", () => {
     // for their own, so one label may not answer the other's words.
     assert.ok(alt.absaetze.join(" ").includes("Geburtsdatum speichert"), "the retired wording lost the words that identify it");
     assert.ok(!BEWERBUNG.absaetze.join(" ").includes("Geburtsdatum speichert"), "the current wording answers under the old label");
-    assert.notEqual(alt.schalter, BEWERBUNG.schalter, "both versions label the switch the same way");
+    expect(alt.schalter, "both versions label the switch the same way").not.toBe(BEWERBUNG.schalter);
   });
 
   /* The form's label is stamped on a record the applicant made and on one an administrator made, and
      neither of those readers saw a word of the confirmation page. */
   it("gives the confirmation page a label of its own, sharing no paragraph with the submitted one", () => {
-    assert.notEqual(KONTAKT.text_version, BEWERBUNG.text_version, "both surfaces stamp one label");
-    assert.deepEqual(
+    expect(KONTAKT.text_version, "both surfaces stamp one label").not.toBe(BEWERBUNG.text_version);
+    expect(
       KONTAKT.absaetze.filter((absatz) => BEWERBUNG.absaetze.includes(absatz)),
-      [],
       "a paragraph answers under both labels, so one of the two records cites words nobody read",
-    );
+    ).toStrictEqual([]);
   });
 });

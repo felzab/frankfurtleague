@@ -116,11 +116,8 @@ const SPERRE_NOTICE_OWNER = "src/features/sperrliste/actions.ts";
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
-/** The suite's own harness, which the production bans leave out as they leave out the tests. */
-const TEST_SUPPORT = [
-  "src/shared/testing/**/*.{ts,tsx}",
-  "src/core/{authDoubles,blankComments,cacheScope,childTestRun,edgeRedaction,einwilligungDocument,expiredTransactions,exportingModule,keyTiers,mailDouble,mailText,openapiDocument,openingTag,publishedCeilings,pythonComments,schemaModules,schemeReader,stdoutCapture,subjectFixtures,testAuthenticator,treeWalk,verdicts}.ts",
-];
+/** The tests' own support modules, in one folder no production module imports, which the production bans leave out as they leave out the tests. */
+const TEST_SUPPORT = ["src/test-support/**/*.{ts,tsx}"];
 
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
 const CLASS_LIST_CONSTANT = {
@@ -137,8 +134,8 @@ const CLASS_LIST_SITES = [
 ].join(", ");
 
 /**
- * A package root loads whole under `node --test`, which has no bundler to narrow it
- * (`docs/frontend/spec.md` §1.9). `useOverlayState` is published at the root alone.
+ * A package root loads whole under the test runner, which hands a package to Node unbundled.
+ * `useOverlayState` is published at the root alone.
  */
 const VENDOR_ROOTS = [
   {
@@ -157,11 +154,11 @@ const restrictImports = (...patterns) => ({ "no-restricted-imports": ["error", {
 
 /**
  * Next keeps the router and search-parameter contexts on private modules no public export carries.
- * `nextContexts.ts` is their one importer, left out of this ban by a block of its own below.
+ * `fl_frontend/src/test-support/nextContexts.ts` is their one importer, left out of this ban by a block of its own below.
  */
 const NEXT_PRIVATE_CONTEXTS = {
   regex: String.raw`next/dist/shared/lib/(?:app-router-context|hooks-client-context)\.shared-runtime`,
-  message: "Mount Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts rather than its private modules.",
+  message: "Mount Next's contexts through fl_frontend/src/test-support/nextContexts.ts rather than its private modules.",
 };
 
 /** The segmented date and time controls, composed in one file so every field reads as the dates the app prints. */
@@ -666,8 +663,8 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
-  // Production alone: a test's router double counts its own `back`, and `src/core/auth.test.ts` calls
-  // the plugin's deletion to hold it closed. `useEditorExit.ts` IS the history guard.
+  // Production alone: a test's router double counts its own `back`, and a test may call the plugin's
+  // deletion to hold it closed. `useEditorExit.ts` IS the history guard.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
@@ -751,12 +748,8 @@ const eslintConfig = defineConfig([
         owner.startsWith("src/core/") ? [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core] : PRODUCTION_IMPORTS,
       ]),
     [["src/core/afterResponse.ts"], [NEXT_AFTER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
-    // The harness and its own test, which the production bans leave out.
-    [
-      ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],
-      [NEXT_PRIVATE_CONTEXTS],
-      [...HOMED_IMPORTS, LAYER_BOUNDARY.shared],
-    ],
+    // The support module mounting Next's contexts, which the production bans leave out.
+    [["src/test-support/nextContexts.ts"], [NEXT_PRIVATE_CONTEXTS], HOMED_IMPORTS],
   ].map(([files, allowed, bans]) => ({ files, rules: restrictImports(...bans.filter((ban) => !allowed.includes(ban))) })),
 
   {

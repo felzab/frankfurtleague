@@ -128,7 +128,7 @@ export function mapRegistrierungSubmitRefusal(
  * It names a second attempt because the write refuses nothing on the strength of a pending row:
  * registering again mints a fresh link.
  */
-export const MAIL_ABGEWIESEN =
+const MAIL_ABGEWIESEN =
   "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut. " +
   `Der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
@@ -144,7 +144,7 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
  * The returning pupil's age refusal, judged on the date the league holds rather than one typed here: the page
  * has no field to correct, and every reopened link takes the same date, so the league is the repair.
  */
-export const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
+const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
   reason: "Dein bei uns gespeichertes Geburtsdatum liegt außerhalb der Altersgrenzen dieser Saison",
   repair: `Du siehst es in Deinem Konto. Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}`,
 });

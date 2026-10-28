@@ -34,7 +34,7 @@ import type {
  */
 export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben.";
 
-export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
+const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
 const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
 export const KUERZEL_UNGEPRUEFT = "Ob das Kürzel frei ist, prüfen wir spätestens beim Abschicken.";
 
@@ -342,7 +342,7 @@ export function abiJahrgang(saisonId: string): string {
   return String(Number(saisonId) + 1);
 }
 
-export const buildEmptyBewerbungKontaktperson = (textVersion: string): BewerbungKontaktpersonDraft => ({
+const buildEmptyBewerbungKontaktperson = (textVersion: string): BewerbungKontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
@@ -352,7 +352,7 @@ export const buildEmptyBewerbungKontaktperson = (textVersion: string): Bewerbung
 });
 
 /** A blank new school, held from the moment the form opens so nothing typed into it can be dropped. */
-export const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
+const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   team_name: "",
   full_name: "",
   shorthand: "",
@@ -383,7 +383,7 @@ export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string):
  * **Seat to Trainer**: the claim is answered on the Trainer's panel, last of the three, so the seat
  * it names holds a person already typed.
  */
-export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
+function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
 }
 

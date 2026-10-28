@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { applyFacets, offeredOptions, readFacetSelection } from "@/shared/utils/facets.ts";
@@ -80,7 +79,7 @@ describe("the referee facet an administrator is offered", () => {
   /* First: every assertion below asserts nothing where the cut finds no facet. */
   it("offers the referee as a facet at all", () => {
     assert.ok(SCHIEDSRICHTER_FACET, "no facet reads the referee parameter");
-    assert.equal(SCHIEDSRICHTER_FACET.label, "Schiedsrichter");
+    expect(SCHIEDSRICHTER_FACET.label).toBe("Schiedsrichter");
   });
 
   /* Not a merge this reader performs: the erasure repointed both fixtures at one row, so one option
@@ -88,37 +87,37 @@ describe("the referee facet an administrator is offered", () => {
   it("offers one option for every erased referee's fixtures together", () => {
     const ghosted = SCHIEDSRICHTER_FACET?.options.filter((option) => option.value === GHOST) ?? [];
 
-    assert.equal(ghosted.length, 1, `${String(ghosted.length)} options stand for the ghost, which an administrator cannot tell apart`);
+    expect(ghosted.length, `${String(ghosted.length)} options stand for the ghost, which an administrator cannot tell apart`).toBe(1);
   });
 
   /* Two different absences, and one word for both would file a teacher's unfinished entry under a
      deletion that never touched them. */
   it("words the ghost as the erasure's own and a nameless row as an unfinished entry", () => {
-    assert.equal(GHOST_OPTION?.label, SCHIEDSRICHTER_ANONYM_LABEL);
-    assert.equal(SCHIEDSRICHTER_FACET?.options.find((option) => option.value === NAMENLOS)?.label, SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
+    expect(GHOST_OPTION?.label).toBe(SCHIEDSRICHTER_ANONYM_LABEL);
+    expect(SCHIEDSRICHTER_FACET?.options.find((option) => option.value === NAMENLOS)?.label).toBe(SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
   });
 
   it("narrows to the fixtures of every erased referee under that one option", () => {
     const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${GHOST}`));
 
-    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [GHOSTED_A, GHOSTED_B]);
+    expect(applyFacets([...SEASON], ADMIN_FACETS, selection)).toStrictEqual([GHOSTED_A, GHOSTED_B]);
   });
 
   // Paired with the case above, which one option over every nameless row would also satisfy.
   it("keeps a nameless row's own fixtures off the ghost's option", () => {
     const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${NAMENLOS}`));
 
-    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [NAMELESS]);
+    expect(applyFacets([...SEASON], ADMIN_FACETS, selection)).toStrictEqual([NAMELESS]);
   });
 
   it("keeps a named referee on an option of their own", () => {
     const selection = readFacetSelection(ADMIN_FACETS, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${COLLINA}`));
 
-    assert.deepEqual(applyFacets([...SEASON], ADMIN_FACETS, selection), [NAMED]);
+    expect(applyFacets([...SEASON], ADMIN_FACETS, selection)).toStrictEqual([NAMED]);
   });
 
   it("files a fixture with no referee under no option, rather than under the ghost's", () => {
-    assert.deepEqual(SCHIEDSRICHTER_FACET?.read(UNASSIGNED), []);
+    expect(SCHIEDSRICHTER_FACET?.read(UNASSIGNED)).toStrictEqual([]);
   });
 
   /* The referee list links each row on its own id, so a season whose fixtures name a referee the
@@ -136,11 +135,10 @@ describe("the referee facet an administrator is offered", () => {
     const facet = facets.find((candidate) => candidate.param === SCHIEDSRICHTER_PARAM) ?? assert.fail("the season offers no referee facet");
     const selection = readFacetSelection(facets, new URLSearchParams(`${SCHIEDSRICHTER_PARAM}=${NAMENLOS}`));
 
-    assert.deepEqual(selection, { [SCHIEDSRICHTER_PARAM]: [NAMENLOS] });
-    assert.deepEqual(
-      offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).filter((option) => option.value === NAMENLOS),
-      [{ value: NAMENLOS, label: SCHIEDSRICHTER_OHNE_NAMEN_LABEL }],
-    );
+    expect(selection).toStrictEqual({ [SCHIEDSRICHTER_PARAM]: [NAMENLOS] });
+    expect(offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).filter((option) => option.value === NAMENLOS)).toStrictEqual([
+      { value: NAMENLOS, label: SCHIEDSRICHTER_OHNE_NAMEN_LABEL },
+    ]);
     assert.ok(
       offeredOptions(facet, selection[SCHIEDSRICHTER_PARAM] ?? []).every((option) => option.value !== GHOST),
       "the ghost is offered on a season whose fixtures never name it",
@@ -152,10 +150,13 @@ describe("the facets a fixture list is narrowed by", () => {
   /* Spelled out whole: what this catches is an admin-only facet reaching the list a visitor reads,
      which is the referee's today and another one tomorrow. */
   it("offers a visitor no referee facet", () => {
-    assert.deepEqual(
-      buildSpielFacets({ spiele: SEASON, today: TODAY, isAdmin: false, spieltage: SPIELTAGE }).map((facet) => facet.param),
-      ["status", "phase", "spieltag", "team", "ort"],
-    );
+    expect(buildSpielFacets({ spiele: SEASON, today: TODAY, isAdmin: false, spieltage: SPIELTAGE }).map((facet) => facet.param)).toStrictEqual([
+      "status",
+      "phase",
+      "spieltag",
+      "team",
+      "ort",
+    ]);
   });
 
   /* The set `fl_frontend/src/shared/utils/facets.test.ts` holds every discovered slice to: three a control
@@ -164,8 +165,8 @@ describe("the facets a fixture list is narrowed by", () => {
     const params = ADMIN_FACETS.map((facet) => facet.param);
     const claimed = params.filter((param) => ["q", "order", "saison_id", "section"].includes(param));
 
-    assert.equal(new Set(params).size, params.length, `two facets share a parameter: ${params.join(", ")}`);
-    assert.deepEqual(claimed, [], `a facet claims a parameter another control spends: ${claimed.join(", ")}`);
+    expect(new Set(params).size, `two facets share a parameter: ${params.join(", ")}`).toBe(params.length);
+    expect(claimed, `a facet claims a parameter another control spends: ${claimed.join(", ")}`).toStrictEqual([]);
   });
 
   it("finds a club whichever side of the fixture it played on", () => {
@@ -174,31 +175,31 @@ describe("the facets a fixture list is narrowed by", () => {
     const facets = buildSpielFacets({ spiele: [heim, auswaerts], today: TODAY, isAdmin: true });
     const selection = readFacetSelection(facets, new URLSearchParams(`team=${GAMMA}`));
 
-    assert.equal(facets.find((facet) => facet.param === "team")?.options.length, 2, "a club playing both sides is offered twice");
-    assert.deepEqual(applyFacets([heim, auswaerts], facets, selection), [heim, auswaerts]);
+    expect(facets.find((facet) => facet.param === "team")?.options.length, "a club playing both sides is offered twice").toBe(2);
+    expect(applyFacets([heim, auswaerts], facets, selection)).toStrictEqual([heim, auswaerts]);
   });
 
   it("answers with every gap a fixture has, and `vollstaendig` only where it has none", () => {
     const ansetzung = ADMIN_FACETS.find((facet) => facet.param === "ansetzung");
     const bare = spiel(7, { datum: null, uhrzeit: null, ort: null });
 
-    assert.deepEqual(ansetzung?.read(bare), ["kein_datum", "keine_uhrzeit", "kein_ort", "kein_schiedsrichter"]);
-    assert.deepEqual(ansetzung?.read(NAMED), ["vollstaendig"]);
+    expect(ansetzung?.read(bare)).toStrictEqual(["kein_datum", "keine_uhrzeit", "kein_ort", "kein_schiedsrichter"]);
+    expect(ansetzung?.read(NAMED)).toStrictEqual(["vollstaendig"]);
   });
 
   it("counts a cancelled fixture that carries a result as scored", () => {
     const ergebnis = ADMIN_FACETS.find((facet) => facet.param === "ergebnis");
     const forfeit = spiel(8, { sonderereignis: "nichtantreten_team1", ergebnis: "3:0" });
 
-    assert.deepEqual(ergebnis?.read(forfeit), ["gewertet"]);
-    assert.deepEqual(ergebnis?.read(UNASSIGNED), ["offen"]);
+    expect(ergebnis?.read(forfeit)).toStrictEqual(["gewertet"]);
+    expect(ergebnis?.read(UNASSIGNED)).toStrictEqual(["offen"]);
   });
 
   it("offers the matchdays in the order they are played rather than by name", () => {
-    assert.deepEqual(
-      ADMIN_FACETS.find((facet) => facet.param === "spieltag")?.options.map((option) => option.label),
-      ["2. Spieltag", "10. Spieltag"],
-    );
+    expect(ADMIN_FACETS.find((facet) => facet.param === "spieltag")?.options.map((option) => option.label)).toStrictEqual([
+      "2. Spieltag",
+      "10. Spieltag",
+    ]);
   });
 
   it("declares no matchday facet where the page fetched none", () => {

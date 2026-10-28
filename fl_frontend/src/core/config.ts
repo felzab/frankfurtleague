@@ -10,7 +10,7 @@ import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
 // without the space, which `secrets.compare_digest` there reads (`docs/ops/spec.md :: I11`).
-export const INTERNAL_API_KEY = z
+const INTERNAL_API_KEY = z
   .string()
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "printable ASCII only, with no space");
@@ -127,7 +127,7 @@ function refuseUnreadableSecretFiles(unreadable: readonly string[]): never {
 
 // Names only: an issue's message, or its `input` under `reportInput`, can quote a rejected value,
 // which a container log must never hold (`docs/ops/spec.md :: I179`). An empty path refuses the whole object.
-export function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[] {
+function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[] {
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 

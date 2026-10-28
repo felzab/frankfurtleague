@@ -1,8 +1,3 @@
-import assert from "node:assert/strict";
-import { after, beforeEach, describe, it } from "node:test";
-
-import { jwtVerify } from "jose";
-
 import {
   ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
@@ -14,13 +9,15 @@ import {
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "./authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
-import { answerAt, SITZ } from "./subjectFixtures.ts";
+} from "@/test-support/authDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { jwtVerify } from "jose";
+import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { SessionRow } from "./authDoubles.ts";
+import type { SessionRow } from "@/test-support/authDoubles.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { RequestActor } from "./requestScope.ts";
-import type { LookupFixture } from "./subjectFixtures.ts";
 
 const STORE = "__flSubjectStore";
 
@@ -109,16 +106,13 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     headers: { "content-type": "application/json" },
   });
 }) as typeof globalThis.fetch;
-after(() => {
+afterAll(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
-/** The modules whose `cache` this suite counts through, each built as Next renders it. */
-const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/auth.ts"];
-
 // The server build for these alone: the client build's `cache` passes through, so a guard or a
 // lookup that lost its memo would read the same under every case here.
-serveServerReactTo((parentURL) => MEMOIZED.some((module) => parentURL.endsWith(module)));
+serveServerReact();
 
 // Every case is a request of its own, and a memo carried across two would answer one case with
 // another's session.
@@ -126,8 +120,7 @@ beforeEach(() => {
   beginRenderPass();
 });
 
-// Imported here rather than at the top: a static import resolves before the hooks above are
-// registered, so neither the doubles nor the `next/headers` extension would be in place yet.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth, getAdminSession, getSignInDestination } = await import("./auth.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { lookUpSubjekt } = await import("./signInGate.ts");
@@ -186,22 +179,22 @@ describe("who the seam answers for", () => {
     arriveAs(null);
     const before = sent.length;
 
-    assert.equal(await getSubjectSession(), null);
-    assert.equal(sent.length, before, "a visitor with no session still cost a lookup of the league's records");
+    expect(await getSubjectSession()).toBe(null);
+    expect(sent.length, "a visitor with no session still cost a lookup of the league's records").toBe(before);
   });
 
   /* `admin` is the administrator's whole verdict, so a page may gate an administrator-only control
      on it: the grant alone answers `true` for sessions that lane refuses. */
   it("answers a session holding a grant its seat, and marks a code-borne one no administrator", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
+    expect(row.authFactor, "the mailbox factor's own verification did not stamp it").toBe("code");
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
 
-    assert.equal(answer?.admin, false);
-    assert.equal(answer?.email, ADMIN_EMAIL);
-    assert.deepEqual(answer?.subjekt.sitze, [SITZ]);
+    expect(answer?.admin).toBe(false);
+    expect(answer?.email).toBe(ADMIN_EMAIL);
+    expect(answer?.subjekt.sitze).toStrictEqual([SITZ]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -209,7 +202,7 @@ describe("who the seam answers for", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    assert.equal((await getSubjectSession())?.admin, true);
+    expect((await getSubjectSession())?.admin).toBe(true);
   });
 
   /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds
@@ -220,20 +213,23 @@ describe("who the seam answers for", () => {
     store.passkey.length = 0;
     arriveAs(cookie);
 
-    assert.equal(await getSubjectSession(), null);
+    expect(await getSubjectSession()).toBe(null);
   });
 
   /* The admin guard refuses a session its grant postdates (`docs/frontend/spec.md :: I470`), so a control
      gated on this mark offers it nothing either; the person's records stand. */
-  it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async (t) => {
-    t.after(() =>
-      RECORDS.set(ADMIN_EMAIL, {
-        ...HOLDS_NOTHING,
-        sitze: [SITZ],
-        verwaltung: "administration",
-        berechtigt_seit: "2026-01-01T00:00:00Z",
-        konto: true,
-      }),
+  it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async ({
+    onTestFinished,
+  }) => {
+    onTestFinished(
+      () =>
+        void RECORDS.set(ADMIN_EMAIL, {
+          ...HOLDS_NOTHING,
+          sitze: [SITZ],
+          verwaltung: "administration",
+          berechtigt_seit: "2026-01-01T00:00:00Z",
+          konto: true,
+        }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -251,11 +247,11 @@ describe("who the seam answers for", () => {
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      assert.deepEqual(answer.subjekt.sitze, [SITZ]);
+      expect(answer.subjekt.sitze).toStrictEqual([SITZ]);
       marks.push(answer.admin);
     }
 
-    assert.deepEqual(marks, [false, true]);
+    expect(marks).toStrictEqual([false, true]);
   });
 
   it("drops that mark past the administrator's window, which this lane's own lifetime outlasts", async () => {
@@ -267,7 +263,7 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer, "the person's window refused this session, so the mark below is compared to nothing");
-    assert.equal(answer.admin, false);
+    expect(answer.admin).toBe(false);
   });
 
   /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
@@ -279,7 +275,7 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), [
+    expect(Object.keys(answer.subjekt).sort()).toStrictEqual([
       "berechtigt_seit",
       "gesperrt",
       "inhaber_seit",
@@ -289,7 +285,7 @@ describe("who the seam answers for", () => {
       "unbestaetigt",
       "verwaltung",
     ]);
-    assert.equal(answer.subjekt.verwaltung, "administration");
+    expect(answer.subjekt.verwaltung).toBe("administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -302,7 +298,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
+    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(true);
   });
 
   /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
@@ -315,7 +311,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
+    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(false);
   });
 
   /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
@@ -330,13 +326,13 @@ describe("who the seam answers for", () => {
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined);
+    expect(answer).toBe(null);
+    expect(actor).toBe(undefined);
   });
 
   /* The case the seam exists for. The code is created in process rather than mailed, whether one
-     reaches such an address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s
-     subject, and the library's own verification mints the session over it. */
+     reaches such an address being the send gate's question, and the library's own verification mints
+     the session over it. */
   it("answers an address holding no grant, unmarked, with the records it names", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     // Made by a passkey, as a person's may be: a code-borne session is unmarked whatever the grant says.
@@ -345,10 +341,10 @@ describe("who the seam answers for", () => {
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer?.admin, false);
-    assert.equal(answer?.email, PERSON_EMAIL);
-    assert.deepEqual(answer?.subjekt.spieler, [PUPIL]);
-    assert.equal(actor?.email, PERSON_EMAIL, "the request scope holds a spelling the join and the log do not share");
+    expect(answer?.admin).toBe(false);
+    expect(answer?.email).toBe(PERSON_EMAIL);
+    expect(answer?.subjekt.spieler).toStrictEqual([PUPIL]);
+    expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
   /* One spelling per person, or a seat holder is answered no Funktion and shown the forbidden
@@ -361,14 +357,14 @@ describe("who the seam answers for", () => {
     // case below with the fold deleted.
     const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
     assert.ok(held, "the sign-in minted no session, so the comparison below passes on a null address");
-    assert.notEqual(held.user.email, FOLDED_EMAIL, `the session already holds ${String(held.user.email)}`);
+    expect(held.user.email, `the session already holds ${String(held.user.email)}`).not.toBe(FOLDED_EMAIL);
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer?.email, FOLDED_EMAIL);
-    assert.equal(actor?.email, FOLDED_EMAIL);
-    assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_EMAIL);
-    assert.deepEqual(answer?.subjekt.spieler, [PUPIL], "the lookup was asked about a mailbox the league holds nothing for");
+    expect(answer?.email).toBe(FOLDED_EMAIL);
+    expect(actor?.email).toBe(FOLDED_EMAIL);
+    expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
+    expect(answer?.subjekt.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([PUPIL]);
   });
 });
 
@@ -380,8 +376,8 @@ describe("the request the seam makes", () => {
     await getSubjectSession();
     const call = lastSent();
 
-    assert.equal(call.method, "POST");
-    assert.equal(new URL(call.url).href, `${API_ORIGIN}/api/v${API_VERSION}/identitaet/subjekt`);
+    expect(call.method).toBe("POST");
+    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v${API_VERSION}/identitaet/subjekt`);
     // An address on a path or a query reaches the edge's access line, which nothing downstream
     // un-logs (`docs/logging/spec.md :: L11`).
     assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);
@@ -397,8 +393,8 @@ describe("the request the seam makes", () => {
     const call = lastSent();
 
     assert.ok(actor, "the scope holds no actor, so the absent header below is not this call's doing");
-    assert.equal(call.headers.get("authorization"), "Bearer fabricated-system-not-a-credential");
-    assert.equal(call.headers.get("x-fl-actor"), null);
+    expect(call.headers.get("authorization")).toBe("Bearer fabricated-system-not-a-credential");
+    expect(call.headers.get("x-fl-actor")).toBe(null);
   });
 
   /* An error boundary replacing the panel is the fail-closed answer: `null` would offer a sign-in
@@ -412,7 +408,7 @@ describe("the request the seam makes", () => {
       headers: { "content-type": "application/json" },
     });
 
-    await assert.rejects(() => getSubjectSession());
+    await expect((() => getSubjectSession())()).rejects.toThrow();
   });
 
   // A lookup that stores nothing, posted only to keep the address out of the URL: its timeout is a read
@@ -422,8 +418,7 @@ describe("the request the seam makes", () => {
     arriveAs(cookie);
     nextTimesOut = true;
 
-    await assert.rejects(
-      () => getSubjectSession(),
+    await expect((() => getSubjectSession())()).rejects.toSatisfy(
       (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
     );
   });
@@ -433,7 +428,7 @@ describe("the request the seam makes", () => {
     arriveAs(cookie);
     nextAnswer = new Response(JSON.stringify({ acknowledged: 1 }), { status: 200, headers: { "content-type": "application/json" } });
 
-    await assert.rejects(() => getSubjectSession());
+    await expect((() => getSubjectSession())()).rejects.toThrow();
   });
 });
 
@@ -451,9 +446,9 @@ describe("a session the store cannot answer for", () => {
     const { answer, actor } = await guardInScope();
     user.email = PERSON_EMAIL;
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined);
-    assert.equal(sent.length, before, "a session naming no mailbox still cost a lookup of the league's records");
+    expect(answer).toBe(null);
+    expect(actor).toBe(undefined);
+    expect(sent.length, "a session naming no mailbox still cost a lookup of the league's records").toBe(before);
   });
 
   /* Both spellings of nothing: the empty one the fold never sees, and the blank one it folds to
@@ -473,9 +468,9 @@ describe("a session the store cannot answer for", () => {
       const { answer, actor } = await guardInScope();
       user.email = PERSON_EMAIL;
 
-      assert.equal(answer, null, `an address of ${JSON.stringify(blank)} was answered for`);
-      assert.equal(actor, undefined);
-      assert.equal(sent.length, before, `an address of ${JSON.stringify(blank)} still cost a lookup`);
+      expect(answer, `an address of ${JSON.stringify(blank)} was answered for`).toBe(null);
+      expect(actor).toBe(undefined);
+      expect(sent.length, `an address of ${JSON.stringify(blank)} still cost a lookup`).toBe(before);
     }
   });
 
@@ -489,9 +484,9 @@ describe("a session the store cannot answer for", () => {
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined);
-    assert.equal(sent.length, before, "a session with an unreadable stamp still cost a lookup of the league's records");
+    expect(answer).toBe(null);
+    expect(actor).toBe(undefined);
+    expect(sent.length, "a session with an unreadable stamp still cost a lookup of the league's records").toBe(before);
   });
 });
 
@@ -503,9 +498,9 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined, "a refused session named the actor of whatever this request writes next");
-    assert.equal(await getSignInDestination(), "/signin", "the two copies of the idle figure answer differently");
+    expect(answer).toBe(null);
+    expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
+    expect(await getSignInDestination(), "the two copies of the idle figure answer differently").toBe("/signin");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
@@ -517,9 +512,9 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined, "a refused session named the actor of whatever this request writes next");
-    assert.equal(await getSignInDestination(), "/signin", "the two copies of the absolute figure answer differently");
+    expect(answer).toBe(null);
+    expect(actor, "a refused session named the actor of whatever this request writes next").toBe(undefined);
+    expect(await getSignInDestination(), "the two copies of the absolute figure answer differently").toBe("/signin");
   });
 
   it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
@@ -528,7 +523,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
     arriveAs(cookie);
 
     assert.ok(await getSubjectSession());
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 });
 
@@ -550,13 +545,13 @@ describe("the actor a person's lane signs", () => {
       audience: "fl-backend",
     });
 
-    assert.equal(actor.lane, "person");
-    assert.equal(payload.lane, "person");
-    assert.equal(payload.email, FOLDED_EMAIL);
-    assert.equal(payload.sub, held.user.id);
-    assert.equal(payload.sid, held.session.id);
-    assert.deepEqual(payload.amr, [row.authFactor]);
-    assert.equal(payload.auth_time, Math.floor(row.createdAt.getTime() / 1000));
+    expect(actor.lane).toBe("person");
+    expect(payload.lane).toBe("person");
+    expect(payload.email).toBe(FOLDED_EMAIL);
+    expect(payload.sub).toBe(held.user.id);
+    expect(payload.sid).toBe(held.session.id);
+    expect(payload.amr).toStrictEqual([row.authFactor]);
+    expect(payload.auth_time).toBe(Math.floor(row.createdAt.getTime() / 1000));
   });
 
   /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one
@@ -568,8 +563,8 @@ describe("the actor a person's lane signs", () => {
 
     const { answer, actor } = await guardInScope();
 
-    assert.equal(answer, null);
-    assert.equal(actor, undefined);
+    expect(answer).toBe(null);
+    expect(actor).toBe(undefined);
   });
 });
 
@@ -587,8 +582,8 @@ describe("the guard across one render pass", () => {
     assert.ok(await getSubjectSession(), "the guard refused, so the scope below is asked about nothing");
     const { actor } = await guardInScope();
 
-    assert.equal(actor?.email, PERSON_EMAIL, "the memo answered, and the scope names nobody");
-    assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
+    expect(actor?.email, "the memo answered, and the scope names nobody").toBe(PERSON_EMAIL);
+    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(1);
   });
 
   /* The admin layout's hold runs before any read opens the scope an admin-tier call is
@@ -605,9 +600,9 @@ describe("the guard across one render pass", () => {
       return getRequestActor();
     });
 
-    assert.equal(actor?.email, ADMIN_EMAIL, "the memo answered, and the scope names nobody");
-    assert.equal(actor?.lane, "admin");
-    assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
+    expect(actor?.email, "the memo answered, and the scope names nobody").toBe(ADMIN_EMAIL);
+    expect(actor?.lane).toBe("admin");
+    expect(headerReads() - readsBefore, "the second call read the session again rather than the memo").toBe(1);
   });
 
   /* A layout, a guard and a page each asking inside one render pass. */
@@ -625,14 +620,14 @@ describe("the guard across one render pass", () => {
       answers.every((answer) => answer?.email === PERSON_EMAIL),
       "a guard was refused, so the counts below count refusals",
     );
-    assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
-    assert.equal(sent.length - sentBefore, 1, "the guards of one render pass each asked the backend");
+    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(1);
+    expect(sent.length - sentBefore, "the guards of one render pass each asked the backend").toBe(1);
 
     // The control: the next request is a new pass and reads again, so the counters count reads.
     beginRenderPass();
     await getSubjectSession();
-    assert.equal(headerReads() - readsBefore, 2, "a second request was answered from the first one's read");
-    assert.equal(sent.length - sentBefore, 2, "a second request was answered from the first one's lookup");
+    expect(headerReads() - readsBefore, "a second request was answered from the first one's read").toBe(2);
+    expect(sent.length - sentBefore, "a second request was answered from the first one's lookup").toBe(2);
   });
 
   /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
@@ -683,7 +678,7 @@ describe("the guard across one render pass", () => {
       answers.every((answer) => answer !== null),
       "a guard refused, so the count below counts a refusal",
     );
-    assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
+    expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(1);
   });
 
   /* The admin layout's hold, its switcher and the administrators page each read the grant or the
@@ -696,7 +691,7 @@ describe("the guard across one render pass", () => {
 
     const [served] = await Promise.all([getAdminSession(), lookUpSubjekt(ADMIN_EMAIL), verwaltungOf(ADMIN_EMAIL)]);
 
-    assert.equal(served?.user.email, ADMIN_EMAIL, "the guard refused, so the count below counts a refusal");
-    assert.equal(sent.length - sentBefore, 1, "the reads of one admin render pass each asked the backend");
+    expect(served?.user.email, "the guard refused, so the count below counts a refusal").toBe(ADMIN_EMAIL);
+    expect(sent.length - sentBefore, "the reads of one admin render pass each asked the backend").toBe(1);
   });
 });

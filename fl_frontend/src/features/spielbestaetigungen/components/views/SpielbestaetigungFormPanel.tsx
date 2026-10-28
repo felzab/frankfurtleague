@@ -46,7 +46,7 @@ import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate, Time } from "@internationalized/date";
 
 /** The disclosure's trigger, which the view's sheet presses by these words. */
-export const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
+const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type SpielbestaetigungAbschluss =

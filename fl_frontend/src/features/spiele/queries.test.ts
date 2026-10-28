@@ -1,23 +1,21 @@
-import assert from "node:assert/strict";
-import path from "node:path";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import type * as AdminRead from "@/shared/utils/adminRead.ts";
 
-/** The three filtered admin reads under test, whose `react` imports the server build must answer. */
-const FEATURE_URLS = ["spiele", "spieltage", "teams"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
-
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
+// administrator's, and only how often it reaches the backend is judged. Doubled where `queries.ts`
+// imports it, so nothing on the path loads the sign-in store.
+vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof AdminRead>()),
+  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
+}));
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ format: "list", teams: [], spiele: [], spieltage: [] }));
 
-serveServerReactTo((parentURL) => FEATURE_URLS.some((url) => parentURL.startsWith(url)));
+serveServerReact();
 
 const { getAdminSpiele } = await import("./queries.ts");
 const { getAdminSpieltage } = await import("../spieltage/queries.ts");
@@ -50,7 +48,7 @@ describe("the filtered admin reads across a render pass", () => {
     await readAllThree();
 
     for (const [endpoint, count] of before) {
-      assert.equal(countOf(endpoint) - count, 1, `${endpoint} went to the backend twice in one render pass`);
+      expect(countOf(endpoint) - count, `${endpoint} went to the backend twice in one render pass`).toBe(1);
     }
   });
 
@@ -65,7 +63,7 @@ describe("the filtered admin reads across a render pass", () => {
       getAdminSpiele({ saison_id: SAISON_ID, saison_phase: "gruppenphase" }),
     ]);
 
-    assert.equal(countOf("/spiele/list/admin") - before, 3, "two different filter sets shared one answer");
+    expect(countOf("/spiele/list/admin") - before, "two different filter sets shared one answer").toBe(3);
   });
 
   it("keys on the filters rather than the order they are written in", async () => {
@@ -77,7 +75,7 @@ describe("the filtered admin reads across a render pass", () => {
       getAdminSpieltage({ saison_phase: "playoffs", saison_id: SAISON_ID }),
     ]);
 
-    assert.equal(countOf("/spieltage/list/admin") - before, 1, "the same filters written in another order paid for a second round trip");
+    expect(countOf("/spieltage/list/admin") - before, "the same filters written in another order paid for a second round trip").toBe(1);
   });
 
   it("is fetched again in the next pass, so no request is served another's copy", async () => {
@@ -95,8 +93,8 @@ describe("the filtered admin reads across a render pass", () => {
     // would open on these reads, and 2 is no memoization at all.
     for (const [endpoint, count] of before) {
       const fetched = countOf(endpoint) - count;
-      assert.notEqual(fetched, 0, `a new request was served the previous request's answer for ${endpoint}`);
-      assert.equal(fetched, 1, `${endpoint} went to the backend twice in one render pass`);
+      expect(fetched, `a new request was served the previous request's answer for ${endpoint}`).not.toBe(0);
+      expect(fetched, `${endpoint} went to the backend twice in one render pass`).toBe(1);
     }
   });
 });

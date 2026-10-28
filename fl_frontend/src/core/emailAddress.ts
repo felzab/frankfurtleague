@@ -45,7 +45,7 @@ const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
  * refused with every name under it. The library moves without us;
  * `fl_backend/tests/shared/test_frontend_mirrors.py` holds this copy to the installed one.
  */
-export const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
+const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
 
 // RFC 1035 2.3.4 and 2.3.1, in octets of the punycoded host: an umlaut label transmits longer than it reads.
 const EMAIL_HOST_MAX_OCTETS = 253;

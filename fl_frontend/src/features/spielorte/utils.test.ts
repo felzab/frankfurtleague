@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { formatMapsLink } from "./utils.ts";
 
@@ -15,8 +14,7 @@ const ort = { id: "6890a1b2c3d4e5f607182930", address, name: "Sportplatz Ost", m
 
 describe("formatMapsLink", () => {
   it("builds a Google Maps search URL from the name and full address", () => {
-    assert.equal(
-      formatMapsLink(ort),
+    expect(formatMapsLink(ort)).toBe(
       "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ost%2C%20Hanauer%20Landstra%C3%9Fe%2012a%2C%2060314%20Ostend%20Frankfurt%20am%20Main%2C%20Deutschland",
     );
   });

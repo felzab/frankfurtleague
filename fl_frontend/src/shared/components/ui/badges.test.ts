@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge, trackLabelBadge } from "./badges.ts";
 
@@ -29,7 +28,9 @@ describe("the closed set every pill takes its colour from", () => {
   /* A tone with no fill or no ink paints half a chip, which renders and reports nothing; the neutral
      pair readmitted under a tone name puts it back in the closed set (`docs/frontend/spec.md :: I170`). */
   it("gives every tone a fill and an ink, and none of them the refused pair", () => {
-    assert.deepEqual([...TONES].sort(), Object.keys(PILL_TINT_CLASSES).sort(), "the set and this case's list no longer name the same tones");
+    expect([...TONES].sort(), "the set and this case's list no longer name the same tones").toStrictEqual(
+      Object.keys(PILL_TINT_CLASSES).sort(),
+    );
 
     for (const tone of TONES) {
       const tokens = PILL_TINT_CLASSES[tone].split(/\s+/);
@@ -53,10 +54,8 @@ describe("the closed set every pill takes its colour from", () => {
   /* A solid pair with a fill and no ink, or an ink and no fill, paints half a chip and reports
      nothing, which is what the tinted set is already held to. */
   it("gives every solid tone a fill and its paired on-colour, and none of them the refused pair", () => {
-    assert.deepEqual(
-      [...SOLID_TONES].sort(),
+    expect([...SOLID_TONES].sort(), "the set and this case's list no longer name the same tones").toStrictEqual(
       Object.keys(PILL_SOLID_CLASSES).sort(),
-      "the set and this case's list no longer name the same tones",
     );
 
     for (const tone of SOLID_TONES) {
@@ -102,6 +101,6 @@ describe("the closed set every pill takes its colour from", () => {
   it("still exports the radius the neutral-pill ban finds a pill module by", async () => {
     const badges = (await import(new URL("./badges.ts", import.meta.url).href)) as Record<string, unknown>;
 
-    assert.equal(typeof badges["PILL_RADIUS_CLASSES"], "string", "the ban's population is keyed on an export this module no longer has");
+    expect(typeof badges["PILL_RADIUS_CLASSES"], "the ban's population is keyed on an export this module no longer has").toBe("string");
   });
 });

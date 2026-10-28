@@ -44,7 +44,7 @@ type ActorClaims = {
 };
 
 /** A key file the boot or a mint could not use. The message names the path and never the contents. */
-export class ActorSigningKeyError extends Error {
+class ActorSigningKeyError extends Error {
   override name = "ActorSigningKeyError";
   readonly path: string;
   readonly reason: string;
@@ -60,7 +60,7 @@ export class ActorSigningKeyError extends Error {
  * `null` where the session cannot be stated truthfully: no address to fold, an unreadable creation
  * stamp, or a factor this league does not mint. The guard then answers no session.
  */
-export function actorClaimsOf(source: ActorSource, lane: ActorLane): ActorClaims | null {
+function actorClaimsOf(source: ActorSource, lane: ActorLane): ActorClaims | null {
   const email = asSignInIdentifier(source.user.email);
   const authTime = Math.floor(new Date(source.session.createdAt).getTime() / 1000);
   // The session's own stamp (`fl_frontend/src/core/auth.ts :: SESSION_FACTOR_BY_PATH`), as a private
@@ -74,7 +74,7 @@ export function actorClaimsOf(source: ActorSource, lane: ActorLane): ActorClaims
 }
 
 /** The compact JWS the backend verifies, issued at `issuedAt` in whole seconds. */
-export function mintActorToken(signing: SigningKey, claims: ActorClaims, issuedAt: number): Promise<string> {
+function mintActorToken(signing: SigningKey, claims: ActorClaims, issuedAt: number): Promise<string> {
   return (
     new SignJWT({ email: claims.email, sid: claims.sid, amr: [...claims.amr], auth_time: claims.auth_time, lane: claims.lane })
       // EdDSA alone, the one algorithm the backend allows (RFC 8725 §3.1, RFC 8037).
@@ -93,7 +93,7 @@ export function mintActorToken(signing: SigningKey, claims: ActorClaims, issuedA
 }
 
 /** Reads an Ed25519 private key in "PKCS#8" PEM; anything else refuses, naming why. */
-export async function loadSigningKey(path: string): Promise<SigningKey> {
+async function loadSigningKey(path: string): Promise<SigningKey> {
   let pem: string;
   try {
     pem = await readFile(path, "utf8");

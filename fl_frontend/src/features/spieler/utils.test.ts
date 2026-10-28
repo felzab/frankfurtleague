@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
+import { bestaetigteEinwilligung } from "@/test-support/einwilligung.ts";
+import { describe, expect, it } from "vitest";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
@@ -64,8 +62,8 @@ describe("collectHeldRollen", () => {
       exceptSpielerId: "z",
     });
 
-    assert.deepEqual(held[TEAM_A], { kapitaen: "X", co_kapitaen: "X" });
-    assert.deepEqual(held[TEAM_B], { kapitaen: "X" });
+    expect(held[TEAM_A]).toStrictEqual({ kapitaen: "X", co_kapitaen: "X" });
+    expect(held[TEAM_B]).toStrictEqual({ kapitaen: "X" });
   });
 
   it("leaves a retired row out, because a player who left is not leading the squad", () => {
@@ -75,7 +73,7 @@ describe("collectHeldRollen", () => {
       exceptSpielerId: "z",
     });
 
-    assert.equal(held[TEAM_A], undefined);
+    expect(held[TEAM_A]).toBe(undefined);
   });
 
   it("leaves another season out", () => {
@@ -85,7 +83,7 @@ describe("collectHeldRollen", () => {
       exceptSpielerId: "z",
     });
 
-    assert.equal(held[TEAM_A], undefined);
+    expect(held[TEAM_A]).toBe(undefined);
   });
 
   it("does not hold the edited player's own role against them", () => {
@@ -95,13 +93,13 @@ describe("collectHeldRollen", () => {
       exceptSpielerId: "a",
     });
 
-    assert.equal(held[TEAM_A], undefined);
+    expect(held[TEAM_A]).toBe(undefined);
   });
 
   it("reports no holder where every row is roleless", () => {
     const held = collectHeldRollen({ spieler: [person("a", [{}])], saisonId: "2026", exceptSpielerId: "z" });
 
-    assert.equal(held[TEAM_A], undefined);
+    expect(held[TEAM_A]).toBe(undefined);
   });
 });
 
@@ -113,8 +111,8 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    assert.equal(counts[TEAM_A], 2);
-    assert.equal(counts[TEAM_B], 1);
+    expect(counts[TEAM_A]).toBe(2);
+    expect(counts[TEAM_B]).toBe(1);
   });
 
   /* The same rows the write path counts: counting a retired one would report a squad full that the
@@ -126,7 +124,7 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    assert.equal(counts[TEAM_A], 1);
+    expect(counts[TEAM_A]).toBe(1);
   });
 
   it("leaves another season out", () => {
@@ -136,7 +134,7 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    assert.equal(counts[TEAM_A], undefined);
+    expect(counts[TEAM_A]).toBe(undefined);
   });
 
   /* Both sides of the exclusion on one input: a player already in the squad must not be told it is
@@ -144,8 +142,8 @@ describe("countLiveSquadRows", () => {
   it("leaves the writing player's own row out, and counts it where no writer is named", () => {
     const spieler = [person("a", [{}]), person("b", [{}])];
 
-    assert.equal(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: "a" })[TEAM_A], 1);
-    assert.equal(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: null })[TEAM_A], 2);
+    expect(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: "a" })[TEAM_A]).toBe(1);
+    expect(countLiveSquadRows({ spieler, saisonId: "2026", exceptSpielerId: null })[TEAM_A]).toBe(2);
   });
 
   /* `build_live_squad_filter` reads the junction alone. Skipping a retired person here would report
@@ -157,7 +155,7 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    assert.equal(counts[TEAM_A], 1);
+    expect(counts[TEAM_A]).toBe(1);
   });
 
   /* Absent rather than zero, as `collectHeldRollen` reports no holder: one shape for "this club has
@@ -169,7 +167,7 @@ describe("countLiveSquadRows", () => {
       exceptSpielerId: null,
     });
 
-    assert.equal(counts[TEAM_A], undefined);
+    expect(counts[TEAM_A]).toBe(undefined);
   });
 });
 
@@ -177,21 +175,21 @@ describe("squadIsFull", () => {
   /* `>` here would leave one place open in a squad the endpoint has already closed, and every picker
      and row gate on three pages would then offer a write that comes back 409. */
   it("closes a squad standing AT the cap and no earlier", () => {
-    assert.equal(squadIsFull(9, 10), false);
-    assert.equal(squadIsFull(10, 10), true);
-    assert.equal(squadIsFull(11, 10), true);
+    expect(squadIsFull(9, 10)).toBe(false);
+    expect(squadIsFull(10, 10)).toBe(true);
+    expect(squadIsFull(11, 10)).toBe(true);
   });
 
   /* `countLiveSquadRows` reports a club with no live row as absent rather than as zero, so the
      unbounded reading of that gap is what would refuse an empty squad. */
   it("reads an uncounted club as empty", () => {
-    assert.equal(squadIsFull(undefined, 1), false);
+    expect(squadIsFull(undefined, 1)).toBe(false);
   });
 
   /* A page that resolved no season reads no cap. Refusing there would take a write the endpoint
      accepts, on a figure nothing on that page could show the admin. */
   it("refuses nothing where the cap is unknown", () => {
-    assert.equal(squadIsFull(99, null), false);
+    expect(squadIsFull(99, null)).toBe(false);
   });
 });
 
@@ -202,27 +200,27 @@ describe("judgeRowReturn", () => {
   /* `REQ-SQUAD-001` is asked first there, so a replaced club is reported before any squad count, and a
      reader is never sent to free a place in a season the club has left. */
   it("refuses a row whose club the season no longer holds, whatever any squad's room", () => {
-    assert.equal(judgeRowReturn(TEAM_A, [{ ...other, isSquadFull: true }]), "clubLeft");
-    assert.equal(judgeRowReturn(TEAM_A, []), "clubLeft");
+    expect(judgeRowReturn(TEAM_A, [{ ...other, isSquadFull: true }])).toBe("clubLeft");
+    expect(judgeRowReturn(TEAM_A, [])).toBe("clubLeft");
   });
 
   // The row's own club and no other: the count is per squad.
   it("refuses a row whose own club's squad is full, and no row for another club's", () => {
-    assert.equal(judgeRowReturn(TEAM_A, [{ ...stored, isSquadFull: true }, other]), "squadFull");
-    assert.equal(judgeRowReturn(TEAM_A, [stored, { ...other, isSquadFull: true }]), "open");
+    expect(judgeRowReturn(TEAM_A, [{ ...stored, isSquadFull: true }, other])).toBe("squadFull");
+    expect(judgeRowReturn(TEAM_A, [stored, { ...other, isSquadFull: true }])).toBe("open");
   });
 
   // An unknown cap refuses nothing, as `SpielerTeamOption.isSquadFull` declares.
   it("opens a row whose club's room is unknown", () => {
-    assert.equal(judgeRowReturn(TEAM_A, [stored]), "open");
+    expect(judgeRowReturn(TEAM_A, [stored])).toBe("open");
   });
 });
 
 describe("nummerPayload", () => {
   // Both squad forms send through it, so one number is never refused on one form and taken on the other.
   it("sends a number without the space around it, and an emptied box as no number", () => {
-    assert.equal(nummerPayload(" 7 "), "7");
-    assert.equal(nummerPayload("  "), null);
-    assert.equal(nummerPayload(null), null);
+    expect(nummerPayload(" 7 ")).toBe("7");
+    expect(nummerPayload("  ")).toBe(null);
+    expect(nummerPayload(null)).toBe(null);
   });
 });

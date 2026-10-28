@@ -1,14 +1,11 @@
-import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it, mock } from "node:test";
-
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only the scope's own module: a render pass is what the server build's scope stands in for.
-serveServerReactTo((parentURL) => parentURL.endsWith("/src/core/requestScope.ts"));
+serveServerReact();
 
-registerDoubles({ specifiers: { "next/headers": NEXT_HEADERS_DOUBLE } });
+vi.doMock("next/headers", () => NEXT_HEADERS_DOUBLE);
 
 const { runWithIncomingTrace } = await import("./traceScope.ts");
 const { boundCall, getRequestSpanId, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
@@ -17,20 +14,20 @@ const { boundCall, getRequestSpanId, REQUEST_DEADLINE_MS } = await import("@/cor
 let clock = 0;
 const advance = (ms: number) => {
   clock += ms;
-  mock.timers.tick(ms);
+  vi.advanceTimersByTime(ms);
 };
 
 const OWN_BOUND_MS = 15000;
 
 beforeEach(() => {
   clock = 0;
-  mock.method(performance, "now", () => clock);
-  mock.timers.enable({ apis: ["setTimeout"] });
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
 });
 
 afterEach(() => {
-  mock.timers.reset();
-  mock.restoreAll();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("the scope a page render's reads enter one after another", () => {
@@ -48,11 +45,11 @@ describe("the scope a page render's reads enter one after another", () => {
       Promise.resolve([boundCall(OWN_BOUND_MS).signal, getRequestSpanId()] as const),
     );
     advance(4999);
-    assert.equal(signal.aborted, false, "the later read was aborted before the render's deadline");
+    expect(signal.aborted, "the later read was aborted before the render's deadline").toBe(false);
     advance(1);
 
-    assert.equal(signal.aborted, true, "the later read started a deadline of its own");
-    assert.equal(laterSpan, firstSpan, "the later read opened a span of its own inside one request");
+    expect(signal.aborted, "the later read started a deadline of its own").toBe(true);
+    expect(laterSpan, "the later read opened a span of its own inside one request").toBe(firstSpan);
   });
 
   it("starts afresh for the next request's render", async () => {
@@ -63,7 +60,7 @@ describe("the scope a page render's reads enter one after another", () => {
     beginRenderPass();
     const [signal, nextSpan] = await runWithIncomingTrace(() => Promise.resolve([boundCall(OWN_BOUND_MS).signal, getRequestSpanId()] as const));
 
-    assert.equal(signal.aborted, false, "a new request inherited the last one's spent deadline");
-    assert.notEqual(nextSpan, firstSpan, "a new request reused the last one's span");
+    expect(signal.aborted, "a new request inherited the last one's spent deadline").toBe(false);
+    expect(nextSpan, "a new request reused the last one's span").not.toBe(firstSpan);
   });
 });

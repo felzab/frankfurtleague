@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { describe, expect, it } from "vitest";
 
 import { bestaetigteEmpfaenger } from "./empfaenger.ts";
 
@@ -37,7 +35,7 @@ describe("who a team's invite is mailed to", () => {
       trainer: person("Jonas", "jonas@beispiel.de", null),
     });
 
-    assert.deepEqual(bestaetigteEmpfaenger(kontakte), [{ rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" }]);
+    expect(bestaetigteEmpfaenger(kontakte)).toStrictEqual([{ rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" }]);
   });
 
   /* One person, one message: a seat pair on one mailbox would otherwise be written to twice, and the
@@ -49,7 +47,7 @@ describe("who a team's invite is mailed to", () => {
       trainer: person("Jonas", "jonas@beispiel.de", "2026-08-21"),
     });
 
-    assert.deepEqual(bestaetigteEmpfaenger(kontakte), [
+    expect(bestaetigteEmpfaenger(kontakte)).toStrictEqual([
       { rolle: "trainer", vorname: "Jonas", email: "jonas@beispiel.de" },
       { rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" },
     ]);
@@ -58,8 +56,8 @@ describe("who a team's invite is mailed to", () => {
   /* An erasure empties the slot naming the person who asked for it, and a confirmed seat whose
      address is gone would otherwise be handed to the fan-out as an empty recipient. */
   it("answers nobody for a block with no seats and none for an emptied address", () => {
-    assert.deepEqual(bestaetigteEmpfaenger(null), []);
-    assert.deepEqual(bestaetigteEmpfaenger(block({})), []);
-    assert.deepEqual(bestaetigteEmpfaenger(block({ trainer: person("Jonas", "", "2026-08-21") })), []);
+    expect(bestaetigteEmpfaenger(null)).toStrictEqual([]);
+    expect(bestaetigteEmpfaenger(block({}))).toStrictEqual([]);
+    expect(bestaetigteEmpfaenger(block({ trainer: person("Jonas", "", "2026-08-21") }))).toStrictEqual([]);
   });
 });

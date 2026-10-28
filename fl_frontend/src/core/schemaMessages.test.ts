@@ -1,10 +1,8 @@
-import assert from "node:assert/strict";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { isZodSchema, schemaModules } from "@/test-support/schemaModules.ts";
+import { assert, describe, expect, it } from "vitest";
 import z from "zod";
-
-import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -98,7 +96,7 @@ describe("what a closed set says when it refuses", () => {
       const own = messageFor(alias.schema);
       assert.ok(own !== null, `${alias.name} accepted a value that is in no closed set, so nothing was compared`);
 
-      assert.notEqual(own, libraryDefaultFor(alias.members), `${alias.name} falls back to Zod's default, which enumerates the slugs`);
+      expect(own, `${alias.name} falls back to Zod's default, which enumerates the slugs`).not.toBe(libraryDefaultFor(alias.members));
 
       /* The second shape the same defect takes: a message that IS custom and still addresses a
          developer. One names its own type, which no sentence written for a reader ever does. */
@@ -108,8 +106,8 @@ describe("what a closed set says when it refuses", () => {
       /* The third, and the one the two checks above let through: `enum member expected` is neither
          Zod's wording nor its own type name. What separates copy from a note is exact and cheap —
          copy is a SENTENCE. This proves shape, never language (`docs/frontend/spec.md` §4). */
-      assert.match(own, /^[A-ZÄÖÜ]/u, `${alias.name} answers with a fragment rather than a sentence: "${own}"`);
-      assert.match(own, /\.$/u, `${alias.name} answers without a full stop, which is a note rather than a sentence: "${own}"`);
+      expect(own, `${alias.name} answers with a fragment rather than a sentence: "${own}"`).toMatch(/^[A-ZÄÖÜ]/u);
+      expect(own, `${alias.name} answers without a full stop, which is a note rather than a sentence: "${own}"`).toMatch(/\.$/u);
     });
   }
 });

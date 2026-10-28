@@ -1,12 +1,10 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung.ts";
+import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { ZielAuftrag } from "./notifications.ts";
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
@@ -59,7 +57,8 @@ const LOGGING_DOUBLE = {
   },
 };
 
-registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "features/zustellung/mutations.ts": MUTATIONS_DOUBLE } });
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/features/zustellung/mutations.ts", () => MUTATIONS_DOUBLE);
 
 const { sendZielMail, zielIdempotenzSchluessel, zielZustellungTags } = await import("./notifications.ts");
 const { FLZustellungZielSchema } = await import("./schemas.ts");
@@ -101,8 +100,8 @@ describe("the tags one message rides out with", () => {
      message nobody got and no state anywhere. */
   it("keeps every name and value inside the alphabet the provider admits", () => {
     for (const [name, value] of Object.entries(zielZustellungTags(auftrag))) {
-      assert.match(name, /^[A-Za-z0-9_-]+$/, `the tag name ${name} is outside the provider's alphabet`);
-      assert.match(value, /^[A-Za-z0-9_-]+$/, `the value of ${name} is outside the provider's alphabet`);
+      expect(name, `the tag name ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
+      expect(value, `the value of ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
     }
   });
 
@@ -127,19 +126,19 @@ describe("the tags one message rides out with", () => {
     const vollstaendig: [Exclude<ZustellAnlass, (typeof ANLAESSE)[number]>] extends [never] ? true : false = true;
 
     assert.ok(vollstaendig);
-    for (const anlass of ANLAESSE) assert.match(anlass, /^[A-Za-z0-9_-]+$/, `the occasion ${anlass} is outside the provider's alphabet`);
+    for (const anlass of ANLAESSE) expect(anlass, `the occasion ${anlass} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
   /* Every member has to survive the round trip, and a kind whose spelling carried a character the
      provider refuses would be the one target whose bounces never came back. */
   it("keeps every member of the closed set inside that alphabet too", () => {
     for (const ziel of FLZustellungZielSchema.options) {
-      assert.match(ziel, /^[A-Za-z0-9_-]+$/, `the target ${ziel} is outside the provider's alphabet`);
+      expect(ziel, `the target ${ziel} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
     }
   });
 
   it("routes an event back by kind AND row rather than by the kind alone", () => {
-    assert.deepEqual(zielZustellungTags(auftrag), { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" });
+    expect(zielZustellungTags(auftrag)).toStrictEqual({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" });
   });
 
   /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
@@ -147,15 +146,15 @@ describe("the tags one message rides out with", () => {
   it("mints one idempotency key per message per day", () => {
     const today = zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS);
 
-    assert.equal(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS), today);
-    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-09", ADDRESS), today);
+    expect(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS)).toBe(today);
+    expect(zielIdempotenzSchluessel(auftrag, "2026-09-09", ADDRESS)).not.toBe(today);
     assert.ok(today.length <= 256, "the provider refuses a key over 256 characters");
   });
 
   it("mints a different key for two rows of one kind", () => {
     const other = { ...auftrag, zielId: `${"d".repeat(23)}4` };
 
-    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS), zielIdempotenzSchluessel(other, "2026-09-08", ADDRESS));
+    expect(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS)).not.toBe(zielIdempotenzSchluessel(other, "2026-09-08", ADDRESS));
   });
 
   /* One season row holds three seats: an event routed back without them lands on every seat or on
@@ -163,8 +162,8 @@ describe("the tags one message rides out with", () => {
   it("carries a season row's seats on the tags, in the alphabet the provider admits", () => {
     const tags = zielZustellungTags(sitzAuftrag);
 
-    assert.deepEqual(tags, { ziel: "kontakt", ziel_id: ZIEL_ID, anlass: "empfang", rollen: "ansprechperson-trainer" });
-    for (const value of Object.values(tags)) assert.match(value, /^[A-Za-z0-9_-]+$/);
+    expect(tags).toStrictEqual({ ziel: "kontakt", ziel_id: ZIEL_ID, anlass: "empfang", rollen: "ansprechperson-trainer" });
+    for (const value of Object.values(tags)) expect(value).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
   /* Two people sharing a school inbox each hold a seat on one row: one key over both bodies would
@@ -172,7 +171,7 @@ describe("the tags one message rides out with", () => {
   it("keys two seats of one row apart, and a kind without seats as before", () => {
     const anderer = { ...sitzAuftrag, rollen: ["stellvertretung"] as const };
 
-    assert.notEqual(zielIdempotenzSchluessel(sitzAuftrag, "2026-09-08", ADDRESS), zielIdempotenzSchluessel(anderer, "2026-09-08", ADDRESS));
+    expect(zielIdempotenzSchluessel(sitzAuftrag, "2026-09-08", ADDRESS)).not.toBe(zielIdempotenzSchluessel(anderer, "2026-09-08", ADDRESS));
     assert.ok(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS).startsWith(`eingang_schiedsrichter_${ZIEL_ID}_2026-09-08_`));
   });
 });
@@ -182,13 +181,10 @@ describe("the seats a season row's message records against", () => {
     await sendZielMail({ operation: "patchSaisonTeamKontakteAction", auftrag: sitzAuftrag, recipients: [ADDRESS], buildMail });
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail });
 
-    assert.deepEqual(
-      gemeldet.map((meldung) => [meldung["ziel"], meldung["rollen"]]),
-      [
-        ["kontakt", ["ansprechperson", "trainer"]],
-        ["schiedsrichter", []],
-      ],
-    );
+    expect(gemeldet.map((meldung) => [meldung["ziel"], meldung["rollen"]])).toStrictEqual([
+      ["kontakt", ["ansprechperson", "trainer"]],
+      ["schiedsrichter", []],
+    ]);
   });
 
   it("names the message's seats on a refusal's record too", async () => {
@@ -196,7 +192,7 @@ describe("the seats a season row's message records against", () => {
 
     await sendZielMail({ operation: "patchSaisonTeamKontakteAction", auftrag: sitzAuftrag, recipients: [ADDRESS], buildMail });
 
-    assert.deepEqual(abgewiesen[0]?.["rollen"], ["ansprechperson", "trainer"]);
+    expect(abgewiesen[0]?.["rollen"]).toStrictEqual(["ansprechperson", "trainer"]);
   });
 });
 
@@ -204,7 +200,7 @@ describe("one fan-out about a record", () => {
   it("tags every message with the record it is about", async () => {
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.deepEqual(sent[0]?.tags, { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" });
+    expect(sent[0]?.tags).toStrictEqual({ ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" });
   });
 
   /* A key reused over a CHANGED body is refused rather than ignored, so a message carrying a freshly
@@ -212,7 +208,7 @@ describe("one fan-out about a record", () => {
   it("carries no idempotency key where the caller named no day", async () => {
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.equal(sent[0]?.idempotencyKey, undefined);
+    expect(sent[0]?.idempotencyKey).toBe(undefined);
 
     await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -221,7 +217,7 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.equal(sent[1]?.idempotencyKey, zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS));
+    expect(sent[1]?.idempotencyKey).toBe(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS));
   });
 
   /* The provider refuses a key reused over another payload (409 invalid_idempotent_request), and a
@@ -235,12 +231,12 @@ describe("one fan-out about a record", () => {
     });
 
     const keys = sent.map((mail) => mail.idempotencyKey);
-    assert.equal(keys.length, 2);
+    expect(keys.length).toBe(2);
     assert.ok(
       keys.every((key) => key !== undefined && key.length <= 256),
       "a key is missing or past the provider's 256 characters",
     );
-    assert.notEqual(keys[0], keys[1], `two bodies share one key: ${String(keys[0])}`);
+    expect(keys[0], `two bodies share one key: ${String(keys[0])}`).not.toBe(keys[1]);
     assert.ok(!keys.some((key) => key?.includes("@")), "an address travels in the key");
   });
 
@@ -252,11 +248,11 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual([delivered, unreachable], [[ADDRESS], []]);
-    assert.equal(gemeldet.length, 1);
-    assert.equal(gemeldet[0]?.["ziel"], "schiedsrichter");
-    assert.equal(gemeldet[0]?.["ziel_id"], ZIEL_ID);
-    assert.equal(gemeldet[0]?.["nachricht_id"], ACCEPTED_ID);
+    expect([delivered, unreachable]).toStrictEqual([[ADDRESS], []]);
+    expect(gemeldet.length).toBe(1);
+    expect(gemeldet[0]?.["ziel"]).toBe("schiedsrichter");
+    expect(gemeldet[0]?.["ziel_id"]).toBe(ZIEL_ID);
+    expect(gemeldet[0]?.["nachricht_id"]).toBe(ACCEPTED_ID);
   });
 
   /* Discarded, a `false` reads exactly like a recorded send, and it is what an operator needs to
@@ -271,18 +267,18 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(delivered, [ADDRESS], "the message went, whatever the record did");
-    assert.equal(logged.length, 1);
-    assert.equal(logged[0]?.meta["error_code"], "FE-MAIL-006");
-    assert.equal(logged[0]?.meta["ziel"], "schiedsrichter");
-    assert.equal(logged[0]?.meta["operation"], "schiedsrichter.einladung");
+    expect(delivered, "the message went, whatever the record did").toStrictEqual([ADDRESS]);
+    expect(logged.length).toBe(1);
+    expect(logged[0]?.meta["error_code"]).toBe("FE-MAIL-006");
+    expect(logged[0]?.meta["ziel"]).toBe("schiedsrichter");
+    expect(logged[0]?.meta["operation"]).toBe("schiedsrichter.einladung");
     assert.ok(!inspect(logged, { depth: null }).includes(ADDRESS), "an address reached the stream");
   });
 
   it("writes no such line where the record was written", async () => {
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.deepEqual(logged, []);
+    expect(logged).toStrictEqual([]);
   });
 
   /* An answer carrying no id joins nothing, so recording a state against it would mark the record
@@ -297,8 +293,8 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(delivered, [ADDRESS]);
-    assert.deepEqual(gemeldet, []);
+    expect(delivered).toStrictEqual([ADDRESS]);
+    expect(gemeldet).toStrictEqual([]);
   });
 
   /* The deployment that does not mail throws `MailWithheldError` at every send, and a fan-out that
@@ -313,8 +309,8 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual([delivered, unreachable], [[SECOND_ADDRESS], [ADDRESS]]);
-    assert.equal(gemeldet.length, 1, "a refused message was recorded as accepted");
+    expect([delivered, unreachable]).toStrictEqual([[SECOND_ADDRESS], [ADDRESS]]);
+    expect(gemeldet.length, "a refused message was recorded as accepted").toBe(1);
   });
 
   /* The provider may have accepted a send whose connection broke: reported unreachable, the action
@@ -333,9 +329,9 @@ describe("one fan-out about a record", () => {
       return [outcome, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual([settled.delivered, settled.unreachable, settled.ungewiss], [[SECOND_ADDRESS], [], [ADDRESS]]);
-    assert.equal(markedUnknown, true, "the request was not told a send may have landed");
-    assert.equal(abgewiesen.length, 0, "a send that may have landed was recorded as refused");
+    expect([settled.delivered, settled.unreachable, settled.ungewiss]).toStrictEqual([[SECOND_ADDRESS], [], [ADDRESS]]);
+    expect(markedUnknown, "the request was not told a send may have landed").toBe(true);
+    expect(abgewiesen.length, "a send that may have landed was recorded as refused").toBe(0);
   });
 
   /* Refused before it left, the request's deadline spent: nothing can be in the inbox, so it is not
@@ -354,9 +350,9 @@ describe("one fan-out about a record", () => {
       return [outcome, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual([settled.delivered, settled.unreachable, settled.ungewiss], [[SECOND_ADDRESS], [ADDRESS], []]);
-    assert.equal(markedUnknown, false, "a send that never left marked the request unclear");
-    assert.equal(abgewiesen.length, 0, "a send that never left was recorded as refused");
+    expect([settled.delivered, settled.unreachable, settled.ungewiss]).toStrictEqual([[SECOND_ADDRESS], [ADDRESS], []]);
+    expect(markedUnknown, "a send that never left marked the request unclear").toBe(false);
+    expect(abgewiesen.length, "a send that never left was recorded as refused").toBe(0);
   });
 
   /* Outside production every address is withheld, and a caller reading that as a refusal reports one
@@ -372,13 +368,11 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(settled.delivered, []);
-    assert.deepEqual(
-      [...settled.unreachable].sort(),
+    expect(settled.delivered).toStrictEqual([]);
+    expect([...settled.unreachable].sort(), "an address that failed is missing from the whole list").toStrictEqual(
       [ADDRESS, SECOND_ADDRESS].sort(),
-      "an address that failed is missing from the whole list",
     );
-    assert.deepEqual(settled.withheld, [ADDRESS]);
+    expect(settled.withheld).toStrictEqual([ADDRESS]);
   });
 
   /* The message HAS gone, so a caller told otherwise would report a send that happened as one that
@@ -393,8 +387,8 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual([delivered, unreachable], [[ADDRESS], []]);
-    assert.equal(logged.at(-1)?.meta["error_code"], "FE-MAIL-003");
+    expect([delivered, unreachable]).toStrictEqual([[ADDRESS], []]);
+    expect(logged.at(-1)?.meta["error_code"]).toBe("FE-MAIL-003");
   });
 
   /* A send refused at submit time mints no message, so nothing else ever tells the clocks about that
@@ -410,13 +404,13 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(unreachable, [ADDRESS]);
-    assert.equal(abgewiesen.length, 1);
-    assert.equal(abgewiesen[0]?.["ziel"], "schiedsrichter");
-    assert.equal(abgewiesen[0]?.["ziel_id"], ZIEL_ID);
-    assert.equal(abgewiesen[0]?.["grund"], "invalid_parameter", "the provider's own token is what the record is worth reading for");
+    expect(unreachable).toStrictEqual([ADDRESS]);
+    expect(abgewiesen.length).toBe(1);
+    expect(abgewiesen[0]?.["ziel"]).toBe("schiedsrichter");
+    expect(abgewiesen[0]?.["ziel_id"]).toBe(ZIEL_ID);
+    expect(abgewiesen[0]?.["grund"], "the provider's own token is what the record is worth reading for").toBe("invalid_parameter");
     assert.ok(!Number.isNaN(Date.parse(String(abgewiesen[0]?.["am"]))), "the stamp orders this refusal against the record's own state");
-    assert.deepEqual(gemeldet, [], "a refused message was recorded as accepted");
+    expect(gemeldet, "a refused message was recorded as accepted").toStrictEqual([]);
   });
 
   /* Outside production every send is withheld, and a stack that marked those addresses unreachable
@@ -426,9 +420,9 @@ describe("one fan-out about a record", () => {
 
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.deepEqual(abgewiesen, []);
+    expect(abgewiesen).toStrictEqual([]);
     // The mailer's own line records the filed message; a failure line beside it would be a second, false one.
-    assert.deepEqual(logged, []);
+    expect(logged).toStrictEqual([]);
   });
 
   /* A refusal a retry could land is no fact about the mailbox, and the person's one reminder is what
@@ -438,7 +432,7 @@ describe("one fan-out about a record", () => {
 
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.deepEqual(abgewiesen, []);
+    expect(abgewiesen).toStrictEqual([]);
   });
 
   /* An address whose domain has no ASCII form is refused before any request goes out, and no later
@@ -448,8 +442,8 @@ describe("one fan-out about a record", () => {
 
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.equal(abgewiesen.length, 1);
-    assert.equal(abgewiesen[0]?.["grund"], "MailRecipientError");
+    expect(abgewiesen.length).toBe(1);
+    expect(abgewiesen[0]?.["grund"]).toBe("MailRecipientError");
   });
 
   /* The token is the provider's own JSON, and one past the endpoint's screen would be answered 422 —
@@ -459,8 +453,8 @@ describe("one fan-out about a record", () => {
 
     await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.equal(abgewiesen.length, 1);
-    assert.equal(abgewiesen[0]?.["grund"], null);
+    expect(abgewiesen.length).toBe(1);
+    expect(abgewiesen[0]?.["grund"]).toBe(null);
   });
 
   /* The fan-out's answer is what the person's page is written from, and it stands whatever became of
@@ -476,8 +470,8 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual([delivered, unreachable], [[], [ADDRESS]]);
-    assert.equal(logged.at(-1)?.meta["error_code"], "FE-MAIL-003");
+    expect([delivered, unreachable]).toStrictEqual([[], [ADDRESS]]);
+    expect(logged.at(-1)?.meta["error_code"]).toBe("FE-MAIL-003");
   });
 
   /* `docs/logging/spec.md :: L9`. Asserted over the whole call, the error argument included, so a
@@ -514,7 +508,7 @@ describe("a recipient the ban list holds", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(outcome, { delivered: [SECOND_ADDRESS], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
+    expect(outcome).toStrictEqual({ delivered: [SECOND_ADDRESS], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
   });
 
   /* A refusal recorded would store on the record that its address is barred, and a failure line
@@ -524,8 +518,8 @@ describe("a recipient the ban list holds", () => {
 
     await sendZielMail({ operation: "postRegistrierung", auftrag: auftrag, recipients: [ADDRESS], buildMail: buildMail });
 
-    assert.deepEqual(abgewiesen, []);
-    assert.deepEqual(gemeldet, []);
-    assert.deepEqual(logged, []);
+    expect(abgewiesen).toStrictEqual([]);
+    expect(gemeldet).toStrictEqual([]);
+    expect(logged).toStrictEqual([]);
   });
 });

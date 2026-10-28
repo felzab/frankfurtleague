@@ -78,7 +78,7 @@ let laeuft = false;
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
  */
-export async function runBewerbungSweep(): Promise<void> {
+async function runBewerbungSweep(): Promise<void> {
   if (laeuft) {
     // A pass slower than the hour would otherwise run beside itself over the same rows, mailing one
     // person twice before either half reached its stamp. No application and no address is named.
