@@ -88,6 +88,8 @@ export function DateField({
   value,
   defaultValue,
   onChange,
+  minValue,
+  maxValue,
 }: {
   label: Copy;
   description?: Copy;
@@ -98,6 +100,10 @@ export function DateField({
   value?: Kalendertag | null;
   defaultValue?: Kalendertag | null;
   onChange?: (tag: Kalendertag | null) => void;
+  /** The earliest day the field takes: the calendar offers none before it, and an earlier one reads „Frühestens …“. */
+  minValue?: Kalendertag;
+  /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
+  maxValue?: Kalendertag;
 }) {
   return (
     <DatePicker<CalendarDate>
@@ -106,6 +112,8 @@ export function DateField({
       value={fromTag(value)}
       defaultValue={fromTag(defaultValue)}
       onChange={onChange && ((date) => onChange(toTag(date)))}
+      minValue={fromTag(minValue)}
+      maxValue={fromTag(maxValue)}
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={isRequired}
@@ -131,6 +139,7 @@ export function DateField({
       <MessageLine
         description={description}
         consequence={consequence}
+        constraints={{ earliest: minValue, latest: maxValue }}
       />
       <Popover
         data-kit-focus
