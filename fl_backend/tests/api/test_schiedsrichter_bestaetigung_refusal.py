@@ -25,6 +25,7 @@ from app.api.schiedsrichter.services import (
     compose_confirmation_update,
     compose_einwilligung,
     find_alter_refusal,
+    find_expired_token_refusal,
     vorname_of,
     zustand_of,
 )
@@ -214,6 +215,13 @@ class TestWhatAReopenedLinkShows:
 
         assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=False) == zustand
         assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=True) == "gesperrt"
+
+
+class TestALinkWhoseTimeIsOver:
+    def test_the_deadlines_own_day_still_takes_the_answer(self):
+        """The press as the view above reads it: a page offering the answer on that day and a press refusing it would lie."""
+
+        assert find_expired_token_refusal(frist=TODAY, today=TODAY) is None
 
 
 class TestTheTokenPayloadBound:
