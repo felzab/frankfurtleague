@@ -138,7 +138,7 @@ describe("formatSpielDatum", () => {
 });
 
 describe("formatEuro", () => {
-  //   is the non-breaking space de-DE puts before the currency symbol.
+  // The expected strings carry U+00A0, the no-break space de-DE puts before the currency symbol.
   it("formats an amount as German euros", () => {
     expect(formatEuro(25)).toBe("25,00 €");
     expect(formatEuro(0)).toBe("0,00 €");

@@ -31,6 +31,7 @@
     "test": "vitest run --project unit",
     "test:base": "vitest run",
     "test:db": "vitest run --project db",
+    "e2e": "playwright test",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },
   "dependencies": {
