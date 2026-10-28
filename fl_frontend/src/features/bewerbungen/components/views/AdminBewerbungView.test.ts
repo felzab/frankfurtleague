@@ -121,6 +121,33 @@ describe("the Zusage where the write would be refused", () => {
   });
 });
 
+describe("which irreversibility the triage claims", () => {
+  /* The second sentence belongs to a write whose transaction empties the log rows it filed, and neither decision
+     does: the action log outlives both, so the first sentence is theirs. */
+  it("takes the sentence for a write the action log outlives", async () => {
+    const user = userEvent.setup();
+    const { container } = renderPage(OFFEN);
+
+    await user.selectOptions(container.querySelector('select[name="gruppe"]') ?? assert.fail("the acceptance offers no group"), "A");
+    await user.click(screen.getByRole("button", { name: "Bewerbung annehmen" }));
+    await user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
+    await user.click(screen.getByRole("button", { name: "Bewerbung ablehnen" }));
+
+    /* Both arming reveals, which announce themselves: the sentence is what each of the two promises,
+       and the count is the floor under a loop that would otherwise pass over one panel that never armed. */
+    const revealed = screen.getAllByRole("alert").map((reveal) => reveal.textContent);
+
+    assert.equal(revealed.length, 2, "one of the two decisions did not arm, so the sentences below are read off the other");
+    for (const armed of revealed) {
+      assert.match(armed, /Es gibt in der Verwaltung keinen Weg zurück\./, "an armed decision drops the irreversibility sentence");
+      assert.ok(
+        !armed.includes("Zurückholen lässt sich das nicht"),
+        "an armed decision claims the log is emptied, and no triage write empties one",
+      );
+    }
+  });
+});
+
 describe("the Zusage beside a typed Absage", () => {
   /* The acceptance's refresh re-keys the page on the decided application, which throws the typed reason away
      unasked. The press arms over an empty reason, so the refusal below is the reason's alone. */
