@@ -179,15 +179,17 @@
   --tracking-caps: 0.04em;
 
   /* The kit's widths, each named for what it holds, so a width is declared once and every box of its kind
-     reads it through `max-w-*` or `w-*`. A column's width includes its side padding. */
+     reads it through `max-w-*` or `w-*`. A page column's width is its content's, the frame's gutter standing
+     outside it, so one name is one content width in either frame; a box's width is the box's own, its
+     padding inside it. */
   --container-popover: 20rem; /* the help text behind a section's ⓘ */
-  --container-signin: 24rem; /* the sign-in's column */
+  --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
-  --container-card: 30rem; /* a status card, and the classic column holding one */
+  --container-card: 28rem; /* a status card, and the classic column holding one */
   --container-dialog: 35rem; /* a dialog holding a form */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
-  --container-classic: 65rem; /* the classic frame's header and footer */
-  --container-content: 80rem; /* a rail page's title and content */
+  --container-classic: 61rem; /* the classic frame's header and footer */
+  --container-content: 80rem; /* a rail page's content */
   --container-measure: 64ch; /* a line of running text on a legal or consent page */
   --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
 }

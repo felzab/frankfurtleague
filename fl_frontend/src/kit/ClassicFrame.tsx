@@ -64,8 +64,8 @@ export function ClassicFrame({
     // The header's height is declared once, here, for the header and for a page filling the first screen
     // under it (`ClassicPage`).
     <div className="flex min-h-dvh flex-col [--classic-header:3.5rem] lg:[--classic-header:4rem]">
-      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid text-on-brand [--focus-ring:var(--on-brand)]">
-        <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 px-4 lg:gap-8 lg:px-8">
+      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:px-8">
+        <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
           <HeaderLinks
             links={links}
@@ -76,8 +76,8 @@ export function ClassicFrame({
 
       {children}
 
-      <footer className="shrink-0 border-t border-border bg-bg">
-        <div className="mx-auto grid w-full max-w-classic gap-6 px-4 py-6 lg:px-8 lg:py-8">
+      <footer className="shrink-0 border-t border-border bg-bg px-4 lg:px-8">
+        <div className="mx-auto grid w-full max-w-classic gap-6 py-6 lg:py-8">
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr_1fr]">
             <div className="grid content-start gap-2">
               <Brand ground="page" />
