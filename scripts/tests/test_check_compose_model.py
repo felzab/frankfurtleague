@@ -56,8 +56,13 @@ def test_host_networking_fails_although_it_declares_no_port():
     assert len(found) == 1
 
 
-def test_locally_the_edge_may_publish_to_every_interface():
-    assert checker.local(model(nginx={"ports": [port("3000", 80)]}), "l") == []
+def test_locally_the_edge_on_loopback_is_clean():
+    assert checker.local(model(nginx={"ports": [port("3000", 80, "127.0.0.1")]}), "l") == []
+
+
+def test_locally_the_edge_on_every_interface_fails():
+    """The local stack serves a copy of production's data, so its edge is no exception."""
+    assert len(checker.local(model(nginx={"ports": [port("3000", 80)]}), "l")) == 1
 
 
 def test_locally_a_database_on_loopback_is_clean_on_either_family():

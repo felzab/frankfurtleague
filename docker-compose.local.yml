@@ -111,8 +111,8 @@ services:
     user: mongodb
     restart: unless-stopped
     ports:
-      # Loopback only, and the one port outside nginx on either stack: it is here for a database
-      # client on the host, and any other interface publishes an unauthenticated mongod.
+      # Loopback only, as nginx's, and the one port outside nginx on either stack: it is here for a
+      # database client on the host, and any other interface publishes an unauthenticated mongod.
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
@@ -145,9 +145,10 @@ services:
       start_interval: 3s
 
   nginx:
-    # Production publishes nothing; this stack serves the edge on 3000.
+    # Production publishes nothing; this stack serves the edge on 3000 to this host alone, since any
+    # other interface serves a copy of production's data to every machine on the developer's network.
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the
     # base file's reason, and no ./certs.
     volumes: !override
