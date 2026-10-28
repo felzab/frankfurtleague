@@ -20,9 +20,11 @@ export type Fact = { label: Copy } & (
 
 const facts = tv({
   slots: {
-    row: "grid grid-cols-[7.5rem_minmax(0,1fr)] border-t border-border first:border-t-0 lg:grid-cols-[10rem_minmax(0,1fr)]",
-    term: "bg-bg-surface px-3 py-2 text-fg-muted",
-    detail: "px-3 py-2 font-medium [overflow-wrap:anywhere]",
+    list: "overflow-hidden rounded-lg border border-border lg:grid lg:grid-cols-2",
+    // On desktop the second pair shares the first one's row, so it draws no hairline above it either.
+    row: "grid gap-0.5 border-t border-border px-3 py-2 first:border-t-0 lg:nth-2:border-t-0",
+    term: "text-xs text-fg-muted",
+    detail: "font-medium [overflow-wrap:anywhere]",
   },
   variants: {
     figures: {
@@ -32,11 +34,12 @@ const facts = tv({
 });
 
 /**
- * A record's data, read rather than edited: a two-column table with hairlines, a label and its value
- * per row. The one block that sets a label beside a value. A subject line above it names the record,
- * with its chip.
+ * A record's data, read rather than edited: stacked pairs in a hairline box, each a 12-px muted label over
+ * its value, two pairs a row on desktop, hairlines between the rows. The one block that pairs a label with
+ * a value. A subject line above it names the record, with its chip.
  */
 export function Facts({ subject, facts: rows }: { subject?: { name: string; chip?: ChipProps }; facts: ReadonlyArray<Fact> }) {
+  const { list } = facts();
   return (
     <div className="grid gap-2 text-sm">
       {subject !== undefined && (
@@ -50,7 +53,7 @@ export function Facts({ subject, facts: rows }: { subject?: { name: string; chip
           )}
         </p>
       )}
-      <dl className="overflow-hidden rounded-lg border border-border">
+      <dl className={list()}>
         {rows.map((fact) => {
           const { row, term, detail } = facts({ figures: fact.figures === true });
           return (

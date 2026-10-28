@@ -67,7 +67,7 @@ async function Spielorte() {
             { key: "mietpreis", label: WORTE.mietpreis, figures: true },
           ],
           rows: spielorte.map(zeile),
-          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.titel },
+          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.titel, glyph: "spielorte" },
         },
       }}
     />
