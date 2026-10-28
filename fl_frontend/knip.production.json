@@ -8,15 +8,50 @@
   // the deploy's preflight runs the second.
   "entry": ["scripts/emit-environment-names.mjs!", "scripts/check-environment-names.mjs!", "scripts/tsconfig-alias-hook.mjs!"],
   // Every file but the tests' own support modules, one folder no production module imports
-  // (`fl_frontend/eslint.config.mjs :: TEST_SUPPORT`), and the gate's shard lister.
-  "project": ["**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!", "!src/test-support/**!", "!scripts/shard-files.mjs!"],
+  // (`fl_frontend/eslint.config.mjs :: TEST_SUPPORT`), and the end-to-end journeys' support.
+  "project": ["**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!", "!src/test-support/**!", "!e2e/**!"],
+  // Built ahead of their first page, each named with the session that first uses it, which deletes
+  // its line here and in `knip.json`.
+  "ignoreFiles": [
+    // Session 1, the spike's pages.
+    "src/core/clock.ts",
+    "src/core/routes.ts",
+    "src/kit/Button.tsx",
+    "src/kit/Link.tsx",
+    "src/kit/Stack.tsx",
+    "src/kit/Inline.tsx",
+    "src/kit/Icon.tsx",
+    "src/kit/Tooltip.tsx",
+    "src/kit/TextField.tsx",
+    "src/kit/Select.tsx",
+    "src/kit/ComboBox.tsx",
+    "src/kit/DateField.tsx",
+    "src/kit/TimeField.tsx",
+    "src/kit/CodeField.tsx",
+    "src/kit/Chip.tsx",
+    "src/kit/TeamPlaque.tsx",
+    "src/kit/FieldParts.tsx",
+    "src/kit/fieldStyles.ts",
+    "src/kit/OptionList.tsx",
+    "src/kit/dateParts.tsx",
+    // Session 4.
+    "src/kit/Checkbox.tsx",
+    "src/kit/RadioGroup.tsx",
+    // Session 5.
+    "src/kit/Switch.tsx",
+    "src/kit/SearchField.tsx"
+  ],
+  // Session 1, the kit's icon set, first imported by the spike's pages.
+  "ignoreDependencies": ["lucide-react"],
   "ignoreIssues": {
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
     // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
     // one is named here.
     "src/**/schemas.ts": ["types", "duplicates"],
     // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/features/system/queries.ts": ["exports"],
+    // Session 1, the spike's pages: the formatters wait for their first page.
+    "src/core/format.ts": ["exports"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.

@@ -4,19 +4,51 @@
   "prettier": {
     "config": ["../.prettierrc.json"]
   },
-  // Each entry is a reader knip cannot see. An export nothing reads is deleted or un-exported, never
-  // added here.
+  // Built ahead of their first page, each named with the session that first uses it, which deletes
+  // its line.
+  "ignoreFiles": [
+    // Session 1, the spike's pages.
+    "src/core/clock.ts",
+    "src/core/routes.ts",
+    "src/kit/Button.tsx",
+    "src/kit/Link.tsx",
+    "src/kit/Stack.tsx",
+    "src/kit/Inline.tsx",
+    "src/kit/Icon.tsx",
+    "src/kit/Tooltip.tsx",
+    "src/kit/TextField.tsx",
+    "src/kit/Select.tsx",
+    "src/kit/ComboBox.tsx",
+    "src/kit/DateField.tsx",
+    "src/kit/TimeField.tsx",
+    "src/kit/CodeField.tsx",
+    "src/kit/Chip.tsx",
+    "src/kit/TeamPlaque.tsx",
+    "src/kit/FieldParts.tsx",
+    "src/kit/fieldStyles.ts",
+    "src/kit/OptionList.tsx",
+    "src/kit/dateParts.tsx",
+    // Session 4.
+    "src/kit/Checkbox.tsx",
+    "src/kit/RadioGroup.tsx",
+    // Session 5.
+    "src/kit/Switch.tsx",
+    "src/kit/SearchField.tsx"
+  ],
+  // Session 1, the kit's icon set, first imported by the spike's pages.
+  "ignoreDependencies": ["lucide-react"],
+  // Each entry is a reader knip cannot see, or a kit export waiting for its first page. An export nothing
+  // reads is deleted or un-exported, never added here.
   "ignoreIssues": {
     // `fl_frontend/src/core/apiContract.test.ts` pairs every `*Schema`, alias included, with a backend
-    // component. `fl_backend/tests/shared/test_frontend_mirrors.py` reads
-    // `fl_frontend/src/features/sperrliste/schemas.ts :: ADRESSE_IM_GRUND_REGEX` and
-    // `fl_frontend/src/features/zustellung/schemas.ts :: ZIELE_JE_SITZ` by their `export const`. An
-    // inferred type stays beside its schema, or the next caller writes it back.
+    // component. An inferred type stays beside its schema, or the next caller writes it back.
     "src/**/schemas.ts": ["exports", "types", "duplicates"],
     // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
     // exported facet array; a URL parameter stays exported beside the rest of its family.
     "src/features/*/facets.ts": ["exports"],
     // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/features/system/queries.ts": ["exports"],
+    // Session 1, the spike's pages: `formatSaison` waits for its first page.
+    "src/core/format.ts": ["exports"]
   }
 }
