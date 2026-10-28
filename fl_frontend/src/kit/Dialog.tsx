@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useLayoutEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form } from "react-aria-components/Form";
@@ -9,10 +10,12 @@ import { useFormStatus } from "react-dom";
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
+import { goBackOrPush } from "@/shared/hooks/useEditorExit";
 
 import { Button } from "./Button";
 
 import type { Copy, Verb } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 
 /**
@@ -48,6 +51,53 @@ export const dialogBox = tv({
 /** The way back and the act: the act on the right, stacked on a phone with the act on top. */
 export function ActRow({ children }: { children: ReactNode }) {
   return <div className="flex items-center justify-end gap-3 max-lg:flex-col-reverse max-lg:items-stretch">{children}</div>;
+}
+
+/**
+ * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot:
+ * centred, its title and its body, which is the page's own body rendered on the server. It stands open
+ * while its route does; Escape or a press outside it goes Back, which closes it and leaves the page
+ * beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
+ * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
+ */
+export function RouteDialog({
+  title,
+  beneath,
+  children,
+}: {
+  title: Copy;
+  /** The page it opens over, reached instead of Back where the tab's history holds nothing to go back to. */
+  beneath: Route;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  return (
+    <ModalOverlay
+      isOpen
+      isDismissable
+      onOpenChange={(open) => {
+        if (!open) goBackOrPush(router, beneath);
+      }}
+      className={dim()}>
+      <div className="grid size-full place-items-center p-4">
+        <Modal
+          data-kit-focus
+          className={dialogBox({ width: "form" })}>
+          <AriaDialog
+            data-kit-focus
+            className="grid gap-6">
+            <Heading
+              slot="title"
+              level={2}
+              className="text-xl font-semibold">
+              {title}
+            </Heading>
+            {children}
+          </AriaDialog>
+        </Modal>
+      </div>
+    </ModalOverlay>
+  );
 }
 
 /** The act's button inside a form: busy while the form's action runs. */
