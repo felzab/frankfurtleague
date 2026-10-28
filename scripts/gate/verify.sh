@@ -7,7 +7,7 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
+#   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not docs, ops, db or images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
@@ -18,7 +18,7 @@ declare -A RUN=() KNOWN=()
 for scope in "${SCOPES[@]}"; do KNOWN[$scope]=1; done
 for arg in "$@"; do
   case "$arg" in
-    --quick)   RUN[scripts]=1; RUN[docs]=1; RUN[backend]=1; RUN[frontend]=1 ;;
+    --quick)   RUN[scripts]=1; RUN[backend]=1; RUN[frontend]=1 ;;
     # Exported, so a scope run beside others streams too.
     --verbose) export VERBOSE=1 ;;
     --help|-h) usage ;;
@@ -156,7 +156,7 @@ ruff_both() { # $1 the directory · the paths
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 
 case "$SCOPE" in
-  ops|db|images) require_docker ;;
+  docs|ops|db|images) require_docker ;;
 esac
 case "$SCOPE" in
   format|frontend-units|frontend|db)
@@ -214,11 +214,26 @@ diff_check() {
   return "$rc"
 }
 
+# Offline, every link and fragment inside the repository, through the pinned image with no network;
+# links leaving it are no part of this gate. lychee answers 2 for a broken one.
+check_links() {
+  local rc=0
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "/${REPO_ROOT}:/input:ro" -w /input \
+    lycheeverse/lychee:0.24.2@sha256:e2d19e57cf6ab037026f20b8e449a1f30d9d7f81eef4194763aab2eab20bd28d \
+    --config lychee.toml --no-progress . || rc=$?
+  if (( rc == 2 )); then return 1; fi
+  return "$rc"
+}
+
 scope_docs() {
   section docs
   step "docs · no conflict marker or whitespace error in any tracked file"
   check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
     && ok "no conflict marker or whitespace error"
+
+  step "docs · every link and fragment inside the repository resolves"
+  check "lychee names each broken link or fragment above, with the file it stands in." check_links \
+    && ok "every link inside the repository resolves"
 
   # This scope because the check reads the App Router tree and `nginx/shared/site.conf` together.
   step "docs · every route handler, link page and metadata convention is metered or accounted for"
@@ -275,6 +290,11 @@ scope_format() {
   check "Prettier names the unformatted files above. Fix with:  cd fl_frontend && pnpm format  -- then commit the result." \
     in_dir fl_frontend pnpm format:check \
     && ok "the tree is formatted"
+
+  # markdownlint-cli2 is installed beside Prettier, and reads its configuration from the root.
+  step "format · markdownlint"
+  check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
+    && ok "the Markdown keeps its rules"
   return 0
 }
 
