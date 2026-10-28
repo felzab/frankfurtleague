@@ -34,10 +34,14 @@ const facts = tv({
   },
   variants: {
     look: {
+      // Two pairs a row from 32 rem of the block's own width (`@container` on the block), not of the screen's:
+      // 32 rem is the content width of the kit's form dialog (35 rem less its padding), the narrowest box a pair
+      // row was drawn in, so a read page's or a mailed page's column splits its pairs and a phone's, or a box
+      // narrower than a dialog on any screen, stacks them.
       boxed: {
-        list: "overflow-hidden rounded-lg border border-border lg:grid lg:grid-cols-2",
-        // On desktop the second pair shares the first one's row, so it draws no hairline above it either.
-        row: "border-t border-border px-3 py-2 first:border-t-0 lg:nth-2:border-t-0",
+        list: "overflow-hidden rounded-lg border border-border @lg:grid @lg:grid-cols-2",
+        // In the wide box the second pair shares the first one's row, so it draws no hairline above it either.
+        row: "border-t border-border px-3 py-2 first:border-t-0 @lg:nth-2:border-t-0",
       },
       // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
       free: {
@@ -53,8 +57,8 @@ const facts = tv({
 
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
- * hairline box with hairlines between the rows and two pairs a row on desktop, or free of the box as the
- * match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line
+ * hairline box with hairlines between the rows and two pairs a row where the box is wide, or free of the
+ * box as the match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line
  * above it names the record, with its chip.
  */
 export function Facts({
@@ -68,7 +72,7 @@ export function Facts({
 }) {
   const { list } = facts({ look });
   return (
-    <div className="grid gap-2 text-sm">
+    <div className="@container grid gap-2 text-sm">
       {subject !== undefined && (
         <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
           <span className="min-w-0 truncate">{subject.name}</span>

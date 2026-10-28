@@ -27,6 +27,19 @@ describe("a fact's link", () => {
   });
 });
 
+describe("the box's columns", () => {
+  // jsdom lays nothing out, so the rule is read from the classes: the pairs split by the block's own width,
+  // never by the screen's, which put two columns into a narrow column on a wide screen.
+  it("are chosen by the block's own width, not the screen's", () => {
+    render(<Facts facts={[{ label: COPY.spielplan.fakt.datum, value: "14.03.2027" }]} />);
+
+    const list = screen.getByRole("term").closest("dl");
+    expect(list?.className.split(" ")).toContain("@lg:grid-cols-2");
+    expect(list?.className.split(" ")).not.toContain("lg:grid-cols-2");
+    expect(list?.parentElement?.className.split(" ")).toContain("@container");
+  });
+});
+
 describe("a fact's glyph", () => {
   it("leads the label on its line and is hidden from assistive technology", () => {
     render(
