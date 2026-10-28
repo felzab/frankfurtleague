@@ -357,8 +357,10 @@ class TestWhatTheLinksRegistrationReadLoads:
 
             return [document for _, document in recorder.answered if document is not None]
 
-        # Confirmed, so the birthdate and the record are stored for a widened read to load.
+        # Confirmed, so the birthdate and the record are stored for a widened read to load; and reminded, so the first
+        # link's hash, which the link read opens, sits beside the fresh one as `token_hash_zuvor`.
         confirmed = registrierung_document(geburtsdatum=AT_THE_FLOOR, einwilligung=einwilligung())
+        confirmed["bestaetigung"] |= {"token_hash": hash_token(RAW_ERINNERT), "token_hash_zuvor": TOKEN_HASH, "erinnert_am": "2026-03-29"}
         loaded = on_a_league(mongo_replica_set_url, body, registrierungen=[confirmed])
 
         assert loaded, "the link's own read found nothing, so nothing below is judged"
