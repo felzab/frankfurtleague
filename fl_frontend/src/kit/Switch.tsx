@@ -3,7 +3,7 @@
 import { SwitchButton, SwitchField } from "react-aria-components/Switch";
 
 import { MessageLine } from "./FieldParts";
-import { switchThumb, switchTrack, toggleLine, toggleRow } from "./fieldStyles";
+import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
 
@@ -30,13 +30,13 @@ export function Switch({
 }) {
   return (
     <SwitchField
-      className="flex flex-col gap-1"
+      className={toggleField()}
       name={name}
       isSelected={isSelected}
       defaultSelected={defaultSelected}
       onChange={onChange}
       isDisabled={isDisabled}>
-      <SwitchButton className={toggleRow()}>
+      <SwitchButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected }) => (
           <>
             {/* The ring goes around the track alone, so the track is the button's direct child. */}
@@ -50,7 +50,7 @@ export function Switch({
         )}
       </SwitchButton>
       {description !== undefined && (
-        <div className={toggleLine({ box: "track" })}>
+        <div className={toggleLine()}>
           <MessageLine description={description} />
         </div>
       )}

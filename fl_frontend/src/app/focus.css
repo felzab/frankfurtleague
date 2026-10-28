@@ -60,3 +60,10 @@
 [data-kit-focus="item"][data-focused] {
   background-color: var(--bg-muted);
 }
+
+/* In a field showing its error, the active part tints red the way a chip or a callout does, 12 % of the
+   red over the ground, and its figures turn red. */
+[data-kit-focus="item"][data-focused]:is([data-invalid], [data-invalid] *) {
+  background-color: color-mix(in srgb, var(--danger) 12%, var(--bg));
+  color: var(--danger);
+}
