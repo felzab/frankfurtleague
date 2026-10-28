@@ -25,7 +25,6 @@
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
-    "src/kit/Callout.tsx",
     "src/kit/KontoBox.tsx",
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",

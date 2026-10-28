@@ -8,6 +8,7 @@ import ChevronLeft from "lucide-react/icons/chevron-left";
 import ChevronRight from "lucide-react/icons/chevron-right";
 import CircleCheck from "lucide-react/icons/circle-check";
 import CircleX from "lucide-react/icons/circle-x";
+import Clock from "lucide-react/icons/clock";
 import Ellipsis from "lucide-react/icons/ellipsis";
 import FileText from "lucide-react/icons/file-text";
 import Info from "lucide-react/icons/info";
@@ -60,6 +61,8 @@ const GLYPHS = {
   schliessen: X,
   suche: Search,
   system: Monitor,
+  // A time of day, the pop-up's „Uhrzeit“; the date beside it is `kalender`, and the dated fixtures `spielplan`.
+  uhrzeit: Clock,
   vor: ChevronRight,
   warnung: TriangleAlert,
   zurueck: ChevronLeft,
