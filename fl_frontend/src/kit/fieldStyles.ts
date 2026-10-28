@@ -63,10 +63,13 @@ export const statusLine = tv({
 
 /**
  * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
- * surface one step up from the page inside its control edge.
+ * surface one step up from the page inside its control edge. Inside a pair sharing its row on a phone
+ * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
+ * the side is laid out at, so the side starts from the field's width class and the frame then fills what
+ * the side grew to.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
+  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
