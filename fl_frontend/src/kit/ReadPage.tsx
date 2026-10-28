@@ -1,6 +1,7 @@
 import { Facts } from "./Facts";
 import { MatchList } from "./MatchRow";
 import { RailPage } from "./RailFrame";
+import { SectionTitle } from "./Section";
 import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
@@ -56,7 +57,7 @@ export function ReadPage({
       title={head.title}
       chip={head.chip}>
       <section className="grid gap-3">
-        {first.title !== undefined && <h2 className="text-base font-semibold">{first.title}</h2>}
+        {first.title !== undefined && <SectionTitle text={first.title} />}
         <GroupBody group={first} />
         {acts !== undefined && acts.length > 0 && (
           <div className="grid gap-3 lg:flex lg:flex-wrap lg:items-center">
@@ -69,7 +70,7 @@ export function ReadPage({
         <section
           key={group.title}
           className="grid gap-3">
-          <h2 className="text-base font-semibold">{group.title}</h2>
+          <SectionTitle text={group.title} />
           <GroupBody group={group} />
         </section>
       ))}

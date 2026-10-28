@@ -174,7 +174,7 @@ const strip = tv({
   slots: {
     head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
-    heading: "min-w-0 font-heading tracking-[0.02em] break-words uppercase lg:truncate",
+    heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
   },
   variants: {
     // A public page's title at 24 px, a signed-in page's at 20 px.

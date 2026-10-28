@@ -29,5 +29,5 @@ export function ClassicPage({ width, children }: { width: "form" | "card" | "sig
 
 /** A classic page's one title, in Anton at 24 px: at the column's head, or in a status card. */
 export function ClassicTitle({ text }: { text: Copy | string }) {
-  return <h1 className="font-heading text-2xl tracking-[0.02em] uppercase">{text}</h1>;
+  return <h1 className="font-heading text-2xl tracking-display uppercase">{text}</h1>;
 }

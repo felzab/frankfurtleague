@@ -54,7 +54,7 @@ export type TableProps = {
 
 const table = tv({
   slots: {
-    head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-[0.04em] whitespace-nowrap text-fg-muted uppercase",
+    head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-caps whitespace-nowrap text-fg-muted uppercase",
     row: "relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
     // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a

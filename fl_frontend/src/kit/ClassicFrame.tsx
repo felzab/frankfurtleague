@@ -103,7 +103,7 @@ export function ClassicFrame({
                 key={group.heading}
                 aria-label={group.heading}
                 className="grid content-start gap-1">
-                <h2 className="mb-1 text-xs font-semibold tracking-[0.04em] text-fg-muted uppercase">{group.heading}</h2>
+                <h2 className="mb-1 text-xs font-semibold tracking-caps text-fg-muted uppercase">{group.heading}</h2>
                 {group.links.map((link) => (
                   <NextLink
                     key={link.href}
