@@ -45,19 +45,28 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
   return validationErrors[0];
 }
 
+/**
+ * The asterisk after a required field's label, a checkbox's included. Hidden from assistive technology, which
+ * hears the field's required state instead.
+ */
+export function RequiredMark({ isRequired }: { isRequired: boolean }) {
+  return (
+    isRequired && (
+      <span
+        aria-hidden
+        className={requiredMark()}>
+        {" *"}
+      </span>
+    )
+  );
+}
+
 /** The label above a field, an asterisk after it where a value is required. */
 export function FieldLabel({ label, isRequired }: { label: Copy; isRequired: boolean }) {
   return (
     <Label className={fieldLabel()}>
       {label}
-      {/* Hidden from assistive technology, which hears the field's required state instead. */}
-      {isRequired && (
-        <span
-          aria-hidden
-          className={requiredMark()}>
-          {" *"}
-        </span>
-      )}
+      <RequiredMark isRequired={isRequired} />
     </Label>
   );
 }

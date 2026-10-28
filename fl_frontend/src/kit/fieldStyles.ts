@@ -175,8 +175,11 @@ export const toggleBox = tv({
   ],
 });
 
-/** A checkbox's or a switch's message line, in the label's column. */
-export const toggleLine = tv({ base: "col-start-2" });
+/**
+ * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
+ * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
+ */
+export const toggleLine = tv({ base: "col-start-2 grid" });
 
 /** A radio group's answers: one under another, or, where each answer is described, side by side as cards. */
 export const radioList = tv({

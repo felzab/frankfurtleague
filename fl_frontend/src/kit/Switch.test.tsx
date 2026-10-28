@@ -46,7 +46,9 @@ describe("a switch", () => {
     );
     const line = screen.getByText(COPY.shared.bank).parentElement;
     const row = screen.getByText(COPY.shared.startelf).closest("label");
-    expect(line?.className).toBe("col-start-2");
+    // A grid, so the description is a block on its own 16-px line, as a field's is.
+    expect(line?.className.split(" ")).toEqual(expect.arrayContaining(["col-start-2", "grid"]));
+    expect(screen.getByText(COPY.shared.bank).className.split(" ")).toContain("h-4");
     // The row spans the field's two columns and passes them on, so the label stands in the second.
     expect(row?.className.split(" ")).toEqual(expect.arrayContaining(["col-span-2", "grid-cols-subgrid"]));
   });
