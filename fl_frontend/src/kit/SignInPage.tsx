@@ -96,11 +96,8 @@ const look = tv({
 export function SignInPage(props: SignInView) {
   const slots = look();
   return (
-    // The sign-in fills the first screen, so the footer starts just below it; the card width centres the
-    // column in it.
-    <ClassicPage
-      width="card"
-      fillsScreen>
+    // The card width centres the column in the first screen the classic page fills.
+    <ClassicPage width="card">
       <div className={slots.column()}>
         <Body {...props} />
         {/* An alert standing from the first render, so a failure written into it is announced at once: it

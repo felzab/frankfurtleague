@@ -63,7 +63,7 @@ export function ClassicFrame({
   const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsoren.pfad() }];
   return (
     // The header's height is declared once, here, for the header and for a page filling the first screen
-    // under it (`ClassicPage`'s `fillsScreen`).
+    // under it (`ClassicPage`).
     <div className="flex min-h-dvh flex-col [--classic-header:3.5rem] lg:[--classic-header:4rem]">
       <header className="sticky top-0 z-20 shrink-0 bg-brand-solid text-on-brand [--focus-ring:var(--on-brand)]">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-[65rem] items-center gap-2 px-4 lg:gap-8 lg:px-8">
