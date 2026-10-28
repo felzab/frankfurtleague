@@ -40,6 +40,14 @@ const ABLEHNUNGEN: Readonly<Record<string, { feld?: SpielFeld; text: Copy }>> = 
   "REQ-ELIGIBILITY-002": { text: ABGELEHNT.nichtInSaison },
   "REQ-STATE-002": { feld: "sonderereignis", text: ABGELEHNT.ohneWertung },
   "REQ-STATE-003": { feld: "sonderereignis", text: ABGELEHNT.beideTeamsNoetig },
+  // The editor sends the sides' sources as it read them, so the wiring rules refuse only wiring someone else
+  // changed since: the stale page, as is a fixture deleted since by an undraw or a replace.
+  "REQ-WIRING-001": { text: COPY.shared.fehler.veraltet },
+  "REQ-WIRING-002": { text: COPY.shared.fehler.veraltet },
+  "REQ-WIRING-003": { text: COPY.shared.fehler.veraltet },
+  "DB-COMMON-001": { text: COPY.shared.fehler.veraltet },
+  // The payload passed the API's own rules as this page knows them: a refusal means a page older than the API.
+  "REQ-VAL-001": { text: COPY.shared.fehler.veraltet },
 };
 
 type Antwort = { success: true; antwort: ActionAnswer } | { success: false; antwort: ActionAnswer };

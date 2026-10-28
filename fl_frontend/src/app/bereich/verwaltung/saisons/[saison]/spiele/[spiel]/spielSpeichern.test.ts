@@ -1,3 +1,4 @@
+import { publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -8,6 +9,8 @@ import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
 import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielAdmin } from "@/features/spiele/schemas";
+
+const SPEICHERN = "PATCH /spiele/{spiel_id}";
 
 const SPIEL_ID = "64b000000000000000000001";
 
@@ -215,6 +218,26 @@ describe("the match editor's save", () => {
 
     stand.ablehnung = refusal("REQ-BOOKING-003");
     expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } })).toEqual({
+      ok: false,
+      reason: COPY.shared.fehler.veraltet,
+    });
+  });
+
+  it("answers every refusal the match write publishes in words of its own", async () => {
+    // A rule's code reaches the editor whatever status the backend answers it at.
+    for (const code of publishedRefusals(SPEICHERN)) {
+      for (const status of [409, 422]) {
+        stand.ablehnung = refusedOn(SPEICHERN, code, status);
+        const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
+        expect(answer, `${code} at ${String(status)} reaches the admin as the unexpected failure`).not.toEqual({ ok: false });
+      }
+    }
+  });
+
+  it("sends a fixture deleted since the read to reload the page", async () => {
+    stand.ablehnung = refusedOn(SPEICHERN, "DB-COMMON-001");
+
+    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
       ok: false,
       reason: COPY.shared.fehler.veraltet,
     });
