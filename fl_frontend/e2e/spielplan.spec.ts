@@ -39,6 +39,11 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
   await expect(page).toHaveURL(/\/saisons\/2027\/spiele\/[0-9a-f]{24}$/);
+  // The Spielplan stays beneath it, on the matchday it showed. The open pop-up hides everything outside
+  // itself from the accessibility tree, which a role query skips unless told to include it.
+  const beneath = page.getByRole("navigation", { name: "Spieltage", includeHidden: true });
+  await expect(beneath).toBeVisible();
+  await expect(beneath.getByRole("link", { name: "1. Spieltag", includeHidden: true })).toHaveAttribute("aria-current", "page");
   const matchPage = page.url();
 
   // Back closes the pop-up and leaves the Spielplan on the matchday it showed.
