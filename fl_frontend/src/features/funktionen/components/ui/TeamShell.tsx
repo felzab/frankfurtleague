@@ -1,10 +1,10 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOut } from "@/shared/utils/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
+import { signOut } from "@/shared/utils/signOut";
 
 import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS, TEAM_SIDEMENU_STRUCTURE } from "../../constants";
 import { teamHref } from "../../teamSeats";

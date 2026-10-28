@@ -1,8 +1,8 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOut } from "@/shared/utils/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
+import { signOut } from "@/shared/utils/signOut";
 
 import { ADMIN_SHELL_FALLBACK, ADMIN_SHELL_UNLISTED_SECTIONS, ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOut } from "@/shared/utils/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
+import { signOut } from "@/shared/utils/signOut";
 
 import { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ICONS } from "../../constants";
 
