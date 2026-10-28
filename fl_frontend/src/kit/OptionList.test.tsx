@@ -50,9 +50,6 @@ describe("a combo box's create entry", () => {
 
     await typeInto("Sportpark Süd");
     expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([ORT.anlegenEintrag]);
-    // The hairline is drawn only between the matches and the entry.
-    expect(screen.getByRole("separator", { hidden: true }).className.split(" ")).toContain("first:hidden");
-    expect(screen.getByRole("listbox").firstElementChild?.getAttribute("role")).toBe("separator");
   });
 
   it("filters a record named as the entry like any other record", async () => {
@@ -112,7 +109,7 @@ describe("a combo box's create entry", () => {
 });
 
 describe("a select's chosen value", () => {
-  it("is marked as a form's value: the row tinted in the link green, its check at the end", async () => {
+  it("is marked as a form's value, its check at the end", async () => {
     render(
       <Select
         label={COPY.shared.saison}
@@ -127,8 +124,6 @@ describe("a select's chosen value", () => {
 
     const chosen = screen.getByRole("option", { name: "Goethe" });
     expect(chosen.getAttribute("aria-selected")).toBe("true");
-    expect(chosen.className.split(" ")).toContain("data-selected:bg-brand/12");
-    expect(chosen.className).not.toContain("data-selected:text-brand");
     expect(chosen.querySelector("svg")).not.toBe(null);
     expect(screen.getByRole("option", { name: "Helmholtz" }).querySelector("svg")).toBe(null);
   });

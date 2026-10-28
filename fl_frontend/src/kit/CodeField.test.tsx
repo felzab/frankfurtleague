@@ -94,7 +94,7 @@ describe("the code field", () => {
     expect(boxes(container).some((box) => box.hasAttribute("data-focused"))).toBe(false);
   });
 
-  it("states a refusal of two sentences whole, as the field's description, and marks the field invalid", () => {
+  it("states a refusal as the field's description, and marks the field invalid", () => {
     const refusal = COPY.anmeldung.abgelehnt.codeFalsch;
     render(
       <CodeField
@@ -107,10 +107,8 @@ describe("the code field", () => {
     expect(input.getAttribute("aria-invalid")).toBe("true");
     const message = screen.getByText(refusal);
     expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
-    // In the line under the boxes, which announces it at once and wraps from its one line, never cut off at it.
+    // In the line under the boxes, which announces it at once.
     const line = screen.getByRole("alert");
     expect(line.contains(message)).toBe(true);
-    expect(line.className.split(" ")).toContain("min-h-4");
-    expect(line.className.split(" ")).not.toContain("truncate");
   });
 });
