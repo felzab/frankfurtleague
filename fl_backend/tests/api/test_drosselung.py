@@ -9,6 +9,7 @@ binding no person cannot count at all. What a count does once the database answe
 import ast
 from collections.abc import Mapping
 from datetime import datetime
+from http import HTTPStatus
 from typing import get_args
 from zoneinfo import ZoneInfo
 
@@ -16,6 +17,7 @@ import pytest
 from fastapi.routing import APIRoute
 
 from app.core.drosselung import (
+    DROSSELUNG_ERREICHT,
     TAGESBUDGETS,
     ZAEHLER_BUDGETS,
     adresswechsel_gedrosselt,
@@ -26,7 +28,7 @@ from app.core.drosselung import (
 )
 from app.core.recording import AktorFunktion
 from app.core.security import PERSON_ACTOR_BINDERS
-from app.main import RefusalDriver, _dependency_calls, dependency_refusals
+from app.main import _dependency_calls, dependency_refusals
 from tests.core.app_source import application, declared, module_of, resolve_callee
 
 from .test_actor_binding import ROUTES_BY_OPERATION, SAFE_METHODS, binds_a_person
@@ -159,7 +161,11 @@ def test_the_execution_suite_drives_exactly_the_operations_the_count_is_publishe
         for (path, method), route in ROUTES_BY_OPERATION.items()
         if method == sent_method and route.path_regex.fullmatch(str(url))
     }
-    published = set(dependency_refusals(application(), {RefusalDriver.COUNT}))
+    published = {
+        operation
+        for operation, refusals in dependency_refusals(application()).items()
+        if DROSSELUNG_ERREICHT in refusals.get(HTTPStatus.TOO_MANY_REQUESTS, ())
+    }
 
     assert len(consents) == len(CONSENTS), "a `CONSENTS` entry carries no `Consent`, so the comparison below misses it"
     assert published, "no operation publishes the count's refusal, so the comparison below holds of nothing"
