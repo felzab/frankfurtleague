@@ -17,34 +17,19 @@
     // Session 1, the spike's pages.
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/Select.tsx",
     "src/kit/ComboBox.tsx",
     "src/kit/DateField.tsx",
     "src/kit/TimeField.tsx",
-    "src/kit/Chip.tsx",
-    "src/kit/TeamPlaque.tsx",
-    "src/kit/OptionList.tsx",
     "src/kit/dateParts.tsx",
-    "src/kit/Tabs.tsx",
-    "src/kit/MatchRow.tsx",
-    "src/kit/Table.tsx",
-    "src/kit/EmptyState.tsx",
     "src/kit/Section.tsx",
     "src/kit/HelpPopover.tsx",
-    "src/kit/SeasonButton.tsx",
-    "src/kit/RailFrame.tsx",
-    "src/kit/ListPage.tsx",
-    "src/kit/ListTable.tsx",
     "src/kit/EditorPage.tsx",
     "src/kit/EditorBar.tsx",
     "src/kit/useEditor.ts",
     // Session 3.
     "src/kit/BracketCard.tsx",
-    "src/kit/Filters.tsx",
-    "src/kit/Facts.tsx",
     "src/kit/Skeleton.tsx",
     "src/kit/StatusPage.tsx",
-    "src/kit/ReadPage.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
     "src/kit/RadioGroup.tsx",
@@ -54,8 +39,7 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
-    "src/kit/Switch.tsx",
-    "src/kit/SearchField.tsx"
+    "src/kit/Switch.tsx"
   ],
   "ignoreIssues": {
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
@@ -66,8 +50,8 @@
     "src/features/system/queries.ts": ["exports"],
     // Session 1, the spike's pages: the formatters wait for their first page.
     "src/core/format.ts": ["exports"],
-    // Kit exports the sign-in's classic frame reaches, read so far only by files above that wait for their
-    // first page: the field looks with session 5's last readers, the rest with session 1's other spike pages.
+    // Kit exports the spike's pages reach, read so far only by files above that wait for their first
+    // page: the field looks with session 5's last readers, the rest with session 1's other spike pages.
     "src/kit/fieldStyles.ts": ["exports"],
     "src/kit/Dialog.tsx": ["exports"],
     "src/kit/Toast.tsx": ["exports"],

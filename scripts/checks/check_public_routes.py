@@ -175,6 +175,13 @@ METADATA_IMAGES: Final = ("icon", "apple-icon", "opengraph-image", "twitter-imag
 # A route group is dropped from the URL; a dynamic segment and a catch-all stay, because what they
 # make unmeterable is exactly what this check reports.
 GROUP_RE: Final = re.compile(r"^\([^()/]+\)$")
+# A parallel route's slot is no segment of the URL either
+# (https://nextjs.org/docs/app/api-reference/file-conventions/parallel-routes).
+SLOT_RE: Final = re.compile(r"^@[A-Za-z0-9_-]+$")
+# An intercepting segment on its own level answers the URL of the segment it names
+# (https://nextjs.org/docs/app/api-reference/file-conventions/intercepting-routes). One reaching a
+# level up or the root, `(..)` or `(...)`, stays unread: no route of the tree has one.
+SAME_LEVEL_RE: Final = re.compile(r"^\(\.\)(.+)$")
 DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
 # A leading underscore is outside this class deliberately: Next opts such a folder out of routing
 # altogether, so a handler under one answers no URL and the derivation has nothing to answer with.
@@ -481,8 +488,11 @@ def url_of(parts: tuple[str, ...], route: Path) -> tuple[str, str, bool]:
     head: list[str] = []
     dynamic = False
     for part in parts:
-        if GROUP_RE.match(part):
+        if GROUP_RE.match(part) or SLOT_RE.match(part):
             continue
+        intercepted = SAME_LEVEL_RE.match(part)
+        if intercepted:
+            part = intercepted.group(1)
         if DYNAMIC_RE.match(part):
             dynamic = True
         elif not LITERAL_RE.match(part):
