@@ -35,7 +35,7 @@ const CODE_VERBRAUCHT =
 
 /**
  * The library's refusals by code. Each reaches an address holding an account and one holding none
- * alike, so none of them names which it met (`docs/frontend/spec.md :: I443`).
+ * alike, so none of them names which it met.
  */
 const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   // A code never mailed and a code already spent are this one too: the row is gone either way.
@@ -67,7 +67,7 @@ const alreadyIn = (): NextResponse => NextResponse.json({ success: true, bereits
 async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<boolean | null> {
   let served;
   try {
-    // The guards' own read, never the library's: a session they refuse forgives no guess (`docs/frontend/spec.md :: I313`).
+    // The guards' own read, never the library's: a session they refuse forgives no guess.
     served = await readAdmittedSession(requestHeaders);
   } catch (failed) {
     // The NAME alone: a failure on this path may carry the address the code was typed for.
@@ -82,11 +82,11 @@ async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<
   return Number.isFinite(created) && Date.now() - created < CODE_VALIDITY_MINUTES * 60 * 1000;
 }
 
-// A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
+// A route handler and not a server action.
 /**
  * POST alone: nothing a mail gateway or a prefetch fetches spends a code. Its calls run in process,
  * past the library's limiter and path switch, so `fl_frontend/src/core/auth.ts :: withinBound` and
- * this path's edge zones bound them (`docs/frontend/spec.md :: I444`).
+ * this path's edge zones bound them.
  */
 export async function POST(request: NextRequest) {
   // This SPENDS a credential, so a cross-site post of an attacker's own code would sign the reader
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return refused(FALSCH);
 
   // Folded as the send folded it, so the code row, both per-address bounds and the stored account are
-  // one address's (`docs/frontend/spec.md :: I446`).
+  // one address's.
   const email = asSignInIdentifier(parsed.data.email);
   const requestHeaders = await headers();
   // Held by reference: the attempt's own failure row is kept against this object.

@@ -130,7 +130,7 @@ export type Fuellung = Readonly<Record<string, string | null>>;
 
 /**
  * The words a person confirmed, filled from the record's present context, or `null` where a slot is
- * served empty; throws for a slot nothing maps (`docs/frontend/spec.md :: I641`, `:: I642`).
+ * served empty; throws for a slot nothing maps.
  */
 export function bestaetigteWorte(fassung: FLEinwilligungFassung, fuellung: Fuellung) {
   const offen = fassung.platzhalter.filter((slot) => !SELBST_GEFUELLT.has(slot) && !Object.hasOwn(fuellung, slot));

@@ -75,8 +75,8 @@ describe("the address a unique index already holds", () => {
   });
 
   it("names no banner beside the box", () => {
-    // A banner would put the sentence on the page rather than under the box the admin typed into
-    // (`docs/frontend/spec.md` §1.12), and both would then say it.
+    // A banner would put the sentence on the page rather than under the box the admin typed into,
+    // and both would then say it.
     expect(mapSperreRefusal(refusedWith(409, "REQ-SPERRLISTE-001"))?.error).toBe(undefined);
   });
 });

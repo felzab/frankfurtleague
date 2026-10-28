@@ -57,7 +57,7 @@ class FLSaisonRules(BaseModel):
     forfeit_ergebnis: FLSaisonForfeitErgebnis
 
     # No validator holds `saison_spieler` to this: it bounds what the FORM offers, so narrowing it
-    # cannot invalidate a season already played. What a narrowing costs is `docs/backend/spec.md :: I158`.
+    # cannot invalidate a season already played.
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
@@ -197,7 +197,7 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     newest = date.today().year + 1
 
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
-    # rejected value into the log (`docs/logging/spec.md :: L9`).
+    # rejected value into the log.
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
         # German, as `refuse_reversed_span` beside it is: the 422 answers REQ-VAL-001 with where the
         # field sits and pydantic's error type, never a sentence, so this one reaches the log and any
@@ -303,7 +303,7 @@ class FLGenerateSpielplanPayload(BaseModel):
     number moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
     """
 
-    # The payload `docs/backend/spec.md :: I49` was found on: a misspelled `shape` validates as
+    # The payload the rule was found on: a misspelled `shape` validates as
     # ABSENT, so a confirmed replace destroys fixtures off the season's OLD rules, under a 201
     # reporting a shape that never moved.
     model_config = ConfigDict(extra="forbid")
@@ -323,7 +323,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     season's own watermark keeps, so the two can be compared by eye.
     """
 
-    # No `extra="forbid"` here: `docs/backend/spec.md :: I49` reaches request bodies alone, and this
+    # No `extra="forbid"` here: the rule reaches request bodies alone, and this
     # is a response model.
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     spieltage: int = Field(ge=0)

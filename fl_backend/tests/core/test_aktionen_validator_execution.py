@@ -169,7 +169,7 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
     assert [image["shorthand"] for image in rows[4]["before"]] == ["HE"]
     assert rows[4]["db_filter"] == {"shorthand": "HE"} and rows[4]["modified_count"] == 1
     # The removed ids beside the images, which is what lets an erasure's `(collection, document_id)`
-    # filter select this row (`docs/backend/spec.md :: I42`).
+    # filter select this row.
     assert rows[4]["document_id"] == [image["_id"] for image in rows[4]["before"]]
     # The erasure's whole record: what it matched and how many it took, and none of what it erased.
     assert rows[5]["before"] is None
@@ -177,7 +177,7 @@ def test_the_rows_every_real_write_builds_are_all_accepted(mongo_replica_set_url
 
 
 def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
-    """The erasure's own `(collection, document_id)` filter reaches it (`docs/backend/spec.md :: I42`).
+    """The erasure's own `(collection, document_id)` filter reaches it.
 
     Selection both ways: naming one removed id empties that removal's image array and
     stamps the row, while the sibling removal's row keeps its image.
@@ -271,7 +271,7 @@ def test_a_malformed_row_is_rejected(mongo_url: str, row: dict[str, Any], why: s
             recorded_row(
                 operation="delete_many",
                 # The removed ids as an array, the shape `delete_many_from_db` records so a
-                # redaction's `$in` can select the row (`docs/backend/spec.md :: I42`).
+                # redaction's `$in` can select the row.
                 document_id=[TEAM_OID, SECOND_TEAM_OID],
                 db_filter={"inactive_since": "2024-01-01"},
                 before=[team_document(), team_document() | {"_id": SECOND_TEAM_OID, "shorthand": "HE"}],

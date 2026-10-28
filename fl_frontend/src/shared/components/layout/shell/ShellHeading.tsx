@@ -20,7 +20,7 @@ export function ShellTitle({ label, hint }: { label: string; hint?: SidemenuHint
   return (
     <>
       {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
-          inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
+          inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box. */}
       <h1
         {...FOCUS_HEADING}
         className="inline font-semibold tracking-wide text-foreground">

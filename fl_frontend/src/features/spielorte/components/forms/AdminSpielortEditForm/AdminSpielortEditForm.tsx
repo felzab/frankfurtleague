@@ -126,8 +126,7 @@ export function AdminSpielortEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-    // (`docs/frontend/spec.md :: I255`).
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
     guardSubmit({ spielort: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 

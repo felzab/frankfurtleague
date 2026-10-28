@@ -98,7 +98,7 @@ router = APIRouter(
 
 
 # Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
-# only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
+# only separation from this path is the `objectid` convertor.
 @router.get(
     "/list/admin",
     response_model=FLSpieleAdminListResponse,
@@ -178,7 +178,7 @@ async def get_spiele_action_required(
         saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
-    # this list would silently omit a badge the grids show (`docs/backend/spec.md :: I32`).
+    # this list would silently omit a badge the grids show.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(
@@ -305,7 +305,7 @@ async def _write_spiel_data(
 ) -> list[FLPatchSpielDataResponse]:
     """One implementation behind every write route, so a narrowed restore meets every rule a wholesale save does.
 
-    A LIST because a replay commits every fixture or none (`docs/backend/spec.md :: I222`).
+    A LIST because a replay commits every fixture or none.
     """
 
     async def season_of(session: AsyncClientSession | None, spiel_id: CustomObjectId) -> tuple[str, FLSaisonRules]:
@@ -356,8 +356,7 @@ async def _write_spiel_data(
         season = FLSpielListAdapter.validate_python(season_raw)
 
         # Ahead of every refusal rather than beside the date rule: a narrowed entry carries a subset,
-        # so a rule reading a field it omits sees the fixture's own value rather than nothing
-        # (`docs/backend/spec.md :: I108`).
+        # so a rule reading a field it omits sees the fixture's own value rather than nothing.
         stored = stored_in_slice(spiel_id, season)
 
         # Completed HERE and never at the write, so the refusals, the composed result and the
@@ -420,7 +419,7 @@ async def _write_spiel_data(
             verdict.releases,
             apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
             # Returned rather than left to the caller to derive, so every transaction judging here
-            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1m).
+            # anchors what the two rules above judged.
             find_references_to_anchor(stored, spiel_data, saison_rules),
         )
 
@@ -453,7 +452,7 @@ async def _write_spiel_data(
         reports: list[FLPatchSpielDataResponse] = []
 
         # The list's own order, never re-sorted here: a fixture fed by another is restorable only
-        # once that other one has put its winner back (`docs/backend/spec.md :: I223`).
+        # once that other one has put its winner back.
         for spiel_id, spiel_data in entries:
             # Inside the transaction, so a retry after a write conflict revalidates against fresh reads.
             saison_id, saison_rules = await season_of(session, spiel_id)
@@ -490,7 +489,7 @@ async def _write_spiel_data(
 
             # A retirement, the erasure and a rival save at the same hour each judge fixtures and write
             # none of this pass's, so only a write to a row puts what this pass judged in their write
-            # sets (`docs/backend/spec.md :: I53`).
+            # sets.
             for booked in (anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
                 if booked.spielort_id is not None:
                     await anchor_a_booked_venue(spielorte_collection=spielorte_collection, spielort_id=booked.spielort_id, session=session)
@@ -673,7 +672,7 @@ async def patch_spiele_paarungen(
     )
 
     # Where each fixture sits in the replay, which is what tells a rewrite this list repairs further
-    # down from one an admin has actually lost (`docs/backend/spec.md :: I223`).
+    # down from one an admin has actually lost.
     restored_at = {paarung.spiel_id: position for position, paarung in enumerate(payload.paarungen)}
 
     def restored_later(spiel_id: CustomObjectId, position: int) -> bool:

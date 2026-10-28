@@ -23,7 +23,7 @@ export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }
   if (tier === "admin") {
     const { saisons } = await getAdminSaisons();
     // The pages' own default off the list they read in this request, never the cached current season,
-    // which a write outside the app leaves stale for days (`docs/frontend/spec.md :: I359`).
+    // which a write outside the app leaves stale for days.
     const defaultSaison = selectSaison(saisons, undefined);
 
     return (

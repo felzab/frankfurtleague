@@ -33,7 +33,7 @@ import type {
 } from "./schemas";
 
 /**
- * The enrolment's five-minute window rather than the step-up's (`docs/frontend/spec.md :: I458`): a
+ * The enrolment's five-minute window rather than the step-up's: a
  * grant and a promotion outlive the session making them, and a revoke is the lockout lever.
  */
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
@@ -71,7 +71,7 @@ export async function postBerechtigungAction(
 
     const { created_id, beantragt } = postOperation;
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
-    // grant's own time on every request (`docs/frontend/spec.md :: I470`). A request is the pass's too, which mails it
+    // grant's own time on every request. A request is the pass's too, which mails it
     // to whoever could approve it.
     ankuendigenNachDerAntwort();
 
@@ -108,8 +108,8 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
 }
 
 /**
- * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request
- * (`docs/frontend/spec.md :: I121`), so the next one already holds the new tier.
+ * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request,
+ * so the next one already holds the new tier.
  */
 export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult<{ beantragt: boolean }>> {
   return runAdminMutation("patchBerechtigungAction", ZUGANG_STEP_UP, async () => {

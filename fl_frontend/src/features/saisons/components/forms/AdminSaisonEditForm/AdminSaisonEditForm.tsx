@@ -93,7 +93,7 @@ export function AdminSaisonEditForm({
   pageHeader: EditPageHeaderContent;
   /**
    * The Spielplan panel's typing and the save's pending exit, both held above the key a save re-keys this editor
-   * by, so the refresh the save ends on keeps them (`docs/frontend/spec.md` §1.3).
+   * by, so the refresh the save ends on keeps them.
    */
   redraw: RedrawDraft;
   onRedrawChange: (next: RedrawDraft) => void;
@@ -279,8 +279,8 @@ export function AdminSaisonEditForm({
   useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
-    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-    // (`docs/frontend/spec.md :: I255`). The dialog holds the gate's snapshot, which a revalidation cannot move.
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
+    // The dialog holds the gate's snapshot, which a revalidation cannot move.
     guardSubmit({ saison: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 

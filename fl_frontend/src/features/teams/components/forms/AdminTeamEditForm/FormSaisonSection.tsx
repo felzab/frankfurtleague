@@ -204,8 +204,7 @@ function GruppenTauschControl({
           )}
 
           <ConfirmActionRow confirm={twoPress}>
-            {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                §1.14). */}
+            {/* On the control, never a sentence beside it that a pick would unmount. */}
             <FocusSlot name="tausch">
               <ConfirmPressButton
                 confirm={twoPress}
@@ -294,7 +293,7 @@ export function FormSaisonSection({
   const handleEnterSaison = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
-    // `saison_teams` has no DELETE, so an entry is a step-up write (`docs/frontend/spec.md :: I432`).
+    // `saison_teams` has no DELETE, so an entry is a step-up write.
     // The entry draws the membership's own fields where its control stood, so the panel's heading takes the focus.
     const landing = focusAfterWrite();
     entryStepUp.confirmThen(true, () =>
@@ -428,7 +427,7 @@ export function FormSaisonSection({
                 error={entryGruppeError ?? undefined}
               />
               {/* Closed until a group is picked, rather than pressed into a refusal whose message lands under the
-                  picker and moves the row (`docs/frontend/spec.md` §1.14). */}
+                  picker and moves the row. */}
               <Hint
                 mode="refusal"
                 reason={!isEntering && gruppe === null ? "Wähle zuerst eine Gruppe." : null}

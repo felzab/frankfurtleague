@@ -70,7 +70,7 @@ UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607840016")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
 
 # The name each season row was entered under, apart from the club's current one, so serving the
-# club's own would be observable (`docs/backend/spec.md :: I13`).
+# club's own would be observable.
 ROW_NAME_A_PAST = "Helmholtz"
 ROW_NAME_A_ACTIVE = "Helmholtz-Gymnasium"
 CLUB_NAME_A_NOW = "Helmholtzschule Frankfurt"

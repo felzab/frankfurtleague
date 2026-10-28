@@ -27,7 +27,7 @@ export function AdminStepUpProvider({
   const windows = useConfirmationWindows(served);
 
   // The account page's holder check over the administrator's own spine: an assertion signing another
-  // account in leaves the waiting write unrun (`docs/frontend/spec.md :: I428`).
+  // account in leaves the waiting write unrun.
   const { inhaberId } = served;
   const istInhaber = useCallback(async () => {
     const holder = await pruefeAdministratorAction(inhaberId);

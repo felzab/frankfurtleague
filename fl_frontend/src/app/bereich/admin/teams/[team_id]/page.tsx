@@ -22,7 +22,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The team editor. One club per URL; WHICH season's membership it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * selector's `?saison_id=`. It resolves nothing itself.
  */
 export default function AdminTeamEditPage(props: NextPageProps<{ team_id: string }>) {
   return (
@@ -123,7 +123,7 @@ async function AdminTeamEditContent({
     // OUTSIDE the key, which is the whole of what it is for: a save on any panel re-keys the view
     // below, and the minted link is the one value on this page no read can serve back.
     <EinladungLinkHolder scope={`${teamId}:${selectedSaison.id}`}>
-      {/* Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`). */}
+      {/* Keyed by the state the drafts mirror. */}
       <AdminTeamEditView
         key={JSON.stringify({ team, saison, gruppeLocked })}
         team={team}

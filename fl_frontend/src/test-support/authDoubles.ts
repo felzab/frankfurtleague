@@ -295,8 +295,7 @@ function answerTheLookup(answerFor: (email: string) => LookupFixture | null): vo
 
 /**
  * Answers the gate's backend read with a live seat for every address, and a grant beside it for each
- * address `granted` names, so a suite minting a person's session gets past the gate at session creation
- * (`docs/frontend/spec.md :: I403`).
+ * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
   answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ], konto: true }));
@@ -304,7 +303,7 @@ export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): vo
 
 /**
  * Stamps a stored session a passkey's and seeds the passkey row its credential names: every guard
- * reads a passkey session whose passkey no row holds as no session (`docs/frontend/spec.md :: I313`).
+ * reads a passkey session whose passkey no row holds as no session.
  */
 export function madeByPasskey(store: { passkey: unknown[] }, row: { userId: string; authFactor?: string; passkeyCredentialId?: string }): void {
   const credentialID = `fabricated-credential-of-${row.userId}`;

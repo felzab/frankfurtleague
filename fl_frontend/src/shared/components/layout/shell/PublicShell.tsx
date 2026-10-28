@@ -4,8 +4,8 @@ import { TopNav } from "../topnav/TopNav";
 
 import type React from "react";
 
-// `serverStatusSlot` is a prop rather than an import: `shared` may not import `features`
-// (`docs/frontend/spec.md :: I9`), so every renderer of this shell injects it.
+// `serverStatusSlot` is a prop rather than an import: `shared` may not import `features`,
+// so every renderer of this shell injects it.
 export function PublicShell({ serverStatusSlot, children }: { serverStatusSlot: React.ReactNode; children: React.ReactNode }) {
   return (
     <>

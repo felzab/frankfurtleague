@@ -76,7 +76,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
-    // The code is the only channel a 409's body has (`docs/logging/spec.md`, L4), so it has to
+    // The code is the only channel a 409's body has, so it has to
     // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
     const refusals: [string, RegExp][] = [
@@ -155,7 +155,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("keeps the two rail-backed refusals to one sentence about the value", () => {
-    // The field register `docs/frontend/spec.md` §1.12 sets. Their remedies are pinned where they
+    // Their remedies are pinned where they
     // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.
     for (const serverErrorCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"]) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
@@ -203,7 +203,6 @@ describe("toActionErrorResult", () => {
     expect(result.error ?? "").not.toMatch(/Lade die Seite neu/);
     expect(result.error ?? "").toMatch(/Herkunft/);
     expect(result.error ?? "").toMatch(/ersten KO-Runde/);
-    // The FORM register `docs/frontend/spec.md` §1.12 sets, the action second.
     expect(result.error?.split(". ").length).toBe(2);
     expect(result.error?.split(". ")[1] ?? "").toMatch(/^Wähle/);
     // No side rides back: the failure body names none, so a form placing this on one would guess.

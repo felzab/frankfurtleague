@@ -64,7 +64,7 @@ PATH = f"/api/v{API_VERSION}/schiedsrichter/selbst"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# The folded form a signed-in person is bound under, which every record stores (`docs/backend/spec.md :: I332`).
+# The folded form a signed-in person is bound under, which every record stores.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 REFEREE_STORED = IDENTIFIER
 YOUNG = "jonas.jungspund@schule.de"
@@ -468,7 +468,7 @@ async def _withdrawn_then_granted(http: AsyncClient, path: str, payload: Callabl
 
 @pytest.mark.db
 class TestErteilbarIsTheGrantThePressTakes:
-    """`docs/backend/spec.md :: I597`: every entry the account read serves is offered a grant exactly where its PATCH takes one."""
+    """Every entry the account read serves is offered a grant exactly where its PATCH takes one."""
 
     @staticmethod
     async def _a_withdrawn_teams_confirmed_seat(database: AsyncDatabase) -> None:

@@ -20,7 +20,7 @@ const SEARCH_KEYS = ["id", "start_date", "end_date", "searchable_start_date", "s
  * `Callout` would still give a paragraph's gap.
  */
 function noticeBody(saisons: readonly AdminSaisonRow[]): string | undefined {
-  // An empty league is the one the season-reading pages send here (`docs/frontend/spec.md :: I363`).
+  // An empty league is the one the season-reading pages send here.
   if (saisons.length === 0)
     return `Lege eine Saison an, damit „${HANDLUNGSBEDARF_EINTRAG.label}“, „${FINALRUNDEN_EINTRAG.label}“ und „${SPIELSUCHE_EINTRAG.label}“ etwas zeigen.`;
   // The page it names is the planned season's, which a league holding ended seasons alone lacks.

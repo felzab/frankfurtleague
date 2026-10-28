@@ -40,7 +40,7 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
-# The folded form every record stores the address in (`docs/backend/spec.md :: I332`), and a spelling a
+# The folded form every record stores the address in, and a spelling a
 # caller may hand over unfolded. Deliberately unusual, so a hit in a seeded corpus cannot be a coincidence.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 ASKED_UNFOLDED = "Ortrud.Zwiebelmayer@Schule.de"
@@ -78,8 +78,8 @@ VERWALTUNG_ASKED = "Verena.Verwaltung@SCHULE.de"
 GRANT_INHABER_OID = ObjectId("6890a1b2c3d4e5f607820051")
 GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
-# One mailbox at an internationalised domain, stored as every payload stores it
-# (`docs/backend/spec.md :: I332`): the domain in punycode. Asked in punycode, the only form the
+# One mailbox at an internationalised domain, stored as every payload stores it:
+# the domain in punycode. Asked in punycode, the only form the
 # sign-in library hands over.
 IDN_ASKED = "anna@xn--mller-kva.de"
 IDN_STORED = "anna@xn--mller-kva.de"
@@ -111,7 +111,7 @@ RETIRED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820036")
 BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 
 # The name the junction row was entered under, and the one the club has taken since. They differ so
-# that serving the club's own would be observable (`docs/backend/spec.md :: I13`).
+# that serving the club's own would be observable.
 ROW_NAME_A = "Helmholtz"
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
@@ -623,7 +623,7 @@ class TestTheGrant:
         ]
 
     def test_a_promotion_after_the_grant_dates_the_owners_tier_and_leaves_the_grant_dated(self, mongo_replica_set_url: str):
-        """An administrator signed in between the two administers and holds no owner's power (`docs/backend/spec.md :: I534`)."""
+        """An administrator signed in between the two administers and holds no owner's power."""
 
         async def promoted(database: AsyncDatabase) -> FLSubjektResponse:
             await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_INHABER_OID}, {"$set": {"ernannt_am": GRANT_PROMOTED}})

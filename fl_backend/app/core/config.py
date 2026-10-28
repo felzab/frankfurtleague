@@ -36,7 +36,7 @@ ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1
 INTERNAL_API_KEY_LENGTH: Final = 64
 
 # RFC 9110's `VCHAR`, which a header carries as written: `security.py :: verify_api_key`'s
-# `secrets.compare_digest` RAISES on a non-ASCII `str` (`docs/ops/spec.md :: I11`). Pinned
+# `secrets.compare_digest` RAISES on a non-ASCII `str`. Pinned
 # identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
 INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
@@ -49,7 +49,7 @@ SPERRLISTE_KEY_MIN_LENGTH: Final = 64
 DEFAULT_SECRETS_DIR: Final = "/run/secrets"
 
 # Prefixed because the frontend holds a different login under `frontend_mongodb_uri`, and one file
-# name is spelled the same on the host, in the container and in development (`docs/backend/spec.md` §1.5).
+# name is spelled the same on the host, in the container and in development.
 MONGODB_URI_FILE: Final = "backend_mongodb_uri"
 
 
@@ -236,7 +236,7 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
         env_file_encoding="utf-8",
         # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
         # default serves production. Only the dotenv source hands this class an undeclared name, and it
-        # drops one carrying no value (`docs/backend/spec.md` §1.5).
+        # drops one carrying no value.
         extra="forbid",
     )
 
@@ -261,7 +261,7 @@ class BackendSecrets(BaseSettings, _SecretFields):
     """The secret half: one file per credential, and no other source at all.
 
     pydantic-settings ranks the environment and a dotenv file ABOVE a secrets directory, so a
-    variable left behind would win over its file in silence (`docs/backend/spec.md` §1.5).
+    variable left behind would win over its file in silence.
     """
 
     # No `env_prefix`: pydantic-settings puts it on a secret file's name too, and `SECRET_FILES`, the

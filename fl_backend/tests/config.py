@@ -83,7 +83,7 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
     return [
         {
             # Generated as the paste ran, as the Playground generates one: a grant no reconciliation has
-            # found dates no earlier than its id (`docs/backend/spec.md :: I525`), so an id minted at the
+            # found dates no earlier than its id, so an id minted at the
             # seed would postdate every session a case signs.
             "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
             "adresse": adresse,

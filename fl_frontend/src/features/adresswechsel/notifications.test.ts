@@ -229,7 +229,7 @@ describe("the notice a change sends the address in force", () => {
     });
 
   /* It may have landed, and it is a courtesy beside a saved write: its own answer says so, and the request's outcome
-     stays the write's and the link's (`docs/frontend/spec.md :: I372`). */
+     stays the write's and the link's. */
   it("ends as unclear where its send broke off unanswered, leaving the request's outcome unmarked", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "lost" : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
 

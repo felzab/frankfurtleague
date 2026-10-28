@@ -55,8 +55,7 @@ export async function postTeamAction(
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
   // Every create enters the club into a season, which nothing reverses: the entry's own step-up. The
-  // backend declares it on the entry alone, and both calls carry one token judged at its `iat`
-  // (`docs/backend/spec.md :: I527`).
+  // backend declares it on the entry alone, and both calls carry one token judged at its `iat`.
   return runAdminMutation("postTeamAction", { stepUp: true }, async () => {
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
@@ -83,7 +82,7 @@ export async function postTeamAction(
       return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    // A refused entry leaves the club EXISTING in no season (`docs/backend/spec.md :: I11`), which the
+    // A refused entry leaves the club EXISTING in no season, which the
     // admin teams list shows and the club's page enters: recoverable, so two requests stand rather
     // than one transaction.
     try {
@@ -217,7 +216,7 @@ export async function postSaisonTeamAction(
     }
 
     // The `teams` pair only: the row is seeded with `austritt: null` and the match join reads
-    // nothing else from it (backend spec I32), so no match changes.
+    // nothing else from it, so no match changes.
     invalidateSeasonScoped("teams", validated.data.saison_id);
 
     // A 409 here is one of `mapEntryRefusal`'s, or the unique index saying "already entered" — each
@@ -239,7 +238,7 @@ export async function postSaisonTeamAction(
       success: true,
       saison_team: saisonTeam,
       // The body under `Team aufgenommen`, never a second telling of that title: the panel's heading
-      // and its button already name the season (`docs/frontend/spec.md` §1.12).
+      // and its button already name the season.
       message: "Ein Austritt gibt den Platz in der Gruppe nicht wieder frei.",
     };
   });
@@ -255,7 +254,7 @@ export async function patchSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // BOTH pairs: every match side joins this row's `austritt` at read time (backend spec I32),
+    // BOTH pairs: every match side joins this row's `austritt` at read time,
     // so `teams` alone leaves a card showing a badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);

@@ -118,7 +118,7 @@ async def post_schiedsrichter(
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        # The address entering here, which an erasure of it running now never read.
         await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         return await insert_live(
@@ -222,7 +222,7 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        # The address entering here, which an erasure of it running now never read.
         await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         fan_out = await patch_many_in_db(

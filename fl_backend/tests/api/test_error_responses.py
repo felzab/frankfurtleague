@@ -202,8 +202,7 @@ class TestFailureBodies:
     def test_no_header_carries_the_message_either(self):
         """The other channel out: `error_response` forwards `exc.headers`, so a leak is one line away.
 
-        Pinning the body alone leaves that line invisible, and a header reaches every proxy between
-        (`docs/logging/spec.md :: L9`).
+        Pinning the body alone leaves that line invisible, and a header reaches every proxy between.
         """
 
         response = client().get("/api/v0/spiele")
@@ -234,7 +233,7 @@ VALID_NESTED = {"kontakt": {"email": "a@b"}, "namen": [{"vorname": "Anna"}]}
 
 
 class TestTheRefusedFieldsReachTheCaller:
-    """`docs/logging/spec.md :: L4`: a 422 names where each refusal sits, so a form marks that field."""
+    """A 422 names where each refusal sits, so a form marks that field."""
 
     def test_a_nested_field_is_named_by_its_path_inside_the_body(self):
         body = refused({"kontakt": {"email": "far-too-long"}, "namen": []})
@@ -291,7 +290,7 @@ class TestTheRefusedFieldsReachTheCaller:
 
 
 class TestTheRouterAnswersInTheEnvelope:
-    """`docs/backend/spec.md` §1.4: every failure answers `{error_code, trace_id}`, one no route serves included."""
+    """Every failure answers `{error_code, trace_id}`, one no route serves included."""
 
     def test_a_path_no_route_serves_is_a_404_naming_its_own_code(self):
         response = client().get("/api/v0/nowhere")
@@ -523,7 +522,7 @@ def narrowed_codes(schema: dict[str, Any]) -> set[str]:
 
 
 class TestThePublishedFailureBodies:
-    """`docs/backend/spec.md :: I345`: the document describes the bodies the handlers send."""
+    """The document describes the bodies the handlers send."""
 
     def test_every_operation_publishes_the_envelope_for_its_failures(self):
         operations = published_operations()
@@ -732,8 +731,7 @@ class TestEveryBuildPublishesOneDocument:
 
 class TestErrorCodeLogging:
     def test_the_logged_code_is_the_exceptions_own(self, caplog):
-        # A `getattr` fallback in the handler would log every `BaseAPIException` as one fixed string
-        # (`docs/logging/error-codes.md`).
+        # A `getattr` fallback in the handler would log every `BaseAPIException` as one fixed string.
         with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
             client().get("/api/v0/spiele")
 
@@ -914,7 +912,7 @@ async def crash_beside_a_refused_write() -> None:
 
 
 class TestValidationLoggingWithholdsTheValue:
-    """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
+    """The refusal reaches the log naming its field, with the value gone.
 
     Asserted on the LOG, never the wire: the body carries no message and no value, so a wire test
     passes whatever the handler writes.
@@ -1076,7 +1074,7 @@ class TestAccessLine:
         assert line.status == 200
         assert isinstance(line.duration_ms, float)
         assert line.trace_id == "c0ffee00" * 4
-        # This hop's OWN span, never the one the header carried (L12).
+        # This hop's OWN span, never the one the header carried.
         assert line.span_id != "ab" * 8
         assert re.fullmatch(r"[a-f0-9]{16}", line.span_id)
 
@@ -1137,7 +1135,7 @@ def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, lis
 
 
 class TestACrashIsAnsweredInsideItsRequest:
-    """`docs/logging/spec.md :: L4`: Starlette runs the catch-all handler in its outermost layer.
+    """Starlette runs the catch-all handler in its outermost layer.
 
     So the handler reads the request's ids only where they are bound around that layer.
     """

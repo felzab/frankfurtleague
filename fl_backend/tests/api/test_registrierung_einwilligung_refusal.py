@@ -89,7 +89,7 @@ class TestWhatAReopenedLinkShows:
 
 
 class TestWhichPageTheLinkOpens:
-    """`docs/backend/spec.md :: I287`: the returning pupil's page is the confirmed person's at this address and name alone."""
+    """The returning pupil's page is the confirmed person's at this address and name alone."""
 
     PERSON = {
         "vorname": "Quillhilde",
@@ -207,7 +207,7 @@ RETURNING_LABEL = LAUFENDE_FASSUNGEN[SEITE_WIEDERKEHREND]
 
 
 class TestWhatAReturningAdmissionWrites:
-    """`docs/backend/spec.md :: I611`: a registration carrying no choice renews nothing on the person's record."""
+    """A registration carrying no choice renews nothing on the person's record."""
 
     RETURNING = {
         "vorname": "Quillhilde",

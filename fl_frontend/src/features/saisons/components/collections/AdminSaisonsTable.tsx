@@ -138,8 +138,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 
       <div className="hidden w-full md:block">
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* Never scrolled at a width this table renders at
-              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+          {/* Never scrolled at a width this table renders at. It stays for a platform
               scrollbar wider than the step allows for and for text zoom, where a clipped column would
               hide a cell a bar reaches. */}
           <Table.ScrollContainer>
@@ -158,8 +157,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     is the only one here holding free text. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES}`}>Zeitraum</Table.Column>
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-32`}>Status</Table.Column>
-                {/* Two controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-                holds the arithmetic, and it is the count a new action changes. */}
+                {/* Two controls — it is the count a new action changes. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-36 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 

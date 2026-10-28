@@ -54,7 +54,7 @@ router = APIRouter(
 
 # Twenty-two commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
 # again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
-# round trip (`docs/backend/spec.md :: I322`).
+# round trip.
 LOESCHUNGEN_PER_PASS: Final = 10
 
 
@@ -218,8 +218,7 @@ async def post_loeschung_lauf(
     geloescht, uebersprungen, fehlgeschlagen = 0, 0, 0
     erreicht: Any = None
     abgebrochen = False
-    # Each pupil's transaction anchors any planned season its kept set leaves out, a season write the cache serves
-    # (`docs/backend/spec.md :: I722`).
+    # Each pupil's transaction anchors any planned season its kept set leaves out, a season write the cache serves.
     with dropping_the_saison_cache():
         for row in share:
             erreicht = row["_id"]
@@ -227,7 +226,7 @@ async def post_loeschung_lauf(
                 continue
 
             # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
-            # a team's: a failure the session never saw leaves its transaction open (`docs/backend/spec.md :: I539`).
+            # a team's: a failure the session never saw leaves its transaction open.
             try:
                 erased = await _erase_one(
                     row["_id"],
@@ -258,8 +257,8 @@ async def post_loeschung_lauf(
                     stamp=stamp,
                     now=germany_now,
                 )
-            # Any class, or the next pass stops at this pupil again and holds back everyone behind them
-            # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
+            # Any class, or the next pass stops at this pupil again and holds back everyone behind them;
+            # not `BaseException`, so a cancellation still ends the call.
             except Exception as failure:
                 # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
                 # raises it as a timeout keeping the label.
@@ -287,7 +286,7 @@ async def post_loeschung_lauf(
                 continue
 
             # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
-            # where a replay would erase the whole address (`docs/backend/spec.md :: I691`).
+            # where a replay would erase the whole address.
             geloescht += 1
             spieler += erased.spieler
             saison_spieler += erased.saison_spieler

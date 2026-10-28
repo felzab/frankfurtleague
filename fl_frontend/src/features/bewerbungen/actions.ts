@@ -88,8 +88,7 @@ async function notifyBewerbung({
     teamName = await resolveBewerbungTeamName(bewerbung);
   } catch (error) {
     // The decision has committed by the time this runs, so a read that fails on the way to the
-    // message must not come back as a write that did not happen. Name only, never the error
-    // (`docs/logging/spec.md :: L9`).
+    // message must not come back as a write that did not happen. Name only, never the error.
     logger.error("bewerbung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
@@ -106,7 +105,7 @@ async function notifyBewerbung({
   const benanntesTeam = teamName;
 
   // The decision has committed: a send broken off is worded in the report's own sentence, never as the request's doubt,
-  // which would drop the sentence naming whom to tell by hand (`docs/frontend/spec.md :: I372`).
+  // which would drop the sentence naming whom to tell by hand.
   const outcome = await runAnsweringOwnCut(() =>
     sendBewerbungMail({
       operation: operation,
@@ -157,7 +156,7 @@ export async function annehmenBewerbungAction(
     }
 
     // A club is created or entered. The base tag ahead of the write, every team read carrying it, so a
-    // lost answer leaves none stale; the season's tag once the answer names it (`docs/frontend/spec.md` §1.4).
+    // lost answer leaves none stale; the season's tag once the answer names it.
     invalidatesOnWrite("teams");
 
     // The refusal belongs in the panel that asked, not on the error page.
@@ -185,7 +184,7 @@ export async function annehmenBewerbungAction(
           teamName: teamName,
           saisonId: annahmeOperation.saison_id,
           // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-          // not production must not mail production links (`docs/frontend/spec.md :: I186`).
+          // not production must not mail production links.
           origin: frontend_config.AUTH_URL,
           rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
@@ -360,7 +359,7 @@ async function sendeBestaetigungErneut({
 
   const versand = linkVersandOf(outcome);
 
-  // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
+  // Naming no address, as every barred send's report names none.
   if (versand === "gesperrt") return { versand: versand, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
   if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
 

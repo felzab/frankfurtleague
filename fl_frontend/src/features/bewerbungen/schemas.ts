@@ -247,7 +247,7 @@ export type FLAblehnenBewerbungResponse = z.infer<typeof FLAblehnenBewerbungResp
 
 /**
  * Mirrors `FLBewerbungFensterResponse` — one season's window and whether that season has ended, and nothing else of it.
- * `docs/backend/spec.md :: I47` withholds a `future` season from the base tier, and a season taking
+ * The backend withholds a `future` season from the base tier, and a season taking
  * applications IS one.
  */
 export const FLBewerbungFensterResponseSchema = BaseAPIResponseSchema.extend({
@@ -264,7 +264,7 @@ export type FLBewerbungFensterResponse = z.infer<typeof FLBewerbungFensterRespon
 
 /**
  * Mirrors `FLBewerbungKeinFensterResponse` — the id of a season that records no application window,
- * and the answer that it records none. `docs/backend/spec.md :: I188` narrows to that one bit here.
+ * and the answer that it records none. The backend narrows to that one bit here.
  */
 export const FLBewerbungKeinFensterResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
@@ -529,8 +529,7 @@ export const FLPostBewerbungPayloadSchema = z
       .min(1, { error: "Bitte gib eine Zahl ab 1 ein." })
       .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
     // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
-    // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason
-    // (`docs/frontend/spec.md :: I87`).
+    // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason.
     wunschgegner: einzeiligerName(
       z
         .string()
@@ -811,8 +810,7 @@ export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend
 export type FLBewerbungKontaktSitzResponse = z.infer<typeof FLBewerbungKontaktSitzResponseSchema>;
 
 /**
- * The ceilings the two delivery writes state at their shared base, paired with that base's own by
- * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_MODEL_BOUNDS`. Retyped here rather
+ * The ceilings the two delivery writes state at their shared base. Retyped here rather
  * than left off: both endpoints answer 422 past one, and no caller of either retries.
  */
 export const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
@@ -871,8 +869,7 @@ export type FLBewerbungZustellungResponse = z.infer<typeof FLBewerbungZustellung
 
 /** One LINK a reminder carries. The token is raw and lives in that response and the message alone. */
 export const FLBewerbungSweepSeatSchema = z.object({
-  // Every seat one press of this link answers, which is two for a mirrored Trainer
-  // (`docs/backend/spec.md :: I157`).
+  // Every seat one press of this link answers, which is two for a mirrored Trainer.
   rollen: z.array(FLKontaktRolleSchema),
   vorname: z.string(),
   token: z.string(),
@@ -884,8 +881,7 @@ export const FLBewerbungSweepErinnerungSchema = z.object({
   bewerbung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   schule: z.string(),
-  // The seats' own deadline, which a reminder does not move; only an administrator's re-send does
-  // (`docs/backend/spec.md :: I152`).
+  // The seats' own deadline, which a reminder does not move; only an administrator's re-send does.
   bestaetigungsfrist: CustomDateStringSchema,
   email: z.string(),
   seats: z.array(FLBewerbungSweepSeatSchema),
@@ -958,7 +954,7 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 
-/** Every season's id, and each pass's own day: `docs/backend/spec.md :: I47` keeps a `future` one off the base tier. */
+/** Every season's id, and each pass's own day: the backend keeps a `future` one off the base tier. */
 export const FLBewerbungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
   saison_ids: z.array(z.string()),
   sweep_gelaufen_am: CustomDateStringSchema.nullable(),

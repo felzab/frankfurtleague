@@ -11,7 +11,7 @@ import { CustomObjectIdStringSchema } from "./objectId";
 export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]) });
 export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
 
-/** Every failure's body, mirroring the backend's `FLFailureBody` (`docs/logging/spec.md :: L4`). */
+/** Every failure's body, mirroring the backend's `FLFailureBody`. */
 export const FLFailureBodySchema = z.object({ error_code: z.string(), trace_id: z.string() });
 
 /** One refusal a `REQ-VAL-001` names; `kind` is pydantic's error `type`. */
@@ -43,8 +43,7 @@ export const FLSubjektSitzSchema = z.object({
   // The contact-seat sense of the word, never the captaincy's
   // (`fl_backend/app/api/bewerbungen/schemas.py :: FLKontaktRolle`).
   rolle: z.enum(["trainer", "ansprechperson", "stellvertretung"]),
-  // The name the club was PLAYED under, never the one it carries now
-  // (`docs/backend/spec.md :: I13`).
+  // The name the club was PLAYED under, never the one it carries now.
   team_name: z.string(),
   saison_status: z.enum(["past", "active", "future"]),
 });
@@ -68,20 +67,18 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   spieler: z.array(FLSubjektSpielerSchema),
   schiedsrichter: z.array(FLSubjektSchiedsrichterSchema),
   // Read beside the lists and never from their being empty: empty lists with this set are records
-  // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for
-  // (`docs/backend/spec.md :: I374`).
+  // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for.
   unbestaetigt: z.boolean(),
-  // Whether the address is on the ban list; it narrows none of the lists above
-  // (`docs/backend/spec.md :: I389`).
+  // Whether the address is on the ban list; it narrows none of the lists above.
   gesperrt: z.boolean(),
   // The tier of the grant the address holds, null for none: the administrator verdict's one source,
-  // read per request and never stamped on a session (`docs/backend/spec.md :: I383`).
+  // read per request and never stamped on a session.
   verwaltung: z.enum(["owner", "administration"]).nullable(),
   // When that grant took effect, null exactly where `verwaltung` is: a session made before it is no
-  // administrator's (`docs/backend/spec.md :: I525`). An instant carrying its offset, as every served one does.
+  // administrator's. An instant carrying its offset, as every served one does.
   berechtigt_seit: z.string().nullable(),
   // When the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: a session made
-  // before it administers and holds no owner's power (`docs/backend/spec.md :: I534`).
+  // before it administers and holds no owner's power.
   inhaber_seit: z.string().nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
@@ -91,12 +88,12 @@ export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
  * flags and the grant's tier, and no record.
  */
 export const FLAnmeldungResponseSchema = BaseAPIResponseSchema.extend({
-  // The subject read's own flag, from the same judgement (`docs/backend/spec.md :: I374`).
+  // The subject read's own flag, from the same judgement.
   unbestaetigt: z.boolean(),
   // Set wherever the account page serves the address anything, a record granting no panel included:
   // a retired row, a past or withdrawn season's seat, a pending application's or registration's.
   konto: z.boolean(),
-  // Narrowing neither flag above (`docs/backend/spec.md :: I389`).
+  // Narrowing neither flag above.
   gesperrt: z.boolean(),
   verwaltung: z.enum(["owner", "administration"]).nullable(),
 });
@@ -109,7 +106,7 @@ export type FLAnmeldungResponse = z.infer<typeof FLAnmeldungResponseSchema>;
 export const FLGesperrtPayloadSchema = z.object({ email: z.string() });
 export type FLGesperrtPayload = z.infer<typeof FLGesperrtPayloadSchema>;
 
-/** Whether a standing ban holds that address, and nothing of any record (`docs/backend/spec.md :: I543`). */
+/** Whether a standing ban holds that address, and nothing of any record. */
 export const FLGesperrtResponseSchema = BaseAPIResponseSchema.extend({ gesperrt: z.boolean() });
 
 /**

@@ -27,7 +27,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
  * Every season, the planned ones `getSaisons` withholds included. A club is entered into a season
  * only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
-// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
+// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
   runAdminRead(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );

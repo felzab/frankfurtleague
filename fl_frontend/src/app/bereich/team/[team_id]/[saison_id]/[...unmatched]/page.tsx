@@ -11,12 +11,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = NOT_FOUND_METADATA;
 
 // Reached only where every other route under a team's address has already refused it, so a mistyped
-// one answers under the team shell (`docs/frontend/spec.md :: I232`).
+// one answers under the team shell.
 export default async function TeamUnmatchedRoute() {
   await connection();
-  // The page's own turn-away, ahead of the 404, as every team page's (`docs/frontend/spec.md :: I834`).
+  // The page's own turn-away, ahead of the 404, as every team page's.
   await requireSubjectSession();
-  // Matching the address is what costs it the 404 status, wherever this call sits
-  // (`docs/frontend/spec.md :: I242`).
+  // Matching the address is what costs it the 404 status, wherever this call sits.
   notFound();
 }

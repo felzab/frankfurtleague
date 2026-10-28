@@ -44,7 +44,7 @@ export function AdminCreateSchiedsrichterForm({
   onCreated?: (created: FLSchiedsrichterAngezeigt) => void;
   /**
    * Why a caller's picker stays empty under the toast: a clean create's title, and the sentence a warning adds after
-   * the link's, its own title graded for the link (`docs/frontend/spec.md :: I725`). Literals, for `EntityForm`'s
+   * the link's, its own title graded for the link. Literals, for `EntityForm`'s
    * `successMessage` reason.
    */
   unbooked?: { title: string; addendum: string };

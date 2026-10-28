@@ -31,7 +31,7 @@ const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListRespo
 
 /**
  * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
- * season as empty. **Uncached, and it stays uncached**: `docs/frontend/spec.md` §1.2.
+ * season as empty. **Uncached, and it stays uncached**.
  */
 export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleAdminListResponse> {
   // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
@@ -50,7 +50,7 @@ export function getAdminSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSp
  * The one fixture the match editor loads, admin-tier because it round-trips the rent and the
  * referee's Honorar — two figures a base-tier read withholds (`READ-MONEY-001`).
  *
- * **Uncached, and it stays uncached**: see `docs/frontend/spec.md` §1.2.
+ * **Uncached, and it stays uncached**.
  */
 
 export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingleResponse | null> {

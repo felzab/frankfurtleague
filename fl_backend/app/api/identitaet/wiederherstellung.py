@@ -327,7 +327,7 @@ async def _plan_widerspruch(
         )
         if home == Collection.SAISON_TEAMS:
             # As the link's answer voids them: a restored confirmation row still holds the declining person's links, and
-            # the replay is the one write that can void them (`docs/backend/spec.md :: I758`).
+            # the replay is the one write that can void them.
             voids = [
                 seat_void_of(
                     saison_id=row["saison_id"],
@@ -389,7 +389,7 @@ async def _plan_adresswechsel(
     assert line.am is not None
     pressed_at = datetime.fromisoformat(line.am)
 
-    # The ending's own body, which writes the press's own update and redaction (`docs/backend/spec.md :: I704`). Ended at
+    # The ending's own body, which writes the press's own update and redaction. Ended at
     # the press's instant, which its record's expiry counts from; the redaction happens now, so its stamp is the replay's.
     async def rewrite_the_ending(session: AsyncClientSession) -> Any:
         stored = await end_the_change_in_session(
@@ -401,7 +401,7 @@ async def _plan_adresswechsel(
             stamp=log_stamp(now),
             session=session,
         )
-        # The notice the end queued went with the restore (`docs/backend/spec.md :: I870`).
+        # The notice the end queued went with the restore.
         if line.art == "adresswechsel_verworfen_mitgeteilt":
             await queue_the_refusal_notice_in_session(
                 record, adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], now=now, session=session
@@ -690,8 +690,8 @@ async def run_replay(
     held = await where_held(database, set(erased_at) | replaced, schluessel=schluessel)
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
     gone = {person_hash for person_hash in erased_at if not held[person_hash]}
-    # An effect before its person's erasure left their records at the replaced address in a snapshot from before it
-    # (`docs/backend/spec.md :: I808`). Newest first, so a chain of changes reaches the earliest address still held.
+    # An effect before its person's erasure left their records at the replaced address in a snapshot from before it.
+    # Newest first, so a chain of changes reaches the earliest address still held.
     for entry in reversed(read):
         if _erased_after(entry, gone, erased_at) and entry.line.zuvor is not None and not held[entry.line.zuvor]:
             gone.add(entry.line.zuvor)

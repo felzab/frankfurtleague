@@ -1,6 +1,6 @@
 import type { FLSchiedsrichter } from "./schemas";
 
-/* Whether a write may mint the referee a new link, a step-up write (`docs/frontend/spec.md :: I432`).
+/* Whether a write may mint the referee a new link, a step-up write.
    Each is a SUPERSET of the backend's test, never a copy: a needless prompt costs a press, a missed
    one sends a credential unasked. */
 

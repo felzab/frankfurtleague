@@ -18,7 +18,7 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 /**
  * One row's removal, escalated where the row stands rather than in a dialog:
  * `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` asks about a retirement in words
- * („stilllegen“) that no ban is, this delete keeping nothing (`docs/frontend/spec.md :: I37`).
+ * („stilllegen“) that no ban is, this delete keeping nothing.
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
   const twoPress = useTwoPressConfirm({ stepUp: true });
@@ -26,7 +26,7 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
   const { isConfirming, press } = twoPress;
 
   const handleAufheben = () => {
-    // The next row's control takes the focus once the row has gone (`docs/frontend/spec.md :: I536`).
+    // The next row's control takes the focus once the row has gone.
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.

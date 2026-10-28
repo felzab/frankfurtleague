@@ -16,8 +16,8 @@ let laeuft = false;
 let nochmal = false;
 
 /**
- * Delivers every notice an address change's end still owes, claimed from the outbox the end wrote
- * (`docs/backend/spec.md :: I846`). Settles rather than throws: a confirmation and an approval run it behind their
+ * Delivers every notice an address change's end still owes, claimed from the outbox the end wrote.
+ * Settles rather than throws: a confirmation and an approval run it behind their
  * response, the hourly pass after its calls.
  */
 export async function runAdresswechselPostausgang(): Promise<void> {
@@ -72,7 +72,7 @@ async function zustellen(): Promise<boolean> {
 
 /** One owed notice, answering whether it is done with: delivered, refused for good, or given up. */
 async function zustellenEine(mitteilung: FLAdresswechselPostausgangZeile): Promise<boolean> {
-  // Given up by the backend's count (`docs/backend/spec.md :: I480`): stamped undelivered rather than claimed for ever,
+  // Given up by the backend's count: stamped undelivered rather than claimed for ever,
   // and this line is all that says who was never told, by its kind and never by address.
   if (mitteilung.aufgegeben) {
     logger.error("adresswechsel.notice_abandoned", undefined, { error_code: "FE-MAIL-016", art: mitteilung.art });

@@ -62,7 +62,7 @@ def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[
 
 
 def _counting_fixtures_match() -> dict[str, Any]:
-    """Whether a fixture counts. A forfeit does, and a shoot-out is a draw (`docs/backend/spec.md :: I25a`)."""
+    """Whether a fixture counts. A forfeit does, and a shoot-out is a draw."""
 
     return {
         "ergebnis": {"$ne": None},
@@ -158,7 +158,7 @@ def build_absage_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Ma
 
 
 def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
-    """A club that left the league keeps its place in a `past` season and in no other (`docs/backend/spec.md :: I252`)."""
+    """A club that left the league keeps its place in a `past` season and in no other."""
 
     return [
         {
@@ -192,7 +192,7 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
     if not (isinstance(filters, FLTeamsFilterParams) and filters.include_inactive):
         pipeline.extend(build_retirement_stages(filters.saison_id))
 
-    # Translated, not dumped: the row stores a record, never a boolean (`docs/backend/spec.md :: I31`).
+    # Translated, not dumped: the row stores a record, never a boolean.
     # Two independent terms, so "left the season" and "left it THIS way" compose into one match.
     austritt_terms: dict[str, Any] = {}
     if filters.has_austritt is not None:
@@ -490,8 +490,7 @@ def _tiers(
         by_punkte.setdefault(punkte[team.id], []).append(team)
 
     # Derived here so both callers ask one question: each ranks a club that has left and neither lets
-    # one hold a placing, so completeness judged over whoever is present would split the two surfaces
-    # (`docs/backend/spec.md :: I24b`).
+    # one hold a placing, so completeness judged over whoever is present would split the two surfaces.
     still_to_play = _still_to_play(spiele)
     placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, still_to_play.get(team.id, 0)))
 
@@ -510,7 +509,7 @@ def _tiers(
 
 
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
-    """Whether a team can hold a placing a bracket slot could name (`docs/backend/spec.md :: I24b`)."""
+    """Whether a team can hold a placing a bracket slot could name."""
 
     return team.austritt is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
 
@@ -617,7 +616,7 @@ def _decide_one_gruppe(
 
     # Every member, never `placeable` alone: filtering before the ranking drops a departed club's
     # results from the mini-table the DISPLAYED table computes with them, so the two surfaces order
-    # one group differently (`docs/backend/spec.md :: I24b`).
+    # one group differently.
     settled = frozenset(team.id for team in teams if still_to_play.get(team.id, 0) == 0)
 
     if len(open_pairs) > CERTAINTY_FIXTURE_LIMIT:
@@ -689,7 +688,7 @@ def _separated_placings(
     """The placings no ending of an outstanding fixture can reach.
 
     Sound rather than exact: a placing two clubs could each take but never both is declined, which
-    reports as not yet decided (`docs/backend/spec.md :: I24c`).
+    reports as not yet decided.
     """
 
     # The larger of the two, never `win_points`: `fl_backend/app/api/saisons/services.py` refuses a
@@ -734,7 +733,7 @@ def _placings(
     for band in _tiers(teams, punkte, settled, spiele, rules):
         # Only a club that can hold a placing advances the number, so a departed one takes no place
         # and hides none -- the walk `fl_frontend/src/features/teams/utils.ts :: computePlatzByTeamId`
-        # runs over the same order (`docs/backend/spec.md :: I24b`).
+        # runs over the same order.
         holders = [team for team in band if team.id in placeable]
         if len(holders) == 1:
             placings[platz] = holders[0]
@@ -747,7 +746,7 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     """Every group the season offers.
 
     Seeded from that count rather than the teams present: a group nobody stands in keeps its key, and
-    the closed set here would answer a smaller season groups it never ran (`docs/backend/spec.md :: I10`).
+    the closed set here would answer a smaller season groups it never ran.
     """
 
     teams = list(teams)
@@ -949,7 +948,7 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
 
 
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
-    """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
+    """A seat's record held unconfirmed, as it stands until its person answers.
 
     The stamp nulled: a blank stamp is no answer.
     """
@@ -975,7 +974,7 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
-    """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
+    """Whether this seat's own person has confirmed it."""
 
     return is_confirmed(seat.get("einwilligung"))
 
@@ -1006,7 +1005,7 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     if held is None:
         return None
 
-    # The record stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
+    # The record stays the server's: only a seat's own stamp
     # confirms it, and a stored blank stamp is none.
     einwilligung = held["einwilligung"]
     return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
@@ -1028,10 +1027,10 @@ def _geburtsdatum_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str |
 
 
 def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any) -> dict[str, Any] | None:
-    """Each seat's record and its birthdate, composed here rather than taken from the payload (`docs/backend/spec.md :: I142`).
+    """Each seat's record and its birthdate, composed here rather than taken from the payload.
 
     A seat its person keeps keeps its record; any other is born under the payload's label granting
-    nothing (`docs/backend/spec.md :: I609`).
+    nothing.
     """
 
     if kontakte is None:
@@ -1048,7 +1047,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         stored_slot = stored_block.get(slot)
         einwilligung = _confirmation_held_by(stored_slot, seat=seat)
         if einwilligung is None:
-            # Born afresh (`docs/backend/spec.md :: I609`): nothing of a person who left travels to the
+            # Born afresh: nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
             einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "eingetragen_von": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
@@ -1344,7 +1343,7 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
 def find_kontakt_sitz_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     """`REQ-KONTAKT-003`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
-    409, as every administrator's write naming a barred address is (`docs/backend/spec.md :: 1.4`).
+    409, as every administrator's write naming a barred address is.
     """
 
     if not gesperrt:

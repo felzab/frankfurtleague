@@ -58,7 +58,7 @@ CASES: Final[tuple[tuple[str, str], ...]] = (
     ("mongodb://localhost:27017", "mongodb://localhost:27017"),
     ("mongodb+srv://cluster.example.net/db", "mongodb+srv://cluster.example.net/db"),
     ("write to nobody@example.net about it", "write to nobody@example.net about it"),
-    # The gap `docs/logging/spec.md` section 4 records: no URI around it, so nothing matches.
+    # The gap: no URI around it, so nothing matches.
     ("MONGO_PASSWORD=pw", "MONGO_PASSWORD=pw"),
     # The second gap it records: no userinfo, so the first `@` after the scheme is somebody else's and
     # the host goes with it. Nothing on this line was ever secret.

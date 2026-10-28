@@ -304,22 +304,21 @@ async def post_einwilligung(
             assert geburtsdatum is not None
 
             # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
-            # one committing just after (`docs/backend/spec.md :: I579`).
+            # one committing just after.
             saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1}, session=session)
             # `find_one` rather than `pull_one_from_db`: no season is ever deleted, so a miss is a broken
             # invariant rather than a 404 this press could answer.
             assert saison_raw is not None
             # Every link on a closed row meets this here, whether minted before it closed, beside its
-            # rollover or after it; never the Widerspruch below, which removes the person
-            # (`docs/backend/spec.md :: I570`).
+            # rollover or after it; never the Widerspruch below, which removes the person.
             refuse(find_saison_vorbei_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
 
             # Against the one page the view answered for these seats.
             seite = saison_antwort_seite(row=row, seats=seats)
             refuse(find_fassung_refusal(seite=seite, genannt={seat: antwort_data.text_version}))
 
-            # Asked at the press, however old the link, as the application's consent asks it
-            # (`docs/backend/spec.md :: I505`); never of the Widerspruch below.
+            # Asked at the press, however old the link, as the application's consent asks it;
+            # never of the Widerspruch below.
             gesperrt = await adressen_gesperrt(
                 sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
             )
@@ -355,7 +354,7 @@ async def post_einwilligung(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
-        # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them (`docs/backend/spec.md :: I758`).
+        # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them.
         stored_kontakte = before.get("kontakte")
         voids = [
             seat_void_of(

@@ -51,7 +51,7 @@ function SaisonRedrawHolder({ saison, rollover, swap, ersatz, spielplan, hasDraw
 
   return (
     <AdminSaisonEditForm
-      // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+      // Keyed by the state the drafts mirror.
       key={JSON.stringify({ saison, spielplan })}
       saison={saison}
       rollover={rollover}

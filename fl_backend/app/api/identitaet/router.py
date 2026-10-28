@@ -23,7 +23,7 @@ from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
 # System tier and the system actor, as `app/api/bewerbungen/zustellung_router.py` declares them: the
-# key is held by the frontend process alone (`docs/backend/spec.md :: 1.7`), which is exactly who may
+# key is held by the frontend process alone, which is exactly who may
 # ask which records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identitaet",

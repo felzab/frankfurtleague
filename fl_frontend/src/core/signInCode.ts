@@ -6,11 +6,11 @@ export const SIGN_IN_CODE_LENGTH = 6;
 
 /**
  * Failed codes one address may spend inside the window, however many codes it is sent: the plugin
- * bounds each code alone (`docs/frontend/spec.md :: I441`).
+ * bounds each code alone.
  */
 export const CODE_FAILURE_LIMIT = 10;
 export const CODE_FAILURE_WINDOW_HOURS = 24;
 
-/** Code mails one address may be sent inside the window, so a resend cannot flood a mailbox (`docs/frontend/spec.md :: I442`). */
+/** Code mails one address may be sent inside the window, so a resend cannot flood a mailbox. */
 export const CODE_MAIL_LIMIT = 5;
 export const CODE_MAIL_WINDOW_HOURS = 1;

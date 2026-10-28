@@ -7,7 +7,7 @@ import { runWithIncomingTrace } from "./traceScope";
 
 /**
  * The admin pages' own check, and their one turn-away: the layout redirects nobody, a redirect there unmounting the
- * whole frame, and a soft navigation renders no layout at all (`docs/frontend/spec.md :: I122`, `:: I834`).
+ * whole frame, and a soft navigation renders no layout at all.
  */
 export async function requireAdminRequest(): Promise<void> {
   // Loaded at the call: every slice's `queries.ts` imports this module, public pages among their
@@ -23,7 +23,7 @@ export async function requireAdminRequest(): Promise<void> {
 
 /**
  * Runs one admin-tier read with the administrator it is made for recorded as the request's actor, the
- * backend refusing an admin-tier request that names nobody (`docs/backend/spec.md :: I41`).
+ * backend refusing an admin-tier request that names nobody.
  */
 export async function runAdminRead<T>(fn: () => Promise<T>): Promise<T> {
   return runWithIncomingTrace(async () => {

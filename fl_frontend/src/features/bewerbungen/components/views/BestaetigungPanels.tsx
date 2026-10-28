@@ -211,7 +211,7 @@ export function BestaetigungErgebnis({
 
 /**
  * **The whole page a barred link opens on, on every confirmation page**: the sentence and
- * nothing else (`docs/frontend/spec.md :: I516`). A Widerspruch or any other request goes by mail to
+ * nothing else. A Widerspruch or any other request goes by mail to
  * the address it names.
  */
 export function AdresseGesperrt({ panelRef }: { panelRef: RefObject<HTMLElement | null> }) {

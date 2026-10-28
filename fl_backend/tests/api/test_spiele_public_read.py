@@ -50,7 +50,7 @@ MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
 MONEY_KEYS = frozenset({MIETPREIS_KEY, PAYMENT_KEY})
 
-# What `docs/backend/spec.md :: I102` keeps off a served fixture side: the free text naming a school and the day it took
+# What the backend keeps off a served fixture side: the free text naming a school and the day it took
 # effect. Spelled as a DOCUMENT spells them, for `MONEY_KEYS`' reason.
 AUSTRITT_DETAIL_KEYS = frozenset({"grund", "datum"})
 AUSTRITT_TYPE_KEY = "austritt_type"
@@ -248,7 +248,7 @@ PUBLIC_EMBEDDED_FIELDS = [
 ]
 
 # The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
-# the one this read has (`docs/backend/spec.md :: I32`) and a field added to `FLSpielCommon` reaches
+# the one this read has and a field added to `FLSpielCommon` reaches
 # an anonymous caller unnamed.
 BASE_TIER_FIXTURE_FIELDS = frozenset(
     {
@@ -270,7 +270,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "saison_id",
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
         "notiz",
-        # A verdict and never a row: no seat, no answer's reason (`docs/backend/spec.md :: I763`).
+        # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_bestaetigt",
     }
 )
@@ -567,7 +567,7 @@ def test_no_base_tier_body_carries_either_figure_at_any_depth(seeded_url: str, p
     keys = keys_anywhere(response.json())
 
     assert MONEY_KEYS & keys == set(), f"{path} served {sorted(MONEY_KEYS & keys)}"
-    # The booked referee's record id is withheld too (`docs/backend/spec.md :: READ-REFEREE-006`).
+    # The booked referee's record id is withheld too.
     assert "schiedsrichter_id" not in keys
     # Non-vacuous: both records ARE in the body, so what is asserted above is what they carry rather
     # than an empty result or a venue nothing served.

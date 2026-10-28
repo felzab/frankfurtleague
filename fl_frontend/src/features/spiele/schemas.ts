@@ -180,8 +180,7 @@ export const FLSpielElfmeterschiessenSchema = z
   });
 export type FLSpielElfmeterschiessen = z.infer<typeof FLSpielElfmeterschiessenSchema>;
 
-// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
-// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+// Named rather than written into the field below: a literal inside a schema call is reachable by no comparison at all.
 const ERGEBNIS_REGEX = /^[0-9]+:[0-9]+$/;
 
 export const FLSpielSchema = z.object({
@@ -226,7 +225,7 @@ export const FLSpielSchema = z.object({
   notiz: z.string().nullable(),
 
   // Three values the chip keeps apart: `null` is a fixture nobody was asked about, which reads as
-  // today, and only `false` is provisional (`docs/backend/spec.md :: I763`).
+  // today, and only `false` is provisional.
   ansetzung_bestaetigt: z.boolean().nullable(),
 });
 /**
@@ -265,7 +264,7 @@ export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
 /**
  * The read counterpart to `FLPatchSpielDataPayloadDraft`, and admin-tier: a cleared money field is
  * `null` while the admin types, and declaring otherwise takes a cast that type-checks while the
- * value travels (`docs/frontend/spec.md` I33).
+ * value travels.
  */
 export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schiedsrichter"> & {
   ort: FLSpielOrtFieldDraft | null;
@@ -343,7 +342,7 @@ export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSche
 /**
  * What `buildPayload` returns, and why it needs no cast: a cast would launder the money and
  * shoot-out fields into a shape forbidding `null`, so an empty field blocks the save with a message
- * nothing rendered (`docs/frontend/spec.md` I33).
+ * nothing rendered.
  */
 export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
   ort: FLSpielOrtFieldDraft | null;
@@ -413,7 +412,7 @@ export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
 
 /**
  * Derived from a fixture's DATE against a junction record rather than a bracket reference, so it
- * reaches a Gruppenphase fixture too (`docs/backend/spec.md` I101). Which dates count:
+ * reaches a Gruppenphase fixture too. Which dates count:
  * `fl_backend/app/api/spiele/services.py :: find_departed_occupants`.
  */
 export const FLBracketFaultOccupantSchema = z.object({
@@ -451,8 +450,8 @@ export type FLBracketFaultSpieltag = z.infer<typeof FLBracketFaultSpieltagSchema
 
 /**
  * A fixture still to be played booked onto a retired venue or referee. Nothing is taken off:
- * reactivating the row or booking another is the admin's call (`docs/backend/spec.md` I257), and the
- * ghost is the row no reactivation reaches (I259).
+ * reactivating the row or booking another is the admin's call, and the
+ * ghost is the row no reactivation reaches.
  */
 export const FLBracketFaultBookingSchema = z.object({
   reason: z.literal("retired_booking"),
@@ -463,7 +462,7 @@ export const FLBracketFaultBookingSchema = z.object({
   // name below being true of both.
   booking_id: CustomObjectIdStringSchema,
   // Null on either of them;
-  // unbounded past that (I93), a stored empty name failing here would take the whole report down.
+  // unbounded past that, a stored empty name failing here would take the whole report down.
   name: z.string().nullable(),
   inactive_since: CustomDateStringSchema,
 });

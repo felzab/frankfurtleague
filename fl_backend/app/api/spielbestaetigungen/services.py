@@ -91,7 +91,7 @@ def build_answerable_filter() -> dict[str, Any]:
     """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_offen`.
 
     Repeated on the write after the read's judgement; a rival answer committing between them conflicts, and the retry
-    judges (`docs/backend/spec.md :: I755`).
+    judges.
     """
 
     return {"antwort": None, "geschlossen": None}
@@ -145,7 +145,7 @@ ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
 GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt"})
 
 # An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler; of its answer
-# which way it went and the role, never the reason, the proposal or the holder digest (`docs/backend/spec.md :: I185`).
+# which way it went and the role, never the reason, the proposal or the holder digest.
 LINK_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
@@ -580,7 +580,7 @@ def compose_eintragen_update(*, begruendung: str, today: str) -> dict[str, Any]:
 def build_verwerfbar_filter() -> dict[str, Any]:
     """An open team decline carrying a proposal: the one row a discard closes, and the triage's `vorschlag_offen`.
 
-    Any other row closed `verworfen` would silence its party for the Ansetzung (`docs/backend/spec.md :: I768`).
+    Any other row closed `verworfen` would silence its party for the Ansetzung.
     """
 
     return {"partei.art": "team", "antwort.art": "abgelehnt", "antwort.vorschlag": {"$ne": None}, **build_closable_filter()}
@@ -616,7 +616,7 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 
 def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands (`docs/backend/spec.md :: I799`)."""
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands."""
 
     partei, antwort = spielbestaetigung_raw.get("partei") or {}, spielbestaetigung_raw.get("antwort") or {}
     if (
@@ -680,7 +680,7 @@ def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids:
 def build_current_rows_pipeline(
     *, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any], projection: Mapping[str, int]
 ) -> list[dict[str, Any]]:
-    """Each fixture's newest row alone, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
+    """Each fixture's newest row alone, by `_id`, which the pass mints in order.
 
     Chosen inside the read, so a cap on it counts the fixtures the panel shows, never a fixture's history.
     """
@@ -759,11 +759,11 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
-# needs a new stand, which only a move mints (`docs/backend/spec.md :: I768`).
+# needs a new stand, which only a move mints.
 GRUENDE_ANSWERED_FOR_THE_STAND: Final = frozenset({"verworfen"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `grund_to_close` but a move, which leaves the
-# discard its club's answer to the Ansetzung left (`docs/backend/spec.md :: I768`), and a referee change, never a club's.
+# discard its club's answer to the Ansetzung left, and a referee change, never a club's.
 GRUENDE_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_entschieden", "abgesagt", "spiel_vergangen"})
 
 
@@ -827,7 +827,7 @@ def grund_to_close(
     # stands, or the row's where the fixture lost its date.
     tag = spiel.get("datum") or ansetzung["datum"]
     # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
-    # parties are told and shown a call-off (`docs/backend/spec.md :: I836`).
+    # parties are told and shown a call-off.
     if today < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
         return "abgesagt"
 
@@ -843,7 +843,7 @@ def grund_to_close(
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
         return "ansetzung_geaendert"
 
-    # Last, so a move to or from a past day is still announced (`docs/backend/spec.md :: I840`). Kept open, a row whose
+    # Last, so a move to or from a past day is still announced. Kept open, a row whose
     # day went by unplayed would ask about a past date for good, heading the close's oldest-first page.
     if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
@@ -858,7 +858,7 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
 def grund_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
 ) -> FLSpielbestaetigungGrund | None:
-    """Why the pass's close shuts a row holding its party's question, or `None` (`docs/backend/spec.md :: I798`)."""
+    """Why the pass's close shuts a row holding its party's question, or `None`."""
 
     grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
     if row.get("geschlossen") is None or grund in GRUENDE_ENDING_AN_ANSWER:
@@ -984,7 +984,7 @@ def erinnerung_tage(*, today: str) -> list[str]:
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
     """The season's open rows owed a message: a team row's reminder due today, or an unstamped request still answerable.
 
-    Never a row this pass inserted, nor reminded on its request's day (`docs/backend/spec.md :: I765`, `:: I767`).
+    Never a row this pass inserted, nor reminded on its request's day.
     """
 
     return {
@@ -1007,7 +1007,7 @@ def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[An
 def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
     """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
 
-    Never capped: a request asked again while its stamp is lost mailed a link too (`docs/backend/spec.md :: I752`).
+    Never capped: a request asked again while its stamp is lost mailed a link too.
     """
 
     pushed: dict[str, Any] = {f"kontakte.{seat}.token_hashes": token_hash for seat, token_hash in hashes.items()}
@@ -1022,7 +1022,7 @@ def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
 
 
 def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitteilung: bool = False) -> dict[str, Any]:
-    """The closing, holding the notice it owes its party where `mitteilung` (`docs/backend/spec.md :: I835`)."""
+    """The closing, holding the notice it owes its party where `mitteilung`."""
 
     geschlossen: dict[str, Any] = {"am": today, "grund": grund}
     if mitteilung:
@@ -1042,7 +1042,7 @@ GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_geaendert", "schiedsrichte
 
 
 def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether a notice is about a day still to come (`docs/backend/spec.md :: I840`).
+    """Whether a notice is about a day still to come.
 
     A move's is about the slot left, now void, and the fixture's slot, which a fresh request asks: either day keeps it.
     """
@@ -1055,7 +1055,7 @@ def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, A
 
 
 def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I840`).
+    """Whether closing this row for `grund` owes its party a notice.
 
     Only once mailed and about a day to come: owed and given up at once, it would send the administrator to tell by hand.
     """
@@ -1068,7 +1068,7 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
 
 
 def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
-    """Whether a discard owes the club a notice that the date stands: about a day to come (`docs/backend/spec.md :: I835`).
+    """Whether a discard owes the club a notice that the date stands: about a day to come.
 
     No stamp asked, as `notice_owed` asks one: the decline it discards came through one of the club's own links.
     """
@@ -1077,7 +1077,7 @@ def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
 
 
 def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
-    """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
+    """Whether the closing a held notice announces still holds of the fixture as it stands.
 
     A fixture reinstated, rebooking the row's referee or back at its slot is asked afresh, which the notice would contradict.
     """
@@ -1158,7 +1158,7 @@ def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
 def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
     """These teams' rows in these seasons, answered and closed ones too: a link opens nothing once its seat changed holder.
 
-    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I758`).
+    Left on an answered row, it would show whoever holds the old mail the successor's ban.
     """
 
     return {"partei.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
@@ -1193,7 +1193,7 @@ def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
 def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) -> dict[str, None]:
     """One image's entries of the voided seats nulled: a link's hashes and its mail's delivery record.
 
-    An earlier holder's go too, an image naming no holder; the season's end strips them anyway (`docs/backend/spec.md :: I757`).
+    An earlier holder's go too, an image naming no holder; the season's end strips them anyway.
     """
 
     partei = image.get("partei")

@@ -6,8 +6,7 @@ import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_E
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
 
-// A pattern is outside `fl_frontend/src/core/apiContract.test.ts`, so
-// `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS` is where one is held to its twin.
+// A pattern is outside `fl_frontend/src/core/apiContract.test.ts`.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
 // (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
@@ -22,8 +21,7 @@ export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
 const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
 const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
 
-// Named rather than written into `FLAddressSchema`, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
-// can pair it with the backend's spelling: a literal inside a schema call is reachable by no comparison at all.
+// Named rather than written into `FLAddressSchema`: a literal inside a schema call is reachable by no comparison at all.
 const PLZ_REGEX = /^\d{5}$/;
 
 /**
@@ -34,8 +32,7 @@ export const CustomDateStringSchema = z.iso
   .date({ error: "Bitte gib ein gültiges Datum ein." })
   .refine((value) => !value.startsWith("0000"), { error: "Bitte gib ein gültiges Datum ein." });
 
-// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
-// can pair it with the backend's spelling.
+// Named rather than written into the schema below.
 const TIME_REGEX = /^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
 
 /**
@@ -74,8 +71,8 @@ export const ExternalUrlSchema = z
   // follows the host sends a trusting reader to the attacker.
   .refine((value) => !carriesUserinfo(value), { error: "Die Adresse darf keine Anmeldedaten vor dem @-Zeichen enthalten." });
 
-// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS`
-// can hold it against the backend's spelling. `u` is what makes `\p{L}` a Unicode property class here rather than the letter `p`.
+// Named rather than written into the schema below.
+// `u` is what makes `\p{L}` a Unicode property class here rather than the letter `p`.
 const PERSON_NAME_REGEX = /^\p{L}[\p{L}\-' ]*$/u;
 
 /**
@@ -91,13 +88,13 @@ export const PersonNameSchema = z
   .regex(PERSON_NAME_REGEX, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
 
 // `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
-// refinement below so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS` can pair the two spellings.
+// refinement below.
 const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
 
 /**
  * A name is a name: none of them belongs in one, and refusing the class is cheaper than
- * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
- * line in a decision mail besides (`:: I46`).
+ * reasoning about each renderer downstream. CR and LF forge a fact
+ * line in a decision mail besides.
  */
 // One asymmetry, fail-closed: the API's `strip_whitespace` drops U+0085 where `trim()` keeps it, so a value PADDED
 // with one is taken by the API and refused here.

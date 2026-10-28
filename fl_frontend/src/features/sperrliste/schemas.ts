@@ -37,8 +37,7 @@ export type FLSperrlisteListResponse = z.infer<typeof FLSperrlisteListResponseSc
 /**
  * Unanchored, character for character `fl_backend/app/api/sperrliste/schemas.py ::
  * ADDRESS_IN_FREE_TEXT`: both ends SEARCH a sentence rather than matching one, which is why
- * `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS` records the pair
- * instead of comparing it, and why keeping the two equal is by hand.
+ * keeping the two equal is by hand.
  */
 export const ADRESSE_IM_GRUND_REGEX = /[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/;
 

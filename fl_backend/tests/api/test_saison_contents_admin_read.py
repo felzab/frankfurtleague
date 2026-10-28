@@ -317,7 +317,7 @@ def test_each_admin_tier_read_is_the_route_that_answers_its_path(path: str, endp
 
 @pytest.mark.parametrize("path,endpoint", ADMIN_TIER_ROUTES, ids=ADMIN_TIER_ROUTE_IDS)
 def test_each_admin_tier_read_carries_the_admin_guard_and_only_that(path: str, endpoint: Callable[..., Any]):
-    """A guard is the ROUTER's (`docs/backend/spec.md :: I7`), so this fails the moment one is declared on the base router instead."""
+    """A guard is the ROUTER's, so this fails the moment one is declared on the base router instead."""
 
     route = answering(path)
 

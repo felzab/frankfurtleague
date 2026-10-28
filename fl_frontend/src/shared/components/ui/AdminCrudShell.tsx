@@ -30,7 +30,7 @@ export function AdminCrudShell({
           it animates inherits to `children`. */}
       <div className="mx-auto flex w-full max-w-page animate-admin-placeholder-hold flex-col gap-8">
         {/* Around both halves on every page, the only ancestor the bar and the list share: what is typed stays
-            in the page and never reaches the URL (`docs/frontend/spec.md :: I680`). */}
+            in the page and never reaches the URL. */}
         <AdminCrudPrivateQuery>
           {/* Below `sm` the two are one joined control, sharing a seam with no gap; the corner and label flattening
               live in `SearchBar` and `formButton`'s trigger. From `sm` they separate. */}

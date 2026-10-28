@@ -11,8 +11,7 @@ import { formatMapsLink } from "./utils.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
-// Read rather than retyped: `fl_backend/tests/shared/test_frontend_mirrors.py` runs `_maps_link` over
-// the same rows, so a join changed at one tier fails that tier's own suite.
+// Read rather than retyped: a join changed at one tier fails that tier's own suite.
 const CASES = z
   .array(FLSpielortSchema.pick({ name: true, address: true, maps_link: true }).extend({ case: z.string() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "address_lines.json"), "utf8")));

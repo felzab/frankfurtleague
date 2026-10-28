@@ -14,7 +14,7 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 /**
- * `noindex` as `/signin` spells it, which `fl_frontend/src/app/sitemap.test.ts` matches by path;
+ * `noindex` as `/signin` spells it;
  * `referrer` keeps the invite's token off the referer a press on „Datenschutzerklärung“ would send.
  */
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's
- * whole body is a function of the token in that URL (`docs/frontend/spec.md :: I22`).
+ * whole body is a function of the token in that URL.
  */
 export default function RegistrierungPage(props: NextPageProps) {
   return (

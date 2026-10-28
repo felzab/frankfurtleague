@@ -133,8 +133,7 @@ export function FormKontakteLoeschenSection({
         )}
 
         <ConfirmActionRow confirm={twoPress}>
-          {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
-              standing closure. */}
+          {/* On the control as well as in the body. */}
           <FocusSlot name="loeschen">
             <ConfirmPressButton
               confirm={twoPress}

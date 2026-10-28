@@ -149,7 +149,7 @@ export type TeamCreateSaisonOption = {
 /**
  * One row of the admin club list: EVERY club across every season, carrying the selected season's
  * junction data. Assembled from the per-season reads, because the API's team reads are strictly
- * season-scoped (backend spec I11).
+ * season-scoped.
  */
 export type AdminTeamRow = {
   id: string;

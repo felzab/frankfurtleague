@@ -239,7 +239,7 @@ def loaded_by_the_link(recorder: ReadsRecorded) -> list[Any]:
     """Every document the TOKEN filter found.
 
     `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
-    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I39`).
+    and unprojected, its pre-image being the log's.
     """
 
     return [document for db_filter, document in recorder.answered if "$or" in db_filter]
@@ -391,7 +391,7 @@ class TestWhatAnAnonymousReadLoads:
 
 
 class TestWhatAConfirmationWrites:
-    """The one `$set`: `docs/backend/spec.md :: I141`'s pairing lands whole, and the hash stays where it is."""
+    """The one `$set`: the pairing lands whole, and the hash stays where it is."""
 
     def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1118,7 +1118,7 @@ class TestALinkToABarredAddress:
 
 
 class TestTheViewOfALinkToABarredAddress:
-    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred person the form."""
+    """The page reads the ban off the view, so it never offers a barred person the form."""
 
     def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:

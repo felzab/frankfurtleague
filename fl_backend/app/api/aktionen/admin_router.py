@@ -166,7 +166,7 @@ async def get_aktionen(
                 **_facet_term("operation", filters.operation),
                 **_herkunft_term(filters.herkunft),
             },
-            # One row past what is served, `get_bewerbungen`'s shape (`docs/backend/spec.md :: I45`):
+            # One row past what is served, `get_bewerbungen`'s shape:
             # the log holds twelve months of recorded writes, and whether that reaches the cap is
             # what the extra row answers.
             limit=filters.limit + 1,

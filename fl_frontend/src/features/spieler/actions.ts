@@ -142,7 +142,7 @@ export async function postSaisonSpielerAction(
       success: true,
       saison_spieler: saisonSpieler,
       // The body under `Spieler aufgenommen`, never a second telling of that title: the panel's
-      // heading and its button already name the season (`docs/frontend/spec.md` §1.12).
+      // heading and its button already name the season.
       message: "Nummer, Rolle, Position und Stufe sind noch offen.",
     };
   });

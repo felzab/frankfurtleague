@@ -243,7 +243,7 @@ async function steppedUpAdmin(credentialID = OWN_CREDENTIAL): Promise<{ cookie: 
 
 /**
  * Rows in the shape the plugin's own writes give them; `credentialIDs` names the first ones. The last
- * is the acting device's own passkey, which every guard asks for (`docs/frontend/spec.md :: I313`).
+ * is the acting device's own passkey, which every guard asks for.
  */
 async function seedPasskeys(userId: string, count: number, credentialIDs: readonly string[] = []): Promise<string[]> {
   const { adapter } = await auth.$context;
@@ -298,7 +298,7 @@ const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
  */
 const ONE_WINS = { successes: [false, true], notices: 1, warnings: [] };
 
-describe("two removals by one administrator at once, against a real database (`docs/frontend/spec.md :: I312`)", () => {
+describe("two removals by one administrator at once, against a real database", () => {
   it("keeps the last row when two removals start from two rows, refusing the second as the last", async () => {
     const { cookie, userId } = await steppedUpAdmin();
     const ids = await seedPasskeys(userId, 2);
@@ -348,7 +348,7 @@ const REMOVED = "fl-passkey-db-entfernt";
 /** A third passkey, which signed in a device of its own and stays. */
 const KEPT = "fl-passkey-db-behalten";
 
-describe("the sessions a removal ends, against a real database (`docs/frontend/spec.md :: I313`)", () => {
+describe("the sessions a removal ends, against a real database", () => {
   const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;
 
   /* Two devices besides the acting one that the removed passkey did not sign in: ending every session

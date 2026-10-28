@@ -32,8 +32,7 @@ const RETIRE_RUNNING = "Legt still...";
 /**
  * **Every admin delete here retires a row rather than removing one**, so the consequence is the caller's while the
  * reactivation promise is fixed. Claiming a write is permanent when one press reverses it is the one thing a confirmation must not get wrong,
- * which is why there is no mode that says so. A write nothing reverses confirms in place through `ConfirmReveal` instead
- * (`docs/frontend/spec.md :: I37`).
+ * which is why there is no mode that says so. A write nothing reverses confirms in place through `ConfirmReveal` instead.
  */
 export function ConfirmDeleteModal({
   isOpen,
@@ -61,7 +60,7 @@ export function ConfirmDeleteModal({
   onConfirm: () => Promise<ActionResult>;
   /**
    * The title the retirement raises, and the action's own sentence stands beside it: this literal is
-   * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
+   * what the register reads, having no way to reach a server's words.
    */
   successMessage: string;
   /**
@@ -71,7 +70,7 @@ export function ConfirmDeleteModal({
   failureMessage: string;
 }) {
   // The panels' own two-press control, whose double-press window keeps a double-click on „Stilllegen“
-  // from retiring the row before step 2 was read (`docs/frontend/spec.md :: I37`).
+  // from retiring the row before step 2 was read.
   const retirement = useTwoPressConfirm();
   const { isConfirming, press, cancel } = retirement;
   const router = useRouter();
@@ -95,7 +94,7 @@ export function ConfirmDeleteModal({
       }
 
       onRetired();
-      // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+      // The server's sentence as the body, and never a second copy of
       // the title: an action with nothing to add sends the title's own words.
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
@@ -123,7 +122,7 @@ export function ConfirmDeleteModal({
         </div>
       }>
       {/* `ModalShell`'s body is a plain block, so the two blocks under it need a column of their own
-          to take the band's distance as a gap rather than a margin (`docs/frontend/spec.md :: I240`). */}
+          to take the band's distance as a gap rather than a margin. */}
       <div className="flex flex-col gap-y-6">
         <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
           {!isConfirming ? (
@@ -171,7 +170,7 @@ export function ConfirmDeleteModal({
 function RetireFooter({ confirm, onRetire, onClose }: { confirm: TwoPressConfirm; onRetire: () => void; onClose: () => void }) {
   return (
     // No width here — the band declares its own, and a `w-full` beside it wins on source order. The action
-    // first and the way back second, as on every confirmation (`docs/frontend/spec.md` §1.19).
+    // first and the way back second, as on every confirmation.
     <div className={MODAL_FOOTER_ROW_CLASSES}>
       <Button
         type="button"

@@ -10,7 +10,7 @@ import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
-/** `noindex` as `/signin` spells it, which `fl_frontend/src/app/sitemap.test.ts` matches by path. */
+/** `noindex` as `/signin` spells it. */
 export const metadata: Metadata = {
   title: "Passkey",
   description: "Passkey für Deine Anmeldung bei der Frankfurt League.",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page is a
- * function of the session on the request (`docs/frontend/spec.md :: I22`).
+ * function of the session on the request.
  */
 export default function PasskeyPage() {
   return (

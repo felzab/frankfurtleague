@@ -33,8 +33,7 @@ const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status:
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
 /**
- * The lanes no store holds, so where a message did not arrive the LINE is the record. Never the address
- * (`docs/logging/spec.md :: L9`).
+ * The lanes no store holds, so where a message did not arrive the LINE is the record. Never the address.
  */
 const OHNE_EINTRAG = {
   // The sign-in code: anything but a delivery locks out whoever holds no passkey.
@@ -66,8 +65,7 @@ function signedByProvider(roh: string, headers: Record<string, string>): boolean
 
 /**
  * Resend's delivery events, on neither spine the other route handlers take: `handlePublicRequest`
- * always answers 200, which would tell a caller that retries on non-200 that a forgery was accepted
- * (`docs/frontend/spec.md` §1.3).
+ * always answers 200, which would tell a caller that retries on non-200 that a forgery was accepted.
  */
 export async function POST(request: NextRequest) {
   // The exact bytes, because the signature is over them: parsing first and re-serialising changes
@@ -112,7 +110,7 @@ export async function POST(request: NextRequest) {
     // tell from the sign-in mail's.
     if (meldung.ziel === "unplatzierbar") {
       // Never the raw kind: one that failed the set is a value the provider echoed back from
-      // whatever it was handed (`docs/logging/spec.md :: L9`).
+      // whatever it was handed.
       logger.warn("mail.zustellung_unplatzierbar", { error_code: "FE-MAIL-006", grund: meldung.grund, ziel: meldung.art ?? undefined });
       return ANGEWENDET([]);
     }
@@ -130,7 +128,7 @@ export async function POST(request: NextRequest) {
       // unique index. Any other answer, a route mid-deploy or an unsent write, leaves it for the provider to send again.
       const beantwortet = isRecordMissing(error) || isRuleRefusal(error);
 
-      // Never the tag block, the address or the provider's prose (`docs/logging/spec.md :: L9`).
+      // Never the tag block, the address or the provider's prose.
       logger.error("mail.zustellung_ungeschrieben", undefined, {
         error_code: "FE-MAIL-003",
         name: error instanceof Error ? error.name : undefined,

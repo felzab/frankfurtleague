@@ -27,8 +27,6 @@ const ON_BRAND_COLOR = "#ffffff";
 
 /**
  * `fl_frontend/src/app/schemes/2027.css`'s `[data-theme="dark"]` block, token for token.
- * `fl_frontend/src/core/emailShell.test.ts` reads BOTH palettes out of that file and compares them
- * to these, so neither can drift from the site's.
  */
 const DARK_SURFACE_COLOR = "#121212";
 const DARK_CARD_COLOR = "#030303";
@@ -212,7 +210,7 @@ export const ANTWORT_SATZ_TEXT = `${NIEMAND_SATZ} ${ADRESS_SATZ_TEXT}`;
 export const ANTWORT_SATZ_HTML = `${NIEMAND_SATZ} ${ADRESS_SATZ_HTML}`;
 
 /**
- * The serving origin (`docs/frontend/spec.md :: I186`), refused rather than defaulted:
+ * The serving origin, refused rather than defaulted:
  * `SKIP_ENV_VALIDATION` lets a build past `config.ts`'s gate, and a message composed there would
  * carry a bare path.
  */

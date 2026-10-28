@@ -71,10 +71,10 @@ import type { RedrawDraft } from "./spielplanShape";
  * The season's fixture list, over `POST` and `DELETE /saisons/{saison_id}/spielplan`. **One panel and
  * one armed state for both**: on a drawn planned season each is open and each destroys the same
  * matchdays and fixtures, so the operation is picked before arming rather than raced between two
- * controls (`docs/frontend/spec.md :: I66`).
+ * controls.
  *
  * **A confirmation step rather than an undo** on either write: one press writes, and nothing replays
- * the removed rows back (`docs/backend/spec.md :: I26`).
+ * the removed rows back.
  */
 export function FormSpielplanSection({
   saisonId,
@@ -116,7 +116,7 @@ export function FormSpielplanSection({
   onBeforeWrite: () => boolean;
   /**
    * The pick and the three boxes, held by the page above the key its save re-keys the editor by, so a save keeps
-   * them (`docs/frontend/spec.md` §1.3).
+   * them.
    */
   redraw: RedrawDraft;
   onRedrawChange: (next: RedrawDraft) => void;
@@ -156,7 +156,7 @@ export function FormSpielplanSection({
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   // The closure the callout below states as a rule, which is the whole of what a reader in this state
-  // needs: a hint and a banner on one panel never carry the same fact (`docs/frontend/spec.md` §1.12).
+  // needs: a hint and a banner on one panel never carry the same fact.
   const isClosureCalledOut = holdsADraw && saisonStatus === "active";
 
   // Graded on the act ON OFFER, so a first draw stays neutral: it destroys nothing, and the undraw is never

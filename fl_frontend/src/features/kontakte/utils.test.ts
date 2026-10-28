@@ -402,7 +402,7 @@ describe("describeUnrestorableKontakte", () => {
     expect(describeUnrestorableKontakte(payload(null))).toBe(null);
   });
 
-  /* The read model takes an email the payload refuses (`docs/backend/spec.md :: I104`), so the
+  /* The read model takes an email the payload refuses, so the
      pre-save block here is no legal write and the shared undo spine can only answer it with a
      reload nothing would change. */
   it("names the seats a stored row holds that the write refuses", () => {

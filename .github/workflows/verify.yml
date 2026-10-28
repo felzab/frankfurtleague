@@ -287,14 +287,14 @@ jobs:
         with:
           name: images
           path: ${{ runner.temp }}/images
-      # Under the names compose gives the two services the local file builds, read from compose itself;
-      # every `up` below passes `--no-build`, so a name that does not match fails rather than building.
+      # Under the names docker-compose.e2e.yml gives the two built services; every `up` below passes
+      # `--no-build`, so a name that does not match fails rather than building.
       - name: Load both images as the stack's
         run: |
           docker load --input "${RUNNER_TEMP}/images/frontend.tar"
           docker load --input "${RUNNER_TEMP}/images/backend.tar"
-          docker tag frankfurtleague-verify:frontend "$(docker compose config --images frontend)"
-          docker tag frankfurtleague-verify:backend "$(docker compose config --images backend)"
+          docker tag frankfurtleague-verify:frontend frankfurtleague-e2e-frontend
+          docker tag frankfurtleague-verify:backend frankfurtleague-e2e-backend
       - name: Start the database and the backend
         run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
       - name: Load the made-up seed and judge it

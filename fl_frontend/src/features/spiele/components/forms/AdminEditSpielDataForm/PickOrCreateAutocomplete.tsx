@@ -25,8 +25,8 @@ import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { Key } from "@heroui/react/rac";
 
 /**
- * **The create form is its caller's dialog, rendered beside the match form and never inside it**
- * (`docs/frontend/spec.md :: I711`), so this picker only asks for it.
+ * **The create form is its caller's dialog, rendered beside the match form and never inside it**,
+ * so this picker only asks for it.
  */
 export function PickOrCreateAutocomplete<
   TItem extends {
@@ -117,7 +117,7 @@ export function PickOrCreateAutocomplete<
         </FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
           {/* A stand-in word from the prop, as `FormTeamPicker`'s open slot: `Autocomplete.Value` replays
-              the row's text without the grade (`docs/frontend/spec.md :: I30`). */}
+              the row's text without the grade. */}
           {selected?.nameIstPlatzhalter ? (
             <span className="min-w-0 flex-1 truncate fluid-sm">
               <Leer>{selected.name}</Leer>
@@ -126,7 +126,7 @@ export function PickOrCreateAutocomplete<
             <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
           )}
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-              truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
+              truncated name ends against this button. `hover: "css"`
               because HeroUI renders this as a plain `<button>`. */}
           <Autocomplete.ClearButton
             type="button"

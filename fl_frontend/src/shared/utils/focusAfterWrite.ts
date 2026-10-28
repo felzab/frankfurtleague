@@ -97,7 +97,7 @@ function target(place: Place): HTMLElement | null {
 }
 
 /**
- * The one landing for a control its own write takes off the page (`docs/frontend/spec.md :: I536`).
+ * The one landing for a control its own write takes off the page.
  * Read at the press, so the rows around it are the ones the reader saw; `landed` once the write succeeded.
  */
 export function focusAfterWrite(anchor: Element | null = document.activeElement): { landed: () => void } {

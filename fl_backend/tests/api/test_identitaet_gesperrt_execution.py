@@ -38,7 +38,7 @@ ABGELAUFEN = "arno.abgelaufen@schule.de"
 UNGESPERRT = "baldur.krautzberger@schule.de"
 
 # One mailbox at an internationalised domain, banned as typed in Unicode: a record stores it in
-# punycode (`docs/backend/spec.md :: I332`), which is the spelling the mailer then sends to.
+# punycode, which is the spelling the mailer then sends to.
 IDN_GESPERRT = "anna@müller.de"
 IDN_STORED = "anna@xn--mller-kva.de"
 

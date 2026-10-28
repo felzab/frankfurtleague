@@ -1,6 +1,5 @@
-/* One season's colours. A scheme carries no HeroUI import (`docs/frontend/spec.md :: 1.11 Adding a
-   HeroUI component`), and its `:root` block declares custom properties alone: a `transform`,
-   `filter` or `contain` here would make the document root a containing block (`:: I29`). */
+/* One season's colours. A scheme carries no HeroUI import, and its `:root` block declares custom properties alone: a `transform`,
+   `filter` or `contain` here would make the document root a containing block. */
 
 @layer base {
   :root,
@@ -39,8 +38,8 @@
     --accent-danger-solid-hover: #d22e30;
 
     /* A picked row in a multi-select list, two hover steps off the page's own lightness: one step
-       clear of --bg-hover, so a hovered unpicked row never reads as picked
-       (`docs/frontend/spec.md :: I162`). Its own hover is a third step. */
+       clear of --bg-hover, so a hovered unpicked row never reads as picked.
+       Its own hover is a third step. */
     --bg-picked: #c1cdc1;
     --bg-picked-hover: #abb8ac;
 

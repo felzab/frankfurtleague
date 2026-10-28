@@ -11,12 +11,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = NOT_FOUND_METADATA;
 
 // Reached only where every other `/bereich` route has already refused the address, `admin` and
-// `team` among them, so a mistyped one answers under the person shell (`docs/frontend/spec.md :: I232`).
+// `team` among them, so a mistyped one answers under the person shell.
 export default async function PersoenlichUnmatchedRoute() {
   await connection();
-  // The page's own turn-away, ahead of the 404, as every person page's (`docs/frontend/spec.md :: I834`).
+  // The page's own turn-away, ahead of the 404, as every person page's.
   await requireSubjectSession();
-  // Matching the address is what costs it the 404 status, wherever this call sits
-  // (`docs/frontend/spec.md :: I242`).
+  // Matching the address is what costs it the 404 status, wherever this call sits.
   notFound();
 }

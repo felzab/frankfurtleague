@@ -19,10 +19,10 @@ export function BackButton({ fallbackHref, spacing = "mb-6" }: PageExitOptions &
   return (
     <Button
       onPress={leavePage}
-      // The pending flag is what ends react-aria's hover (`docs/frontend/spec.md :: I68`).
+      // The pending flag is what ends react-aria's hover.
       isDisabled={isLeaving}
       // `mb-0` is for a page whose own `gap-y-*` already parts its sections, that gap being the
-      // whole of the distance (`docs/frontend/spec.md` §1.20).
+      // whole of the distance.
       className={`${formButton({ intent: "nav", size: "sm" })} ${spacing} w-fit gap-x-2`}>
       <ArrowUturnCwLeft
         aria-hidden="true"

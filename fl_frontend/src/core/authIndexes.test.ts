@@ -92,7 +92,7 @@ beforeEach(() => {
   answer = () => Promise.resolve("built");
 });
 
-describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", () => {
+describe("the sign-in store's index build", () => {
   it("builds every other index where one is refused, and logs the refused one by its name and code alone", async () => {
     answer = (build) => (build.collection === "user" ? Promise.reject(DUPLICATE_ADDRESS) : Promise.resolve("built"));
 
@@ -124,7 +124,7 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
     await afterChange();
   });
 
-  /* The client reconnects once the store answers (`docs/frontend/spec.md :: I364`), and a restart is
+  /* The client reconnects once the store answers, and a restart is
      what the build waited for otherwise. */
   it("builds every index again once a store that did not answer is writable, and not before", async () => {
     answer = () => Promise.reject(UNANSWERED);

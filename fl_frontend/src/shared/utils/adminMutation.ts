@@ -61,8 +61,7 @@ export function stepUpRequired(): StepUpRequired {
 
 /**
  * A step-up write's refusal from a session past the window `demand` names, or `null`. The refresh
- * re-reads the page's own figures, so its next press asks rather than being refused again
- * (`docs/frontend/spec.md :: I433`).
+ * re-reads the page's own figures, so its next press asks rather than being refused again.
  */
 export function refuseUnconfirmed(session: AdminSession, demand: Exclude<StepUpDemand, false> = true): StepUpRequired | null {
   // Inside the step-up window as well: the narrow window is a stricter reading of the same confirmation.
@@ -104,8 +103,7 @@ async function runGuarded<S, T extends { success: boolean }>(
     let answer: T | ActionFailure;
     try {
       // Ahead of the body rather than inside each one, so no guarded write reaches its payload or the
-      // backend unguarded: for an admin write the proxy's matcher is the first layer, and this the second
-      // (`docs/frontend/spec.md :: I7`).
+      // backend unguarded: for an admin write the proxy's matcher is the first layer, and this the second.
       const session = await guard.resolve();
       if (session === null) return { forbidden: true };
 
@@ -151,13 +149,13 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const { answer, wrote, tags, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
   // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
-  // the page leaves by a document load (`docs/frontend/spec.md :: I831`). No such write declares a tag to drop.
+  // the page leaves by a document load. No such write declares a tag to drop.
   if (endsOwnSession) return answer;
 
   // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
-  // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I640`).
+  // write feeds keeps serving what it replaced for days otherwise.
   if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
-  // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
+  // Here, where no action can forget it. Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
   // dropping the refused entries.
   if (wrote && (answer.success || outcome === "unknown")) refresh();
@@ -251,8 +249,7 @@ function isConfirmationRefused(error: unknown): error is APIBadStatusError {
 
 /**
  * The backend's own window refused a write a spine admitted: one declaring no step-up, or one sent at
- * the window's edge. Answered as the spine's own refusal, so the page's next press asks
- * (`docs/frontend/spec.md :: I493`).
+ * the window's edge. Answered as the spine's own refusal, so the page's next press asks.
  */
 function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
   if (!isConfirmationRefused(error)) throw error;

@@ -13,7 +13,7 @@ import type { FLBerechtigungAntragZeile, FLBerechtigungZeile } from "@/features/
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. Each reads what
-   the card prints through the card's own function (`docs/frontend/spec.md :: I681`). */
+   the card prints through the card's own function. */
 const SEARCH_KEYS: readonly SearchKey<FLBerechtigungZeile>[] = [
   { name: "adresse", getFn: (zeile) => vonOderGesperrt(zeile.adresse, zeile.gesperrt) },
   { name: "erteilt_von", getFn: (zeile) => erteiltVonAnzeige(zeile.erteilt_von, zeile.erteilt_von_gesperrt) },

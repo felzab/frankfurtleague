@@ -760,7 +760,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe junction and every match hold a copy of both (`docs/backend/spec.md :: I13`); a `past`\nseason keeps the name it was played under.",
+        "description": "Update a club, then rewrite the name and shorthand its unfinished seasons carry.\n\nThe junction and every match hold a copy of both; a `past`\nseason keeps the name it was played under.",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -3641,7 +3641,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group, under the name the club carries today.\n\nA club with no row here is ABSENT from that season rather than merely unlisted\n(`docs/backend/spec.md :: I11`).",
+        "description": "Enter a team into a season, in a group, under the name the club carries today.\n\nA club with no row here is ABSENT from that season rather than merely unlisted.",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -3712,7 +3712,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Rewrite a team's season row: group, exit record and kit colour",
-        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated\n(`docs/backend/spec.md :: I31`). The contact block is `PATCH .../kontakte`'s.",
+        "description": "Rewrite a team's row for one season: group, exit record and kit colour.\n\nAll three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.\nThe contact block is `PATCH .../kontakte`'s.",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -4576,7 +4576,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired (`docs/backend/spec.md :: I20`). A\nsquad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never\ntaken from the body: it is true from the first day of the season's matchday 1, and false while\nthat matchday is undated.",
+        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired. A\nsquad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never\ntaken from the body: it is true from the first day of the season's matchday 1, and false while\nthat matchday is undated.",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {
@@ -4792,7 +4792,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
         "summary": "Put a Spieler back in a squad they left",
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row\nwould overwrite both. Refused where the squad has filled up, where its club left, or where the\n`rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).",
+        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nWhere a repeat create is redirected: a create reviving the row\nwould overwrite both. Refused where the squad has filled up, where its club left, or where the\n`rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).",
         "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
         "security": [
           {
@@ -4969,7 +4969,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date (`docs/backend/spec.md :: I18`).",
+        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -6420,7 +6420,7 @@
     "/api/v0/sperrliste/{sperrliste_id}": {
       "delete": {
         "summary": "Lift a ban",
-        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\n`docs/backend/spec.md :: I119` gives every log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
+        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\nthe rule gives every log row. The lifted ban is therefore readable\nat `GET /aktionen` for that period and enforced by nothing from the moment this answers.",
         "operationId": "delete_sperrliste_eintrag_api_v0_sperrliste__sperrliste_id__delete",
         "security": [
           {
@@ -7420,7 +7420,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/einladen": {
       "post": {
         "summary": "Send a pending address a fresh link",
-        "description": "Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the\ndeadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no\nrefusal while the change stands, which is until the next hourly pass ends it (`docs/backend/spec.md :: I693`). Acts\non the change the id names alone, so a page showing a change since replaced re-sends nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,\nconfirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for\nan id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,\nor confirmed, has no link to re-send.",
+        "description": "Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the\ndeadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no\nrefusal while the change stands, which is until the next hourly pass ends it. Acts\non the change the id names alone, so a page showing a change since replaced re-sends nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,\nconfirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for\nan id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,\nor confirmed, has no link to re-send.",
         "operationId": "einladen_adresswechsel_api_v0_adresswechsel__adresswechsel_id__einladen_post",
         "security": [
           {
@@ -7484,7 +7484,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}": {
       "delete": {
         "summary": "Discard a pending address change",
-        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\n**Its address goes from the action log too** (`docs/backend/spec.md :: I704`): every image the log holds of the change\nloses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not\nbring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names\nalone, so a page showing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), and where the change ended\n(`REQ-ADRESSWECHSEL-002`); 404 for an id naming no change.",
+        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\n**Its address goes from the action log too**: every image the log holds of the change\nloses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not\nbring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names\nalone, so a page showing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), and where the change ended\n(`REQ-ADRESSWECHSEL-002`); 404 for an id naming no change.",
         "operationId": "delete_adresswechsel_api_v0_adresswechsel__adresswechsel_id__delete",
         "security": [
           {
@@ -7609,7 +7609,7 @@
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
-        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window and whether its season has ended, never the season: `docs/backend/spec.md :: I47`\nwithholds a `future` one from this tier (`READ-BEWERBUNG-001`).",
+        "description": "Return the season taking applications today -- its window open and the season not ended; 404 when none is.\n\nWhat is served is the window and whether its season has ended, never the season: the rule\nwithholds a `future` one from this tier (`READ-BEWERBUNG-001`).",
         "operationId": "get_offenes_fenster_api_v0_bewerbungen_fenster_get",
         "responses": {
           "200": {
@@ -9709,7 +9709,7 @@
     "/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt": {
       "post": {
         "summary": "Stamp the confirmations whose notice went out",
-        "description": "Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.\n\nEvery named row of this season still holding its notice stops holding it. A row holding none -- stamped already,\ndropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:\none process runs the pass, so no second pass can hold the rows named (`docs/ops/spec.md :: I149`). One\ntransaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.",
+        "description": "Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.\n\nEvery named row of this season still holding its notice stops holding it. A row holding none -- stamped already,\ndropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:\none process runs the pass, so no second pass can hold the rows named. One\ntransaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.",
         "operationId": "mitgeteilt_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__mitgeteilt_post",
         "security": [
           {
@@ -10914,7 +10914,7 @@
     "/api/v0/konto/adresswechsel/freigabe": {
       "post": {
         "summary": "Approve the address change an administrator asked of the signed-in person",
-        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
+        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
         "operationId": "post_adresswechsel_freigabe_api_v0_konto_adresswechsel_freigabe_post",
         "requestBody": {
           "content": {
@@ -12437,7 +12437,7 @@
           "genehmigt_am"
         ],
         "title": "FLAdresswechselVerwaltungGenehmigung",
-        "description": "The approval a change moving a grant waits on, read-only here: the administrators page approves it.\n\nNever who approved: a barred administrator's address is answered on no read (`docs/backend/spec.md :: I452`)."
+        "description": "The approval a change moving a grant waits on, read-only here: the administrators page approves it.\n\nNever who approved: a barred administrator's address is answered on no read."
       },
       "FLAdresswechselVerwaltungMintResponse": {
         "properties": {
@@ -12905,7 +12905,7 @@
           "anlass"
         ],
         "title": "FLAktion",
-        "description": "One recorded write.\n\nA read model, so nothing here refuses a stored value (`docs/backend/spec.md :: I36`): this\ncollection holds copies of documents from every other one, and a row it cannot serve is a row\nnobody can see was recorded."
+        "description": "One recorded write.\n\nA read model, so nothing here refuses a stored value: this\ncollection holds copies of documents from every other one, and a row it cannot serve is a row\nnobody can see was recorded."
       },
       "FLAktionMitStand": {
         "properties": {
@@ -13656,7 +13656,7 @@
           "einsehbar_verwehrt"
         ],
         "title": "FLBerechtigungAdresswechsel",
-        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides (`docs/backend/spec.md :: I858`, `:: I859`)."
+        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides."
       },
       "FLBerechtigungAenderung": {
         "properties": {
@@ -14943,7 +14943,7 @@
           "saison_beendet"
         ],
         "title": "FLBewerbungFensterResponse",
-        "description": "One season's application window and whether that season has ended, and NOTHING else about it.\n\nA season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so\nthe window gets its own shape rather than widening a season read."
+        "description": "One season's application window and whether that season has ended, and NOTHING else about it.\n\nA season taking applications is `future`, which the rule withholds -- so\nthe window gets its own shape rather than widening a season read."
       },
       "FLBewerbungKader": {
         "properties": {
@@ -15013,7 +15013,7 @@
           "fenster"
         ],
         "title": "FLBewerbungKeinFensterResponse",
-        "description": "A season that records no application window: its id, and nothing else about it.\n\n`docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps."
+        "description": "A season that records no application window: its id, and nothing else about it.\n\nThe rule is narrowed to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps."
       },
       "FLBewerbungKontaktEmailPayload": {
         "properties": {
@@ -15270,7 +15270,7 @@
           "einwilligung"
         ],
         "title": "FLBewerbungKontaktpersonPayload",
-        "description": "One of the three people, as a member of the public submits them.\n\nNo birthdate: each types their own on the confirmation page (`docs/backend/spec.md :: I141`), so\nthe key is refused outright rather than accepted as a null."
+        "description": "One of the three people, as a member of the public submits them.\n\nNo birthdate: each types their own on the confirmation page, so\nthe key is refused outright rather than accepted as a null."
       },
       "FLBewerbungKuerzelResponse": {
         "properties": {
@@ -15452,7 +15452,7 @@
           "website_url"
         ],
         "title": "FLBewerbungSchule",
-        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value, held\nby the write path rather than the validator (`docs/backend/spec.md :: I16`)."
+        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value, held\nby the write path rather than the validator."
       },
       "FLBewerbungSchuleOption": {
         "properties": {
@@ -16456,7 +16456,7 @@
           "inactive_since"
         ],
         "title": "FLBracketFaultBooking",
-        "description": "A fixture still to be played booked onto a retired venue or referee (`docs/backend/spec.md :: I257`).\n\nNothing is taken off: only a person chooses between reactivating the row and booking another."
+        "description": "A fixture still to be played booked onto a retired venue or referee.\n\nNothing is taken off: only a person chooses between reactivating the row and booking another."
       },
       "FLBracketFaultClash": {
         "properties": {
@@ -16675,7 +16675,7 @@
           "spiel_datum"
         ],
         "title": "FLBracketFaultOccupant",
-        "description": "One fixture fielding a team that left the season (`docs/backend/spec.md :: I28`).\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
+        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -17035,7 +17035,7 @@
           "erstellt_von"
         ],
         "title": "FLEinladungMintResponse",
-        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash\n(`docs/backend/spec.md :: I275`)."
+        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash."
       },
       "FLEinladungResponse": {
         "properties": {
@@ -17706,7 +17706,7 @@
           "medien"
         ],
         "title": "FLEinwilligungStand",
-        "description": "Each choice's stand where the account page was served, null where the record carried no evidence for it.\n\nA consent PATCH's precondition, echoed back as served, never a secret (`docs/backend/spec.md :: I591`)."
+        "description": "Each choice's stand where the account page was served, null where the record carried no evidence for it.\n\nA consent PATCH's precondition, echoed back as served, never a secret."
       },
       "FLEinwilligungStandPayload": {
         "properties": {
@@ -22913,7 +22913,7 @@
           "medien_mindestalter"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
-        "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
+        "description": "What one confirmation link opens, and no field past the ones declared here."
       },
       "FLRegistrierungBestaetigungPayload": {
         "properties": {
@@ -23111,7 +23111,7 @@
           "text_version"
         ],
         "title": "FLRegistrierungEinwilligung",
-        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice (`docs/backend/spec.md :: I557`)."
+        "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice."
       },
       "FLRegistrierungEntscheidungZeile": {
         "properties": {
@@ -23335,7 +23335,7 @@
           "token"
         ],
         "title": "FLRegistrierungSweepErinnerung",
-        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one (`docs/backend/spec.md :: I296`)."
+        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one."
       },
       "FLRegistrierungSweepResponse": {
         "properties": {
@@ -23399,7 +23399,7 @@
           "fehlgeschlagen"
         ],
         "title": "FLRegistrierungSweepResponse",
-        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.\n\nThe ordering that makes those three true is `docs/backend/spec.md :: I297`."
+        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes."
       },
       "FLRegistrierungenListResponse": {
         "properties": {
@@ -25766,7 +25766,7 @@
           "team2"
         ],
         "title": "FLSpielElfmeterschiessen",
-        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\nNo `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the\ndatabase validators' ratified scope (`docs/backend/spec.md :: I25`)."
+        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\nNo `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the\ndatabase validators' ratified scope."
       },
       "FLSpielJoined": {
         "properties": {
@@ -26409,7 +26409,7 @@
           "mietpreis"
         ],
         "title": "FLSpielPriorOrt",
-        "description": "The venue a restore names: which ground, and what that fixture agreed to pay for it.\n\nLax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one\n(`docs/backend/spec.md :: I114`), which is also why the two cannot be one class."
+        "description": "The venue a restore names: which ground, and what that fixture agreed to pay for it.\n\nLax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one,\nwhich is also why the two cannot be one class."
       },
       "FLSpielPriorOtherFields": {
         "properties": {
@@ -26969,7 +26969,7 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
-        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
+        "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row.\nA submitted copy is IGNORED rather than refused, as\nthe rule allows."
       },
       "FLSpielberichtAdminResponse": {
         "properties": {
@@ -31435,7 +31435,7 @@
           "kontakte_stand": {
             "type": "string",
             "title": "Kontakte Stand",
-            "description": "The token a save against this contact block has to echo back (`docs/backend/spec.md :: I192`).",
+            "description": "The token a save against this contact block has to echo back.",
             "readOnly": true
           }
         },

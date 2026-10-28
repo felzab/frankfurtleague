@@ -44,7 +44,7 @@ router = APIRouter(
 
 
 # Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
-# whose only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
+# whose only separation from this path is the `objectid` convertor.
 @router.get(
     "/list/admin",
     response_model=FLSpieltageListResponse,
@@ -230,8 +230,7 @@ async def patch_spieltag(
 
         return updated_raw, rules
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
         # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,

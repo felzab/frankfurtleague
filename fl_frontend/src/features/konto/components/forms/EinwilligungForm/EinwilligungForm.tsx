@@ -89,8 +89,8 @@ type EinwilligungAntwort<U extends Umfang = Umfang> = EinwilligungWahl<U> & {
 type Gespeichert = { readonly success: true; readonly nachweis_stand: FLEinwilligungStand };
 
 /**
- * One grant switch, closed where the record admits no grant and never left out, as its paragraph names it
- * (`docs/frontend/spec.md :: I646`). Keyed by that state: a withdrawal closing it draws a new one,
+ * One grant switch, closed where the record admits no grant and never left out, as its paragraph names it.
+ * Keyed by that state: a withdrawal closing it draws a new one,
  * which the focus lands past.
  */
 function GrantSchalter({
@@ -143,7 +143,7 @@ export type EinwilligungFormProps<U extends Umfang> = Gewaehrung<U> & {
 /**
  * One consent record's controls, each saved by its own press. Every record a person holds renders
  * through this one component, so the pupil's, the referee's, a seat's and a registration's cannot drift
- * apart in wording or behaviour (`docs/frontend/spec.md :: I637`).
+ * apart in wording or behaviour.
  */
 export function EinwilligungForm<U extends Umfang>({
   worte,
@@ -172,7 +172,7 @@ export function EinwilligungForm<U extends Umfang>({
     gehalten.current = { wahl: gespeichert, stand: nachweisStand };
   }, [gespeichert, nachweisStand]);
 
-  // The one rule every control is closed by (`docs/frontend/spec.md :: I638`): a grant is closed where the
+  // The one rule every control is closed by: a grant is closed where the
   // record admits none and does not already hold it, the media consent also below the age the backend names.
   const zu = (wahl_: Wahl, gehaltenWahl: EinwilligungWahl): boolean =>
     istGrant(wahl_) && !hält(gehaltenWahl, wahl_) && (!erteilbar || (wahl_.wahl === "medien" && !medienAngeboten));
@@ -190,7 +190,7 @@ export function EinwilligungForm<U extends Umfang>({
   // One press at a time, each the held record plus its own change: built from the screen, a press after
   // a refused grant would carry the grant along, and one sent unanswered a stand that press moves.
   const waehle = (aenderung: Wahl<U>): void => {
-    // Read at the press: a withdrawal can close the switch it was pressed on (`docs/frontend/spec.md :: I536`).
+    // Read at the press: a withdrawal can close the switch it was pressed on.
     const landung = focusAfterWrite();
     startTransition(async () => {
       setWahl((gezeigt) => ({ ...gezeigt, [aenderung.wahl]: aenderung.wert }));

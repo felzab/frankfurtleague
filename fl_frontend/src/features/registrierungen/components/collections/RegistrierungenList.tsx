@@ -65,7 +65,7 @@ export function RegistrierungenList({ registrierungen, adresse }: { registrierun
 }
 
 /**
- * One row's card. Its own component so each card holds its own armed state (`docs/frontend/spec.md :: I37`):
+ * One row's card. Its own component so each card holds its own armed state:
  * one state shared across the list would leave a second card one press from a decision armed on the first.
  */
 function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffeneRegistrierung; adresse: Adresse }) {

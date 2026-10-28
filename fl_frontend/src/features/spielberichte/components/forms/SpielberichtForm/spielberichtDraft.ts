@@ -217,7 +217,7 @@ const OFFEN = "offen";
 
 /**
  * A whole list is one row: an entry has no path surviving the one before it being removed. Parted by a slash, never a
- * semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas, and its pupil a middle dot.
+ * semicolon: an entry holds commas, and its pupil a middle dot.
  */
 const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" / "));
 

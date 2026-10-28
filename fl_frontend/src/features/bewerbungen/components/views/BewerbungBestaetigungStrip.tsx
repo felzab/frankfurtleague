@@ -119,7 +119,7 @@ const NEUBESETZUNG_TITEL: VersandTitel = {
   abgelegt: "Rolle besetzt, Link zurückgehalten",
 };
 
-/** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
+/** Which of the two editors one row has open. One at a time for the whole strip. */
 type Bearbeitung = "korrektur" | "neubesetzung";
 
 /**
@@ -164,7 +164,7 @@ export function BewerbungBestaetigungStrip({
   const stepUp = useStepUp();
 
   /**
-   * One editor for the whole strip (`docs/frontend/spec.md :: I66` gives a panel one action row), so
+   * One editor for the whole strip, so
    * opening a second row drops the first's draft — one address nobody has written yet.
    */
   const [editor, setEditor] = useState<{ rolle: KontaktRolle; art: Bearbeitung } | null>(null);
@@ -519,14 +519,14 @@ function AdresseKorrigieren({
     }
 
     setSendet(true);
-    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    // The link it mails voids the seat's standing one.
     if (!(await stepUp.confirm(true))) {
       setSendet(false);
       return;
     }
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    // And never reading the page again: that re-keys the strip over the box's typed entry.
     const res = await kontaktEmailKorrigierenAction(payload).catch((error: unknown) => unansweredAction(error, KORREKTUR_OHNE_ANTWORT));
     setSendet(false);
 
@@ -592,7 +592,7 @@ function AdresseKorrigieren({
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
         {/* On the control, never a sentence beside it that the first keystroke would unmount under the
-            administrator typing (`docs/frontend/spec.md` §1.14). `sendet` is left out: it ends by itself. */}
+            administrator typing. `sendet` is left out: it ends by itself. */}
         <Hint
           mode="refusal"
           reason={!sendet && unveraendert ? "Gib zuerst eine andere E-Mail-Adresse ein." : null}
@@ -704,14 +704,14 @@ function SitzNeuBesetzen({
     }
 
     setSendet(true);
-    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    // The link it mails voids the seat's standing one.
     if (!(await stepUp.confirm(true))) {
       setSendet(false);
       return;
     }
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    // And never reading the page again: that re-keys the strip over the box's typed entry.
     const res = await besetzeKontaktSitzAction(payload).catch((error: unknown) => unansweredAction(error, BESETZUNG_OHNE_ANTWORT));
     setSendet(false);
 
@@ -834,7 +834,7 @@ function SitzNeuBesetzen({
       </div>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-        {/* On the control, as the correction's is (`docs/frontend/spec.md` §1.14). `sendet` is left
+        {/* On the control, as the correction's is. `sendet` is left
             out of the reason: it ends by itself. */}
         <Hint
           mode="refusal"

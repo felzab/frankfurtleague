@@ -39,7 +39,7 @@ import type { Key } from "@heroui/react/rac";
 export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /**
- * The reload first (`docs/frontend/spec.md` §1.12), then the address shown again, which a reload empties: a second start
+ * The reload first, then the address shown again, which a reload empties: a second start
  * replaces one that landed, so entering it again is safe either way.
  */
 const START_OHNE_ANTWORT =
@@ -142,7 +142,7 @@ export function AdresswechselBeantragen({
     }
 
     const landing = focusAfterWrite();
-    // Ends the change standing at the address on file, its links with it (`docs/backend/spec.md :: I792`).
+    // Ends the change standing at the address on file, its links with it.
     const res = await pressLinkWrite({
       isDirty: false,
       stepUp,
@@ -254,7 +254,7 @@ export function AdresswechselBeantragen({
             />
             <FieldError className={FIELD_ERROR_CLASSES}>{grundGezeigt}</FieldError>
             {/* Kept a year in the log once the change takes effect, past any redaction: the backend refuses a name of the
-                person in it. A change ending without effect takes it out of the log (`docs/backend/spec.md :: I704`). */}
+                person in it. A change ending without effect takes it out of the log. */}
             <Hint
               mode="field"
               text="Wie Du geprüft hast, wer fragt. Nenne hier keine Person beim Namen und keine Adresse. Gilt die Änderung, steht der Grund zwölf Monate im Änderungsprotokoll. Endet sie vorher, wird er gelöscht."
@@ -264,8 +264,8 @@ export function AdresswechselBeantragen({
       </RequiredSchemas>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-        {/* On the control, never a sentence beside it that the first keystroke would unmount
-            (`docs/frontend/spec.md` §1.14). `sendet` is left out: it ends by itself. */}
+        {/* On the control, never a sentence beside it that the first keystroke would unmount.
+            `sendet` is left out: it ends by itself. */}
         <Hint
           mode="refusal"
           reason={!sendet && unveraendert ? "Gib zuerst eine andere E-Mail-Adresse ein." : null}

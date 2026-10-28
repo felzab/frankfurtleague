@@ -19,7 +19,7 @@ export function answerThrow(error: unknown, wording?: Wording): ActionFailure {
 
 /**
  * Whether a sent write may stand behind the body's own answer: the deadline cut a call, or a send that may have gone
- * was settled among its refusals (`docs/frontend/spec.md :: I366`).
+ * was settled among its refusals.
  */
 export function writeOutcomeUnknown(): boolean {
   return requestWriteSent() && requestOutcomeUnknown();

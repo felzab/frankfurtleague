@@ -58,7 +58,7 @@ export function EinwilligungPanel({ eintraege }: { eintraege: readonly Einwillig
       <div className={panel.body()}>
         {eintraege.map(({ id, titel, angaben, bestaetigt, control }) => (
           // Named by its title: every seat's switches carry the same stamped words, and only the group says
-          // which team season a press moves. Its heading takes a closed switch's focus (`docs/frontend/spec.md :: I536`).
+          // which team season a press moves. Its heading takes a closed switch's focus.
           <section
             key={id}
             role="group"

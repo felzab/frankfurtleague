@@ -10,7 +10,7 @@ import type { NextRequest } from "next/server";
 
 /**
  * Reached over loopback alone, by the pupils' deletion, the fixture confirmations and an operator after a hand edit;
- * nginx refuses it at the edge (`docs/frontend/spec.md :: I16`). Off `handlePublicRequest`, which answers
+ * nginx refuses it at the edge. Off `handlePublicRequest`, which answers
  * 200 whatever happened: every caller acts on the status.
  */
 export async function POST(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   return runWithIncomingTrace(async () => {
     // `{ expire: 0 }`: the caller has just changed what the entry holds, and a stale-while-revalidate profile serves it
-    // once more (`docs/frontend/spec.md :: I14`).
+    // once more.
     for (const tag of body.data.tags) revalidateTag(tag, { expire: 0 });
 
     logger.info("cache.revalidated", { tags: body.data.tags });

@@ -50,8 +50,8 @@ export async function patchSaisonTeamKontakteAction(
       };
     }
 
-    // A save minting or voiding a link is a step-up write, and one moving none keeps its undo
-    // (`docs/frontend/spec.md :: I432`). The stored row is read only for a session past the window.
+    // A save minting or voiding a link is a step-up write, and one moving none keeps its undo.
+    // The stored row is read only for a session past the window.
     const movesLinks =
       validated.data.kontakte !== null &&
       !isFreshlySignedIn(session) &&
@@ -113,7 +113,7 @@ export async function patchSaisonTeamKontakteAction(
     return {
       success: true,
       // The two fields the editor reads and nothing else: an action's result reaches the browser, and
-      // the answer beside them carries every minted link's raw token (`docs/backend/spec.md :: I142`).
+      // the answer beside them carries every minted link's raw token.
       saison_team: { kontakte: saisonTeam.kontakte, kontakte_stand: saisonTeam.kontakte_stand },
       // The cleared block is a removal rather than a save, and it is the one outcome a reader would
       // not expect to have to check for.
@@ -136,7 +136,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    // The replay is a save, judged as the save judges one (`docs/frontend/spec.md :: I432`): undoing a
+    // The replay is a save, judged as the save judges one: undoing a
     // first entry clears the block, and putting an earlier person back mints a link and voids one.
     const movesLinks =
       validated.data.kontakte !== null &&

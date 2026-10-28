@@ -12,7 +12,7 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import type { SignOutResult } from "@/shared/types/types";
 import type { NextRequest } from "next/server";
 
-// A route handler and never a server action (`docs/frontend/spec.md :: I831`): a cookie an action deletes makes
+// A route handler and never a server action: a cookie an action deletes makes
 // Next render the page it came from again, whose own check redirects the ended session and empties the area.
 /** POST alone, so nothing a prefetch or a mail gateway fetches signs anybody out. */
 export async function POST(request: NextRequest) {

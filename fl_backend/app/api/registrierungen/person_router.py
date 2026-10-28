@@ -268,9 +268,9 @@ async def aufnehmen(
                 session=session,
             )
         else:
-            # Read here, not by the address lookup, which serves no consent record
-            # (`docs/backend/spec.md :: I584`): a choice the person moved after confirming the
-            # registration stands (`:: I611`).
+            # Read here, not by the address lookup, which serves no consent record:
+            # a choice the person moved after confirming the
+            # registration stands.
             gespeichert = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
@@ -297,7 +297,7 @@ async def aufnehmen(
             )
         else:
             # The retired row and never a second one: `uniq_spieler_id_saison_id` keeps one row per
-            # player per season, a retired one included (`docs/backend/spec.md :: I583`).
+            # player per season, a retired one included.
             await patch_one_in_db(
                 collection=saison_spieler_collection,
                 db_filter={"_id": kader_raw["_id"]},
@@ -331,7 +331,7 @@ async def aufnehmen(
             ist_nachnominiert=kader_fields["ist_nachnominiert"],
         )
 
-    # The squad cap's own write moved the season (`docs/backend/spec.md :: I131`).
+    # The squad cap's own write moved the season.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             return await session.with_transaction(admit_the_pupil)

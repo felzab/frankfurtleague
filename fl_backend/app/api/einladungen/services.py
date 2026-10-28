@@ -84,7 +84,7 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
     """Whether this season's registration window runs on `today`: `offen`, AND the day inside the span.
 
     Both ends compared: span ordering is enforced on the season PAYLOAD alone, so a stored reversal
-    is reachable (`docs/backend/spec.md :: I278`).
+    is reachable.
     """
 
     if not isinstance(registrierung, Mapping):
@@ -229,8 +229,7 @@ def plan_einladung_versand(
         return EinladungVersandPlan([], "keine_bestaetigte_kontaktperson", False)
 
     # Ahead of the delivery record, which the mailer never writes for a barred address: a team reached
-    # by nobody else would lose its link to a fresh mint at every press while the ban stands
-    # (`docs/backend/spec.md :: I544`).
+    # by nobody else would lose its link to a fresh mint at every press while the ban stands.
     if all(person.email in gesperrt for person in empfaenger):
         return EinladungVersandPlan([], "kontakte_gesperrt", False)
 

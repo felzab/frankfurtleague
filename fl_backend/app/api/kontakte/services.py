@@ -165,7 +165,7 @@ def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: S
 
     slots = {slot for identifier in identifiers for slot in find_matching_slots(row, identifier)}
 
-    # By name only inside a document the caller reached by id (`docs/backend/spec.md :: I672`), where
+    # By name only inside a document the caller reached by id, where
     # one name is one person, so a corrected address takes its seat; the replacement hands in the
     # outgoing row's names.
     kontakte = row.get("kontakte")
@@ -228,6 +228,6 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
         cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
 
     # Whatever the block: the submission digest was taken over this person's details too, and a hash
-    # of personal data is personal data (`docs/backend/spec.md :: I346`). An `$unset` creates nothing
+    # of personal data is personal data. An `$unset` creates nothing
     # where none is held.
     return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}

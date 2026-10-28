@@ -14,7 +14,7 @@ import { REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { NextRequest } from "next/server";
 
-// A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
+// A route handler and not a server action.
 /**
  * POST alone, and no GET: a chat client fetches every link somebody pastes, and the same-origin
  * guard cannot tell a scanner's GET from a reader's, so a link that wrote on GET would register for
@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
 
       const token = eingang.bestaetigung_token;
       // A replay whose row is confirmed, or whose link may already be in the inbox, hands none: no live
-      // link for a confirmed row, and no second mail (`docs/backend/spec.md :: I347`).
+      // link for a confirmed row, and no second mail.
       if (token === null) return { success: true as const };
 
       // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-      // production must not mail production links (`docs/frontend/spec.md :: I186`).
+      // production must not mail production links.
       const origin = frontend_config.AUTH_URL;
 
       // After the write and never before it: outside production this send is withheld after writing
@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
       });
 
       // A withheld send is this deployment and not the address, so it answers as a send: the sink
-      // holds the message and the link is followed out of it. A barred one answers as a send too
-      // (`docs/frontend/spec.md :: I301`).
+      // holds the message and the link is followed out of it. A barred one answers as a send too.
       if (delivered.length === 0 && withheld.length === 0 && gesperrt === 0) {
         return { success: false as const, ...abgewiesenerVersand() };
       }

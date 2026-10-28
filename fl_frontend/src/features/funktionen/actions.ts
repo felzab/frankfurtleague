@@ -95,7 +95,7 @@ export async function readErasureAnsichtAction(
 }
 
 /**
- * Erases every league record an address holds, then its sign-in account (`docs/frontend/spec.md :: I685`).
+ * Erases every league record an address holds, then its sign-in account.
  * **Permanent, with no undo**, and mailing nobody: the request it answers arrived by mail, outside this site.
  */
 export async function eraseAufAnfrageAction(
@@ -118,7 +118,7 @@ export async function eraseAufAnfrageAction(
 
     let erasure: FLErasureResponse;
     try {
-      // A grant holder's address is held to the enrolment's window on both servers (`docs/frontend/spec.md :: I714`), so a
+      // A grant holder's address is held to the enrolment's window on both servers, so a
       // grant written since the panel's read is refused here too. Read only for a session past that window.
       const haeltZugang =
         !isWithinEnrolmentWindow(session.session.createdAt) &&
@@ -151,7 +151,7 @@ export async function eraseAufAnfrageAction(
 const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
 
 /**
- * Ends every session of an address without barring it and without a mail (`docs/frontend/spec.md :: I687`). A step-up
+ * Ends every session of an address without barring it and without a mail. A step-up
  * write: nothing brings an ended session back, and unasked, a stolen session could sign administrators out again and again.
  */
 export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Promise<ActionResult<{ konto: boolean }>> {

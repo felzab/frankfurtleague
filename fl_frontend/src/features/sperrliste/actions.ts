@@ -42,8 +42,8 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
 type Abmeldung = { readonly konto: boolean | null; readonly satz: string | null };
 
 /**
- * Ends the address's live sessions, which the refusal of every next sign-in does not reach
- * (`docs/frontend/spec.md :: I402`). A failure leaves the ban standing, as a failed notice does.
+ * Ends the address's live sessions, which the refusal of every next sign-in does not reach.
+ * A failure leaves the ban standing, as a failed notice does.
  */
 async function abmelden(email: string): Promise<Abmeldung> {
   try {
@@ -65,11 +65,10 @@ async function abmelden(email: string): Promise<Abmeldung> {
 // A failure leaves the ban standing rather than undoing it: the write is acknowledged and no address
 // survives to re-send to, so the administrator is told instead.
 async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string | null> {
-  // The notice's own sender, the one past the ban list: the address it goes to is now on it
-  // (`docs/frontend/spec.md :: I541`).
+  // The notice's own sender, the one past the ban list: the address it goes to is now on it.
   try {
     // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
-    // check a ban written before this send (`docs/frontend/spec.md :: I372`).
+    // check a ban written before this send.
     await runAnsweringOwnCut(() =>
       sendSperreNotice({ to: email, grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: frontend_config.AUTH_URL }),
     );
@@ -95,7 +94,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
 }
 
 /**
- * What the address holds, read for the ban's dialog ahead of the ban (`docs/frontend/spec.md :: I724`): the erasure's
+ * What the address holds, read for the ban's dialog ahead of the ban: the erasure's
  * own reveal, every record it names being one the ban leaves standing.
  */
 export async function readSperreAnsichtAction(
@@ -122,7 +121,7 @@ export async function readSperreAnsichtAction(
     }
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
-    // so its list would be work for nothing (`docs/frontend/spec.md :: I730`).
+    // so its list would be work for nothing.
     const { acknowledged: _umschlag, verwaltung, gesperrt, ...ansicht } = gelesen;
     if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
     if (gesperrt) return refusalResult(schonGesperrtAmFeld());
@@ -161,7 +160,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // that then failed; the sign-out first, so the notice's account of it is already true.
     const abgemeldet = await abmelden(validated.data.email);
 
-    // Only an address an account holds is mailed (`docs/frontend/spec.md :: I517`). Where the store did
+    // Only an address an account holds is mailed. Where the store did
     // not say, nobody is, the notice's account sentences being a guess; either way the administrator is told.
     let benachrichtigt: string | null = abgemeldet.konto === null ? NICHT_BENACHRICHTIGT : KEIN_KONTO;
     if (abgemeldet.konto === true) {
@@ -176,7 +175,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     return {
       success: true,
       message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" "),
-      // A warning wherever a sign-out or a notice the dialog's hint promises did not happen (`docs/frontend/spec.md :: I729`).
+      // A warning wherever a sign-out or a notice the dialog's hint promises did not happen.
       // An address no account holds is mailed by nobody, as that hint says, so its sentence alone leaves the ban clean.
       warn: told.some((sentence) => sentence !== KEIN_KONTO),
     };

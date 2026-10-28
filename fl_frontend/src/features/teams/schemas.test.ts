@@ -374,7 +374,7 @@ describe("the write payloads' floors, against the stripped floors at the API", (
   });
 
   /* The half the private payload schema exists for: put the trim on `FLAustrittSchema` instead and a
-     club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
+     club whose stored reason is blank fails the list it appears in. */
   it("leaves the read schema taking a stored reason of spaces alone", () => {
     expect(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success).toBe(true);
   });
@@ -392,7 +392,7 @@ describe("a club's two names, against the single-line class the application's re
   } as const;
 
   /* By codepoint, so this file carries no invisible byte: the next line `trim` keeps, and the line
-     separator that breaks a rendered name (`docs/frontend/spec.md :: I87`). */
+     separator that breaks a rendered name. */
   for (const [was, character] of [
     ["a next line", String.fromCodePoint(0x85)],
     ["a line separator", String.fromCodePoint(0x2028)],

@@ -335,7 +335,7 @@ ADMIN_TIER_WRITES = [
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
 def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
-    """`docs/backend/spec.md :: I575`: a write outside the helper's session is judged once, before its handler.
+    """A write outside the helper's session is judged once, before its handler.
 
     A revoke committing between that check and the write then leaves the revoked administrator one write to make.
     """
@@ -352,7 +352,7 @@ PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if oper
 
 @pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
 def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
-    """`docs/backend/spec.md :: I576`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
+    """The binder reads the ban once before the handler; the transaction reads it again in each attempt."""
 
     assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
         f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
@@ -444,12 +444,12 @@ def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: s
 
 
 # The sweep's one read, listing every season for the caller: system tier because
-# `docs/backend/spec.md :: I47` keeps a `future` season off the base one, and the seasons taking
+# the rule keeps a `future` season off the base one, and the seasons taking
 # applications are exactly those.
 SYSTEM_READS = [
     ("/api/v0/bewerbungen/sweep", "get"),
     # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
-    # seasons it lists are `active`, which the base tier serves, so `docs/backend/spec.md :: I47` is not its reason.
+    # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
     ("/api/v0/spielbestaetigungen/sweep", "get"),
 ]
 

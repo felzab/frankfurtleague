@@ -148,7 +148,7 @@ function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: Sperre
   return EINTRAEGE[art](ansicht[art], saisonHref);
 }
 
-/** What the address holds, in the ban's armed reveal ahead of the ban (`docs/frontend/spec.md :: I688`, `:: I724`). */
+/** What the address holds, in the ban's armed reveal ahead of the ban. */
 export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
   const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));

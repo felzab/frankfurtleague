@@ -265,7 +265,7 @@ export const kontoBelegtGenehmigung = (verwehrt: EinsehbarVerwehrt | null): stri
 
 /**
  * Who approves an owner's change, closing every sentence that names who approves one: another administrator approves
- * a change, another owner alone an owner's (`docs/backend/spec.md :: I817`).
+ * a change, another owner alone an owner's.
  */
 const INHABER_GENEHMIGT = "die neue Adresse eines Zugangs als Inhaberin oder Inhaber nur eine andere Inhaberin oder ein anderer Inhaber";
 

@@ -414,7 +414,7 @@ async def post_adresswechsel_freigabe(
     """
     Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
 
-    **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is
+    **Nothing reaches the new mailbox before this press**. Nothing about the new address is
     judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
     change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 

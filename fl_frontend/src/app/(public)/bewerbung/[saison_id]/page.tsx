@@ -22,7 +22,7 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
   await connection();
 
   // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
-  // title, while the body's throw renders the same panel. The status is 200 either way (`docs/frontend/spec.md :: I242`).
+  // title, while the body's throw renders the same panel. The status is 200 either way.
   const saison_id = await parseSaisonIdParam(props.params);
   if (saison_id === null) return NOT_FOUND_METADATA;
 
@@ -39,14 +39,14 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
     openGraph: openGraphFor(`/bewerbung/${saison_id}`),
     alternates: { canonical: `/bewerbung/${saison_id}` },
     // A season with no deadline recorded, or a window this read could not reach, is one sentence rather
-    // than content: an indexed copy outlives the day the window is there to show (`docs/frontend/spec.md` §1.13).
+    // than content: an indexed copy outlives the day the window is there to show.
     ...(antwort === undefined || antwort.fenster === null ? { robots: { index: false } } : {}),
   };
 }
 
 /**
  * Resolves nothing itself: a top-level await ties the FALLBACK-params App Shell to one URL, and this
- * page's whole body is a function of the season in that URL (`docs/frontend/spec.md :: I22`).
+ * page's whole body is a function of the season in that URL.
  */
 export default function BewerbungPage(props: NextPageProps<{ saison_id: string }>) {
   return (
@@ -60,7 +60,7 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
-  // The window and whether the season has ended, never the season: `docs/backend/spec.md :: I47` withholds a `future` season
+  // The window and whether the season has ended, never the season: the backend withholds a `future` season
   // from the base tier, and a season taking applications IS `future`.
 
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this

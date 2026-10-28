@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 /**
  * The public surface's box for a season heading a page: a header element rather than a row label, so it
- * keeps the chip rung the corner ladder gives it (`docs/frontend/spec.md` §1.18) and not a pill's.
+ * keeps the chip rung the corner ladder gives it and not a pill's.
  */
 export function SaisonChip({
   isLaufend,

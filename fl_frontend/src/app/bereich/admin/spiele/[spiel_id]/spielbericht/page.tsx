@@ -20,7 +20,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * An administrator's correction of one fixture's report, its own page as every editor is: inside the fixture's
- * editor, the report form's submit would be the fixture's save. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * editor, the report form's submit would be the fixture's save. It resolves nothing itself.
  */
 export default function AdminSpielberichtPage(props: NextPageProps<{ spiel_id: string }>) {
   return (

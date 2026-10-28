@@ -15,7 +15,7 @@ export const ZURUECKGEHALTEN = "Diese Umgebung sendet keine E-Mails. Die Nachric
 
 /**
  * What an administrator is told of the addresses the ban list kept a send of theirs from: a count and
- * never an address, beside whatever did go (`docs/frontend/spec.md :: I542`). One sentence per count,
+ * never an address, beside whatever did go. One sentence per count,
  * for `versandSatz`'s reason.
  */
 export function gesperrtSatz(gesperrt: number): string {
@@ -26,13 +26,13 @@ export function gesperrtSatz(gesperrt: number): string {
 
 /**
  * Counted over the `gemeint` teams the press meant to write to: one the rule passed over is no shortfall. A team
- * alone gets its own sentence, saying the team's side under a title naming the link's (`docs/frontend/spec.md :: 1.12`).
+ * alone gets its own sentence, saying the team's side under a title naming the link's.
  */
 export function versandSatz(gemailt: number, gemeint: number, teams: number): string {
   if (teams === 0) return KEINE_TEAMS;
   if (gemeint === 0) return teams === 1 ? "Das Team wurde übersprungen." : "Jedes Team wurde übersprungen.";
-  // Zero is the answer a local stack always gives, every send being withheld outside production
-  // (`docs/frontend/spec.md :: I228`), so the shortfall is spelled rather than folded into a word.
+  // Zero is the answer a local stack always gives, every send being withheld outside production,
+  // so the shortfall is spelled rather than folded into a word.
   if (gemeint === 1) return gemailt === 1 ? "Der Link ging an das Team." : "Das Team hat keinen neuen Link bekommen.";
 
   return `Registrierungslinks gesendet: ${String(gemailt)} von ${String(gemeint)} Teams.`;
@@ -40,7 +40,7 @@ export function versandSatz(gemailt: number, gemeint: number, teams: number): st
 
 /**
  * **No numeral stands before a plural noun**: „an 1 Adressen“ is what a count interpolated into one
- * sentence produces (`docs/frontend/spec.md :: 1.12`).
+ * sentence produces.
  */
 export function adressenSatz(zugestellt: number, gesamt: number): string {
   if (zugestellt < gesamt) return `Der Link ist unterwegs: ${String(zugestellt)} von ${String(gesamt)}.`;

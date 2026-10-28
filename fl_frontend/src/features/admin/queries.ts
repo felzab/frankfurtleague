@@ -6,13 +6,13 @@ import { FLSpieleActionRequiredResponseSchema } from "../spielberichte/schemas";
 import type { FLSpieleActionRequiredResponse } from "../spielberichte/schemas";
 
 /**
- * Uncached deliberately, as every admin-authed read is — `docs/frontend/spec.md`. Being uncached is
+ * Uncached deliberately, as every admin-authed read is. Being uncached is
  * also what lets it seed the request's trace scope.
  */
 export const getAdminSpieleActionRequired = async (filters: { saison_id?: string } = {}): Promise<FLSpieleActionRequiredResponse> => {
   return runAdminRead(() =>
     // Optional as the server's parameter is, yet never omitted by a page: the backend resolves an omitted
-    // one to the active season (`docs/backend/spec.md :: I4`), which need not be the header's (`docs/frontend/spec.md :: I359`).
+    // one to the active season, which need not be the header's.
     apiClient<FLSpieleActionRequiredResponse>("/spiele/action_required", FLSpieleActionRequiredResponseSchema, {
       authType: "admin",
       params: filters,

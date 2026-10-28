@@ -186,7 +186,7 @@ class TestADrawIsNeverWorthMoreThanAWin:
         assert "3" in refusal.message
 
     def test_permits_resubmitting_an_existing_excess_unchanged(self):
-        """`rules` is required on the patch, so a season stored this way would otherwise be unpatchable (`docs/backend/spec.md :: I44`)."""
+        """`rules` is required on the patch, so a season stored this way would otherwise be unpatchable."""
 
         inverted = rules(win=1, draw=3)
 
@@ -262,7 +262,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
 
     def test_permits_resubmitting_a_stored_pairing_unchanged(self):
-        """`rules` is required on the patch, so refusing this would leave a season stored that way unpatchable (`docs/backend/spec.md :: I44`).
+        """`rules` is required on the patch, so refusing this would leave a season stored that way unpatchable.
 
         The one arm this rule cannot judge by the proposal: `_forfeit_draws_a_knockout` is read on both sides for it.
         """
@@ -367,7 +367,7 @@ class TestNarrowingTheSquadCap:
         """Without this the trap closes on a season whose squads outgrew their cap.
 
         `rules` is required on the patch, so refusing an unchanged resubmission would leave those
-        rules refusing every edit that could undo them (`docs/backend/spec.md :: I44`).
+        rules refusing every edit that could undo them.
         """
 
         assert judge(stored=rules(kader=15), proposed=rules(kader=15), largest_squad=20) is None
@@ -602,7 +602,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert not unnamed, f"the refusal drops {unnamed}, so the admin reads a repair for half of what they changed"
 
     def test_permits_resubmitting_the_drawn_shape_unchanged(self):
-        """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged (`docs/backend/spec.md :: I44`)."""
+        """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged."""
 
         assert judge(stored=rules(), proposed=rules(), drawn=DRAWN_FIXTURES) is None
 
@@ -710,7 +710,7 @@ class TestTheShapeRefusalRecommendsNoRepairTheSpielplanRefuses:
         assert [field for field in SHAPE_RULES_FIELDS if field != "teams_per_group" and field in refusal.message] == []
 
     def test_a_season_past_the_window_is_told_the_numbers_are_settled(self):
-        """Nothing returns a season to `future` (`docs/backend/spec.md :: I18`), so a condition to meet would name a state nobody can reach."""
+        """Nothing returns a season to `future`, so a condition to meet would name a state nobody can reach."""
 
         refusal = judge(status="active", stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 

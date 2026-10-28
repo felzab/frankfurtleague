@@ -14,7 +14,7 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
 
 /**
  * The bridge for the match editor: it reads `useAdmin()` so `AdminEditSpielDataForm` never has to and
- * takes the lookup lists as props (frontend spec I12). It runs `categorizeActionRequired` over the one
+ * takes the lookup lists as props. It runs `categorizeActionRequired` over the one
  * fixture, so that rule has a single copy.
  */
 export function AdminSpielEditView({

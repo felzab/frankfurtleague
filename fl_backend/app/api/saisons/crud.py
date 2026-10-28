@@ -60,7 +60,7 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
         return str(running["_id"])
     except DocumentNotFoundException:
         # Never the newest `past` season instead: after the first activation no route leaves the
-        # league without a running one (`docs/backend/spec.md :: I18`), and a ban counted from a
+        # league without a running one, and a ban counted from a
         # guessed season bars a person for the wrong five.
         return None
 

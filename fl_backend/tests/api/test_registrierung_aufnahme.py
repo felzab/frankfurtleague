@@ -916,7 +916,7 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
 
 
 class TestAReturningRegistration:
-    """`docs/backend/spec.md :: I611`: a registration confirmed on the returning pupil's page moves nothing on the person's record."""
+    """A registration confirmed on the returning pupil's page moves nothing on the person's record."""
 
     # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
     # restamp of the label would each move a byte.
@@ -1153,7 +1153,7 @@ class TestEverySeatActsAlike:
     ):
         """Paula's registration is in her own seat's season: one submitted before a rollover stays pending past it.
 
-        There the season matches, and the `past` status alone refuses (`docs/backend/spec.md :: I375`).
+        There the season matches, and the `past` status alone refuses.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

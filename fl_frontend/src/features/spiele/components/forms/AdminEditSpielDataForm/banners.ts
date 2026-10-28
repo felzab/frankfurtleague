@@ -107,7 +107,7 @@ export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BA
 
 /**
  * `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`, the inputs of a fixture's stand, each in
- * this module's spelling: `fl_backend/tests/shared/test_frontend_mirrors.py` fails a sixth on one side alone.
+ * this module's spelling.
  */
 const ANSETZUNG_QUELLEN = ["datum", "uhrzeit", "spielortId", "team1Id", "team2Id"] as const;
 
@@ -134,7 +134,7 @@ function ohneVorlauf(datum: string | null, today: string): boolean {
 
 /**
  * `anfrage_is_due` spelled again for the editor: a warning over a fixture no pass asks about speaks of a request that
- * never comes. Both tiers run one table of it (`docs/frontend/spec.md :: I743`).
+ * never comes. Both tiers run one table of it.
  */
 export function wirdAngefragt(
   ansetzung: SpielBannerAnsetzung,
@@ -238,8 +238,7 @@ export function buildSpielBanners({
 }): readonly SpielBanner[] {
   const banners: SpielBanner[] = [];
 
-  // The field message states the value's own fault in one sentence, the register `docs/frontend/spec.md`
-  // §1.12 sets. What to DO about it needs more room than that allows, so it rides here instead.
+  // The field message states the value's own fault in one sentence. What to DO about it needs more room than that allows, so it rides here instead.
   if (refusalCode !== null) {
     banners.push({ ...REFUSAL_REMEDIES[refusalCode], severity: "danger", raisedBy: "change", inline: null });
   }
@@ -262,7 +261,7 @@ export function buildSpielBanners({
     if (side.quelle !== null) continue;
 
     // `danger` for the state, `raisedBy` for whose doing it is: an inherited slot asks nothing.
-    // The body names the product on purpose — §1.12's ninth rule allows a stop, not a how.
+    // The body names the product on purpose.
     banners.push({
       id: side.fieldName === "team1" ? "spiel.team1-manual" : "spiel.team2-manual",
       severity: "danger",

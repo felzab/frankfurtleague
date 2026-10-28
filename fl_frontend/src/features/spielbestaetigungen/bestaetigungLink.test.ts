@@ -11,7 +11,7 @@ describe("the fixture confirmation's link", () => {
     expect(spielBestaetigungsLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/bestaetigung/spiel?token=beispiel-eins`);
   });
 
-  /* `docs/frontend/spec.md :: I186`: the link stands on the serving origin as the close does, so a configured
+  /* The link stands on the serving origin as the close does, so a configured
      trailing slash or path reaches neither, and a value that is no URL composes no message at all. */
   it("stands on the origin `mailOrigin` makes of the configured value", () => {
     expect(spielBestaetigungsLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}${SPIEL_BESTAETIGUNG_PATH}?token=t`);
