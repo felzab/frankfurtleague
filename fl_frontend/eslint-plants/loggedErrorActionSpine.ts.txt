@@ -1,6 +1,0 @@
-// Linted as src/shared/utils/actionFailure.ts.
-// The action and route spines' failure line hands the log no error: whatever an action calls may carry the submitted address.
-export function planted(message: string, error: Error): void {
-  logger.error(message, error, { error_code: "FE-ACT-001" }); // expect: logged-error
-  logger.error(message, undefined, { error_code: "FE-ACT-001", name: error.name });
-}
