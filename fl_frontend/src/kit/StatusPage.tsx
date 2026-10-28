@@ -82,7 +82,7 @@ export function StatusPage(props: StatusCardProps & ({ frame: "classic"; title: 
       area={props.area}
       title={props.title}
       chip={props.chip}>
-      <div className="my-auto">{card}</div>
+      {card}
     </RailPage>
   );
 }
