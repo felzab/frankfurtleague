@@ -1,3 +1,5 @@
+import { tv } from "tailwind-variants/lite";
+
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
@@ -40,6 +42,21 @@ function DangerRow({ act }: { act: DangerAct }) {
 }
 
 /**
+ * A section's title, 16 px semibold, one step under the page's: an editor's or a Konto page's box, a read
+ * page's group, the filter sheet, and a dialog's group of fields, one level under the dialog's own title.
+ */
+export function SectionTitle({ text, level = 2 }: { text: Copy; level?: 2 | 3 }) {
+  const Heading = level === 2 ? "h2" : "h3";
+  return <Heading className="text-base font-semibold">{text}</Heading>;
+}
+
+/**
+ * The rung a few entries or fields are named on, 12 px medium muted, a step under a section's title: the
+ * rail's groups and the phone sheet's, a dialog's groups of fields. Each place adds its own spacing.
+ */
+export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
+
+/**
  * A form's or a settings page's group of fields: a box exactly as tall as its content under its 16-px
  * title, a one-control section included. One ⓘ may follow the title. An editor's last box holds the
  * danger rows, the one place its irreversible and retiring acts stand.
@@ -61,7 +78,7 @@ export function Section({
     <section className="grid gap-4 rounded-lg border border-border bg-bg p-4">
       {/* The ⓘ stands beside the heading, not in it, so the heading is named by its title alone. */}
       <div className="flex items-center gap-2">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <SectionTitle text={title} />
         {help !== undefined && (
           <HelpPopover
             subject={title}

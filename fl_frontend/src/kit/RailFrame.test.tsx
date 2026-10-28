@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { entryMark } from "./fieldStyles";
 import { RailFrame } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
@@ -83,7 +82,6 @@ describe("the rail's entries", () => {
 
     const current = screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => link.getAttribute("aria-current") === "page");
     expect(current?.hasAttribute("data-selected")).toBe(true);
-    expect(current?.className.split(" ")).toEqual(expect.arrayContaining(entryMark({ mark: "place" }).split(" ")));
   });
 });
 

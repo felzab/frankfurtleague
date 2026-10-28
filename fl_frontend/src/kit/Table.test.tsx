@@ -15,7 +15,7 @@ const props = (rows: TableProps["rows"]): TableProps => ({
   nameLabel: COPY.shared.saison,
   columns: [{ key: "ort", label: COPY.shared.startelf }],
   rows,
-  empty: { kind: "satz", sentence: COPY.shared.startelf },
+  empty: { kind: "noch", plural: COPY.shared.startelf },
 });
 
 const cellOf = (text: string) => {

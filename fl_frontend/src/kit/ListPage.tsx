@@ -12,7 +12,7 @@ import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
-import type { ListMore } from "./ListTable";
+import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
 import type { TableProps } from "./Table";
 
@@ -26,7 +26,7 @@ type MatchdayTabs = {
   tabs: ReadonlyArray<{ id: string; label: string; panel: ReactNode }>;
 };
 
-/** The tab row, and under it the chosen matchday's matches alone: only the labels cross to the client row. */
+/** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
 function Matchdays({ label, selectedKey, tabs }: MatchdayTabs) {
   return (
     <Tabs
@@ -55,7 +55,7 @@ export function ListPage({
 }: {
   head: RailPageHead;
   /** The search field's name, where the list holds about 20 rows or more. */
-  search?: { label: Copy };
+  search?: ListSearch;
   filters?: ReadonlyArray<Filter>;
   create?: ListCreate;
   list:

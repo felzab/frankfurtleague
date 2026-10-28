@@ -9,7 +9,7 @@ const brand = tv({
   slots: {
     root: "flex min-w-0 items-center gap-3 rounded-lg",
     mark: "h-8 w-auto shrink-0",
-    wordmark: "font-heading text-xl tracking-[0.04em] whitespace-nowrap uppercase",
+    wordmark: "font-heading text-xl tracking-caps whitespace-nowrap uppercase",
   },
   variants: {
     ground: {

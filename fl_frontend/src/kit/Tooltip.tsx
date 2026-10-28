@@ -7,8 +7,8 @@ import type { ReactElement } from "react";
 
 /**
  * The name of an icon-only control, shown above it on the hairline surface. React Aria's own delays
- * stand: the first tooltip waits, the next ones open at once. Rendered by `Button` alone, from its
- * required label.
+ * stand: the first tooltip waits, the next ones open at once. Rendered by `Button` for an icon-only
+ * button and by `ChoiceButtons` for a glyph segment, each from its required label.
  */
 export function Tooltip({ label, children }: { label: Copy; children: ReactElement }) {
   return (

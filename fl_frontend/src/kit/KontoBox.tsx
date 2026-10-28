@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { HelpPopover } from "./HelpPopover";
+import { SectionTitle } from "./Section";
 import { useFormAction } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
@@ -75,7 +76,7 @@ export function KontoBox({
         <div className="grid gap-4 p-4">
           {/* The ⓘ stands beside the heading, not in it, so the heading is named by its title alone. */}
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">{title}</h2>
+            <SectionTitle text={title} />
             {help !== undefined && (
               <HelpPopover
                 subject={title}

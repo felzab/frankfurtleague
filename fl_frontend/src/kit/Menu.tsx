@@ -19,6 +19,7 @@ import { COPY } from "@/core/copy";
 import { useOpenUntilHidden } from "./Dialog";
 import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
+import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
 
 import type { Copy } from "@/core/copy";
@@ -67,11 +68,14 @@ export type MenuProps = {
 
 type Size = "desktop" | "phone";
 
-// The rail's breakpoint: from it the rail stands, below it the phone's bars and sheets.
-const DESKTOP = "(min-width: 64rem)";
+/**
+ * The rail's breakpoint, `lg`, read from its token on the root as Tailwind's guide reads a theme variable in
+ * script: from it the rail stands, below it the phone's bars and sheets.
+ */
+const desktop = () => window.matchMedia(`(min-width: ${getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-lg")})`);
 
 function subscribe(onChange: () => void) {
-  const query = window.matchMedia(DESKTOP);
+  const query = desktop();
   query.addEventListener("change", onChange);
   return () => query.removeEventListener("change", onChange);
 }
@@ -80,20 +84,12 @@ function subscribe(onChange: () => void) {
 function useDesktop() {
   return useSyncExternalStore(
     subscribe,
-    () => window.matchMedia(DESKTOP).matches,
+    () => desktop().matches,
     () => true,
   );
 }
 
-const item = tv({
-  base: "flex cursor-default items-center gap-3 rounded-md px-3 font-medium text-fg",
-  variants: {
-    size: {
-      desktop: "h-9 text-sm",
-      phone: "h-11 text-base",
-    },
-  },
-});
+const item = tv({ extend: menuEntry, base: "cursor-default" });
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({

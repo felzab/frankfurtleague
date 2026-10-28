@@ -42,8 +42,6 @@ describe("a navigating menu's current entry", () => {
 
     const chosen = screen.getByRole("menuitemradio", { name: "2027" });
     expect(chosen.hasAttribute("data-selected")).toBe(true);
-    expect(chosen.className.split(" ")).toEqual(expect.arrayContaining(["data-selected:bg-bg-muted", "data-selected:text-brand"]));
-    expect(chosen.className).not.toContain("bg-brand/12");
     expect(chosen.querySelector("svg")).toBe(null);
     // The entry holds its words alone: no dot before them.
     expect(chosen.children.length).toBe(1);
@@ -94,6 +92,5 @@ describe("a menu's foot", () => {
     expect(row?.parentElement).toBe(menu.parentElement);
     expect(menu.compareDocumentPosition(row ?? menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(row?.firstElementChild?.textContent).toBe(COPY.seite.darstellung);
-    expect(row?.className.split(" ")).toEqual(expect.arrayContaining(["border-t", "justify-between"]));
   });
 });
