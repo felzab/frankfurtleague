@@ -8,11 +8,11 @@ from typing import Annotated, Final, Literal, Self
 # Unpublished: python-dotenv's `__all__` offers no reader of line numbers, and these are the parser
 # its own `dotenv_values` runs. uv.lock pins the release, so a reshaped one arrives by a lock bump,
 # which the line-number cases in `tests/core/test_config.py` meet.
-from dotenv.parser import Original, parse_stream  # noqa: TID251
+from dotenv.parser import Original, parse_stream
 from fastapi import Request
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError  # noqa: TID251
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
 from app.core.actor_token import ActorTokenKey
 

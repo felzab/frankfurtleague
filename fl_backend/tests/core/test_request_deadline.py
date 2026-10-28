@@ -13,7 +13,7 @@ from typing import Any, NamedTuple
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI, Request
-from httpx2 import ASGITransport, AsyncClient, Response  # noqa: TID251
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
