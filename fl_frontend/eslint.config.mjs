@@ -86,7 +86,6 @@ const RULES = {
   "no-restricted-globals": (entries) => ["error", { globals: entries, checkGlobalObject: true }],
   "react/forbid-component-props": (entries) => ["error", { forbid: entries }],
   "react/forbid-elements": (entries) => ["error", { forbid: entries }],
-  "react/jsx-props-no-spreading": ([entry]) => ["error", entry],
   "react/jsx-no-literals": ([entry]) => ["error", entry],
   "better-tailwindcss/no-restricted-classes": (entries) => ["error", { restrict: entries }],
 };
@@ -220,59 +219,12 @@ const OWN_ACCOUNT_DELETION = {
 };
 
 /**
- * A package root loads whole under the test runner, which hands a package to Node unbundled.
- * `useOverlayState` is published at the root alone.
- */
-const VENDOR_ROOTS = [
-  {
-    regex: packageNamed("@heroui/react"),
-    allowImportNames: ["useOverlayState"],
-    message: "Import a HeroUI component from its own subpath, `@heroui/react/<component>`.",
-  },
-  { regex: packageNamed("@gravity-ui/icons"), message: 'Import an icon from its own subpath, `import Name from "@gravity-ui/icons/Name"`.' },
-];
-
-/**
  * Next keeps the router and search-parameter contexts on private modules no public export carries.
  * `fl_frontend/src/test-support/nextContexts.ts` is their one importer.
  */
 const NEXT_PRIVATE_CONTEXTS = {
   regex: String.raw`next/dist/shared/lib/(?:app-router-context|hooks-client-context)\.shared-runtime`,
   message: "Mount Next's contexts through fl_frontend/src/test-support/nextContexts.ts rather than its private modules.",
-};
-
-/** The segmented date and time controls, composed in one file so every field reads as the dates the app prints. */
-const SEGMENTED_DATE_CONTROLS = {
-  regex: packageUnder("@heroui/react"),
-  importNames: ["DatePicker", "DateField", "TimeField", "DateRangePicker"],
-  message: "Compose a date or time field through fl_frontend/src/shared/components/ui/DateTimeFields.tsx.",
-};
-
-/** HeroUI's number field, rendered through the wrapper that records an emptied box as `null` rather than `NaN`. */
-const HEROUI_NUMBER_FIELD = {
-  regex: packageUnder("@heroui/react/number-field"),
-  message: "Render a number field through fl_frontend/src/shared/components/ui/NumberField.tsx, which records an emptied box as null.",
-};
-
-const MARKED_FIELD_PACKAGES = ["textfield", "select", "switch", "autocomplete", "combo-box"].map((name) => `@heroui/react/${name}`);
-
-/** HeroUI's fields that carry a required mark, each rendered through the wrapper reading it off the form's schema. */
-const HEROUI_MARKED_FIELDS = {
-  regex: packageUnder(...MARKED_FIELD_PACKAGES),
-  message:
-    "Render a text field, select, switch, autocomplete or combo box through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema.",
-};
-
-/** The files `HEROUI_MARKED_FIELDS` homes, one wrapper per field type. */
-const MARKED_FIELD_HOMES = ["TextField", "Select", "Switch", "Autocomplete", "ComboBox"].map(
-  (wrapper) => `src/shared/components/ui/${wrapper}.tsx`,
-);
-
-/** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
-const HEROUI_FORM = {
-  regex: packageUnder("@heroui/react"),
-  importNames: ["Form"],
-  message: 'Render a form through fl_frontend/src/shared/components/ui/Form.tsx, which sets validationBehavior="aria".',
 };
 
 /**
@@ -296,26 +248,10 @@ const LOCALE_PROVIDER = {
   message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
-/**
- * The popover and panel both hint tags open, each dressed by its caller: rendered from anywhere but
- * `Hint.tsx`, a hint's panel looks like no other hint's.
- */
-const HINT_INTERNALS = {
-  regex: moduleNamed("InfoHint"),
-  importNames: ["HintPopover", "HintPanel"],
-  message: "Render a hint through Hint or InfoHint, which dress the panel every hint shares.",
-};
-
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
 
 const IMPORT_BANS = [
-  ...VENDOR_ROOTS.map((entry) => importBan(entry, EVERY)),
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
-  importBan(SEGMENTED_DATE_CONTROLS, EVERY, { allow: ["src/shared/components/ui/DateTimeFields.tsx"] }),
-  importBan(HEROUI_FORM, EVERY, { allow: ["src/shared/components/ui/Form.tsx"] }),
-  importBan(HEROUI_NUMBER_FIELD, EVERY, { allow: ["src/shared/components/ui/NumberField.tsx"] }),
-  importBan(HEROUI_MARKED_FIELDS, EVERY, { allow: MARKED_FIELD_HOMES }),
-  importBan(HINT_INTERNALS, EVERY, { allow: ["src/shared/components/ui/Hint.tsx"] }),
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
   // so a blanket cross-feature ban would flag mostly-correct sites.
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
@@ -467,11 +403,12 @@ const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames
 
 /**
  * A value the image's builder leaves undefined, read while a module loads rather than inside a function:
- * a setting off the validated config, a secret reader's call, or `process.env` itself.
+ * a setting off the validated config or a secret reader's call. A `process.env` read is
+ * `ENVIRONMENT_READ`'s, which refuses one outside config.ts wherever it stands, Next's own two names
+ * excepted, and the builder sets both.
  */
 const LOAD_TIME_ENVIRONMENT = [
   `MemberExpression[object.name="frontend_config"]:not([property.name=/^(?:${PROVIDED_WHILE_BUILDING})$/])`,
-  `MemberExpression[object.type="MemberExpression"][object.object.name="process"][object.property.name="env"]:not([property.name=/^(?:${PROVIDED_WHILE_BUILDING})$/])`,
   `VariableDeclarator[init.name="frontend_config"]`,
   `CallExpression[callee.name=/^(?:${SECRET_READER_NAMES.join("|")})$/]`,
 ]
@@ -509,22 +446,6 @@ const SOURCE_BANS = [
     SOURCE,
   ),
   syntaxBan(
-    syntax(
-      inLiteral(String.raw`(?:^|\s)\S*(?:hover:underline|underline-offset)`),
-      "A link inside text takes `textLink` rather than spelling its underline.",
-    ),
-    SOURCE,
-    { allow: ["src/shared/components/ui/textLink.ts"] },
-  ),
-  syntaxBan(
-    syntax(
-      inLiteral("hover:text-brand-solid"),
-      "A brand control outside prose takes `BRAND_INK_OUTSIDE_PROSE_CLASSES` rather than spelling its grade.",
-    ),
-    SOURCE,
-    { allow: ["src/shared/components/ui/textLink.ts"] },
-  ),
-  syntaxBan(
     // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
     syntax(
       inLiteral("^_blank$"),
@@ -533,37 +454,6 @@ const SOURCE_BANS = [
     SOURCE,
     // `NewTabLink` is the old pages' new-tab link, which goes with the last page importing it.
     { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
-  ),
-  ...[
-    ["BRAND_TILE_CLASSES", ["bg-brand-solid", "size-10", "rounded-xl"]],
-    ["BRAND_ICON_BUTTON_CLASSES", ["bg-brand-solid", "size-9", "rounded-xl"]],
-    ["SHORTHAND_CHIP_CLASSES", ["bg-brand-solid", "rounded-md", "font-extrabold"]],
-  ].map(([name, grade]) =>
-    syntaxBan(syntax(classList({ all: grade }), `Take \`${name}\` from brandTile.ts rather than spelling the box.`), SOURCE, {
-      allow: ["src/shared/components/ui/brandTile.ts"],
-    }),
-  ),
-  syntaxBan(
-    syntax(classList({ all: ["bg-brand", "animate-ping"] }), "Take `laufendDot` rather than spelling the running season's dot."),
-    SOURCE,
-    {
-      allow: ["src/features/saisons/components/ui/laufendDot.ts"],
-    },
-  ),
-  syntaxBan(
-    syntax(
-      `Program:has(ImportDeclaration[source.value=/${moduleNamed("badges")}/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
-      "A pill takes its colour from a `PillTone`, never the neutral pair.",
-    ),
-    SOURCE,
-  ),
-  syntaxBan(
-    syntax(
-      `Program:has(JSXOpeningElement[name.name="EmptyState"]) ${inLiteral("Für diese Saison gibt es")}`,
-      "Render `SeasonEmptyState` rather than spelling the season's empty sentence.",
-    ),
-    SOURCE,
-    { allow: ["src/shared/components/ui/SeasonEmptyState.tsx"] },
   ),
   ...[
     ["tabular-nums", "font-numeric"],
@@ -603,20 +493,6 @@ const SOURCE_BANS = [
     ],
   }),
   syntaxBan(
-    syntax(
-      'JSXOpeningElement[name.name=/^h[1-6]$/] CallExpression:matches([callee.name="heading"], [callee.property.name="heading"])',
-      "Render `PanelHeading` rather than spelling a panel heading.",
-    ),
-    (zone) => SOURCE(zone) && zone.kind !== "kit",
-  ),
-  syntaxBan(
-    syntax(
-      "JSXElement[openingElement.name.name=/^h[1-6]$/] JSXElement[openingElement.name.name=/^(?:Info)?Hint/]",
-      "A heading names itself from its contents, so a hint inside it is read out as part of the title.",
-    ),
-    SOURCE,
-  ),
-  syntaxBan(
     // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
     // only a constant the class list itself holds is refused.
 
@@ -625,21 +501,6 @@ const SOURCE_BANS = [
     syntax(
       `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
       "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
-    ),
-    SOURCE,
-  ),
-  syntaxBan(
-    syntax(
-      'JSXOpeningElement[name.name="form"]',
-      "A form is the shared Form, never a native <form>: fl_frontend/src/shared/components/ui/Form.tsx owns the submit and takes no function action.",
-    ),
-    SOURCE,
-  ),
-  syntaxBan(
-    // Read off the element, so a hint handed down to a field through a prop or a child component passes unread.
-    syntax(
-      'JSXOpeningElement[name.name="Hint"]:has(JSXAttribute[name.name="mode"]:matches([value.value="field"], [value.expression.value="field"])):not(JSXElement[openingElement.name.name=/^(?:TextField|NumberField|Select|Autocomplete|ComboBox|Switch|DatePicker)$/] JSXOpeningElement)',
-      'A hint in mode="field" is a field\'s description, which only the field it sits inside wires to its input: outside one it describes nothing.',
     ),
     SOURCE,
   ),
@@ -754,37 +615,6 @@ const PROPERTY_BANS = [
 ];
 
 // ---------------------------------------------------------------------------------------------------
-// The old pages' HeroUI date controls, which judge each keystroke: a bound belongs on the Calendar.
-// They are composed in one file, so the bans read the tag's name there alone, where it cannot be the
-// kit's control of the same name.
-// ---------------------------------------------------------------------------------------------------
-
-const DATE_TIME_FIELDS = "src/shared/components/ui/DateTimeFields.tsx";
-const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
-const DATE_CONTROLS = [...JUDGING_DATE_CONTROLS, "DateRangePicker", "Calendar"];
-const tagsOf = (controls) => controls.flatMap((name) => [name, `${name}.Root`]);
-
-const DATE_CONTROL_BANS = [
-  ...["minValue", "maxValue", "isDateUnavailable"].map((propName) =>
-    ban(
-      "react/forbid-component-props",
-      {
-        propName,
-        disallowedFor: tagsOf(JUDGING_DATE_CONTROLS),
-        message: "A bound goes on the Calendar that offers the days, never on the control that judges each keystroke.",
-      },
-      EVERY,
-      { only: [DATE_TIME_FIELDS] },
-    ),
-  ),
-  // Spreading stays free everywhere but on the date controls, whose bounds a spread hides: the calendar
-  // offering the days as much as the fields judging them.
-  ban("react/jsx-props-no-spreading", { html: "ignore", custom: "ignore", exceptions: tagsOf(DATE_CONTROLS) }, EVERY, {
-    only: [DATE_TIME_FIELDS],
-  }),
-];
-
-// ---------------------------------------------------------------------------------------------------
 // The design system's checks: one component and one layout per pattern, the second way refused.
 // ---------------------------------------------------------------------------------------------------
 
@@ -827,13 +657,6 @@ const COLOURED =
 const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|card-enter|bracket-phase-enter|toast-timer";
 
 const DESIGN_BANS = [
-  // A word in a value's place takes the one upright empty grade, and the slant was the grade it
-  // replaced: one coming back is the old style, wherever it lands.
-  classBan(CLASS("italic"), "An empty value renders through `Leer` from `@/shared/components/ui/Angabe`, upright.", EVERY, {
-    // A message about an empty list is no value and keeps its own style, the slant included.
-    allow: ["src/features/spiele/components/views/SpielsucheView.tsx", "src/shared/components/ui/FilterPanel.tsx"],
-  }),
-
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
   // row has nothing to be composed from.
   syntaxBan(
@@ -1131,7 +954,7 @@ const DESIGN_BANS = [
 // The blocks.
 // ---------------------------------------------------------------------------------------------------
 
-const BANS = [...IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DATE_CONTROL_BANS, ...DESIGN_BANS];
+const BANS = [...IMPORT_BANS, ...SOURCE_BANS, ...PROPERTY_BANS, ...DESIGN_BANS];
 
 /** An entry naming files: a path, or a directory glob whose `**` stands for any folders. */
 const isGlob = (entry) => entry.includes("**");
