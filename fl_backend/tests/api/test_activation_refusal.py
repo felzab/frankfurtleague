@@ -1,6 +1,8 @@
 import pytest
 
 from app.api.saisons.services import (
+    ACTIVATE_TARGET_PAST,
+    find_activation_refusal,
     unplayed_spiel_nrs,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielListAdapter
@@ -67,3 +69,13 @@ class TestWhatCountsAsUnplayed:
         fixtures = season({"spiel_nr": 9}, {"spiel_nr": 2}, {"spiel_nr": 5})
 
         assert unplayed_spiel_nrs(fixtures) == [2, 5, 9]
+
+
+class TestAFinishedSeasonIsNeverPromotedBack:
+    def test_the_target_is_judged_before_the_outgoing_season(self):
+        """Otherwise the administrator is sent to settle the running season's fixtures, and only then told the target was never promotable."""
+
+        refusal = find_activation_refusal(undated_spieltage=0, target_status="past", target_fixtures=60, outgoing_unplayed=[3, 7])
+
+        assert refusal is not None
+        assert refusal.error_code == ACTIVATE_TARGET_PAST

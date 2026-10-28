@@ -152,6 +152,19 @@ class TestASeasonKeepsCoveringItsMatchdays:
         assert refusal is not None
         assert refusal.error_code == SAISON_SPAN_BELOW_SPIELTAGE
 
+    def test_matchdays_on_the_seasons_first_and_last_days_are_covered(self):
+        """Both edges are inclusive, as the matchday's own containment reads them."""
+
+        assert (
+            find_saison_span_refusal(
+                start_date="2026-03-01",
+                end_date="2026-09-30",
+                rules=SAISON_RULES,
+                spieltag_spans=[("2026-03-01", "2026-03-02"), ("2026-09-29", "2026-09-30")],
+            )
+            is None
+        )
+
     def test_the_refusal_counts_them_and_names_the_first(self):
         """The count says how much work the repair is; the dates say where to start looking."""
 

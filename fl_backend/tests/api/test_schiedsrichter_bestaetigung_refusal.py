@@ -24,6 +24,7 @@ from app.api.schiedsrichter.services import (
     compose_bestaetigung,
     compose_confirmation_update,
     compose_einwilligung,
+    find_alter_refusal,
     vorname_of,
     zustand_of,
 )
@@ -198,13 +199,15 @@ class TestWhatAReopenedLinkShows:
         [
             (None, LIVE_BLOCK, "gueltig"),
             (None, {**LIVE_BLOCK, "frist": YESTERDAY}, "abgelaufen"),
+            # The deadline's own day still answers: the mail names that day.
+            (None, {**LIVE_BLOCK, "frist": TODAY}, "gueltig"),
             (confirmed(), LIVE_BLOCK, "bestaetigt"),
             # A stamp outranks the deadline: a person who answered on the last valid day is shown that they did.
             (confirmed(), {**LIVE_BLOCK, "frist": YESTERDAY}, "bestaetigt"),
             # A stamp of `""` is no answer: the page offers the link again rather than thanking nobody.
             (confirmed(bestaetigt_am=""), LIVE_BLOCK, "gueltig"),
         ],
-        ids=["live", "over", "answered", "answered-then-over", "empty-stamp"],
+        ids=["live", "over", "on-the-deadlines-day", "answered", "answered-then-over", "empty-stamp"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
         """The ban outranks every one of them: a barred referee's page shows the ban and nothing else."""
@@ -231,6 +234,13 @@ class TestTheTokenPayloadBound:
             FLSchiedsrichterBestaetigungPayload.model_validate(
                 {"token": RAW_TOKEN, "geburtsdatum": AN_ADULTS_BIRTHDATE, "umfang": "intern", "text_version": "v1"}
             )
+
+
+class TestTheAgeThisConsentAsks:
+    def test_a_referee_reaching_the_floor_today_may_confirm(self):
+        """The floor to the day: sixteen today is old enough, and refusing it tells the referee their date was wrong."""
+
+        assert find_alter_refusal(geburtsdatum="2010-04-01", today=TODAY) is None
 
 
 class TestTheDeadlineIsStoredRatherThanDerived:

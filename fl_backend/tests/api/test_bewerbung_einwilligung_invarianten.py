@@ -7,13 +7,18 @@ from pydantic import ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAntwortPayload,
+    refuse_age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
+    BEWERBUNG_TOKEN_DECIDED,
     ausstehende_seats,
     compose_bestaetigungen,
     compose_decline_update,
+    find_expired_token_refusal,
     hash_token,
     paired_seat,
+    saison_kontakt_seite,
+    seat_opens_nobody,
     zustand_of,
 )
 from app.api.kontakte.services import build_clearing_update
@@ -130,6 +135,33 @@ class TestWhatAReopenedLinkShows:
         assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=False) == zustand
         # Whatever became of the link, a barred person's page shows the ban and nothing else.
         assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=True) == "gesperrt"
+
+
+class TestWhatALinkAnswers:
+    def test_a_decided_application_past_its_deadline_is_spent_rather_than_owed_a_fresh_link(self):
+        """The decision is judged before the deadline, so nobody is told a re-send would reopen what nothing undoes."""
+
+        refusal = find_expired_token_refusal(bestaetigungsfrist=YESTERDAY, status="angenommen", today=TODAY)
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_TOKEN_DECIDED
+
+    def test_a_closed_season_rows_link_to_an_emptied_seat_opens_nobody(self):
+        """Told apart, the page would tell a guess that someone once sat there, and offer a press the single use refuses."""
+
+        assert seat_opens_nobody(slot=None, zustand="saison_vorbei") is True
+
+    def test_a_season_row_seat_an_administrator_filled_opens_the_season_rows_page(self):
+        """The view and the answer agree on whatever this names, so a wrong page is consented to and stored with no refusal."""
+
+        row = {"kontakte": {"trainer": kontaktperson_document("Quillhilde", eingetragen_von="liga")}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"
+
+    def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
+        """The floor to the day: a contact person sixteen today is refused under a sentence saying they must be sixteen."""
+
+        assert refuse_age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is None
 
 
 class TestTheSeatsStillOpen:

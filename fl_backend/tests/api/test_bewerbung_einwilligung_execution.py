@@ -865,7 +865,10 @@ class TestWhatTheAnswerHandsTheMailer:
 
 
 class TestNoHashReachesAnAdminRead:
-    """The plan's evidence line: the projection keeps the hash off the wire where the model alone would drop it after."""
+    """No hash reaches either admin answer: the case holds the answer alone.
+
+    The response model drops every hash field itself, so a projection loading one into the process still passes here.
+    """
 
     def test_neither_admin_read_serves_a_hash_while_the_document_holds_four(self, mongo_replica_set_url: str):
         # A reminded seat holds the first mail's hash beside the fresh one, and both open the link:

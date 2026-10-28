@@ -51,6 +51,7 @@ from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
+from app.core.transactions import StalledPage
 from app.main import create_app
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
@@ -770,6 +771,25 @@ class TestABarredMailboxIsNotChased:
             return {entry.bewerbung_id for entry in (await sweep(database, client)).erinnerungen}
 
         assert on_a_league(mongo_replica_set_url, body) == {REMIND_OID}
+
+    def test_a_page_and_one_more_of_barred_applications_refuses_the_pass(self, mongo_replica_set_url: str):
+        """Every barred row stays due, so a full page of them would be read again on every pass and nobody past it ever chased."""
+
+        barred = {**{seat: person("Quorral") for seat in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> type[BaseException]:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), kontakte=barred) for position in range(SWEEP_PAGE + 1)]
+            )
+            await database[Collection.SPERRLISTE].insert_one(ban_document("quorral@example.com", bis=STANDING))
+            with pytest.raises(StalledPage) as stalled:
+                await sweep(database, client)
+
+            return stalled.type
+
+        # Raised rather than answered: a pass answering an empty share would read as one with nobody left to chase.
+        assert on_a_league(mongo_replica_set_url, body) is StalledPage
 
     def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
         """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
