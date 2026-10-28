@@ -54,6 +54,8 @@ export const ROUTES = {
   sponsoren: { pfad: () => "/sponsors" as const, titel: COPY.seite.sponsoren, indexiert: true },
   impressum: { pfad: () => "/impressum" as const, titel: COPY.seite.impressum, indexiert: true },
   datenschutz: { pfad: () => "/datenschutz" as const, titel: COPY.seite.datenschutz, indexiert: true },
+  /** Signing in, which every page signed out offers as „Anmelden“. */
+  anmeldung: { pfad: () => "/signin" as const, titel: COPY.anmeldung.titel, indexiert: false },
 
   kontoAnmeldung: { pfad: () => "/bereich/konto/signin" as const, titel: COPY.seite.anmeldung, indexiert: false },
   kontoSicherheit: { pfad: () => "/bereich/konto/security" as const, titel: COPY.seite.sicherheit, indexiert: false },

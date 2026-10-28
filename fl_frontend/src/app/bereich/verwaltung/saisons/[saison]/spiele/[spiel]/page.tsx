@@ -83,6 +83,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   return (
     <SpielEditor
       title={{ record: nameOf(gespeichert) }}
+      back={ROUTES.verwaltungSpiele.pfad(saison)}
       record={{ id: gespeichert.id, fingerprint: spielStateKey(gespeichert), values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={spielorte.map((ort) => ({

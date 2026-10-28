@@ -23,7 +23,7 @@ import { SheetFrame } from "./Sheet";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { IconName } from "./Icon";
 
 /**
@@ -33,7 +33,10 @@ import type { IconName } from "./Icon";
  */
 export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
   { label: Copy; text?: never } | { text: string; label?: never }
-);
+) & {
+    /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
+    routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
+  };
 
 /**
  * One entry of a menu: a link, an action, or a second list of links.
@@ -45,6 +48,19 @@ export type MenuEntry =
   /** A second list, beside the menu on desktop and as a second sheet with „Zurück“ on a phone. */
   | { kind: "submenu"; label: Copy; icon?: IconName; links: ReadonlyArray<MenuLink> };
 
+/**
+ * A group of its own holding one choice among options, such as the theme: React Aria's single-selection
+ * section, its chosen option marked as a form's value is, with the check at the row's end.
+ */
+type MenuChoice = {
+  kind: "choice";
+  label: Copy;
+  options: ReadonlyArray<{ id: string; label: Copy }>;
+  /** The option in force; `null` while it is not known, as a theme is not before the page hydrates. */
+  selected: string | null;
+  onChange: (id: string) => void;
+};
+
 export type MenuProps = {
   /** The menu's name. */
   label: Copy;
@@ -52,8 +68,8 @@ export type MenuProps = {
   trigger: ReactElement;
   /** Plain text above the entries, such as a person's name and address: data, not catalogue text. */
   head?: { name: string; detail: string };
-  /** The entries, a separator between two groups. */
-  groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
+  /** The entries, or a choice, a separator between two groups. */
+  groups: ReadonlyArray<ReadonlyArray<MenuEntry> | MenuChoice>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
 };
@@ -126,6 +142,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
     <MenuItem
       id={link.href}
       href={link.href}
+      routerOptions={link.routerOptions}
       textValue={link.label ?? link.text}
       data-kit-focus="item"
       className={`${item({ size })} ${entryMark({ mark: "place" })}`}>
@@ -281,14 +298,61 @@ function Entries({
               />,
             ]
           : []),
-        <Group
-          key={`group-${group}`}
-          entries={entries}
-          size={size}
-          onOpenSubmenu={(entry) => onOpenSubmenu(group, entry)}
-        />,
+        "kind" in entries ? (
+          <Choice
+            key={`group-${group}`}
+            choice={entries}
+            size={size}
+          />
+        ) : (
+          <Group
+            key={`group-${group}`}
+            entries={entries}
+            size={size}
+            onOpenSubmenu={(entry) => onOpenSubmenu(group, entry)}
+          />
+        ),
       ])}
     </AriaMenu>
+  );
+}
+
+/** A choice's options in their own section, the chosen one tinted and checked as a form's value is. */
+function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
+  return (
+    <MenuSection
+      aria-label={choice.label}
+      className="grid gap-1"
+      selectionMode="single"
+      disallowEmptySelection
+      selectedKeys={choice.selected === null ? [] : [choice.selected]}
+      onSelectionChange={(keys) => {
+        const [id] = keys === "all" ? [] : [...keys];
+        if (typeof id === "string") choice.onChange(id);
+      }}>
+      {choice.options.map((option) => (
+        <MenuItem
+          key={option.id}
+          id={option.id}
+          textValue={option.label}
+          data-kit-focus="item"
+          className={`${item({ size })} ${entryMark({ mark: "value" })}`}>
+          {({ isSelected }) => (
+            <>
+              <Entry label={option.label} />
+              {isSelected && (
+                <span className="ml-auto">
+                  <Icon
+                    glyph="haken"
+                    size={16}
+                  />
+                </span>
+              )}
+            </>
+          )}
+        </MenuItem>
+      ))}
+    </MenuSection>
   );
 }
 
@@ -303,7 +367,8 @@ export function Menu({ label, trigger, head, groups, placement }: MenuProps) {
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
   const [isSubmenuOpen, setSubmenuOpen] = useState(false);
   const isDesktop = useDesktop();
-  const shown = submenu === null ? undefined : groups[submenu.group]?.[submenu.entry];
+  const opened = submenu === null ? undefined : groups[submenu.group];
+  const shown = submenu === null || opened === undefined || "kind" in opened ? undefined : opened[submenu.entry];
 
   return (
     <MenuTrigger

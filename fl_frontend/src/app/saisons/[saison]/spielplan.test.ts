@@ -109,6 +109,14 @@ describe("a match's facts", () => {
     expect(first).toEqual({ label: "Ergebnis", value: "5:4 n. E.", figures: true });
   });
 
+  it("link the venue to its map on another site, which opens in a new tab", () => {
+    const ort = factsOf(spiel(), "1. Spieltag").find((fact) => fact.label === "Ort");
+    expect(ort?.elsewhere).toEqual({
+      href: "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ahornweg%2C%20Ahornweg%202",
+      text: "Sportplatz Ahornweg",
+    });
+  });
+
   it("hold no referee whose name the public read withholds", () => {
     const labels = factsOf(spiel({ schiedsrichter: { name: null, name_is_public: false } }), "1. Spieltag").map((fact) => fact.label);
     expect(labels).not.toContain("Schiedsrichter");

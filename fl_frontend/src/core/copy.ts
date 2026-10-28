@@ -143,6 +143,8 @@ export const COPY = katalog({
     fertig: "Fertig",
     /** The season button's menu. */
     saison: "Saison",
+    /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
+    saisonName: (id: string) => `Saison ${id}`,
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     pruefung: {
@@ -231,6 +233,8 @@ export const COPY = katalog({
     konto: "Konto",
     /** The classic header's button opening its links on a phone. */
     menue: "Menü",
+    /** The account menu's theme choice, under the name of Konto's page for it: the system's, or one set here. */
+    darstellung: { system: "System", hell: "Hell", dunkel: "Dunkel" },
 
     /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
     liga: "Liga",

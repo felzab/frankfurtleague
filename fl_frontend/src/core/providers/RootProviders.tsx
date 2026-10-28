@@ -10,6 +10,14 @@ import { I18nProvider, RouterProvider } from "@heroui/react/rac";
 
 import { AppToaster } from "./AppToaster";
 
+// React Aria's documented typing of a link's `routerOptions`: Next's own navigation options, and
+// `replace` for a step the browser's Back should skip, such as a season switch.
+declare module "react-aria-components" {
+  interface RouterConfig {
+    routerOptions: { replace?: boolean; scroll?: boolean };
+  }
+}
+
 interface AppProvidersProps {
   children: React.ReactNode;
 }
@@ -19,7 +27,8 @@ export function RootProviders({ children }: AppProvidersProps) {
   return (
     // Without it react-aria's `href` props fall back to native <a> navigation, a full page reload
     // on every menu link.
-    <RouterProvider navigate={(href) => router.push(href)}>
+    <RouterProvider
+      navigate={(href, { replace = false, ...options } = {}) => (replace ? router.replace(href, options) : router.push(href, options))}>
       {/* Here because the document declares its language here:
           unpinned, react-aria formats "en-US" under SSR and the browser's locale after hydration,
           so a date field asks mm/dd/yyyy and reorders its segments mid-session. */}

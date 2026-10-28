@@ -30,6 +30,12 @@ describe("the failure no reason names", () => {
   });
 });
 
+describe("a season's name", () => {
+  it("names the season by its year, which takes no thousands separator", () => {
+    expect(COPY.shared.saisonName("2027")).toBe("Saison 2027");
+  });
+});
+
 describe("a field message", () => {
   it("writes its figure in the German form", () => {
     expect(COPY.shared.feld.hoechstensZeichen(1000)).toBe("Höchstens 1.000 Zeichen");
