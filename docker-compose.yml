@@ -28,9 +28,9 @@ services:
     # The package's file alone, the one the deploy's readers judge as the container is handed it
     # (`scripts/checks/check_compose_model.py :: env_files`).
     env_file: ./fl_frontend/.env
-    # A moving tag, on each package's image below: `publish.yml` re-points it at every publish, so
-    # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
-    # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
+    # A moving tag, on each package's image below: `deploy.sh` with no argument means the newest
+    # published image. A rollback pins the immutable `:sha-<commit>` instead. Both packages are
+    # public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
