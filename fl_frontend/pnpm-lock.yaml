@@ -84,6 +84,9 @@ importers:
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
+      '@react-aria/optimize-locales-plugin':
+        specifier: ^2.1.0
+        version: 2.1.0
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -1265,6 +1268,9 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
       react-dom: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
+
+  '@react-aria/optimize-locales-plugin@2.1.0':
+    resolution: {integrity: sha512-JN8dyMW/9qNbJt08xPDYin4MDe2IntrnCrnAgbmWfi9ob0uQaNv/m1k030kwlep3ip3Xf9DcPSgartxe26nZ/g==}
 
   '@react-aria/ssr@3.10.1':
     resolution: {integrity: sha512-jn038/ZYmu6DpfXJ6r2U9zFFppjbc9wnApPJSCxao2RZVEqep4YyoniHSy8qv6V21/xyS4IV7W9a+X2jOjSuag==}
@@ -4410,6 +4416,10 @@ packages:
     resolution: {integrity: sha512-lzlXPoVB0Uy/FvTaUgX39RbixYiSKoc3JSoSf01+0c2B6FR3qdYIPN7Qjo/AV7n6sqLCk0509cT3LRj1oSZ1+A==}
     engines: {node: '>=20'}
 
+  unplugin@2.3.11:
+    resolution: {integrity: sha512-5uKD0nqiYVzlmCRs01Fhs2BdkEgBS3SAVP6ndrBsuK42iC2+JHyxM05Rm9G8+5mkmRtzMZGY8Ct5+mliZxU/Ww==}
+    engines: {node: '>=18.12.0'}
+
   unrs-resolver@1.12.2:
     resolution: {integrity: sha512-dmlRxBJJayXjqTwC+JtF1HhJmgf3ftQ3YejFcZrf4+KKtJv0qDsK1pjqaaVjG7wJ5NJ6UVP1OqRMQ71Z4C3rxQ==}
 
@@ -4537,6 +4547,9 @@ packages:
   webidl-conversions@8.0.1:
     resolution: {integrity: sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==}
     engines: {node: '>=20'}
+
+  webpack-virtual-modules@0.6.2:
+    resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
 
   whatwg-mimetype@5.0.0:
     resolution: {integrity: sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==}
@@ -5611,6 +5624,10 @@ snapshots:
       react: 19.3.1
       react-aria: 3.53.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-dom: 19.3.1(react@19.3.1)
+
+  '@react-aria/optimize-locales-plugin@2.1.0':
+    dependencies:
+      unplugin: 2.3.11
 
   '@react-aria/ssr@3.10.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
@@ -8906,6 +8923,13 @@ snapshots:
 
   unicorn-magic@0.4.1: {}
 
+  unplugin@2.3.11:
+    dependencies:
+      '@jridgewell/remapping': 2.3.5
+      acorn: 8.19.0
+      picomatch: 4.0.7
+      webpack-virtual-modules: 0.6.2
+
   unrs-resolver@1.12.2:
     dependencies:
       napi-postinstall: 0.3.4
@@ -8997,6 +9021,8 @@ snapshots:
   webidl-conversions@7.0.0: {}
 
   webidl-conversions@8.0.1: {}
+
+  webpack-virtual-modules@0.6.2: {}
 
   whatwg-mimetype@5.0.0: {}
 

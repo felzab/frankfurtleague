@@ -1,4 +1,10 @@
+import optimizeLocales from "@react-aria/optimize-locales-plugin";
+
 import type { NextConfig } from "next";
+
+// Every locale an `I18nProvider` sets belongs here (`fl_frontend/src/core/providers/RootProviders.tsx`):
+// React Aria's strings for any other are emptied from the server bundle and the client's alike.
+const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 
 const nextConfig: NextConfig = {
   // These run *ahead of* src/proxy.ts -- observed, not assumed: GET /bereich/admin redirects without
@@ -48,6 +54,13 @@ const nextConfig: NextConfig = {
   logging: {
     fetches: {
       fullUrl: false, // Prevents giant URLs in the terminal
+    },
+  },
+  turbopack: {
+    rules: {
+      // The plugin's `LocalesPlugin.d.ts` types `locales` as `readonly string[]`, which Next's
+      // `TurbopackLoaderOptions` refuses; remove the assertion once the plugin's types accept Next's.
+      ...(localeOptimization.rules as NonNullable<NextConfig["turbopack"]>["rules"]),
     },
   },
   experimental: {
