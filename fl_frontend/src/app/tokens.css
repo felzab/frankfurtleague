@@ -91,6 +91,17 @@
   }
 }
 
+/* A skeleton's shimmer, a sweep across the box. Outside the gate above: it is a loading indicator, and a
+   loading indicator that stops under reduced motion reads as stuck. */
+@keyframes kit-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
    row that fits, a browser without scroll-driven animations, or reduced motion shows no fade. */
 @property --kit-fade-start {
