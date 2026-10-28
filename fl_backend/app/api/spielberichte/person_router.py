@@ -34,8 +34,8 @@ from app.api.spielberichte.services import (
     find_saison_beendet_refusal,
     ist_abgeschlossen,
     judge_bericht,
+    kader_ist_offen,
     neu_genannt,
-    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.config import API_VERSION
@@ -212,7 +212,7 @@ async def get_spielbericht_bericht(
 
         # After the season, the referee's page is a view of the report: no squad to pick from, no write.
         abgeschlossen = ist_abgeschlossen(lage)
-        kader_offen = nimmt_einen_bericht(lage.spiel, today=today) and not abgeschlossen
+        kader_offen = kader_ist_offen(lage, today=today)
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection,
