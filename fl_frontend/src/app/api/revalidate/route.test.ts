@@ -17,6 +17,7 @@ registerDoubles({
       internalApiKeyBase: () => "b".repeat(64),
       internalApiKeySystem: () => SYSTEM_KEY,
       internalApiKeyAdmin: () => "a".repeat(64),
+      serverPort: () => 3000,
     },
   },
   specifiers: {

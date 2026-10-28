@@ -36,6 +36,7 @@ const LOGGING_DOUBLE = {
 
 // A getter, so each case sets what the one registry entry reads.
 const CONFIG_DOUBLE = {
+  bootCheck: () => undefined,
   frontend_config: {
     LOG_FORMAT: "console",
     BEWERBUNG_SWEEP: "off",
