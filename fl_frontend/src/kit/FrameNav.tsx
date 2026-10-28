@@ -43,7 +43,11 @@ type RailEntry = { id: string; label: Copy; icon: IconName } & ({ href: Route; s
 export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
 
 /** The seasons a person may switch between, the newest first, and the one a page whose address names none works in. */
-export type Seasons = { ids: readonly string[]; standard: string };
+export type Seasons = {
+  /** Each season's id, and its span as `formatZeitraum` writes it on the server, which the rail's button shows under the name. */
+  entries: ReadonlyArray<{ id: string; span: string }>;
+  standard: string;
+};
 
 /**
  * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read

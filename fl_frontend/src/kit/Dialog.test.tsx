@@ -10,13 +10,19 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { ComboBox } from "./ComboBox";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Dialog } from "./Dialog";
+import { Dialog, RouteDialog } from "./Dialog";
 import { EditorPage } from "./EditorPage";
+import { Link } from "./Link";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
+import type * as Navigation from "next/navigation";
 import type { EditorSave } from "./useEditor";
 import type { ActionAnswer } from "./useFormAction";
+
+// The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
+const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
 
@@ -125,6 +131,33 @@ describe("the kit's confirmation", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.loeschen }));
 
     expectTheSharedOverlay(screen.getByRole("alertdialog"));
+  });
+});
+
+describe("the route dialog", () => {
+  it("is named by its title, read but not drawn, and closes from the button in its corner", async () => {
+    render(
+      <RouteDialog
+        title={NAME}
+        beneath="/saisons/2027"
+        act={
+          <Link
+            href="/saisons/2027/spiele/1"
+            placement="button"
+            label={COPY.shared.zumSpiel}
+          />
+        }>
+        <p>Spiel</p>
+      </RouteDialog>,
+    );
+
+    expect(screen.getByRole("dialog", { name: NAME })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: NAME }).className.split(" ")).toContain("sr-only");
+    // The kit's button, not the dismiss button React Aria keeps for a screen reader under the same name.
+    const close = screen.getAllByRole("button", { name: COPY.shared.schliessen }).find((button) => button.hasAttribute("data-kit-focus"));
+    if (close === undefined) throw new Error("the dialog drew no closing button");
+    await userEvent.click(close);
+    expect(router.push).toHaveBeenCalledWith("/saisons/2027");
   });
 });
 
