@@ -10,7 +10,8 @@ const WORTE = COPY.verwaltung.spielort;
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name, its
  * address and its price. Each posts under its own name, which `spielortAnlegen` reads. The street and its
- * number, and the postcode and its town, each form one line of the address and share a row on desktop.
+ * number, and the postcode and its town, each form one line of the address and share a row on desktop, the
+ * postcode before its town as a German address writes it.
  */
 export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
   const { pflicht, hoechstens } = regeln;
@@ -23,7 +24,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         kind="text"
         isRequired={pflicht.name}
       />
-      <FieldPair>
+      <FieldPair short="second">
         <TextField
           label={WORTE.strasse}
           name="strasse"
@@ -49,16 +50,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         isRequired={pflicht.stadtteil}
         maxLength={hoechstens.stadtteil}
       />
-      <FieldPair>
-        <TextField
-          label={WORTE.stadt}
-          name="stadt"
-          width="W3"
-          kind="text"
-          defaultValue={WORTE.stadtVorgabe}
-          isRequired={pflicht.stadt}
-          maxLength={hoechstens.stadt}
-        />
+      <FieldPair short="first">
         <TextField
           label={WORTE.plz}
           name="plz"
@@ -70,6 +62,15 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
           // failure, their words being the old pages'.
           maxLength={5}
           minLength={5}
+        />
+        <TextField
+          label={WORTE.stadt}
+          name="stadt"
+          width="W3"
+          kind="text"
+          defaultValue={WORTE.stadtVorgabe}
+          isRequired={pflicht.stadt}
+          maxLength={hoechstens.stadt}
         />
       </FieldPair>
       <TextField
