@@ -211,8 +211,7 @@ export const COPY = katalog({
       offen: "Noch offen",
     },
 
-    /** A match's facts: the one group's title, and each fact's label. */
-    spiel: "Spiel",
+    /** A match's facts, each by its label. */
     fakt: {
       ergebnis: "Ergebnis",
       sonderereignis: "Sonderereignis",
