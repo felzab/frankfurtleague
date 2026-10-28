@@ -44,7 +44,7 @@ describe("a card", () => {
       <CardLink
         href="/saisons/2027"
         title={COPY.shared.saison}
-        line="Helmholtzschule"
+        lineText="Helmholtzschule"
       />,
     );
     expect(screen.getByRole("link").textContent).toBe(`${COPY.shared.saison}Helmholtzschule`);

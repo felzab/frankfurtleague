@@ -30,27 +30,29 @@ const card = tv({
   },
 });
 
+/** A card's one line under its title: catalogue text such as a figure's meaning, or a record's own detail. */
+type Line = { line: Copy; lineText?: never } | { lineText: string; line?: never };
+
 /** One kind of open work, its count beside its title, its records as rows or its inputs as fields. */
 export function Card({
   title,
   count,
-  line,
   action,
   body = "rows",
   children,
+  ...props
 }: {
   /** The kind of open work. */
   title: Copy;
   /** How many items the card holds open. */
   count?: number;
-  /** One line under the title: a figure's meaning, or a record's detail. */
-  line?: Copy | string;
   /** The card's one button. */
   action?: ReactElement;
   body?: "rows" | "fields";
   children?: ReactNode;
-}) {
+} & (Line | { line?: never; lineText?: never })) {
   const s = card({ body });
+  const line = props.line ?? props.lineText;
   return (
     <section className={s.root()}>
       <div className={s.head()}>
@@ -65,7 +67,7 @@ export function Card({
 }
 
 /** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
-export function CardLink({ href, title, line }: { href: Route; title: Copy; line: Copy | string }) {
+export function CardLink({ href, title, ...props }: { href: Route; title: Copy } & Line) {
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-bg text-fg">
       <Link
@@ -74,7 +76,7 @@ export function CardLink({ href, title, line }: { href: Route; title: Copy; line
         <span className="flex items-stretch gap-x-3 px-4 py-3">
           <span className="grid min-w-0 flex-1 gap-1">
             <span className="text-base font-semibold break-words">{title}</span>
-            <span className="text-sm text-fg-muted">{line}</span>
+            <span className="text-sm text-fg-muted">{props.line ?? props.lineText}</span>
           </span>
           <RowEnd />
         </span>
