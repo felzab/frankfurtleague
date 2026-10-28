@@ -759,6 +759,16 @@ const DESIGN_BANS = [
     },
     PRODUCTION,
   ),
+  // The old shared components go the same way. The kit's `Brand` draws the old logo until the logo moves
+  // into the kit.
+  kitImport(
+    {
+      regex: String.raw`^(?:@\x2F|\.{1,2}\x2F(?:.*\x2F)?)shared\x2Fcomponents\x2F`,
+      message: "The old components go with the last page importing them: build on the kit.",
+    },
+    PRODUCTION,
+    { allow: ["src/kit/Brand.tsx"] },
+  ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
