@@ -130,7 +130,7 @@ export function RouteDialog({
             {title}
           </Heading>
           {/* Nudged up and out by its own padding, so the glyph lines up with the title's first line and the box's edge. */}
-          <div className="-mt-1.5 -me-2.5 shrink-0">
+          <div className="-me-2.5 -mt-1.5 shrink-0">
             <Button
               icon="schliessen"
               label={COPY.shared.schliessen}
@@ -178,8 +178,9 @@ function ActForm({
   const refused = answer !== null && !answer.ok ? answer : null;
   let line: Copy | undefined;
   if (isBlocked) line = COPY.vorlage.felderPruefen;
+  // A refusal its fields carry is pointed at, not repeated, as the editor's status line does.
   else if (refused !== null)
-    line = refused.reason ?? (refused.fieldErrors === undefined ? COPY.shared.fehler.unerwartet : COPY.vorlage.felderPruefen);
+    line = refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen;
 
   return (
     // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
