@@ -13,7 +13,8 @@
 | [`backend/`](backend/)             | The FastAPI service — what it is for, and its contract                            |
 | [`ops/`](ops/)                     | Building, routing, deploying and running the system                               |
 | [`logging/`](logging/)             | Following a request through the logs, and what every `error_code` means           |
-| [`_git/`](_git/)                   | Branching, commits, pull requests, the gate, repository settings                  |
+| [`writing.md`](writing.md)         | How documents, comments, commit messages and pull requests are written            |
+| [`templates/`](templates/)         | The template to start each kind of document from                                  |
 | [`_roadmap/`](_roadmap/)           | What is open on the product, the toolchain, the gate and the documentation corpus |
 
 ## Coming back after a while
@@ -26,6 +27,6 @@ Read in this order:
    [ops](ops/overview.md).
 4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7 and the files it indexes under
    [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision.
-5. **[`_git/`](_git/)** — how to ship a change.
+5. **[`writing.md`](writing.md)** — how a change and its documents are written.
 
 The specs are reference, not reading. Look things up in them; do not read them through.
