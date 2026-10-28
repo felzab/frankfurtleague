@@ -389,7 +389,9 @@ const ENVIRONMENT_READ = syntax(
 /**
  * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
  * error boundary, which reads nothing of it, the edge's own 429 included. The kit's one wrapper answers every
- * throw as the form's own failure line.
+ * throw as the form's own failure line. A syntax selector, since `no-restricted-imports`' `importNames` sees
+ * imports alone: it passes `React.useActionState` read off a default import, and refuses any namespace import
+ * of `react`, whatever hook it reads.
  */
 const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = syntax(
