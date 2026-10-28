@@ -11,9 +11,9 @@ const column = tv({
     // A form or a mailed page in the form column, one card centred on the page as a status page stands, or
     // the sign-in's 384-px column, which proportions its full-width controls as Vercel's sign-in does.
     width: {
-      form: "max-w-[47.5rem]",
-      card: "max-w-[30rem] justify-center",
-      signin: "max-w-[24rem] justify-center",
+      form: "max-w-form",
+      card: "max-w-card justify-center",
+      signin: "max-w-signin justify-center",
     },
   },
 });
@@ -29,5 +29,5 @@ export function ClassicPage({ width, children }: { width: "form" | "card" | "sig
 
 /** A classic page's one title, in Anton at 24 px: at the column's head, or in a status card. */
 export function ClassicTitle({ text }: { text: Copy | string }) {
-  return <h1 className="font-heading text-2xl tracking-[0.02em] uppercase">{text}</h1>;
+  return <h1 className="font-heading text-2xl tracking-display uppercase">{text}</h1>;
 }

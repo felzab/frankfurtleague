@@ -10,7 +10,6 @@ import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { EmptyStateProps } from "./EmptyState";
 import type { TableProps, TableRow } from "./Table";
 
 /**
@@ -30,20 +29,16 @@ export type ListMore = {
 };
 
 /**
- * The search field over a list: its name, and the columns it reads beside the row's name, by their keys, such
- * as a venue's address beside the venue's name. A list past one read's cap is searched on the server, which
- * decides what it reads.
+ * The search field over a list, by its name. A list read whole is searched over its rows' names; a list past
+ * one read's cap is searched on the server, which decides what it reads.
  */
-export type ListSearch = { label: Copy; columns?: ReadonlyArray<string> };
+export type ListSearch = { label: Copy };
 
-/** A row's name, or one of the columns the search reads, holds what is typed, upper and lower case alike. */
-const matches = (query: string, columns: ReadonlyArray<string>) => {
+/** A row's name holds what is typed, upper and lower case alike. */
+const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => [row.name, ...columns.map((key) => row.cells[key] ?? "")].some((text) => text.toLowerCase().includes(wanted));
+  return (row: TableRow) => row.name.toLowerCase().includes(wanted);
 };
-
-/** The empty state a search leaves, every other field kept, where the list names its plural; else the list's own. */
-const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps => (empty.kind === "satz" ? empty : { ...empty, kind: "suche" });
 
 type Shown = {
   /** The rows the page was served with, so a new render of the page starts the list afresh. */
@@ -106,7 +101,7 @@ export function ListTable({
   };
 
   const isSearching = current.query.trim() !== "";
-  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query, search?.columns ?? [])) : current.rows;
+  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query)) : current.rows;
 
   return (
     <>
@@ -129,7 +124,8 @@ export function ListTable({
       <Table
         {...table}
         rows={rows}
-        empty={isSearching ? emptyForSearch(table.empty) : table.empty}
+        // A search that emptied the list says so, in the list's own plural.
+        empty={isSearching ? { ...table.empty, kind: "suche" } : table.empty}
       />
       {more !== undefined && current.cursor !== null && (
         <div>

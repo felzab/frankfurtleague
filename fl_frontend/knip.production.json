@@ -14,9 +14,6 @@
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.json`.
   "ignoreFiles": [
-    // Session 1, the spike's pages.
-    "src/kit/Stack.tsx",
-    "src/kit/Inline.tsx",
     // Session 3.
     "src/kit/BracketCard.tsx",
     "src/kit/Skeleton.tsx",

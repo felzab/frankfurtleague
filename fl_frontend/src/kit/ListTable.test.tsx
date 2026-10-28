@@ -21,26 +21,27 @@ const TABLE: TableProps = {
 };
 
 describe("a list's search", () => {
-  it("reads the columns its page names beside each row's name", async () => {
-    render(
-      <ListTable
-        table={TABLE}
-        search={{ label: COPY.shared.saison, columns: ["adresse"] }}
-      />,
-    );
-    await userEvent.type(screen.getByRole("searchbox"), "nordend");
-    expect(screen.getByText("Sportpark Ost")).toBeTruthy();
-    expect(screen.queryByText("Goethe-Halle")).toBe(null);
-  });
-
-  it("reads the name alone where its page names no column", async () => {
+  it("keeps the rows whose name holds what is typed, upper and lower case alike", async () => {
     render(
       <ListTable
         table={TABLE}
         search={{ label: COPY.shared.saison }}
       />,
     );
-    await userEvent.type(screen.getByRole("searchbox"), "nordend");
-    expect(screen.queryByText("Sportpark Ost")).toBe(null);
+    await userEvent.type(screen.getByRole("searchbox"), "OST");
+    expect(screen.getByText("Sportpark Ost")).toBeTruthy();
+    expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+
+  it("says a search emptied the list, in the list's own plural, rather than that nothing is there yet", async () => {
+    render(
+      <ListTable
+        table={TABLE}
+        search={{ label: COPY.shared.saison }}
+      />,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "Riedberg");
+    expect(screen.getByText(COPY.shared.leer.suche(COPY.shared.saison))).toBeTruthy();
+    expect(screen.queryByText(COPY.shared.leer.noch(COPY.shared.saison))).toBe(null);
   });
 });

@@ -10,6 +10,7 @@ import { Brand } from "./Brand";
 import { Chip } from "./Chip";
 import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SeasonScope } from "./FrameNav";
 import { LeaveGuardProvider } from "./LeaveGuard";
+import { frameLink } from "./Link";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
 
@@ -31,11 +32,11 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * their groups, the foot. Below it the dark-green band stands at the top with the logo, the wordmark and the
  * season button, and the bottom bar holds the pages, „Mehr“ and the account.
  *
- * `back` is an area's own way back, as Konto's: „← Zurück“ in the logo's place in the rail's head and in the
+ * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar.
  *
  * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
- * of its route groups (`columnInLayouts`): an editor's band holds „← Zurück“ and no bottom bar follows, its own
+ * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
  * bar standing in that place. Each page is then drawn right by the server, which knows the group from the
  * route; a page declaring it on the client would draw the bar until it hydrates, and hydrate it wrongly.
  *
@@ -78,12 +79,14 @@ export function RailFrame({
   const frame = (
     <MenuScope value={{ groups, bar, extra, account }}>
       <LeaveGuardProvider>
-        {/* `--rail-foot` is the signed-in rail foot's height, which an editor's bar takes too, so the two top
-            hairlines are one line: its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
-        <div className="min-h-dvh [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+        {/* The frame's measures, declared once for the parts drawn to them and for the toasts placed under them:
+            the phone's band, the desktop rail's width and its head, which the title strip shares, and the
+            signed-in rail foot's height, which an editor's bar takes too, so the two top hairlines are one line:
+            its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
+        <div className="min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:16rem] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)]">
           <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
-            <div className="flex h-12 shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
+            <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
             </div>
             <Suspense fallback={null}>
@@ -103,7 +106,7 @@ export function RailFrame({
                 <NextLink
                   href={foot.href}
                   data-kit-focus="ring"
-                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium text-fg hover:bg-bg-muted">
+                  className={frameLink({ tone: "rail" })}>
                   {COPY.shared.verb.anmelden}
                 </NextLink>
               )}
@@ -111,8 +114,9 @@ export function RailFrame({
           </aside>
 
           <div className="flex min-h-dvh min-w-0 flex-col">{columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}</div>
+          {/* Fixed, so no grid cell: inside the frame for the measures it is placed by. */}
+          <ToastRegion frame="rail" />
         </div>
-        <ToastRegion frame="rail" />
       </LeaveGuardProvider>
     </MenuScope>
   );
@@ -121,13 +125,13 @@ export function RailFrame({
 
 /**
  * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
- * season button, and the bottom bar under the page. An editor's band holds „← Zurück“ to its list in the
+ * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
  * logo's place, and no bottom bar follows; an area's own `back` does the same for every page of the area.
  */
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
   return (
     <>
-      <header className="@container sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
+      <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
           <Suspense fallback={null}>
@@ -169,8 +173,9 @@ function titleOf(title: PageTitle): string {
 
 const strip = tv({
   slots: {
-    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-12 lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
-    heading: "min-w-0 truncate font-heading tracking-[0.02em] uppercase",
+    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-border lg:bg-bg lg:px-8 lg:pt-0",
+    // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
+    heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
   },
   variants: {
     // A public page's title at 24 px, a signed-in page's at 20 px.
@@ -182,9 +187,16 @@ const strip = tv({
 });
 
 /**
- * A rail page's title and content. On desktop the title stands in the 48-px strip over the content, on a
- * public season page with „Impressum“ and „Datenschutz“ at its right; on a phone it heads the content under
- * the band. The page's templates place it; `main` holds their content.
+ * The column an editor and a read page set their blocks in, inside a rail page's content: at most 760 px,
+ * centred, the blocks 24 px apart.
+ */
+export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
+
+/**
+ * A rail page's title and content. On desktop the title stands at the start of the 48-px strip, which runs
+ * the full width beside the rail with its hairline continuing the rail head's edge, on a public season page
+ * with „Impressum“ and „Datenschutz“ at its end; on a phone it heads the content under the band. The page's
+ * templates place it; `main` holds their content.
  */
 export function RailPage({
   area,
@@ -204,35 +216,35 @@ export function RailPage({
   const { head, heading } = strip({ area });
   return (
     <>
-      {/* The title and the content in one column of at most 1280 px, centred beside the rail on a wide screen, so
-          the two keep one left edge at every width; the editor's bar spans the whole width under it. */}
-      <div className="mx-auto flex w-full max-w-[80rem] min-w-0 flex-1 flex-col">
-        <header className={head()}>
-          <h1 className={heading()}>{titleOf(title)}</h1>
-          {chip !== undefined && (
-            <Chip
-              tone={chip.tone}
-              label={chip.label}
-            />
-          )}
-          {area === "saison" && (
-            <nav
-              aria-label={COPY.vorlage.navigation}
-              className="ms-auto hidden gap-1 lg:flex">
-              {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
-                <NextLink
-                  key={page.pfad()}
-                  href={page.pfad()}
-                  data-kit-focus="ring"
-                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
-                  {page.titel}
-                </NextLink>
-              ))}
-            </nav>
-          )}
-        </header>
-        <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
-      </div>
+      <header className={head()}>
+        <h1 className={heading()}>{titleOf(title)}</h1>
+        {chip !== undefined && (
+          <Chip
+            tone={chip.tone}
+            label={chip.label}
+          />
+        )}
+        {area === "saison" && (
+          <nav
+            aria-label={COPY.vorlage.navigation}
+            className="ms-auto hidden gap-1 lg:flex">
+            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+              <NextLink
+                key={page.pfad()}
+                href={page.pfad()}
+                data-kit-focus="ring"
+                className={frameLink({ tone: "strip" })}>
+                {page.titel}
+              </NextLink>
+            ))}
+          </nav>
+        )}
+      </header>
+      {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen; the editor's
+          bar spans the whole width under it. */}
+      <main className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
+        {children}
+      </main>
       {bar}
     </>
   );

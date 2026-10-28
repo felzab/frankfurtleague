@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { SectionTitle } from "./Section";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
 
@@ -78,7 +79,7 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
           }>
           <div className="grid gap-3 px-2 pt-2">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">{COPY.shared.filter}</h2>
+              <SectionTitle text={COPY.shared.filter} />
               {/* „Fertig“ closes the sheet it stands in. */}
               <Button
                 variant="secondary"

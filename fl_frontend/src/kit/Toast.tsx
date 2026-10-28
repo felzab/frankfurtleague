@@ -32,11 +32,11 @@ export function appToast(tone: "success" | "danger", title: Copy) {
 const region = tv({
   base: "pointer-events-none fixed inset-x-0 z-50 flex flex-col items-center gap-2 px-4",
   variants: {
-    // Under the band or the strip, centred over the content: on desktop the rail frame's content starts
-    // after the 256-px rail, the classic frame's under its header.
+    // 12 px under the band or the strip, centred over the content, by the measures the frame around it
+    // declares: on desktop the rail frame's content starts after the rail, the classic frame's under its header.
     frame: {
-      rail: "top-[calc(3.5rem+0.75rem)] lg:top-[calc(3rem+0.75rem)] lg:left-[16rem]",
-      classic: "top-[calc(3.5rem+0.75rem)] lg:top-[calc(4rem+0.75rem)]",
+      rail: "top-[calc(var(--rail-band)+0.75rem)] lg:top-[calc(var(--rail-strip)+0.75rem)] lg:left-(--rail-width)",
+      classic: "top-[calc(var(--classic-header)+0.75rem)]",
     },
   },
 });

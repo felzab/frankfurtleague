@@ -29,7 +29,7 @@ export function HelpPopover({ subject, text }: { /** The section's title, which 
         offset={4}
         crossOffset={-8}
         data-kit-focus
-        className="w-[20rem] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-bg p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
+        className="w-popover max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-bg p-3 text-sm text-fg shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)">
         <AriaDialog
           aria-label={subject}
           data-kit-focus>
