@@ -211,6 +211,14 @@ export const COPY = katalog({
       offen: "Noch offen",
     },
 
+    /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
+    sonderereignis: {
+      ausgefallen: "Ausgefallen",
+      nichtAngetreten: (team: string) => `${team} nicht angetreten`,
+      abgebrochen: "Abgebrochen",
+      annulliert: "Annulliert",
+    },
+
     /** A match's facts, each by its label. */
     fakt: {
       ergebnis: "Ergebnis",

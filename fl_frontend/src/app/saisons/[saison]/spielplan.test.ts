@@ -109,6 +109,11 @@ describe("a match's facts", () => {
     expect(first).toEqual({ label: "Ergebnis", value: "5:4 n. E.", figures: true });
   });
 
+  it("name the side that did not turn up for a no-show", () => {
+    const fact = factsOf(spiel({ sonderereignis: "nichtantreten_team2" }), "1. Spieltag").find((each) => each.label === "Sonderereignis");
+    expect(fact?.value).toBe("Kastanie nicht angetreten");
+  });
+
   it("link the venue to its map on another site, which opens in a new tab", () => {
     const ort = factsOf(spiel(), "1. Spieltag").find((fact) => fact.label === "Ort");
     expect(ort?.elsewhere).toEqual({
