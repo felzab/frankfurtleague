@@ -46,9 +46,9 @@ JOB_RE: Final = re.compile(r"^`(?P<job>[^`]+)` job\b")
 # gh prints each line as `<job>\t<step>\t<timestamp> <text>`, the escape character spelled `^[`.
 STAMP_RE: Final = re.compile(r"^\N{ZERO WIDTH NO-BREAK SPACE}?\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 COLOUR_RE: Final = re.compile(r"(?:\x1b|\^\[)\[[0-9;]*m")
+# The runner trims a line's leading space before it reads a workflow command, so a unit's own
+# annotation the gate replays indented is raised and logged here like the gate's.
 ANNOTATION_RE: Final = re.compile(r"^##\[error\](?P<text>.+)$")
-# A unit's own annotation, which the gate replays indented under its step, so the runner never read it.
-NESTED_RE: Final = re.compile(r"^\s+::error(?:\s[^:]*)?::(?P<text>.+)$")
 # Every failed job's last annotation.
 EXIT_RE: Final = re.compile(r"^Process completed with exit code \d+\.")
 # The summary job's pointer to the scope jobs, whose own lines carry its findings.
@@ -66,8 +66,6 @@ NODE_FAIL_RE: Final = re.compile(r"^\s*✖ (?P<name>.+?)(?: \([\d.]+m?s\))?\s*$"
 # the case's ancestors joined by ` > `; a whole file's path follows in `[ ]`. The error's first line
 # comes next, and Vitest's own annotation for the case repeats it.
 VITEST_FAIL_RE: Final = re.compile(r"^\s*FAIL\s+(?:\|[^|]+\|\s+|\S+\s{2,}(?=\S))?(?P<name>\S.*?)(?:\s+\[ [^\]]+ \])?\s*$")
-# A workflow command escapes a newline in its message as `%0A`, so its first line ends there.
-ESCAPED_NEWLINE: Final = "%0A"
 
 
 class Line(NamedTuple):
@@ -130,8 +128,8 @@ def read(log: str) -> dict[str, Job]:
             vitest_errors.setdefault(name, set()).add(text.strip())
             vitest_waits[name] = False
             continue
-        repeated = ANNOTATION_RE.match(text) or NESTED_RE.match(text)
-        if repeated and repeated["text"].split(ESCAPED_NEWLINE, 1)[0].strip() in vitest_errors.get(name, ()):
+        repeated = ANNOTATION_RE.match(text)
+        if repeated and repeated["text"].strip() in vitest_errors.get(name, ()):
             continue
         if NODE_SECTION_RE.match(text):
             node_at[name] = ""
@@ -145,7 +143,7 @@ def read(log: str) -> dict[str, Job]:
                 job.relay = True
             elif not EXIT_RE.match(annotation["text"]):
                 job.found.append(Line(annotation["text"].strip(), annotation=True))
-        elif shaped := NESTED_RE.match(text) or PYTEST_RE.match(text) or TSC_RE.match(text):
+        elif shaped := PYTEST_RE.match(text) or TSC_RE.match(text):
             job.found.append(Line(shaped["text"], annotation=False))
         elif verdict := VERDICT_RE.match(text):
             job.verdicts.append(verdict["text"])
