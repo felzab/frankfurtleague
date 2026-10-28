@@ -12,11 +12,10 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 
 import type { RailGroup, Seasons } from "@/kit/FrameNav";
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 /**
- * The administration's menu (D225, D289): the Übersicht with no heading, then its three groups. A season's
+ * The administration's menu: the Übersicht with no heading, then its three groups. A season's
  * page takes the season the page works in, which the frame reads from the address.
  */
 const RAIL_GROUPS: RailGroup[] = [
@@ -62,39 +61,19 @@ const RAIL_GROUPS: RailGroup[] = [
  * The administration's frame and its guard. The guard is today's admin layout's: the page slot waits until
  * the session is judged and nothing here redirects, since a redirect thrown in a frame unmounts it whole;
  * an outage throws to the boundary's retry, and a session turned away is served the page alone, whose own
- * read sends it to the sign-in. `saison` is the season the page's address names, for an editor's way back.
+ * read sends it to the sign-in. One frame stands around every page of the area, so moving between a list and
+ * an editor, or between seasons, keeps it; an editor declares its own way back (`EditorPage`).
  */
-export function VerwaltungFrame({
-  saison,
-  back,
-  children,
-}: {
-  saison?: Promise<string>;
-  /** An editor's way back, which takes the phone's bottom bar away. */
-  back?: (saison: string | undefined) => Route;
-  children: ReactNode;
-}) {
+export function VerwaltungFrame({ children }: { children: ReactNode }) {
   return (
     // The frame reads the session and the seasons, so it streams in its own boundary, never the root's.
     <Suspense>
-      <Framed
-        saison={saison}
-        back={back}>
-        {children}
-      </Framed>
+      <Framed>{children}</Framed>
     </Suspense>
   );
 }
 
-async function Framed({
-  saison,
-  back,
-  children,
-}: {
-  saison?: Promise<string>;
-  back?: (saison: string | undefined) => Route;
-  children: ReactNode;
-}) {
+async function Framed({ children }: { children: ReactNode }) {
   // The builder stage reaches no sign-in store.
   await connection();
   const judged = await judgeAdminRequest();
@@ -127,8 +106,7 @@ async function Framed({
             ],
           ],
         },
-      }}
-      back={back === undefined ? undefined : { href: back(saison === undefined ? undefined : await saison), rail: false }}>
+      }}>
       <AdminSessionHold>{children}</AdminSessionHold>
     </RailFrame>
   );

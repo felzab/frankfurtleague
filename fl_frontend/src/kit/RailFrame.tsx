@@ -8,7 +8,7 @@ import { ROUTES } from "@/core/routes";
 
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
-import { AccountRow, BackControl, BarPlaces, RailEntries, SeasonScope } from "./FrameNav";
+import { AccountRow, BackControl, BandStart, BarPlaces, RailEntries, SeasonScope } from "./FrameNav";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
@@ -31,8 +31,9 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * their groups, the foot. Below it the dark-green band stands at the top with the logo, the wordmark and the
  * season button, and the bottom bar holds the pages, „Mehr“ and the account.
  *
- * `back` puts „← Zurück“ in the logo's place and takes the bottom bar away: in Konto, whose rail it heads
- * too (`rail`), and on a phone in an editor, whose own bar then stands in the bottom bar's place.
+ * `back` is an area's own way back, as Konto's: „← Zurück“ in the logo's place in the rail's head and in the
+ * band, and no bottom bar. An editor page declares its way back itself (`EditorPage`), which puts „← Zurück“
+ * in the phone's band and takes the bottom bar away while it is shown, its own bar standing in that place.
  *
  * Each page's template writes its title and its content through `RailPage`, so this frame and that one write
  * the page's `h1` and `main`, and nothing else does.
@@ -50,7 +51,7 @@ export function RailFrame({
   /** The person's seasons, for the season button and the entries that are a season's pages. */
   season?: FrameSeasons;
   foot: RailFoot;
-  back?: { href: Route; rail: boolean };
+  back?: Route;
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
@@ -73,7 +74,7 @@ export function RailFrame({
         <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
           {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
           <div className="flex h-12 shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
-            {back?.rail === true ? <BackControl href={back.href} /> : <Brand ground="band" />}
+            {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
           </div>
           <Suspense fallback={null}>
             <SeasonButton placement="rail" />
@@ -98,7 +99,10 @@ export function RailFrame({
 
         <div className="flex min-h-dvh min-w-0 flex-col">
           <header className="@container sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] lg:hidden">
-            {back === undefined ? <Brand ground="band" /> : <BackControl href={back.href} />}
+            <BandStart
+              back={back}
+              brand={<Brand ground="band" />}
+            />
             <Suspense fallback={null}>
               <SeasonButton placement="band" />
             </Suspense>

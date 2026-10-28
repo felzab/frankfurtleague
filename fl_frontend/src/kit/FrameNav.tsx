@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Icon } from "./Icon";
-import { useLeaveGuard } from "./LeaveGuard";
+import { useDeclaredBack, useLeaveGuard } from "./LeaveGuard";
 import { Menu } from "./Menu";
 import { Sheet } from "./Sheet";
 
@@ -31,7 +31,7 @@ export type SeasonPage = {
  * One page a frame's menu leads to: its name, its glyph in the rail and in the phone bar, and its address, or
  * the season's page it is, whose address the frame fills in with the season the page works in.
  */
-type RailEntry ={ id: string; label: Copy; icon: IconName } & ({ href: Route; season?: never } | { season: SeasonPage; href?: never });
+type RailEntry = { id: string; label: Copy; icon: IconName } & ({ href: Route; season?: never } | { season: SeasonPage; href?: never });
 
 /** Entries the rail sets together under one heading; the first group of an area may stand without one. */
 export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
@@ -272,19 +272,28 @@ const barPlace = tv({
 /**
  * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
  * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
+ * In an editor, whose own bar stands in its place, it is not drawn.
  */
-export function BarPlaces({
-  groups: given,
-  bar,
-  extra,
-  account,
-}: {
+export function BarPlaces({ groups, bar, extra, account }: BarProps) {
+  return useDeclaredBack() === null ? (
+    <Places
+      groups={groups}
+      bar={bar}
+      extra={extra}
+      account={account}
+    />
+  ) : null;
+}
+
+type BarProps = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
   /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: Account;
-}) {
+};
+
+function Places({ groups: given, bar, extra, account }: BarProps) {
   const groups = useEntries(given);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
@@ -438,6 +447,15 @@ export function BackControl({ href }: { href: Route }) {
       }
     />
   );
+}
+
+/**
+ * The start of the phone's band: „← Zurück“ where the page shown is an editor, which declares its way back,
+ * or where the area has one of its own, as Konto does; the logo otherwise.
+ */
+export function BandStart({ back: area, brand }: { back?: Route; brand: ReactNode }) {
+  const href = useDeclaredBack() ?? area;
+  return href === undefined ? brand : <BackControl href={href} />;
 }
 
 /** A link of the classic header: catalogue words and an address the layout gives. */
