@@ -14,14 +14,28 @@ import { Menu } from "./Menu";
 const trigger = tv({
   slots: {
     place: "",
-    root: "inline-flex h-9 items-center justify-between gap-2 rounded-lg border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-11",
+    root: "inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap transition-colors duration-(--motion-state)",
+    lines: "grid min-w-0 gap-1 text-start",
+    name: "truncate",
+    span: "font-numeric text-xs font-normal text-fg-muted tabular-nums",
     arrow: "flex",
   },
   variants: {
-    // In the rail on the page's ground, or on the phone's dark-green band.
+    // In the rail on the page's ground: outlined, no fill, two lines (the name over the season's span), 58 px
+    // tall with 16 px at the sides, 8 above and below and 4 between the lines (design board 6, `saison` B).
+    // On the phone's dark-green band: one line, as tall as a touch target, since the span does not fit beside
+    // the wordmark.
     placement: {
-      rail: { place: "px-3 pt-3 pb-1", root: "w-full border-border-control bg-bg text-fg data-hovered:bg-bg-muted", arrow: "text-fg-muted" },
-      band: { place: "ms-auto shrink-0", root: "border-on-brand/45 bg-transparent text-on-brand", arrow: "text-on-brand/80" },
+      rail: {
+        place: "px-3 pt-3 pb-1",
+        root: "min-h-14 w-full border-border bg-transparent px-4 py-2 font-semibold text-fg data-hovered:bg-bg-muted data-pressed:bg-bg-muted",
+        arrow: "text-fg-muted",
+      },
+      band: {
+        place: "ms-auto shrink-0",
+        root: "h-9 border-on-brand/45 bg-transparent px-3 font-medium text-on-brand pointer-coarse:h-11",
+        arrow: "text-on-brand/80",
+      },
     },
     // With one season there is nowhere to switch to, yet it stays a menu: its arrow is dimmed.
     single: {
@@ -41,7 +55,8 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
   const params = useParams();
   if (season === null) return null;
 
-  const { place, root, arrow } = trigger({ placement, single: season.ids.length < 2 });
+  const { place, root, lines, name, span, arrow } = trigger({ placement, single: season.entries.length < 2 });
+  const active = season.entries.find((entry) => entry.id === season.active);
   return (
     <div className={place()}>
       <Menu
@@ -50,7 +65,7 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
         // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
         width={placement === "rail" ? "trigger" : "content"}
         groups={[
-          season.ids.map((id) => ({
+          season.entries.map(({ id }) => ({
             kind: "link" as const,
             label: COPY.shared.saisonName(id),
             href: counterpart({ path, params, to: id, home: season.home, pages: season.pages }),
@@ -63,7 +78,14 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
           <AriaButton
             data-kit-focus="ring"
             className={root()}>
-            {COPY.shared.saisonName(season.active)}
+            {placement === "rail" ? (
+              <span className={lines()}>
+                <span className={name()}>{COPY.shared.saisonName(season.active)}</span>
+                <span className={span()}>{active?.span}</span>
+              </span>
+            ) : (
+              COPY.shared.saisonName(season.active)
+            )}
             <span className={arrow()}>
               <Icon
                 glyph="aufklappen"
