@@ -1165,6 +1165,18 @@ const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // React's rules of hooks hold React code, which lives in `src/`: elsewhere a call named `use`, a
+  // Playwright fixture's callback among them, is no hook.
+  {
+    files: JS_FILES,
+    ignores: ["src/**"],
+    rules: Object.fromEntries(
+      nextVitals
+        .flatMap(({ rules = {} }) => Object.keys(rules))
+        .filter((rule) => rule.startsWith("react-hooks/"))
+        .map((rule) => [rule, "off"]),
+    ),
+  },
   {
     files: JS_FILES,
     rules: {
