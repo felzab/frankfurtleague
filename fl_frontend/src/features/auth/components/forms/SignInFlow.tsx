@@ -134,7 +134,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     <SignInPage
       view="adresse"
       titel={COPY.anmeldung.titel}
-      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, fehler: refused?.fieldErrors?.email }}
+      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, fehler: refused?.fieldErrors }}
       pruefung={humanCheck.widget}
       senden={{
         label: COPY.anmeldung.codeSenden,

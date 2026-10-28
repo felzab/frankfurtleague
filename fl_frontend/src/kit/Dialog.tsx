@@ -12,7 +12,8 @@ import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
-import { useFormAction } from "./useFormAction";
+import { StatusLine } from "./FieldParts";
+import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";
 import type { Route } from "next";
@@ -167,7 +168,7 @@ function ActForm({
   close: () => void;
   children: ReactNode;
 }) {
-  const { answer, submit, isPending } = useFormAction(
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await action(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
@@ -177,15 +178,8 @@ function ActForm({
     // The form unmounts as the dialog closes, which clears its answer.
     { resetOnLeave: false },
   );
-  // The browser kept the act back for a field's own rule; cleared by the next send.
-  const [isBlocked, setBlocked] = useState(false);
-
   const refused = answer !== null && !answer.ok ? answer : null;
-  let line: Copy | undefined;
-  if (isBlocked) line = COPY.vorlage.felderPruefen;
-  // A refusal its fields carry is pointed at, not repeated, as the editor's status line does.
-  else if (refused !== null)
-    line = refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen;
+  const status = statusOf(refused, isBlocked);
 
   return (
     // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
@@ -195,12 +189,11 @@ function ActForm({
       <Form
         className="grid gap-6"
         validationErrors={refused?.fieldErrors}
-        onInvalid={() => setBlocked(true)}
+        onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
           // React's submit event bubbles through the portal to the outer form, whose save would run too.
           event.stopPropagation();
-          setBlocked(false);
           submit(new FormData(event.currentTarget));
         }}>
         <Heading
@@ -211,7 +204,10 @@ function ActForm({
         </Heading>
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
-          <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{line}</p>
+          <StatusLine
+            status={status}
+            placement="row"
+          />
           <Button
             variant="secondary"
             label={COPY.shared.zurueck}
@@ -229,20 +225,8 @@ function ActForm({
   );
 }
 
-/**
- * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
- * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
- * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog,
- * a refused one leaves it open with the input kept and the refusal shown.
- */
-export function Dialog({
-  title,
-  act,
-  trigger,
-  open,
-  action,
-  children,
-}: {
+/** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
+export type DialogAct = {
   title: Copy;
   /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
   act: { verb: Verb; objekt?: Copy };
@@ -250,11 +234,28 @@ export function Dialog({
   action: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
-  /** The kit `Button` that opens the dialog, or none where another control opens it through `open`. */
-  trigger?: ReactElement;
-  /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
-  open?: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
-}) {
+};
+
+/** What opens the dialog: its own trigger, or the open state another control holds; one of the two, always. */
+type Opening =
+  | {
+      /** The kit `Button` that opens the dialog. */
+      trigger: ReactElement;
+      open?: never;
+    }
+  | {
+      /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
+      open: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
+      trigger?: never;
+    };
+
+/**
+ * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
+ * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
+ * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog,
+ * a refused one leaves it open with the input kept and the refusal shown.
+ */
+export function Dialog({ title, act, trigger, open, action, children }: DialogAct & Opening) {
   const [own, setOwn] = useOpenUntilHidden();
   const isOpen = open?.isOpen ?? own;
   const setOpen = open?.onOpenChange ?? setOwn;

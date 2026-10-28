@@ -19,14 +19,16 @@ export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * One line, always there, so a message appearing or going moves nothing. The code's line holds a refusal
- * of two sentences, so it wraps and grows from its one line rather than cutting the refusal off.
+ * One line, always there, so a message appearing or going moves nothing. The one line is cut, and its words
+ * add nothing to the width a field is laid out at, so a long message never widens a field sized by its
+ * content, such as a pair's short side. The code's line holds a refusal of two sentences, so it wraps and
+ * grows from its one line rather than cutting the refusal off.
  */
 export const messageLine = tv({
   base: "text-xs",
   variants: {
     lines: {
-      one: "h-4 truncate",
+      one: "h-4 truncate contain-inline-size",
       several: "min-h-4",
     },
     tone: {
@@ -39,11 +41,35 @@ export const messageLine = tv({
 });
 
 /**
+ * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
+ * nothing. Beside the acts in a row it shares the row and is cut at its second line; under them in a column,
+ * as on the sign-in, it takes every line a refusal needs.
+ */
+export const statusLine = tv({
+  base: "min-h-5 text-sm",
+  variants: {
+    placement: {
+      row: "line-clamp-2 min-w-0 flex-1",
+      column: "",
+    },
+    tone: {
+      none: "",
+      changes: "text-fg",
+      saved: "text-success",
+      error: "text-danger",
+    },
+  },
+});
+
+/**
  * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
- * surface one step up from the page inside its control edge.
+ * surface one step up from the page inside its control edge. Inside a pair sharing its row on a phone
+ * (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds nothing to the width
+ * the side is laid out at, so the side starts from the field's width class and the frame then fills what
+ * the side grew to.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
+  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
   variants: {
     // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
     // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
@@ -121,9 +147,13 @@ export const searchClear = tv({
 /** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative flex justify-center gap-2" });
 
-/** One drawn code box: a 44-px square in a field's frame and fill, whatever the pointer, its digit large and centred. */
+/**
+ * One drawn code box, in a field's frame and fill whatever the pointer, its digit large and centred: a square
+ * sharing the row with the other five, at most 44 px, so on a phone narrower than the six at full size they
+ * stay square and narrow together.
+ */
 export const codeBox = tv({
-  base: "flex size-11 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
+  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**

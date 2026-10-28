@@ -299,8 +299,8 @@ export const COPY = katalog({
     code: "Code aus der E-Mail",
     andereAdresse: "Andere E-Mail-Adresse verwenden",
 
-    /** `/signin` for somebody already signed in. */
-    angemeldetAls: (adresse: string) => `Du bist als ${adresse} angemeldet.`,
+    /** `/signin` for somebody already signed in, in the two parts around the address, as the code view's sentence. */
+    angemeldetAls: { vor: "Du bist als", nach: "angemeldet." },
 
     passkey: {
       einrichten: { titel: "Passkey einrichten", satz: "Die Verwaltung ist erst mit einem Passkey erreichbar.", knopf: "Jetzt einrichten" },

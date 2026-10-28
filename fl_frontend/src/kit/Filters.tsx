@@ -1,9 +1,6 @@
 "use client";
 
-import { useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
-
-import { OverlayTriggerStateContext } from "react-aria-components/Dialog";
 
 import { COPY } from "@/core/copy";
 
@@ -59,18 +56,6 @@ function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
   ));
 }
 
-/** „Fertig“ closes the sheet it stands in. */
-function Done() {
-  const sheet = useContext(OverlayTriggerStateContext);
-  return (
-    <Button
-      variant="secondary"
-      label={COPY.shared.fertig}
-      onPress={() => sheet?.close()}
-    />
-  );
-}
-
 /**
  * Narrowing a list: selects in a row above it on desktop, and on a phone a „Filter“ button opening a
  * sheet of the same selects, the button leading with the filter glyph and naming no count. Each choice
@@ -95,7 +80,12 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
           <div className="grid gap-3 px-2 pt-2">
             <div className="flex items-center justify-between gap-3">
               <SectionTitle text={COPY.shared.filter} />
-              <Done />
+              {/* „Fertig“ closes the sheet it stands in. */}
+              <Button
+                variant="secondary"
+                label={COPY.shared.fertig}
+                slot="close"
+              />
             </div>
             <FilterSelects filters={filters} />
           </div>

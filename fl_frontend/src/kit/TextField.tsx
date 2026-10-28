@@ -98,7 +98,7 @@ function LineWithError({ constraints }: { constraints: Constraints }) {
 
 /**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at its
- * width class, then the message line that is always there. An error first shows once the value is
+ * width class, then its message line as `line` sets it. An error first shows once the value is
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {

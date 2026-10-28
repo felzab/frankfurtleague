@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
 import { useHoldLeave } from "./LeaveGuard";
-import { useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 
-import type { Copy } from "@/core/copy";
-import type { ActionAnswer } from "./useFormAction";
+import type { ActionAnswer, FormStatus } from "./useFormAction";
 
 /** A value an editor's field holds: text, a figure, a choice, or nothing yet. */
 export type EditorValue = string | number | boolean | null | ReadonlyArray<string>;
@@ -32,9 +31,6 @@ export type EditorSave<Values extends Record<string, EditorValue>> = {
   fingerprint: string;
   changes: Partial<Values>;
 };
-
-/** The status line beside „Speichern“: its words and its tone, or nothing. */
-export type EditorStatus = { tone: "changes" | "saved" | "error"; text: Copy } | null;
 
 function sameValue(a: EditorValue | undefined, b: EditorValue | undefined) {
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => item === b[index]);
@@ -126,7 +122,8 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const form = useFormAction(
     async (sent: EditorSave<Values>) => {
       const answer = await save(sent);
-      if (answer.ok) setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state));
+      // A form's action runs in a transition, and an update after its `await` commits outside it.
+      if (answer.ok) startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state)));
       return answer;
     },
     { resetOnLeave: true },
@@ -149,18 +146,10 @@ export function useEditor<Values extends Record<string, EditorValue>>(
 
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.version === current.sentVersion ? answer : null;
-  let status: EditorStatus = null;
-  if (current.blockedVersion === current.version) {
-    status = { tone: "error", text: COPY.vorlage.felderPruefen };
-  } else if (refused !== null) {
-    // A refusal its fields carry is pointed at, not repeated: the fields say what, the line where to look.
-    status = {
-      tone: "error",
-      text: refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen,
-    };
-  } else if (count > 0) {
+  let status: FormStatus = statusOf(refused, current.blockedVersion === current.version);
+  if (status === null && count > 0) {
     status = { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) };
-  } else if (answer?.ok === true) {
+  } else if (status === null && answer?.ok === true) {
     // A save that moved more than this record says what else it moved, in place of the plain „Gespeichert“.
     status = { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
   }

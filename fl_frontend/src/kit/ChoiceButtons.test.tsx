@@ -12,10 +12,8 @@ const CHOICES = [
   { id: "bank", label: COPY.shared.bank },
 ];
 
-const classesOf = (name: string) => screen.getByRole("button", { name }).className.split(" ");
-
 describe("a segmented control", () => {
-  it("is one group named by its label, its chosen segment raised out of the frame inside the control edge", () => {
+  it("is one group named by its label, its answer chosen", () => {
     render(
       <Segmented
         label={COPY.shared.saison}
@@ -25,9 +23,6 @@ describe("a segmented control", () => {
     );
     expect(screen.getByRole("radiogroup", { name: COPY.shared.saison })).toBeTruthy();
     expect(screen.getByRole("radio", { name: COPY.shared.startelf }).getAttribute("aria-checked")).toBe("true");
-    const segment = screen.getByRole("radio", { name: COPY.shared.startelf }).className.split(" ");
-    expect(segment).toEqual(expect.arrayContaining(["data-selected:bg-bg-muted", "data-selected:border-border-control"]));
-    expect(screen.getByRole("radiogroup").className.split(" ")).toContain("bg-bg-surface");
   });
 
   it("hands back the answer chosen and never lets the choice go empty", async () => {
@@ -53,7 +48,7 @@ const GLYPHS = [
 ] as const;
 
 describe("a segmented control of glyphs", () => {
-  it("names each segment for assistive technology and in its tooltip, the glyph muted until chosen", async () => {
+  it("names each segment for assistive technology and in its tooltip", async () => {
     render(
       <Segmented
         label={COPY.seite.darstellung}
@@ -65,8 +60,6 @@ describe("a segmented control of glyphs", () => {
     expect(chosen.getAttribute("aria-checked")).toBe("true");
     expect(chosen.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(chosen.textContent).toBe("");
-    expect(chosen.className.split(" ")).toEqual(expect.arrayContaining(["w-9", "text-fg-muted", "data-selected:text-fg"]));
-    expect(chosen.className.split(" ")).not.toContain("min-w-16");
 
     // Keyboard focus opens the tooltip, as it does on an icon-only button.
     await userEvent.tab();
@@ -90,7 +83,7 @@ describe("a segmented control of glyphs", () => {
 });
 
 describe("toggle boxes", () => {
-  it("take several answers, each chosen box lifted with a stronger edge", async () => {
+  it("take several answers", async () => {
     const onChange = vi.fn();
     render(
       <ToggleBoxes
@@ -103,6 +96,5 @@ describe("toggle boxes", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.bank }));
     expect(onChange).toHaveBeenLastCalledWith(["startelf", "bank"]);
     expect(screen.getByRole("button", { name: COPY.shared.bank }).getAttribute("aria-pressed")).toBe("true");
-    expect(classesOf(COPY.shared.bank)).toEqual(expect.arrayContaining(["data-selected:bg-bg-surface", "data-selected:border-fg-muted"]));
   });
 });

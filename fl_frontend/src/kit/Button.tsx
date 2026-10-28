@@ -18,6 +18,8 @@ type Act = {
   isDisabled?: boolean;
   /** The act is under way: a spinner joins the label, which stays as it is, and a press does nothing. */
   isBusy?: boolean;
+  /** `close` closes the dialog or the sheet the button stands in, through React Aria's slot for it. */
+  slot?: "close";
 };
 
 type ButtonProps =
@@ -50,7 +52,7 @@ function Spinner() {
  * A labelled button may lead with a glyph.
  */
 export function Button(props: ButtonProps) {
-  const { onPress, type = "button", isDisabled = false, isBusy = false, label } = props;
+  const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot } = props;
 
   if (props.icon !== undefined) {
     return (
@@ -58,6 +60,7 @@ export function Button(props: ButtonProps) {
         <AriaButton
           data-kit-focus="ring"
           type={type}
+          slot={slot}
           onPress={onPress}
           isDisabled={isDisabled}
           isPending={isBusy}
@@ -80,6 +83,7 @@ export function Button(props: ButtonProps) {
     <AriaButton
       data-kit-focus="ring"
       type={type}
+      slot={slot}
       onPress={onPress}
       isDisabled={isDisabled}
       isPending={isBusy}
