@@ -527,6 +527,6 @@ where the row carries the stamp the expiry reads (I119).\
 | Term                        | Actually                                                                                              |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                      |
-| `surface`                   | A documentation term: frontend, backend, or ops. See [`standard.md`](_standard/standard.md#corpus)    |
+| `surface`                   | A documentation term: frontend, backend, or ops, each with its folder under `docs/`                   |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See backend spec I7                                          |
 | `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{team_id}`) |
