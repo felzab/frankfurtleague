@@ -24,8 +24,6 @@ const TIMEOUT_MS = 5000;
 /**
  * Reports an outcome that has no place on the page: a title alone, from the catalogue's toast titles.
  * The one way to raise a toast.
- * @awaitsPage the first page raising a toast
- * @awaitsProduction the first page raising a toast
  */
 export function appToast(tone: "success" | "danger", title: Copy) {
   queue.add({ tone, title }, { timeout: TIMEOUT_MS });

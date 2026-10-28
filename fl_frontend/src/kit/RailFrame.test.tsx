@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { entryMark } from "./fieldStyles";
 import { RailFrame } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
@@ -76,6 +77,16 @@ describe("the rail frame's account", () => {
   });
 });
 
+describe("the rail's entries", () => {
+  it("mark the current page as every navigating list marks its place", async () => {
+    await renderFrame(Promise.resolve(ACCOUNT));
+
+    const current = screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => link.getAttribute("aria-current") === "page");
+    expect(current?.hasAttribute("data-selected")).toBe(true);
+    expect(current?.className.split(" ")).toEqual(expect.arrayContaining(entryMark({ mark: "place" }).split(" ")));
+  });
+});
+
 describe("the account menu", () => {
   it("names an address with no name once, in the row, and repeats it in no heading of the menu", async () => {
     await renderFrame(Promise.resolve(ACCOUNT));
@@ -120,7 +131,11 @@ describe("the account menu", () => {
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
-    expect(screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.system }).getAttribute("aria-checked")).toBe("true");
+    const inForce = screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.system });
+    expect(inForce.getAttribute("aria-checked")).toBe("true");
+    // Marked as a form's value is: the tint, which the selected state turns on.
+    expect(inForce.hasAttribute("data-selected")).toBe(true);
+    expect(inForce.className.split(" ")).toEqual(expect.arrayContaining(entryMark({ mark: "value" }).split(" ")));
     await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.dunkel }));
 
     expect(theme.setTheme).toHaveBeenCalledWith("dark");

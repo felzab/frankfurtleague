@@ -14,6 +14,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
+import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { useDeclaredBack, useLeaveGuard } from "./LeaveGuard";
 import { Menu } from "./Menu";
@@ -220,11 +221,12 @@ function FreshPerPage({ children }: { children: ReactNode }) {
   return <Fragment key={usePathname()}>{children}</Fragment>;
 }
 
+// The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
 const railEntry = tv({
   base: "flex h-[2.125rem] items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
   variants: {
     current: {
-      true: "bg-bg-muted text-brand",
+      true: entryMark({ mark: "place" }),
       false: "text-fg-muted hover:bg-bg-muted hover:text-fg",
     },
   },
@@ -248,6 +250,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
               key={entry.id}
               href={entry.href}
               aria-current={entry.href === current ? "page" : undefined}
+              data-selected={entry.href === current || undefined}
               data-kit-focus="inset"
               className={railEntry({ current: entry.href === current })}>
               <Icon

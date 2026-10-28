@@ -52,7 +52,7 @@ export type MenuEntry =
  * A group of its own holding one choice among options, such as the theme: React Aria's single-selection
  * section, its chosen option marked as a form's value is, with the check at the row's end.
  */
-export type MenuChoice = {
+type MenuChoice = {
   kind: "choice";
   label: Copy;
   options: ReadonlyArray<{ id: string; label: Copy }>;
@@ -336,7 +336,7 @@ function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
           id={option.id}
           textValue={option.label}
           data-kit-focus="item"
-          className={`${item({ size })} data-selected:bg-brand/12`}>
+          className={`${item({ size })} ${entryMark({ mark: "value" })}`}>
           {({ isSelected }) => (
             <>
               <Entry label={option.label} />
