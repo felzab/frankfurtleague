@@ -19,7 +19,8 @@ def test_every_job_outlasts_a_stuck_cache_restore() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     restore = re.findall(r"^  SEGMENT_DOWNLOAD_TIMEOUT_MINS: (\d+)$", text, re.MULTILINE)
     assert len(restore) == 1, "verify.yml sets no workflow-wide SEGMENT_DOWNLOAD_TIMEOUT_MINS, so a restore waits 10 minutes"
-    jobs = re.findall(r"^  ([\w-]+):\n(?:    .*\n|\s*\n)*?    timeout-minutes: (\d+)$", text, re.MULTILINE)
+    # A job's body is lines indented four spaces or blank ones; the two never match one line, so no backtracking.
+    jobs = re.findall(r"^  ([\w-]+):\n(?:    .*\n| {0,3}\n)*?    timeout-minutes: (\d+)$", text, re.MULTILINE)
     assert jobs, "verify.yml's jobs carry no timeout-minutes this reader finds"
     assert len(jobs) == len(re.findall(r"^    timeout-minutes: ", text, re.MULTILINE)), "a job's timeout this reader does not tie to its job"
     short = [f"{job} ({minutes} min)" for job, minutes in jobs if int(minutes) <= int(restore[0])]
