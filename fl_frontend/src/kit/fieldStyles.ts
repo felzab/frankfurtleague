@@ -142,9 +142,13 @@ export const searchClear = tv({
 /** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative flex justify-center gap-2" });
 
-/** One drawn code box: a 44-px square in a field's frame and fill, whatever the pointer, its digit large and centred. */
+/**
+ * One drawn code box, in a field's frame and fill whatever the pointer, its digit large and centred: a square
+ * sharing the row with the other five, at most 44 px, so on a phone narrower than the six at full size they
+ * stay square and narrow together.
+ */
 export const codeBox = tv({
-  base: "flex size-11 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
+  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**
