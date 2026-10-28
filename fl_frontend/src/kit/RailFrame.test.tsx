@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -14,28 +15,50 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
+const theme = vi.hoisted(() => ({ setTheme: vi.fn() }));
+vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "system", setTheme: theme.setTheme }) }));
+
+const leave = vi.hoisted(() => ({ signOut: vi.fn(), leaveDocumentFor: vi.fn(), appToast: vi.fn() }));
+vi.mock("@/shared/utils/signOut", () => ({ signOut: leave.signOut }));
+vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor: leave.leaveDocumentFor }));
+vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unknown>>()), appToast: leave.appToast }));
+
 const ADRESSE = "verwaltung@example.com";
 
-const ACCOUNT: Account = {
-  name: ADRESSE,
-  role: COPY.verwaltung.rolle,
-  address: ADRESSE,
-  menu: [[{ kind: "link", label: COPY.vorlage.konto, href: "/bereich/konto/signin" }]],
-};
+// An administrator: the grant stores no name.
+const ACCOUNT: Account = { role: COPY.verwaltung.rolle, address: ADRESSE };
+
+/** The frame of a one-page area around a page, its account read as given. */
+async function renderFrame(account: Promise<Account | null>) {
+  await act(async () =>
+    render(
+      <RailFrame
+        groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
+        bar={["spielorte"]}
+        foot={{ kind: "account", account }}>
+        <p>Seite</p>
+      </RailFrame>,
+    ),
+  );
+}
+
+/** Opens the account menu from the rail's row, which holds the role. */
+async function openMenu() {
+  const row = screen.getByText(COPY.verwaltung.rolle).closest("button");
+  if (row === null) throw new Error("the account row is no button");
+  await userEvent.click(row);
+}
+
+beforeEach(() => {
+  // The rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
+  vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
+  vi.clearAllMocks();
+});
 
 describe("the rail frame's account", () => {
   it("streams in: the frame and its page are drawn while the session is still judged", async () => {
     const { promise: account, resolve } = Promise.withResolvers<Account | null>();
-    await act(async () =>
-      render(
-        <RailFrame
-          groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
-          bar={["spielorte"]}
-          foot={{ kind: "account", account }}>
-          <p>Seite</p>
-        </RailFrame>,
-      ),
-    );
+    await renderFrame(account);
 
     expect(screen.getByText("Seite")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: COPY.seite.spielorte }).length).toBeGreaterThan(0);
@@ -46,19 +69,60 @@ describe("the rail frame's account", () => {
   });
 
   it("shows no account for a session the area turns away", async () => {
-    await act(async () =>
-      render(
-        <RailFrame
-          groups={[]}
-          bar={["spielorte"]}
-          foot={{ kind: "account", account: Promise.resolve(null) }}>
-          <p>Seite</p>
-        </RailFrame>,
-      ),
-    );
+    await renderFrame(Promise.resolve(null));
 
     expect(screen.getByText("Seite")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: COPY.vorlage.konto })).toBeNull();
     expect(screen.queryByText(ADRESSE)).toBeNull();
+  });
+});
+
+describe("the account menu", () => {
+  it("names an address with no name once, in the row, and repeats it in no heading of the menu", async () => {
+    await renderFrame(Promise.resolve(ACCOUNT));
+    await openMenu();
+
+    expect(screen.getAllByText(ADRESSE)).toHaveLength(1);
+    expect(screen.getByRole("menuitem", { name: COPY.vorlage.konto })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: COPY.seite.impressum })).toBeTruthy();
+  });
+
+  it("heads the menu with a person's name and address where the person has a name", async () => {
+    await renderFrame(Promise.resolve({ ...ACCOUNT, name: "Mia Berg" }));
+    await openMenu();
+
+    expect(screen.getAllByText("Mia Berg")).toHaveLength(2);
+    expect(screen.getAllByText(ADRESSE)).toHaveLength(1);
+  });
+
+  it("signs out with one press and leaves the document for the start page", async () => {
+    leave.signOut.mockResolvedValue({ success: true });
+    await renderFrame(Promise.resolve(ACCOUNT));
+    await openMenu();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.abmelden }));
+
+    await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
+    expect(leave.appToast).not.toHaveBeenCalled();
+  });
+
+  it("keeps the person in place with the one failure line where the sign-out fails", async () => {
+    leave.signOut.mockResolvedValue({ success: false, error: "x" });
+    await renderFrame(Promise.resolve(ACCOUNT));
+    await openMenu();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.abmelden }));
+
+    await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.fehler));
+    expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
+  });
+
+  it("offers the theme, the one in force marked, and sets the one chosen", async () => {
+    await renderFrame(Promise.resolve(ACCOUNT));
+    await openMenu();
+
+    expect(screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.system }).getAttribute("aria-checked")).toBe("true");
+    await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.vorlage.darstellung.dunkel }));
+
+    expect(theme.setTheme).toHaveBeenCalledWith("dark");
   });
 });

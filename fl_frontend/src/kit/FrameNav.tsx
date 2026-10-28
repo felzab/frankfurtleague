@@ -4,23 +4,26 @@ import { createContext, Fragment, Suspense, use, useContext } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
+import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
+import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Icon } from "./Icon";
 import { useDeclaredBack, useLeaveGuard } from "./LeaveGuard";
 import { Menu } from "./Menu";
 import { Sheet } from "./Sheet";
+import { appToast } from "./Toast";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
-import type { MenuProps } from "./Menu";
 
 /** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
 export type SeasonPage = {
@@ -133,14 +136,64 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 
 /** The person signed in, as the rail's foot and the phone bar's account place show them. */
 export type Account = {
-  name: string;
+  /** The person's name; an administrator's grant stores none, so the row names the address instead. */
+  name?: string;
   /** The role the area is for, the row's second line. */
   role: Copy;
-  /** The sign-in address, beside the name at the top of the menu. */
+  /** The sign-in address: under the name at the top of the menu, or the row's own name where there is none. */
   address: string;
-  /** The account menu's entries, a separator between two groups. */
-  menu: MenuProps["groups"];
 };
+
+/**
+ * Ends the session and leaves the document whole, as Next's guide advises for a sign-out: a soft navigation
+ * would keep every hidden route with its rows and typed text. A failure leaves the person where they are.
+ */
+async function abmelden() {
+  const result = await signOut().catch(() => null);
+  if (result?.success === true) {
+    leaveDocumentFor("/");
+    return;
+  }
+  appToast("danger", COPY.shared.toast.fehler);
+}
+
+const THEMES = ["system", "light", "dark"] as const;
+
+/**
+ * The account menu, the same in every area: Konto and Abmelden; Impressum and Datenschutz; the theme. A
+ * person with a name sees it with their address at the top; an address alone already stands in the row, so
+ * the menu does not repeat it.
+ */
+function AccountMenu({ account, trigger }: { account: Account; trigger: ReactElement }) {
+  // The theme next-themes holds; the menu's options render only once it is opened, after hydration.
+  const { theme, setTheme } = useTheme();
+  const words = { system: COPY.vorlage.darstellung.system, light: COPY.vorlage.darstellung.hell, dark: COPY.vorlage.darstellung.dunkel };
+  return (
+    <Menu
+      label={COPY.vorlage.konto}
+      placement="above"
+      head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
+      groups={[
+        [
+          { kind: "link", label: COPY.vorlage.konto, href: ROUTES.kontoAnmeldung.pfad() },
+          { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void abmelden() },
+        ],
+        [
+          { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
+          { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
+        ],
+        {
+          kind: "choice",
+          label: COPY.seite.darstellung,
+          options: THEMES.map((id) => ({ id, label: words[id] })),
+          selected: theme ?? null,
+          onChange: setTheme,
+        },
+      ]}
+      trigger={trigger}
+    />
+  );
+}
 
 /**
  * The entry the address belongs to: the longest one the path equals or lies under, so an area's Übersicht
@@ -236,12 +289,10 @@ export type AccountRead = Promise<Account | null>;
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const account = use(read);
   if (account === null) return null;
+  const name = account.name ?? account.address;
   return (
-    <Menu
-      label={COPY.vorlage.konto}
-      placement="above"
-      head={{ name: account.name, detail: account.address }}
-      groups={account.menu}
+    <AccountMenu
+      account={account}
       trigger={
         <AriaButton
           data-kit-focus="ring"
@@ -249,10 +300,10 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
-            {initials(account.name)}
+            {initials(name)}
           </span>
           <span className="grid min-w-0 flex-1">
-            <span className="truncate font-semibold text-fg">{account.name}</span>
+            <span className="truncate font-semibold text-fg">{name}</span>
             <span className="truncate text-xs text-fg-muted">{account.role}</span>
           </span>
           <span className="text-fg-muted">
@@ -397,11 +448,8 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
   const account = use(read);
   if (account === null) return null;
   return (
-    <Menu
-      label={COPY.vorlage.konto}
-      placement="above"
-      head={{ name: account.name, detail: account.address }}
-      groups={account.menu}
+    <AccountMenu
+      account={account}
       trigger={
         <AriaButton
           data-kit-focus="inset"
@@ -409,7 +457,7 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
           <span
             aria-hidden
             className={avatar({ size: "bar" })}>
-            {initials(account.name)}
+            {initials(account.name ?? account.address)}
           </span>
           {COPY.vorlage.konto}
         </AriaButton>

@@ -92,20 +92,8 @@ type Session = Promise<{ user: { email: string } } | null>;
 async function readAccount(session: Session): Promise<Account | null> {
   const served = await session;
   if (served === null) return null;
-  const adresse = served.user.email;
-  return {
-    // An administrator is an address: the grant stores no name.
-    name: adresse,
-    role: COPY.verwaltung.rolle,
-    address: adresse,
-    menu: [
-      [{ kind: "link", label: COPY.vorlage.konto, href: ROUTES.kontoAnmeldung.pfad() }],
-      [
-        { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
-        { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
-      ],
-    ],
-  };
+  // An administrator is an address: the grant stores no name, so the row names the address.
+  return { role: COPY.verwaltung.rolle, address: served.user.email };
 }
 
 /**
