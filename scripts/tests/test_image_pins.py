@@ -1,7 +1,6 @@
-"""SCRIPTS · every image this repository does not build is named by tag and digest (`docs/ops/spec.md` §1.1),
-and every tool version CI and the images both pin is one version.
+"""SCRIPTS · every image this repository does not build is pinned by tag and digest, and every tool CI and the images share is one version.
 
-A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
+`docs/ops/spec.md` §1.1. A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
 else reads the pin form: a reference losing its digest in a hand edit, or a service added without
 one, builds and deploys as before, from an image no pull request reviewed. Dependabot moves each
 file's pin on its own, so a bump of one ships a version no test ran on.
@@ -280,7 +279,11 @@ PYTHON_VERSION_FILE: Final = REPO_ROOT / "fl_backend" / ".python-version"
 
 def _from_tags(dockerfile: Path, image: str) -> list[str]:
     """Every tag a FROM line gives `image` in one Dockerfile, the digest and any variant aside."""
-    return [found.split("@", 1)[0].split(":", 1)[1].split("-", 1)[0] for found, _ in FROM_RE.findall(dockerfile.read_text(encoding="utf-8")) if found.startswith(f"{image}:")]
+    return [
+        found.split("@", 1)[0].split(":", 1)[1].split("-", 1)[0]
+        for found, _ in FROM_RE.findall(dockerfile.read_text(encoding="utf-8"))
+        if found.startswith(f"{image}:")
+    ]
 
 
 def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
@@ -292,15 +295,22 @@ def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
 
 
 def test_the_frontend_image_runs_the_node_series_pnpm_installs() -> None:
-    """The image's base names the one release production runs; `devEngines.runtime` names a range, and the lockfile the release
-    pnpm resolved it to for the checkout and CI. A major apart is a Node no test ran on."""
+    """A Node major apart between the image and what pnpm installs for the checkout and CI is a Node no test ran on.
+
+    The image's base names the one release production runs; `devEngines.runtime` names a range, and the lockfile the release
+    pnpm resolved it to.
+    """
     runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
     declared = re.search(r"\d+", runtime["version"])
     resolved = set(re.findall(r"^  node@runtime:(\d+)\.", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
     tags = _from_tags(DOCKERFILES[0], "node")
-    assert runtime["name"] == "node" and declared and resolved and tags, f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}"
+    assert runtime["name"] == "node" and declared and resolved and tags, (
+        f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}"
+    )
     majors = {tag.split(".", 1)[0] for tag in tags}
-    assert majors == {declared[0]} == resolved, f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}.x, fl_frontend/Dockerfile {tags}"
+    assert majors == {declared[0]} == resolved, (
+        f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}.x, fl_frontend/Dockerfile {tags}"
+    )
 
 
 def test_the_frontend_image_installs_the_pnpm_the_manifest_names() -> None:
@@ -314,4 +324,6 @@ def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
     """Every CI job's interpreter comes from the file, production's from the image's tag."""
     series = PYTHON_VERSION_FILE.read_text(encoding="utf-8").strip()
     tags = _from_tags(DOCKERFILES[1], "python")
-    assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), f"{series} in fl_backend/.python-version, {tags} in the image"
+    assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), (
+        f"{series} in fl_backend/.python-version, {tags} in the image"
+    )

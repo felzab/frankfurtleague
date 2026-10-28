@@ -34,7 +34,10 @@ CASES: Final[tuple[tuple[str, str], ...]] = (
     ("mongodb://admin:S3cr3t Pw@host.example.net/db", "mongodb://<redacted>@host.example.net/db"),
     ("mongodb://admin:S3cr3t\tPw@host.example.net/db", "mongodb://<redacted>@host.example.net/db"),
     # Bounded: an `@` further along the line is not the userinfo's, and reaching it costs the host.
-    ("mongodb://u:pw@host.example.net/db?authSource=admin&appName=x@y", "mongodb://<redacted>@host.example.net/db?authSource=admin&appName=x@y"),
+    (
+        "mongodb://u:pw@host.example.net/db?authSource=admin&appName=x@y",
+        "mongodb://<redacted>@host.example.net/db?authSource=admin&appName=x@y",
+    ),
     ("mongodb://u:pw@host.example.net?appName=x@y", "mongodb://<redacted>@host.example.net?appName=x@y"),
     # A bare `@` past a comma: only stopping at the FIRST `@` keeps the host.
     ("uri=mongodb://u1:p1@h1.example.net:27017,ops@example.com", "uri=mongodb://<redacted>@h1.example.net:27017,ops@example.com"),
@@ -43,8 +46,14 @@ CASES: Final[tuple[tuple[str, str], ...]] = (
         "MONGODB_URI=mongodb://<redacted>@rs0.example.net:27017,AUTH_USER=admin@example.com",
     ),
     # Two URIs in one JSON object, the shape a log line carries them in.
-    ('a:"mongodb://u:pw@h1.example.net/","mongodb://v:qw@h2.example.net/"', 'a:"mongodb://<redacted>@h1.example.net/","mongodb://<redacted>@h2.example.net/"'),
-    ("mongodb://u:pw@h1.example.net/ mongodb://v:qw@h2.example.net/", "mongodb://<redacted>@h1.example.net/ mongodb://<redacted>@h2.example.net/"),
+    (
+        'a:"mongodb://u:pw@h1.example.net/","mongodb://v:qw@h2.example.net/"',
+        'a:"mongodb://<redacted>@h1.example.net/","mongodb://<redacted>@h2.example.net/"',
+    ),
+    (
+        "mongodb://u:pw@h1.example.net/ mongodb://v:qw@h2.example.net/",
+        "mongodb://<redacted>@h1.example.net/ mongodb://<redacted>@h2.example.net/",
+    ),
     # Untouched: no userinfo to replace.
     ("mongodb://localhost:27017", "mongodb://localhost:27017"),
     ("mongodb+srv://cluster.example.net/db", "mongodb+srv://cluster.example.net/db"),
