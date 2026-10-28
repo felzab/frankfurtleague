@@ -10,12 +10,9 @@ const OHNE_BESTAETIGUNG =
   "Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.";
 
 /**
- * Named plainly: only the holder of the authenticator can reach this refusal, and the ban's own mail
- * has already told them.
+ * An address holding no record of its own in the league, or a barred one, which a retry would not change.
+ * One sentence for both, so no answer here tells who stands on the ban list.
  */
-export const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
-
-/** An address holding no record of its own in the league, which a retry would not change. */
 export const OHNE_EINTRAG = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
@@ -29,7 +26,7 @@ export const refusalStatus = (error: unknown): number | undefined =>
 /** Every refusal a retry of the same press would meet again, by its code. */
 const WORDED: ReadonlyMap<string, string> = new Map([
   [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
-  [SIGN_IN_BARRED, GESPERRT],
+  [SIGN_IN_BARRED, OHNE_EINTRAG],
   [SIGN_IN_HOLDS_NOTHING, OHNE_EINTRAG],
 ]);
 
