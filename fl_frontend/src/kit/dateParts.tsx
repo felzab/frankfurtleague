@@ -5,7 +5,7 @@ import { DateInput, DateSegment } from "react-aria-components/DateField";
 import { dateSegment, fieldFrame } from "./fieldStyles";
 
 /**
- * The segments of a date or a time, in German order: „tt.mm.jjjj“ and „––:––“ empty, „14.03.2027“ and
+ * The segments of a date or a time, in German order: „TT.MM.JJJJ“ and „––:––“ empty, „14.03.2027“ and
  * „19:30“ filled. The active segment fills like an active list entry. A time's segments are the field
  * itself and carry its edge, five characters wide; a date's sit in a group with the calendar button, which
  * carries it.

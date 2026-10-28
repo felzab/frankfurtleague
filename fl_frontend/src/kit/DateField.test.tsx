@@ -52,6 +52,16 @@ describe("a date's and a time's width", () => {
   });
 });
 
+describe("an empty date", () => {
+  it("shows its placeholder segments in capitals, „TT.MM.JJJJ“", () => {
+    render(<DateField label={COPY.seite.spiele} />);
+    const empty = [...document.querySelectorAll("[data-placeholder]")];
+    // Day, month and year; the dots between them are literal segments, never placeholders.
+    expect(empty.length).toBe(3);
+    for (const segment of empty) expect(segment.className.split(" ")).toContain("data-placeholder:uppercase");
+  });
+});
+
 describe("a date outside its bounds", () => {
   it("says the earliest day it takes", async () => {
     render(<Datum tag="2026-08-31" />);

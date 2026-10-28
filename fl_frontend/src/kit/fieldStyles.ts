@@ -118,8 +118,11 @@ export const codeInput = tv({
   base: "absolute inset-0 size-full bg-transparent text-base text-transparent caret-transparent selection:bg-transparent",
 });
 
-/** One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. */
-export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted" });
+/**
+ * One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. An empty
+ * segment shows its placeholder in capitals, „TT.MM.JJJJ“, as German forms write it.
+ */
+export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted data-placeholder:uppercase" });
 
 /** The weekdays over a date's calendar, in the caption grade. */
 export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
