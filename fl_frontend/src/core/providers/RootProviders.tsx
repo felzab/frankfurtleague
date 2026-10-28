@@ -2,16 +2,13 @@
 // the RSC runtime refuses and the root layout is.
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { ThemeProvider, useTheme } from "next-themes";
+import { ThemeProvider } from "next-themes";
 
 // Session 8: both come from `react-aria-components` once HeroUI goes; the kit's menu links follow this
 // `RouterProvider`.
 import { I18nProvider, RouterProvider } from "@heroui/react/rac";
-
-import { THEME_COLOR } from "@/core/themeColor";
 
 import { AppToaster } from "./AppToaster";
 
@@ -21,22 +18,6 @@ declare module "react-aria-components" {
   interface RouterConfig {
     routerOptions: { replace?: boolean; scroll?: boolean };
   }
-}
-
-/**
- * The browser bar in the theme the visitor chose, as shadcn/ui's own site sets it (`useMetaColor`): the
- * layout's `<meta name="theme-color">` follows the system's scheme alone, and next-themes leaves it be, so a
- * visitor choosing „Hell“ on a dark system would keep a dark bar over a light page. Read from the theme's
- * name rather than from the token, since next-themes sets `data-theme` in its own effect, after this one.
- */
-function ThemeColor() {
-  const { resolvedTheme } = useTheme();
-  useEffect(() => {
-    if (resolvedTheme !== "light" && resolvedTheme !== "dark") return;
-    // One `<meta>` per scheme; whichever the browser applies shows the chosen theme's colour.
-    for (const meta of document.querySelectorAll('meta[name="theme-color"]')) meta.setAttribute("content", THEME_COLOR[resolvedTheme]);
-  }, [resolvedTheme]);
-  return null;
 }
 
 interface AppProvidersProps {
@@ -64,7 +45,6 @@ export function RootProviders({ children }: AppProvidersProps) {
           disableTransitionOnChange>
           {/* Redesign: goes with the last importer of `shared/utils/appToast`. */}
           <AppToaster />
-          <ThemeColor />
           {children}
         </ThemeProvider>
       </I18nProvider>

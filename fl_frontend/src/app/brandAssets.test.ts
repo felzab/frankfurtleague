@@ -2,17 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import postcss from "postcss";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
+
+import { THEME_COLOR } from "@/core/themeColor";
 
 import manifest from "./manifest.ts";
-
-// Next's font loader runs only inside its own build; nothing asserted here is decided by a face.
-vi.mock("next/font/google", () => {
-  const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
-  return { Anton: face, Inter: face, Raleway: face };
-});
-
-const { viewport } = await import("./layout.tsx");
 
 /** The token blocks of `tokens.css`, by the selector each theme opens. */
 const THEME_SELECTOR = { light: ":root", dark: '[data-theme="dark"]' } as const;
@@ -64,25 +58,13 @@ describe("the brand assets that cannot read a stylesheet", () => {
 
     const answered = manifest();
     expect(answered.background_color, "manifest.ts's background_color is not --brand-solid").toBe(fill);
-    // One value with no colour-scheme media: the light theme's, the viewport carrying the dark one.
+    // One value with no colour-scheme media: the light theme's, the page's own metas carrying the dark one.
     expect(answered.theme_color, "manifest.ts's theme_color is not the light theme's --bg-surface").toBe(bar);
   });
 
   it("paints the browser's chrome in each theme's own bar ground", () => {
-    const themeColor = viewport.themeColor;
-    assert(Array.isArray(themeColor), "the `viewport` export declares no theme colour per colour scheme");
-
-    const schemeOf = (theme: string) => `(prefers-color-scheme: ${theme})`;
-    const declared = new Map(themeColor.map(({ media, color }) => [media, color]));
-    expect([...declared.keys()].sort(), "the `viewport` export declares no theme colour per colour scheme").toStrictEqual([
-      schemeOf("dark"),
-      schemeOf("light"),
-    ]);
-
     for (const theme of ["light", "dark"] as const) {
-      expect(declared.get(schemeOf(theme)), `the ${theme} theme colour is not that theme's --bg-surface`).toBe(
-        tokensOf(theme).get("--bg-surface"),
-      );
+      expect(THEME_COLOR[theme], `the ${theme} theme colour is not that theme's --bg-surface`).toBe(tokensOf(theme).get("--bg-surface"));
     }
   });
 
