@@ -622,7 +622,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
   the reason, the administrator, or the marker once they are erased (`docs/backend/spec.md :: I670`),
   and the season it ran to, and no barred address — for the twelve
-  months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
+  months every log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
