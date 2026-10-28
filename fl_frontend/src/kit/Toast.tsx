@@ -7,9 +7,9 @@ import {
   UNSTABLE_ToastContent as ToastContent,
   UNSTABLE_ToastQueue as ToastQueue,
 } from "react-aria-components/Toast";
-import { tv } from "tailwind-variants/lite";
 
 import { Icon } from "./Icon";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 

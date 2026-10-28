@@ -171,6 +171,13 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
 
+  /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
+     values were chosen for Inter's looser capitals. */
+  --tracking-display: 0.02em;
+  /* Capitals set a little apart: the small headings set in capitals, a table's columns and the footer's
+     groups, and the wordmark, which stands as the league's mark rather than as a title. */
+  --tracking-caps: 0.04em;
+
   /* The kit's widths, each named for what it holds, so a width is declared once and every box of its kind
      reads it through `max-w-*` or `w-*`. A column's width includes its side padding. */
   --container-popover: 20rem; /* the help text behind a section's ⓘ */

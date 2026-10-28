@@ -135,13 +135,6 @@
      declaration would compile, pass every check and deliver half of what it says. */
   --font-sans--font-feature-settings: "lnum";
 
-  /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
-     values were chosen for Inter's looser capitals. */
-  --tracking-display: 0.02em;
-  /* Capitals set a little apart: the small headings set in capitals, a table's columns and the footer's
-     groups, and the wordmark, which stands as the league's mark rather than as a title. */
-  --tracking-caps: 0.04em;
-
   --color-background: var(--bg-base);
   --color-surface: var(--bg-surface);
   --color-muted: var(--bg-muted);

@@ -1,8 +1,7 @@
-import { tv } from "tailwind-variants/lite";
-
 import { Chip } from "./Chip";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

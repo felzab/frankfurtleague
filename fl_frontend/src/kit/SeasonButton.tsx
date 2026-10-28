@@ -3,13 +3,13 @@
 import { useParams, usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 
 import { counterpart, useFrameSeason } from "./FrameNav";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
+import { tv } from "./tv";
 
 const trigger = tv({
   slots: {

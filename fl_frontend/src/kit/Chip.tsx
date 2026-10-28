@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 

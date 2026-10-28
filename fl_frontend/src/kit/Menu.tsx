@@ -12,7 +12,6 @@ import {
   Separator,
   SubmenuTrigger,
 } from "react-aria-components/Menu";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 
@@ -21,6 +20,7 @@ import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

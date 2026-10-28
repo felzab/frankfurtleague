@@ -1,8 +1,7 @@
-import { tv } from "tailwind-variants/lite";
-
 import { Link } from "./Link";
 import { figures, look, NONE } from "./MatchRow";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Route } from "next";
 import type { Figures, MatchRowProps, MatchSide } from "./MatchRow";

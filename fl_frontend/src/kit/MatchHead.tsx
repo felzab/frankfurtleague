@@ -1,10 +1,9 @@
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_TRENNER } from "@/core/format";
 
 import { figures, look, NONE } from "./MatchRow";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Figures, MatchRowProps, MatchSide } from "./MatchRow";
 

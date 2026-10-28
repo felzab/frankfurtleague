@@ -32,7 +32,8 @@ import UserPlus from "lucide-react/icons/user-plus";
 import Users from "lucide-react/icons/users";
 import Whistle from "lucide-react/icons/whistle";
 import X from "lucide-react/icons/x";
-import { tv } from "tailwind-variants/lite";
+
+import { tv } from "./tv";
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and

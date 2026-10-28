@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import NextLink from "next/link";
 
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
@@ -13,6 +11,7 @@ import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

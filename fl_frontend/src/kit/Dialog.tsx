@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { StatusLine } from "./FieldParts";
+import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";

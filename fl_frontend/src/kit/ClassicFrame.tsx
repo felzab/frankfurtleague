@@ -2,8 +2,6 @@ import { cacheLife } from "next/cache";
 import Image from "next/image";
 import NextLink from "next/link";
 
-import { tv } from "tailwind-variants/lite";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -11,6 +9,7 @@ import { ROUTES } from "@/core/routes";
 import { Brand } from "./Brand";
 import { HeaderLinks } from "./FrameNav";
 import { ToastRegion } from "./Toast";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

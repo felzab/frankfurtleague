@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 /*
  * The look every field shares, kept in one place so a ruling changes it in one edit: the label, the

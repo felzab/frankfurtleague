@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 
 import { Form } from "react-aria-components/Form";
-import { tv } from "tailwind-variants/lite";
 
 import { Button } from "./Button";
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
@@ -11,6 +10,7 @@ import { CodeField } from "./CodeField";
 import { StatusLine } from "./FieldParts";
 import { Link } from "./Link";
 import { TextField } from "./TextField";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

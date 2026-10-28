@@ -1,5 +1,3 @@
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_TRENNER } from "@/core/format";
 
@@ -7,6 +5,7 @@ import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Paar } from "@/core/format";
 import type { Route } from "next";

@@ -1,6 +1,6 @@
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
+
+import { tv } from "./tv";
 
 const skeleton = tv({
   slots: {
