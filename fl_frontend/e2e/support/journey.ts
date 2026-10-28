@@ -43,7 +43,12 @@ let started = 0;
 /** The header Cloudflare names the visitor in, and the one `nginx/e2e/e2e.conf` trusts from the host. */
 const VISITOR_HEADER = "cf-connecting-ip";
 
-/** What a proxy consumes rather than forwards (RFC 9110, section 7.6.1), beside any header `Connection` names. */
+/**
+ * What this proxy consumes rather than forwards, beside any header `Connection` names: `Connection`
+ * itself and the five fields RFC 9110 section 7.6.1 lists; `Proxy-Authorization`, credentials meant for a
+ * proxy (section 11.7.2), which no target of this one is; and `Trailer`, which would announce trailer
+ * fields this proxy never passes on.
+ */
 const HOP_BY_HOP = new Set([
   "connection",
   "proxy-connection",
