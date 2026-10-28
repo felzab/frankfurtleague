@@ -110,9 +110,9 @@ zone at all are [`spec.md`](spec.md) §1.3.
 anything reaching the API or constructing a URL from `AUTH_URL` at module scope fails the image build
 rather than at runtime.
 
-A deploy pulls, recreates the two application containers in place and reloads nginx across the swap
-. What a failed health wait puts back, what it costs, and what to
-deploy afterwards are [`runbooks.md`](runbooks.md) §1.
+A deploy pulls, recreates the two application containers in place and reloads nginx across the swap.
+What a failed health wait puts back, what it costs, and what to deploy afterwards are
+[`runbooks.md`](runbooks.md) §1.
 
 ## Read next
 

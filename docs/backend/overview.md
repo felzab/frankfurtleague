@@ -27,8 +27,8 @@ retention pass. `app/main.py` mounts them all.
 
 ## Authorization
 
-**Guards sit on the `APIRouter`, never on an endpoint**, so an endpoint reaches the wrong
-authorization only by being written in the wrong file. `fl_backend/app/core/security.py` holds them:
+**An access tier's guard sits on the `APIRouter`**, so an endpoint reaches the wrong tier only by
+being written in the wrong file. `fl_backend/app/core/security.py` holds the guards:
 
 - **`base`** — the public pages' reads, and the forms a visitor submits.
 - **`admin`** — every other read and write. An administrator's router also checks the actor token's
@@ -51,11 +51,13 @@ system key itself.
 the collection validators and indexes, so a restored or hand-edited database cannot hold a shape
 this repository does not describe.
 
-**Shared database access goes through the helpers in `fl_backend/app/core/crud.py`.** They are
-keyword-only and take a session, which is what lets a read inside a transaction see that
+**Every write that records a domain fact goes through the helpers in
+`fl_backend/app/core/crud.py`**, while a router may read through the driver directly. The helpers
+are keyword-only and accept a session, which is what lets a read inside a transaction see that
 transaction's own writes. A request making more than one write makes them in one transaction, so
-a refusal anywhere takes everything already written back with it. Every write passes through these
-helpers, which record what it replaced or removed on the action log (`Aktion`,
+a refusal anywhere takes everything already written back with it. Every helper write except an
+anchor (`fl_backend/app/core/crud.py :: anchor_in_db` and `:: anchor_by_id_in_db`), which changes
+nothing a reader sees, records what it replaced or removed on the action log (`Aktion`,
 `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
 
 **The domain's relations are declared once**, in `fl_backend/app/core/domain.py`: the aggregates,
