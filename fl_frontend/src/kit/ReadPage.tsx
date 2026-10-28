@@ -1,11 +1,12 @@
 import { Facts } from "./Facts";
-import { MatchRow } from "./MatchRow";
+import { MatchList } from "./MatchRow";
 import { RailPage } from "./RailFrame";
 import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
-import type { ComponentProps, ReactElement } from "react";
+import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
+import type { MatchRowProps } from "./MatchRow";
 import type { RailPageHead } from "./RailFrame";
 import type { TableProps } from "./Table";
 
@@ -13,7 +14,7 @@ import type { TableProps } from "./Table";
 export type ReadGroup = { title: Copy } & (
   | { kind: "facts"; facts: ReadonlyArray<Fact> }
   | { kind: "table"; table: TableProps }
-  | { kind: "matches"; matches: ReadonlyArray<ComponentProps<typeof MatchRow> & { id: string }> }
+  | { kind: "matches"; matches: ReadonlyArray<MatchRowProps & { id: string }> }
 );
 
 function GroupBody({ group }: { group: ReadGroup }) {
@@ -23,16 +24,7 @@ function GroupBody({ group }: { group: ReadGroup }) {
     case "table":
       return <Table {...group.table} />;
     case "matches":
-      return (
-        <div className="overflow-hidden rounded-lg border border-border bg-bg">
-          {group.matches.map(({ id, ...match }) => (
-            <MatchRow
-              key={id}
-              {...match}
-            />
-          ))}
-        </div>
-      );
+      return <MatchList matches={group.matches} />;
   }
 }
 

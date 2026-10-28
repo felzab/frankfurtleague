@@ -183,3 +183,20 @@ export function MatchRow({ href, when, home, away, result, phase, chip }: MatchR
     </div>
   );
 }
+
+/**
+ * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
+ * a matchday's matches, or the matches a read page lists.
+ */
+export function MatchList({ matches }: { matches: ReadonlyArray<MatchRowProps & { id: string }> }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-bg">
+      {matches.map(({ id, ...match }) => (
+        <MatchRow
+          key={id}
+          {...match}
+        />
+      ))}
+    </div>
+  );
+}
