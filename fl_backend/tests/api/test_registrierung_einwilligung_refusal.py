@@ -72,6 +72,12 @@ class TestWhatAReopenedLinkShows:
                 "abgelaufen",
                 id="the deadline passed",
             ),
+            # The deadline's own day still answers, as the press below takes it: the mail names that day.
+            pytest.param(
+                registrierung(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TODAY)),
+                "gueltig",
+                id="on the deadline's day",
+            ),
             pytest.param(registrierung(status="abgelehnt"), "abgelaufen", id="declined while the link stood open"),
             pytest.param(
                 registrierung(status="abgelehnt", einwilligung=einwilligung()),
