@@ -1,14 +1,14 @@
 /**
- * E2E · signing in, under each project: by the mailed code, then by a passkey, each sign-in proven by
- * a page that renders only for a session; and asking for a code, which tells nobody who is a member.
+ * E2E · signing in, under each project: by the mailed code, proven by a page that renders only for a
+ * session; and asking for a code, which tells nobody who is a member. The passkey ceremonies are in
+ * `desktop/passkey.spec.ts`, for the reason `fl_frontend/playwright.config.ts` gives at its projects.
  */
 import { expect } from "@playwright/test";
 
 import { test } from "./support/journey";
-import { askForCode, enrolPasskey, signInWithCode } from "./support/signIn";
+import { askForCode, expectAccountPageOf, signInWithCode } from "./support/signIn";
 
-import type { Cookie, Page } from "@playwright/test";
-import type { Passkey } from "./support/signIn";
+import type { Cookie } from "@playwright/test";
 
 /** The owner's grant, which no journey signs in with: asking for its code disturbs no other journey. */
 const MEMBER = "inhaber@example.com";
@@ -19,14 +19,6 @@ const STRANGER = "niemand@example.com";
 /** The sign-in library's session cookie, whatever prefix the origin gives it (`fl_frontend/src/core/auth.ts :: cookieNaming`). */
 const sessionCookies = (cookies: readonly Cookie[]): string[] =>
   cookies.filter((cookie) => cookie.name.endsWith(".session_token")).map((cookie) => cookie.name);
-
-/** The account page renders for a session alone: without one it sends the visitor to `/signin`. */
-async function expectAccountPageOf(page: Page, address: string): Promise<void> {
-  await page.goto("/bereich/konto");
-
-  await expect(page).toHaveURL(/\/bereich\/konto$/);
-  await expect(page.getByText(address, { exact: true })).toBeVisible();
-}
 
 test("asking for a code sets no cookie and answers a member and a stranger alike", async ({ page, context }) => {
   const answers: string[] = [];
@@ -50,29 +42,4 @@ test("a person signs in with the mailed code and their account page renders", as
   await expect(page).toHaveURL(/\/signin\/passkey$/);
 
   await expectAccountPageOf(page, person);
-});
-
-test.describe("an administrator's passkey", () => {
-  // The passkey the first journey sets up is the one the second signs in with, each in a browser context of its own.
-  test.describe.configure({ mode: "serial" });
-
-  let passkey: Passkey | undefined;
-
-  test("an administrator signs in with the mailed code and sets up a passkey", async ({ page, context, administrator }) => {
-    await signInWithCode(page, administrator);
-    passkey = await enrolPasskey(page, context);
-  });
-
-  test("the administrator signs in again with the passkey alone and their account page renders", async ({ page, context, administrator }) => {
-    if (passkey === undefined) throw new Error("the journey before this one registered no passkey");
-
-    await context.credentials.create(passkey.rpId, passkey);
-    await context.credentials.install();
-
-    // No press: `/signin` asks the browser for a passkey as it loads, and the authenticator answers.
-    await page.goto("/signin");
-    await expect(page).toHaveURL(/\/bereich\/admin/);
-
-    await expectAccountPageOf(page, administrator);
-  });
 });

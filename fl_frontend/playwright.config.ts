@@ -22,7 +22,14 @@ import type { JourneyOptions } from "./e2e/support/journey";
 /** The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`. */
 const BASE_URL = "http://localhost:3000";
 
-/** The journeys every viewport runs, at the top of `e2e/`; each project's own directory holds the rest. */
+/**
+ * The journeys every viewport runs, at the top of `e2e/`; each project's own directory holds the rest.
+ *
+ * The passkey ceremonies are desktop's alone. Playwright's WebKit has no WebAuthn of its own and
+ * supplies `PublicKeyCredential` as a plain object, which `@simplewebauthn/browser`'s support check
+ * refuses before any ceremony starts, so a phone passkey journey would test Playwright's stand-in
+ * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card.
+ */
 const EVERY_PROJECT = ["smoke.spec.ts", "signin.spec.ts"];
 
 export default defineConfig<JourneyOptions>({
