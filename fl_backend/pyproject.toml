@@ -64,14 +64,6 @@ dev = [
     # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
     # plugin still collects.
     "pytest-xdist>=3.8.0",
-    # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
-    # comes through the lockfile like every other checker.
-    "zizmor>=1.31.1",
-    # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
-    # decides which blocks and spans a page shows as code, rather than patterns kept by hand.
-    # Run by the docs and scripts scopes: the `docs` and `scripts` jobs of
-    # `.github/workflows/verify.yml`.
-    "markdown-it-py>=4.2.0",
     # Holds `dependencies` to what `app/` imports: an import reaching a package only through
     # another's requirements, or a package there nothing imports, fails the backend scope. This group
     # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
