@@ -63,7 +63,7 @@ export function formatAddressFull(address: FLAddress): string {
 }
 
 /** Takes a string rather than a domain object: the call sites feed genuinely different queries, and only the shell is shared. */
-export function buildMapsSearchUrl(query: string): string {
+export function buildMapsSearchUrl(query: string): `https://${string}` {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 

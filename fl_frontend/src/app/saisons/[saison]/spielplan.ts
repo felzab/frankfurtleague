@@ -144,7 +144,7 @@ export function factsOf(spiel: FLSpiel, spieltag: string): Fact[] {
     { label: fakt.spieltag, value: spieltag },
     tag === null ? null : { label: fakt.datum, value: formatDatum(tag), figures: true },
     zeit === null ? null : { label: fakt.uhrzeit, value: formatUhrzeit(zeit), figures: true },
-    spiel.ort === null ? null : { label: fakt.ort, link: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+    spiel.ort === null ? null : { label: fakt.ort, elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
     spiel.schiedsrichter?.name == null ? null : { label: fakt.schiedsrichter, value: spiel.schiedsrichter.name },
     spiel.notiz === null || spiel.notiz.trim() === "" ? null : { label: fakt.notiz, value: spiel.notiz },
   ];

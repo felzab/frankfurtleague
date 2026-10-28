@@ -7,10 +7,15 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 
-/** One fact: its label, and its value as a record's data or a link to it. An absent value is left out. */
+/**
+ * One fact: its label, and its value as a record's data, a link to it on the site, or a link to it on
+ * another site, such as a venue on a map. An absent value is left out.
+ */
 export type Fact = { label: Copy } & (
-  | { value: string; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never }
-  | { link: { href: Route; text: string }; value?: never; figures?: never }
+  | { value: string; /** Figures, set in Inter with columns that line up. */ figures?: boolean; link?: never; elsewhere?: never }
+  | { link: { href: Route; text: string }; value?: never; figures?: never; elsewhere?: never }
+  /** Opens in a new tab, leaving the site's page in place. */
+  | { elsewhere: { href: `https://${string}`; text: string }; value?: never; figures?: never; link?: never }
 );
 
 const facts = tv({
@@ -54,14 +59,21 @@ export function Facts({ subject, facts: rows }: { subject?: { name: string; chip
               className={row()}>
               <dt className={term()}>{fact.label}</dt>
               <dd className={detail()}>
-                {fact.link === undefined ? (
-                  fact.value
-                ) : (
+                {fact.link !== undefined ? (
                   <Link
                     href={fact.link.href}
                     placement="standalone"
                     text={fact.link.text}
                   />
+                ) : fact.elsewhere !== undefined ? (
+                  <Link
+                    href={fact.elsewhere.href}
+                    placement="standalone"
+                    newTab
+                    text={fact.elsewhere.text}
+                  />
+                ) : (
+                  fact.value
                 )}
               </dd>
             </div>
