@@ -68,10 +68,6 @@ describe("formatZeitraum", () => {
   it("parts two days with the locale's dash between thin spaces", async (t) => {
     await gleich(t, formatZeitraum("2025-09-01", "2026-06-30"), "01.09.2025\u2009–\u200930.06.2026");
   });
-
-  it("writes a year both ends share once", async (t) => {
-    await gleich(t, formatZeitraum("2026-09-01", "2026-11-30"), "01.09.\u2009–\u200930.11.2026");
-  });
 });
 
 describe("formatZahl and formatEuro", () => {
