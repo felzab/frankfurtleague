@@ -5,6 +5,7 @@ import { formatDatum, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { getSaisons } from "@/features/saisons/queries";
+import { selectSaison } from "@/features/saisons/resolvers";
 import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
 import { getSpiele } from "@/features/spiele/queries";
 import { canStillBePlayed } from "@/features/spiele/utils";
@@ -17,25 +18,24 @@ import type { Kalendertag, Paar, Uhrzeit } from "@/core/format";
 import type { FLSaison } from "@/features/saisons/schemas";
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/features/spiele/schemas";
 import type { Fact } from "@/kit/Facts";
+import type { Seasons } from "@/kit/FrameNav";
 import type { MatchRowProps, MatchSide } from "@/kit/MatchRow";
 
 /** The season an address names, among the seasons the public may read; any other is not found. */
-export async function readSaison(saisonId: string): Promise<{ saison: FLSaison; saisons: readonly FLSaison[] }> {
+export async function readSaison(saisonId: string): Promise<{ saison: FLSaison }> {
   if (saisonId.length !== SAISON_ID_LENGTH) notFound();
   const { saisons } = await getSaisons();
   const saison = saisons.find((candidate) => candidate.id === saisonId);
   if (saison === undefined) notFound();
-  return { saison, saisons };
+  return { saison };
 }
 
-/** The season button's entries: the Spielplan of every public season, the newest first, the one shown marked. */
-export function seasonMenu(saison: FLSaison, saisons: readonly FLSaison[]) {
-  return {
-    current: COPY.shared.saisonName(saison.id),
-    seasons: [...saisons]
-      .sort((one, other) => other.id.localeCompare(one.id))
-      .map((each) => ({ text: COPY.shared.saisonName(each.id), href: ROUTES.spielplan.pfad(each.id), isCurrent: each.id === saison.id })),
-  };
+/** The season button's seasons: every public season, the newest first; `null` where the public may read none. */
+export async function readSeasons(): Promise<Seasons | null> {
+  const { saisons } = await getSaisons();
+  const standard = selectSaison(saisons, undefined);
+  if (standard === undefined) return null;
+  return { ids: saisons.map((saison) => saison.id).sort((one, other) => other.localeCompare(one)), standard: standard.id };
 }
 
 /** One matchday as the Spielplan shows it: its name, and its matches in the order the draw numbered them. */

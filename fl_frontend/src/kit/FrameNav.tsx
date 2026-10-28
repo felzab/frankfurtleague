@@ -1,13 +1,14 @@
 "use client";
 
-import { Fragment } from "react";
+import { createContext, Fragment, use, useContext } from "react";
 import NextLink from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Icon } from "./Icon";
@@ -21,11 +22,114 @@ import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 import type { MenuProps } from "./Menu";
 
-/** One page a frame's menu leads to: its name, its address, its glyph in the rail and in the phone bar. */
-export type RailEntry = { id: string; label: Copy; href: Route; icon: IconName };
+/** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
+export type SeasonPage = {
+  [K in keyof typeof ROUTES]: Parameters<(typeof ROUTES)[K]["pfad"]> extends [string] ? K : never;
+}[keyof typeof ROUTES];
+
+/**
+ * One page a frame's menu leads to: its name, its glyph in the rail and in the phone bar, and its address, or
+ * the season's page it is, whose address the frame fills in with the season the page works in.
+ */
+type RailEntry ={ id: string; label: Copy; icon: IconName } & ({ href: Route; season?: never } | { season: SeasonPage; href?: never });
 
 /** Entries the rail sets together under one heading; the first group of an area may stand without one. */
 export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
+
+/** The seasons a person may switch between, the newest first, and the one a page whose address names none works in. */
+export type Seasons = { ids: readonly string[]; standard: string };
+
+/**
+ * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
+ * settles; `null` where the person has no season yet.
+ */
+export type FrameSeasons = {
+  seasons: Promise<Seasons | null>;
+  /** The season's first page, where a switch from a page with no counterpart in the other season lands. */
+  home: SeasonPage;
+  /** Where a season's page is reached while there is no season at all. */
+  withoutSeason?: Route;
+};
+
+const SeasonContext = createContext<(FrameSeasons & { pages: readonly SeasonPage[] }) | null>(null);
+
+/** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
+export function SeasonScope({ value, children }: { value: FrameSeasons & { pages: readonly SeasonPage[] }; children: ReactNode }) {
+  return <SeasonContext value={value}>{children}</SeasonContext>;
+}
+
+/** A route's dynamic segments as Next fills them in from the address. */
+type Params = ReturnType<typeof useParams>;
+
+/** The season the page works in: the one its address names, else the frame's standard; `null` where there is none. */
+export function useFrameSeason() {
+  const frame = useContext(SeasonContext);
+  const { saison } = useParams();
+  const seasons = frame === null ? null : use(frame.seasons);
+  if (frame === null || seasons === null) return null;
+  return { ...frame, ...seasons, active: typeof saison === "string" ? saison : seasons.standard };
+}
+
+/**
+ * The same page in season `to`: the address with its season swapped. A record's page, an address naming a
+ * record past the season, has no counterpart there and lands on the list it lies under, the season page the
+ * rail marks for it; a page whose address names no season lands on the season's first page.
+ */
+export function counterpart({
+  path,
+  params,
+  to,
+  home,
+  pages,
+}: {
+  path: string;
+  params: Params;
+  to: string;
+  home: SeasonPage;
+  pages: readonly SeasonPage[];
+}): Route {
+  const from = params.saison;
+  const segments = path.split("/");
+  const at = typeof from === "string" ? segments.indexOf(from) : -1;
+  if (typeof from !== "string" || at === -1) return ROUTES[home].pfad(to);
+
+  const records = Object.entries(params).flatMap(([name, value]) => (name === "saison" || value === undefined ? [] : [value].flat()));
+  if (segments.slice(at + 1).some((segment) => records.includes(segment))) {
+    const lists = pages.map((page) => ({ page, href: ROUTES[page].pfad(from) }));
+    const list = lists.find(
+      (each) =>
+        each.href ===
+        currentOf(
+          path,
+          lists.map((one) => one.href),
+        ),
+    );
+    return ROUTES[list?.page ?? home].pfad(to);
+  }
+
+  segments[at] = to;
+  // An address built from the one the page answers at, which no literal can spell.
+  return segments.join("/") as Route;
+}
+
+/** The entries with their addresses, a season's page in the season the page works in; one with no address is left out. */
+function useEntries(groups: ReadonlyArray<RailGroup>) {
+  const frame = useContext(SeasonContext);
+  const season = useFrameSeason();
+  const hrefOf = (entry: RailEntry): Route | undefined => {
+    if (entry.season === undefined) return entry.href;
+    return season === null ? frame?.withoutSeason : ROUTES[entry.season].pfad(season.active);
+  };
+  return groups
+    .map((group) => ({
+      heading: group.heading,
+      entries: group.entries.flatMap((entry) => {
+        const href = hrefOf(entry);
+        return href === undefined ? [] : [{ id: entry.id, label: entry.label, icon: entry.icon, href }];
+      }),
+    }))
+    .filter((group) => group.entries.length > 0);
+}
 
 /** The person signed in, as the rail's foot and the phone bar's account place show them. */
 export type Account = {
@@ -48,7 +152,7 @@ function currentOf(path: string, hrefs: ReadonlyArray<string>) {
     .reduce<string | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
-function useCurrent(entries: ReadonlyArray<RailEntry>) {
+function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
   return currentOf(
     usePathname(),
     entries.map((entry) => entry.href),
@@ -74,7 +178,8 @@ const railEntry = tv({
 });
 
 /** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
-export function RailEntries({ groups }: { groups: ReadonlyArray<RailGroup> }) {
+export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
+  const groups = useEntries(given);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
     <nav
@@ -169,7 +274,7 @@ const barPlace = tv({
  * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
  */
 export function BarPlaces({
-  groups,
+  groups: given,
   bar,
   extra,
   account,
@@ -180,6 +285,7 @@ export function BarPlaces({
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: Account;
 }) {
+  const groups = useEntries(given);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
