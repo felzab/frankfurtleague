@@ -631,6 +631,8 @@ const KIT_SPACING = String.raw`0|0\.5|1|1\.5|2|2\.5|3|3\.5|4|6|8|12|16`;
 const STEP_REM = String.raw`(?:0\.125|0\.25|0\.375|0\.5|0\.625|0\.75|0\.875|1|1\.5|2|3|4)rem`;
 const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
 const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
+/** The dialog box's padding, a step of the scale declared once on the box, which a part reaching its edges takes back. */
+const DIALOG_PADDING = String.raw`\(--dialog-padding\)`;
 
 /**
  * A spacing class off the scale; `except` is a lookahead sparing one exact class. `(?![xy]-)` keeps `gap-x-4`
@@ -638,7 +640,7 @@ const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}
  */
 const OFF_SCALE = (except) =>
   CLASS(
-    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
+    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET}|${DIALOG_PADDING})!?$).+`,
   );
 
 /** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */

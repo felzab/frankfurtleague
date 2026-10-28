@@ -18,9 +18,9 @@ export function FieldGroup({ name, children }: { name: Copy; children: ReactNode
     // `min-w-0`: a fieldset is at least as wide as its content by default, which would push a row of fields past the dialog.
     <fieldset className="grid w-full min-w-0 justify-items-start gap-4">
       {/* A legend is drawn outside its box's flow; floated, it is an ordinary child (Bootstrap's reboot), so the grid
-          lays it out. Stretched out through the dialog's 24-px padding, its hairline meets both of the dialog's edges,
-          the name kept at the fields' edge by the same padding inside it. */}
-      <legend className="float-left -mx-6 justify-self-stretch border-b border-border px-6 pb-2">
+          lays it out. Stretched out through the dialog's padding, which the box declares, its hairline meets both of
+          the dialog's edges, the name kept at the fields' edge by the same padding inside it. */}
+      <legend className="float-left -mx-(--dialog-padding) justify-self-stretch border-b border-border px-(--dialog-padding) pb-2">
         <SectionTitle
           level={3}
           text={name}

@@ -19,10 +19,10 @@ export type MatchHeadProps = {
 const head = tv({
   extend: sideMarks,
   slots: {
-    // The band: the lighter surface run edge to edge across the dialog's top, the dialog's 24-px padding
+    // The band: the lighter surface run edge to edge across the dialog's top, the padding the box declares
     // taken back around it and its corners the box's own, so the pairing is framed as the old pop-up framed
     // the teams, on a surface of its own.
-    root: "-mx-6 -mt-6 grid justify-items-center gap-4 rounded-t-xl bg-bg-surface p-6",
+    root: "-mx-(--dialog-padding) -mt-(--dialog-padding) grid justify-items-center gap-4 rounded-t-xl bg-bg-surface p-6",
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",
