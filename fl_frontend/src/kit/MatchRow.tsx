@@ -108,7 +108,7 @@ function RowChip({ chip }: { chip?: ChipProps }) {
  * under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron; every
  * row the same height with or without a shoot-out.
  */
-export function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps) {
+function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
 

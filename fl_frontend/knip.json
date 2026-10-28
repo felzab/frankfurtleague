@@ -43,8 +43,7 @@
     "src/kit/ListTable.tsx": ["types"],
     "src/kit/Toast.tsx": ["exports"],
     "src/kit/Menu.tsx": ["types"],
-    // The match row's figures for session 3's `BracketCard`, which reads them, and the lone `MatchRow`
-    // for session 3's pages.
+    // The match row's figures for session 3's `BracketCard`, which reads them.
     "src/kit/MatchRow.tsx": ["exports", "types"]
   }
 }
