@@ -191,7 +191,7 @@ function ActForm({
           className="text-xl font-semibold">
           {title}
         </Heading>
-        <div className="grid gap-4">{children}</div>
+        <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
           <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{line}</p>
           <Button

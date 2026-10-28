@@ -69,7 +69,8 @@ export function Section({
           />
         )}
       </div>
-      {children !== undefined && <div className="grid gap-4">{children}</div>}
+      {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. */}
+      {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
       {danger?.map((act) => (
         <DangerRow
           key={act.name}

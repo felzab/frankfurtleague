@@ -85,7 +85,7 @@ export function OneShotForm({
           send(event.currentTarget, "primary");
         }}
         className="grid gap-6">
-        {children !== undefined && <div className="grid gap-4">{children}</div>}
+        {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
         <div className="grid gap-3">
           <Button
             variant="primary"

@@ -7,8 +7,11 @@ import { tv } from "tailwind-variants/lite";
  * because HeroUI's base sheet colours every element's border.
  */
 
-/** A field's label, its frame and its message line, one under another. */
-export const fieldRoot = tv({ base: "group flex min-w-0 flex-col gap-1" });
+/**
+ * A field's label, its frame and its message line, one under another. It fills its column, so a box's grid
+ * can place every child at its own width without a field narrowing to its label.
+ */
+export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
 
 export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 
@@ -148,7 +151,7 @@ export const calendarCell = tv({
  * the row starts where the label does, whatever the box's width.
  * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
-export const toggleField = tv({ base: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
+export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
 /**
  * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
