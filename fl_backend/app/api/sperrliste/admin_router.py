@@ -251,7 +251,7 @@ async def delete_sperrliste_eintrag(
 
     **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
     administrator who entered it, and no address of the person it barred — for the twelve months
-    `docs/backend/spec.md :: I119` gives every stamped log row. The lifted ban is therefore readable
+    `docs/backend/spec.md :: I119` gives every log row. The lifted ban is therefore readable
     at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
     """
 

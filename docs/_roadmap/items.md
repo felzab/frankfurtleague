@@ -66,10 +66,9 @@ else. That destruction is recorded and attributable; recoverable past the fiftee
 this entry adds. Until it lands, an unrestorable write is recovered by hand from the row that
 recorded it — slowly, which is the cost of leaving this open rather than a loss.
 
-**Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires a stamped
-log row twelve months after the write it recorded, and a restore reaches a write only while its row
-stands, so the retention bound is the restore's reach. A row carrying no stamp is expired by
-nothing, and its values leave at the once-only reset in `docs/datenschutz.md :: 3` instead.
+**Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires each log
+row twelve months after the write it recorded, and a restore reaches a write only while its row
+stands, so the retention bound is the restore's reach.
 
 **Two kinds of write sit outside what any restore could replay — a pupil's erasure, and taking a
 season's draw away — and for different reasons.** The erasure keeps no image at all, the values
@@ -1070,7 +1069,7 @@ still carries them:
 - Cloudflare's challenge on `/bewerbung/*`, set without consent, against § 25 TDDDG;
 - the refusals the code takes alone, against Art. 22;
 - how the refusal of an address that is not plain ASCII is classified;
-- Art. 14 (5) (b) for the referees standing today;
+- Art. 14 (5) (b) for the referees whose rows were entered before the confirmation link;
 - joint control over the Instagram account, and which Meta company provides Instagram in the EU;
 - the board's full names in the Impressum, under § 18 MStV and § 5 DDG;
 - the ban list's key, which cannot be rotated without losing every ban it keys;

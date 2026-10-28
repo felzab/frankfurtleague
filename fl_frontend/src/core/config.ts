@@ -244,8 +244,9 @@ const environment = {
     .pipe(z.enum(["on", "off"]))
     .default("off"),
 
-  // Off where the server sets nothing: the report form enters pupils, so it opens only after their reset
-  // (`docs/ops/runbooks.md` §9). Not `SPIEL_SWEEP` widened, which stops the mail in a provider fault.
+  // Off where the server sets nothing, so no deploy opens the report form: it opens on the day
+  // `docs/ops/runbooks.md` §9 switches it on with `SPIEL_SWEEP`. Not `SPIEL_SWEEP` widened, which stops the mail in a
+  // provider fault.
   SPIELBERICHT_EINGABE: z
     .string()
     .transform((value) => value.toLowerCase())

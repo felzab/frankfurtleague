@@ -17,7 +17,6 @@ two** — which is what a reviewer needs before reading the published notice
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
 | [2. Consent comes from the person, from 16 or 18](#2-consent-comes-from-the-person-from-16-or-18)          | The sign-up flow every ruling on consent assumes             |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What the once-only reset removes, and when                   |
 | [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
 | [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
@@ -135,10 +134,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - **Safeguards, weighed against most participants being sixteen or seventeen**, which Art.
     6(1)(f) weighs heavier: nothing of a pupil is published on this basis, a pupil's name appearing
     only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)), and a referee's
-    name on a fixture on theirs too; when the referee rows standing today are
-    dropped their past fixtures read „anonym“
-    ([section 3](#3-the-current-pupil-records-are-reset-once)); no birthdate reaches
-    any public read; anyone may object under Art. 21 or have their data erased by a mail; and each
+    name on a fixture on theirs too; no birthdate reaches any public read; anyone may object under Art. 21 or have their data erased by a mail; and each
     person is told by the notice and by their own confirmation page what is kept and for how long.
 
   Contract, Art. 6(1)(b), is the basis refused: a minor may not be able to conclude alone the
@@ -287,8 +283,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/teams/services.py :: links_owed`), on a row whose season has ended or whose
   team has left it too, where the link takes the person's Widerspruch and no confirmation
   (`docs/backend/spec.md :: I570`). An administrator re-sends one to any seat
-  still unconfirmed while the season runs and the team is in it, a seat entered before the link
-  existed included (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
+  still unconfirmed while the season runs and the team is in it
+  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
   An address the ban list holds is refused rather than seated, as an application's reseat refuses
   one, so nobody is stored whom the league may not tell
@@ -302,34 +298,6 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the same, naming its confirmation link alone, since an application's seat is asked about no
   fixture, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
   Ruled 2026-10-20.
-
-## 3. The current pupil records are reset once
-
-- **Once, before the deploy that first requires the record shapes it leaves, every pupil and
-  every referee row is deleted and the action log is emptied in full, last.** Every pupil record
-  goes with its squad rows and pending registrations, and every referee row but the ghost goes with
-  the referee confirmation rows, each fixture naming one repointed at the ghost. Seasons, clubs,
-  season rows with their contact seats, applications, fixtures, matchdays, venues and grants stay,
-  brought to those shapes before the deploy. From then on every player signs up through the website,
-  and player records are kept and governed by
-  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated. Ruled
-  2026-09-02; its moment, its scope and the log's place in it ruled 2026-10-20.
-- **This reset is what reaches the log rows the retention index cannot.** A row carries the date
-  stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
-  nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
-  leave here instead (`docs/backend/spec.md :: I119`). Ruled 2026-09-04.
-- **The full reset stays although it takes the contact persons' earlier consent acts with it.** A
-  contact seat keeps one act per choice on its own record, the latest with its evidence
-  (`fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungNachweise`); every act it
-  superseded stands only in the log row its write left, so the reset loses those while each seat's
-  current proof stands on the seat, a grant given before seats recorded evidence taking its proof
-  from its confirmation's log row before the log is emptied. The pupils' and referees' earlier acts would be lost all the
-  same, their rows going in the same reset. Ruled 2026-10-04.
-- **A referee's record is bound to no season afterwards, and the reset takes every referee row
-  standing today all the same.** A referee entered through the confirmation link stays until an
-  erasure ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the rows standing today
-  go in the reset, by the steps of
-  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log).
 
 ## 4. What is published, and on what basis
 
@@ -406,9 +374,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   make another administrator an owner (`:: I479`), and the administrator's `POST /identitaet/erasure`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
   the administrator's own address and the address of anyone holding a grant to an administrator
-  holding no owner's power (`docs/backend/spec.md :: I682`); the one-off drop of
-  [section 3](#3-the-current-pupil-records-are-reset-once) empties the name on every fixture it
-  repoints, so it leaves no name with no row behind it. The referee path deletes the document
+  holding no owner's power (`docs/backend/spec.md :: I682`). The referee path deletes the document
   and repoints every fixture that named them at the ghost — one permanent row,
   `fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`, that holds no person — so no
   fixture keeps a name, a school or a contact detail, closed seasons' fixtures included, and nothing
@@ -420,23 +386,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   naming them keeps the erased record's id, which no page shows but as „anonym“, and which ties their
   entries together across reports ([`backend/spec.md`](backend/spec.md#4-known-open)). No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
-- **The address route answers every request, because no write stores a pupil or referee row
-  without an address.** A pupil row is created only by an admission, which gives it the
-  registration's address, and only an address change taking effect moves that address; a referee's
-  create and save each require one. Every erasure is keyed
-  on a mailbox, so the rows stored without one before are reached by none: a pupil row from before
-  the registration flow, and a referee row the league stored without an address of its own. Both
-  kinds go with the one-off reset of [section 3](#3-the-current-pupil-records-are-reset-once).
-  Until that reset an administrator can still enter a pupil row holding no address into a squad, and
-  the reset takes that squad row too. Until the reset the routes open today cost the person
-  something:
-  - **A referee row** is reached by the erasure once the person's own address is saved on it, and on
-    a row still in service that save answers a confirmation link the page mails to that person before
-    anything is erased (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
-    Retiring the row first, after which the save mails nothing, is refused while a fixture still to be
-    played names the referee (`REQ-RETIRE-004`).
-  - **A pupil row** waits for the reset, which may fall after the month Art. 12(3) gives for
-    answering the request.
+- **The address route answers every request, because every pupil and referee row holds an
+  address, the two ghosts apart, which hold no person.** A pupil row is created only by an
+  admission, which gives it the registration's address, and only an address change taking effect
+  moves that address; a referee's create and save each require one. Every erasure is keyed on a
+  mailbox, so a hand edit emptying a row's address puts that row out of every erasure's reach.
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
   retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
@@ -668,7 +622,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
   the reason, the administrator, or the marker once they are erased (`docs/backend/spec.md :: I670`),
   and the season it ran to, and no barred address — for the twelve
-  months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
+  months every log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
@@ -735,17 +689,15 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
-  pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
-  or by the one-off reset [section 3](#3-the-current-pupil-records-are-reset-once) records; a person
-  asks for their own erasure through `POST /identitaet/selbst/erasure`. The
+  pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen);
+  a person asks for their own erasure through `POST /identitaet/selbst/erasure`. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
   `fl_backend/app/core/domain.py :: UNENFORCED` and `docs/backend/spec.md :: I12`, which holds that
   an erasure asks no retirement first. An application is not a retired row and does not take this rule: its
   clocks are [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s. **Datenschutzexperte
   consulted.** Ruled 2026-08 and re-confirmed 2026-09-02. For a referee I ruled on 2026-09-22 that
   the row is kept until it is deleted, by an administrator's decision or at the referee's own
-  request, and by nothing else; outside that one-off drop the referee's erasure above is the one
-  route that deletes it, the retirement an administrator can also take keeping the row.
+  request, and by nothing else; the referee's erasure above is the one route that deletes it, the retirement an administrator can also take keeping the row.
 
 ## 6. Retention is bounded where a bound was chosen
 
@@ -756,8 +708,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   taken out of the log inside the transaction that removes them
   (`docs/backend/spec.md :: I42`, `:: I671`); what the bound answers is the copies of everyone who never
   asked. The database applies it rather than a sweep in this codebase
-  (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), and it reaches a stamped row alone
-  ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-02.
+  (`fl_backend/app/core/constraints.py :: TTL_INDEXES`). Ruled 2026-09-02.
 - **An undecided application one of whose contact persons has not confirmed is deleted once its
   confirmation window has run out, those three people's contact details included, and the erasure is
   announced to the Ansprechperson first where that slot still holds one**
@@ -834,9 +785,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   marker in their place (`:: I667`; rows under an earlier address keep its pseudonym, as
   [section 5](#5-erasure-reaches-everyone-who-asks) records) — while a contact seat, a referee
   record or a grant at the same address stands, each bounded by its own purpose, with the counts
-  and log rows the person made in that role. A
-  pupil holding no address is outside the rule, the one-off reset of
-  [section 3](#3-the-current-pupil-records-are-reset-once) removing them. **An erasure deletes the
+  and log rows the person made in that role. **An erasure deletes the
   document outright** rather than nulling its fields (`docs/backend/spec.md :: I12`), so the row
   either stands whole or is gone and there is no third state to write a clock for. Ruled
   2026-10-15.
@@ -1252,24 +1201,22 @@ the `Entry` column carries a token only where one still resolves in that file.
   [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) states the clock and why it is shorter
   than an application's. The question to put: whether seven days is proportionate for a name and an
   address nobody has confirmed belong together.
-- **The referees standing today, for the Datenschutzexperte.** Their rows were entered by an
-  administrator before the confirmation link existed and carry no consent record, and their names are
-  published on every fixture they officiate until the deploy whose fixture read first consults a
-  referee's own consent, which withholds a name no record publishes; the rows
-  are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
-  empties the action log's images of them, those of their fixtures whole where an erasure repoints
-  the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
-  ([section 3](#3-the-current-pupil-records-are-reset-once),
-  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)).
-  Nothing informs these people under Art. 14: a row holding no address of its own is
-  never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
-  real address is mailed its link only when an administrator's write mints one
+- **The referees whose rows were entered before the confirmation link, for the
+  Datenschutzexperte.** An administrator entered them, and their rows carried no consent record.
+  Their names were published on every fixture they officiated until their rows were deleted whole,
+  before the deploy whose fixture read first consults a referee's own consent; every fixture naming
+  one was repointed at the ghost with the name emptied
+  (`fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint`), and the action log
+  holding images of them was emptied in full.
+  Nothing informed these people under Art. 14: a row holding no address of its own is never
+  mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a real
+  address is mailed its link only when an administrator's write mints one
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Art. 14 (5)(b) lifts the duty where
   informing would take a disproportionate effort, and asks the controller to take appropriate
   measures instead, making the information publicly available among them. The questions to put:
-  whether publishing those names until the drop rests on that basis; and whether that exemption
-  carries the unmet duty to inform them, with the published notice as the measure it asks, or the
-  rows holding a real address are mailed their link before the drop.
+  whether publishing those names until their rows were deleted rested on that basis; and whether
+  that exemption carries the duty to inform them that went unmet, with the published notice as the
+  measure it asks.
 - **An administrator's address on every invite entry until their own erasure, and the delivery
   state beside it with no clock, for the Datenschutzexperte.** An invite entry holds the
   administrator who minted it in plain until their own erasure gives it a marker naming nobody
@@ -1288,14 +1235,23 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
-  the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
-  or stamps its evidence: their own write, on their confirmation page or their account page, an
-  admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
-  the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An act before
-  those survives only in the log row its write left, whose image an erasure empties and which
-  expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
-  The question to put: whether the latest act and the grant a withdrawal ended are proof enough,
-  given those two ends of the log.
+  the grant it ended, for as long as the record stands. In the code, only the person's own answer
+  grants a choice or stamps its evidence: their own write, on their confirmation page or their
+  account page, an admission carrying their own registration's answer, or a restore replaying a
+  withdrawal of theirs at the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An
+  act before those survives only in the log row its write left, whose image an erasure empties and
+  which expires twelve months after the write
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). **No act from before 2026-10-28
+  08:25 (Europe/Berlin) survives in the log at all**: by then the log had been emptied in full, with
+  every pupil and referee row. The full emptying stood although it took the contact persons'
+  earlier acts with it, each seat's latest act standing on the seat; ruled 2026-10-04. **A contact
+  seat's WhatsApp grant given before seats recorded evidence carries evidence a hand paste wrote**
+  just before that emptying, copied from the log row of the confirmation that granted it: the
+  seat's own on the season row, or, for a seat copied whole from its accepted application, that
+  application's. The person made the grant, and the paste wrote its time and wording from a row that
+  is now gone. The questions to put: whether the latest act and the grant a withdrawal ended are
+  proof enough, given those three ends of the log; and whether evidence copied by hand from a
+  confirmation's log row proves that confirmation.
 - **Whether a card's colour and minute may be published against a named minor, for the
   Datenschutzexperte.** No page publishes a card today, and the question is put before one does:
   whether a booking may stand on a public match report beside the name of a player of sixteen or
