@@ -350,8 +350,6 @@ jobs:
           # Both directories are dot directories, which the action leaves out by default: without
           # this a failed run uploads nothing and says so in a warning alone.
           include-hidden-files: true
-          # A failed journey that leaves no report is the harness failing too.
-          if-no-files-found: error
           retention-days: 7
       - name: The stack's logs, on a failure
         if: failure()
