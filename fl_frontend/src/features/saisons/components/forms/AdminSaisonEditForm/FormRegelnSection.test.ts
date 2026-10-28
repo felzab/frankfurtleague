@@ -128,6 +128,13 @@ const GERMAN_OF: Record<string, string> = {
  */
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
 
+/** The one frozen field a redraw alone moves, spelled as `GERMAN_OF` is, so the case reads no backend file. */
+const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group";
+
+/** Which of the panel's repairs name one field, by position. */
+const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
+  new Set(repairs.flatMap((sentence, index) => (names(GERMAN_OF[field] ?? "", sentence) ? [index] : [])));
+
 /** Every paragraph one state of the panel shows. */
 function paragraphsOf(props: Partial<RegelnProps>): string[] {
   const { unmount } = render(panel(props));
@@ -164,6 +171,25 @@ describe("the repairs the reloaded panel names for the shape the draw freezes", 
         repairs.some((sentence) => names(german, sentence)),
         `the shape refusal freezes ${field} and no repair in the panel names ${german}`,
       );
+  });
+
+  /* Two repairs because they are two jobs: raising a pinned field needs clubs entered between an undraw and a
+     redraw, which a redraw alone never asks for, so one sentence for all three sends an admin on the wrong job. */
+  it("parts the redrawable field from the ones the entries pin", () => {
+    const repairs = openRepairs();
+    const redrawable = repairsNaming(repairs, REDRAWABLE_SHAPE_FIELD);
+    const pinned = Object.keys(GERMAN_OF)
+      .filter((field) => field !== REDRAWABLE_SHAPE_FIELD)
+      .map((field) => [field, repairsNaming(repairs, field)] as const);
+
+    assert.ok(redrawable.size > 0, `no repair in the panel names ${REDRAWABLE_SHAPE_FIELD}`);
+    assert.ok(pinned.length > 0, "every frozen field is the one a redraw moves, so this parts nothing");
+
+    const shared = pinned.map(([, wo]) => wo).reduce((left, right) => new Set([...left].filter((at) => right.has(at))));
+    for (const [field, wo] of pinned)
+      for (const at of wo)
+        assert.ok(!redrawable.has(at), `one repair names ${field} beside ${REDRAWABLE_SHAPE_FIELD}, and a redraw moves only the second`);
+    assert.ok(shared.size > 0, "the fields the entries pin take different repairs, where the write path composes them one");
   });
 });
 
