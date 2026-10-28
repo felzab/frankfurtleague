@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 /**
  * What the rail's parts share between the frame, drawn on the server, and its client parts (`RailState.tsx`):

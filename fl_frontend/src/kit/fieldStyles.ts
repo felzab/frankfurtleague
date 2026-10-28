@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 /*
  * The look every field shares, kept in one place so a ruling changes it in one edit: the label, the
@@ -105,7 +105,7 @@ export const fieldFrame = tv({
     },
     // Figures are set in Inter, with columns that line up.
     figures: {
-      true: "font-numeric tabular-nums",
+      true: "font-numeric",
     },
   },
   compoundVariants: [
@@ -153,7 +153,7 @@ export const codeRow = tv({ base: "relative flex justify-center gap-2" });
  * stay square and narrow together.
  */
 export const codeBox = tv({
-  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
+  base: "flex aspect-square max-w-11 min-w-0 flex-1 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**
@@ -175,7 +175,7 @@ export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" 
 
 /** A day in a date's calendar, as large as a control; the chosen day inverts. */
 export const calendarCell = tv({
-  base: "flex size-9 cursor-default items-center justify-center rounded-md font-numeric text-sm tabular-nums data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-11",
+  base: "flex size-9 cursor-default items-center justify-center rounded-md font-numeric text-sm data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-11",
 });
 
 /**

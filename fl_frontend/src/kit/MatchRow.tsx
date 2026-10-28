@@ -1,5 +1,3 @@
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_TRENNER } from "@/core/format";
 
@@ -7,6 +5,7 @@ import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Paar } from "@/core/format";
 import type { Route } from "next";
@@ -33,25 +32,38 @@ export type MatchRowProps = {
 /** No result yet: a dash for each side's goals. */
 export const NONE = "–";
 
-const row = tv({
+/**
+ * How a side's name and goals are marked wherever a match's two sides stand, in a row, a bracket card or the
+ * pop-up's head: the winner's name semibold; goals bold, a shoot-out loser's regular, and no result yet
+ * muted. Each block extends it with its own layout and takes its variants from `look`.
+ */
+export const sideMarks = tv({
   slots: {
-    side: "flex min-w-0 items-center gap-2",
-    name: "min-w-0 truncate",
-    goals: "font-numeric tabular-nums",
+    name: "",
+    goals: "font-numeric",
   },
   variants: {
     winner: {
       true: { name: "font-semibold" },
     },
-    // The home side on desktop: the name before its plaque, so the plaque stands nearest the score.
-    mirrored: {
-      true: { side: "justify-end" },
-    },
     goals: {
-      // Goals are bold, a shoot-out loser's regular, and no result yet muted.
       counted: { goals: "font-bold" },
       lost: { goals: "font-normal" },
       none: { goals: "font-normal text-fg-muted" },
+    },
+  },
+});
+
+const row = tv({
+  extend: sideMarks,
+  slots: {
+    side: "flex min-w-0 items-center gap-2",
+    name: "min-w-0 truncate",
+  },
+  variants: {
+    // The home side on desktop: the name before its plaque, so the plaque stands nearest the score.
+    mirrored: {
+      true: { side: "justify-end" },
     },
   },
 });
@@ -70,7 +82,7 @@ export function figures(result: MatchRowProps["result"]): Figures {
   };
 }
 
-/** How one side reads: its name bold where it won, its goals bold, regular where it lost a shoot-out. */
+/** How one side reads, as `sideMarks`' variants: whether it won, and how its goals count. */
 export function look(score: Figures, side: "home" | "away") {
   if (score === null) return { winner: false, goals: "none" } as const;
   const own = score[side];
@@ -120,7 +132,7 @@ function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps
         href={href}
         placement="card">
         <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm max-lg:hidden">
-          <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted tabular-nums">{when}</span>
+          <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted">{when}</span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
               side={home}
@@ -157,7 +169,7 @@ function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps
           </span>
         </span>
         <span className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base lg:hidden">
-          <span className="truncate font-numeric text-xs text-fg-muted tabular-nums">{when}</span>
+          <span className="truncate font-numeric text-xs text-fg-muted">{when}</span>
           <span className="text-end text-xs text-fg-muted">{shootOut}</span>
           <span className="flex min-w-0 items-center gap-2">
             <Side

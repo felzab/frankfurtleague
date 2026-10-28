@@ -3,13 +3,13 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { Focusable } from "react-aria-components/Focusable";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { RAIL_ID } from "./railStyles";
 import { Tooltip } from "./Tooltip";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";

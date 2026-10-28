@@ -98,7 +98,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
           the Position cell. */}
       {spieler.selected?.inactive_since != null && (
         <span className={labelBadge("warning")}>
-          Ausgetragen&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
+          Ausgetragen&nbsp;<span className="font-numeric">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
@@ -178,7 +178,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     <span
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
-      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
+      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}

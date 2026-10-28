@@ -8,7 +8,7 @@ export const PILL_RADIUS_CLASSES = "rounded-md";
  * A number in a pill; `min-w-6` so single digits are not ovals. Colour stays the caller's, but the brand pair is
  * `bg-brand-solid` with its own foreground, never an alpha on `brand`, which flips per theme.
  */
-export const COUNT_BADGE_CLASSES = `inline-flex min-w-6 items-center justify-center font-numeric fluid-xxs ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-extrabold tabular-nums`;
+export const COUNT_BADGE_CLASSES = `inline-flex min-w-6 items-center justify-center font-numeric fluid-xxs ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-extrabold`;
 
 /**
  * Every tone a pill may wear, and no member of it is neutral: a grey chip reads as a control that has

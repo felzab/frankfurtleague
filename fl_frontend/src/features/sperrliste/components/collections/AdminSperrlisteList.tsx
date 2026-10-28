@@ -52,7 +52,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
         <div className={IDENTITY_HEAD_CLASSES}>
           {/* `IDENTITY_NAME_CLASSES`'s box carries `truncate`, and a clipped year is a different date, so the
               day wears the grade `AdminBewerbungenList` gives one instead. */}
-          <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
+          <span className="font-numeric fluid-sm font-semibold text-foreground">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
         <span className={IDENTITY_LINE_CLASSES}>
           <VonOderGesperrt

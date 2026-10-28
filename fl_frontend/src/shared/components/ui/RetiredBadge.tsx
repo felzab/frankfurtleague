@@ -11,7 +11,7 @@ export function RetiredBadge({ since }: { since: string | null }) {
     // `danger` and not the squad row's `warning`: the verb pair orders the two, and this is the graver.
     <span className={labelBadge("danger")}>
       {/* This text may grow only to what the Spieler list seats, the narrowest column it reaches. */}
-      Stillgelegt&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(since)}</span>
+      Stillgelegt&nbsp;<span className="font-numeric">{formatSpielDatum(since)}</span>
     </span>
   );
 }

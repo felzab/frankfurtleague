@@ -1,19 +1,23 @@
-import { tv } from "tailwind-variants/lite";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
-const column = tv({
-  // At least the first screen under the classic header, whose height the frame declares, so on every page
-  // the footer starts just below the screen and is reached by scrolling.
-  base: "mx-auto flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col gap-6 px-4 py-8 lg:py-12",
+const page = tv({
+  slots: {
+    // At least the first screen under the classic header, whose height the frame declares, so on every page
+    // the footer starts just below the screen and is reached by scrolling. The gutter stands here, outside
+    // the column, so the column's width is its content's.
+    main: "flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col px-4 py-8 lg:py-12",
+    column: "mx-auto flex w-full flex-1 flex-col gap-6",
+  },
   variants: {
     // A form or a mailed page in the form column, one card centred on the page as a status page stands, or
-    // the sign-in's 384-px column, which proportions its full-width controls as Vercel's sign-in does.
+    // the sign-in's column, which proportions its full-width controls as Vercel's sign-in does.
     width: {
-      form: "max-w-form",
-      card: "max-w-card justify-center",
-      signin: "max-w-signin justify-center",
+      form: { column: "max-w-form" },
+      card: { column: "max-w-card justify-center" },
+      signin: { column: "max-w-signin justify-center" },
     },
   },
 });
@@ -24,7 +28,12 @@ const column = tv({
  * writes every page's `main`.
  */
 export function ClassicPage({ width, children }: { width: "form" | "card" | "signin"; children: ReactNode }) {
-  return <main className={column({ width })}>{children}</main>;
+  const { main, column } = page({ width });
+  return (
+    <main className={main()}>
+      <div className={column()}>{children}</div>
+    </main>
+  );
 }
 
 /** A classic page's one title, in Anton at 24 px: at the column's head, or in a status card. */

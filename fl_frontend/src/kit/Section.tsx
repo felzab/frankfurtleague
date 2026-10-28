@@ -1,10 +1,9 @@
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpPopover } from "./HelpPopover";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";

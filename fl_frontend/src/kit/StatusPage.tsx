@@ -1,9 +1,8 @@
-import { tv } from "tailwind-variants/lite";
-
 import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RailPage } from "./RailFrame";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";

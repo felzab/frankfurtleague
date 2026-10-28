@@ -32,7 +32,7 @@ import type { AdminSaisonRow } from "../../types";
  * short identifier a reader scans a column for. `h-7` fixes the box, so the chip's own `py-1` adds
  * nothing to it.
  */
-const ID_CHIP_CLASSES = `${SHORTHAND_CHIP_CLASSES} h-7 w-14 font-numeric tabular-nums shadow-sm`;
+const ID_CHIP_CLASSES = `${SHORTHAND_CHIP_CLASSES} h-7 w-14 font-numeric shadow-sm`;
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Saisons für diese Suche.",
@@ -66,12 +66,8 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     />
   );
 
-  /**
-   * `tabular-nums` asks the face for tabular figures, so it needs `font-numeric` beside it
-   * (`fl_frontend/eslint.config.mjs :: SOURCE_BANS`).
-   */
   const renderZeitraum = (saison: AdminSaisonRow) => (
-    <span className="flex flex-row items-baseline gap-x-1 font-numeric tabular-nums">
+    <span className="flex flex-row items-baseline gap-x-1 font-numeric">
       <span className="fluid-sm font-bold text-foreground">{formatSpielDatum(saison.start_date)}</span>
       <span className="muted-meta">–</span>
       <span className="fluid-sm font-bold text-foreground">{formatSpielDatum(saison.end_date)}</span>

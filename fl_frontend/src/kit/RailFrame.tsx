@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import NextLink from "next/link";
 
-import { tv } from "tailwind-variants/lite";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
@@ -16,6 +14,7 @@ import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -255,10 +254,10 @@ export function RailPage({
           </nav>
         )}
       </header>
-      {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen; the editor's
-          bar spans the whole width under it. */}
-      <main className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
-        {children}
+      {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
+          outside it; the editor's bar spans the whole width under it. */}
+      <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">
+        <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
       </main>
       {bar}
     </>

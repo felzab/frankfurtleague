@@ -29,7 +29,7 @@ export function SpielScore({
   className: string;
 }) {
   return (
-    <span className={`font-numeric tabular-nums ${className}`}>
+    <span className={`font-numeric ${className}`}>
       {ergebnis}
       {elfmeterschiessen !== null && (
         <span className="fluid-xxs font-semibold whitespace-nowrap">

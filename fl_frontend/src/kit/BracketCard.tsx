@@ -1,27 +1,17 @@
-import { tv } from "tailwind-variants/lite";
-
 import { Link } from "./Link";
-import { figures, look, NONE } from "./MatchRow";
+import { figures, look, NONE, sideMarks } from "./MatchRow";
 import { TeamPlaque } from "./TeamPlaque";
+import { tv } from "./tv";
 
 import type { Route } from "next";
 import type { Figures, MatchRowProps, MatchSide } from "./MatchRow";
 
 const card = tv({
+  extend: sideMarks,
   slots: {
     line: "flex min-h-6 min-w-0 items-center justify-between gap-2",
     name: "flex min-w-0 items-center gap-2",
-    goals: "font-numeric whitespace-nowrap tabular-nums",
-  },
-  variants: {
-    winner: {
-      true: { name: "font-semibold" },
-    },
-    goals: {
-      counted: { goals: "font-bold" },
-      lost: { goals: "font-normal" },
-      none: { goals: "font-normal text-fg-muted" },
-    },
+    goals: "whitespace-nowrap",
   },
 });
 
@@ -73,7 +63,7 @@ export function BracketCard({
             score={score}
             part="away"
           />
-          <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted tabular-nums max-lg:hidden">{when}</span>
+          <span className="mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden">{when}</span>
         </span>
       </Link>
     </div>

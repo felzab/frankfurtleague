@@ -6,7 +6,6 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
-import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -25,6 +24,7 @@ import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
+import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -595,14 +595,12 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
           </NextLink>
         ))}
       </nav>
-      <div className="ms-auto hidden lg:block">
-        <NextLink
-          href={anmelden}
-          data-kit-focus="ring"
-          className={frameLink({ tone: "band" })}>
-          {COPY.shared.verb.anmelden}
-        </NextLink>
-      </div>
+      <NextLink
+        href={anmelden}
+        data-kit-focus="ring"
+        className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
+        {COPY.shared.verb.anmelden}
+      </NextLink>
       <div className="ms-auto lg:hidden">
         <FreshPerPage>
           <Sheet

@@ -128,19 +128,15 @@
   --font-heading: var(--font-anton), ui-sans-serif, system-ui;
   --font-primary: var(--font-raleway), ui-sans-serif, system-ui;
   --font-sans: var(--font-raleway);
-  /* Inter stays loaded for numerals alone: Raleway carries no tabular figures. */
+  /* Inter stays loaded for numerals alone: Raleway carries no tabular figures. The
+     `font-numeric` utility sets the feature beside the family, so it lines digits up in columns by itself;
+     it replaces the page's `"lnum"` there, which Inter's figures, lining by default, do not need. */
   --font-numeric: var(--font-inter), ui-sans-serif, system-ui;
+  --font-numeric--font-feature-settings: "tnum";
   /* Lining figures site-wide: Tailwind resolves this onto `html` through
      --default-font-feature-settings. Never `"lnum", "tnum"` — Raleway has no `tnum`, so the
      declaration would compile, pass every check and deliver half of what it says. */
   --font-sans--font-feature-settings: "lnum";
-
-  /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
-     values were chosen for Inter's looser capitals. */
-  --tracking-display: 0.02em;
-  /* Capitals set a little apart: the small headings set in capitals, a table's columns and the footer's
-     groups, and the wordmark, which stands as the league's mark rather than as a title. */
-  --tracking-caps: 0.04em;
 
   --color-background: var(--bg-base);
   --color-surface: var(--bg-surface);

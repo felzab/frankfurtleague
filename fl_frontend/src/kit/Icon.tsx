@@ -35,14 +35,16 @@ import UserPlus from "lucide-react/icons/user-plus";
 import Users from "lucide-react/icons/users";
 import Whistle from "lucide-react/icons/whistle";
 import X from "lucide-react/icons/x";
-import { tv } from "tailwind-variants/lite";
+
+import { tv } from "./tv";
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and
  * nowhere else: one name per meaning, and no drawing under two names, so a reader learns each mark once.
  * Each is imported from its own module, so a test loading the kit loads these icons, not the whole set.
- * The second group names the pages of a frame's menu, one glyph per page, so no two entries of a rail or
- * a phone bar share a mark.
+ * The second group names what each page of a frame's menu holds, one glyph per page, so no two entries of a
+ * rail or a phone bar share a mark; the same glyph marks that thing wherever else it stands, as a venue's pin
+ * leads the pop-up's „Ort“ and a referee's whistle its „Schiedsrichter“.
  */
 const GLYPHS = {
   // A record created where its list shows, before the act's label.
