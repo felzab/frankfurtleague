@@ -11,7 +11,20 @@ export const tv = createTV({
   twMergeConfig: {
     extend: {
       theme: {
-        container: ["popover", "signin", "question", "card", "dialog", "form", "classic", "content", "measure", "panel"],
+        container: [
+          "popover",
+          "signin",
+          "question",
+          "card",
+          "dialog",
+          "form",
+          "classic",
+          "content",
+          "measure",
+          "panel",
+          "rail",
+          "rail-collapsed",
+        ],
         shadow: ["menu", "dialog"],
         tracking: ["display", "caps"],
       },
