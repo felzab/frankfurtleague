@@ -192,8 +192,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The docker driver cannot export a build cache; the container driver this creates can.
+      # The docker driver cannot export a build cache; the container driver this creates can. Its
+      # BuildKit daemon writes both tarballs before `bind` hashes them, so it is pinned by tag and
+      # digest like every image the stack runs; no Dependabot ecosystem reads this string, so a bump is
+      # by hand.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
       # `sha-<commit>` beside the scope's own tag, and the OCI labels `scripts/ops/deploy.sh` reads.
       - id: meta-frontend
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
