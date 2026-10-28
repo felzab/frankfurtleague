@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -122,7 +122,8 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const form = useFormAction(
     async (sent: EditorSave<Values>) => {
       const answer = await save(sent);
-      if (answer.ok) setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state));
+      // A form's action runs in a transition, and an update after its `await` commits outside it.
+      if (answer.ok) startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state)));
       return answer;
     },
     { resetOnLeave: true },
