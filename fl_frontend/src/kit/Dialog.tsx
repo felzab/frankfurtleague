@@ -9,7 +9,7 @@ import { Modal, ModalOverlay } from "react-aria-components/Modal";
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
-import { goBackOrPush } from "@/shared/hooks/useEditorExit";
+import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { useFormAction } from "./useFormAction";

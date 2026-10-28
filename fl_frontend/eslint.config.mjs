@@ -734,13 +734,13 @@ const SOURCE_BANS = [
 
 const PROPERTY_BANS = [
   // `back` on the history and on Next's router, a destructured `{ back }` of either included. A test's
-  // router double counts its own `back`. `useEditorExit.ts` IS the history guard.
+  // router double counts its own `back`. `goBackOrPush.ts` IS the history guard.
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
       { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
       SOURCE,
-      { allow: ["src/shared/hooks/useEditorExit.ts"] },
+      { allow: ["src/core/goBackOrPush.ts"] },
     ),
   ),
   // The passkey plugin's own deletion, on whatever object or binding carries it. A test may call it to
