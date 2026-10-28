@@ -32,25 +32,38 @@ export type MatchRowProps = {
 /** No result yet: a dash for each side's goals. */
 export const NONE = "–";
 
-const row = tv({
+/**
+ * How a side's name and goals are marked wherever a match's two sides stand, in a row, a bracket card or the
+ * pop-up's head: the winner's name semibold; goals bold, a shoot-out loser's regular, and no result yet
+ * muted. Each block extends it with its own layout and takes its variants from `look`.
+ */
+export const sideMarks = tv({
   slots: {
-    side: "flex min-w-0 items-center gap-2",
-    name: "min-w-0 truncate",
+    name: "",
     goals: "font-numeric",
   },
   variants: {
     winner: {
       true: { name: "font-semibold" },
     },
-    // The home side on desktop: the name before its plaque, so the plaque stands nearest the score.
-    mirrored: {
-      true: { side: "justify-end" },
-    },
     goals: {
-      // Goals are bold, a shoot-out loser's regular, and no result yet muted.
       counted: { goals: "font-bold" },
       lost: { goals: "font-normal" },
       none: { goals: "font-normal text-fg-muted" },
+    },
+  },
+});
+
+const row = tv({
+  extend: sideMarks,
+  slots: {
+    side: "flex min-w-0 items-center gap-2",
+    name: "min-w-0 truncate",
+  },
+  variants: {
+    // The home side on desktop: the name before its plaque, so the plaque stands nearest the score.
+    mirrored: {
+      true: { side: "justify-end" },
     },
   },
 });
@@ -69,7 +82,7 @@ export function figures(result: MatchRowProps["result"]): Figures {
   };
 }
 
-/** How one side reads: its name bold where it won, its goals bold, regular where it lost a shoot-out. */
+/** How one side reads, as `sideMarks`' variants: whether it won, and how its goals count. */
 export function look(score: Figures, side: "home" | "away") {
   if (score === null) return { winner: false, goals: "none" } as const;
   const own = score[side];

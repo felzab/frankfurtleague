@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_TRENNER } from "@/core/format";
 
-import { figures, look, NONE } from "./MatchRow";
+import { figures, look, NONE, sideMarks } from "./MatchRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -17,6 +17,7 @@ export type MatchHeadProps = {
 };
 
 const head = tv({
+  extend: sideMarks,
   slots: {
     // The band: the lighter surface run edge to edge across the dialog's top, the dialog's 24-px padding
     // taken back around it and its corners the box's own, so the pairing is framed as the old pop-up framed
@@ -25,23 +26,11 @@ const head = tv({
     eyebrow: "text-xs font-medium text-fg-muted",
     side: "grid min-w-0 justify-items-center gap-2 text-center",
     name: "min-w-0 text-sm [overflow-wrap:anywhere]",
-    score: "font-numeric",
-  },
-  // The winner as the bracket card marks it: the name semibold, the counted goals bold.
-  variants: {
-    winner: {
-      true: { name: "font-semibold" },
-    },
-    goals: {
-      counted: { score: "font-bold" },
-      lost: { score: "font-normal" },
-      none: { score: "font-normal text-fg-muted" },
-    },
   },
 });
 
 function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
-  return <span className={head(look(score, part)).score()}>{score === null ? NONE : score[part]}</span>;
+  return <span className={head(look(score, part)).goals()}>{score === null ? NONE : score[part]}</span>;
 }
 
 /** A side as the centred look sets it: the plaque over the name. */
