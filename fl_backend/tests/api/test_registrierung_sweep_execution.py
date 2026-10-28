@@ -374,12 +374,7 @@ class TestTheDeadlineClock:
         assert all(row.get("redacted_at") is not None for row in rows)
 
     def test_a_registration_of_another_season_is_untouched(self, mongo_replica_set_url: str):
-        """Every removal names this season alone.
-
-        The filters are held to it by
-        `fl_backend/tests/core/test_write_shapes.py :: TestWhatARemovalFilterMayName`, which reads
-        their text where this reads what survived.
-        """
+        """Every removal names this season alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)

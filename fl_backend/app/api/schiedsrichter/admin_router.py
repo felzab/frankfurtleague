@@ -121,9 +121,6 @@ async def post_schiedsrichter(
         # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
         await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
-        # Spelled at the call site rather than assembled above it, so
-        # `fl_backend/tests/core/test_write_shapes.py :: creations` can still read what this create
-        # composes against the validator's `required`.
         return await insert_live(
             collection=schiedsrichter_collection,
             document={

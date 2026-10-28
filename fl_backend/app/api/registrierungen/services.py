@@ -2,8 +2,7 @@
 API · the registration's judgements, spelled apart from the request
 
 Every predicate here takes values and never a collection or a session: the router does the reading,
-so a refusal is judged against what the submission's own transaction can see
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+so a refusal is judged against what the submission's own transaction can see.
 """
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
