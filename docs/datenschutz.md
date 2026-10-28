@@ -1233,14 +1233,23 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
-  the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
-  or stamps its evidence: their own write, on their confirmation page or their account page, an
-  admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
-  the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An act before
-  those survives only in the log row its write left, whose image an erasure empties and which
-  expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
-  The question to put: whether the latest act and the grant a withdrawal ended are proof enough,
-  given those two ends of the log.
+  the grant it ended, for as long as the record stands. Every write in the code takes a choice and
+  its evidence from the person's own answer: their own write, on their confirmation page or their
+  account page, an admission carrying their own registration's answer, or a restore replaying a
+  withdrawal of theirs at the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An
+  act before those survives only in the log row its write left, whose image an erasure empties and
+  which expires twelve months after the write
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). **No act from before 2026-10-28
+  08:25 (Europe/Berlin) survives in the log at all**: by then the log had been emptied in full, with
+  every pupil and referee row. The full emptying stood although it took the contact persons'
+  earlier acts with it, each seat's latest act standing on the seat; ruled 2026-10-04. **A contact
+  seat's WhatsApp grant given before seats recorded evidence carries evidence a hand paste wrote**
+  just before that emptying, copied from the log row of the confirmation that granted it: the
+  seat's own on the season row, or, for a seat copied whole from its accepted application, that
+  application's. The person made the grant, and the paste wrote its time and wording from a row that
+  is now gone. The questions to put: whether the latest act and the grant a withdrawal ended are
+  proof enough, given those three ends of the log; and whether evidence copied by hand from a
+  confirmation's log row proves that confirmation.
 - **Whether a card's colour and minute may be published against a named minor, for the
   Datenschutzexperte.** No page publishes a card today, and the question is put before one does:
   whether a booking may stand on a public match report beside the name of a player of sixteen or

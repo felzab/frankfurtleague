@@ -690,7 +690,10 @@ Send the categories, the values, where each came from, who receives them
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
 they are kept, and the address for a complaint to the supervisory authority. Point at the published
 notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
-rather than restating it in the mail.
+rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy a hand paste
+made from its confirmation's log row before the log was emptied
+([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
+it as the proof of that consent.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
 and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
@@ -872,7 +875,7 @@ by mail instead has two answers, and which one you give is the person's to choos
   record holds, which takes the squad rows with the person and asks no retirement first.
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
-  record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
+  record holds. **Never edit a consent block by hand**, in the console or anywhere else: a choice
   the person did not make is not their consent (`docs/backend/spec.md :: I613`). The write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
