@@ -380,14 +380,21 @@ OPS_SCRATCH=""
 NGINX_CHECK="${REPO_ROOT}/.tmp-nginx-check"
 cleanup_ops() { rm -rf "$NGINX_CHECK" || true; if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure. Run by uv at the release
-# scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves that file.
+# zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
+# file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
+# that file. An environment of the scope's own rather than `uv tool run`, which checks no hash in a
+# constraints or requirements file; `--no-build`, or a wheel refused by its hash falls back to
+# building the sdist, whose Rust toolchain and build backend no hash covers.
 run_zizmor() {
-  local rc=0
+  local rc=0 env="${OPS_SCRATCH}/zizmor" bin
+  uv venv --quiet --python "$PY" "$env" || return 3
+  uv pip install --quiet --python "$env" --require-hashes --no-build \
+    --requirements scripts/gate/zizmor/requirements.txt || return 3
+  bin="${env}/bin/zizmor"
+  [[ -x "$bin" ]] || bin="${env}/Scripts/zizmor.exe"
   # `--offline`, or a token in the environment turns on rules that reach the network;
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  uv tool run --constraints scripts/gate/zizmor/requirements.txt zizmor \
-    --offline --strict-collection --persona regular . || rc=$?
+  "$bin" --offline --strict-collection --persona regular . || rc=$?
   case "$rc" in
     0) return 0 ;;
     11|12|13|14) return 1 ;;
