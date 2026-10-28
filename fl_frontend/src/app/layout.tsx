@@ -5,6 +5,7 @@ import { Anton, Inter, Raleway } from "next/font/google";
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
+import { THEME_COLOR } from "@/core/themeColor";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata, Viewport } from "next";
@@ -64,12 +65,11 @@ export const metadata: Metadata = {
  * that can afford the fill.
  */
 export const viewport: Viewport = {
-  // `fl_frontend/src/app/tokens.css :: --bg-surface` per theme, copied because a `<meta>` colour
-  // resolves no `var()`. Not `--bg`: the bar under the chrome is `bg-surface` on both shells, and a
-  // `--bg` chrome sits 1.09:1 off it, a stripe.
+  // The first paint's, by the system's scheme, until `RootProviders` sets the chosen theme's. Not `--bg`:
+  // the bar under the chrome is `bg-surface` on both shells, and a `--bg` chrome sits 1.09:1 off it, a stripe.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#121212" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
   ],
 };
 
