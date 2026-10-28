@@ -245,9 +245,11 @@ export const COPY = katalog({
       codeZuOft: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
       adresseZuOft: (stunden: number) =>
         `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatZahl(stunden)} Stunden erneut.`,
-      codeVerbraucht: "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
+      codeVerbraucht:
+        "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
       ohneEintrag: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-      ohneBestaetigung: "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
+      ohneBestaetigung:
+        "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
     },
   },
 

@@ -29,7 +29,7 @@ const RESEND_COOLDOWN_MS = 30_000;
 /** Why the resend is closed while the cooldown runs: a disabled control also leaves the tab order. */
 const ERST_WARTEN = "Einen neuen Code kannst Du eine halbe Minute nach dem letzten anfordern.";
 
-export const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
+const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
 
 /**
  * The address field's own chrome. `border` is the width, never optional: HeroUI's theme sets a field border
