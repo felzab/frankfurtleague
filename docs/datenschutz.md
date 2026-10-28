@@ -1093,9 +1093,7 @@ These mirror the providers' own pages as read that day, which move without us.
 ## 10. Adjacent decisions were accepted as recommended
 
 Roadmap items that needed no expert, each accepted on 2026-09-02 as the entry then recommended.
-Where an entry is still open, what is left to do is its own `Status` in
-[`_roadmap/items.md`](_roadmap/items.md); a closed one's row cites where the decision now lives, and
-the `Entry` column carries a token only where one still resolves in that file.
+Each row cites where the decision now lives.
 
 | Entry | Decision                                                                                                                                                                                                            |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

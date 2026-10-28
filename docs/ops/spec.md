@@ -519,7 +519,7 @@ never the lint rule.
 element, and what it costs is Next's own `_global-error` fallback, the one prerendered page here
 carrying an inline `<style>` — a directive on attributes does not reach an element, so that page
 would render unstyled. Every route this application declares carries none.
-`docs/_roadmap/items.md :: qw6j-scru` owns the decision.
+[Issue #239](https://github.com/felzab/frankfurtleague/issues/239) owns the decision.
 
 **The policy is written once**, in `nginx/shared/security_headers.conf`, which
 `nginx/shared/site.conf` includes at server level and again in each location adding a header of
