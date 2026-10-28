@@ -264,9 +264,12 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
   const groups = useEntries(given);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
+    // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
+    // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
+    // entry's fill to the rail's edge and past it.
     <nav
       aria-label={COPY.vorlage.navigation}
-      className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-3 py-2">
+      className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-3 py-2">
       {groups.map((group, index) => (
         <div key={group.heading ?? index}>
           {group.heading !== undefined && <h2 className={railHeading}>{group.heading}</h2>}
