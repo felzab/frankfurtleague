@@ -69,12 +69,27 @@ const club = Object.fromEntries(CLUBS.map((row) => [row.name, row]));
 
 // --- Venues and referees -------------------------------------------------------------------------
 
+/** The parts holding more than blanks, joined: `fl_backend/app/shared/schemas/addresses.py :: _join_present`. */
+function joinPresent(parts, separator) {
+  return parts.filter((part) => part.trim() !== "").join(separator);
+}
+
+/**
+ * The search string the public match facts hand to a map search, never a URL, as
+ * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
+ */
+function mapsLink(name, adresse) {
+  const strasse = joinPresent([adresse.strasse, adresse.hausnummer], " ");
+  const ort = joinPresent([adresse.plz, adresse.stadtteil, adresse.stadt], " ");
+  return `${name}, ${joinPresent([strasse, ort], ", ")}, Deutschland`;
+}
+
 function venue(name, rent, adresse, inactiveSince) {
   return {
     _id: ObjectId(),
     name,
     address: adresse,
-    maps_link: `https://www.openstreetmap.org/search?query=${encodeURIComponent(name)}`,
+    maps_link: mapsLink(name, adresse),
     default_mietpreis: rent,
     inactive_since: inactiveSince,
   };
@@ -324,8 +339,11 @@ const running = season({
         return {};
       case 9:
       case 11:
+        return { datum: day(7), uhrzeit: "17:00:00", booking };
       case 12:
-        return { datum: day(7), uhrzeit: nr === 12 ? "18:30:00" : "17:00:00", booking };
+        // Not match 9's ground and referee, which its index would give: 90 minutes after it, inside the four
+        // hours the write keeps between two fixtures (`REQ-CLASH-001`). No other fixture that day holds these.
+        return { datum: day(7), uhrzeit: "18:30:00", booking: booked(1, 1) };
       // The knockout: drawn, undated, nobody in it.
       default:
         return {};
