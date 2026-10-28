@@ -189,8 +189,9 @@ the machine is outside the repository. What it does tell you:
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
   - that build's boot attaches its own validators again (§2), which refuse any write over either row.
-- **Never deploy by tag a build from before every pupil and referee row was deleted and the action
-  log emptied; roll forward instead.** Such a build's returning pupil's page stamps a consent label
+- **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
+  records as the deletion of every pupil and referee row and the emptying of the action log left
+  them; roll forward instead.** Such a build's returning pupil's page stamps a consent label
   the current registry does not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a
   record it confirms cites words nobody can produce, and no check compares a stored label with the
   registry.
