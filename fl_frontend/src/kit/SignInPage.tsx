@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { Form } from "react-aria-components/Form";
 import { tv } from "tailwind-variants/lite";
 
@@ -31,8 +33,11 @@ type AdressView = Head & {
     label: Copy;
     value: string;
     onChange: (value: string) => void;
-    /** The address the server refused for its form, in the field's own line. */
-    fehler?: Copy;
+    /**
+     * The server's refusal of the address, by the field's name `email`, in the field's own line: the answer's
+     * own record, one per refusal, each of which moves the focus to the field.
+     */
+    fehler?: Readonly<Record<string, Copy>>;
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
   pruefung: ReactNode;
@@ -121,58 +126,8 @@ function Body(props: SignInView) {
   const slots = look();
 
   switch (props.view) {
-    case "adresse": {
-      const { adresse, passkey } = props;
-      // The send's press is the form's submit, so `Enter` in the field sends too.
-      const { onPress: senden, ...knopf } = props.senden;
-      return (
-        <>
-          {/* The column's 16 px above the field, as the board drew the view. */}
-          <ClassicTitle text={props.titel} />
-          <Form
-            validationErrors={adresse.fehler === undefined ? undefined : { email: adresse.fehler }}
-            onSubmit={(event) => {
-              event.preventDefault();
-              senden();
-            }}
-            className={slots.form()}>
-            <TextField
-              label={adresse.label}
-              name="email"
-              width="W3"
-              kind="email"
-              autofill="username"
-              // The one field of the view, its two acts right under it: the line appears with the error alone.
-              line="withError"
-              // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
-              // its form in this line, as a malformed one meets the browser's.
-              value={adresse.value}
-              onChange={adresse.onChange}
-            />
-            {props.pruefung}
-            <Button
-              variant="primary"
-              type="submit"
-              {...knopf}
-            />
-          </Form>
-          {/* Decoration: the passkey's button carries its own name. */}
-          <div
-            aria-hidden
-            className={slots.divider()}>
-            <span className={slots.rule()} />
-            {props.oder}
-            <span className={slots.rule()} />
-          </div>
-          <div className={slots.acts()}>
-            <Button
-              variant="secondary"
-              {...passkey}
-            />
-          </div>
-        </>
-      );
-    }
+    case "adresse":
+      return <AdressBody {...props} />;
 
     case "code": {
       const { code, zurueck } = props;
@@ -257,4 +212,67 @@ function Body(props: SignInView) {
       );
     }
   }
+}
+
+/** The address view, whose field takes the focus on the server's refusal, as React Aria moves it on the browser's. */
+function AdressBody({ titel, adresse, pruefung, senden: { onPress: senden, ...knopf }, oder, passkey }: AdressView) {
+  const slots = look();
+  const form = useRef<HTMLFormElement>(null);
+
+  // The screen reader then reads the field with its refusal, which nothing else announces.
+  useEffect(() => {
+    if (adresse.fehler === undefined) return;
+    const field = form.current?.elements.namedItem("email");
+    if (field instanceof HTMLInputElement) field.focus();
+  }, [adresse.fehler]);
+
+  return (
+    <>
+      {/* The column's 16 px above the field, as the board drew the view. */}
+      <ClassicTitle text={titel} />
+      <Form
+        ref={form}
+        validationErrors={adresse.fehler}
+        // The send's press is the form's submit, so `Enter` in the field sends too.
+        onSubmit={(event) => {
+          event.preventDefault();
+          senden();
+        }}
+        className={slots.form()}>
+        <TextField
+          label={adresse.label}
+          name="email"
+          width="W3"
+          kind="email"
+          autofill="username"
+          // The one field of the view, its two acts right under it: the line appears with the error alone.
+          line="withError"
+          // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
+          // its form in this line, as a malformed one meets the browser's.
+          value={adresse.value}
+          onChange={adresse.onChange}
+        />
+        {pruefung}
+        <Button
+          variant="primary"
+          type="submit"
+          {...knopf}
+        />
+      </Form>
+      {/* Decoration: the passkey's button carries its own name. */}
+      <div
+        aria-hidden
+        className={slots.divider()}>
+        <span className={slots.rule()} />
+        {oder}
+        <span className={slots.rule()} />
+      </div>
+      <div className={slots.acts()}>
+        <Button
+          variant="secondary"
+          {...passkey}
+        />
+      </div>
+    </>
+  );
 }
