@@ -1,7 +1,8 @@
 name: verify
 
-# The gate that `scripts/gate/verify.sh` is, every scope on every event, one job per scope; and, on a
-# push to main that passed it, the publish of the two images the images job built and checked.
+# The gate that `scripts/gate/verify.sh` is, every scope on every event, one job per scope, and the
+# end-to-end journeys beside it; and, on a push to main that passed them, the publish of the two
+# images the images job built and checked.
 
 on:
   pull_request:
@@ -250,10 +251,69 @@ jobs:
           # The layers are compressed already.
           compression-level: 0
 
+  # The Playwright journeys (`fl_frontend/playwright.config.ts`) against the end-to-end stack, raised
+  # from this commit's images with the made-up seed.
+  journeys:
+    # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
+      COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/frontend-toolchain
+      - name: Install Chromium, WebKit and their system libraries
+        working-directory: fl_frontend
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Generate the stack's throwaway keys
+        # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
+        # which the runner's user is not. Nothing is printed.
+        run: |
+          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
+          chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
+          for name in auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin; do
+            openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
+          done
+          openssl genpkey -algorithm ed25519 -out .tmp-e2e/secrets/fl_actor_signing_key
+          chmod 644 .tmp-e2e/secrets/*
+          public="$(openssl pkey -in .tmp-e2e/secrets/fl_actor_signing_key -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\n')"
+          printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > .tmp-e2e/backend.env
+      - name: Build both images
+        run: docker compose build
+      - name: Start the database and the backend
+        run: docker compose up -d --wait --wait-timeout 180 mongo backend
+      - name: Load the made-up seed and judge it
+        run: |
+          base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
+          docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
+          docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
+          docker compose exec -T backend python -m app.core.constraints --check
+      - name: Start the stack
+        run: docker compose up -d --force-recreate --wait --wait-timeout 240
+      - name: Run the journeys
+        working-directory: fl_frontend
+        run: pnpm run e2e
+      - name: Keep the report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: journeys-report
+          path: .tmp-playwright/
+          retention-days: 7
+      - name: The stack's logs, on a failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v --remove-orphans
+
   # THE REQUIRED STATUS CHECK, which the ruleset names. `always()`: the verdict is the steps below,
   # never GitHub's reading of a job skipped over a failed need.
   verify:
-    needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
+    needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images, journeys]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
