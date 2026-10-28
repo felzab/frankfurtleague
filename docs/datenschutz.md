@@ -622,7 +622,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
   the reason, the administrator, or the marker once they are erased (`docs/backend/spec.md :: I670`),
   and the season it ran to, and no barred address — for the twelve
-  months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
+  months every log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
@@ -1204,8 +1204,10 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **The referees whose rows were entered before the confirmation link, for the
   Datenschutzexperte.** An administrator entered them, and their rows carried no consent record.
   Their names were published on every fixture they officiated until their rows were deleted whole,
-  every fixture naming one repointed at the ghost with the name emptied
-  (`docs/backend/spec.md :: I213`), and the action log holding images of them was emptied in full.
+  before the deploy whose fixture read first consults a referee's own consent; every fixture naming
+  one was repointed at the ghost with the name emptied
+  (`fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint`), and the action log
+  holding images of them was emptied in full.
   Nothing informed these people under Art. 14: a row holding no address of its own is never
   mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a real
   address is mailed its link only when an administrator's write mints one
@@ -1233,14 +1235,23 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
-  the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
-  or stamps its evidence: their own write, on their confirmation page or their account page, an
-  admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
-  the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An act before
-  those survives only in the log row its write left, whose image an erasure empties and which
-  expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
-  The question to put: whether the latest act and the grant a withdrawal ended are proof enough,
-  given those two ends of the log.
+  the grant it ended, for as long as the record stands. In the code, only the person's own answer
+  grants a choice or stamps its evidence: their own write, on their confirmation page or their
+  account page, an admission carrying their own registration's answer, or a restore replaying a
+  withdrawal of theirs at the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An
+  act before those survives only in the log row its write left, whose image an erasure empties and
+  which expires twelve months after the write
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). **No act from before 2026-10-28
+  08:25 (Europe/Berlin) survives in the log at all**: by then the log had been emptied in full, with
+  every pupil and referee row. The full emptying stood although it took the contact persons'
+  earlier acts with it, each seat's latest act standing on the seat; ruled 2026-10-04. **A contact
+  seat's WhatsApp grant given before seats recorded evidence carries evidence a hand paste wrote**
+  just before that emptying, copied from the log row of the confirmation that granted it: the
+  seat's own on the season row, or, for a seat copied whole from its accepted application, that
+  application's. The person made the grant, and the paste wrote its time and wording from a row that
+  is now gone. The questions to put: whether the latest act and the grant a withdrawal ended are
+  proof enough, given those three ends of the log; and whether evidence copied by hand from a
+  confirmation's log row proves that confirmation.
 - **Whether a card's colour and minute may be published against a named minor, for the
   Datenschutzexperte.** No page publishes a card today, and the question is put before one does:
   whether a booking may stand on a public match report beside the name of a player of sixteen or

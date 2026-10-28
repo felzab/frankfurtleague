@@ -189,8 +189,9 @@ the machine is outside the repository. What it does tell you:
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
   - that build's boot attaches its own validators again (§2), which refuse any write over either row.
-- **Never deploy by tag a build from before every pupil and referee row was deleted and the action
-  log emptied; roll forward instead.** Such a build's returning pupil's page stamps a consent label
+- **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
+  records as the deletion of every pupil and referee row and the emptying of the action log left
+  them; roll forward instead.** Such a build's returning pupil's page stamps a consent label
   the current registry does not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a
   record it confirms cites words nobody can produce, and no check compares a stored label with the
   registry.
@@ -689,7 +690,10 @@ Send the categories, the values, where each came from, who receives them
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
 they are kept, and the address for a complaint to the supervisory authority. Point at the published
 notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) for the standing text
-rather than restating it in the mail.
+rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy a hand paste
+made from its confirmation's log row before the log was emptied
+([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
+it as the proof of that consent.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
 and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
@@ -705,7 +709,7 @@ application, an accepted one and a season's contact block are each removed by th
 (`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
 submitter told first (`docs/backend/spec.md :: I151`); an application nobody decided is deleted once
 the season it applied for has ended, whatever its seats answered
-(`docs/backend/spec.md :: I220`); and a log row stamped with its write date expires on I119's bound.
+(`docs/backend/spec.md :: I220`); and a log row expires on I119's bound.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
 reading before you save: a club rename fans out into the matches of every season that is not `past`
@@ -871,7 +875,7 @@ by mail instead has two answers, and which one you give is the person's to choos
   record holds, which takes the squad rows with the person and asks no retirement first.
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
-  record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
+  record holds. **Never edit a consent block by hand**, in the console or anywhere else: a choice
   the person did not make is not their consent (`docs/backend/spec.md :: I613`). The write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
@@ -879,6 +883,11 @@ by mail instead has two answers, and which one you give is the person's to choos
 
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
+
+**A person whose pupil or referee row went in the deletion
+[section 13](#13-after-a-restore-from-a-snapshot)'s cutoff marks has nothing held in that role, and
+their fixtures name nobody**; only a snapshot taken before that cutoff still holds them, until the
+snapshot window passes it.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -906,7 +915,14 @@ erasure could not delete goes when the address is erased again
 
 **The page refuses two kinds of address, and says so before anyone confirms**: the
 administrator's own, which goes through their account page or an owner; and any holding a grant, to
-an administrator who is not an owner. The page mails the person nothing. **Erasing an administrator's address tells every
+an administrator who is not an owner. **A referee row whose address a hand edit emptied is reached
+once the person's own address stands on it again**
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
+has not confirmed, save that address in the referee editor, which on a row still in service mails
+them a confirmation link first, then erase it; a confirmed row's editor refuses the save
+(`REQ-SCHIEDSRICHTER-011`) and the address tool finds no row by an empty address, so rewrite it by
+hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
+the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
@@ -1624,9 +1640,12 @@ moment the restored snapshot was taken, and once the restore has completed, that
 replay below reads the journal between the two, and an act after the second is the restored site's
 own, which stands as its person made it.
 
-**Never restore a snapshot taken before every pupil and referee row was deleted and the action log
-emptied.** It brings back those rows and that log, holding addresses nobody asked to keep, and
-records citing consent labels the registry does not hold, which §2's `--check` never reads.
+**Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
+every pupil and referee row had been deleted and the action log emptied. It brings back those rows
+and that log, holding addresses nobody asked to keep, and records citing consent labels the
+registry does not hold, which §2's `--check` never reads. The rule lapses once the hosting holds no
+snapshot taken before that moment, its snapshot window being about eight days
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
