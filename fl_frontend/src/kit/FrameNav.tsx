@@ -19,7 +19,7 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { frameLink, menuEntry } from "./Link";
 import { Menu } from "./Menu";
-import { RailTooltip } from "./RailState";
+import { RailTooltip, useRailCollapsed } from "./RailState";
 import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
@@ -180,13 +180,14 @@ const THEMES: readonly GlyphChoice[] = [
  * theme as one row, „Darstellung“ with the three glyphs. A person with a name sees it with their address at
  * the top; an address alone already stands in the row, so the menu does not repeat it.
  */
-function AccountMenu({ account, trigger }: { account: Account; trigger: ReactElement }) {
+function AccountMenu({ account, trigger, beside }: { account: Account; trigger: ReactElement; beside?: boolean }) {
   // The theme next-themes holds; the menu's content renders only once it is opened, after hydration.
   const { theme, setTheme } = useTheme();
   return (
     <Menu
       label={COPY.vorlage.konto}
       placement="above"
+      beside={beside}
       head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
       groups={[
         [
@@ -341,15 +342,17 @@ export type AccountRead = Promise<Account | null>;
 /**
  * The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu.
  * Collapsed, the avatar alone stands centred, 8 px of the row's inset after the foot's 12, and the words
- * fade, clipped by the row.
+ * fade, clipped by the row; the menu then opens beside the row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
+  const collapsed = useRailCollapsed();
   const account = use(read);
   if (account === null) return null;
   const name = account.name ?? account.address;
   return (
     <AccountMenu
       account={account}
+      beside={collapsed}
       trigger={
         <AriaButton
           data-kit-focus="ring"

@@ -61,6 +61,11 @@ export type MenuProps = {
   groups: ReadonlyArray<ReadonlyArray<MenuEntry>>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
+  /**
+   * On desktop, the menu opens at its trigger's end instead, as a collapsed rail entry's tooltip does, and as
+   * wide as its entries: its top level with the trigger's where it would open below, its foot where above.
+   */
+  beside?: boolean;
   /** On desktop, as wide as its entries with the menu's floor, or as wide as a full-width trigger such as the rail's. */
   width?: "content" | "trigger";
   /** One row after the entries: its words at the start, a control at the end, such as the theme's glyphs. */
@@ -307,7 +312,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement, width = "content", foot: row }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, beside = false, width = "content", foot: row }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
@@ -325,10 +330,11 @@ export function Menu({ label, trigger, head, groups, placement, width = "content
       {trigger}
       {isDesktop ? (
         <Popover
-          placement={placement === "above" ? "top start" : "bottom start"}
-          offset={4}
+          placement={beside ? (placement === "above" ? "end bottom" : "end top") : placement === "above" ? "top start" : "bottom start"}
+          // 4 px from its trigger; beside a rail part, 4 px beyond the rail's 12-px inset and its edge, as the tooltip.
+          offset={beside ? 16 : 4}
           data-kit-focus
-          className={surface(width)}>
+          className={surface(beside ? "content" : width)}>
           {head !== undefined && (
             <Head
               head={head}

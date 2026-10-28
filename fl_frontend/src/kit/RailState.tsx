@@ -26,6 +26,11 @@ function useRail() {
   return useContext(RailContext);
 }
 
+/** Whether the rail stands collapsed, for a rail part whose menu then opens beside the rail; `false` outside a rail frame. */
+export function useRailCollapsed() {
+  return useRail()?.collapsed === true;
+}
+
 /**
  * The frame's measures, declared once for the parts drawn to them and for the toasts placed under them: the
  * phone's band, the desktop rail's width and its head, which the title strip shares, and the signed-in rail
