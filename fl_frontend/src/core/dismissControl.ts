@@ -1,3 +1,5 @@
+// Redesign: goes with the last importer of `shared/utils/appToast`, with the toaster it styles.
+
 import { tv } from "tailwind-variants";
 
 // `bg-transparent` is load-bearing: HeroUI's `close-button--default` paints `--default` at rest,

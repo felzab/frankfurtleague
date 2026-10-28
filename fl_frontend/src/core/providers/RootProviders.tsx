@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 
 import { ThemeProvider, useTheme } from "next-themes";
 
+// Session 8: both come from `react-aria-components` once HeroUI goes; the kit's menu links follow this
+// `RouterProvider`.
 import { I18nProvider, RouterProvider } from "@heroui/react/rac";
 
 import { THEME_COLOR } from "@/core/themeColor";
@@ -60,6 +62,7 @@ export function RootProviders({ children }: AppProvidersProps) {
           enableSystem={true}
           defaultTheme="system"
           disableTransitionOnChange>
+          {/* Redesign: goes with the last importer of `shared/utils/appToast`. */}
           <AppToaster />
           <ThemeColor />
           {children}

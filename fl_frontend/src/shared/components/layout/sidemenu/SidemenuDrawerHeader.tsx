@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import Xmark from "@gravity-ui/icons/Xmark";
 
 import { BrandLink } from "../../ui/BrandLink";

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Table` replaces it.
+
 /**
  * Every admin table's column heading. **No `bg-muted`**: `fl_frontend/src/app/globals.css ::
  * .table__column` paints the header itself, with an `!`.

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/SectionTitle` replaces it.
+
 import { FOCUS_HEADING } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactNode } from "react";

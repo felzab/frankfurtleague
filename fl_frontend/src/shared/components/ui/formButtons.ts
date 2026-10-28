@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Button` replaces it.
+
 import { tv } from "tailwind-variants";
 
 // A transition list says `scale`, never `transform`: v4 emits `scale-*` as the standalone `scale`

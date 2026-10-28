@@ -1,6 +1,9 @@
 /* One season's colours. A scheme carries no HeroUI import, and its `:root` block declares custom properties alone: a `transform`,
    `filter` or `contain` here would make the document root a containing block. */
 
+/* Session 8: `--bg-surface`, `--bg-muted`, `--fg-muted` and `--border-control` stand in `tokens.css` too,
+   with the same values in both themes; one of the two copies goes. */
+
 @layer base {
   :root,
   [data-theme="light"] {

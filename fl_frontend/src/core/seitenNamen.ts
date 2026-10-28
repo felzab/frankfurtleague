@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `core/routes.ts` and `COPY.seite` replace it.
+
 /**
  * The public area, whose layout titles every page under it. Each name here is spelled once in `core`,
  * where the shared top bar and footer and the mails read it as well as the page it names.

@@ -1,3 +1,6 @@
+// Redesign: moves into the kit, its one importer being `kit/Brand.tsx`; the old-component ban's allowance
+// for that file goes with it.
+
 type TrophyPath = { d: string; evenOdd?: true };
 
 /** Holes are `evenodd` subpaths rather than overlays in a ground colour, so the mark stays transparent through them on any ground. */

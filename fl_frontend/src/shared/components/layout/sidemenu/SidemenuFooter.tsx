@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import Link from "next/link";
 
 import ArrowRightToSquare from "@gravity-ui/icons/ArrowRightToSquare";

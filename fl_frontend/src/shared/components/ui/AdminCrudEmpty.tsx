@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
+
 import { card } from "./card";
 
 /**

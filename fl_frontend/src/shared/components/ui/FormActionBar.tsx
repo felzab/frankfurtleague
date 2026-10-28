@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/EditorBar` replaces it.
 import { Button } from "@heroui/react/button";
 
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";

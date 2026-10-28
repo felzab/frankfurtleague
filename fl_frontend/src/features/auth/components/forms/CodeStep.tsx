@@ -1,5 +1,6 @@
 "use client";
 
+// Session 4: goes with its one importer, the old Konto page's `CodeConfirmation`; `kit/CodeField` replaces it.
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useFocusRing } from "react-aria/useFocusRing";

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import { ComboBox as HeroUIComboBox } from "@heroui/react/combo-box";
 
 import { useRequiredMark } from "./RequiredMarks";

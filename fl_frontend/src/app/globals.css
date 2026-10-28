@@ -112,6 +112,7 @@
     font-synthesis: none;
   }
 
+  /* Session 8: goes with the old pages; the kit's focus is `focus.css`'s, which outranks it. */
   /* The focus indicator for everything HeroUI does not style itself, matching the
      width, offset and colour its own `focus-ring` resolves to. It CAN double up on
      a HeroUI control; the unlayered `.button` rule below stops that. */
@@ -138,6 +139,8 @@
      declaration would compile, pass every check and deliver half of what it says. */
   --font-sans--font-feature-settings: "lnum";
 
+  /* Session 8: the old pages' colour names, from here to the phase colours, go with the old pages; the
+     kit reads `tokens.css`'s. */
   --color-background: var(--bg-base);
   --color-surface: var(--bg-surface);
   --color-muted: var(--bg-muted);
@@ -174,6 +177,8 @@
   --color-phase-halbfinale: var(--accent-phase-halbfinale);
   --color-phase-finale: var(--accent-phase-finale);
 
+  /* Session 8: the fluid type scale goes with the old pages, with its utilities below and the
+     `fluid-base` on the root layout's body. */
   /* Fluid sizes, declared OUTSIDE Tailwind's `--text-*` namespace so they emit no
      utility: a `text-*` class tailwind-merge cannot classify falls into the COLOUR
      group and drops the real colour beside it, inside HeroUI. */
@@ -270,6 +275,7 @@ html:has([data-app-shell]) {
   scrollbar-gutter: auto;
 }
 
+/* Session 8: these utilities go with the old pages, with the fluid sizes they read. */
 /* THE app's type scale, and the only way to spell it: `fluid-sm`, never
    `text-fluid-sm`. Written out per step rather than as one functional
    `@utility fluid-*`, which would emit nothing for a typo and style it silently. */
@@ -843,6 +849,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     background-color: transparent;
   }
 
+  /* Redesign: the toast's rules go with the last importer of `shared/utils/appToast`, with `AppToaster`. */
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
      function, so everything with an element to hang a class on is ordinary TSX. */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame

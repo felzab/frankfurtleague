@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ClassicFrame` replaces it.
+
 import { SkipToContentLink } from "../../ui/SkipToContentLink";
 import { Footer } from "../footer/Footer";
 import { TopNav } from "../topnav/TopNav";

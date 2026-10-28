@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { createContext, useContext } from "react";
 
 import type { ReactNode } from "react";

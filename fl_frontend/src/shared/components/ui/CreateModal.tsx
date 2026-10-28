@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Dialog` replaces it.
 import Plus from "@gravity-ui/icons/Plus";
 
 import { useOverlayState } from "@heroui/react";

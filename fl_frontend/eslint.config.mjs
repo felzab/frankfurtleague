@@ -462,7 +462,7 @@ const SOURCE_BANS = [
       "A link opening a new tab is the kit's `Link` with `newTab`: a target spelled here tells a screen reader nothing.",
     ),
     SOURCE,
-    // `NewTabLink` is the old pages' new-tab link, which goes with the last page importing it.
+    // Redesign: goes with its last importer. `NewTabLink` is the old pages' new-tab link.
     { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
   ),
   syntaxBan(
@@ -654,6 +654,7 @@ const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
 /** The five keyframes and their module that each old page loses with its rebuild. */
+// Session 8: goes with the last old page, with the two bans that read it.
 const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|card-enter|bracket-phase-enter|toast-timer";
 
 const DESIGN_BANS = [
@@ -726,7 +727,8 @@ const DESIGN_BANS = [
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
-  // HeroUI and its icon set leave with their last importer; the kit builds on neither.
+  // Session 8: these two bans go with the last old page. HeroUI and its icon set leave with their last
+  // importer; the kit builds on neither.
   kitImport(
     {
       regex: packageUnder("@heroui/react", "@heroui/styles"),
@@ -741,6 +743,7 @@ const DESIGN_BANS = [
     },
     PRODUCTION,
   ),
+  // Session 8: this ban goes with the last old page, and its allowance once the logo moves into the kit.
   // The old shared components go the same way. The kit's `Brand` draws the old logo until the logo moves
   // into the kit.
   kitImport(
@@ -836,6 +839,8 @@ const DESIGN_BANS = [
   // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
   // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
   // classes are held here.
+  // Session 8: once HeroUI's stylesheets go, the theme resets Tailwind's namespaces to `initial` and the
+  // bans the resets make redundant go.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -889,6 +894,7 @@ const DESIGN_BANS = [
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
   ),
+  // Session 8: the old keyframes' and the old motion module's bans go with the last old page.
   classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with each page's rebuild: nothing new uses them.", PRODUCTION),
   kitImport(
     { regex: moduleNamed("motion"), message: "The old motion module goes with each page's rebuild: nothing new imports it." },

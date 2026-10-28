@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
 import { createContext, useContext, useDeferredValue, useMemo, useState } from "react";
 
 import type { ReactNode } from "react";

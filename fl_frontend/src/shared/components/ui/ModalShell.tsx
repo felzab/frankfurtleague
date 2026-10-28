@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Dialog` replaces it.
 import { tv } from "tailwind-variants";
 
 import { Modal } from "@heroui/react/modal";
