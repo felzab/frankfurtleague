@@ -21,9 +21,15 @@ type Act = {
 };
 
 type ButtonProps =
-  | (Act & { variant: "primary" | "secondary" | "danger"; label: Copy; icon?: never })
+  | (Act & {
+      variant: "primary" | "secondary" | "danger";
+      label: Copy;
+      /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
+      leadingIcon?: IconName;
+      icon?: never;
+    })
   /** An icon alone: `label` is its name, which the tooltip shows. */
-  | (Act & { icon: IconName; label: Copy; variant?: never });
+  | (Act & { icon: IconName; label: Copy; variant?: never; leadingIcon?: never });
 
 function Spinner() {
   return (
@@ -39,7 +45,10 @@ function Spinner() {
   );
 }
 
-/** The one control that acts: primary, secondary, danger, or an icon alone; disabled at half opacity. */
+/**
+ * The one control that acts: primary, secondary, danger, or an icon alone; disabled at half opacity. A
+ * labelled button may lead with a glyph.
+ */
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label } = props;
 
@@ -75,7 +84,16 @@ export function Button(props: ButtonProps) {
       isDisabled={isDisabled}
       isPending={isBusy}
       className={buttonLook({ look: props.variant, host: "aria" })}>
-      {isBusy && <Spinner />}
+      {isBusy ? (
+        <Spinner />
+      ) : (
+        props.leadingIcon !== undefined && (
+          <Icon
+            glyph={props.leadingIcon}
+            size={16}
+          />
+        )
+      )}
       {label}
     </AriaButton>
   );
