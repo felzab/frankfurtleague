@@ -71,7 +71,8 @@ test.describe("an administrator's passkey", () => {
 
     // No press: `/signin` asks the browser for a passkey as it loads, and the authenticator answers.
     await page.goto("/signin");
-    await expect(page).toHaveURL(/\/bereich\/admin/);
+    // The Übersicht, where `enrolPasskey` lands the code-borne sign-in too.
+    await expect(page).toHaveURL(/\/bereich$/);
 
     await expectAccountPageOf(page, administrator);
   });
