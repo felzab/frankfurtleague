@@ -108,7 +108,8 @@ export function SignInPage(props: SignInView) {
         <p
           role="alert"
           className={slots.line()}>
-          {props.zeile}
+          {/* The code view's line is the code field's own, under the boxes. */}
+          {props.view === "code" ? null : props.zeile}
         </p>
       </div>
     </ClassicPage>
@@ -188,6 +189,8 @@ function Body(props: SignInView) {
             key={code.versuch}
             label={code.label}
             name="code"
+            // The code's refusal stands under the boxes it refuses, in the field's own line.
+            error={props.zeile ?? undefined}
             isDisabled={code.isDisabled}
             onComplete={code.onComplete}
           />

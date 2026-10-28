@@ -99,12 +99,13 @@ export function CodeField({
           className={codeInput()}
         />
       </div>
-      {error === undefined ? (
-        // An empty line holds the place, describing nothing.
-        <div className={messageLine({ tone: "error", lines: "several" })} />
-      ) : (
-        <FieldError className={messageLine({ tone: "error", lines: "several" })}>{error}</FieldError>
-      )}
+      {/* An alert standing from the first render, so a refusal written into it is announced at once: it
+          answers the code just typed. Empty, the line holds its place. */}
+      <div
+        role="alert"
+        className={messageLine({ tone: "error", lines: "several" })}>
+        {error !== undefined && <FieldError>{error}</FieldError>}
+      </div>
     </TextField>
   );
 }
