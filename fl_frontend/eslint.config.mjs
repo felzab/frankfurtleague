@@ -541,6 +541,10 @@ const SOURCE_BANS = [
       "src/features/spielberichte/components/forms/SpielberichtForm/FormVorschlagSection.tsx",
       // Hands its select the mark its caller names, as the wrappers hand HeroUI theirs.
       "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx",
+      // The kit's fields hand React Aria the required flag their caller passes. `Link.tsx` is named so its own
+      // block, which the new-tab ban's exemption gives it, does not restate this ban.
+      "src/kit/**",
+      "src/kit/Link.tsx",
     ],
   },
   {
