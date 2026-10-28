@@ -8,26 +8,24 @@ import { expect } from "@playwright/test";
 import { test } from "./support/journey";
 import { askForCode, expectAccountPageOf, signInWithCode } from "./support/signIn";
 
-import type { Cookie } from "@playwright/test";
-
 /** The owner's grant, which no journey signs in with: asking for its code disturbs no other journey. */
 const MEMBER = "inhaber@example.com";
 
 /** An address no record of the made-up league holds. */
 const STRANGER = "niemand@example.com";
 
-/** The sign-in library's session cookie, whatever prefix the origin gives it (`fl_frontend/src/core/auth.ts :: cookieNaming`). */
-const sessionCookies = (cookies: readonly Cookie[]): string[] =>
-  cookies.filter((cookie) => cookie.name.endsWith(".session_token")).map((cookie) => cookie.name);
-
-test("asking for a code sets no cookie and answers a member and a stranger alike", async ({ page, context }) => {
+test("asking for a code sets no cookie and answers a member and a stranger alike", async ({ page, context, baseURL }) => {
   const answers: string[] = [];
 
   for (const address of [MEMBER, STRANGER]) {
     const { response, answer } = await askForCode(page, address);
 
     expect(await response.headerValue("set-cookie"), `the send for ${address} set a cookie`).toBeNull();
-    expect(sessionCookies(await context.cookies()), `a session cookie after the send for ${address}`).toEqual([]);
+    // Every cookie the site holds, whatever request set it, by name alone: a signed-out visitor holds none
+    // until a passkey ceremony starts, which nothing here presses. Scoped to the site, since the bot check
+    // loads from another host, whose cookies are not the site's; never left unscoped, which reads them all.
+    const names = (await context.cookies(String(baseURL))).map((cookie) => cookie.name);
+    expect(names, `the site's cookies after the send for ${address}`).toEqual([]);
     // The step names the address it was asked for, and nothing else in it may differ.
     answers.push(answer.replaceAll(address, "<Adresse>"));
   }

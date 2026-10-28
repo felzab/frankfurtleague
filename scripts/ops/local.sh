@@ -574,7 +574,8 @@ if (( HEALTHY )); then
   end_section
   CLOSING=("Open:               http://localhost:3000")
   if (( E2E )); then
-    CLOSING+=("Run the journeys:   (cd fl_frontend && pnpm run e2e)" \
+    # Once: a run keeps the records it creates, which the next run would meet as already there.
+    CLOSING+=("Run the journeys:   (cd fl_frontend && pnpm run e2e), once per start of this stack" \
               "Sign in as:         admin.desktop@example.com, its code in .tmp-e2e/mail" \
               "Logs:               COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend" \
               "Stop:               ${STOP_COMMAND}")
