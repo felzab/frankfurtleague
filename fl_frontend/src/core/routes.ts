@@ -98,7 +98,19 @@ export const ROUTES = {
     titel: COPY.seite.spiele,
     indexiert: false,
   },
+  /** The match editor, named by the match's two teams as the match's own page is. */
+  verwaltungSpiel: {
+    pfad: (saison: string, spiel: string) => `/bereich/verwaltung/saisons/${saison}/spiele/${spiel}` as const,
+    titel: COPY.seite.spiel,
+    indexiert: false,
+  },
   verwaltungSpielorte: { pfad: () => "/bereich/verwaltung/spielorte" as const, titel: COPY.seite.spielorte, indexiert: false },
+  /** A venue's own page, named by the venue. */
+  verwaltungSpielort: {
+    pfad: (spielort: string) => `/bereich/verwaltung/spielorte/${spielort}` as const,
+    titel: COPY.verwaltung.datensatz,
+    indexiert: false,
+  },
   verwaltungSchiedsrichter: {
     pfad: () => "/bereich/verwaltung/schiedsrichter" as const,
     titel: COPY.seite.schiedsrichter,
@@ -146,4 +158,5 @@ export const ROUTES = {
     titel: COPY.seite.adressaenderungen,
     indexiert: false,
   },
+  verwaltungProtokoll: { pfad: () => "/bereich/verwaltung/log" as const, titel: COPY.shared.protokoll, indexiert: false },
 } as const satisfies Record<string, RouteEntry>;

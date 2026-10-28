@@ -190,6 +190,41 @@ export const COPY = katalog({
     linkUngueltig: "Link nicht mehr gültig",
   },
 
+  /** The administration's own words: its frame, the Spielorte list and the match editor. */
+  verwaltung: {
+    /** The role an administrator acts in, the account row's second line. */
+    rolle: "Verwaltung",
+    /** The rail's headings over its groups; the Übersicht stands above them with none. */
+    gruppe: {
+      saisonsUndSpiele: "Saisons und Spiele",
+      schulenUndSpieler: "Schulen und Spieler",
+      zugangUndDatenschutz: "Zugang und Datenschutz",
+    },
+    /** A record's own page, named by the record. */
+    datensatz: (name: string) => name,
+
+    spielort: {
+      /** The object of „Spielort anlegen“. */
+      objekt: "Spielort",
+      suchen: "Spielorte suchen",
+      name: "Name",
+      adresse: "Adresse",
+      strasse: "Straße",
+      hausnummer: "Nr.",
+      plz: "PLZ",
+      stadtteil: "Stadtteil",
+      stadt: "Stadt",
+      /** What a new venue's city starts as: the league plays in one city. */
+      stadtVorgabe: "Frankfurt am Main",
+      mietpreis: "Mietpreis",
+      /** The example a figure's message line shows. */
+      mietpreisBeispiel: "60",
+      stillgelegt: "Stillgelegt",
+      /** One line of a venue's address: its street and number. */
+      strasseMitNummer: (strasse: string, hausnummer: string) => `${strasse} ${hausnummer}`,
+    },
+  },
+
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
   marke: {
     name: "Frankfurt League",
