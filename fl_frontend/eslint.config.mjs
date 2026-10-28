@@ -1245,6 +1245,14 @@ const eslintConfig = defineConfig([
   // prose never trips one.
   ...BAN_BLOCKS,
 
+  // A mailed link's confirmation answers a POST alone: a mail scanner opening the link sends a GET,
+  // and a GET handler here would confirm the seat in the scanner's name. Any upper-case export but
+  // `POST` is a method Next.js would route.
+  {
+    files: ["src/app/api/bestaetigung/**/route.ts"],
+    rules: { "no-restricted-exports": ["error", { restrictedNamedExportsPattern: "^(?!POST$)[A-Z]+$" }] },
+  },
+
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
   // registers it, and registering it twice is a flat-config error.
   {
