@@ -15,9 +15,8 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { spielortAnlegen } from "../../../../../spielortAnlegen";
 import { SPIELORT_REGELN } from "../../../../../spielortRegeln";
 import { SpielEditor } from "./SpielEditor";
-import { werteOf } from "./spielLesen";
 import { spielSpeichern } from "./spielSpeichern";
-import { KEIN_SONDEREREIGNIS } from "./spielWerte";
+import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
 import type { Copy } from "@/core/copy";
 import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";

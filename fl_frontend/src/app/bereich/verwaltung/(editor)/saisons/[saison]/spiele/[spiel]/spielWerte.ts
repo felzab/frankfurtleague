@@ -1,4 +1,5 @@
 import type { Kalendertag, Uhrzeit } from "@/core/format";
+import type { FLSpielAdmin } from "@/features/spiele/schemas";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
 export const KEIN_SONDEREREIGNIS = "keines";
@@ -17,3 +18,16 @@ export type SpielWerte = {
 };
 
 export type SpielFeld = keyof SpielWerte;
+
+/** The editor's values as a stored fixture gives them. */
+export function werteOf(spiel: FLSpielAdmin): SpielWerte {
+  return {
+    // Both already parsed as a calendar day and a time of day by the read's schema.
+    datum: spiel.datum as SpielWerte["datum"],
+    uhrzeit: spiel.uhrzeit as SpielWerte["uhrzeit"],
+    spielort: spiel.ort?.spielort_id ?? null,
+    mietpreis: spiel.ort === null ? "" : String(spiel.ort.mietpreis),
+    sonderereignis: spiel.sonderereignis ?? KEIN_SONDEREREIGNIS,
+    notiz: spiel.notiz ?? "",
+  };
+}
