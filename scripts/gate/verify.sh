@@ -62,7 +62,10 @@ if (( ${#SELECTED[@]} > 1 )); then
   fi
 
   for scope in "${SELECTED[@]}"; do
-    "$BASH" "$SELF" "--${scope}" > "${RUNS_DIR}/${scope}.log" 2>&1 &
+    # With no job control, bash starts an `&` command with SIGINT and SIGQUIT ignored, and a
+    # non-interactive shell can never trap a signal ignored on entry: the run would sit out Ctrl-C.
+    # The subshell resets both before the exec, so each run takes them as it would run alone.
+    ( trap - INT QUIT; exec "$BASH" "$SELF" "--${scope}" ) > "${RUNS_DIR}/${scope}.log" 2>&1 &
     PID[$scope]=$!
   done
 
