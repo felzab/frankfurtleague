@@ -48,6 +48,14 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   await page.getByLabel("Code aus der E-Mail").pressSequentially(code);
 }
 
+/** The account page renders for a session alone: without one it sends the visitor to `/signin`. */
+export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
+  await page.goto("/bereich/konto");
+
+  await expect(page).toHaveURL(/\/bereich\/konto$/);
+  await expect(page.getByText(address, { exact: true })).toBeVisible();
+}
+
 /** An administrator's first passkey, set up where a code-borne sign-in lands; answers the passkey the authenticator now holds. */
 export async function enrolPasskey(page: Page, context: BrowserContext): Promise<Passkey> {
   // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
