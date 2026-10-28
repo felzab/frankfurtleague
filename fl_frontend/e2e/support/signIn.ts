@@ -22,8 +22,8 @@ const isTheSend = async (response: Response): Promise<boolean> =>
 /** The step a send that mailed a code, or would have, shows in the address step's place. */
 export const codeStep = (page: Page): Locator => page.getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
 
-/** The sign-in's one line under its acts, where a send or a code that did not go through says why. */
-export const failureLine = (page: Page): Locator => page.getByRole("alert");
+/** The sign-in's one line under its acts, where a send that did not go through says why: a polite status. */
+export const failureLine = (page: Page): Locator => page.getByRole("status");
 
 /** Asks for a code on `/signin`; answers the send's response and the text of the step it shows. */
 export async function askForCode(page: Page, address: string): Promise<{ response: Response; answer: string }> {
