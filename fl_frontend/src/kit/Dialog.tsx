@@ -37,9 +37,14 @@ export const dim = tv({
   base: "fixed inset-0 z-50 bg-[rgb(0_0_0/0.1)] backdrop-blur-[4px] transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
 });
 
-/** The centred box every dialog shares; `width` is the drawn measure of its kind. */
+/**
+ * The centred box every dialog shares; `width` is the drawn measure of its kind. It is never taller than
+ * the visible window less the 1-rem margin its centring grid keeps, and scrolls inside past that, so a
+ * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
+ * writes for its modal to cap itself by.
+ */
 export const dialogBox = tv({
-  base: "grid w-full gap-6 rounded-xl bg-bg p-6 text-fg shadow-dialog",
+  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-6 text-fg shadow-dialog",
   variants: {
     width: {
       question: "max-w-[25rem]",
