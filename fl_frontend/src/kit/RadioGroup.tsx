@@ -13,12 +13,15 @@ export type Choice = { id: string; label: Copy };
 /** An answer that needs describing: its title and the one line under it. */
 type DescribedChoice = Choice & { line: Copy };
 
-/** The circle drawn for an answer, the ring's target, so it stays the radio's direct child. */
-function Circle({ isSelected }: { isSelected: boolean }) {
+/**
+ * The circle drawn for an answer, the ring's target, so it stays the radio's direct child. Left empty in a
+ * required group at the send, it takes the red edge a checkbox and every other field show.
+ */
+function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boolean }) {
   return (
     <span
       data-kit-focus="box"
-      className={toggleBox({ shape: "round", selected: isSelected })}>
+      className={toggleBox({ shape: "round", selected: isSelected, invalid: isInvalid })}>
       {isSelected && <span className={radioDot()} />}
     </span>
   );
@@ -71,9 +74,12 @@ export function RadioGroup({
                   key={choice.id}
                   value={choice.id}
                   className={card.card()}>
-                  {({ isSelected }) => (
+                  {({ isSelected, isInvalid }) => (
                     <>
-                      <Circle isSelected={isSelected} />
+                      <Circle
+                        isSelected={isSelected}
+                        isInvalid={isInvalid}
+                      />
                       <span className={card.words()}>
                         <span className={card.title()}>{choice.label}</span>
                         <span className={card.line()}>{choice.line}</span>
@@ -88,9 +94,12 @@ export function RadioGroup({
                 key={choice.id}
                 value={choice.id}
                 className={toggleRow({ in: "list" })}>
-                {({ isSelected }) => (
+                {({ isSelected, isInvalid }) => (
                   <>
-                    <Circle isSelected={isSelected} />
+                    <Circle
+                      isSelected={isSelected}
+                      isInvalid={isInvalid}
+                    />
                     {choice.label}
                   </>
                 )}

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Form } from "react-aria-components/Form";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
 import { RadioGroup } from "./RadioGroup";
 import { Switch } from "./Switch";
 
@@ -70,6 +73,36 @@ describe("a radio group", () => {
     expect(chosen.className.split(" ")).toEqual(expect.arrayContaining(["border-brand", "bg-brand"]));
     expect(chosen.firstElementChild?.className.split(" ")).toEqual(expect.arrayContaining(["size-2.5", "bg-bg"]));
     expect(drawnBox(COPY.shared.bank).firstElementChild).toBe(null);
+  });
+
+  it("draws every circle with the red edge once a send finds the required choice unmade, as a checkbox does", async () => {
+    render(
+      <Form onSubmit={(event) => event.preventDefault()}>
+        <RadioGroup
+          label={COPY.shared.saison}
+          name="platz"
+          isRequired
+          choices={[
+            { id: "startelf", label: COPY.shared.startelf },
+            { id: "bank", label: COPY.shared.bank },
+          ]}
+        />
+        <Button
+          variant="primary"
+          type="submit"
+          label={COPY.shared.verb.speichern}
+        />
+      </Form>,
+    );
+    expect(drawnBox(COPY.shared.startelf).className.split(" ")).toContain("border-border-control");
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+
+    expect(screen.getByText(COPY.shared.feld.pflichtfeld)).toBeTruthy();
+    for (const answer of [COPY.shared.startelf, COPY.shared.bank]) {
+      expect(drawnBox(answer).className.split(" ")).toContain("border-danger");
+      expect(drawnBox(answer).className.split(" ")).not.toContain("border-border-control");
+    }
   });
 
   it("draws described answers as cards, each title over its line, the chosen card edged in the link green", () => {
