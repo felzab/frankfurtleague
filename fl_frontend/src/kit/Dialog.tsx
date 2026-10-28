@@ -93,10 +93,11 @@ export function ActRow({ children }: { children: ReactNode }) {
 
 /**
  * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot:
- * centred, its title and its body, which is the page's own body rendered on the server. It stands open
- * while its route does; Escape or a press outside it goes Back, which closes it and leaves the page
- * beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
- * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
+ * centred, its title with the closing button at its end, and its body, which is the page's own body
+ * rendered on the server. It stands open while its route does; the closing button, Escape or a press
+ * outside it goes Back, which closes it and leaves the page beneath as it was. Always open: Next keeps a
+ * departed route in a hidden `Activity`, which hides the overlay's portal with it and runs its effects'
+ * cleanup, the scroll lock's included.
  */
 export function RouteDialog({
   title,
@@ -109,23 +110,34 @@ export function RouteDialog({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const close = () => goBackOrPush(router, beneath);
   return (
     <DialogOverlay
       width="form"
       isOpen
       isDismissable
       onOpenChange={(open) => {
-        if (!open) goBackOrPush(router, beneath);
+        if (!open) close();
       }}>
       <AriaDialog
         data-kit-focus
         className="grid gap-6">
-        <Heading
-          slot="title"
-          level={2}
-          className="text-xl font-semibold">
-          {title}
-        </Heading>
+        <div className="flex items-start justify-between gap-3">
+          <Heading
+            slot="title"
+            level={2}
+            className="min-w-0 text-xl font-semibold">
+            {title}
+          </Heading>
+          {/* Nudged up and out by its own padding, so the glyph lines up with the title's first line and the box's edge. */}
+          <div className="-mt-1.5 -me-2.5 shrink-0">
+            <Button
+              icon="schliessen"
+              label={COPY.shared.schliessen}
+              onPress={close}
+            />
+          </div>
+        </div>
         {children}
       </AriaDialog>
     </DialogOverlay>

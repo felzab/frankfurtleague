@@ -112,6 +112,8 @@ export const COPY = katalog({
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
     frage: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}?`,
     zurueck: "Zurück",
+    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. PROPOSED. */
+    schliessen: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     ende: {
