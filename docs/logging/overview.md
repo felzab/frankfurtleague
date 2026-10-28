@@ -3,9 +3,10 @@
 **Scope:** the log streams of nginx, the frontend and the backend, the trace that joins them, and the
 browser's crash reports.
 
-Each of the three services writes one stream, and in production every line of it is one JSON
-document. One request is followed across all three by its trace id, which the edge mints: a symptom
-on one surface is found on the others by searching for that id.
+Each of the three services writes its own log, and in production every application line and every
+edge access line is one JSON document; the edge's error log is plain text (below). One request is
+followed across all three by its trace id, which the edge mints: a symptom on one surface is found
+on the others by searching for that id.
 
 ## How it is organised
 
