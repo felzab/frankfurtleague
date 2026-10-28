@@ -1,7 +1,7 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOut } from "@/features/auth/signOut";
+import { signOut } from "@/shared/utils/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";

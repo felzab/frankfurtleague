@@ -7,8 +7,7 @@ import { SignInPage } from "@/kit/SignInPage";
 import { COPY } from "@/core/copy";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
-
-import { signOut } from "../../signOut";
+import { signOut } from "@/shared/utils/signOut";
 
 import type { Copy } from "@/core/copy";
 
