@@ -58,6 +58,11 @@ export const COPY = katalog({
     /** „Team anlegen“: a button whose verb needs its object. */
     mitObjekt: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}`,
 
+    /** The units a field's figure is counted in, set after the field. */
+    einheit: {
+      euro: "€",
+    },
+
     /** A field's one message line: what is expected, never the field's name. */
     feld: {
       pflichtfeld: "Pflichtfeld",
@@ -66,6 +71,8 @@ export const COPY = katalog({
       format: (beispiel: Copy) => `Format: ${beispiel}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
       beispielAdresse: "name@example.com",
+      // A digits field's example: figures alone, whatever the field counts.
+      beispielZiffern: "123",
       zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
       fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
       spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,

@@ -40,10 +40,16 @@ export function formatUhrzeit(zeit: Uhrzeit | Date): string {
   return UHRZEIT_GESPEICHERT.format(Date.UTC(1970, 0, 1, stunde, minute));
 }
 
-/** „24. Oktober 2026 um 15:30“. */
+/**
+ * „24. Oktober 2026 um 15:30“.
+ * @awaitsProduction its first page
+ */
 export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zeitpunkt);
 
-/** „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. */
+/**
+ * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share.
+ * @awaitsProduction its first page
+ */
 export const formatZeitraum = (von: Kalendertag | Date, bis: Kalendertag | Date): string => DATUM.formatRange(alsInstant(von), alsInstant(bis));
 
 /** „1.234,5“. */
@@ -52,11 +58,14 @@ export const formatZahl = (zahl: number): string => ZAHL.format(zahl);
 /** „25,00 €“. */
 export const formatEuro = (betrag: number): string => EURO.format(betrag);
 
+/** The mark between a score's two figures, for a score drawn as two parts as much as one string. */
+export const ERGEBNIS_TRENNER = ":";
+
 /** „3:1“; after a shoot-out, each side's goals and shoot-out goals added, „n. E.“ placed beside it. */
 export function formatErgebnis(tore: Paar, elfmeterschiessen?: Paar | null): string {
   const team1 = tore.team1 + (elfmeterschiessen?.team1 ?? 0);
   const team2 = tore.team2 + (elfmeterschiessen?.team2 ?? 0);
-  return `${team1}:${team2}`;
+  return `${team1}${ERGEBNIS_TRENNER}${team2}`;
 }
 
 /** „Saison 2027“. A season's id is its year, which takes no thousands separator. */

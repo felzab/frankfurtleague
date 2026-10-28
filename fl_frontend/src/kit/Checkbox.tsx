@@ -2,7 +2,7 @@
 
 import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
-import { MessageLine } from "./FieldParts";
+import { MessageLine, RequiredMark } from "./FieldParts";
 import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { Icon } from "./Icon";
 
@@ -10,7 +10,8 @@ import type { Copy } from "@/core/copy";
 
 /**
  * A saved yes or no, such as a consent or „Startelf“ in a line-up: the drawn box, its label to the
- * right. A required box keeps a message line under its label, where „Pflichtfeld“ appears.
+ * right, an asterisk after a required box's label as after every required field's. A required box keeps a
+ * message line under its label, where „Pflichtfeld“ appears.
  */
 export function Checkbox({
   label,
@@ -54,7 +55,10 @@ export function Checkbox({
                 />
               )}
             </span>
-            {label}
+            <span>
+              {label}
+              <RequiredMark isRequired={isRequired} />
+            </span>
           </>
         )}
       </CheckboxButton>

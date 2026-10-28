@@ -37,6 +37,12 @@ describe("a button's fills", () => {
     expect(under(buttonLook({ look: "secondary", host: "aria" }), "data-hovered:")).toStrictEqual(["bg-bg-surface"]);
   });
 
+  it("hovers an icon-only button to the muted fill, its rest being no fill at all", () => {
+    const classes = buttonLook({ look: "icon", host: "aria" });
+    expect(classes.split(" ")).toContain("bg-transparent");
+    expect(under(classes, "data-hovered:")).toStrictEqual(["bg-bg-muted"]);
+  });
+
   it("fills a destructive button with its own solid red, which keeps white text legible in the dark theme", () => {
     const classes = buttonLook({ look: "danger", host: "aria" }).split(" ");
     expect(classes).toContain("bg-danger-solid");

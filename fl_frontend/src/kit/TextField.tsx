@@ -5,7 +5,7 @@ import { TextField as AriaTextField, Input, TextArea } from "react-aria-componen
 import { COPY } from "@/core/copy";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
-import { fieldFrame, fieldRoot } from "./fieldStyles";
+import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
 
 import type { Copy } from "@/core/copy";
 import type { Constraints } from "./FieldParts";
@@ -33,22 +33,27 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
 
 /**
  * What an address field is filled as: the person's address, or, where the address signs in, the account's
- * name, under which a password manager files the passkey it offers.
+ * name, under which a password manager files what it keeps for the site.
  */
-type EmailAutofill = "email" | "username webauthn";
+type EmailAutofill = "email" | "username";
 
-/** A single line at its width class, its keyboard set by `kind`; a URL names the example its message shows. */
+/**
+ * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
+ * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL the column.
+ */
 type SingleLine = {
-  width: "W1" | "W2" | "W3";
+  width: "C2" | "C5" | "W3";
 } & (
-  | { kind: "text" | "digits"; autofill?: Autofill; beispiel?: never }
-  | { kind: "email"; autofill?: EmailAutofill; beispiel?: never }
-  | { kind: "tel" | "search"; autofill?: never; beispiel?: never }
-  | { kind: "url"; autofill?: never; beispiel: Copy }
+  | { kind: "text"; autofill?: Autofill; beispiel?: never; unit?: never }
+  /** `unit` stands after the field, outside it, as „€“ after a price. */
+  | { kind: "digits"; autofill?: Autofill; beispiel?: never; unit?: Copy }
+  | { kind: "email"; autofill?: EmailAutofill; beispiel?: never; unit?: never }
+  | { kind: "tel" | "search"; autofill?: never; beispiel?: never; unit?: never }
+  | { kind: "url"; autofill?: never; beispiel: Copy; unit?: never }
 );
 
 /** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; autofill?: never; beispiel?: never };
+type Paragraph = { width: "W4"; kind: "text"; autofill?: never; beispiel?: never; unit?: never };
 
 export type TextFieldProps = Shared & (SingleLine | Paragraph);
 
@@ -58,14 +63,18 @@ export type TextFieldProps = Shared & (SingleLine | Paragraph);
  * `autofill` replaces its own.
  */
 const KINDS = {
-  text: { type: "text", inputMode: undefined, autoComplete: undefined },
-  // A count or a figure: a plain field opening the digits keyboard, with no stepper.
-  digits: { type: "text", inputMode: "numeric", autoComplete: undefined },
-  email: { type: "email", inputMode: undefined, autoComplete: "email" },
-  tel: { type: "tel", inputMode: undefined, autoComplete: "tel" },
-  url: { type: "url", inputMode: undefined, autoComplete: "url" },
-  search: { type: "search", inputMode: undefined, autoComplete: undefined },
+  text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
+  // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
+  // anything else reads „Format: …“ at the send rather than reaching the server.
+  digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
+  email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
+  tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
+  url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
+  search: { type: "search", inputMode: undefined, autoComplete: undefined, pattern: undefined },
 } as const;
+
+/** The example a malformed value is shown, by kind; a URL names its own. */
+const BEISPIEL = { email: COPY.shared.feld.beispielAdresse, digits: COPY.shared.feld.beispielZiffern } as const;
 
 /**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at its
@@ -78,9 +87,23 @@ export function TextField(props: TextFieldProps) {
   const constraints: Constraints = {
     maxLength,
     minLength,
-    beispiel: props.kind === "url" ? props.beispiel : kind === "email" ? COPY.shared.feld.beispielAdresse : undefined,
+    beispiel: props.kind === "url" ? props.beispiel : kind === "email" || kind === "digits" ? BEISPIEL[kind] : undefined,
   };
   const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
+  const field =
+    width === "W4" ? (
+      <TextArea
+        data-kit-focus="field"
+        rows={4}
+        className={frame}
+      />
+    ) : (
+      <Input
+        data-kit-focus="field"
+        className={frame}
+      />
+    );
+  const unit = fieldUnit();
 
   return (
     <AriaTextField
@@ -95,22 +118,24 @@ export function TextField(props: TextFieldProps) {
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
+      pattern={keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
       />
-      {width === "W4" ? (
-        <TextArea
-          data-kit-focus="field"
-          rows={4}
-          className={frame}
-        />
+      {props.unit === undefined ? (
+        field
       ) : (
-        <Input
-          data-kit-focus="field"
-          className={frame}
-        />
+        <span className={unit.row()}>
+          {field}
+          {/* Hidden from assistive technology, as GOV.UK hides a suffix: the label names what the figure counts. */}
+          <span
+            aria-hidden
+            className={unit.unit()}>
+            {props.unit}
+          </span>
+        </span>
       )}
       <MessageLine
         description={description}
