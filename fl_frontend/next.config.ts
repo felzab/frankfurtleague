@@ -1,4 +1,10 @@
+import optimizeLocales from "@react-aria/optimize-locales-plugin";
+
 import type { NextConfig } from "next";
+
+// Every locale an `I18nProvider` sets belongs here (`fl_frontend/src/core/providers/RootProviders.tsx`):
+// React Aria's strings for any other are emptied from the server bundle and the client's alike.
+const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 
 const nextConfig: NextConfig = {
   // These run *ahead of* src/proxy.ts -- observed, not assumed: GET /bereich/admin redirects without
@@ -50,6 +56,13 @@ const nextConfig: NextConfig = {
       fullUrl: false, // Prevents giant URLs in the terminal
     },
   },
+  turbopack: {
+    rules: {
+      // The plugin's `LocalesPlugin.d.ts` types `locales` as `readonly string[]`, which Next's
+      // `TurbopackLoaderOptions` refuses; remove the assertion once the plugin's types accept Next's.
+      ...(localeOptimization.rules as NonNullable<NextConfig["turbopack"]>["rules"]),
+    },
+  },
   experimental: {
     // HeroUI's root is imported for `useOverlayState` alone, which no subpath publishes.
     // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root
@@ -60,10 +73,6 @@ const nextConfig: NextConfig = {
     // check is `pnpm audit:prod`.
     agentUpgrade: false,
   },
-  // Set only by the gate's host build, which follows its own tsc over the same working tree,
-  // `.next/types/validator.ts` included. Never set it for an image build: that context is the tree
-  // after `.dockerignore`, which no tsc has checked.
-  typescript: { ignoreBuildErrors: process.env.SKIP_BUILD_TYPE_CHECK === "true" },
   output: "standalone",
   // TypeScript alone: Next's default also serves a `route.js` or a `page.jsx`, which tsc (`allowJs` off),
   // the lint globs and every sweep over handlers and pages never read.
@@ -76,7 +85,7 @@ const nextConfig: NextConfig = {
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written.
 
-  // Off, or `next dev` run by an agent writes an `AGENTS.md` and a `CLAUDE.md` here, which an agent
+  // Off, or `next dev` run by an agent writes its own block into an `AGENTS.md` here, which an agent
   // then loads as instructions nobody reviewed; `.claude/CLAUDE.md` §4 names this repository's docs.
   agentRules: false,
 };

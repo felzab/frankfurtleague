@@ -5,7 +5,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "26.12.0",
+      "version": "^26.12.0",
       "onFail": "download"
     }
   },
@@ -15,7 +15,7 @@
   },
   "packageManager": "pnpm@11.28.6",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key SECRETS_DIR=../secrets next dev --turbo",
+    "dev": "NODE_OPTIONS=--max-old-space-size=8192 ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
     "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs scripts/emit-environment-names.mjs",
     "start": "next start",
@@ -24,11 +24,12 @@
     "knip:prod": "knip --production --no-progress --treat-config-hints-as-errors --config knip.production.json",
     "format": "prettier --write .. --ignore-path ../.prettierignore",
     "format:check": "prettier --check .. --ignore-path ../.prettierignore --cache --cache-strategy content",
+    "lint:md": "cd .. && markdownlint-cli2",
     "typegen": "next typegen",
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
     "test": "pnpm run test:base \"**/!(*.db).test.{cjs,mjs,js,cts,mts,ts}\" \"**/*-test.{cjs,mjs,js,cts,mts,ts}\" \"**/*_test.{cjs,mjs,js,cts,mts,ts}\" \"**/test-*.{cjs,mjs,js,cts,mts,ts}\" \"**/test.{cjs,mjs,js,cts,mts,ts}\" \"**/test/**/*.{cjs,mjs,js,cts,mts,ts}\"",
-    "test:base": "cross-env SKIP_ENV_VALIDATION=true node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs --test --test-timeout=120000 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/case-count-reporter.mjs --test-reporter-destination=stderr",
+    "test:base": "SKIP_ENV_VALIDATION=true node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs --test --test-timeout=120000 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/case-count-reporter.mjs --test-reporter-destination=stderr",
     "test:db": "pnpm run test:base \"**/*.db.test.{cjs,mjs,js,cts,mts,ts}\"",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },
@@ -39,16 +40,17 @@
     "@heroui/react": "^3.2.6",
     "@heroui/styles": "^3.2.6",
     "@internationalized/date": "^3.12.4",
-    "@t3-oss/env-nextjs": "^0.13.11",
     "better-auth": "^1.7.10",
     "client-only": "^0.0.1",
     "fuse.js": "^7.5.0",
     "jose": "^6.2.12",
+    "lucide-react": "^1.62.0",
     "mongodb": "^7.7.0",
     "next": "^16.4.2",
     "next-themes": "^0.4.6",
     "react": "^19.3.1",
     "react-aria": "^3.53.1",
+    "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
     "svix": "^2.8.0",
@@ -57,6 +59,8 @@
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@playwright/test": "^1.64.1",
+    "@react-aria/optimize-locales-plugin": "^2.1.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testcontainers/mongodb": "^12.2.1",
     "@testing-library/dom": "^10.4.2",
@@ -66,20 +70,21 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.2",
     "eslint-plugin-better-tailwindcss": "^4.9.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jsdom": "^30.1.3",
     "knip": "^6.42.0",
+    "markdownlint-cli2": "^0.24.0",
     "postcss": "^8.5.30",
     "prettier": "3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.3",
     "testcontainers": "^12.2.1",
     "tw-animate-css": "1.4.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
   },
   "browserslist": [
     "chrome >= 111",
