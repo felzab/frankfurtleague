@@ -312,7 +312,7 @@ export const menuPopover = tv({
     // sliver, and takes its trigger's width where the trigger is a full-width row.
     fit: {
       field: "w-(--trigger-width)",
-      content: "max-w-[calc(100vw-2rem)] min-w-(--trigger-width)",
+      content: "max-w-panel min-w-(--trigger-width)",
       menu: "min-w-56",
       trigger: "w-(--trigger-width) min-w-56",
     },

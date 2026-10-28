@@ -65,7 +65,7 @@ function Block({ block }: { block: ProseBlock }) {
  */
 export function Prose({ blocks }: { blocks: ReadonlyArray<ProseBlock> }) {
   return (
-    <div className="grid max-w-[64ch] gap-3 text-base text-fg">
+    <div className="grid max-w-measure gap-3 text-base text-fg">
       {blocks.map((block, index) => (
         <Block
           key={index}

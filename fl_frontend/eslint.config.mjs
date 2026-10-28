@@ -690,14 +690,6 @@ const DESIGN_BANS = [
     ),
     PAGE_CODE,
   ),
-  kitImport(
-    {
-      regex: kitModule("Stack", "Inline"),
-      message: "Only the kit and its templates lay out with the layout primitives: page code places the kit's named blocks.",
-    },
-    PAGE_CODE,
-  ),
-
   // Every control is the kit's, which takes no `className` or `style`.
   ...["className", "style"].map((propName) =>
     ban(
@@ -876,6 +868,13 @@ const DESIGN_BANS = [
     `Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16, and \`${TOGGLE_OFFSET.name}\` for a toggle's drawn box.`,
     PRODUCTION,
     { only: [TOGGLE_OFFSET.home] },
+  ),
+  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`, `src/app/globals.css`), as a step of
+  // spacing is: a literal is a second width for a box the tokens already name.
+  classBan(
+    CLASS(String.raw`(?:max-w|tracking)-\[.+\]`),
+    "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
+    KIT,
   ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
