@@ -22,7 +22,13 @@ const isTheSend = async (response: Response): Promise<boolean> =>
 /** Asks for a code on `/signin`; answers the send's response and the text of the step it shows. */
 export async function askForCode(page: Page, address: string): Promise<{ response: Response; answer: string }> {
   await page.goto("/signin");
-  await page.getByLabel("E-Mail-Adresse").fill(address);
+  const field = page.getByLabel("E-Mail-Adresse");
+  // Tapped first, as a person reaches the field: React hydrates what a press lands on during the
+  // press itself (https://github.com/reactwg/react-18/discussions/37). A bare `fill` into a field not
+  // yet hydrated loses the address in WebKit: React's state never learns it, and its next render
+  // empties the field.
+  await field.click();
+  await field.fill(address);
 
   const sent = page.waitForResponse(isTheSend);
   await page.getByRole("button", { name: "Code senden" }).click();
