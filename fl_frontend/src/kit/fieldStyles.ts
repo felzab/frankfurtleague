@@ -251,15 +251,18 @@ export const switchTrack = tv({
 });
 
 /**
- * The switch's thumb, in the page's ground, sliding to the track's end when on.
+ * The switch's thumb: the control edge's grey on the off track, the page's ground on the brand fill once on,
+ * sliding to the track's end when on.
  * @awaitsProduction session 5's `Switch`
  */
 export const switchThumb = tv({
-  base: "size-4 rounded-full bg-bg transition-transform duration-(--motion-state)",
+  base: "size-4 rounded-full transition-[transform,background-color] duration-(--motion-state)",
   variants: {
     selected: {
-      true: "translate-x-4",
-      false: "translate-x-0",
+      true: "translate-x-4 bg-bg",
+      // Off, the thumb takes the control edge's grey, which shows on the muted track in both themes; the
+      // page's ground would sit at 1.3:1 on it.
+      false: "translate-x-0 bg-border-control",
     },
   },
 });
