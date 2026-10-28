@@ -790,14 +790,16 @@ const DESIGN_BANS = [
       { allow: homes },
     ),
   ),
-  // A segmented control's glyph segment is the one other icon-only control: its name is its tooltip too.
+  // A segmented control's glyph segment and a link of the collapsed rail are the other icon-only controls:
+  // each one's name is its tooltip too.
   kitImport(
     {
       regex: kitModule("Tooltip"),
-      message: "The kit's `Tooltip` names an icon-only `Button` or a glyph segment of `ChoiceButtons`, and nothing else.",
+      message:
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons` or a link of the collapsed rail, and nothing else.",
     },
     PRODUCTION,
-    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx"] },
+    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx"] },
   ),
   // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
   kitImport(

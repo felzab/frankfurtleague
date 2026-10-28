@@ -7,8 +7,11 @@ import { ROUTES } from "@/core/routes";
 import { Brand } from "./Brand";
 import { Chip } from "./Chip";
 import { AccountRow, BackControl, BarPlaces, EditorBack, MenuScope, RailEntries, SeasonScope } from "./FrameNav";
+import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
+import { RailRoot, RailToggle, RailTooltip } from "./RailState";
+import { RAIL_ID, railFade, railGlyph } from "./railStyles";
 import { SeasonButton } from "./SeasonButton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
@@ -28,8 +31,9 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
 /**
  * The frame of every public season page and every signed-in area, which a layout places around its pages.
  * From 1024 px the rail stands at the left: the logo and the wordmark, the season button, the entries in
- * their groups, the foot. Below it the dark-green band stands at the top with the logo, the wordmark and the
- * season button, and the bottom bar holds the pages, „Mehr“ and the account.
+ * their groups, the foot; the strip's toggle folds it to its glyphs (`RailState.tsx`). Below it the
+ * dark-green band stands at the top with the logo, the wordmark and the season button, and the bottom bar
+ * holds the pages, „Mehr“ and the account.
  *
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar.
@@ -78,12 +82,12 @@ export function RailFrame({
   const frame = (
     <MenuScope value={{ groups, bar, extra, account }}>
       <LeaveGuardProvider>
-        {/* The frame's measures, declared once for the parts drawn to them and for the toasts placed under them:
-            the phone's band, the desktop rail's width and its head, which the title strip shares, and the
-            signed-in rail foot's height, which an editor's bar takes too, so the two top hairlines are one line:
-            its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
-        <div className="min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:16rem] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)]">
-          <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
+        <RailRoot>
+          {/* Clips its parts as its width changes: each keeps its words in flow, faded, so a screen reader
+              still hears every name while the rail shows glyphs alone. */}
+          <aside
+            id={RAIL_ID}
+            className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
               {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
@@ -102,12 +106,22 @@ export function RailFrame({
                   <AccountRow account={foot.account} />
                 </Suspense>
               ) : (
-                <NextLink
-                  href={foot.href}
-                  data-kit-focus="ring"
-                  className={frameLink({ tone: "rail" })}>
-                  {COPY.shared.verb.anmelden}
-                </NextLink>
+                // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
+                // and the tooltip names it.
+                <RailTooltip label={COPY.shared.verb.anmelden}>
+                  <NextLink
+                    href={foot.href}
+                    data-kit-focus="ring"
+                    className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
+                    <span className={railGlyph()}>
+                      <Icon
+                        glyph="anmelden"
+                        size={18}
+                      />
+                    </span>
+                    <span className={railFade()}>{COPY.shared.verb.anmelden}</span>
+                  </NextLink>
+                </RailTooltip>
               )}
             </div>
           </aside>
@@ -115,7 +129,7 @@ export function RailFrame({
           <div className="flex min-h-dvh min-w-0 flex-col">{columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}</div>
           {/* Fixed, so no grid cell: inside the frame for the measures it is placed by. */}
           <ToastRegion frame="rail" />
-        </div>
+        </RailRoot>
       </LeaveGuardProvider>
     </MenuScope>
   );
@@ -192,10 +206,10 @@ const strip = tv({
 export const formColumn = tv({ base: "mx-auto grid w-full max-w-form gap-6" });
 
 /**
- * A rail page's title and content. On desktop the title stands at the start of the 48-px strip, which runs
- * the full width beside the rail with its hairline continuing the rail head's edge, on a public season page
- * with „Impressum“ and „Datenschutz“ at its end; on a phone it heads the content under the band. The page's
- * templates place it; `main` holds their content.
+ * A rail page's title and content. On desktop the rail's toggle and then the title stand at the start of the
+ * 48-px strip, which runs the full width beside the rail with its hairline continuing the rail head's edge,
+ * on a public season page with „Impressum“ and „Datenschutz“ at its end; on a phone the title heads the
+ * content under the band. The page's templates place it; `main` holds their content.
  */
 export function RailPage({
   area,
@@ -216,6 +230,7 @@ export function RailPage({
   return (
     <>
       <header className={head()}>
+        <RailToggle />
         <h1 className={heading()}>{titleOf(title)}</h1>
         {chip !== undefined && (
           <Chip

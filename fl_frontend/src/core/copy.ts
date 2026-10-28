@@ -256,6 +256,8 @@ export const COPY = katalog({
     menue: "Menü",
     /** The account menu's theme choice, under the name of Konto's page for it: the system's, or one set here. */
     darstellung: { system: "System", hell: "Hell", dunkel: "Dunkel" },
+    /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
+    seitenleiste: { einklappen: "Seitenleiste einklappen", ausklappen: "Seitenleiste ausklappen" },
 
     /** The footer: the league's group, which holds the sponsors' page, and the line over the sponsors' logos. */
     liga: "Liga",

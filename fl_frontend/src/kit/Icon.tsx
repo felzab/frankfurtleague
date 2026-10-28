@@ -2,6 +2,7 @@ import Ban from "lucide-react/icons/ban";
 import Calendar from "lucide-react/icons/calendar";
 import CalendarDays from "lucide-react/icons/calendar-days";
 import CalendarRange from "lucide-react/icons/calendar-range";
+import CalendarSync from "lucide-react/icons/calendar-sync";
 import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
@@ -15,11 +16,13 @@ import Info from "lucide-react/icons/info";
 import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
 import LoaderCircle from "lucide-react/icons/loader-circle";
+import LogIn from "lucide-react/icons/log-in";
 import Mail from "lucide-react/icons/mail";
 import MapPin from "lucide-react/icons/map-pin";
 import Menu from "lucide-react/icons/menu";
 import Monitor from "lucide-react/icons/monitor";
 import Moon from "lucide-react/icons/moon";
+import PanelLeft from "lucide-react/icons/panel-left";
 import Plus from "lucide-react/icons/plus";
 import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
@@ -46,6 +49,8 @@ import { tv } from "./tv";
 const GLYPHS = {
   // A record created where its list shows, before the act's label.
   anlegen: Plus,
+  // „Anmelden“ at the collapsed rail's foot: an arrow into a door frame.
+  anmelden: LogIn,
   aufklappen: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
   dunkel: Moon,
@@ -60,7 +65,13 @@ const GLYPHS = {
   laedt: LoaderCircle,
   mehr: Ellipsis,
   menue: Menu,
+  // The season button collapsed to its glyph: a calendar with the cycling arrows, switching between seasons,
+  // apart from the plain range of `saisons`, the page listing them.
+  saison: CalendarSync,
   schliessen: X,
+  // The strip's toggle folding the rail: one glyph in both states, as shadcn/ui's sidebar trigger draws
+  // it; the tooltip and `aria-expanded` say which way the next press goes.
+  seitenleiste: PanelLeft,
   suche: Search,
   system: Monitor,
   // A time of day, the pop-up's „Uhrzeit“; the date beside it is `kalender`, and the dated fixtures `spielplan`.

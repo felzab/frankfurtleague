@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 import { counterpart, useFrameSeason } from "./FrameNav";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
+import { railFade } from "./railStyles";
 import { tv } from "./tv";
 
 const trigger = tv({
@@ -19,17 +20,23 @@ const trigger = tv({
     name: "truncate",
     span: "font-numeric text-xs font-normal text-fg-muted",
     arrow: "flex",
+    glyph: "",
   },
   variants: {
     // In the rail on the page's ground: outlined, no fill, two lines (the name over the season's span), 58 px
     // tall with 16 px at the sides, 8 above and below and 4 between the lines (design board 6, `saison` B).
+    // Collapsed, the lines and the arrow fade, clipped by the box, and the season glyph fades in over the
+    // box's 16-px inset, where the place's 12 px and that inset centre a 16-px glyph in the 72-px rail.
     // On the phone's dark-green band: one line, as tall as a touch target, since the span does not fit beside
     // the wordmark.
     placement: {
       rail: {
         place: "px-3 pt-3 pb-1",
-        root: "min-h-14 w-full border-border bg-transparent px-4 py-2 font-semibold text-fg data-hovered:bg-bg-muted data-pressed:bg-bg-muted",
-        arrow: "text-fg-muted",
+        root: "relative min-h-14 w-full overflow-hidden border-border bg-transparent px-4 py-2 font-semibold text-fg data-hovered:bg-bg-muted data-pressed:bg-bg-muted",
+        lines: railFade(),
+        arrow: railFade({ class: "text-fg-muted" }),
+        glyph:
+          "absolute inset-y-0 left-4 flex items-center text-fg-muted opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
       },
       band: {
         place: "ms-auto shrink-0",
@@ -55,7 +62,7 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
   const params = useParams();
   if (season === null) return null;
 
-  const { place, root, lines, name, span, arrow } = trigger({ placement, single: season.entries.length < 2 });
+  const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: season.entries.length < 2 });
   const active = season.entries.find((entry) => entry.id === season.active);
   return (
     <div className={place()}>
@@ -79,10 +86,18 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
             data-kit-focus="ring"
             className={root()}>
             {placement === "rail" ? (
-              <span className={lines()}>
-                <span className={name()}>{COPY.shared.saisonName(season.active)}</span>
-                <span className={span()}>{active?.span}</span>
-              </span>
+              <>
+                <span className={glyph()}>
+                  <Icon
+                    glyph="saison"
+                    size={16}
+                  />
+                </span>
+                <span className={lines()}>
+                  <span className={name()}>{COPY.shared.saisonName(season.active)}</span>
+                  <span className={span()}>{active?.span}</span>
+                </span>
+              </>
             ) : (
               COPY.shared.saisonName(season.active)
             )}
