@@ -529,10 +529,9 @@ const HISTORY_BACK = {
   message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton` (docs/frontend/spec.md :: I225).",
 };
 
-// The name in every literal spelling -- a call, an alias, a destructured key, a computed member --
-// since an alias reaches the endpoint with no call spelled. A name assembled at run time passes.
+/** The passkey plugin's own deletion, on whatever object or binding carries it. */
 const PASSKEY_DELETION = {
-  selector: 'Identifier[name="deletePasskey"], Literal[value="deletePasskey"], TemplateElement[value.cooked="deletePasskey"]',
+  property: "deletePasskey",
   message:
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
@@ -1076,16 +1075,6 @@ const LOGGED_ERROR = {
 
 const SOURCE_BANS = [
   LOGGED_ERROR,
-  {
-    // A test's router double counts `seen.back` and destructures `back` off itself, which the
-    // property rule production takes would refuse, so a test keeps the call ban alone.
-    selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="back"]',
-    message: HISTORY_BACK.message,
-    tests: true,
-    production: false,
-  },
-  // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
-  PASSKEY_DELETION,
   FULL_PREFETCH,
   ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
@@ -1541,12 +1530,13 @@ const eslintConfig = defineConfig([
     rules: { "local/node-in-equality": "error" },
   },
 
-  // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
-  // because it IS the guard.
+  // A dedicated rule wherever one states the ban, over production alone: a test's router double counts
+  // its own `back`, and `src/core/auth.test.ts` calls the plugin's deletion to hold it closed.
+  // `useEditorExit.ts` is exempt from the history ban because it IS the guard.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
-    rules: { "no-restricted-properties": ["error", HISTORY_BACK] },
+    rules: { "no-restricted-properties": ["error", HISTORY_BACK, PASSKEY_DELETION] },
   },
   {
     files: ["src/**/*.{ts,tsx}"],
@@ -1569,7 +1559,7 @@ const eslintConfig = defineConfig([
       "react/jsx-props-no-spreading": ["error", { html: "ignore", custom: "ignore", exceptions: tagsOf(DATE_CONTROLS) }],
     },
   },
-  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": "off" } },
+  { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": ["error", PASSKEY_DELETION] } },
 
   // Every file first, so the Next, date-control, form and field bans reach tests and the slices neither boundary
   // names; each later block restates them for `restrictImports`'s reason.
