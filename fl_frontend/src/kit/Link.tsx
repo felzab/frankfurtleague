@@ -6,15 +6,20 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
 const link = tv({
-  base: "text-brand",
   variants: {
-    // Underlined inside running text alone; a link standing on its own is known by its place.
+    // Underlined inside running text alone; a link standing on its own is known by its place. A row's
+    // link is its record's name, stretched over the row it stands in, so the whole row opens the record.
     placement: {
-      text: "underline",
-      standalone: "",
+      text: "text-brand underline",
+      standalone: "text-brand",
+      row: "text-fg after:absolute after:inset-0 after:content-['']",
     },
   },
 });
+
+// The focus file's mark for each placement: a ring hugging the words, a ring with its gap, or a ring
+// drawn inside the row the link covers.
+const FOCUS = { text: "text", standalone: "ring", row: "row" } as const;
 
 /**
  * The one way to go somewhere: Next's link, prefetching on hover and in view, so a page of links loads
@@ -22,24 +27,27 @@ const link = tv({
  */
 export function Link<T extends string>({
   href,
-  label,
   placement,
   newTab = false,
+  ...words
 }: {
   href: Route<T>;
-  label: Copy;
-  placement: "text" | "standalone";
+  /** `row` only inside a table row, which `Table` writes. */
+  placement: "text" | "standalone" | "row";
   /** Opens the target in a new tab; nothing else does. */
   newTab?: boolean;
-}) {
+} & (
+  | { /** Catalogue words. */ label: Copy; text?: never }
+  | { /** A record's own name, such as a club's or a venue's: data, not catalogue text. */ text: string; label?: never }
+)) {
   return (
     <NextLink
       href={href}
-      data-kit-focus={placement === "text" ? "text" : "ring"}
+      data-kit-focus={FOCUS[placement]}
       className={link({ placement })}
       target={newTab ? "_blank" : undefined}
       rel={newTab ? "noopener noreferrer" : undefined}>
-      {label}
+      {words.label ?? words.text}
     </NextLink>
   );
 }

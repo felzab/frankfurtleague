@@ -45,6 +45,17 @@
   z-index: 1;
 }
 
+/* A table row's link is stretched over its row by its `::after`, so the ring is drawn there, inside the
+   row; the link's own outline rests at zero width with every other mark's. */
+[data-kit-focus="row"]::after {
+  outline: 0 solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+[data-kit-focus="row"]:focus-visible::after {
+  outline-width: 2px;
+}
+
 /* The active part of a composite control is a fill, the same under the pointer and the arrow keys. */
 [data-kit-focus="item"][data-focused] {
   background-color: var(--bg-muted);
