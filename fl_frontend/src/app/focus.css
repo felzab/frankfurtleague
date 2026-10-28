@@ -57,9 +57,16 @@
   outline-width: 2px;
 }
 
-/* The active part of a composite control is a fill, the same under the pointer and the arrow keys. */
-[data-kit-focus="item"][data-focused] {
+/* The active part of a composite control is a fill, the same under the pointer and the arrow keys. A chosen
+   item keeps its own mark, the inverted day of a calendar or a chosen row's tint, which the fill would cover:
+   there the focus is the 2-px ring drawn inside the item, as an item of a scrolling list draws it. */
+[data-kit-focus="item"][data-focused]:not([data-selected]) {
   background-color: var(--bg-muted);
+}
+
+[data-kit-focus="item"][data-focused][data-selected] {
+  outline-width: 2px;
+  outline-offset: -2px;
 }
 
 /* In a field showing its error, the active part tints red the way a chip or a callout does, 12 % of the
