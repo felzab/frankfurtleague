@@ -94,7 +94,7 @@ export function SpielEditor({
                 <TextField
                   label={ORT.mietpreis}
                   name="mietpreis"
-                  width="W2"
+                  width="C5"
                   kind="digits"
                   isRequired={mietpreisPflicht}
                   value={draft.mietpreis}

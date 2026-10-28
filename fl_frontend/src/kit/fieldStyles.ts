@@ -42,15 +42,23 @@ export const messageLine = tv({
 export const fieldFrame = tv({
   base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
   variants: {
-    // The four width classes: up to five characters, a date or a short figure, the column, a paragraph.
+    // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
+    // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
+    // of characters and one more for the caret, inside the two 10-px insets and the two 1-px edges
+    // (1.375 rem together). Then the column, and the column at four lines for a paragraph.
     width: {
-      W1: "h-9 w-16 pointer-coarse:h-11",
-      W2: "h-9 w-36 pointer-coarse:h-11",
+      // A score.
+      C2: "h-9 w-[calc(3ch+1.375rem)] pointer-coarse:h-11",
+      // A postcode, a time, whole euros, a house number.
+      C5: "h-9 w-[calc(6ch+1.375rem)] pointer-coarse:h-11",
+      // A date: the width of a ten-character field and its calendar button beside it, 36 px with a mouse
+      // and 44 on a touch screen as every field's button is.
+      C10: "h-9 w-[calc(11ch+1.375rem+2.25rem)] pointer-coarse:h-11 pointer-coarse:w-[calc(11ch+1.375rem+2.75rem)]",
       W3: "h-9 w-full pointer-coarse:h-11",
       W4: "min-h-26 w-full resize-none py-2",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
-    // start. The padding is set per width below: the two short widths take 10 px, the long ones 12 px.
+    // start. The padding is set per width below: the short widths take 10 px, the long ones 12 px.
     inset: {
       full: "",
       start: "",
@@ -70,8 +78,8 @@ export const fieldFrame = tv({
     },
   },
   compoundVariants: [
-    { width: ["W1", "W2"], inset: "full", class: "px-2.5" },
-    { width: ["W1", "W2"], inset: "start", class: "ps-2.5" },
+    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
+    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
     { width: ["W3", "W4"], inset: "full", class: "px-3" },
     { width: ["W3", "W4"], inset: "start", class: "ps-3" },
   ],

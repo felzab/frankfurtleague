@@ -32,7 +32,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.hausnummer}
         name="hausnummer"
-        width="W1"
+        width="C5"
         kind="text"
         isRequired={pflicht.hausnummer}
         maxLength={hoechstens.hausnummer}
@@ -40,7 +40,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.plz}
         name="plz"
-        width="W2"
+        width="C5"
         kind="digits"
         isRequired={pflicht.plz}
         // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
@@ -68,7 +68,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.mietpreis}
         name="mietpreis"
-        width="W2"
+        width="C5"
         kind="digits"
         isRequired={pflicht.mietpreis}
       />

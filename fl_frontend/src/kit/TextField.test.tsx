@@ -48,8 +48,24 @@ describe("a field's frame", () => {
   });
 });
 
+describe("a field's width", () => {
+  it.each([
+    ["C2", "w-[calc(3ch+1.375rem)]"],
+    ["C5", "w-[calc(6ch+1.375rem)]"],
+  ] as const)("counts %s in characters, one more for the caret, so it grows with the font size", (width, step) => {
+    render(
+      <TextField
+        label={COPY.shared.startelf}
+        kind="digits"
+        width={width}
+      />,
+    );
+    expect(classesOf(screen.getByRole("textbox"))).toContain(step);
+  });
+});
+
 describe("a field's inset", () => {
-  it.each(["W1", "W2"] as const)("is 10 px in the short width %s", (width) => {
+  it.each(["C2", "C5"] as const)("is 10 px in the short width %s", (width) => {
     render(
       <TextField
         label={COPY.shared.startelf}

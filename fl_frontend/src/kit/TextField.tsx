@@ -37,9 +37,12 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
  */
 type EmailAutofill = "email" | "username webauthn";
 
-/** A single line at its width class, its keyboard set by `kind`; a URL names the example its message shows. */
+/**
+ * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
+ * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL the column.
+ */
 type SingleLine = {
-  width: "W1" | "W2" | "W3";
+  width: "C2" | "C5" | "W3";
 } & (
   | { kind: "text" | "digits"; autofill?: Autofill; beispiel?: never }
   | { kind: "email"; autofill?: EmailAutofill; beispiel?: never }
