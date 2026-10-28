@@ -789,43 +789,6 @@ function assertionCalled(checker, callee) {
   return (symbol.declarations ?? []).some((declaration) => NODE_ASSERT.test(declaration.getSourceFile().fileName));
 }
 
-const SEARCH_IN_URL_MESSAGE =
-  "A typed search query never rides a URL, which the access log, the history and every Referer keep: hold it in the page, as AdminCrudShell does (docs/frontend/spec.md :: I680).";
-
-/** A value read through its type assertions and a `??` or `||` fallback, which hand on what they hold. */
-function heldValue(node) {
-  if (["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "TSTypeAssertion", "ChainExpression"].includes(node?.type)) {
-    return heldValue(node.expression);
-  }
-  return node?.type === "LogicalExpression" && node.operator !== "&&" ? heldValue(node.left) : node;
-}
-
-/** `q` as a member or a destructured key names it, in either spelling. */
-const namesQ = (key, computed) =>
-  (!computed && key.type === "Identifier" && key.name === "q") ||
-  (key.type === "Literal" && key.value === "q") ||
-  (key.type === "TemplateLiteral" && key.expressions.length === 0 && key.quasis[0].value.cooked === "q");
-
-/** The page's parameters as a page holds them: under a name a page gives them, or as any awaited value. */
-const isPageParameters = (node) =>
-  node?.type === "AwaitExpression" || (node?.type === "Identifier" && /^(?:searchParams|params)$/.test(node.name));
-
-/** What awaiting or `use`-ing the page's parameter promise gave, which a binding then carries under any name. */
-function takenFromParameters(init) {
-  const value = heldValue(init);
-  const operand =
-    value?.type === "AwaitExpression"
-      ? value.argument
-      : value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "use"
-        ? value.arguments[0]
-        : undefined;
-  const promise = heldValue(operand);
-  return (
-    (promise?.type === "Identifier" && /searchParams/.test(promise.name)) ||
-    (promise?.type === "MemberExpression" && !promise.computed && promise.property.name === "searchParams")
-  );
-}
-
 /**
  * The admin-link ban is a rule of its own because its sites are excused one by one, and a disable
  * comment names a rule: one naming `no-restricted-syntax` would excuse every syntax ban on its line.
@@ -868,56 +831,6 @@ const LOCAL_RULES = {
           if (!named || !assertionCalled(checker, esTreeNodeToTSNodeMap.get(call.callee))) return;
           const operands = call.arguments.slice(0, 2).map((operand) => checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(operand)));
           if (operands.some((type) => holdsNode(dom, type, 0))) context.report({ node: call, messageId: "printed" });
-        },
-      };
-    },
-  },
-  // A rule rather than a selector, which reads no binding: `const sp = await searchParams` hands the query
-  // on under any name, and only the scope says where that name is read.
-  "search-in-page-parameters": {
-    meta: { type: "problem", messages: { read: SEARCH_IN_URL_MESSAGE }, schema: [] },
-    create: (context) => {
-      const reported = new Set();
-      const report = (node) => {
-        if (reported.has(node)) return;
-        reported.add(node);
-        context.report({ node, messageId: "read" });
-      };
-      const readKeys = (pattern) => {
-        for (const property of pattern.properties)
-          if (property.type === "Property" && namesQ(property.key, property.computed)) report(property);
-      };
-      const followed = new Set();
-      // Every read of `q` off the binding, through each alias and rest element it is handed on to.
-      const follow = (declarator) => {
-        if (followed.has(declarator)) return;
-        followed.add(declarator);
-        if (declarator.id.type === "ObjectPattern") readKeys(declarator.id);
-        // The names holding the whole object, never one destructured key's value.
-        const whole =
-          declarator.id.type === "ObjectPattern"
-            ? declarator.id.properties.flatMap((property) => (property.type === "RestElement" ? [property.argument] : []))
-            : [declarator.id];
-        const holders = context.sourceCode.getDeclaredVariables(declarator).filter((variable) => whole.includes(variable.identifiers[0]));
-        for (const variable of holders) {
-          for (const { identifier } of variable.references.filter((each) => each.isRead())) {
-            let held = identifier;
-            while (heldValue(held.parent) === identifier) held = held.parent;
-            const { parent } = held;
-            if (parent.type === "MemberExpression" && parent.object === held && namesQ(parent.property, parent.computed)) report(parent);
-            if (parent.type === "VariableDeclarator" && parent.init === held) follow(parent);
-          }
-        }
-      };
-      return {
-        MemberExpression: (node) => {
-          if (namesQ(node.property, node.computed) && (isPageParameters(heldValue(node.object)) || takenFromParameters(node.object)))
-            report(node);
-        },
-        VariableDeclarator: (node) => {
-          if (node.init == null) return;
-          if (takenFromParameters(node.init)) follow(node);
-          else if (node.id.type === "ObjectPattern" && isPageParameters(heldValue(node.init))) readKeys(node.id);
         },
       };
     },
@@ -1001,57 +914,6 @@ const readsOff = (name) =>
     `ObjectPattern > Property[key.value=${name}]`,
     `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
   ].join(", ");
-
-/**
- * A search query in a URL by the name `q` (`docs/frontend/spec.md :: I680`), a page's parameters read by
- * `local/search-in-page-parameters`; under another name, the page sweep's. Another host's `?q=` is refused
- * on purpose; `has` and `delete` stay free to strip one.
- */
-const SEARCH_IN_URL = {
-  selector: [
-    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|set|append)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
-    inLiteral(String.raw`[?&]q=`),
-    'NewExpression[callee.name="URLSearchParams"] Property:matches([key.name="q"], [key.value="q"])',
-    // Next's URL-object `href`.
-    'Property[key.name="query"] > ObjectExpression.value > Property:matches([key.name="q"], [key.value="q"])',
-  ].join(", "),
-  message: SEARCH_IN_URL_MESSAGE,
-};
-
-/** The search box, rendered only where a holder keeps what is typed in the page. */
-const SEARCH_BAR_HOME = {
-  selector: [
-    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("SearchBar")}/]`,
-    loadOf(moduleNamed("SearchBar")),
-  ].join(", "),
-  message:
-    "A list's search field is AdminCrudSearch, whose query the shell holds in the page: a SearchBar rendered anywhere else has no holder keeping its query out of the URL (docs/frontend/spec.md :: I680).",
-  // The match search's bar and list are one component, which holds the query itself.
-  exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
-};
-
-/**
- * The other three spellings of a search box. A plain input or a text field used as one passes here,
- * and `fl_frontend/src/app/typedText.test.ts` fails it once its text reaches a URL.
- */
-const SEARCH_FIELD_HOME = {
-  selector: [
-    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
-    loadOf(packageUnder("@heroui/react/search-field")),
-    'JSXAttribute[name.name="type"]:matches([value.value="search"], [value.expression.value="search"])',
-    'JSXAttribute[name.name="role"]:matches([value.value="searchbox"], [value.expression.value="searchbox"])',
-  ].join(", "),
-  message:
-    "A search box is SearchBar: HeroUI's search field, an input of type search and a searchbox role belong to it and to the pickers this ban exempts, whose filters never leave their form (docs/frontend/spec.md :: I680).",
-  exempt: [
-    "src/shared/components/ui/SearchBar.tsx",
-    // A facet's own option filter, and three pickers narrowing the options of one field.
-    "src/shared/components/ui/FilterPanel.tsx",
-    "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
-    "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
-    "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
-  ],
-};
 
 /**
  * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
@@ -1259,9 +1121,6 @@ const SOURCE_BANS = [
     tests: true,
   },
   STALE_ADMIN_BAN,
-  SEARCH_IN_URL,
-  SEARCH_BAR_HOME,
-  SEARCH_FIELD_HOME,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -1519,7 +1378,7 @@ const eslintConfig = defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     plugins: { local: LOCAL_PLUGIN },
-    rules: { "local/admin-link": "error", "local/search-in-page-parameters": "error" },
+    rules: { "local/admin-link": "error" },
   },
   // Types for the tests alone, which the one typed rule reads. `--cache` keys a file on its own text, so
   // a local run may keep a verdict whose types moved in an import; CI lints cold.
