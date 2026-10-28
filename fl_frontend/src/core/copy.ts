@@ -119,5 +119,13 @@ export const COPY = katalog({
     disqualifiziert: "DQ",
     startelf: "Startelf",
     bank: "Bank",
+
+    /** The ⓘ's name, which its tooltip shows. */
+    hilfe: "Hilfe",
+    /** A phone's filter button, and the sheet it opens, closed by „Fertig“. */
+    filter: "Filter",
+    fertig: "Fertig",
+    /** The season button's menu. */
+    saison: "Saison",
   },
 });

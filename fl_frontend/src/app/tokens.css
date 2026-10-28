@@ -59,6 +59,52 @@
   }
 }
 
+/* The kit's keyframes, defined where motion is welcome alone: under `reduce` a name resolves to nothing,
+   so the sheet's scrim stands without fading and a sideways row shows no fade. */
+@media (prefers-reduced-motion: no-preference) {
+  /* A sheet's scrim and blur, driven by the sheet's position as it slides in or is swiped away. */
+  @keyframes kit-sheet-backdrop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* A row that scrolls sideways fades the edge with more to read, driven by the scroll position: at the
+     start only the end fades, at the end only the start. */
+  @keyframes kit-scroll-fade {
+    from {
+      --kit-fade-start: 0px;
+      --kit-fade-end: 32px;
+    }
+    10%,
+    90% {
+      --kit-fade-start: 24px;
+      --kit-fade-end: 32px;
+    }
+    to {
+      --kit-fade-start: 24px;
+      --kit-fade-end: 0px;
+    }
+  }
+}
+
+/* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
+   row that fits, a browser without scroll-driven animations, or reduced motion shows no fade. */
+@property --kit-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --kit-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-surface: var(--bg-surface);
