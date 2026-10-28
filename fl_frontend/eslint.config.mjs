@@ -291,6 +291,18 @@ const IMPORT_BANS = [
  */
 const inLiteral = (pattern) => `:matches(Literal[value=/${pattern}/], TemplateElement[value.raw=/${pattern}/], JSXText[value=/${pattern}/])`;
 
+/**
+ * A string a JSX child renders through a ternary or a logical operator, up to three of them deep, which
+ * `react/jsx-no-literals` passes over: it reports a string whose parent is the child's braces and nothing
+ * else. Props stay free, as that rule's `ignoreProps` leaves them; the required mark `*` is a glyph.
+ */
+const PICKED_STRING = [1, 2, 3]
+  .flatMap((depth) => {
+    const picked = `:matches(JSXElement, JSXFragment) > JSXExpressionContainer${" > :matches(ConditionalExpression, LogicalExpression)".repeat(depth)}`;
+    return [`${picked} > Literal[value=/[^\\s*]/]`, `${picked} > TemplateLiteral > TemplateElement[value.raw=/\\S/]`];
+  })
+  .join(", ");
+
 /** A class token, whole: bounded by whitespace or the literal's end, any variant prefix allowed. */
 const TOKEN_START = String.raw`(?:^|\s)(?:\S*:)?`;
 const TOKEN_END = String.raw`(?:\s|$)`;
@@ -907,6 +919,7 @@ const DESIGN_BANS = [
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
+  syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
   syntaxBan(
     syntax(
       'TSAsExpression > TSTypeReference.typeAnnotation[typeName.name="Copy"], TSTypeAssertion > TSTypeReference.typeAnnotation[typeName.name="Copy"]',
