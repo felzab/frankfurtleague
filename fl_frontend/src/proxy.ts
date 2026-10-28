@@ -64,7 +64,7 @@ export const config = {
       source: "/bereich/:path*",
       missing: [
         // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
-        // prefetch sends no header and runs the proxy, which `fl_frontend/eslint.config.mjs :: FULL_PREFETCH` refuses.
+        // prefetch sends no header and runs the proxy.
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
       ],
