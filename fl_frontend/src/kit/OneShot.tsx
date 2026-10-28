@@ -4,12 +4,10 @@ import { useRef, useState } from "react";
 
 import { Form } from "react-aria-components/Form";
 
-import { COPY } from "@/core/copy";
-
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusPage } from "./StatusPage";
-import { useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -45,11 +43,11 @@ export function OneShotForm({
   /** The form's fields, the kit's, each with its `name`. */
   children?: ReactNode;
 }) {
-  const { answer, submit, isPending } = useFormAction(({ formData, act }: { formData: FormData; act: Act }) => action(formData, act), {
-    resetOnLeave: false,
-  });
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(
+    ({ formData, act }: { formData: FormData; act: Act }) => action(formData, act),
+    { resetOnLeave: false },
+  );
   const form = useRef<HTMLFormElement>(null);
-  const [isBlocked, setBlocked] = useState(false);
   const [pressed, setPressed] = useState<Act>("primary");
 
   if (answer?.ok === true) {
@@ -62,14 +60,9 @@ export function OneShotForm({
   }
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  let line: Copy | undefined;
-  if (isBlocked) line = COPY.vorlage.felderPruefen;
-  // A refusal its fields carry is pointed at, not repeated, as the editor's status line does.
-  else if (refused !== null)
-    line = refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen;
+  const status = statusOf(refused, isBlocked);
 
   const send = (element: HTMLFormElement, act: Act) => {
-    setBlocked(false);
     setPressed(act);
     submit({ formData: new FormData(element), act });
   };
@@ -80,7 +73,7 @@ export function OneShotForm({
       <Form
         ref={form}
         validationErrors={refused?.fieldErrors}
-        onInvalid={() => setBlocked(true)}
+        onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
           send(event.currentTarget, "primary");
@@ -104,7 +97,7 @@ export function OneShotForm({
               }}
             />
           )}
-          <p className="line-clamp-2 min-h-5 text-sm text-danger">{line}</p>
+          <p className="line-clamp-2 min-h-5 text-sm text-danger">{status?.text}</p>
         </div>
       </Form>
     </ClassicPage>

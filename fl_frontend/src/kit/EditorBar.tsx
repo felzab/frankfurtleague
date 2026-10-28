@@ -8,7 +8,7 @@ import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 import type { Copy } from "@/core/copy";
-import type { EditorStatus } from "./useEditor";
+import type { FormStatus } from "./useFormAction";
 
 /** A save whose change reaches beyond the record, such as the mails a moved match sends, asks this first. */
 export type SaveWarning = { subject: Copy; consequence: Copy };
@@ -36,7 +36,7 @@ export function EditorBar({
   warning,
   onSave,
 }: {
-  status: EditorStatus;
+  status: FormStatus;
   isPending: boolean;
   /** The question a save of the present changes asks first, or `null` where it asks none. */
   warning: SaveWarning | null;

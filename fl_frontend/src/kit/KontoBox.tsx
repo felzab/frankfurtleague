@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import { Form } from "react-aria-components/Form";
 import { tv } from "tailwind-variants/lite";
 
@@ -9,17 +7,18 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { HelpPopover } from "./HelpPopover";
-import { useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
+import type { ActionAnswer, FormStatus } from "./useFormAction";
 
 const statusLine = tv({
   base: "line-clamp-2 min-w-0 flex-1 text-sm",
   variants: {
     tone: {
       none: "",
+      changes: "text-fg",
       saved: "text-success",
       error: "text-danger",
     },
@@ -46,30 +45,16 @@ export function KontoBox({
   /** The box's fields: the kit's, each with its `name`. */
   children: ReactNode;
 }) {
-  const { answer, submit, isPending } = useFormAction(action, { resetOnLeave: true });
-  // The browser kept the save back for a field's own rule; cleared by the next send.
-  const [isBlocked, setBlocked] = useState(false);
-
-  let status: { tone: "saved" | "error"; text: Copy } | null = null;
-  if (isBlocked) {
-    status = { tone: "error", text: COPY.vorlage.felderPruefen };
-  } else if (answer?.ok === true) {
-    status = { tone: "saved", text: COPY.shared.gespeichert };
-  } else if (answer !== null && !answer.ok) {
-    status = {
-      tone: "error",
-      text: answer.reason ?? (answer.fieldErrors === undefined ? COPY.shared.fehler.unerwartet : COPY.vorlage.felderPruefen),
-    };
-  }
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: true });
+  const status: FormStatus = statusOf(answer, isBlocked) ?? (answer?.ok === true ? { tone: "saved", text: COPY.shared.gespeichert } : null);
 
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-bg">
       <Form
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
-        onInvalid={() => setBlocked(true)}
+        onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
-          setBlocked(false);
           submit(new FormData(event.currentTarget));
         }}>
         <div className="grid gap-4 p-4">

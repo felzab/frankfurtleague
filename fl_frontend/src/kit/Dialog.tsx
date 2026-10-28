@@ -12,7 +12,7 @@ import { COPY } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
-import { useFormAction } from "./useFormAction";
+import { statusOf, useFormAction } from "./useFormAction";
 
 import type { Copy, Verb } from "@/core/copy";
 import type { Route } from "next";
@@ -162,7 +162,7 @@ function ActForm({
   close: () => void;
   children: ReactNode;
 }) {
-  const { answer, submit, isPending } = useFormAction(
+  const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
       const answered = await action(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
@@ -172,15 +172,8 @@ function ActForm({
     // The form unmounts as the dialog closes, which clears its answer.
     { resetOnLeave: false },
   );
-  // The browser kept the act back for a field's own rule; cleared by the next send.
-  const [isBlocked, setBlocked] = useState(false);
-
   const refused = answer !== null && !answer.ok ? answer : null;
-  let line: Copy | undefined;
-  if (isBlocked) line = COPY.vorlage.felderPruefen;
-  // A refusal its fields carry is pointed at, not repeated, as the editor's status line does.
-  else if (refused !== null)
-    line = refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen;
+  const status = statusOf(refused, isBlocked);
 
   return (
     // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
@@ -190,12 +183,11 @@ function ActForm({
       <Form
         className="grid gap-6"
         validationErrors={refused?.fieldErrors}
-        onInvalid={() => setBlocked(true)}
+        onInvalid={block}
         onSubmit={(event) => {
           event.preventDefault();
           // React's submit event bubbles through the portal to the outer form, whose save would run too.
           event.stopPropagation();
-          setBlocked(false);
           submit(new FormData(event.currentTarget));
         }}>
         <Heading
@@ -206,7 +198,7 @@ function ActForm({
         </Heading>
         <div className="grid justify-items-start gap-4">{children}</div>
         <ActRow>
-          <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{line}</p>
+          <p className="line-clamp-2 min-w-0 flex-1 text-sm text-danger">{status?.text}</p>
           <Button
             variant="secondary"
             label={COPY.shared.zurueck}
