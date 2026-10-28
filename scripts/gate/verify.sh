@@ -418,7 +418,7 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   # A parse accepts a published port and a database alike.
   step "ops · only the edge is reachable off this host"
   check --checker "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
-findings above name the service and the rule (docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 or I509)." \
+findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
@@ -442,7 +442,7 @@ findings above name the service and the rule (docs/ops/spec.md I1, I174, I355, I
       || refuse "${nginx_image} could not be fetched, so prod.conf was not parsed. Docker's own reason is above."
   fi
   # No `--add-host`: nginx resolves a literal upstream as it loads, so this parse refuses one naming
-  # `frontend` or `backend` (`docs/ops/spec.md :: I9`).
+  # `frontend` or `backend`.
   MSYS_NO_PATHCONV=1 check "nginx refuses prod.conf — its own explanation is above." \
     docker run --rm --pull never \
     -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
@@ -452,7 +452,7 @@ findings above name the service and the rule (docs/ops/spec.md I1, I174, I355, I
     "$nginx_image" nginx -t \
     && ok "${nginx_image} accepts prod.conf"
 
-  # A parse sees neither a log line nor a response (`docs/logging/spec.md` L11, `docs/ops/spec.md` I2).
+  # A parse sees neither a log line nor a response.
   step "ops · the edge logs no credential and sends every security header once"
   check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
 files under nginx/shared/ decide it." bash nginx/edge_test.sh \
