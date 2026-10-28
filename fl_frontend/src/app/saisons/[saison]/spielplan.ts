@@ -19,6 +19,7 @@ import type { FLSaison } from "@/features/saisons/schemas";
 import type { FLSonderereignis, FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/features/spiele/schemas";
 import type { Fact } from "@/kit/Facts";
 import type { Seasons } from "@/kit/FrameNav";
+import type { MatchHeadProps } from "@/kit/MatchHead";
 import type { MatchRowProps, MatchSide } from "@/kit/MatchRow";
 
 /** The season an address names, among the seasons the public may read; any other is not found. */
@@ -116,6 +117,14 @@ export function sidesOf(spiel: FLSpiel): { heim: MatchSide; gast: MatchSide } {
   return { heim: sideOf(spiel.team1, spiel.team1_quelle), gast: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
+/** The result as the kit's rows and heads take it, and nothing until one is entered. */
+function resultOf(spiel: FLSpiel): Pick<MatchRowProps, "result"> {
+  if (spiel.ergebnis === null) return {};
+  return {
+    result: { tore: toreOf(spiel.ergebnis), ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) },
+  };
+}
+
 /** A match as a row of the Spielplan, the row opening the match's page. */
 export function matchRowOf(spiel: FLSpiel): MatchRowProps & { id: string } {
   const { heim, gast } = sidesOf(spiel);
@@ -125,12 +134,34 @@ export function matchRowOf(spiel: FLSpiel): MatchRowProps & { id: string } {
     when: COPY.spielplan.wann(tagOf(spiel.datum), zeitOf(spiel.uhrzeit)),
     home: heim,
     away: gast,
-    ...(spiel.ergebnis === null
-      ? {}
-      : {
-          result: { tore: toreOf(spiel.ergebnis), ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) },
-        }),
+    ...resultOf(spiel),
   };
+}
+
+/** The pop-up's head: the matchday over the pairing and its score. */
+export function headOf(spiel: FLSpiel, spieltag: string): MatchHeadProps {
+  const { heim, gast } = sidesOf(spiel);
+  return { eyebrow: spieltag, home: heim, away: gast, ...resultOf(spiel) };
+}
+
+/**
+ * The pop-up's facts under its head, each led by its glyph and each only where it holds a value: when and
+ * where the match is played, and who referees it. The matchday stands in the head and the result in its
+ * score, so neither is repeated here.
+ */
+export function popupFactsOf(spiel: FLSpiel): Fact[] {
+  const { fakt } = COPY.spielplan;
+  const tag = tagOf(spiel.datum);
+  const zeit = zeitOf(spiel.uhrzeit);
+  const facts: (Fact | null)[] = [
+    tag === null ? null : { label: fakt.datum, glyph: "kalender", value: formatDatum(tag), figures: true },
+    zeit === null ? null : { label: fakt.uhrzeit, glyph: "uhrzeit", value: formatUhrzeit(zeit), figures: true },
+    spiel.ort === null
+      ? null
+      : { label: fakt.ort, glyph: "spielorte", elsewhere: { href: buildMapsSearchUrl(spiel.ort.maps_link), text: spiel.ort.name } },
+    spiel.schiedsrichter?.name == null ? null : { label: fakt.schiedsrichter, glyph: "schiedsrichter", value: spiel.schiedsrichter.name },
+  ];
+  return facts.filter((fact) => fact !== null);
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
@@ -143,6 +174,27 @@ function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpiel): Copy {
       return words.nichtAngetreten(sidesOf(spiel).gast.name);
     default:
       return words[ereignis];
+  }
+}
+
+/**
+ * What befell the match, for the pop-up's callout: what happened, and under it what that means for the
+ * result; `null` where the match is simply played. A no-show's consequence names the side that turned up.
+ */
+export function ereignisOf(spiel: FLSpiel): { title: Copy; text: Copy } | null {
+  const ereignis = spiel.sonderereignis;
+  if (ereignis === null) return null;
+  const title = sonderereignisOf(ereignis, spiel);
+  const { folge } = COPY.spielplan.sonderereignis;
+  switch (ereignis) {
+    case "nichtantreten_team1":
+      return { title, text: folge.nichtAngetreten(sidesOf(spiel).gast.name) };
+    case "nichtantreten_team2":
+      return { title, text: folge.nichtAngetreten(sidesOf(spiel).heim.name) };
+    case "abgebrochen":
+      return { title, text: spiel.ergebnis === null ? folge.abgebrochenOffen : folge.abgebrochenGewertet };
+    default:
+      return { title, text: folge[ereignis] };
   }
 }
 

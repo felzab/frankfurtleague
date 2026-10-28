@@ -217,6 +217,18 @@ export const COPY = katalog({
       nichtAngetreten: (team: string) => `${team} nicht angetreten`,
       abgebrochen: "Abgebrochen",
       annulliert: "Annulliert",
+      /**
+       * What the event means for the result, under its name in the pop-up's callout: a match called off or
+       * struck out awards nothing, a no-show awards the side that turned up the forfeit the season's rules
+       * set, which the score shows, and an abandoned match owes a result until one is entered.
+       */
+      folge: {
+        ausgefallen: "Das Spiel hat nicht stattgefunden und wird nicht gewertet.",
+        nichtAngetreten: (gegner: string) => `Das Spiel wird für ${gegner} gewertet.`,
+        abgebrochenGewertet: "Das Spiel wurde abgebrochen. Das eingetragene Ergebnis wird gewertet.",
+        abgebrochenOffen: "Das Spiel wurde abgebrochen. Wie es gewertet wird, steht noch nicht fest.",
+        annulliert: "Das Spiel wurde annulliert und wird nicht gewertet.",
+      },
     },
 
     /** A match's facts, each by its label. */
