@@ -1,6 +1,6 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
-// Two seasons, eight clubs, four venues, four referees and three administrators, every one of them
+// Two seasons, eight clubs, four venues, four referees, an owner and three administrators, every one of them
 // invented, so no machine needs production's personal data to show a page in each of its states.
 // The states are the ones the Spielplan, the sign-in, the match editor and the Spielorte table draw:
 //
@@ -9,7 +9,11 @@
 //   open and a cancelled fixture, next week's matchday holding an undated fixture, and a knockout
 //   round drawn but not yet decided;
 // - venues with and without rent, one retired; referees with and without an address, one retired;
-// - an owner and two administrators, one for each end-to-end project (`fl_frontend/playwright.config.ts`).
+// - an owner and three administrators.
+//
+// The administrators and the two referees with an address are the journeys' people: one
+// administrator and one referee per end-to-end project (`fl_frontend/playwright.config.ts`), and the
+// third administrator the desktop editor's journey's alone. The owner signs in in none.
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -93,12 +97,11 @@ const REFEREES = [
 // --- Grants --------------------------------------------------------------------------------------
 
 // Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
-// The two administrators are the journeys' own, one per project, so neither project's passkey is
-// the other's to find.
 const GRANTS = [
   ["inhaber@example.com", "owner"],
   ["admin.desktop@example.com", "administration"],
   ["admin.telefon@example.com", "administration"],
+  ["admin.editor@example.com", "administration"],
 ].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, erteilt_von: "MADE-UP-SEED", erteilt_am: new Date() }));
 
 // --- Seasons -------------------------------------------------------------------------------------

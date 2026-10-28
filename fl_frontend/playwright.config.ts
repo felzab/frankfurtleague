@@ -22,8 +22,10 @@ import type { JourneyOptions } from "./e2e/support/journey";
 /** The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`. */
 const BASE_URL = "http://localhost:3000";
 
+/** The journeys every viewport runs, at the top of `e2e/`; each project's own directory holds the rest. */
+const EVERY_PROJECT = ["smoke.spec.ts", "signin.spec.ts"];
+
 export default defineConfig<JourneyOptions>({
-  // `smoke.spec.ts` runs under both projects; each project's own directory holds the journeys of its viewport.
   testDir: "./e2e",
   outputDir: "../.tmp-playwright/results",
   fullyParallel: false,
@@ -44,14 +46,14 @@ export default defineConfig<JourneyOptions>({
   projects: [
     {
       name: "desktop",
-      testMatch: ["smoke.spec.ts", "desktop/**/*.spec.ts"],
-      use: { ...devices["Desktop Chrome"], administrator: "admin.desktop@example.com" },
+      testMatch: [...EVERY_PROJECT, "desktop/**/*.spec.ts"],
+      use: { ...devices["Desktop Chrome"], administrator: "admin.desktop@example.com", person: "anna.ahrens@example.com" },
     },
     {
       name: "phone",
-      testMatch: ["smoke.spec.ts", "phone/**/*.spec.ts"],
+      testMatch: [...EVERY_PROJECT, "phone/**/*.spec.ts"],
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
-      use: { ...devices["iPhone 17"], administrator: "admin.telefon@example.com" },
+      use: { ...devices["iPhone 17"], administrator: "admin.telefon@example.com", person: "ben.brandt@example.com" },
     },
   ],
 });
