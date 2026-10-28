@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import { INSTAGRAM_URL } from "@/core/brand";
+import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { ABOUT_TITEL, DATENSCHUTZ_TITEL, IMPRESSUM_TITEL, KONTAKT_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { BrandLink } from "@/shared/components/ui/BrandLink";
 import { NewTabLink } from "@/shared/components/ui/NewTabLink";
@@ -124,7 +124,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
           <h2 className={COLUMN_HEADING_CLASSES}>Socials</h2>
           <div className="flex flex-wrap items-center gap-4">
             <FooterSocialLink
-              href="https://www.threads.com/@frankfurt.league"
+              href={THREADS_URL}
               label="Threads-Profil"
               mask="mask-[url('/icons/footer/threads/threads_logo_black.svg')]"
             />
