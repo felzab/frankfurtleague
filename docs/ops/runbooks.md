@@ -884,6 +884,11 @@ by mail instead has two answers, and which one you give is the person's to choos
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
 
+**A person whose pupil or referee row went in the deletion
+[section 13](#13-after-a-restore-from-a-snapshot)'s cutoff marks has nothing held in that role, and
+their fixtures name nobody**; only a snapshot taken before that cutoff still holds them, until the
+snapshot window passes it.
+
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
