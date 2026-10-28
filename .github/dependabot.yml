@@ -5,8 +5,9 @@ version: 2
 # The governing constraint is noise, not coverage: ungrouped weekly updates across the ecosystems
 # below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
 # would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
-# pull request, because those are the ones that need a changelog read. `github-actions` is weekly,
-# and is the only ecosystem here that is — the reason is written at that ecosystem below.
+# pull request, because those are the ones that need a changelog read. `github-actions`, `docker`
+# and `docker-compose` are weekly, being the three no security update reaches; the reason is written
+# at `github-actions` and `docker` below.
 #
 # Invariants:
 # - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule;
