@@ -136,6 +136,7 @@ function Body(props: SignInView) {
               name="email"
               width="W3"
               kind="email"
+              autofill="username"
               // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
               // its form in this line, as a malformed one meets the browser's.
               value={adresse.value}

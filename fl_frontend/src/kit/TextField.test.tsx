@@ -29,10 +29,10 @@ describe("an address field's autofill", () => {
         label={COPY.anmeldung.adresse}
         kind="email"
         width="W3"
-        autofill="username webauthn"
+        autofill="username"
       />,
     );
-    expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("username webauthn");
+    expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("username");
   });
 });
 

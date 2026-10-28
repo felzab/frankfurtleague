@@ -33,9 +33,9 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
 
 /**
  * What an address field is filled as: the person's address, or, where the address signs in, the account's
- * name, under which a password manager files the passkey it offers.
+ * name, under which a password manager files what it keeps for the site.
  */
-type EmailAutofill = "email" | "username webauthn";
+type EmailAutofill = "email" | "username";
 
 /**
  * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
