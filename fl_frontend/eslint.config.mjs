@@ -808,6 +808,18 @@ const STEP_REM = String.raw`(?:0\.125|0\.25|0\.375|0\.5|0\.625|0\.75|0\.875|1|1\
 const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
 const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
 
+/**
+ * A spacing class off the scale; `except` is a lookahead sparing one exact class. `(?![xy]-)` keeps `gap-x-4`
+ * from being read as a bare `gap-` with the value `x-4`.
+ */
+const OFF_SCALE = (except) =>
+  CLASS(
+    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
+  );
+
+/** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
+const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
+
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 const PALETTE =
@@ -996,14 +1008,17 @@ const DESIGN_BANS = [
   // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
   // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
   // classes are held here.
+  classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
+    allow: [TOGGLE_OFFSET.home],
+    pending: notYetRebuilt().spacing,
+  }),
+  // The field looks' file holds to the same scale, the one offset that sets a toggle's drawn box and the
+  // switch's track a pixel down to its label's first line excepted.
   classBan(
-    // `(?![xy]-)` keeps `gap-x-4` from being read as a bare `gap-` with the value `x-4`.
-    CLASS(
-      String.raw`-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
-    ),
-    "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.",
+    OFF_SCALE(String.raw`(?!${TOGGLE_OFFSET.name}!?$)`),
+    `Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16, and \`${TOGGLE_OFFSET.name}\` for a toggle's drawn box.`,
     PRODUCTION,
-    { pending: notYetRebuilt().spacing },
+    { only: [TOGGLE_OFFSET.home] },
   ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
@@ -2277,8 +2292,6 @@ function notYetRebuilt() {
       ],
     },
     spacing: {
-      // The 1-px offset that sets a toggle's drawn box and the switch's track a pixel down to its label's first line.
-      1: ["src/kit/fieldStyles.ts"],
       3: [
         "src/app/(public)/(meta)/layout.tsx",
         "src/app/(public)/page.tsx",
