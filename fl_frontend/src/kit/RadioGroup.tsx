@@ -50,7 +50,7 @@ export function RadioGroup({
           <Radio
             key={choice.id}
             value={choice.id}
-            className={toggleRow()}>
+            className={toggleRow({ in: "list" })}>
             {({ isSelected }) => (
               <>
                 {/* The ring goes around the circle alone, so the circle is the radio's direct child. */}

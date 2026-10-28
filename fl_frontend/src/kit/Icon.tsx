@@ -11,6 +11,7 @@ import Menu from "lucide-react/icons/menu";
 import Search from "lucide-react/icons/search";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
 import X from "lucide-react/icons/x";
+import { tv } from "tailwind-variants/lite";
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and
@@ -36,17 +37,41 @@ const GLYPHS = {
 export type IconName = keyof typeof GLYPHS;
 
 /**
- * A glyph at one of the two sizes: 18 px in the rail, 16 px everywhere else. Always hidden from
- * assistive technology, since the control carrying it is named by its label.
+ * Each size in rem, so a glyph grows with the reader's font size as the text beside it does; Lucide's own
+ * `size` would write fixed pixels. The names are the pixels at the default 16-px root.
  */
-export function Icon({ glyph, size, spinning = false }: { glyph: IconName; size: 16 | 18; spinning?: boolean }) {
-  const Glyph = GLYPHS[glyph];
-  // Spins under reduced motion too: a busy state that stops reads as stuck.
+const glyph = tv({
+  base: "shrink-0",
+  variants: {
+    size: {
+      12: "size-3",
+      16: "size-4",
+      18: "size-4.5",
+    },
+    spinning: {
+      // Spins under reduced motion too: a busy state that stops reads as stuck.
+      true: "animate-spin",
+    },
+  },
+});
+
+/**
+ * Lucide draws on a 24-unit grid at a 2-unit stroke; the 12-px glyph, the tick inside a checkbox, takes a
+ * 3-unit stroke so it keeps its weight at half the size.
+ */
+const STROKE = { 12: 3, 16: 2, 18: 2 } as const;
+
+/**
+ * A glyph at one of the three sizes: 18 px in the rail, 12 px as a checkbox's tick, 16 px everywhere else.
+ * Always hidden from assistive technology, since the control carrying it is named by its label.
+ */
+export function Icon({ glyph: name, size, spinning = false }: { glyph: IconName; size: 12 | 16 | 18; spinning?: boolean }) {
+  const Glyph = GLYPHS[name];
   return (
     <Glyph
       aria-hidden
-      size={size}
-      className={spinning ? "shrink-0 animate-spin" : "shrink-0"}
+      strokeWidth={STROKE[size]}
+      className={glyph({ size, spinning })}
     />
   );
 }

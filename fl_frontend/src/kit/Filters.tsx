@@ -72,8 +72,8 @@ function Done() {
 
 /**
  * Narrowing a list: selects in a row above it on desktop, and on a phone a „Filter“ button opening a
- * sheet of the same selects. Each choice replaces the page's address, which the page reads its list
- * from; typed search text never enters it.
+ * sheet of the same selects, the button leading with the filter glyph and naming no count. Each choice
+ * replaces the page's address, which the page reads its list from; typed search text never enters it.
  */
 export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
   return (
@@ -87,6 +87,7 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
           trigger={
             <Button
               variant="secondary"
+              leadingIcon="filter"
               label={COPY.shared.filter}
             />
           }>

@@ -16,15 +16,11 @@
     "src/kit/Skeleton.tsx",
     "src/kit/StatusPage.tsx",
     // Session 4.
-    "src/kit/Checkbox.tsx",
-    "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
     "src/kit/Callout.tsx",
     "src/kit/KontoBox.tsx",
     "src/kit/MailedPage.tsx",
-    "src/kit/OneShot.tsx",
-    // Session 5.
-    "src/kit/Switch.tsx"
+    "src/kit/OneShot.tsx"
   ],
   // Each entry is a reader knip cannot see, or a kit export waiting for its first page. An export nothing
   // reads is deleted or un-exported, never added here.

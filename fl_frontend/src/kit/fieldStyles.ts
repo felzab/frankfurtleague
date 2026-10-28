@@ -15,16 +15,24 @@ export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 /** The asterisk after a required field's label. */
 export const requiredMark = tv({ base: "text-danger" });
 
-/** One line, always there, so a message appearing or going moves nothing. */
+/**
+ * One line, always there, so a message appearing or going moves nothing. The code's line holds a refusal
+ * of two sentences, so it wraps and grows from its one line rather than cutting the refusal off.
+ */
 export const messageLine = tv({
-  base: "h-4 truncate text-xs",
+  base: "text-xs",
   variants: {
+    lines: {
+      one: "h-4 truncate",
+      several: "min-h-4",
+    },
     tone: {
       description: "text-fg-muted",
       consequence: "text-warn",
       error: "text-danger",
     },
   },
+  defaultVariants: { lines: "one" },
 });
 
 /** The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen. */
@@ -36,12 +44,13 @@ export const fieldFrame = tv({
       W1: "h-9 w-16 pointer-coarse:h-11",
       W2: "h-9 w-36 pointer-coarse:h-11",
       W3: "h-9 w-full pointer-coarse:h-11",
-      W4: "w-full resize-none py-2",
+      W4: "min-h-26 w-full resize-none py-2",
     },
-    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its start.
+    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
+    // start. The padding is set per width below: the two short widths take 10 px, the long ones 12 px.
     inset: {
-      full: "px-3",
-      start: "ps-3",
+      full: "",
+      start: "",
       // A search field's magnifier stands where the padding would.
       none: "",
     },
@@ -57,6 +66,12 @@ export const fieldFrame = tv({
       true: "font-numeric tabular-nums",
     },
   },
+  compoundVariants: [
+    { width: ["W1", "W2"], inset: "full", class: "px-2.5" },
+    { width: ["W1", "W2"], inset: "start", class: "ps-2.5" },
+    { width: ["W3", "W4"], inset: "full", class: "px-3" },
+    { width: ["W3", "W4"], inset: "start", class: "ps-3" },
+  ],
 });
 
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
@@ -76,12 +91,20 @@ export const searchClear = tv({
   base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-11",
 });
 
-/** The six code boxes, sharing the column. */
-export const codeRow = tv({ base: "group grid grid-cols-6 gap-2" });
+/** The six code boxes, sharing the column, with the code's one input laid over them. */
+export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
 
-/** One code box: a field's frame and height, its digit large and centred. */
+/** One drawn code box: a field's frame and height, its digit large and centred. */
 export const codeBox = tv({
-  base: "h-9 w-full rounded-lg border border-border-control bg-bg text-center font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-invalid:border-danger disabled:opacity-50 pointer-coarse:h-11",
+  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+});
+
+/**
+ * The code's input over its boxes: its own text, caret and selection transparent, so the boxes show the
+ * digits; 16 px, so a phone does not zoom in on focus.
+ */
+export const codeInput = tv({
+  base: "absolute inset-0 size-full bg-transparent text-base text-transparent caret-transparent selection:bg-transparent",
 });
 
 /** One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. */
@@ -95,48 +118,72 @@ export const calendarCell = tv({
   base: "flex size-9 cursor-default items-center justify-center rounded-md font-numeric text-sm tabular-nums data-disabled:opacity-50 data-outside-month:text-fg-muted data-selected:bg-fg data-selected:text-bg pointer-coarse:size-11",
 });
 
-/** A checkbox, a radio or a switch: the drawn box, its label to the right. */
-export const toggleRow = tv({ base: "flex items-start gap-3 text-sm text-fg data-disabled:opacity-50" });
+/**
+ * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
+ * the row starts where the label does, whatever the box's width.
+ */
+export const toggleField = tv({ base: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
-/** The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. */
+/** A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. */
+export const toggleRow = tv({
+  base: "items-start text-sm text-fg data-disabled:opacity-50",
+  variants: {
+    // A radio's answer stands alone; a checkbox's or a switch's row takes its field's two columns.
+    in: {
+      list: "flex gap-2.5",
+      field: "col-span-2 grid grid-cols-subgrid",
+    },
+  },
+});
+
+/**
+ * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or
+ * chosen, it fills with the link green: a checkbox's tick on it is the page's ground, white in the light
+ * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
+ */
 export const toggleBox = tv({
   base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
   variants: {
     shape: {
-      square: "rounded-md",
+      square: "rounded-sm",
       round: "rounded-full",
     },
     selected: {
-      true: "border-brand-solid",
-      false: "border-border-control bg-bg",
+      true: "border-brand bg-brand text-bg",
+      false: "bg-bg",
+    },
+    // A required box left empty at the send: the red edge every other field's error shows.
+    invalid: {
+      true: "",
+      false: "",
     },
   },
-  compoundVariants: [{ shape: "square", selected: true, class: "bg-brand-solid text-on-brand" }],
+  compoundVariants: [
+    { selected: false, invalid: false, class: "border-border-control" },
+    { selected: false, invalid: true, class: "border-danger" },
+  ],
 });
 
-/** A toggle's message line, starting under its label: past the box, or the switch's track, and the 12-px gap. */
-export const toggleLine = tv({
-  variants: {
-    box: {
-      square: "ps-7.5",
-      track: "ps-12",
-    },
-  },
-});
+/** A checkbox's or a switch's message line, in the label's column. */
+export const toggleLine = tv({ base: "col-start-2" });
 
 /** A radio group's answers, one under another. */
 export const radioList = tv({ base: "flex flex-col gap-2" });
 
-/** The dot inside a selected radio. */
-export const radioDot = tv({ base: "size-2 rounded-full bg-brand-solid" });
+/** The dot inside a chosen radio, in the page's ground. */
+export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 
-/** A switch's track, its thumb resting two pixels inside it. */
+/**
+ * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
+ * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
+ */
 export const switchTrack = tv({
   base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
   variants: {
     selected: {
-      true: "bg-brand-solid",
-      false: "bg-bg-muted",
+      true: "bg-brand",
+      // Drawn inside the track, so the edge moves neither the track nor its thumb.
+      false: "bg-bg-muted inset-ring inset-ring-border-control",
     },
   },
 });

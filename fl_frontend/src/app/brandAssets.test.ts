@@ -56,13 +56,16 @@ describe("the brand assets that cannot read a stylesheet", () => {
     );
   });
 
-  it("opens an installed app on the brand fill", () => {
-    const fill = tokensOf("light").get("--brand-solid");
-    assert(fill !== undefined, "tokens.css declares no --brand-solid");
+  it("opens an installed app on the brand fill, under the browser bar's ground", () => {
+    const light = tokensOf("light");
+    const fill = light.get("--brand-solid");
+    const bar = light.get("--bg-surface");
+    assert(fill !== undefined && bar !== undefined, "tokens.css declares no --brand-solid or no --bg-surface");
 
     const answered = manifest();
-    for (const key of ["theme_color", "background_color"] as const)
-      expect(answered[key], `manifest.ts's ${key} is not --brand-solid`).toBe(fill);
+    expect(answered.background_color, "manifest.ts's background_color is not --brand-solid").toBe(fill);
+    // One value with no colour-scheme media: the light theme's, the viewport carrying the dark one.
+    expect(answered.theme_color, "manifest.ts's theme_color is not the light theme's --bg-surface").toBe(bar);
   });
 
   it("paints the browser's chrome in each theme's own bar ground", () => {

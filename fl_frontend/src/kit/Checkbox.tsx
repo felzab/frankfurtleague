@@ -3,7 +3,7 @@
 import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { MessageLine } from "./FieldParts";
-import { toggleBox, toggleLine, toggleRow } from "./fieldStyles";
+import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -33,24 +33,24 @@ export function Checkbox({
 }) {
   return (
     <CheckboxField
-      className="flex flex-col gap-1"
+      className={toggleField()}
       name={name}
       isSelected={isSelected}
       defaultSelected={defaultSelected}
       onChange={onChange}
       isRequired={isRequired}
       isDisabled={isDisabled}>
-      <CheckboxButton className={toggleRow()}>
-        {({ isSelected: selected }) => (
+      <CheckboxButton className={toggleRow({ in: "field" })}>
+        {({ isSelected: selected, isInvalid: invalid }) => (
           <>
             {/* The ring goes around the box alone, so the box is the button's direct child. */}
             <span
               data-kit-focus="box"
-              className={toggleBox({ shape: "square", selected })}>
+              className={toggleBox({ shape: "square", selected, invalid })}>
               {selected && (
                 <Icon
                   glyph="haken"
-                  size={16}
+                  size={12}
                 />
               )}
             </span>
@@ -59,7 +59,7 @@ export function Checkbox({
         )}
       </CheckboxButton>
       {(isRequired || description !== undefined) && (
-        <div className={toggleLine({ box: "square" })}>
+        <div className={toggleLine()}>
           <MessageLine description={description} />
         </div>
       )}

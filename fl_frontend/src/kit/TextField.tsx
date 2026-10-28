@@ -31,12 +31,19 @@ type Shared = {
  */
 type Autofill = "name" | "given-name" | "family-name" | "organization" | "street-address" | "postal-code" | "address-level2";
 
+/**
+ * What an address field is filled as: the person's address, or, where the address signs in, the account's
+ * name, under which a password manager files the passkey it offers.
+ */
+type EmailAutofill = "email" | "username webauthn";
+
 /** A single line at its width class, its keyboard set by `kind`; a URL names the example its message shows. */
 type SingleLine = {
   width: "W1" | "W2" | "W3";
 } & (
   | { kind: "text" | "digits"; autofill?: Autofill; beispiel?: never }
-  | { kind: "email" | "tel" | "search"; autofill?: never; beispiel?: never }
+  | { kind: "email"; autofill?: EmailAutofill; beispiel?: never }
+  | { kind: "tel" | "search"; autofill?: never; beispiel?: never }
   | { kind: "url"; autofill?: never; beispiel: Copy }
 );
 
@@ -47,7 +54,8 @@ export type TextFieldProps = Shared & (SingleLine | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
- * A text or digits field is filled only where its `autofill` names what it asks for.
+ * A text or digits field is filled only where its `autofill` names what it asks for; an address field's
+ * `autofill` replaces its own.
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined },
