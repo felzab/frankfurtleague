@@ -32,8 +32,8 @@ from app.api.spielberichte.services import (
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
     judge_bericht,
+    kader_ist_offen,
     neu_genannt,
-    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from app.core.exceptions import WriteRefusalException
@@ -234,9 +234,12 @@ class TestACalledOffFixtureTakesNoReport:
         assert find_abgesagt_refusal(sonderereignis=sonderereignis) is None
 
     def test_its_form_serves_no_squads(self):
-        """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report."""
+        """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
 
-        assert nimmt_einen_bericht(spiel(sonderereignis="ausgefallen"), today=TODAY) is False
+        Played today in a running season, so the call-off alone decides.
+        """
+
+        assert kader_ist_offen(lage(sonderereignis="ausgefallen"), today=TODAY) is False
 
 
 class TestOnlyTheBookedRefereeReports:

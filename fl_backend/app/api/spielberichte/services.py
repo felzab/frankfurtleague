@@ -281,6 +281,12 @@ def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
     return ist_gespielt(datum=spiel_raw.get("datum"), today=today) and not ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis"))
 
 
+def kader_ist_offen(lage: BerichtLage, *, today: str) -> bool:
+    """Whether the referee's form serves both squads to pick from: while the fixture takes a report and its season runs."""
+
+    return nimmt_einen_bericht(lage.spiel, today=today) and not ist_abgeschlossen(lage)
+
+
 def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`REQ-BERICHT-006`: the write was composed on the version standing now, or on none where none stands.
 

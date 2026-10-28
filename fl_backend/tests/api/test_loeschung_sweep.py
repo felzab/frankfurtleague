@@ -980,6 +980,10 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
             async def counted(due: int) -> int:
                 for collection in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.AKTIONEN):
                     await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
+                # The anchors too: the second call re-anchors the addresses the first anchored, stamped on the server's own
+                # clock and expiring at once, so the TTL monitor's next pass could delete one under a counted transaction
+                # writing it, and the retry that write conflict forces would be counted as the erasure's own commands.
+                await database[Collection.ADRESSANKER].delete_many({})
                 await seeded(database, *(a_due_pupil(position) for position in range(due)))
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)
