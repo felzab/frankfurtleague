@@ -90,9 +90,17 @@ const RULES = {
   "no-restricted-globals": (entries) => ["error", { globals: entries, checkGlobalObject: true }],
   "react/forbid-component-props": (entries) => ["error", { forbid: entries }],
   "react/forbid-elements": (entries) => ["error", { forbid: entries }],
-  "react/jsx-no-literals": ([entry]) => ["error", entry],
+  "react/jsx-no-literals": (entries) => ["error", single("react/jsx-no-literals", entries)],
   "better-tailwindcss/no-restricted-classes": (entries) => ["error", { restrict: entries }],
 };
+
+/** The one entry of a rule taking one options object, which a second ban reaching the same file could only replace. */
+function single(rule, entries) {
+  if (entries.length > 1) {
+    throw new Error(`${rule} takes one options object, and ${entries.length} of its bans reach one file: fold them into one ban.`);
+  }
+  return entries[0];
+}
 
 /**
  * One ban: an entry of `rule`, holding the zones `reach` accepts. `only` narrows it to those files;
