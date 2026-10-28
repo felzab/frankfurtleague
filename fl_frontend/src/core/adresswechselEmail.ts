@@ -29,7 +29,6 @@ import type { Aktion } from "./emailShell";
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
 
-// eslint-disable-next-line local/admin-link -- a mailed link names no season; the page lists every grant whatever the season
 const ADMINISTRATOREN_PFAD = "/bereich/admin/administratoren";
 
 /**

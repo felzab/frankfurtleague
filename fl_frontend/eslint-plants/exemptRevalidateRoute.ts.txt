@@ -1,5 +1,0 @@
-// Linted as src/app/api/revalidate/route.ts.
-// The invalidation route drops the tags its caller names, and every other ban still reaches it, the action-only drop included.
-import { revalidateTag, updateTag } from "next/cache"; // expect: tag-drop
-export const DROP = (tag: string): void => void [revalidateTag(tag, { expire: 0 }), updateTag(tag)];
-export const GAP = "flex gap-5"; // expect: gap
