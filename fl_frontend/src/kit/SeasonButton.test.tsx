@@ -5,6 +5,8 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { RouterProvider } from "@heroui/react/rac";
+
 import { COPY } from "@/core/copy";
 
 import { counterpart, SeasonScope } from "./FrameNav";
@@ -62,14 +64,16 @@ describe("the same page in the other season", () => {
 });
 
 /** The season button in a frame holding these seasons, its seasons settled. */
-async function renderButton(seasons: Seasons | null) {
+async function renderButton(seasons: Seasons | null, navigate: (href: string, options?: { replace?: boolean }) => void = () => undefined) {
   await act(async () => {
     render(
-      <SeasonScope value={{ seasons: Promise.resolve(seasons), home: "verwaltungUebersicht", pages: VERWALTUNG }}>
-        <Suspense fallback={null}>
-          <SeasonButton placement="rail" />
-        </Suspense>
-      </SeasonScope>,
+      <RouterProvider navigate={navigate}>
+        <SeasonScope value={{ seasons: Promise.resolve(seasons), home: "verwaltungUebersicht", pages: VERWALTUNG }}>
+          <Suspense fallback={null}>
+            <SeasonButton placement="rail" />
+          </Suspense>
+        </SeasonScope>
+      </RouterProvider>,
     );
   });
 }
@@ -91,6 +95,16 @@ describe("the season button", () => {
       "/bereich/verwaltung/saisons/2026/spiele",
     );
     expect(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2027") }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("switches by replacing the page in the history, so Back skips the switch", async () => {
+    const navigate = vi.fn();
+    await renderButton({ ids: ["2027", "2026"], standard: "2026" }, navigate);
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.saisonName("2027") }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }));
+
+    expect(navigate).toHaveBeenCalledWith("/bereich/verwaltung/saisons/2026/spiele", { replace: true });
   });
 
   it("names the frame's standard season on a page whose address names none", async () => {

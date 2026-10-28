@@ -23,7 +23,7 @@ import { SheetFrame } from "./Sheet";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { IconName } from "./Icon";
 
 /**
@@ -32,7 +32,10 @@ import type { IconName } from "./Icon";
  */
 export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
   { label: Copy; text?: never } | { text: string; label?: never }
-);
+) & {
+    /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
+    routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
+  };
 
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
@@ -121,6 +124,7 @@ function LinkItem({ link, size, marks }: { link: MenuLink; size: Size; marks: bo
     <MenuItem
       id={link.href}
       href={link.href}
+      routerOptions={link.routerOptions}
       textValue={link.label ?? link.text}
       data-kit-focus="item"
       className={item({ size })}>

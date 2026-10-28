@@ -53,6 +53,8 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
             label: COPY.shared.saisonName(id),
             href: counterpart({ path, params, to: id, home: season.home, pages: season.pages }),
             isCurrent: id === season.active,
+            // The browser's Back skips a season switch, returning to the page before the season's pages.
+            routerOptions: { replace: true },
           })),
         ]}
         trigger={
