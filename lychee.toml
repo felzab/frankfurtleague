@@ -1,0 +1,14 @@
+# lychee checks every link in the repository's Markdown files. The gate runs it from the repository
+# root with this file as --config and the root as its one input.
+
+# Local files only, so the result depends on the tree alone and never on a remote server.
+offline = true
+
+# A link's #fragment must name a heading or an id on the page it points to.
+include_fragments = "full"
+
+# Markdown only: the other kinds lychee reads by default hold no documentation link.
+extensions = ["md"]
+
+# .claude/ and .github/ hold Markdown too; .gitignore still decides what is skipped.
+hidden = true

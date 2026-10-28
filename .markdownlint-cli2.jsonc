@@ -1,0 +1,24 @@
+// markdownlint-cli2 reads this file from the directory it runs in, so the gate runs it from the
+// repository root with no arguments and the globs below name what it checks.
+{
+  "config": {
+    // Prettier formats every Markdown file, so the rules that overlap with it are off, as
+    // markdownlint's own guide to using it with Prettier recommends.
+    "extends": "markdownlint/style/prettier",
+  },
+  "globs": ["**/*.md"],
+  // Every file git ignores, installed packages and nested worktrees among them.
+  "gitignore": true,
+  "overrides": [
+    {
+      // GitHub renders the root README as the repository's landing page. Its header centres the
+      // logo above the title, which Markdown cannot do, so an HTML block comes first.
+      "filter": ["README.md"],
+      "config": {
+        "first-line-heading": { "allow_preamble": true },
+        "no-inline-html": { "allowed_elements": ["div", "img"] },
+      },
+      "combine": "merge",
+    },
+  ],
+}
