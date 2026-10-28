@@ -1,22 +1,37 @@
+import Ban from "lucide-react/icons/ban";
 import Calendar from "lucide-react/icons/calendar";
+import CalendarDays from "lucide-react/icons/calendar-days";
+import CalendarRange from "lucide-react/icons/calendar-range";
 import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
 import ChevronRight from "lucide-react/icons/chevron-right";
 import Ellipsis from "lucide-react/icons/ellipsis";
+import FileText from "lucide-react/icons/file-text";
 import Info from "lucide-react/icons/info";
+import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
 import LoaderCircle from "lucide-react/icons/loader-circle";
+import Mail from "lucide-react/icons/mail";
+import MapPin from "lucide-react/icons/map-pin";
 import Menu from "lucide-react/icons/menu";
+import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
+import Shield from "lucide-react/icons/shield";
+import Trash from "lucide-react/icons/trash-2";
 import TriangleAlert from "lucide-react/icons/triangle-alert";
+import User from "lucide-react/icons/user";
+import UserPlus from "lucide-react/icons/user-plus";
+import Users from "lucide-react/icons/users";
+import Whistle from "lucide-react/icons/whistle";
 import X from "lucide-react/icons/x";
 import { tv } from "tailwind-variants/lite";
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and
  * nowhere else. Each is imported from its own module, so a test loading the kit loads these icons, not
- * the whole set.
+ * the whole set. The second group names the pages of a frame's menu, one glyph per page, so no two
+ * entries of a rail or a phone bar share a mark.
  */
 const GLYPHS = {
   aufklappen: ChevronDown,
@@ -32,6 +47,21 @@ const GLYPHS = {
   vor: ChevronRight,
   warnung: TriangleAlert,
   zurueck: ChevronLeft,
+
+  uebersicht: LayoutDashboard,
+  saisons: CalendarRange,
+  spiele: CalendarDays,
+  spielorte: MapPin,
+  schiedsrichter: Whistle,
+  bewerbungen: FileText,
+  teams: Users,
+  spieler: User,
+  registrierungen: UserPlus,
+  administratoren: Shield,
+  sperrliste: Ban,
+  loeschungen: Trash,
+  adressaenderungen: Mail,
+  protokoll: ScrollText,
 };
 
 export type IconName = keyof typeof GLYPHS;

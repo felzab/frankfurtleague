@@ -19,39 +19,39 @@ import type { ReactNode } from "react";
  */
 const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "info" }],
+    entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "uebersicht" }],
   },
   {
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
-      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "kalender" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "kalender" },
-      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "suche" },
-      { id: "schiedsrichter", label: ROUTES.verwaltungSchiedsrichter.titel, href: ROUTES.verwaltungSchiedsrichter.pfad(), icon: "haken" },
+      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "saisons" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spiele" },
+      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "spielorte" },
+      { id: "schiedsrichter", label: ROUTES.verwaltungSchiedsrichter.titel, href: ROUTES.verwaltungSchiedsrichter.pfad(), icon: "schiedsrichter" },
     ],
   },
   {
     heading: COPY.verwaltung.gruppe.schulenUndSpieler,
     entries: [
-      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, season: "verwaltungBewerbungen", icon: "haken" },
-      { id: "teams", label: ROUTES.verwaltungTeams.titel, season: "verwaltungTeams", icon: "info" },
-      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, season: "verwaltungSpieler", icon: "info" },
-      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, season: "verwaltungRegistrierungen", icon: "haken" },
+      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, season: "verwaltungBewerbungen", icon: "bewerbungen" },
+      { id: "teams", label: ROUTES.verwaltungTeams.titel, season: "verwaltungTeams", icon: "teams" },
+      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, season: "verwaltungSpieler", icon: "spieler" },
+      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, season: "verwaltungRegistrierungen", icon: "registrierungen" },
     ],
   },
   {
     heading: COPY.verwaltung.gruppe.zugangUndDatenschutz,
     entries: [
-      { id: "administratoren", label: ROUTES.verwaltungAdministratoren.titel, href: ROUTES.verwaltungAdministratoren.pfad(), icon: "info" },
-      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.pfad(), icon: "warnung" },
-      { id: "loeschungen", label: ROUTES.verwaltungLoeschungen.titel, href: ROUTES.verwaltungLoeschungen.pfad(), icon: "schliessen" },
+      { id: "administratoren", label: ROUTES.verwaltungAdministratoren.titel, href: ROUTES.verwaltungAdministratoren.pfad(), icon: "administratoren" },
+      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.pfad(), icon: "sperrliste" },
+      { id: "loeschungen", label: ROUTES.verwaltungLoeschungen.titel, href: ROUTES.verwaltungLoeschungen.pfad(), icon: "loeschungen" },
       {
         id: "adressaenderungen",
         label: ROUTES.verwaltungAdressaenderungen.titel,
         href: ROUTES.verwaltungAdressaenderungen.pfad(),
-        icon: "info",
+        icon: "adressaenderungen",
       },
-      { id: "protokoll", label: ROUTES.verwaltungProtokoll.titel, href: ROUTES.verwaltungProtokoll.pfad(), icon: "filter" },
+      { id: "protokoll", label: ROUTES.verwaltungProtokoll.titel, href: ROUTES.verwaltungProtokoll.pfad(), icon: "protokoll" },
     ],
   },
 ];
