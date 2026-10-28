@@ -976,7 +976,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   such an entry under the same eight days
   (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`); ruled 2026-09-24. The
   application logs keep the container runtime's size rotation as their only live bound
-  (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
+  (`docs/logging/overview.md`), because the only way to rotate a file the runtime holds open
   loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
   its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept as the
   application log they are written to is, and in a file per day deleted thirty days after its last
@@ -1113,8 +1113,7 @@ Each row cites where the decision now lives.
   procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
 - **Cloudflare's own record of each request is bounded by Cloudflare rather than by any setting of
   mine, and the host's `logrotate` file is a hand step the deploy cannot verify.**
-  [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log
-  (`docs/logging/spec.md :: Cloudflare logs the request line at its own edge`) as well as the
+  [Section 6](#6-retention-is-bounded-where-a-bound-was-chosen) is meant to reach the edge log as well as the
   host's. Below the Enterprise plan no setting reaches the edge's: raw request logs are neither
   exposed nor configurable there, the dashboard's own datasets keep a fixed period per plan, and
   Cloudflare's privacy policy gives criteria rather than a period — Cloudflare's pages as read on

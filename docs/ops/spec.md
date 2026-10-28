@@ -253,7 +253,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | Location                              | Upstream        | Notes                                                                                                                                                                                                    |
 | ------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api/auth`                           | `frontend:3000` | Every path the sign-in library mounts, the passkey ceremony among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                                                           |
-| `= /api/client-error`                 | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/spec.md`](../logging/spec.md))                                                         |
+| `= /api/client-error`                 | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30` ([`docs/logging/overview.md`](../logging/overview.md))                                                 |
 | `= /api/bewerbung`                    | `frontend:3000` | Next route handler, the public application form's submit — paired `limit_req` `zone=bewerbung burst=2` and `zone=bewerbung48 burst=20`, and `client_max_body_size 64k` overriding the server block's     |
 | `= /api/bewerbung/kuerzel`            | `frontend:3000` | Next route handler, that form's Kürzel check — paired `limit_req` `zone=kuerzel burst=10` and `zone=kuerzel48 burst=100`                                                                                 |
 | `= /api/bestaetigung/kontakt`         | `frontend:3000` | Next route handler, the contact person's confirmation — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                                 |
@@ -333,7 +333,7 @@ the framework the origin runs.
 
 **`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
 that rewrite produced (`nginx/shared/http.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
-records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The trusted set is one address,
+records it ([`docs/logging/overview.md`](../logging/overview.md)). **The trusted set is one address,
 the connector's, on both edges** — nothing else reaches this origin (§1.1, I1) — which is what
 Cloudflare's published ranges could never be, being every customer's egress rather than this
 account's; the local edge serves the same set, inert with no connector in front of it. **A
@@ -443,12 +443,12 @@ file it was read off cannot hold.
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
 `Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
 line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
-([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
+([`docs/logging/overview.md`](../logging/overview.md)). Both records were driven against
 `nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
 query of a link page, where a refusal is routine, so this level is what keeps those tokens out of
 that log; `nginx/edge_test.sh` fails a token found there after a run of refused link pages. **What the pair does not close is every OTHER line about a request, at any level**, an
 upstream failure among them, which repeats the same request line
-([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
+([`docs/logging/overview.md`](../logging/overview.md)); and what it costs a reader is the name of the
 zone that refused, the access line carrying `status` alone.
 
 **The liveness location carries no `limit_req` zone, and that is a decision rather than an
@@ -481,8 +481,8 @@ paths is that control at the origin.
 
 **A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
 extending it** — the mechanism I2 records for `add_header`, and what decides which of the two
-edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream (L7 and L10,
-[`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
+edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream
+([`docs/logging/overview.md`](../logging/overview.md)). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
 place in `api_trusted_hosts` (I13). It is the only location declaring one, and
 `nginx/edge_test.sh` fails any location proxying to the frontend that hands Next either header as
@@ -1159,10 +1159,10 @@ decides nothing.
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
 time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real request
-through a real edge started as `docker-compose.yml` starts it, reads the access line back
-(`docs/logging/spec.md` L11), asks every location and the www redirect for its security headers,
+through a real edge started as `docker-compose.yml` starts it, reads the access line back,
+asks every location and the www redirect for its security headers,
 each compared with `nginx/shared/security_headers.conf` (I2), fails a frontend location handing
-Next a visitor's `traceparent` or `X-FL-Actor` (`docs/logging/spec.md` L7 and L10), and drives
+Next a visitor's `traceparent` or `X-FL-Actor`, and drives
 the Control API the deploy reloads through: an applied reload, a refused one, the dump, and a
 worker user it refuses.
 
@@ -1407,8 +1407,7 @@ log for, and a host truncated as the file was written by hand is what separates 
 from a cluster that is merely unreachable.
 `scripts/gate/selfcheck.sh :: redact_case` pins both directions against fixtures.
 
-**What still gets through is recorded as accepted in [`docs/logging/spec.md`](../logging/spec.md)
-section 4**: a credential arriving with no URI around it, which no filter of this shape reaches, and
+**What still gets through is accepted**: a credential arriving with no URI around it, which no filter of this shape reaches, and
 a URI carrying **no** userinfo that shares its line with a later `@`, whose host is replaced
 although nothing on the line was secret. That last one is the fail-safe half of the trade — bounding
 the match to spare it is what lets a real credential through.

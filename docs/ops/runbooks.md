@@ -1055,16 +1055,16 @@ are yours to spend on the steps below rather than on looking for one.
 recreated where it cannot write there (`scripts/ops/deploy.sh :: copy_streams`); a deploy that
 rolls back copies the failed build's streams as well. **Ship it through the deploy and no other route**: a
 `docker compose down`, or an `up --force-recreate` typed by hand, discards a stream with no copy
-taken ([`../logging/spec.md`](../logging/spec.md) §1.2). The edge's own two logs are host files
+taken ([`../logging/overview.md`](../logging/overview.md)). The edge's own two logs are host files
 under `/var/log/frankfurtleague/nginx`, which no recreate reaches.
 
 **What those logs can and cannot answer.** How far back each reaches is bounded
 ([section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)): a running container's
-stream by the runtime's size rotation (`docs/logging/spec.md :: 1.2`), so a busy period rotates its
+stream by the runtime's size rotation (`docs/logging/overview.md`), so a busy period rotates its
 own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
 thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
 access line carries the visitor's address, user agent and referer with the credential arms redacted
-(`docs/logging/spec.md :: L11`), so no confirmation token is in it, and a sign-in code travels in a
+(`nginx/shared/http.conf :: map $request_uri $credential_free_uri`), so no confirmation token is in it, and a sign-in code travels in a
 request body rather than a URL; the
 same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
 dashboard rather than here.

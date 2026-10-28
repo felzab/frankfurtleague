@@ -501,10 +501,10 @@ where the row carries the stamp the expiry reads (I119).\
 
 ### `Vorgangsnummer` · `trace_id` — the id naming one write on the action log
 
-**Is:** the trace id of the request that made a write, copied off an action-log row to find every row that one save produced (`Aktion` above). nginx mints it per request as thirty-two lowercase hex characters ([logging spec §1.1](logging/spec.md#11-the-trace-id)).\
+**Is:** the trace id of the request that made a write, copied off an action-log row to find every row that one save produced (`Aktion` above). nginx mints it per request as thirty-two lowercase hex characters ([the logging overview](logging/overview.md#following-one-request)).\
 **In code:** `fl_backend/app/core/recording.py :: record_write` stamps it, `fl_backend/app/api/aktionen/schemas.py :: FLAktion` serves it and `fl_backend/app/api/aktionen/admin_router.py :: get_aktionen` takes it as a search term.\
 **Trap:** `-nummer` is the trap — the value is a hex string, so nothing about it sorts, increments or bounds a range, an input mask or a validation written for a number refuses the real thing, and one retyped from a screenshot does not survive a `0`/`O` confusion. The German appears in screen copy alone and `trace_id` in code alone, so a search for either spelling finds none of the other's sites. A row no request made carries the sentinel `SYSTEM` in its place (`fl_backend/app/core/logging.py :: NO_REQUEST_SENTINEL`), which gathers every system write rather than one. The same id names every log line of that request across all three surfaces, where the action log answers for recorded writes alone, so an administrator searching it and whoever reads the container logs are asking two different questions. And the rows it names are expired twelve months after the write they recorded (backend spec I119), so one quoted in a support request has a shelf life.\
-**See:** [logging spec §1.1](logging/spec.md#11-the-trace-id) for who mints the id and what becomes of a client's own, and the `Aktion` entry for what one trace gathers.
+**See:** [the logging overview](logging/overview.md#following-one-request) for who mints the id and what becomes of a client's own, and the `Aktion` entry for what one trace gathers.
 
 ### `Zustellstand` — what became of the last message to one recipient
 
