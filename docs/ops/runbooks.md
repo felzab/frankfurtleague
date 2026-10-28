@@ -51,7 +51,7 @@ the machine is outside the repository. What it does tell you:
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
   and the administrator list read by nothing.
 - **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
-  deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line listed
+  deploy at exit 2 before compose is asked anything**, each line listed
   as `file:line` alone, never by anything the line holds. Rewrite it with nothing
   around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
   no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
@@ -84,8 +84,8 @@ the machine is outside the repository. What it does tell you:
   variable's value; open a numbered line, then delete it or declare its name in the settings
   class**. A check that could not be made at all is an advisory the deploy goes on
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
-  the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a line the two parsers
-  could read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
+  the check judges it; a line the two parsers
+  could read differently was refused before either image was asked.
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
   frontend does not declare, given by its line number, and a name it requires that the file omits,
@@ -117,7 +117,7 @@ the machine is outside the repository. What it does tell you:
   healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
   and at 1 where the start, the reload or a health wait answered badly**: a bad start or health
   wait leaves the site out of service, and a refused reload leaves nginx on a configuration not this
-  checkout's ([`spec.md`](spec.md) I355). Killed outright, or interrupted again while it puts them back, the run leaves them
+  checkout's. Killed outright, or interrupted again while it puts them back, the run leaves them
   stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
   `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
   restarts
@@ -134,7 +134,7 @@ the machine is outside the repository. What it does tell you:
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
   the reload applied. The edge keeps running across the swap and finds the new containers by name
-  ([`spec.md`](spec.md) I9), so from the stop before the copy until the new pair answers a deploy
+  , so from the stop before the copy until the new pair answers a deploy
   that succeeds answers 502 rather than refusing the connection: an estimated 10 to 30 seconds on an
   idle site, and about eleven minutes where the stop runs to the grace periods
   (`docker-compose.yml :: stop_grace_period`), each copy to its bound
@@ -147,7 +147,7 @@ the machine is outside the repository. What it does tell you:
   nginx's own lines**: fix what they name, then recreate nginx. **The deploy then compares every file
   under `nginx/prod/` and `nginx/shared/`, as nginx holds it in memory, with the checkout's, and a
   difference ends the run in a finding** naming the recreate that repairs it
-  (`scripts/ops/deploy.sh :: edge_reads_checkout`, [`spec.md`](spec.md) I355). A file there that nginx
+  (`scripts/ops/deploy.sh :: edge_reads_checkout`). A file there that nginx
   never loads, a README among them, reads as absent and fails every deploy.
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
@@ -218,9 +218,9 @@ cd fl_backend && .venv/Scripts/python -m app.core.constraints --check
 ```
 
 Dev, on Windows; on the server it is `python -m app.core.constraints --check` inside the backend container.
-It writes nothing and exit 0 means clean. Run it whenever `fl_backend/app/core/constraints.py` changes —
-what it reports, and what a database user without `collMod` produces, are
-[`../backend/spec.md`](../backend/spec.md) §4. `--apply` does the same work startup does, which is how to
+It writes nothing and exit 0 means clean. Run it whenever `fl_backend/app/core/constraints.py` changes:
+it reports the stored documents a constraint would refuse, and whether the database user holds `find`, `collMod`
+and `listCollections`. `--apply` does the same work startup does, which is how to
 put a corrected constraint in place without waiting for a deploy.
 
 **Run it BEFORE the deploy, from a checkout carrying the new constraints while the old image is still
@@ -298,7 +298,7 @@ serves), then `--check` again.
 validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
 previous one lists the old name under `required`, so a `$rename` run under it produces a document
 missing a required field and is refused for every row; the same strictness refuses an erasure's
-`$set` over a row the NEW validator finds invalid ([`../backend/spec.md`](../backend/spec.md) I42),
+`$set` over a row the NEW validator finds invalid,
 which is why the rename cannot wait either. **This repository holds no migration runner and no
 migration**: the command belongs to the change that needs it and is run by hand as a MongoDB
 Playground paste against the cluster, as every migration here is, so what is written here is the
@@ -346,7 +346,7 @@ contact person's own confirmation link still OPENS**, serving no contact record
 (`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
 refused with everything else, so a person who confirms or objects in that window is told nothing
 landed. Every public club read keeps working, the junction join withholding the block from the base
-tier ([`../backend/spec.md`](../backend/spec.md) I50).
+tier.
 
 **A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
 evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
@@ -431,7 +431,7 @@ are each built on that pipeline. `GET /spiele/action_required` for that season g
 knockout slots draw on a group placing, because `fl_backend/app/api/spiele/crud.py :: find_bracket_faults`
 resolves those against that same pipeline. Every other season's queue still loads, so a queue failing for one
 season alone points at that season's rows — or at a malformed `uhrzeit` on another season's fixture booked
-within a day onto one of its venues or referees ([`docs/backend/spec.md`](../backend/spec.md#3-violation--remedy)). The two reports are independent: an orphan row can carry
+within a day onto one of its venues or referees. The two reports are independent: an orphan row can carry
 a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
@@ -443,24 +443,21 @@ restarts ([`spec.md`](spec.md) §4). A backend that cannot answer admits nobody,
 administration is shut while it is down. Each of these is easy to get wrong:
 
 - **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
-  its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
-  five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
+  its revoke there**. Both ask a passkey confirmation of the last
+  five minutes, a grant outliving the session making it.
 - **A grant waits as a request wherever another administrator could approve it, and a promotion
-  wherever another owner could** (`docs/backend/spec.md :: I848`): it takes effect once that person
-  approves it on the same page, someone who held their own grant since before the request
-  (`:: I849`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
+  wherever another owner could**: it takes effect once that person
+  approves it on the same page, someone who held their own grant since before the request. Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
   colleague: a request nobody decides lapses after the days
-  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` counts (`docs/backend/spec.md :: I851`),
+  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` counts,
   and one whose requester was revoked, demoted or barred since is approved by nobody and waits for a
-  refusal (`:: I850`).
+  refusal.
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
-  (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
-  administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
-  (`docs/backend/spec.md :: I479`). The person made an owner signs in once more before acting as
-  one: an older sign-in keeps administering and is offered no owner's control
-  (`docs/backend/spec.md :: I534`). A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
-  the application only an `owner` revokes (`docs/backend/spec.md :: I449`); an erasure of the
-  holder's own data removes the grant whatever its tier (`docs/backend/spec.md :: I436`), the last
+  (`PATCH /berechtigungen/{berechtigung_id}`): it mails every
+  administrator and is logged, and the last live, unbarred `owner` is demoted by nobody. The person made an owner signs in once more before acting as
+  one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
+  the application only an `owner` revokes; an erasure of the
+  holder's own data removes the grant whatever its tier, the last
   live owner's own erasure refused (`REQ-PURGE-004`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
@@ -477,19 +474,14 @@ administration is shut while it is down. Each of these is easy to get wrong:
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
-  (`docs/backend/spec.md :: I435`), the tier change to leave no owner
-  (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
+- **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
   `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
   site either way. An erasure refuses neither short of the last owner's own, and the same two
   warnings follow its commit; nothing warns where one grant is left.
-- **A barred address is granted nothing, and a granted one is banned by nothing**
-  (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
+- **A barred address is granted nothing, and a granted one is banned by nothing**: lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
-  site (`docs/frontend/spec.md :: I409`) nor to the admin tier while the ban stands
-  (`docs/backend/spec.md :: I463`), and the reconciliation flags it.
-- **Every change is announced, a Playground one naming no administrator**
-  (`docs/backend/spec.md :: I439`). A Playground change undone again before the next claim is
+  site nor to the admin tier while the ban stands, and the reconciliation flags it.
+- **Every change is announced, a Playground one naming no administrator**. A Playground change undone again before the next claim is
   announced by nothing, and deleting a row of `berechtigungen_angekuendigt` or
   `berechtigungen_postausgang` by hand announces that grant again as new, or silences its notice.
   The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
@@ -497,31 +489,30 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
-  no code. The grant page refuses such an address (`docs/frontend/spec.md :: I316`); the Playground
+  no code. The grant page refuses such an address; the Playground
   refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
   such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
   code, or brings them along on an address change the new mailbox confirmed while nothing named it
-  and no grant was asked for it (`docs/backend/spec.md :: I860`), the same authority an
+  and no grant was asked for it, the same authority an
   administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
-  session older than the grant administers nothing (`docs/frontend/spec.md :: I470`). Grant an
+  session older than the grant administers nothing. Grant an
   address only where its mailbox is trusted as an administrator's.
 - **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
   reconciliation's next pass (`fl_frontend/src/features/berechtigungen/abgleich.ts ::
 ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by the moment its
   `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
-  `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead
-  (`docs/backend/spec.md :: I525`): a session signed in between the paste and the find is sent back to
+  `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
 - **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
-  edit** (`docs/backend/spec.md :: I529`), and then only on a sign-in after the find. That holds for
+  edit**, and then only on a sign-in after the find. That holds for
   an address changed in place, a spelling the boot named folded to the stored form, and a removed
   row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
   as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
 - **A promotion to `owner` written in the Playground holds once the pass finds it, and then on a
-  sign-in after the find** (`docs/backend/spec.md :: I534`): until then its holder is answered as the
+  sign-in after the find**: until then its holder is answered as the
   administrator they were. A demotion written there takes the tier at once.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
@@ -548,7 +539,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a session
-  a passkey signed in (`docs/frontend/spec.md :: I260`).
+  a passkey signed in.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
 
@@ -592,7 +583,7 @@ flooded row is `eingereicht` and the queue's own default already selects them; s
 offered and would not separate a flood either, a submission being admitted only while one season's window
 is open (`fl_backend/app/api/bewerbungen/services.py :: find_window_refusal`). Reaching `saison_id` anyway
 would mean a backend call, and the edge carries exactly one backend path
-(`= /api/v0/system/is_live`, [`spec.md`](spec.md) I13), so it would have to be made on the server against
+(`= /api/v0/system/is_live`), so it would have to be made on the server against
 the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
@@ -673,8 +664,7 @@ gave from any seat. The paste belongs in the operator's own checklist, as the ba
 Their seats' links and the delivery records of the messages that carried them sit under
 `kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
 `partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
-have left took its entries off every row of that team and season, answered and closed ones too
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I758). Send the fixture, the answer, its day and the
+have left took its entries off every row of that team and season, answered and closed ones too. Send the fixture, the answer, its day and the
 reason, and never the digest, the value that identifies them.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
 digests, the links and the delivery records go with the block
@@ -682,8 +672,7 @@ digests, the links and the delivery records go with the block
 answer for that season names nobody to send.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
-question is answered at all. Each of its rows is gone twelve months after the write it recorded
-(`docs/backend/spec.md :: I119`), which is the period an answer gives for it.
+question is answered at all. Each of its rows is gone twelve months after the write it recorded, which is the period an answer gives for it.
 
 **There is no export route, so an access request is answered by composing what those pages show.**
 Send the categories, the values, where each came from, who receives them
@@ -705,11 +694,9 @@ its day, its administrator and the season it runs to; the hash itself is not sen
 being the value that identifies them.
 
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
-application, an accepted one and a season's contact block are each removed by the retention sweep
-(`docs/backend/spec.md :: I150`); an application nobody confirmed is deleted after its deadline, its
-submitter told first (`docs/backend/spec.md :: I151`); an application nobody decided is deleted once
-the season it applied for has ended, whatever its seats answered
-(`docs/backend/spec.md :: I220`); and a log row expires on I119's bound.
+application, an accepted one and a season's contact block are each removed by the retention sweep; an application nobody confirmed is deleted after its deadline, its
+submitter told first; an application nobody decided is deleted once
+the season it applied for has ended, whatever its seats answered; and a log row expires after twelve months.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
 reading before you save: a club rename fans out into the matches of every season that is not `past`
@@ -718,21 +705,19 @@ season's matches, a referee not being season-scoped.
 
 **An email address is not an ordinary rectification: it is who can sign in as the person.** A
 change of an address moves, in one step, every pupil row, confirmed referee row, confirmed contact
-seat, registration and grant the address holds, so one sign-in stays whole
-(`docs/backend/spec.md :: I793`).
+seat, registration and grant the address holds, so one sign-in stays whole.
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
   ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
   access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
   mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours; the address on
   file is told, with a
-  link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
+  link that stops the change. Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
   until the address on file signs in and approves the change on its account page within
-  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours
-  (`docs/backend/spec.md :: I794`). Where the mailbox in fact still works, its holder approves or
+  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours. Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
 - **The address on file is gone**: the approval lapsed unanswered, or the school or the provider
@@ -747,26 +732,22 @@ seat, registration and grant the address holds, so one sign-in stays whole
   (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
   by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
   and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
-  then the address on file, should it still be read, stops it by link or on its account page
-  (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
+  then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change also waits on another administrator's
   approval on the administrators page, an owner's for an owner's grant, within
   `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
-  neither the changed address nor whoever started the change gives it
-  (`docs/backend/spec.md :: I817`, `:: I818`). Revoking the grant while a confirmed change waits needs
-  no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere
-  (`docs/backend/spec.md :: I847`). The tool starts a grant holder's change for an owner
-  alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address
-  (`docs/backend/spec.md :: I819`). On the effect the grant moves to the new address under the
-  approver, announced to every administrator as a revoke and a grant (`docs/backend/spec.md :: I820`).
+  neither the changed address nor whoever started the change gives it. Revoking the grant while a confirmed change waits needs
+  no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere. The tool starts a grant holder's change for an owner
+  alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address. On the effect the grant moves to the new address under the
+  approver, announced to every administrator as a revoke and a grant.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
   holds the address on file can sign in as the person, stop every change started here and start one
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
 - **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
-  signing in on the new address where a pupil row moves (`docs/backend/spec.md :: I702`), an address
+  signing in on the new address where a pupil row moves, an address
   holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
   (`REQ-PURGE-003`), which you change on your own account page, and a new address any entry names,
   confirmed or not (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
@@ -787,17 +768,16 @@ seat, registration and grant the address holds, so one sign-in stays whole
   address, so nothing further is owed and the old link opens nothing. An address change moves no
   unconfirmed referee row: until they confirm, the save is their address's one route.
 - **The holder of a pending new address**, a mailbox a change was started for. Until the change
-  takes effect, that address reaches nothing of the person's (`docs/backend/spec.md :: I560`), and
+  takes effect, that address reaches nothing of the person's, and
   only the erasure's own read finds the change from it: type it on „Löschung auf Anfrage“, whose list
-  names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it
-  (`docs/backend/spec.md :: I704`). Where the holder asked for their data to be deleted, the erasure
-  itself ends the change alone and leaves the records standing (`docs/backend/spec.md :: I668`). The
+  names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it. Where the holder asked for their data to be deleted, the erasure
+  itself ends the change alone and leaves the records standing. The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
   the address on file's stop link does it from the other side.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
-  corrected address (`docs/backend/spec.md :: I309`).
+  corrected address.
 - **A contact seat.** Correct it through
   `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
@@ -814,7 +794,7 @@ media choice and birthdate asked again through the fresh link, and the old entry
 the old address.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
-never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request
+never an erasure or an edit by hand**. Point a request
 arriving by mail at the control for its record, which the person reaches by signing in with the
 address that record holds:
 
@@ -822,7 +802,7 @@ address that record holds:
   `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
   `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
-  on that row (`docs/backend/spec.md :: I599`).
+  on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
   `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
   either.
@@ -842,7 +822,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
-  offering no Widerspruch (`docs/frontend/spec.md :: I516`): its withdrawal reaches the league's
+  offering no Widerspruch: its withdrawal reaches the league's
   mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
   address holds rather than this seat alone. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
@@ -862,7 +842,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
   (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
   whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
-  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I570`), though a link
+  ended or whose team has left it (`REQ-KONTAKT-005`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschung auf Anfrage“.
 
@@ -876,10 +856,9 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Never edit a consent block by hand**, in the console or anywhere else: a choice
-  the person did not make is not their consent (`docs/backend/spec.md :: I613`). The write that
+  the person did not make is not their consent. The write that
   withholds the name drops the cached
-  squad list, and the next read serves the row as a nameless slot
-  (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.
+  squad list, and the next read serves the row as a nameless slot; check the public squad page before you answer.
 
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
@@ -910,8 +889,7 @@ pressing**: it names every one of those records, by kind, person and season, and
 until that list is on screen and the address is typed a second time
 (`fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx`).
 Read the result afterwards: it says whether the address's account went too, and an account the
-erasure could not delete goes when the address is erased again
-([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
+erasure could not delete goes when the address is erased again.
 
 **The page refuses two kinds of address, and says so before anyone confirms**: the
 administrator's own, which goes through their account page or an owner; and any holding a grant, to
@@ -924,9 +902,9 @@ them a confirmation link first, then erase it; a confirmed row's editor refuses 
 hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
 the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
-notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
+notice naming no address. On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
-asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I723`).
+asks the passkey first, as the ban's does.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -944,27 +922,22 @@ mails the person itself where the address holds a sign-in account**, naming the 
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
 is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
 whether an account holds the address, the page says the notice did not go, and there is then no
-address left anywhere to try again with. **The same write ends every live sign-in of the address**
-(`docs/frontend/spec.md :: I402`), keeping its account and passkeys, which then stay only while a
-record holds the address (`:: I699`,
-[`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where that fails the
-page says so too, every person page refuses the sessions as no session at all
-(`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
-page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
-is refused as its session would be created**, by a code or a passkey alike
-(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and the
+address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its account and passkeys, which then stay only while a
+record holds the address ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where that fails the
+page says so too, every person page refuses the sessions as no session at all, and each is deleted the next time its browser reaches the sign-in
+page. **Every later sign-in of the address
+is refused as its session would be created**, by a code or a passkey alike. **Beyond that the ban refuses the sign-ups that ask it and the
 administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
 an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
 reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging per season how many they held
 back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
-grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead
-(`docs/backend/spec.md :: I452`). **Every confirmation link
+grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead. **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
 (`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
 (`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
-already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spec.md :: I516`). A
+already under way is refused. A
 contact person's Widerspruch then reaches the league's address, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
 its deadline open on its form again. Nothing else refuses on the list, so a person reading the
@@ -973,15 +946,15 @@ takes away nothing the address already holds** — a record it confirmed before 
 cannot confirm since alike — and the ban's row names none of it: a record stays until you take it
 away, a registration excepted, which ends by itself. **The dialog the ban is entered in lists every
 such record before the ban goes out**, linking each one a page acts on to that page at the record's
-own season (`docs/frontend/spec.md :: I688`), and says beneath them how long the address's sign-in
+own season, and says beneath them how long the address's sign-in
 account stays ([section 9](#9-checking-that-the-hourly-passes-have-run)) and that its log rows and
 authorship stay. „Adresse sperren“ reads and shows the list, and „Ja, Adresse sperren“ enters the
 ban: closing the dialog in between bans nobody, and an edit of the address takes the list away until
-it is read again (`docs/frontend/spec.md :: I724`). **An address the list already holds is refused
-at the first press**, on the address box in a second ban's words and with no list shown (`:: I730`);
+it is read again. **An address the list already holds is refused
+at the first press**, on the address box in a second ban's words and with no list shown;
 one barred by somebody else after that read is refused the same way at the second. **Past the
 step-up window the second press asks the passkey first**, reading „Mit Passkey bestätigen“, as
-lifting a ban does (`:: I727`). Each link opens in a tab of its own, so the list stays open beside
+lifting a ban does. Each link opens in a tab of its own, so the list stays open beside
 it; work through it before the second press, since the dialog closes on the ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
@@ -1000,8 +973,7 @@ it; work through it before the second press, since the dialog closes on the ban.
   change in the address tool, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
-Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
-(`docs/frontend/spec.md :: I724`).
+Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -1027,15 +999,14 @@ repeated letters pass it and are worthless: what makes the value a key is that i
 command and not from a keyboard.
 
 **The ban list's key, `secrets/sperrliste_schluessel`, can never be rotated, and losing it costs the whole list**: replacing it
-disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
+disarms every ban in silence, the one
 sign being a second ban of an address already on the list admitted rather than refused. It keys the
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
 after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
 after a replacement finds none of the reasons its person typed before it; and the addresses'
-anchors, which a replacement merely strands until their next expiry pass
-([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
+anchors, which a replacement merely strands until their next expiry pass. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1074,7 +1045,7 @@ log.** Every recorded write appends a row carrying the actor, the route, the col
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
 at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
-stamps the row (`docs/backend/spec.md :: I42`, `:: I671`), so what survives it is that the write
+stamps the row, so what survives it is that the write
 happened and what it held of anybody else.
 
 **Then, in this order:** contain it; establish which people and which categories are affected, from
@@ -1098,7 +1069,7 @@ recreates the pair twice and so copies twice**, the failed build's streams takin
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
 `/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
 and error log — host files rather than a container's stream, because every line naming a visitor
-is in one of the two ([`spec.md`](spec.md#2-invariants) I352). Both directories are created
+is in one of the two. Both directories are created
 by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
 
 ```bash
@@ -1213,8 +1184,7 @@ x /var/log/frankfurtleague/nginx
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
 every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
 every address change declined, stopped or discarded and every one taking effect, and every request
-for a grant refused, withdrawn or ended by its address changing
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857); a restore runs each erasure
+for a grant refused, withdrawn or ended by its address changing; a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
@@ -1290,7 +1260,7 @@ cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runti
 document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
 above runs. The copies are what carry an application log past a deploy, and their thirty days is the
 only age bound over one. The edge's own container stream is bounded by that cap alone, which is why
-nothing written there may name a visitor ([`spec.md`](spec.md#2-invariants) I352).
+nothing written there may name a visitor.
 
 **The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
 reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
@@ -1333,13 +1303,12 @@ and what locates it, never a person's values: `DB-FAIL-001` is a write the datab
 the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
 a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
-the named one stays due: every later pass names it again until its record is repaired
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
+the named one stays due: every later pass names it again until its record is repaired. **An application whose
 announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
 its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
 names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
-tries again ([`../backend/spec.md`](../backend/spec.md#2-invariants) I757).
+tries again.
 
 **A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
@@ -1399,8 +1368,7 @@ docker compose logs --since 2h frontend | grep loeschung.sweep_
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
-press sends no deletion call it could not wait out to its answer
-([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I733). Wherever more pupils are due than
+press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
 that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
 `loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
@@ -1426,7 +1394,7 @@ the outbox's drain, its notice queued in the same transaction.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
-a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
+a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
 (`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
@@ -1456,7 +1424,7 @@ aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWE
 the press deletes under arms that pass, and with it the squad cache's drop after it.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
-([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
+, so the container is up and the timer inside it is not. Recreating the
 frontend service arms a fresh one, and the clocks select on dates and season statuses rather than
 on the hour that ran them, so the pass that follows does whatever the missed days owed.
 
@@ -1555,8 +1523,7 @@ says that pass is stuck, which recreating the service ends too. Every failure in
 asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
-`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I712). Such a pass still writes its
+`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
 `konto.sweep_completed` line, its `fehlgeschlagen` equal to its `gelistet`, so a completion line
 alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
@@ -1605,8 +1572,7 @@ here by hand. A frontend that boots without the secret crash-loops rather than a
 the boot check doing its job.
 
 **What a disabled endpoint looks like from inside the product.** The six subscriptions above feed
-every delivery record this database holds, and a record has one home per kind
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I266). So the signature is the same at
+every delivery record this database holds, and a record has one home per kind. So the signature is the same at
 each of them: every message sent after the endpoint went quiet stands at the state its own send
 wrote — `angenommen`, with no provider event after it — while the messages before it carry a
 delivered or refused state as usual. The application's triage queue is the one surface that renders
@@ -1620,8 +1586,7 @@ question.
 **The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
 one: the date arrives with a person's own confirmation and rides with their address through every
 later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
-and no validator expresses the pairing either
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I141), so `--check` reports nothing about it.
+and no validator expresses the pairing either, so `--check` reports nothing about it.
 
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
@@ -1667,8 +1632,7 @@ below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. 
 pupil the season-after rule makes due under the restored state, a returning pupil whose admission
 the snapshot predates among them, and nothing brings one back. Re-enter the squad rows and
 registrations written since the snapshot, and activate again a season whose activation it predates,
-the switch still off. Its deletions are re-derived rather than replayed: it journals none
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
+the switch still off. Its deletions are re-derived rather than replayed: it journals none, so the steps below never list them.
 
 **Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
 is done:** the restore brings back every seat holder and referee erased since the snapshot, still
@@ -1709,8 +1673,7 @@ every address change declined, stopped or discarded (by an administrator, by a l
 finding nothing left to move, or by the hourly pass refusing it when due) and every one taking effect, and every
 request for a grant refused, withdrawn or ended by its address changing, each naming its person by a keyed hash
 and never by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
-the digest their fixture answers carry, whether its commit landed or lost its answer
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706, I852, I857). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+the digest their fixture answers carry, whether its commit landed or lost its answer. §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1764,12 +1727,11 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
   day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
-  and reads `to replay` ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming
+  and reads `to replay`; a line naming
   neither a pseudonym nor a holder digest reads `nothing to run`.
 - **An address change that took effect before its person's erasure**, where the restored database
   holds the new address nowhere, is listed as an erasure, at the address it replaced: a snapshot from
-  before the change holds the person's records there
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I808).
+  before the change holds the person's records there.
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for
@@ -1788,16 +1750,15 @@ unreadable, naming files and never a value, or a validator not this build's; and
 **Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
-person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I710).
+person acted and never the replay's.
 An erasure held nowhere has its pseudonym's log rows marked, its day counts erased and every reason
 its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
-did (I731); the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
+did; the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **An end that told somebody
 queues its notice again**: a request's refusal or its end by an address change tells its requester,
 and the hourly pass's or an approval's discard of a confirmed change tells its new mailbox, so a
-notice the lost database had already mailed goes out a second time
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I870). **A record left for review is
+notice the lost database had already mailed goes out a second time. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
 going on to name it since its hash matches nothing the record holds. Four things a line restores in part or not at all:
 
@@ -1811,8 +1772,7 @@ review`, the restored database holding no change to move: ask the person to star
   sign-in store comes back with the cluster** (the last bullet below), so the account and its
   passkeys stand at the replaced address again beside the records: the person signs in there to
   start again, and the new change's effect moves the account with the records, as a replayed one does,
-  unless the new address holds records or an account of its own (`docs/backend/spec.md :: I860`,
-  `FE-AUTH-013`). A
+  unless the new address holds records or an account of its own ( `FE-AUTH-013`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
   (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
@@ -1849,21 +1809,21 @@ guard reads something the restore took away:
 - **An administrator.** Every grant the address held, an `owner` grant included, is back and admits
   them, and so is their address on every grant, ban, invitation and decision they made. The erasure
   removes the grants and marks the rest again, where a `DELETE` of the grant would not do: it refuses
-  an `owner` grant ([`../backend/spec.md`](../backend/spec.md#2-invariants) I436), and the floor of
-  two live grants may refuse any (I435). **An owner runs it again, confirmed by passkey within the
+  an `owner` grant, and the floor of
+  two live grants may refuse any. **An owner runs it again, confirmed by passkey within the
   enrolment window**: the page refuses a grant holder's address to anyone else
   ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)), and the erasure ending
-  a grant takes a passkey sign-in that recent (I489).
+  a grant takes a passkey sign-in that recent.
 - **A record holding no address.** No erasure reaches one
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so no line names
   it.
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
-  ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
+  , so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Once the erasure above has run again, the
   account sweep deletes each within the hour, a barred address's included (section 5).
 
 **The log's redactions came back as well**, so re-running each erasure is also what redoes the
-redactions it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I671, I212).
+redactions it had stamped.
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1873,10 +1833,8 @@ undid the erasures, and which nothing re-runs:
   holder again; an erased administrator's goes with their erasure above. Revoke any other again with
   `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
-  is made again. The record of each is the mail every change sent every administrator
-  (`docs/backend/spec.md :: I439`).
-- **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again
-  (`docs/backend/spec.md :: I852`). One approved inside the window is back as a request beside the
+  is made again. The record of each is the mail every change sent every administrator.
+- **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again. One approved inside the window is back as a request beside the
   grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
   asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
@@ -1885,7 +1843,7 @@ undid the erasures, and which nothing re-runs:
 
 **One consequence more.** The retention sweep repairs itself, its clocks being stored dates — but a
 deletion notice already sent whose stamp the restore took back is sent a second time, that sweep
-mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants) I151).
+mailing before it erases.
 
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
@@ -1899,7 +1857,7 @@ about to take.
 ## 14. The `auth` database's indexes
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
-built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`, `docs/frontend/spec.md :: I498`). An
+built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An
 index the boot could not build is one `FE-AUTH-011` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that code after every deploy:
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
@@ -1953,15 +1911,15 @@ carries the address. Ask when they tried and read that window:
   address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
   is the provider refusing the message.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
-  hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
+  hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
 - `auth.deletion_link_capped`, an info line carrying `bound`: a signed-in person asked for an account
   deletion link past their address's five mails of the hour, codes and links counted together
   (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
-  press read as sent (`docs/frontend/spec.md :: I713`). A link they already hold stands for its day.
+  press read as sent. A link they already hold stands for its day.
 - `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
-  address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one; a code a
+  address inside the hour, so nobody was sent one; a code a
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
@@ -1980,7 +1938,7 @@ nothing while the backend does not answer.
 ## 16. The secret files
 
 **Every credential is a file under `secrets/`, beside the compose file**, under one name on the
-host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2, I508).
+host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2).
 Which service reads which, and each file's owner and mode on the server, is that section's table.
 **A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
 trailing newline and surrounding blanks, and everything else in the file is part of the value.
@@ -2043,7 +2001,7 @@ and update the password-manager entry. Both containers are recreated by the same
 keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
 
-**Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I472): an Ed25519
+**Each machine also has its own actor token key pair**: an Ed25519
 private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
 development machine, or in a shell on the server, at the checkout root, this writes the private half
 to a directory of its own that `mktemp -d` makes readable by its writer alone, and appends the public
@@ -2090,10 +2048,9 @@ the remedy is to run the command above again.
 ## 17. Clearing an address's code lock
 
 An address that has failed ten codes in a row, with no sign-in between them, is refused every code
-until the oldest of those failures is a day old, the right code included
-(`docs/frontend/spec.md :: I441`); the person is
+until the oldest of those failures is a day old, the right code included; the person is
 told there were too many tries with this address. Anyone who knows an address can bring it on, and
-the rows counting it carry a keyed hash rather than the address (`:: I445`), so no row can be picked
+the rows counting it carry a keyed hash rather than the address, so no row can be picked
 out for one person:
 
 - **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears it.
@@ -2104,8 +2061,8 @@ out for one person:
   `sign-in-attempt-`. Every address then has its ten tries back, which is the price of an
   identifier nobody can compute by hand.
 
-The five-an-hour mail cap (`docs/frontend/spec.md :: I442`) keeps rows of the same shape under
-`sign-in-mail-`, the every-address total (`:: I447`) among them as `sign-in-mail-every-address`;
+The five-an-hour mail cap keeps rows of the same shape under
+`sign-in-mail-`, the every-address total among them as `sign-in-mail-every-address`;
 they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
 every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
 
@@ -2135,8 +2092,7 @@ of the line keeps every security flaw fixed since.
 **Nothing in this repository watches how full the database is, and the production tier has a hard
 limit**: 5 GB of documents and indexes together. What a write meets past it is unverified: MongoDB's
 page on the limit states the size and not the behaviour, so plan for every save failing at once.
-What keeps one person from filling it is the daily write ceiling (`docs/backend/spec.md :: I614`,
-its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
+What keeps one person from filling it is the daily write ceiling (its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
 siblings), sized so that no one person writing 10 KB a write at their ceiling every day reaches the
 first alert below within a year. The alerts show the rest: many people at once, the action log's own
 growth, or counts that stopped expiring.
@@ -2163,7 +2119,7 @@ us; read 2026-10-07:
 
 **When either fires, find the collection that grew**, from the cluster's collection and index sizes
 in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
-index removes (`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping
+index removes, so a large one there is the TTL monitor stopping
 rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
 lower its threshold below 4 GB times the documents' share of documents and indexes.
 
@@ -2171,7 +2127,7 @@ lower its threshold below 4 GB times the documents' share of documents and index
 
 **A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
 them until a visit refreshes each entry once its day has passed, which may be any time up to its
-week ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)). **One call drops them,
+week. **One call drops them,
 from inside the frontend container**, which reads the system key there, so the key never passes
 through your shell or its history. It prints `204`:
 
