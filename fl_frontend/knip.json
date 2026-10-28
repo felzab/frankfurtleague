@@ -22,8 +22,14 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx"
   ],
-  // Each entry is a reader knip cannot see, or a kit export waiting for its first page. An export nothing
-  // reads is deleted or un-exported, never added here.
+  // An export waiting for its first page says so on itself, with the page it waits for: `@awaitsPage` where
+  // no other module reads it, which this run honours, and `@awaitsProduction` where no production module
+  // reads it, which `knip.production.json` honours; an export no module but its own uses carries both.
+  // A tagged export that gains its reader is a tag hint, which fails the run until the tag goes. An export
+  // nothing reads and no page waits for is deleted or un-exported.
+  "tags": ["-awaitsPage"],
+  "treatTagHintsAsErrors": true,
+  // Each entry is a reader knip cannot see.
   "ignoreIssues": {
     // `fl_frontend/src/core/apiContract.test.ts` pairs every `*Schema`, alias included, with a backend
     // component. An inferred type stays beside its schema, or the next caller writes it back.
@@ -32,19 +38,6 @@
     // exported facet array; a URL parameter stays exported beside the rest of its family.
     "src/features/*/facets.ts": ["exports"],
     // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"],
-    // Session 1, the spike's pages: `formatSaison` waits for its first page.
-    "src/core/format.ts": ["exports"],
-    // Kit exports a test reaches, read so far only by files above that wait for their first page. The
-    // field looks go with session 5's (the last of their readers, `Switch` and `SearchField`); the
-    // rest with session 1's spike pages.
-    "src/kit/fieldStyles.ts": ["exports"],
-    // Session 7, the Protokoll: the one list that pages, whose page names the type of a page of rows.
-    "src/kit/ListTable.tsx": ["types"],
-    "src/kit/Toast.tsx": ["exports"],
-    "src/kit/Menu.tsx": ["types"],
-    // The match row's figures for session 3's `BracketCard`, which reads them, and the lone `MatchRow`
-    // for session 3's pages.
-    "src/kit/MatchRow.tsx": ["exports", "types"]
+    "src/features/system/queries.ts": ["exports"]
   }
 }

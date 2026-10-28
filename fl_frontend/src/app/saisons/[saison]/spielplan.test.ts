@@ -1,9 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { currentMatchday, factsOf, matchRowOf } from "./spielplan.ts";
+import { currentMatchday, factsOf, matchRowOf, readSpielplan } from "./spielplan.ts";
 
+import type { FLSaison } from "@/features/saisons/schemas.ts";
 import type { FLSpiel } from "@/features/spiele/schemas.ts";
 import type { Matchday } from "./spielplan.ts";
+
+// A group matchday at position 3 and the final at position 1, as the backend serves them: `position` restarts
+// at 1 in every phase, so a position alone names no matchday of the season.
+vi.mock("@/features/spieltage/queries", () => ({
+  getSpieltage: async () => ({
+    spieltage: [
+      { id: "a".repeat(24), saison_phase: "gruppenphase", position: 3 },
+      { id: "b".repeat(24), saison_phase: "finale", position: 1 },
+    ],
+  }),
+}));
+vi.mock("@/features/spiele/queries", () => ({ getSpiele: async () => ({ spiele: [] }) }));
 
 /** A fixture as the public read serves it: dated, booked and unplayed unless a case says otherwise. */
 function spiel(fields: Partial<FLSpiel> = {}): FLSpiel {
@@ -30,7 +43,7 @@ function spiel(fields: Partial<FLSpiel> = {}): FLSpiel {
   };
 }
 
-const matchday = (id: string, spiele: FLSpiel[]): Matchday => ({ id, label: `${id}. Spieltag`, spiele });
+const matchday = (id: string, spiele: FLSpiel[]): Matchday => ({ id, key: `gruppenphase-${id}`, label: `${id}. Spieltag`, spiele });
 
 describe("the matchday the tabs open on", () => {
   const played = spiel({ ergebnis: "2:1" });
@@ -107,5 +120,12 @@ describe("a match's facts", () => {
   it("hold no referee whose name the public read withholds", () => {
     const labels = factsOf(spiel({ schiedsrichter: { name: null, name_is_public: false } }), "1. Spieltag").map((fact) => fact.label);
     expect(labels).not.toContain("Schiedsrichter");
+  });
+});
+
+describe("the name the address gives a matchday", () => {
+  it("is its stored phase and its stored position, which together are unique in the season", async () => {
+    const { matchdays } = await readSpielplan({ id: "2027", status: "active" } as FLSaison);
+    expect(matchdays.map((each) => each.key)).toEqual(["gruppenphase-3", "finale-1"]);
   });
 });

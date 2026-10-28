@@ -17,7 +17,7 @@ import { tv } from "tailwind-variants/lite";
 import { COPY } from "@/core/copy";
 
 import { useOpenUntilHidden } from "./Dialog";
-import { menuPopover } from "./fieldStyles";
+import { entryMark, menuPopover } from "./fieldStyles";
 import { Icon } from "./Icon";
 import { SheetFrame } from "./Sheet";
 
@@ -27,8 +27,9 @@ import type { ComponentProps, ReactElement } from "react";
 import type { IconName } from "./Icon";
 
 /**
- * A link in a menu; `isCurrent` marks the one in force with the dot, in a list that has one. Its words are
- * catalogue text, or a record's own name such as a season's.
+ * A link in a menu; `isCurrent` marks the one in force as the rail marks the current page, in a list that has
+ * one. Its words are catalogue text, or a record's own name such as a season's.
+ * @awaitsPage the first page that builds a menu's entries
  */
 export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
   { label: Copy; text?: never } | { text: string; label?: never }
@@ -37,6 +38,10 @@ export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean } & (
     routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
   };
 
+/**
+ * One entry of a menu: a link, an action, or a second list of links.
+ * @awaitsPage the first page that builds a menu's entries
+ */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
   | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }
@@ -102,10 +107,9 @@ const item = tv({
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
 const surface = () => menuPopover({ fit: "content" });
 
-function Entry({ label, icon, isMarked, hasMore }: { label: string; icon?: IconName; isMarked?: boolean; hasMore?: boolean }) {
+function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMore?: boolean }) {
   return (
     <>
-      {isMarked !== undefined && <span className={isMarked ? "mx-1 size-2 shrink-0 rounded-full bg-current" : "mx-1 size-2 shrink-0"} />}
       {icon !== undefined && (
         <span className="text-fg-muted">
           <Icon
@@ -127,12 +131,13 @@ function Entry({ label, icon, isMarked, hasMore }: { label: string; icon?: IconN
   );
 }
 
-/** The current link of a list, whose dot shows; `null` where the list marks none. */
+/** The current link of a list, which its section selects; `null` where the list marks none. */
 function current(links: ReadonlyArray<MenuLink>) {
   return links.find((link) => link.isCurrent === true)?.href ?? null;
 }
 
-function LinkItem({ link, size, marks }: { link: MenuLink; size: Size; marks: boolean }) {
+/** A link, marked as the rail marks the current page where its section selects it. */
+function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   return (
     <MenuItem
       id={link.href}
@@ -140,11 +145,10 @@ function LinkItem({ link, size, marks }: { link: MenuLink; size: Size; marks: bo
       routerOptions={link.routerOptions}
       textValue={link.label ?? link.text}
       data-kit-focus="item"
-      className={item({ size })}>
+      className={`${item({ size })} ${entryMark({ mark: "place" })}`}>
       <Entry
         label={link.label ?? link.text}
         icon={link.icon}
-        isMarked={marks ? link.isCurrent === true : undefined}
       />
     </MenuItem>
   );
@@ -182,7 +186,6 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
             key={link.href}
             link={link}
             size={size}
-            marks={key !== null}
           />
         ))}
       </MenuSection>
@@ -205,7 +208,6 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               key={entry.href}
               link={entry}
               size={size}
-              marks={key !== null}
             />
           );
         }

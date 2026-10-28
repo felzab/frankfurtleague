@@ -13,7 +13,10 @@ import type { ReactNode } from "react";
 import type { EmptyStateProps } from "./EmptyState";
 import type { TableProps, TableRow } from "./Table";
 
-/** One page of a list past one read's cap, and where the next starts, or `null` where none follows. */
+/**
+ * One page of a list past one read's cap, and where the next starts, or `null` where none follows.
+ * @awaitsPage session 7's Protokoll, the one list that pages
+ */
 export type ListPageOfRows = { rows: ReadonlyArray<TableRow>; cursor: string | null };
 
 /**
@@ -26,10 +29,17 @@ export type ListMore = {
   load: (request: { query: string; cursor: string | null }) => Promise<ListPageOfRows>;
 };
 
-/** A row's name holds what is typed, upper and lower case alike. */
-const matches = (query: string) => {
+/**
+ * The search field over a list: its name, and the columns it reads beside the row's name, by their keys, such
+ * as a venue's address beside the venue's name. A list past one read's cap is searched on the server, which
+ * decides what it reads.
+ */
+export type ListSearch = { label: Copy; columns?: ReadonlyArray<string> };
+
+/** A row's name, or one of the columns the search reads, holds what is typed, upper and lower case alike. */
+const matches = (query: string, columns: ReadonlyArray<string>) => {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => row.name.toLowerCase().includes(wanted);
+  return (row: TableRow) => [row.name, ...columns.map((key) => row.cells[key] ?? "")].some((text) => text.toLowerCase().includes(wanted));
 };
 
 /** The empty state a search leaves, where the list names its plural; else the list's own. */
@@ -57,7 +67,7 @@ export function ListTable({
   more,
 }: {
   table: TableProps;
-  search?: { label: Copy };
+  search?: ListSearch;
   /** The filter block and the create act, between the search field and the table. */
   toolbar?: ReactNode;
   more?: ListMore;
@@ -97,7 +107,7 @@ export function ListTable({
   };
 
   const isSearching = current.query.trim() !== "";
-  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query)) : current.rows;
+  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query, search?.columns ?? [])) : current.rows;
 
   return (
     <>

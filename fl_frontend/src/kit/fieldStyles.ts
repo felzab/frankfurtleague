@@ -35,19 +35,30 @@ export const messageLine = tv({
   defaultVariants: { lines: "one" },
 });
 
-/** The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen. */
+/**
+ * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
+ * surface one step up from the page inside its control edge.
+ */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-bg text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
+  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
   variants: {
-    // The four width classes: up to five characters, a date or a short figure, the column, a paragraph.
+    // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
+    // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
+    // of characters and one more for the caret, inside the two 10-px insets and the two 1-px edges
+    // (1.375 rem together). Then the column, and the column at four lines for a paragraph.
     width: {
-      W1: "h-9 w-16 pointer-coarse:h-11",
-      W2: "h-9 w-36 pointer-coarse:h-11",
+      // A score.
+      C2: "h-9 w-[calc(3ch+1.375rem)] pointer-coarse:h-11",
+      // A postcode, a time, whole euros, a house number.
+      C5: "h-9 w-[calc(6ch+1.375rem)] pointer-coarse:h-11",
+      // A date: the width of a ten-character field and its calendar button beside it, 36 px with a mouse
+      // and 44 on a touch screen as every field's button is.
+      C10: "h-9 w-[calc(11ch+1.375rem+2.25rem)] pointer-coarse:h-11 pointer-coarse:w-[calc(11ch+1.375rem+2.75rem)]",
       W3: "h-9 w-full pointer-coarse:h-11",
       W4: "min-h-26 w-full resize-none py-2",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
-    // start. The padding is set per width below: the two short widths take 10 px, the long ones 12 px.
+    // start. The padding is set per width below: the short widths take 10 px, the long ones 12 px.
     inset: {
       full: "",
       start: "",
@@ -67,11 +78,22 @@ export const fieldFrame = tv({
     },
   },
   compoundVariants: [
-    { width: ["W1", "W2"], inset: "full", class: "px-2.5" },
-    { width: ["W1", "W2"], inset: "start", class: "ps-2.5" },
+    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
+    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
     { width: ["W3", "W4"], inset: "full", class: "px-3" },
     { width: ["W3", "W4"], inset: "start", class: "ps-3" },
   ],
+});
+
+/**
+ * A unit after its field and outside it, as „€“ follows a price: 10 px off, as a box's label is, in the field's
+ * own text, so the figure and its unit read as one value.
+ */
+export const fieldUnit = tv({
+  slots: {
+    row: "flex items-center gap-2.5",
+    unit: "text-sm text-fg pointer-coarse:text-base",
+  },
 });
 
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
@@ -94,9 +116,9 @@ export const searchClear = tv({
 /** The six code boxes, sharing the column, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
 
-/** One drawn code box: a field's frame and height, its digit large and centred. */
+/** One drawn code box: a field's frame, fill and height, its digit large and centred. */
 export const codeBox = tv({
-  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
 });
 
 /**
@@ -107,8 +129,11 @@ export const codeInput = tv({
   base: "absolute inset-0 size-full bg-transparent text-base text-transparent caret-transparent selection:bg-transparent",
 });
 
-/** One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. */
-export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted" });
+/**
+ * One segment of a date or a time; the active one fills, at the 6-px corners of a highlighted part. An empty
+ * segment shows its placeholder in capitals, „TT.MM.JJJJ“, as German forms write it.
+ */
+export const dateSegment = tv({ base: "rounded-md caret-transparent data-placeholder:text-fg-muted data-placeholder:uppercase" });
 
 /** The weekdays over a date's calendar, in the caption grade. */
 export const calendarHead = tv({ base: "pb-1 text-xs font-medium text-fg-muted" });
@@ -121,10 +146,14 @@ export const calendarCell = tv({
 /**
  * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
  * the row starts where the label does, whatever the box's width.
+ * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
 export const toggleField = tv({ base: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
-/** A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. */
+/**
+ * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
+ * @awaitsProduction session 4's `Checkbox` and `RadioGroup`, session 5's `Switch`
+ */
 export const toggleRow = tv({
   base: "items-start text-sm text-fg data-disabled:opacity-50",
   variants: {
@@ -140,6 +169,7 @@ export const toggleRow = tv({
  * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or
  * chosen, it fills with the link green: a checkbox's tick on it is the page's ground, white in the light
  * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
+ * @awaitsProduction session 4's `Checkbox` and `RadioGroup`
  */
 export const toggleBox = tv({
   base: "mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state)",
@@ -164,18 +194,50 @@ export const toggleBox = tv({
   ],
 });
 
-/** A checkbox's or a switch's message line, in the label's column. */
-export const toggleLine = tv({ base: "col-start-2" });
+/**
+ * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
+ * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
+ * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
+ */
+export const toggleLine = tv({ base: "col-start-2 grid" });
 
-/** A radio group's answers, one under another. */
-export const radioList = tv({ base: "flex flex-col gap-2" });
+/**
+ * A radio group's answers: one under another, or, where each answer is described, side by side as cards.
+ * @awaitsProduction session 4's `RadioGroup`
+ */
+export const radioList = tv({
+  variants: {
+    layout: {
+      list: "flex flex-col gap-2",
+      cards: "grid gap-2 lg:grid-cols-3",
+    },
+  },
+});
 
-/** The dot inside a chosen radio, in the page's ground. */
+/**
+ * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
+ * label are; the chosen card edged 2 px in the link green.
+ * @awaitsProduction session 4's `RadioGroup`
+ */
+export const choiceCard = tv({
+  slots: {
+    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-bg p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    words: "grid gap-1",
+    title: "font-semibold",
+    line: "text-xs text-fg-muted",
+  },
+});
+
+/**
+ * The dot inside a chosen radio, in the page's ground.
+ * @awaitsProduction session 4's `RadioGroup`
+ */
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 
 /**
  * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
  * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
+ * @awaitsProduction session 5's `Switch`
  */
 export const switchTrack = tv({
   base: "mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state)",
@@ -188,6 +250,10 @@ export const switchTrack = tv({
   },
 });
 
+/**
+ * The switch's thumb, in the page's ground, sliding to the track's end when on.
+ * @awaitsProduction session 5's `Switch`
+ */
 export const switchThumb = tv({
   base: "size-4 rounded-full bg-bg transition-transform duration-(--motion-state)",
   variants: {
@@ -213,4 +279,51 @@ export const menuPopover = tv({
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
   base: "flex min-h-9 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base",
+});
+
+/**
+ * How a list marks its chosen entry, by what choosing it means, in every list that has one. A form's value,
+ * in a select's, a combo box's or a menu's choice: the row tinted 12 % of the link green, its check at the
+ * end. A navigating menu's current place: the rail's mark of the current page, the muted fill with the words
+ * in the link green, and no check.
+ */
+export const entryMark = tv({
+  variants: {
+    mark: {
+      value: "data-selected:bg-brand/12",
+      place: "data-selected:bg-bg-muted data-selected:text-brand",
+    },
+  },
+});
+
+/**
+ * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
+ * surface, and the toggle boxes of a small multi-select, each box standing alone.
+ * @awaitsProduction session 4's `ChoiceButtons`
+ */
+export const choiceGroup = tv({
+  base: "flex flex-wrap",
+  variants: {
+    kind: {
+      segmented: "inline-flex h-9 self-start rounded-lg border border-border-control bg-bg-surface p-0.5 pointer-coarse:h-11",
+      boxes: "gap-2",
+    },
+  },
+});
+
+/**
+ * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
+ * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
+ * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
+ * @awaitsProduction session 4's `ChoiceButtons`
+ */
+export const choiceButton = tv({
+  base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
+  variants: {
+    kind: {
+      segmented: "h-full min-w-16 rounded-md border border-transparent px-3 data-selected:border-border-control data-selected:bg-bg-muted",
+      boxes:
+        "h-9 min-w-16 rounded-lg border border-border-control bg-bg px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
+    },
+  },
 });

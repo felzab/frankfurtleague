@@ -10,6 +10,7 @@ import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/type
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import recipeSizes from "./eslint-rules/recipe-sizes.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 // ---------------------------------------------------------------------------------------------------
@@ -388,7 +389,9 @@ const ENVIRONMENT_READ = syntax(
 /**
  * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
  * error boundary, which reads nothing of it, the edge's own 429 included. The kit's one wrapper answers every
- * throw as the form's own failure line.
+ * throw as the form's own failure line. A syntax selector, since `no-restricted-imports`' `importNames` sees
+ * imports alone: it passes `React.useActionState` read off a default import, and refuses any namespace import
+ * of `react`, whatever hook it reads.
  */
 const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = syntax(
@@ -807,6 +810,18 @@ const STEP_REM = String.raw`(?:0\.125|0\.25|0\.375|0\.5|0\.625|0\.75|0\.875|1|1\
 const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
 const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
 
+/**
+ * A spacing class off the scale; `except` is a lookahead sparing one exact class. `(?![xy]-)` keeps `gap-x-4`
+ * from being read as a bare `gap-` with the value `x-4`.
+ */
+const OFF_SCALE = (except) =>
+  CLASS(
+    String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
+  );
+
+/** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
+const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
+
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 const PALETTE =
@@ -973,8 +988,9 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The four blocks carrying a name: a table row's, a match's, a record's facts and the page header's title.
-    { allow: ["src/kit/Table.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
+    // The five blocks carrying a name: a table row's, a card row's, a match's, a record's facts and the page
+    // header's title.
+    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
   ),
   // Only a confirmation asks a question.
   syntaxBan(
@@ -1001,14 +1017,17 @@ const DESIGN_BANS = [
   // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
   // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
   // classes are held here.
+  classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
+    allow: [TOGGLE_OFFSET.home],
+    pending: notYetRebuilt().spacing,
+  }),
+  // The field looks' file holds to the same scale, the one offset that sets a toggle's drawn box and the
+  // switch's track a pixel down to its label's first line excepted.
   classBan(
-    // `(?![xy]-)` keeps `gap-x-4` from being read as a bare `gap-` with the value `x-4`.
-    CLASS(
-      String.raw`-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
-    ),
-    "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.",
+    OFF_SCALE(String.raw`(?!${TOGGLE_OFFSET.name}!?$)`),
+    `Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16, and \`${TOGGLE_OFFSET.name}\` for a toggle's drawn box.`,
     PRODUCTION,
-    { pending: notYetRebuilt().spacing },
+    { only: [TOGGLE_OFFSET.home] },
   ),
   classBan(
     CLASS(String.raw`text-(?:lg|[4-9]xl)`),
@@ -1331,6 +1350,14 @@ const eslintConfig = defineConfig([
     language: "css/css",
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
+  },
+
+  // A `tailwind-variants/lite` recipe states each size in one place: the lite build merges no classes, so
+  // two of its parts setting one size together would leave the stylesheet's order to pick.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    plugins: { recipes: { rules: { "one-size": recipeSizes } } },
+    rules: { "recipes/one-size": "error" },
   },
 
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
@@ -2274,8 +2301,6 @@ function notYetRebuilt() {
       ],
     },
     spacing: {
-      // The 1-px offset that sets a toggle's drawn box and the switch's track a pixel down to its label's first line.
-      1: ["src/kit/fieldStyles.ts"],
       3: [
         "src/app/(public)/(meta)/layout.tsx",
         "src/app/(public)/page.tsx",
@@ -2713,8 +2738,6 @@ function notYetRebuilt() {
       ],
     },
     literalText: {
-      // The kit's fix round: the score's colon, which the formatting module writes.
-      1: ["src/kit/MatchRow.tsx"],
       2: ["src/features/system/components/ui/ServerIsLive.tsx"],
       3: [
         "src/app/(public)/page.tsx",

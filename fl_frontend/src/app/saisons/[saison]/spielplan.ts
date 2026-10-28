@@ -43,8 +43,13 @@ export async function readSeasons(): Promise<Seasons | null> {
   return { ids: saisons.map((saison) => saison.id).sort((one, other) => other.localeCompare(one)), standard: standard.id };
 }
 
-/** One matchday as the Spielplan shows it: its name, and its matches in the order the draw numbered them. */
-export type Matchday = { id: string; label: string; spiele: readonly FLSpiel[] };
+/**
+ * One matchday as the Spielplan shows it: its name, and its matches in the order the draw numbered them.
+ * `key` is what the address calls it, `?tab=<phase>-<position>` such as `gruppenphase-3` or `finale-1`: its
+ * stored phase and stored position, unique together within a season and not alone, since `position`
+ * restarts at 1 in every phase. It carries no database id, so the address reads.
+ */
+export type Matchday = { id: string; key: string; label: string; spiele: readonly FLSpiel[] };
 
 /**
  * The season's matchdays in the order the season plays them, as the backend serves them, each holding its
@@ -55,6 +60,7 @@ export async function readSpielplan(saison: FLSaison): Promise<{ matchdays: read
   const labels = spieltagLabels(spieltage);
   const matchdays = spieltage.map((spieltag) => ({
     id: spieltag.id,
+    key: `${spieltag.saison_phase}-${String(spieltag.position)}`,
     label: labels.get(spieltag.id)?.label ?? "",
     spiele: spiele.filter((spiel) => spiel.spieltag_id === spieltag.id).sort((one, other) => one.spiel_nr - other.spiel_nr),
   }));

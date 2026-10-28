@@ -32,7 +32,7 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.hausnummer}
         name="hausnummer"
-        width="W1"
+        width="C5"
         kind="text"
         isRequired={pflicht.hausnummer}
         maxLength={hoechstens.hausnummer}
@@ -40,11 +40,12 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.plz}
         name="plz"
-        width="W2"
+        width="C5"
         kind="digits"
         isRequired={pflicht.plz}
         // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
-        // the dialog must hold itself: it shows no refusal of the server's.
+        // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
+        // failure, their words being the old pages'.
         maxLength={5}
         minLength={5}
       />
@@ -68,8 +69,9 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
       <TextField
         label={WORTE.mietpreis}
         name="mietpreis"
-        width="W2"
+        width="C5"
         kind="digits"
+        unit={COPY.shared.einheit.euro}
         isRequired={pflicht.mietpreis}
       />
     </>

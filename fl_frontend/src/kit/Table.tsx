@@ -3,6 +3,7 @@ import { tv } from "tailwind-variants/lite";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
 
 import type { Copy } from "@/core/copy";
@@ -56,6 +57,11 @@ const table = tv({
     head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-[0.04em] whitespace-nowrap text-fg-muted uppercase",
     row: "relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
+    // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
+    // long fact beside it cannot squeeze it to a letter a line.
+    name: "w-full max-w-0 min-w-48 px-3 py-2 break-words",
+    // A linked row's last cell, as narrow as the chevron that says the row leads on.
+    end: "w-0 pe-3",
   },
   variants: {
     align: {
@@ -81,18 +87,18 @@ const table = tv({
     },
     qualifies: {
       // Drawn inside the first cell, so it takes no width and moves nothing.
-      true: { cell: "shadow-[inset_2px_0_0_var(--brand)]" },
+      true: { cell: "shadow-[inset_2px_0_0_var(--brand)]", name: "shadow-[inset_2px_0_0_var(--brand)]" },
     },
   },
 });
 
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
-    <td className={barred ? "w-full max-w-0 px-3 shadow-[inset_2px_0_0_var(--brand)]" : "w-full max-w-0 px-3"}>
-      {/* The name truncates first; the plaque and the chip keep their size. */}
-      <span className="flex min-w-0 items-center gap-2">
+    <td className={table({ qualifies: barred }).name()}>
+      {/* A long name wraps, its chip following onto the next line; the plaque and the chip keep their size. */}
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
-        <span className="min-w-0 truncate">
+        <span className="min-w-0">
           {row.href === undefined ? (
             row.name
           ) : (
@@ -116,10 +122,12 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
 
 /**
  * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a grey
- * capital head. A row opens its record. Few columns: the name with its plaque and chip, then a few facts.
+ * capital head. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
+ * and chip, then a few facts.
  */
 export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: TableProps) {
   const nameHead = table({ align: "start" }).head();
+  const isLinked = rows.some((row) => row.href !== undefined);
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-bg">
       {rows.length === 0 ? (
@@ -153,6 +161,8 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                   {column.label}
                 </th>
               ))}
+              {/* The chevrons' column names nothing, so its head is no header cell. */}
+              {isLinked && <td className={table().head()} />}
             </tr>
           </thead>
           <tbody>
@@ -181,6 +191,7 @@ export function Table({ label, nameLabel, rankLabel, columns, rows, empty }: Tab
                       {row.cells[column.key]}
                     </td>
                   ))}
+                  {isLinked && <td className={table().end()}>{row.href !== undefined && <RowEnd />}</td>}
                 </tr>
               );
             })}

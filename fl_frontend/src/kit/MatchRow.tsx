@@ -1,9 +1,11 @@
 import { tv } from "tailwind-variants/lite";
 
 import { COPY } from "@/core/copy";
+import { ERGEBNIS_TRENNER } from "@/core/format";
 
 import { Chip } from "./Chip";
 import { Link } from "./Link";
+import { RowEnd } from "./RowEnd";
 import { TeamPlaque } from "./TeamPlaque";
 
 import type { Paar } from "@/core/format";
@@ -28,7 +30,10 @@ export type MatchRowProps = {
   chip?: ChipProps;
 };
 
-// No result yet: a dash for each side's goals.
+/**
+ * No result yet: a dash for each side's goals.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export const NONE = "–";
 
 const row = tv({
@@ -54,9 +59,16 @@ const row = tv({
   },
 });
 
+/**
+ * Each side's figure, or `null` before a result.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export type Figures = { home: number; away: number; shootOut: boolean } | null;
 
-/** Each side's figure: its goals, a shoot-out's goals added, as the league reports it. */
+/**
+ * Each side's figure: its goals, a shoot-out's goals added, as the league reports it.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export function figures(result: MatchRowProps["result"]): Figures {
   if (result === undefined) return null;
   const { tore, elfmeterschiessen } = result;
@@ -67,6 +79,10 @@ export function figures(result: MatchRowProps["result"]): Figures {
   };
 }
 
+/**
+ * How one side reads: its name bold where it won, its goals bold, regular where it lost a shoot-out.
+ * @awaitsPage session 3's `BracketCard`
+ */
 export function look(score: Figures, side: "home" | "away") {
   if (score === null) return { winner: false, goals: "none" } as const;
   const own = score[side];
@@ -102,11 +118,11 @@ function RowChip({ chip }: { chip?: ChipProps }) {
 
 /**
  * A match in a list, the whole row a link to it. On desktop one line, 56 px: when, the home side, the
- * score with „n. E.“ centred under it, the away side, the phase. On a phone two lines under the date
- * line, each side with its goals at the right, „n. E.“ on the date line; every row the same height with
- * or without a shoot-out.
+ * score with „n. E.“ centred under it, the away side, the phase, the chevron. On a phone a card of two lines
+ * under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron; every
+ * row the same height with or without a shoot-out.
  */
-export function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps) {
+function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
 
@@ -115,7 +131,7 @@ export function MatchRow({ href, when, home, away, result, phase, chip }: MatchR
       <Link
         href={href}
         placement="card">
-        <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm max-lg:hidden">
+        <span className="grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm max-lg:hidden">
           <span className="col-start-1 row-span-2 row-start-1 font-numeric text-fg-muted tabular-nums">{when}</span>
           <span className="col-start-2 row-span-2 row-start-1">
             <Side
@@ -130,7 +146,7 @@ export function MatchRow({ href, when, home, away, result, phase, chip }: MatchR
               score={score}
               part="home"
             />
-            <span className={score === null ? "text-fg-muted" : undefined}>:</span>
+            <span className={score === null ? "text-fg-muted" : undefined}>{ERGEBNIS_TRENNER}</span>
             <Goals
               score={score}
               part="away"
@@ -147,6 +163,10 @@ export function MatchRow({ href, when, home, away, result, phase, chip }: MatchR
             <RowChip chip={chip} />
           </span>
           <span className="col-start-5 row-span-2 row-start-1 text-end text-xs whitespace-nowrap text-fg-muted">{phase}</span>
+          {/* A row in a list says it leads on; the phone's form stands as a card of its own and says nothing. */}
+          <span className="col-start-6 row-span-2 row-start-1 flex self-stretch">
+            <RowEnd />
+          </span>
         </span>
         <span className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base lg:hidden">
           <span className="truncate font-numeric text-xs text-fg-muted tabular-nums">{when}</span>
