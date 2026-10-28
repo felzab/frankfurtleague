@@ -114,6 +114,8 @@ export const COPY = katalog({
       zumKonto: "Zum Konto",
     },
 
+    /** The match pop-up's way to the match's own page. */
+    zumSpiel: "Zum Spiel",
     nichtHinterlegt: "Nicht hinterlegt",
     uebersicht: "Übersicht",
     funktionWechseln: "Funktion wechseln",
