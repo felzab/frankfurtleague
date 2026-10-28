@@ -68,26 +68,26 @@ wherever it can.
 A message is written short enough for the narrowest place it appears, since it must fit one line
 there.
 
-| Kind                    | Ceiling                                     | Shape                                                                                      |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Navigation label        | 1 to 2 words                                | a noun                                                                                     |
-| Page or section heading | 4 words                                     | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence |
-| Field label             | 3 words                                     | a noun, no colon                                                                           |
-| Button                  | 3 words                                     | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)       |
-| Field description       | 1 sentence, 90 characters, one visible line | says what the thing is; none where the label suffices; no field has a placeholder          |
-| Tooltip                 | 5 words                                     | names an icon-only control, nothing more                                                   |
-| Section info tip (ⓘ)    | 2 sentences, about 200 characters           | only where a named question needs it                                                       |
-| Field error             | one phrase, one line, 80 characters         | a fixed pattern                                                                            |
-| Form or page error      | 2 sentences                                 | what happened, then the one repair                                                         |
-| Empty state             | 1 sentence plus at most one button          | which narrowing emptied it                                                                 |
-| Toast                   | a title of 1 to 3 words, no body            | a past participle                                                                          |
-| Page or section intro   | none                                        | a page's title is its explanation                                                          |
-| List-truncation banner  | none                                        | the load-more control instead                                                              |
-| Page title              | the page's catalogue title                  | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“         |
-| Callout                 | a title plus at most 1 sentence             | a state or a consequence                                                                   |
-| Team description        | three lines                                 | then „Mehr …“ opening the rest                                                             |
-| Mail subject            | 50 characters                               | what it is about first, no league name                                                     |
-| Mail body               | about 90 words                              | more only where the law requires it on a first contact                                     |
+| Kind                    | Ceiling                                     | Shape                                                                                           |
+| ----------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Navigation label        | 1 to 2 words                                | a noun                                                                                          |
+| Page or section heading | 4 words                                     | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence      |
+| Field label             | 3 words                                     | a noun, no colon                                                                                |
+| Button                  | 3 words                                     | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)            |
+| Field description       | 1 sentence, 90 characters, one visible line | says what the thing is; none where the label suffices; no field has a placeholder               |
+| Tooltip                 | 5 words                                     | names an icon-only control, nothing more                                                        |
+| Section info tip (ⓘ)    | 2 sentences, about 200 characters           | only where a named question needs it                                                            |
+| Field error             | one phrase, one line, 80 characters         | a fixed pattern                                                                                 |
+| Form or page error      | 2 sentences                                 | what happened, then the one repair; a failure no reason names, the one line `fehler.unerwartet` |
+| Empty state             | 1 sentence plus at most one button          | which narrowing emptied it                                                                      |
+| Toast                   | a title of 1 to 3 words, no body            | a past participle; a failure, the one line `fehler.unerwartet`                                  |
+| Page or section intro   | none                                        | a page's title is its explanation                                                               |
+| List-truncation banner  | none                                        | the load-more control instead                                                                   |
+| Page title              | the page's catalogue title                  | followed by the one suffix „\| Frankfurt League“; a match is „{Heim} gegen {Gast}“              |
+| Callout                 | a title plus at most 1 sentence             | a state or a consequence                                                                        |
+| Team description        | three lines                                 | then „Mehr …“ opening the rest                                                                  |
+| Mail subject            | 50 characters                               | what it is about first, no league name                                                          |
+| Mail body               | about 90 words                              | more only where the law requires it on a first contact                                          |
 
 ## A recurring job takes its fixed pattern
 

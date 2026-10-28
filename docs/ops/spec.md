@@ -56,10 +56,12 @@ such reference to that form, the copy and the backend's tier to the stack, and t
 to the backend's.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
-production runs. The frontend base's Node lies in the series `fl_frontend/package.json :: devEngines`
-declares, whose newest release `pnpm install` records in `fl_frontend/pnpm-lock.yaml` and downloads for every checkout and CI job while the image's install passes
-`--no-runtime` and keeps its base's own; the frontend image's pnpm is `packageManager`'s; the backend base's Python lies inside the series `fl_backend/.python-version` pins,
-which every CI job's interpreter comes from; and the backend image's uv is the release
+production runs. The frontend base's Node is the exact release
+`fl_frontend/package.json :: devEngines` names, which `pnpm/setup` installs for every CI job from the
+manifest alone and `pnpm install` records in `fl_frontend/pnpm-lock.yaml` for every checkout, while
+the image's install passes `--no-runtime` and keeps its base's own; the frontend image's pnpm is
+`packageManager`'s; the backend base's Python lies inside the series `fl_backend/.python-version`
+pins, which every CI job's interpreter comes from; and the backend image's uv is the release
 `.github/actions/backend-toolchain/action.yml` installs for every CI job,
 `fl_backend/pyproject.toml :: "required-version"` being a range that admits Dependabot's own uv
 rather than a pin. Dependabot's
@@ -501,21 +503,26 @@ application. **Revisit when the application renders user-supplied markup, or whe
 inline-script hashing that covers prerendered shells** — and at the first, reconsider the policy,
 never the lint rule.
 
-`style-src` carries it for a narrower reason: several components set a runtime-computed inline
-`style` **attribute**, for which CSP offers no nonce or hash. Narrowing to `style-src 'self'` with
-`style-src-attr 'unsafe-inline'` would cover those and stop admitting an injected `<style>`
-element, and what it costs is Next's own `_global-error` fallback, the one prerendered page here
-carrying an inline `<style>` — a directive on attributes does not reach an element, so that page
-would render unstyled. Every route this application declares carries none.
-[Issue #239](https://github.com/felzab/frankfurtleague/issues/239) owns the decision.
+**`style-src` keeps `'unsafe-inline'` too, because two libraries every page loads inject a
+`<style>` element at runtime**: React Aria's `usePress` adds its touch rule
+(`touch-action: pan-x pan-y pinch-zoom` on every pressable element, which spares a tap the
+browser's double-tap-zoom delay), and `next-themes` adds the rule that suspends transitions while it
+applies the theme. Several components also set a runtime-computed inline `style` **attribute**, for
+which CSP offers no nonce or hash. A strict `style-src 'self'`, and `'self'` beside
+`style-src-attr 'unsafe-inline'` alike, drops both elements with nothing visibly broken and logs a
+violation on every page — a directive on attributes does not reach an element — and Next's own
+`_global-error` fallback, which carries an inline `<style>` too, would render unstyled. A nonce is
+refused (2026-10-28): both libraries take it from a per-request value, React Aria from a
+`csp-nonce` meta and `next-themes` from a prop, which a prerendered shell cannot carry. So is a hash
+of their style text, which changes with each library's release.
 
 **The policy is written once**, in `nginx/shared/security_headers.conf`, which
 `nginx/shared/site.conf` includes at server level and again in each location adding a header of
 its own, because `add_header` in a location replaces the inherited set, and which
 `nginx/prod/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location and the
 www redirect for it, and compares each header's value with that file's. A
-restated copy would be a second enforcing policy, which the
-`.claude/rules/cross-surface.md` **csp** clause forbids.
+restated copy would be a second enforcing policy, which the **csp** clause of
+`docs/decisions.md` forbids.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
@@ -643,9 +650,13 @@ only then do the frontend and nginx start, the backend recreated with them.
 merged over the local stack's two files): a compose project of its own, `frankfurtleague-e2e`, so
 its volume and with it its sign-in store are never the local stack's; its settings written in that
 file rather than read from either package's `.env`; its keys generated under `.tmp-e2e/` on every
-start rather than read from `secrets/`; and the made-up seed on an empty volume every start.
-`--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another stack's
-container publishes port 3000 or 27017**, which both publish
+start rather than read from `secrets/`; the made-up seed on an empty volume every start; and the
+local edge with one trust added (`nginx/e2e/e2e.conf`): it takes `CF-Connecting-IP` from
+172.30.1.1, the gateway `docker-compose.e2e.yml` pins on its `frankfurtleague-app` network, which
+is where the host's requests arrive. Each journey therefore meets the rate limits as a visitor of
+its own (`fl_frontend/e2e/support/journey.ts`), as production's edge meets each person behind the
+connector. `--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another
+stack's container publishes port 3000 or 27017**, which both publish
 (`scripts/ops/local.sh :: refuse_another_stack_on_the_ports`). The journeys run against it from
 `fl_frontend` with `pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
 
@@ -1109,7 +1120,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                 | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`; the local stack's login-free database URI `:: config_holders`                                                                                                                                              |
 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                          | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                        |
 | Before containers start, each service's own boot builds its settings from its container's variables and secret files, printing no value; an unrunnable check warns         | `scripts/lib/_lib.sh :: check_frontend_boot_config` and `:: check_backend_boot_config`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py`                                                                                                   |
-| The frontend image's `FROM node:` tag lies in the series `fl_frontend/package.json :: devEngines` declares, the Node every checkout and CI job runs                        | `scripts/tests/test_image_pins.py :: test_the_frontend_image_runs_the_node_series_pnpm_installs`                                                                                                                                                                                               |
+| The frontend image's `FROM node:` tag is the release `fl_frontend/package.json :: devEngines` names, the Node every checkout and CI job runs                               | `scripts/tests/test_image_pins.py :: test_the_frontend_image_runs_the_node_series_pnpm_installs`                                                                                                                                                                                               |
 | The frontend image installs with the pnpm `fl_frontend/package.json :: packageManager` names                                                                               | `scripts/tests/test_image_pins.py :: test_the_frontend_image_installs_the_pnpm_the_manifest_names`                                                                                                                                                                                             |
 | The backend image's `FROM python:` tag lies inside the series `fl_backend/.python-version` pins, which every CI job's interpreter comes from                               | `scripts/tests/test_image_pins.py :: test_the_backend_image_runs_the_python_series_ci_installs`                                                                                                                                                                                                |
 | The backend image's `FROM ghcr.io/astral-sh/uv:` tag names the release `.github/actions/backend-toolchain/action.yml` installs, the uv every CI job runs                   | `scripts/tests/test_image_pins.py :: test_ci_installs_the_uv_the_backend_image_copies_in`                                                                                                                                                                                                      |

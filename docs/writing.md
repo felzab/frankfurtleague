@@ -17,7 +17,10 @@ check is on this page.
 - **Spell every domain term as [the glossary](glossary.md) does**, and read a term's entry before
   writing it for the first time. A new term gets an entry, which says what the word is and where it
   lives in the code, and nothing more.
-- **State a decision neutrally, with the date it was taken.**
+- **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
+  hold is one line in [the decisions record](decisions.md), written in the commit that takes it;
+  the line carries no date, because that commit holds its date and its argument, and
+  `git log -S '<its words>' --reverse` finds the commit.
 - **Start a new document from [its template](templates/)**: a folder README, an overview, or a
   glossary entry.
 

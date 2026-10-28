@@ -295,17 +295,17 @@ def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
 
 
 def test_the_frontend_image_runs_the_node_series_pnpm_installs() -> None:
-    """The image's Node major is the one pnpm installs for the checkout and CI: `devEngines` names a range, the lockfile its release."""
+    """The image's Node is the release pnpm installs for the checkout and CI: `devEngines` names one exact release, the lockfile records it."""
     runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
-    declared = re.search(r"\d+", runtime["version"])
-    resolved = set(re.findall(r"^  node@runtime:(\d+)\.", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
+    # `pnpm/setup` installs from the manifest alone, so a range there resolves afresh on every CI run.
+    exact = re.fullmatch(r"\d+\.\d+\.\d+", runtime["version"])
+    resolved = set(re.findall(r"^  node@runtime:(\S+?):?$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
     tags = _from_tags(DOCKERFILES[0], "node")
-    assert runtime["name"] == "node" and declared and resolved and tags, (
-        f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}"
+    assert runtime["name"] == "node" and exact and resolved and tags, (
+        f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}, where the case reads one exact release of each"
     )
-    majors = {tag.split(".", 1)[0] for tag in tags}
-    assert majors == {declared[0]} == resolved, (
-        f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}.x, fl_frontend/Dockerfile {tags}"
+    assert set(tags) == {runtime["version"]} == resolved, (
+        f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
     )
 
 

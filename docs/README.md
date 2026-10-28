@@ -9,6 +9,7 @@
 | [`glossary.md`](glossary.md)       | The German domain vocabulary, and the pitfall in each term             |
 | [`domain.md`](domain.md)           | What depends on what, when a field may be edited, and what is refused  |
 | [`datenschutz.md`](datenschutz.md) | The data-protection rulings, held there until each reaches its home    |
+| [`decisions.md`](decisions.md)     | What was decided and is never undone without a new decision            |
 | [`frontend/`](frontend/)           | The Next.js app — what it is for, and how it is organised              |
 | [`backend/`](backend/)             | The FastAPI service — what it is for, and how it is organised          |
 | [`ops/`](ops/)                     | Building, routing, deploying and running the system                    |
@@ -27,8 +28,7 @@ Read in this order:
 2. **[`domain.md`](domain.md)** — its aggregate boundaries are where the expensive mistakes are.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md).
-4. **`.claude/CLAUDE.md` §7 and the files it indexes under `.claude/rules/`** — one line per
-   ratified decision.
+4. **[`decisions.md`](decisions.md)** — one line per ratified decision.
 5. **[`writing.md`](writing.md)** — how a change and its documents are written.
 
 The ops spec and the runbooks are reference, not reading. Look things up in them; do not read them

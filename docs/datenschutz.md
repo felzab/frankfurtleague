@@ -1059,7 +1059,7 @@ Each row cites where the decision now lives.
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | —     | Narrow the refusal's sentence to the window in which the undraw it recommends is possible (`fl_backend/app/core/domain.py :: RULES` on `REQ-RULES-011`)                                                             |
 | —     | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
-| —     | The toast clause stands in `.claude/rules/frontend.md`; a toast's appearance is built in `fl_frontend/src/core/providers/AppToaster.tsx`                                                                            |
+| —     | The toast clause stands in `docs/decisions.md`; a toast's appearance is built in `fl_frontend/src/core/providers/AppToaster.tsx`                                                                                    |
 | —     | Announcing that a season rollover is due stays deferred until one is actually missed                                                                                                                                |
 | —     | Authenticated origin pulls are the cheapest real fix; a tunnel is the strongest, and the tunnel is what runs                                                                                                        |
 
