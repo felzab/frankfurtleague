@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { RouterProvider } from "react-aria-components";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -13,62 +11,47 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027" }));
 
 const SPIELTAGE = COPY.spielplan.spieltage;
 const TABS = [
-  { id: "st-1", label: "1. Spieltag", panel: "Panel 1" },
-  { id: "st-2", label: "2. Spieltag", panel: "Panel 2" },
+  { id: "st-1", label: "1. Spieltag" },
+  { id: "st-2", label: "2. Spieltag" },
 ];
 
 describe("the kit's tabs", () => {
-  it("makes each tab a link to the page's address with the tab in it", () => {
+  it("makes each tab a link to the page's address with the tab in it, in a navigation named for the row", () => {
     render(
       <Tabs
         label={SPIELTAGE}
         selectedKey="st-1"
-        tabs={TABS}
-      />,
+        tabs={TABS}>
+        Inhalt
+      </Tabs>,
     );
 
-    const zweiter = screen.getByRole("tab", { name: "2. Spieltag" });
-    expect(zweiter.tagName).toBe("A");
+    const zweiter = within(screen.getByRole("navigation", { name: SPIELTAGE })).getByRole("link", { name: "2. Spieltag" });
     expect(zweiter.getAttribute("href")).toBe("/saisons/2027?tab=st-2");
   });
 
-  it("navigates to a tab's address when it is pressed, through the app's router", async () => {
-    const navigate = vi.fn();
-    render(
-      <RouterProvider navigate={navigate}>
-        <Tabs
-          label={SPIELTAGE}
-          selectedKey="st-1"
-          tabs={TABS}
-        />
-      </RouterProvider>,
-    );
-
-    await userEvent.click(screen.getByRole("tab", { name: "2. Spieltag" }));
-
-    expect(navigate).toHaveBeenCalledWith("/saisons/2027?tab=st-2", undefined);
-  });
-
-  it("shows the tab the address names, and follows the address as it changes", () => {
+  it("marks the tab the address names as the current page, and follows the address as it changes", () => {
     const { rerender } = render(
       <Tabs
         label={SPIELTAGE}
         selectedKey="st-2"
-        tabs={TABS}
-      />,
+        tabs={TABS}>
+        Inhalt
+      </Tabs>,
     );
-    expect(screen.getByRole("tab", { name: "2. Spieltag" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tabpanel").textContent).toBe("Panel 2");
+    expect(screen.getByRole("link", { name: "2. Spieltag" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "1. Spieltag" }).hasAttribute("aria-current")).toBe(false);
 
     rerender(
       <Tabs
         label={SPIELTAGE}
         selectedKey="st-1"
-        tabs={TABS}
-      />,
+        tabs={TABS}>
+        Inhalt
+      </Tabs>,
     );
-    expect(screen.getByRole("tab", { name: "1. Spieltag" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tabpanel").textContent).toBe("Panel 1");
+    expect(screen.getByRole("link", { name: "1. Spieltag" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "2. Spieltag" }).hasAttribute("aria-current")).toBe(false);
   });
 });
 

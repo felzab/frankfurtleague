@@ -47,20 +47,20 @@ async function rendered(query: Record<string, string>) {
 describe("the Spielplan's server render", () => {
   it("renders the matchday the address names chosen, its matches in the panel", async () => {
     const html = await rendered({ tab: "finale-1" });
-    expect(html).toMatch(/<a[^>]*aria-selected="true"[^>]*>Spieltag finale-1</);
+    expect(html).toMatch(/<a[^>]*aria-current="page"[^>]*>Spieltag finale-1</);
     expect(html).toContain('href="/saisons/2027/spiele/sp-finale-1"');
     expect(html).not.toContain('href="/saisons/2027/spiele/sp-gruppenphase-2"');
   });
 
   it("renders the current matchday chosen where the address names none", async () => {
     const html = await rendered({});
-    expect(html).toMatch(/<a[^>]*aria-selected="true"[^>]*>Spieltag gruppenphase-2</);
+    expect(html).toMatch(/<a[^>]*aria-current="page"[^>]*>Spieltag gruppenphase-2</);
     expect(html).toContain('href="/saisons/2027/spiele/sp-gruppenphase-2"');
   });
 
   it("does not take a matchday's database id as its name", async () => {
     const html = await rendered({ tab: "id-c" });
-    expect(html).toMatch(/<a[^>]*aria-selected="true"[^>]*>Spieltag gruppenphase-2</);
+    expect(html).toMatch(/<a[^>]*aria-current="page"[^>]*>Spieltag gruppenphase-2</);
   });
 
   it("renders each tab and each match row as a link a press loads before hydration", async () => {
