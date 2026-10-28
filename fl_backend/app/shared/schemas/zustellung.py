@@ -18,8 +18,8 @@ class FLBewerbungZustellung(BaseModel):
     # superseded message's bounce cannot mark the fresh one.
     nachricht_id: str
     stand: FLBewerbungZustellstand
-    # The provider's own token, never its prose: a bounce message quotes the recipient's address
-    # (`docs/logging/spec.md :: L9`), and the German is composed at the surface.
+    # The provider's own token, never its prose: a bounce message quotes the recipient's address,
+    # and the German is composed at the surface.
     grund: str | None
     # A PLAIN string here where the payload normalises, as `FLBewerbungSchule.website_url` is: this
     # model reads stored values, and refusing one would 500 the whole triage list.

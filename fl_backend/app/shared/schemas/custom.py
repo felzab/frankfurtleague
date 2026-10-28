@@ -112,7 +112,7 @@ CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 
 # The WRITE-side floor: `min_length` counts CHARACTERS, so the alias above takes spaces alone -- a
 # value stored and served as empty. NEVER on a read model, where the strip runs first and a stored
-# blank would refuse (`docs/backend/spec.md :: I36`).
+# blank would refuse.
 CustomStrippedNonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -127,8 +127,7 @@ PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
-# Why the class is this wide, and where the form's copy parts from it, are
-# `docs/frontend/spec.md :: I87` and `:: I88`. Paired with `strip_whitespace`, which runs first and
+# Paired with `strip_whitespace`, which runs first and
 # takes no NUL, so padding is repaired and an interior character refused.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 

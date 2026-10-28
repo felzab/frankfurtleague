@@ -32,13 +32,11 @@ class Collection(StrEnum):
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
     AKTIONEN = "aktionen"
-    #: A row survives the erasure of the person it bars (`docs/backend/spec.md :: I268`): keyed, it is
-    #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker
-    #: (`:: I660`).
+    #: A row survives the erasure of the person it bars: keyed, it is
+    #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker.
     SPERRLISTE = "sperrliste"
     #: One minted registration link per row. It names a team, a season and the administrator who
-    #: minted it, whose erasure leaves the row standing with the marker in their place
-    #: (`docs/backend/spec.md :: I660`).
+    #: minted it, whose erasure leaves the row standing with the marker in their place.
     EINLADUNGEN = "einladungen"
     #: One pupil's pending registration for a team's season. Erased by its own clocks, by the
     #: admission, which writes the person and the squad row in the transaction that deletes it, and by
@@ -59,8 +57,7 @@ class Collection(StrEnum):
     #: removed by the person's erasure.
     DROSSELUNG = "drosselung"
     #: One folded address's conflict point under a keyed hash of it, written by every transaction
-    #: storing that address and by its erasure, read by nothing, removed by its TTL index
-    #: (`docs/backend/spec.md :: I719`).
+    #: storing that address and by its erasure, read by nothing, removed by its TTL index.
     ADRESSANKER = "adressanker"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.

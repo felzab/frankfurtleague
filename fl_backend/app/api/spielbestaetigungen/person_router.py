@@ -57,8 +57,8 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# A person's own router beside the link's and the pass's, binding its own actor at router level
-# (`docs/backend/spec.md :: I41`): every write is recorded under the referee's Funktion.
+# A person's own router beside the link's and the pass's, binding its own actor at router level:
+# every write is recorded under the referee's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
@@ -267,7 +267,7 @@ async def post_schiedsrichter_antwort(
                 refuse(ansetzung_verlassen_refusal(schiedsrichter=True))
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
-            # raises no conflict: all judged again outside it before answering (`docs/backend/spec.md :: I118`).
+            # raises no conflict: all judged again outside it before answering.
             jetzt = await pull_ansetzung_lage(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,

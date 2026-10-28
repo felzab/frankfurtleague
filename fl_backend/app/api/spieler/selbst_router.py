@@ -38,8 +38,8 @@ from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 
-# A module of its own: `app/api/spieler/person_router.py` binds the `kontakt` Funktion at ROUTER level
-# (`docs/backend/spec.md :: I41`), and a second binder on one of its routes would record these writes
+# A module of its own: `app/api/spieler/person_router.py` binds the `kontakt` Funktion at ROUTER level,
+# and a second binder on one of its routes would record these writes
 # under the wrong Funktion, nothing failing.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler/selbst",

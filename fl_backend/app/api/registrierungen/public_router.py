@@ -70,7 +70,7 @@ WIEDERHOLUNG_PROJECTION = ["saison_id", "team_id", "email", "bestaetigung.frist"
 
 # `refuse_withheld_saison` is deliberately NOT called below, where every other base-tier season read
 # calls it: a season taking registrations is normally `future`, so that guard would 404 the flow
-# this exists for. The INVITE authorises instead (`docs/backend/spec.md :: I47`).
+# this exists for. The INVITE authorises instead.
 
 
 def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
@@ -168,11 +168,11 @@ async def _answer_as_the_first(
     today: str,
     session: AsyncClientSession,
 ) -> FLPostRegistrierungResponse:
-    """The answer a stored key gets: the registration it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
+    """The answer a stored key gets: the registration it already holds, never a second one."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
-    # Before the mint below, or a ban entered since is answered with a fresh link (`docs/backend/spec.md :: I413`). On
+    # Before the mint below, or a ban entered since is answered with a fresh link. On
     # the stored address, which the answer mails: an address change since moves it off the one this press typed.
     gesperrt = await hash_gesperrt(
         sperrliste, sperrliste.hash_of(str(stored["email"])), massgebliche_saison_id=massgebliche_saison_id, session=session
@@ -366,7 +366,7 @@ async def post_registrierung(
             session=session,
         )
         # The address entering here, which an erasure of it running now never read, or a pupil's deletion judging the pupil
-        # due (`docs/backend/spec.md :: I716`). The last write: a refused press anchors nothing.
+        # due. The last write: a refused press anchors nothing.
         await anchor_the_addresses(
             [str(registrierung_data.email)],
             adressanker_collection=adressanker_collection,

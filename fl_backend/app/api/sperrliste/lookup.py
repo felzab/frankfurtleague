@@ -112,7 +112,7 @@ def get_ban_list(
     saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
-    """The request's ban list, keyed as every row of it is (`docs/backend/spec.md :: I463`)."""
+    """The request's ban list, keyed as every row of it is."""
 
     return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=config.sperrliste_schluessel)
 

@@ -32,7 +32,7 @@ class _ZielMeldung(BaseModel):
     ziel: FLZustellungZiel
     # Beside the kind, which names a population: a report carrying `ziel` alone reaches whichever
     # row a later reader guesses at. In the BODY, as the application's twin keeps its own id there,
-    # the edge logging a path (`docs/logging/spec.md :: L9`).
+    # the edge logging a path.
     ziel_id: CustomObjectId
     # Required as a KEY on every kind, and empty for a kind with one record per row: two people on one
     # row are two records, and a message reaching both seats one person holds writes both.

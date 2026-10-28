@@ -144,11 +144,11 @@ async def _judged(
     """The answer every lookup gives from the same three reads: one judgement, so no two can narrow differently.
 
     Each list is the live part of the address's own records, so the gate never refuses a Funktion
-    holder (`docs/backend/spec.md :: I376`).
+    holder.
     """
 
     # Live rows alone, here and in the flag: a retired person and a withdrawn team grant nothing, and
-    # confirming one would open nothing (`docs/backend/spec.md :: I376`).
+    # confirming one would open nothing.
     lebende_sitzzeilen = [row for row in seat_rows if nicht_ausgetreten(row)]
     lebende_schiedsrichter = [row for row in referee_rows if lebt(row) and folds_to((row.get("kontakt") or {}).get("email"), identifier)]
     lebende_spieler = [row for row in pupil_rows if lebt(row)]
@@ -185,7 +185,7 @@ async def _judged(
             for row in lebende_schiedsrichter
             if ist_eigener_schiedsrichter(row, identifier)
         ],
-        # Over the records that could grant a panel alone (`docs/backend/spec.md :: I374`): confirming a
+        # Over the records that could grant a panel alone: confirming a
         # seat on a `past` season opens nothing, so it neither raises the flag nor holds it down.
         unbestaetigt=awaits_confirmation(
             [
@@ -276,7 +276,7 @@ async def funktionen_of(
 ) -> FLSubjekt:
     """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
 
-    Narrowed here and not in the lookup, each caller narrowing for itself (`docs/backend/spec.md :: I375`).
+    Narrowed here and not in the lookup, each caller narrowing for itself.
     """
 
     # Folded whatever arrived: a header spelled otherwise than the store would otherwise authorise
@@ -285,7 +285,7 @@ async def funktionen_of(
 
     # Raised rather than answered: a person's binder refuses a malformed actor before any handler
     # runs, so an empty one here is a caller's bug, and it would match a hand-edited empty stored
-    # address (`docs/backend/spec.md :: I388`).
+    # address.
     if folded == "":
         raise ValueError("funktionen_of was asked about an empty identifier")
 
@@ -626,7 +626,7 @@ async def erase_everything(
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
     now: datetime,
-    # REQUIRED: the caller's transaction, every step committing together or none (`docs/backend/spec.md :: I52`).
+    # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
 ) -> FLErasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
@@ -636,8 +636,7 @@ async def erase_everything(
     """
 
     # The first of the erasure's own writes: a writer that committed for this address since the snapshot opened sends
-    # this attempt round before any step writes, and one writing later retries until this one ends
-    # (`docs/backend/spec.md :: I719`).
+    # this attempt round before any step writes, and one writing later retries until this one ends.
     await anchor_the_addresses([identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
 
     subject = await resolve_subject(
@@ -653,7 +652,7 @@ async def erase_everything(
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person; nothing is repointed at the pupils' (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
+    # person; nothing is repointed at the pupils'.
     if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(erase_person_in_session, scope) and subject.spieler:
@@ -823,7 +822,7 @@ async def erase_everything(
 class ErasureJournal[Erased: FLErasure]:
     """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
 
-    Outside the block, whose abort a failure meets first (`docs/backend/spec.md :: I539`); never in the callback, where a
+    Outside the block, whose abort a failure meets first; never in the callback, where a
     rolled-back attempt would be journalled.
     """
 
@@ -883,7 +882,7 @@ async def unreferenced_of(
     berechtigungen_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
 ) -> list[str]:
-    """Which of these addresses no record references (`docs/backend/spec.md :: I698`).
+    """Which of these addresses no record references.
 
     Each collection is read once for the whole batch rather than once per address, which is what
     `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.
@@ -928,7 +927,7 @@ async def unreferenced_of(
     return unreferenced(identifiers, referenced=referenced)
 
 
-# --- The SEASON-AFTER RULE's two readers (`docs/backend/spec.md :: I690`): one outside any transaction
+# --- The SEASON-AFTER RULE's two readers: one outside any transaction
 # naming the population, one inside each person's re-judging it.
 
 # A pupil's own data alone: a seat, a referee row or a grant at the same address is another purpose's.
@@ -1013,7 +1012,7 @@ async def erase_if_still_due(
     stamp: str,
     now: datetime,
     # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
-    # landing between the population read and this transaction keeps the person (`docs/backend/spec.md :: I691`).
+    # landing between the population read and this transaction keeps the person.
     session: AsyncClientSession,
 ) -> FLErasure | None:
     """Erase one pupil's own data where the rule holds in this transaction, or answer `None` where it does not.
@@ -1027,7 +1026,7 @@ async def erase_if_still_due(
         return None
 
     # A planned season `behalten` leaves out joins it once activated, which no lower id refuses: anchored, an activation
-    # committing after these statuses were read sends this pupil round (`docs/backend/spec.md :: I722`). Normally none.
+    # committing after these statuses were read sends this pupil round. Normally none.
     if ausgelassen := sorted(saison_id for saison_id, status in statuses.items() if status == "future" and saison_id not in behalten):
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": ausgelassen}}, session=session)
 

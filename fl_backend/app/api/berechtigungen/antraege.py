@@ -2,7 +2,7 @@
 API · the grants' requests: a grant or a promotion to owner waiting on a second administrator's approval
 
 Every read filters on `bis`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
-removed or a restore has put back (`docs/backend/spec.md :: I851`).
+removed or a restore has put back.
 """
 
 from collections.abc import Mapping, Sequence, Set
@@ -56,7 +56,7 @@ def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId |
 
 
 def build_offen_filter(now: datetime) -> dict[str, Any]:
-    """The requests not yet lapsed, the term every read carries: a row's presence says nothing (`docs/backend/spec.md :: I851`)."""
+    """The requests not yet lapsed, the term every read carries: a row's presence says nothing."""
 
     return {"genehmigung.bis": {"$gt": now.astimezone(UTC)}}
 
@@ -70,7 +70,7 @@ def antrag_steht(
 ) -> bool:
     """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
 
-    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too (`docs/backend/spec.md :: I850`).
+    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too.
     """
 
     genehmigung = antrag["genehmigung"]
@@ -153,9 +153,8 @@ async def remove_the_antrag_in_session(
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
-    # Its queued notice goes too, imageless as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`), and by the id
-    # alone, as an erasure's filter is: only that notice holds the request's id. Claimed already, it is still sent
-    # (`docs/frontend/spec.md`).
+    # Its queued notice goes too, imageless as the outbox's bookkeeping is, and by the id
+    # alone, as an erasure's filter is: only that notice holds the request's id. Claimed already, it is still sent.
     await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 
@@ -171,7 +170,7 @@ async def queue_the_ending_in_session(
     """Tell each requester how their request ended, after the removal that takes its own notices.
 
     The requester stands in `geaendert_von`, where an erasure, a ban and an address change reach any actor; none names the
-    decider (`docs/backend/spec.md :: I867`).
+    decider.
     """
 
     if not antraege:
@@ -210,7 +209,7 @@ async def end_the_antraege_about_in_session(
 ) -> list[Mapping[str, Any]]:
     """End every request about this folded address as a refusal ends it, lapsed ones too, answering each for the caller's journal.
 
-    Never carried to the new address, which would grant what its approvers never judged (`docs/backend/spec.md :: I857`).
+    Never carried to the new address, which would grant what its approvers never judged.
     """
 
     rows = await aggregate_many_from_db(

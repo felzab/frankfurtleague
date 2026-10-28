@@ -1,10 +1,9 @@
 """
 CORE · one folded address's anchor, the document every transaction writing that address into a record writes
 
-A transaction protects a judgement only over the documents it writes (`docs/backend/spec.md :: I53`), and an
+A transaction protects a judgement only over the documents it writes, and an
 erasure never writes a record committed for its address after its snapshot opened, never having read it. Both
-writing the address's anchor puts the two in one write set, so whichever commits second runs again
-(`docs/backend/spec.md :: I719`).
+writing the address's anchor puts the two in one write set, so whichever commits second runs again.
 """
 
 import hashlib

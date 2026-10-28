@@ -169,8 +169,7 @@ def strip_austritt_grund(value: Any) -> Any:
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
-# both on every write path, and a payload declaring either is a route to an answer nobody gave
-# (`docs/backend/spec.md :: I142`).
+# both on every write path, and a payload declaring either is a route to an answer nobody gave.
 class _KontaktKenntnisnahmeWritable(BaseModel):
     umfang: Literal["kontaktdaten"]
     # The version of the text they were shown. The text lives in the frontend and is versioned
@@ -221,7 +220,7 @@ class FLKontaktperson(BaseModel):
     # form's wording.
     telefon: str
     # Null until the person types it on their own confirmation page, so the public form never asks
-    # for it (`docs/backend/spec.md :: I141`).
+    # for it.
     geburtsdatum: CustomOptionalDateString
     einwilligung: FLKontaktKenntnisnahme
 
@@ -331,10 +330,10 @@ def kontakte_stand_of(block: Any) -> str:
     """The token naming which contact block a save was composed against. A precondition, never a secret."""
 
     # Projected rather than validated, so a value the read model refuses cannot 500 the very save
-    # that repairs it (`docs/backend/spec.md :: I104`).
+    # that repairs it.
     projected = {field: _project_seat(block.get(field)) for field in FLSaisonTeamKontakte.model_fields} if isinstance(block, Mapping) else block
-    # Sorted keys and `sha256`, never `hash()`, whose seed changes per process
-    # (`docs/backend/spec.md :: I192`). `default` reaches only a stored value no model describes,
+    # Sorted keys and `sha256`, never `hash()`, whose seed changes per process.
+    # `default` reaches only a stored value no model describes,
     # each of which `str` renders the same way twice.
     canonical = json.dumps(projected, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
 
@@ -358,7 +357,7 @@ class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Tightened on the WRITE side alone (`docs/backend/spec.md :: I36`), in the type the public
+    # Tightened on the WRITE side alone, in the type the public
     # application and a referee's name take too, so the editor and the form refuse a name alike.
     vorname: CustomKontaktName
     nachname: CustomKontaktName
@@ -370,7 +369,7 @@ class _KontaktpersonWritablePayload(BaseModel):
 
 class FLKontaktpersonPayload(_KontaktpersonWritablePayload):
     # No birthdate on this payload or the public one: the date is the person's own to enter at their
-    # confirmation (`docs/backend/spec.md :: I141`, `:: I142`).
+    # confirmation.
     einwilligung: FLKontaktKenntnisnahmePayload
 
 
@@ -443,7 +442,7 @@ class FLTeamStatistik(BaseModel):
     tore_kassiert: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
     # Beside the scoring, never inside it: a forfeit is in this figure and in
-    # `anzahl_gespielte_spiele` both (`docs/backend/spec.md :: I1d`).
+    # `anzahl_gespielte_spiele` both.
     anzahl_abgesagte_spiele: int = Field(default=0, ge=0)
 
 
@@ -453,7 +452,7 @@ class _TeamWritable(BaseModel):
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
     # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
-    # the database validator (`docs/backend/spec.md :: I16`).
+    # the database validator.
     description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
     full_name: CustomNonEmptyString
     # NO default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
@@ -510,7 +509,7 @@ class FLGruppenTeam(BaseModel):
     austritt_type: FLAustrittType | None
     # Fixtures neither counted nor called off in the `statistik_scope` asked for, so points are still
     # to be awarded here. REQUIRED with no default: a caller that forgot it would silently strip a
-    # placing (`docs/backend/spec.md :: I97`).
+    # placing.
     anzahl_ausstehende_spiele: int = Field(ge=0)
 
 
@@ -540,7 +539,7 @@ class FLTeamMembership(BaseModel):
     @computed_field
     @property
     def kontakte_stand(self) -> str:
-        """The token a save against this contact block has to echo back (`docs/backend/spec.md :: I192`)."""
+        """The token a save against this contact block has to echo back."""
 
         return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
 
@@ -570,8 +569,8 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped and CEILINGED on the WRITE side alone, so a stored value reads as it stands
-    # (`docs/backend/spec.md :: I36`); `name` reaches a league table row, where a space would show.
+    # Stripped and CEILINGED on the WRITE side alone, so a stored value reads as it stands;
+    # `name` reaches a league table row, where a space would show.
     # Ceilings and single-line class are the application's, refused alike.
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)]
     full_name: Annotated[
@@ -659,7 +658,7 @@ class SitzEinwilligungPayload(BaseModel):
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I591`).
+    # The row's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
 
 
@@ -758,7 +757,7 @@ class FLPostTeamResponse(BaseAPIResponse):
 
 class FLPatchTeamResponse(BaseAPIResponse):
     updated_document: FLTeamRecord
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
     # so zero means the club holds no row in one of those -- every season closed, or none entered.
@@ -806,7 +805,7 @@ class FLKontaktMint(BaseModel):
     # unconfirmed address withholds.
     schule: str
     # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
-    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I570`).
+    # row's link takes the Widerspruch alone.
     zeile: FLKontaktZeile
 
 
@@ -875,8 +874,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
-    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own
-    # (`docs/backend/spec.md :: I13`).
+    # Reported rather than assumed, as `FLPatchTeamResponse` reports its own.
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.

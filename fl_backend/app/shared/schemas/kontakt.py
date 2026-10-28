@@ -6,7 +6,7 @@ from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneString
 
-# Every address payload's type but the erasure's lookup (`docs/backend/spec.md :: I329`).
+# Every address payload's type but the erasure's lookup.
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
 # domain. The ceiling and the format are stated so the published schema carries both.
 CustomEmail = Annotated[
@@ -23,7 +23,7 @@ CustomKontaktName = Annotated[
 ]
 
 
-# Neither member carries a rule (`docs/backend/spec.md :: I104`): a stored number the phone rule was
+# Neither member carries a rule: a stored number the phone rule was
 # narrowed past would answer 500 for the whole referee list over one row.
 class FLKontakt(BaseModel):
     # No empty-string coercion either, as `FLSchiedsrichter.schule` has none: a read answers the
@@ -36,7 +36,7 @@ class FLKontakt(BaseModel):
 # `email-validator`'s own tables move without us, so a read judging one ages into a 500.
 class FLKontaktPayload(FLKontakt):
     # Derived from the read shape and never the other way round: `extra` is inherited, so forbidding
-    # on a base would refuse a stored key the collection has grown (`docs/backend/spec.md :: I114`).
+    # on a base would refuse a stored key the collection has grown.
     model_config = ConfigDict(extra="forbid")
 
     telefon: CustomOptionalPhoneString

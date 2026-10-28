@@ -48,8 +48,8 @@ def _stored_domain(domain: str) -> str | None:
 
 
 def _folded_domain(domain: str) -> str:
-    # A lookup held to no address rule may name its domain in Unicode (`docs/backend/spec.md :: I329`),
-    # and converting it here is what joins it to the punycode spelling every payload stores (`:: I333`).
+    # A lookup held to no address rule may name its domain in Unicode,
+    # and converting it here is what joins it to the punycode spelling every payload stores.
     if not domain.isascii():
         # `Url` first: the frontend converts as it does, and the address rule refuses a special-use or dotless domain.
         # The rule where `Url` refuses: its Unicode tables run ahead, and a domain it stored converted would be asked unconverted.
@@ -77,7 +77,7 @@ def _league_validated(address: str) -> ValidatedEmail:
 
 
 def league_address(address: str) -> str:
-    """The form every address payload stores (`docs/backend/spec.md :: I332`); `ValueError` where the rule refuses it.
+    """The form every address payload stores; `ValueError` where the rule refuses it.
 
     The sign-in fold of what the rule accepts, so every read of a stored address is an equality on the asker's fold.
     """
@@ -105,7 +105,7 @@ def sign_in_identifier(address: str) -> str:
 def is_stored_identifier(value: Any) -> bool:
     """Whether a stored value is an identifier a request can match: a string, its own fold, and one the address rule accepts.
 
-    What a hand-typed row is judged by, the validator refusing no spelling (`docs/backend/spec.md :: I16`).
+    What a hand-typed row is judged by, the validator refusing no spelling.
     """
 
     if not isinstance(value, str) or value == "" or sign_in_identifier(value) != value:
@@ -122,8 +122,8 @@ def is_stored_identifier(value: Any) -> bool:
 def canonical_address(address: str) -> str:
     """The form a ban is keyed on; `ValueError` where the address rule refuses the value.
 
-    Its domain DECODED rather than in punycode, as the stored bans were keyed
-    (`docs/backend/spec.md :: I330`), Greek sigmas apart (`docs/backend/spec.md :: I269`).
+    Its domain DECODED rather than in punycode, as the stored bans were keyed,
+    Greek sigmas apart.
     """
 
     validated = _league_validated(address)

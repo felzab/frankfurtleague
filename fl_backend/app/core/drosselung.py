@@ -8,7 +8,7 @@ count is operational state rather than a domain write, so it reaches the driver 
 `app/core/crud.py`, the action log and the write's own transaction.
 
 Invariants:
-- No administrator's route declares any of them (`docs/backend/spec.md :: I615`).
+- No administrator's route declares any of them.
 """
 
 import math
@@ -81,7 +81,7 @@ def get_drossel(
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     germany_now: Annotated[datetime, Depends(get_germany_now)],
 ) -> Drosseln:
-    """The count of one write against the bound person's ceiling, called where a write counts (`docs/backend/spec.md :: I614`)."""
+    """The count of one write against the bound person's ceiling, called where a write counts."""
 
     # Set once this request's write is admitted: `with_transaction` reruns a callback calling the count
     # after a transient error, and one write spends one unit however often its attempt is retried.
@@ -137,7 +137,7 @@ async def gedrosselt(drossel: Drossel) -> None:
 
 
 async def adresswechsel_gedrosselt(drossel: Drossel) -> None:
-    """`gedrosselt` on the address change's own count (`docs/backend/spec.md :: I797`)."""
+    """`gedrosselt` on the address change's own count."""
 
     await drossel(ADRESSWECHSEL_ZAEHLER)
 

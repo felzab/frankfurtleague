@@ -32,7 +32,7 @@ async def gather_cancelling(*coroutines: Coroutine[Any, Any, Any]) -> tuple[Any,
         return tuple(task.result() for task in tasks)
 
     # Named by class alone, never chained: a crash's logged stack renders a cause in full, and a
-    # sibling's text can quote a value its own handler withholds (`docs/logging/spec.md :: L9`).
+    # sibling's text can quote a value its own handler withholds.
     if beside:
         first.add_note(f"Failed beside it: {', '.join(type(failure).__name__ for failure in beside)}")
 

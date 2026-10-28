@@ -134,7 +134,7 @@ class FLBewerbungSchule(BaseModel):
     """The club a new school proposes, in the shape acceptance will create it in.
 
     While the application is `eingereicht`, exactly one of this and `team_id` carries a value, held
-    by the write path rather than the validator (`docs/backend/spec.md :: I16`).
+    by the write path rather than the validator.
     """
 
     # `team_name`, not `name`: it becomes the club's SHORT name beside `full_name`, and `name` inside
@@ -144,8 +144,8 @@ class FLBewerbungSchule(BaseModel):
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
     schulform: FLSchulform | None
     address: FLAddress
-    # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only
-    # (`docs/backend/spec.md :: I16`), and refusing one on read would 500 the triage list.
+    # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only,
+    # and refusing one on read would 500 the triage list.
     website_url: str | None
 
 
@@ -189,8 +189,7 @@ class FLBewerbungEntscheidung(BaseModel):
 class FLBewerbungEntscheidungZeile(FLBewerbungEntscheidung):
     """A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."""
 
-    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors.
     von: str | None
     von_gesperrt: bool
 
@@ -261,8 +260,7 @@ class FLBewerbungenFilterParams(BaseModel):
     # value narrows to is published at `app/api/bewerbungen/router.py :: get_bewerbungen`.
     saisonbezug: Annotated[list[FLBewerbungSaisonbezug] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
     # A LIST, because the facet offering these is multi-select and a two-status selection has no
-    # other request that expresses it. Published as the STRING it arrives as: an array parameter is
-    # one `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
+    # other request that expresses it. Published as the STRING it arrives as.
     status: Annotated[list[FLBewerbungStatus] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
 
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
@@ -347,7 +345,7 @@ class FLAnnehmenBewerbungResponse(BaseAPIResponse):
     # way. Derivable from `updated_document.schule` and served anyway: what the caller renders is
     # what this call DID, not what the application holds.
     created_team: bool
-    # Unconstrained, as an echo of a stored id is (`docs/backend/spec.md :: I5`).
+    # Unconstrained, as an echo of a stored id is.
     saison_id: str
     gruppe: FLGruppenNames
     trikot_farbe: FLTrikotFarbe | None
@@ -358,14 +356,14 @@ class FLAblehnenBewerbungResponse(BaseAPIResponse):
 
 
 # --- The PUBLIC submission. Every model below is reached from a request body alone, so each forbids
-# an undeclared key; the read models above stay lax (`docs/backend/spec.md :: I49`).
+# an undeclared key; the read models above stay lax.
 
 
 def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
     """Refuse a contact person the league would not hold details for, in whole years against `today`.
 
     A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. Both messages reach the log alone (`docs/logging/spec.md :: L4`).
+    clock. Both messages reach the log alone.
     """
 
     age = whole_years_between(born=geburtsdatum, today=today)
@@ -399,7 +397,7 @@ class FLBewerbungEinwilligungPayload(BaseModel):
 class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
     """One of the three people, as a member of the public submits them.
 
-    No birthdate: each types their own on the confirmation page (`docs/backend/spec.md :: I141`), so
+    No birthdate: each types their own on the confirmation page, so
     the key is refused outright rather than accepted as a null.
     """
 
@@ -563,7 +561,7 @@ FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 class FLBewerbungFensterResponse(BaseAPIResponse):
     """One season's application window and whether that season has ended, and NOTHING else about it.
 
-    A season taking applications is `future`, which `docs/backend/spec.md :: I47` withholds -- so
+    A season taking applications is `future`, which the rule withholds -- so
     the window gets its own shape rather than widening a season read.
     """
 
@@ -575,14 +573,14 @@ class FLBewerbungFensterResponse(BaseAPIResponse):
     # than left to the client, which would re-derive it against a clock this server does not share.
     laeuft: bool
     # A boolean rather than the status: `future` and `active` answer alike, so this serves nothing
-    # `docs/backend/spec.md :: I47` withholds, and a finished season still reads as over whatever dates it stores.
+    # the rule withholds, and a finished season still reads as over whatever dates it stores.
     saison_beendet: bool
 
 
 class FLBewerbungKeinFensterResponse(BaseAPIResponse):
     """A season that records no application window: its id, and nothing else about it.
 
-    `docs/backend/spec.md :: I188` narrows I47 to the id resolving to a season, which is what parts
+    The rule is narrowed to the id resolving to a season, which is what parts
     this answer from the 404 a mistyped id keeps.
     """
 
@@ -642,7 +640,7 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     created_id: CustomObjectId
     saison_id: str
     eingereicht_am: CustomDateString
-    # Null on a replay whose application needs no fresh links (`docs/backend/spec.md :: I347`),
+    # Null on a replay whose application needs no fresh links,
     # and the caller then mails nothing.
     bestaetigungen: FLBewerbungBestaetigungTokens | None
     # Echoed so the mail the handler sends names the day the links stop working.
@@ -656,7 +654,7 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
 # What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
-# decided, said one way; `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+# decided, said one way; `gesperrt` ranks first.
 # `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`REQ-KONTAKT-006`).
 FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]
 
@@ -874,8 +872,7 @@ class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
 class FLBewerbungSweepSeat(BaseModel):
     """One LINK a reminder carries: the RAW fresh token, which exists here and in the mail alone."""
 
-    # Every seat one press of this link answers, which is two for a mirrored Trainer
-    # (`docs/backend/spec.md :: I157`).
+    # Every seat one press of this link answers, which is two for a mirrored Trainer.
     rollen: list[FLKontaktRolle]
     vorname: str
     token: str
@@ -891,8 +888,8 @@ class FLBewerbungSweepErinnerung(BaseModel):
     bewerbung_id: CustomObjectId
     saison_id: str
     schule: str
-    # Unchanged by a reminder, and moved only by an administrator's re-send
-    # (`docs/backend/spec.md :: I152`). The message names it as the day by which a seat must answer.
+    # Unchanged by a reminder, and moved only by an administrator's re-send.
+    # The message names it as the day by which a seat must answer.
     bestaetigungsfrist: CustomDateString
     email: str
     seats: list[FLBewerbungSweepSeat]
@@ -939,8 +936,7 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     ohne_entscheidung_geloescht: int
     kontaktbloecke_geleert: int
     redigierte_aktionen: int
-    # One sum over every clock rather than a count a clock: the line logging each row names its clock
-    # (`docs/backend/spec.md :: I720`).
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     fehlgeschlagen: int
 
 
@@ -984,7 +980,7 @@ class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
 
     saison_ids: list[str]
     # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
-    # once (`docs/backend/spec.md :: I189`). Null means no pass has ever run here.
+    # once. Null means no pass has ever run here.
     sweep_gelaufen_am: CustomDateString | None
     # The registration pass's own day, answered from the read this operation already makes: the two
     # clocks run in one process and stop separately, so a fresh date beside a stale one is what says
@@ -999,8 +995,7 @@ class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
 class _ZustellungPayload(BaseModel):
     """What both writes name: the application, the seats one message covered, that message, and when.
 
-    In the BODY and not the path, which the edge logs: an application id keys three people's records
-    (`docs/logging/spec.md :: L9`).
+    In the BODY and not the path, which the edge logs: an application id keys three people's records.
     """
 
     model_config = ConfigDict(extra="forbid")

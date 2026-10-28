@@ -194,7 +194,7 @@ PERSON_ROUTERS = (
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
-# published so the two can be compared (`docs/backend/spec.md :: I190`).
+# published so the two can be compared.
 KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 
@@ -289,7 +289,7 @@ def refusal_family(code: str) -> str:
 
 # Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
 # a refused payload's adds `fields`; FastAPI's default 422, `HTTPValidationError`, is a body this API
-# never sends (`docs/backend/spec.md :: I345`).
+# never sends.
 FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
 FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
 
@@ -375,7 +375,7 @@ def publish_path_patterns(app: FastAPI) -> DocumentPass:
     """Each `objectid` path parameter published with the pattern its convertor matches.
 
     FastAPI publishes the parameter's type alone, and a path whose id misses the pattern is no path
-    this operation serves: the router answers it before any handler (`docs/backend/spec.md` §1.4).
+    this operation serves: the router answers it before any handler.
     """
 
     patterns: dict[Operation, set[str]] = {}
@@ -413,7 +413,7 @@ def publish_stores_nothing(app: FastAPI) -> DocumentPass:
     for route in document_routes(app):
         calls = route.calls
         # `true`, or the query flag under which it holds: the frontend marks each call it makes to
-        # such an operation a read, and is compared against this (`docs/backend/spec.md :: I327`).
+        # such an operation a read, and is compared against this.
         flag = True if stores_nothing in calls else next((STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN), None)
         if flag is not None:
             declared.update(dict.fromkeys(route.operations, flag))

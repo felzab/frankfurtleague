@@ -59,7 +59,7 @@ async def get_current_saison(
 
 
 # Declared after `/current`: routes match in declaration order, and the `objectid` convertor cannot
-# help here, a season id being a four-character string (`docs/backend/spec.md :: I37`).
+# help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """Return one season by its id; 404 when none carries it, rather than an empty list.

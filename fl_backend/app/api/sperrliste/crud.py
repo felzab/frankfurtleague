@@ -67,7 +67,7 @@ async def address_is_gesperrt(
     sperrliste_collection: AsyncCollection,
     adresse_hash: str,
     # May be read before the caller's transaction, every rollover erasing what it lapses in the one
-    # moving the season (`docs/backend/spec.md :: I274`): an older reference matches as a sequential
+    # moving the season: an older reference matches as a sequential
     # order would. Never for a ban's bound, written from it.
     massgebliche_saison_id: str | None,
     session: AsyncClientSession | None = None,
@@ -101,7 +101,7 @@ async def gesperrte_hashes(
     """Which of these hashes a standing ban holds, judged as `address_is_gesperrt` judges one.
 
     ONE read for a sweep's page of mailboxes: a read each would spend the round trips its share is
-    sized on (`docs/backend/spec.md :: I322`).
+    sized on.
     """
 
     asked = sorted(set(adresse_hashes))

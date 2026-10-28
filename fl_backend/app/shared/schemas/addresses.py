@@ -40,8 +40,7 @@ class FLAddress(BaseModel):
 
 
 # What every WRITE payload embeds. The ceilings are here and not on `FLAddress`, which a read model
-# embeds: refusing a stored value there would answer 500 for a whole list over one row
-# (`docs/backend/spec.md :: I36`).
+# embeds: refusing a stored value there would answer 500 for a whole list over one row.
 class FLAddressPayload(FLAddress):
     model_config = ConfigDict(extra="forbid")
 

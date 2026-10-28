@@ -74,7 +74,7 @@ class FLKontoSitzEinwilligung(BaseModel):
     """
 
     team_id: CustomObjectId
-    # The season row's own name (`docs/backend/spec.md :: I13`): a past season is listed as it was played.
+    # The season row's own name: a past season is listed as it was played.
     team_name: str
     saison_id: str
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
@@ -183,8 +183,8 @@ class FLKontoAdresswechselMintResponse(BaseAPIResponse):
     email: str
     bisherige_email: str
     vorname: str
-    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
-    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim,
+    # and the caller only branches on a wait.
     genehmiger_anzahl: int = Field(ge=0)
 
 
