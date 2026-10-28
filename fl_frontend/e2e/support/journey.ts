@@ -9,6 +9,8 @@
  */
 import { test as base } from "@playwright/test";
 
+import { accessLogEnd, expectEdgeSawVisitor } from "./edgeLog";
+
 export type JourneyOptions = {
   /** An administrator's grant. */
   administrator: string;
@@ -54,7 +56,11 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
       await context.route(`${String(baseURL)}/**`, (route) =>
         route.continue({ headers: { ...route.request().headers(), "cf-connecting-ip": address } }),
       );
+      const logged = await accessLogEnd();
       await provide(address);
+      // That the edge took the address is what makes each journey a visitor of its own; where it did not, a
+      // journey's sign-in meets another's spent budget as a 429 that names nothing of the cause.
+      await expectEdgeSawVisitor(address, logged);
     },
     { auto: true },
   ],
