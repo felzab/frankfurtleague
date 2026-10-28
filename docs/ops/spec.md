@@ -538,6 +538,7 @@ with `--help`. What spans the scripts lives here.
 | ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | **dev**     | source with hot reload, no Docker                     | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` |
 | **local**   | the production image built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                |
+| **e2e**     | the local stack again, for the Playwright journeys    | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                          |
 | **prod**    | published images on the server, never builds          | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                               |
 
 **local** is the only place a packaging problem — a missing standalone file, a failing startup env
@@ -627,8 +628,26 @@ handed that file — a discipline rather than a boundary, its costs written at
 which `.gitignore` and `.prettierignore` both cover because it is real data and this repository is
 public.
 
-**A seed runs before the application services exist**, so nothing renders a page against an empty
-database and no empty read is cached for the days the reference reads hold a value.
+**`./scripts/ops/local.sh --seed-made-up` fills it with the made-up league instead**
+(`scripts/ops/seed/seed.js`): two seasons, eight clubs, venues, referees and grants, every one
+invented and every date relative to today, replacing the records of every collection of the
+application database and leaving `auth` as it is. It needs no login and reads nothing of production's.
+
+**A seed is in place before anything renders a page**, so no empty read is cached for the days the
+reference reads hold a value. The copy is restored before the application services exist. The
+made-up seed is loaded after the backend's boot has given every collection its validator, so each
+insert is judged as it lands, and `python -m app.core.constraints --check` then judges the whole;
+only then do the frontend and nginx start, the backend recreated with them.
+
+**`./scripts/ops/local.sh --e2e` starts the end-to-end stack instead** (`docker-compose.e2e.yml`,
+merged over the local stack's two files): a compose project of its own, `frankfurtleague-e2e`, so
+its volume and with it its sign-in store are never the local stack's; its settings written in that
+file rather than read from either package's `.env`; its keys generated under `.tmp-e2e/` on every
+start rather than read from `secrets/`; and the made-up seed on an empty volume every start.
+`--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another stack's
+container publishes port 3000 or 27017**, which both publish
+(`scripts/ops/local.sh :: refuse_another_stack_on_the_ports`). The journeys run against it from
+`fl_frontend` with `pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
 
 **The copy is the application database and not the sign-in store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
@@ -839,7 +858,7 @@ flag's argument is in `.github/actions/backend-toolchain/action.yml`, which ever
 | `--format`         | prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                                                                                                                    | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                                                                                                                            | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and the dependency audit, then `next build`                                                                                                                                                                            | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                                                                            | Docker, `uv` for zizmor, and the backend virtualenv                                                                                            |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                                                                            | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
 | `--db`             | `pytest -m db` over the backend's db tier, then `pnpm run test:db` over the frontend's `*.db.test.ts` files                                                                                                                                                                                                     | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                                          | Docker                                                                                                                                         |
 
