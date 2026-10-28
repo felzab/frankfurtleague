@@ -503,13 +503,18 @@ application. **Revisit when the application renders user-supplied markup, or whe
 inline-script hashing that covers prerendered shells** — and at the first, reconsider the policy,
 never the lint rule.
 
-`style-src` carries it for a narrower reason: several components set a runtime-computed inline
-`style` **attribute**, for which CSP offers no nonce or hash. Narrowing to `style-src 'self'` with
-`style-src-attr 'unsafe-inline'` would cover those and stop admitting an injected `<style>`
-element, and what it costs is Next's own `_global-error` fallback, the one prerendered page here
-carrying an inline `<style>` — a directive on attributes does not reach an element, so that page
-would render unstyled. Every route this application declares carries none.
-[Issue #239](https://github.com/felzab/frankfurtleague/issues/239) owns the decision.
+**`style-src` keeps `'unsafe-inline'` too, because two libraries every page loads inject a
+`<style>` element at runtime**: React Aria's `usePress` adds its touch rule
+(`touch-action: pan-x pan-y pinch-zoom` on every pressable element, which spares a tap the
+browser's double-tap-zoom delay), and `next-themes` adds the rule that suspends transitions while it
+applies the theme. Several components also set a runtime-computed inline `style` **attribute**, for
+which CSP offers no nonce or hash. A strict `style-src 'self'`, and `'self'` beside
+`style-src-attr 'unsafe-inline'` alike, drops both elements with nothing visibly broken and logs a
+violation on every page — a directive on attributes does not reach an element — and Next's own
+`_global-error` fallback, which carries an inline `<style>` too, would render unstyled. A nonce is
+refused (2026-10-28): both libraries take it from a per-request value, React Aria from a
+`csp-nonce` meta and `next-themes` from a prop, which a prerendered shell cannot carry. So is a hash
+of their style text, which changes with each library's release.
 
 **The policy is written once**, in `nginx/shared/security_headers.conf`, which
 `nginx/shared/site.conf` includes at server level and again in each location adding a header of
