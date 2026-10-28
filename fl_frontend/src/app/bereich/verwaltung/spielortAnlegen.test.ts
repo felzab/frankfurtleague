@@ -1,3 +1,4 @@
+import { publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -7,31 +8,35 @@ import { spielortAnlegen } from "./spielortAnlegen";
 
 import type { SpielortFeld } from "./spielortRegeln";
 
+const ANLEGEN = "POST /spielorte";
+
 /** Every payload the write was sent, and what it throws instead of creating the venue. */
 const stand = vi.hoisted(() => ({
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
-  gefuehrt: true,
+  /** Why the guard turns the create away, or `null` where it admits it. */
+  abgewiesen: null as string | null,
+  /** The spine found that the write it sent may stand, whatever the body made of it. */
+  unklar: false,
 }));
 
 vi.mock("@/features/spielorte/mutations", () => ({
   postSpielort: async (payload: unknown) => {
     stand.gesendet.push(payload);
     if (stand.ablehnung !== null) throw stand.ablehnung;
-    return { acknowledged: true, created_id: "64b000000000000000000009" };
+    return { acknowledged: 1, created_id: "64b000000000000000000009" };
   },
 }));
 
-// The guard's spine runs the body for a session it judged, or answers its own refusal for one it did not.
+// The guard's spine: it turns a session away with the create's own `turnedAway`, or runs the body and answers
+// its own unclear outcome where the write it sent may stand.
 vi.mock("@/shared/utils/adminMutation", () => ({
-  runAdminMutation: async (_name: string, body: () => Promise<unknown>) =>
-    stand.gefuehrt ? body() : { success: false, error: "Deine Anmeldung ist abgelaufen." },
-  invalidatesOnWrite: () => undefined,
-  refusalResult: (refusal: { error?: string; fieldErrors?: Record<string, string> }) => ({
-    success: false,
-    error: refusal.error ?? "Überprüfe Deine Eingaben.",
-    fieldErrors: refusal.fieldErrors,
-  }),
+  runAdminMutation: async (_name: string, declared: { turnedAway: (grund: string) => string }, body: () => Promise<unknown>) => {
+    if (stand.abgewiesen !== null) return { success: false, error: declared.turnedAway(stand.abgewiesen) };
+    const answer = await body();
+    return stand.unklar ? { success: false, error: "Ob gespeichert wurde, ist unklar.", outcome: "unknown" } : answer;
+  },
+  FORBIDDEN_BY_REFUSAL: { signIn: "abgelaufen", noGrant: "kein Zugang", grantGone: "kein Zugang", unread: "ungelesen" },
 }));
 
 const FELDER: Readonly<Record<SpielortFeld, string>> = {
@@ -53,7 +58,8 @@ const formular = (felder: Partial<Record<SpielortFeld, string>> = {}) => {
 beforeEach(() => {
   stand.gesendet = [];
   stand.ablehnung = null;
-  stand.gefuehrt = true;
+  stand.abgewiesen = null;
+  stand.unklar = false;
 });
 
 describe("the venue dialog's create", () => {
@@ -69,30 +75,59 @@ describe("the venue dialog's create", () => {
   });
 
   it("places a name another venue holds on the name's field", async () => {
-    stand.ablehnung = new APIBadStatusError({
-      message: "refused",
-      url: "http://backend/api/v0/spielorte",
-      statusCode: 409,
-      serverErrorCode: "DB-COMMON-002",
-      endpoint: "/spielorte",
-      method: "POST",
-      readOnly: false,
-      traceId: "0",
-    });
+    stand.ablehnung = refusedOn(ANLEGEN, "DB-COMMON-002");
 
     expect(await spielortAnlegen(formular())).toEqual({ ok: false, fieldErrors: { name: COPY.shared.feld.schonVergeben } });
   });
 
+  it("answers every refusal the create publishes in words of its own", async () => {
+    for (const code of publishedRefusals(ANLEGEN)) {
+      stand.ablehnung = refusedOn(ANLEGEN, code);
+      expect(await spielortAnlegen(formular()), `${code} reaches the admin as the unexpected failure`).not.toEqual({ ok: false });
+    }
+  });
+
+  it("tells a name the backend's own schema refuses from a taken one", async () => {
+    // Python's strip drops the file separator, JavaScript's trim keeps it: the dialog's schema passes the name.
+    stand.ablehnung = new APIBadStatusError({
+      message: "refused",
+      url: "http://backend/api/v0/spielorte",
+      statusCode: 422,
+      serverErrorCode: "REQ-VAL-001",
+      endpoint: "/spielorte",
+      method: "POST",
+      readOnly: false,
+      traceId: "0",
+      refusedFields: [{ in: "body", path: ["name"], kind: "string_too_short" }],
+    });
+
+    expect(await spielortAnlegen(formular({ name: "\u001c" }))).toEqual({ ok: false });
+    expect(stand.gesendet).toHaveLength(1);
+  });
+
   it("answers a payload the write's schema refuses as unexpected, sending nothing", async () => {
-    // A name refused by the schema is a message on `name` too; it is not a taken name.
     expect(await spielortAnlegen(formular({ name: "   " }))).toEqual({ ok: false });
     expect(await spielortAnlegen(formular({ mietpreis: "60 Euro" }))).toEqual({ ok: false });
     expect(stand.gesendet).toEqual([]);
   });
 
-  it("answers the guard's own refusal as unexpected", async () => {
-    stand.gefuehrt = false;
+  it("sends a session the guard found ended to sign in again, sending nothing", async () => {
+    stand.abgewiesen = "signIn";
+
+    expect(await spielortAnlegen(formular())).toEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
+    expect(stand.gesendet).toEqual([]);
+  });
+
+  it("answers the guard's other refusals as unexpected, which no sign-in repairs", async () => {
+    stand.abgewiesen = "unread";
 
     expect(await spielortAnlegen(formular())).toEqual({ ok: false });
+  });
+
+  // A second press would meet the venue the first one made, and say its name is taken.
+  it("sends a create nobody can tell landed to reload the page, never to press again", async () => {
+    stand.unklar = true;
+
+    expect(await spielortAnlegen(formular())).toEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
   });
 });

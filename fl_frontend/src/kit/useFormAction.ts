@@ -9,17 +9,21 @@ import { edgeRefusedSend } from "@/shared/utils/actionError";
 import type { Copy } from "@/core/copy";
 
 /**
- * What a server action answers a form: done, with what the page needs next, or not done, with each field's
- * message by the field's `name` and the one line the status line shows. A refusal a person can cause from
- * the screen brings its reason, a stale read the stale-page line, anything unexpected the shared failure
- * line; a refusal for its fields alone may leave the line to the form.
+ * What a server action answers a form: done, with what the page needs next and, where the write did more
+ * than the form asked, the line saying so; or not done, with each field's message by the field's `name` and
+ * the one line the status line shows. A refusal a person can cause from the screen brings its reason, a
+ * stale read the stale-page line, a write nobody can tell landed the stale-page line too, since a reload
+ * shows whether it did, an ended session the sign-in line, anything unexpected the shared failure line; a
+ * refusal for its fields alone may leave the line to the form.
  */
 export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
+  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy };
 
 /**
- * Anything the action throws becomes the unexpected-failure answer, but Next's redirect and not-found pass
- * through, and the edge's own rate refusal, which reached nothing behind the edge, says so and when to retry.
+ * Anything the action throws is answered with the stale-page line: the press may have reached the server and
+ * written before its answer was lost, and only a reload shows whether it did, where a second press could
+ * repeat the write. Next's redirect and not-found pass through, and the edge's own rate refusal, which reached
+ * nothing behind the edge, says so and when to retry.
  */
 export function answering<Payload, Value>(
   action: (payload: Payload) => Promise<ActionAnswer<Value>>,
@@ -30,7 +34,7 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      return { ok: false, reason: edgeRefusedSend(thrown) === null ? COPY.shared.fehler.unerwartet : COPY.shared.fehler.zuVieleVersuche };
+      return { ok: false, reason: edgeRefusedSend(thrown) === null ? COPY.shared.fehler.veraltet : COPY.shared.fehler.zuVieleVersuche };
     }
   };
 }
@@ -39,8 +43,8 @@ type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };
 
 /**
  * The one way a browser form posts: a server action through React's `useActionState`, whose rejection would
- * otherwise reach the nearest error boundary with nothing to say, so every throw answers as the unexpected
- * failure in the form's own status line. Every form kind takes it: the editor's bar, a Konto box, and the
+ * otherwise reach the nearest error boundary with nothing to say, so every throw answers in the form's own
+ * status line, as `answering` words it. Every form kind takes it: the editor's bar, a Konto box, and the
  * one-shot submit.
  *
  * Next keeps a page the person left in a hidden `Activity`. With `resetOnLeave`, an answer already shown is

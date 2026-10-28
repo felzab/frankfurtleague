@@ -186,7 +186,7 @@ describe("the kit's dialog", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
-  it("answers an act that throws with the unexpected failure, and stays open", async () => {
+  it("answers an act that throws with the stale-page line, and stays open", async () => {
     render(
       <CreateDialog
         create={async () => {
@@ -197,7 +197,7 @@ describe("the kit's dialog", () => {
 
     await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.unerwartet)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 

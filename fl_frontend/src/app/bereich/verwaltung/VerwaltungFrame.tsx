@@ -97,13 +97,15 @@ async function readAccount(session: Session): Promise<Account | null> {
 }
 
 /**
- * Every season, as the list serves them, and the one a page whose address names none works in: the season
- * the league runs, else the last; `null` for a league holding none, and for a session turned away, which
- * the list's read would redirect from inside the frame.
+ * Every season, the newest first as the public frame lists them, and the one a page whose address names none
+ * works in, chosen from the list as the admin pages choose it; `null` for a league holding none, and for a
+ * session turned away, which the list's read would redirect from inside the frame.
  */
 async function readSeasons(session: Session): Promise<Seasons | null> {
   if ((await session) === null) return null;
+  // Served oldest first, by id: the list's default order.
   const { saisons } = await getAdminSaisons();
   const standard = selectSaison(saisons, undefined);
-  return standard === undefined ? null : { ids: saisons.map((entry) => entry.id), standard: standard.id };
+  if (standard === undefined) return null;
+  return { ids: saisons.map((entry) => entry.id).sort((one, other) => other.localeCompare(one)), standard: standard.id };
 }

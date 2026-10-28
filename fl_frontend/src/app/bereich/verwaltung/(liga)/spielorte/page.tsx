@@ -24,7 +24,8 @@ export const metadata: Metadata = { title: ROUTES.verwaltungSpielorte.titel };
 const zeile = (ort: FLSpielort): TableRow => ({
   id: ort.id,
   name: ort.name,
-  href: ROUTES.verwaltungSpielort.pfad(ort.id),
+  // No `href` while no venue page answers at `ROUTES.verwaltungSpielort`: a row linking there would open the
+  // not-found page. The record page brings the link back.
   ...(ort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: WORTE.stillgelegt }, muted: true }),
   cells: {
     adresse: WORTE.strasseMitNummer(ort.address.strasse, ort.address.hausnummer),
@@ -43,7 +44,7 @@ export default function SpielortePage() {
 
 async function Spielorte() {
   await connection();
-  // Retired included: the list is the one way into a retired venue's page.
+  // Retired included: the list will be the one way into a retired venue's page.
   const { spielorte } = await getSpielorte({ include_inactive: true });
 
   return (

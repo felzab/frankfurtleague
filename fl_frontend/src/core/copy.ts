@@ -359,6 +359,8 @@ export const COPY = katalog({
       annulliert: "Annulliert",
       /** Why a no-show cannot be picked while a side is open. */
       beideSeitenNoetig: "beide Seiten nötig",
+      /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
+      gespeichertMitFolgen: (folgen: string) => `Gespeichert. ${folgen}`,
 
       /** The save's refusals, by the rule the backend names, in the words today's editor shows. */
       abgelehnt: {

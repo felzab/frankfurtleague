@@ -54,11 +54,11 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   await expect(page.getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
   // A long name stands in its row and pushes nothing sideways, on desktop and at a phone's width (D338).
-  await expect(page.getByRole("link", { name: LONG_NAME })).toBeVisible();
+  await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
   expect(await scrollsSideways(page), "the list scrolls sideways on desktop").toBe(false);
   const desktop = page.viewportSize();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("link", { name: LONG_NAME })).toBeVisible();
+  await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
   expect(await scrollsSideways(page), "the list scrolls sideways at a phone's width").toBe(false);
   if (desktop !== null) await page.setViewportSize(desktop);
 
@@ -75,12 +75,12 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
 
   // The dialog closes once the venue is created, and the list behind it reads it at once.
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("link", { name: NEW_VENUE })).toBeVisible();
+  await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
 
   // The search narrows the list held on the page to the new venue.
   await page.getByRole("searchbox", { name: "Spielorte suchen" }).fill("Ulmen");
-  await expect(page.getByRole("link", { name: NEW_VENUE })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sporthalle Birkenallee" })).toBeHidden();
+  await expect(page.getByRole("cell", { name: NEW_VENUE })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Sporthalle Birkenallee" })).toBeHidden();
 
   // --- The match editor --------------------------------------------------------------------------
 

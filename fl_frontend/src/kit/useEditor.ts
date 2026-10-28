@@ -54,6 +54,8 @@ type Held<Values extends Record<string, EditorValue>> = {
   edits: Partial<Values>;
   /** This editor's own save went through: the next fingerprint the page serves is the saved record's. */
   adopt: boolean;
+  /** The last save: the record as the page served it when it was sent, and the changes it sent. */
+  sent: { from: EditorRecord<Values>; changes: Partial<Values> } | null;
   /** Counts the edits, so a refusal is shown only until the person edits again. */
   version: number;
   sentVersion: number;
@@ -66,6 +68,7 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
   base: record.fingerprint,
   edits: {},
   adopt: false,
+  sent: null,
   version: 0,
   sentVersion: -1,
   blockedVersion: -1,
@@ -79,7 +82,9 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
  *
  * When the page serves the record anew, the draft takes the new fingerprint only where nothing unsaved
  * rests on the old one, or where this editor's own save produced it; a draft made on a read someone else
- * has since changed keeps the old fingerprint, so its save is refused as stale rather than overwriting.
+ * has since changed keeps the old fingerprint, so its save is refused as stale rather than overwriting. A
+ * save the write stores as what was already stored is served back under the same fingerprint, and the draft
+ * then holds what the record holds.
  *
  * While changes are unsaved, the frame's way back asks before it drops them, and the browser asks before a
  * reload or a closed tab. A „Gespeichert“ shown is cleared once the page is left, the documented reset; an
@@ -101,6 +106,16 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     if (held.adopt || Object.keys(pending).length === 0) {
       current = { ...held, base: record.fingerprint, edits: pending, adopt: false };
     }
+  } else if (held.adopt && held.sent !== null && record !== held.sent.from) {
+    // Served anew after this editor's own save under the fingerprint it was sent from: the write stored a value
+    // it reads as the one already stored, a trimmed note or a price without its leading zero. There is nothing
+    // to adopt, so the flag goes, or the next read someone else changed would be taken as this save's while
+    // edits rest on the old one. The edits the save sent, untouched since, are what the record now holds.
+    const gesendet = held.sent.changes;
+    const edits = Object.fromEntries(
+      Object.entries(held.edits).filter(([key, value]) => !(key in gesendet && sameValue(value, gesendet[key]))),
+    ) as Partial<Values>;
+    current = { ...held, edits, adopt: false };
   }
   if (current !== held) setHeld(current);
 
@@ -145,7 +160,8 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   } else if (count > 0) {
     status = { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) };
   } else if (answer?.ok === true) {
-    status = { tone: "saved", text: COPY.shared.gespeichert };
+    // A save that moved more than this record says what else it moved, in place of the plain „Gespeichert“.
+    status = { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
   }
 
   return {
@@ -163,7 +179,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     fieldErrors: refused?.fieldErrors,
     /** Saves the whole record: its changed fields, on the fingerprint the draft was made on. */
     submit: () => {
-      setHeld((state) => ({ ...state, sentVersion: state.version, adopt: false }));
+      setHeld((state) => ({ ...state, sentVersion: state.version, adopt: false, sent: { from: record, changes } }));
       form.submit({ id: record.id, fingerprint: current.base, changes });
     },
     /** The browser kept the save back for a field's own rule: the status line points at the fields. */

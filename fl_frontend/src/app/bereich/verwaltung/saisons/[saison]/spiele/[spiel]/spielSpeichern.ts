@@ -5,16 +5,17 @@ import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { patchAdminSpielData } from "@/features/spiele/mutations";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { FLPatchSpielDataPayloadSchema, FLSonderereignisSchema } from "@/features/spiele/schemas";
-import { spielStateKey, toStoredSide } from "@/features/spiele/utils";
+import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spiele/utils";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { isRefusal } from "@/shared/utils/actionError";
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { FORBIDDEN_BY_REFUSAL, invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
 
 import { werteOf } from "./spielLesen";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
+import type { AdminRefusal } from "@/core/auth";
 import type { Copy } from "@/core/copy";
-import type { FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
 import type { EditorSave } from "@/kit/useEditor";
 import type { ActionAnswer } from "@/kit/useFormAction";
 import type { SpielFeld, SpielWerte } from "./spielWerte";
@@ -39,11 +40,22 @@ const ABLEHNUNGEN: Readonly<Record<string, { feld?: SpielFeld; text: Copy }>> = 
   "REQ-ELIGIBILITY-002": { text: ABGELEHNT.nichtInSaison },
   "REQ-STATE-002": { feld: "sonderereignis", text: ABGELEHNT.ohneWertung },
   "REQ-STATE-003": { feld: "sonderereignis", text: ABGELEHNT.beideTeamsNoetig },
+  // The editor sends the sides' sources as it read them, so the wiring rules refuse only wiring someone else
+  // changed since: the stale page, as is a fixture deleted since by an undraw or a replace.
+  "REQ-WIRING-001": { text: COPY.shared.fehler.veraltet },
+  "REQ-WIRING-002": { text: COPY.shared.fehler.veraltet },
+  "REQ-WIRING-003": { text: COPY.shared.fehler.veraltet },
+  "DB-COMMON-001": { text: COPY.shared.fehler.veraltet },
+  // The payload passed the API's own rules as this page knows them: a refusal means a page older than the API.
+  "REQ-VAL-001": { text: COPY.shared.fehler.veraltet },
 };
 
-type Antwort = { success: true } | { success: false; antwort: ActionAnswer };
+type Antwort = { success: true; antwort: ActionAnswer } | { success: false; antwort: ActionAnswer };
 
 const abgelehnt = (antwort: ActionAnswer): Antwort => ({ success: false, antwort });
+
+const isNichtantreten = (sonderereignis: FLSonderereignis | null) =>
+  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /**
  * The fixture as it stands with the editor's changes over it. Today's write replaces the whole fixture, so
@@ -59,8 +71,16 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Partial<SpielWerte>): { p
   }
 
   const sonderereignis = werte.sonderereignis === KEIN_SONDEREREIGNIS ? null : FLSonderereignisSchema.parse(werte.sonderereignis);
-  const team1 = toStoredSide(gespeichert.team1);
-  const team2 = toStoredSide(gespeichert.team2);
+  // A no-show's goals are the award the write composed, never a score anyone played: taken back, the award
+  // goes with it, else the write keeps the goals as a played result. Cleared, they also meet the rule that an
+  // event leaving the match unscored carries no goals.
+  const awardTakenBack = isNichtantreten(gespeichert.sonderereignis) && !isNichtantreten(sonderereignis);
+  const sideOf = (stored: FLSpielAdmin["team1"]) => {
+    const side = toStoredSide(stored);
+    return side === null ? null : { ...side, tore: awardTakenBack ? null : side.tore };
+  };
+  const team1 = sideOf(gespeichert.team1);
+  const team2 = sideOf(gespeichert.team2);
 
   return {
     payload: {
@@ -93,7 +113,14 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
   const id = CustomObjectIdStringSchema.safeParse(change.id);
   if (!id.success) return { ok: false };
 
-  const result = await runAdminMutation("spielSpeichern", async (): Promise<Antwort> => {
+  // Why the guard turned the save away, kept as it judged it: the catalogue words an ended session.
+  const abgewiesen: { grund?: AdminRefusal } = {};
+  const turnedAway = (grund: AdminRefusal) => {
+    abgewiesen.grund = grund;
+    return FORBIDDEN_BY_REFUSAL[grund];
+  };
+
+  const result = await runAdminMutation("spielSpeichern", { stepUp: false, turnedAway }, async (): Promise<Antwort> => {
     // The tags every match list carries, declared ahead of the read; the season's own follow once it names the season.
     invalidatesOnWrite("spiele", "teams");
     const gelesen = await getAdminSpiel(id.data);
@@ -111,7 +138,11 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     invalidatesOnWrite(`spiele:saison_id:${saison}`, `teams:saison_id:${saison}`);
     try {
       const geschrieben = await patchAdminSpielData(payload.data, null);
-      return geschrieben.acknowledged ? { success: true } : abgelehnt({ ok: false });
+      if (!geschrieben.acknowledged) return abgelehnt({ ok: false });
+      // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
+      const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
+      if (folgen === undefined) return { success: true, antwort: { ok: true, value: undefined } };
+      return { success: true, antwort: { ok: true, value: undefined, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) } };
     } catch (error) {
       if (!isRefusal(error)) throw error;
       const ablehnung = error.serverErrorCode === undefined ? undefined : ABLEHNUNGEN[error.serverErrorCode];
@@ -122,7 +153,10 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     }
   });
 
-  if (result.success) return { ok: true, value: undefined };
-  // The guard's own refusals, a session ended among them, carry no words of the catalogue's: the unexpected failure.
-  return "antwort" in result ? result.antwort : { ok: false };
+  if ("antwort" in result) return result.antwort;
+  // The spine's own answers. A write that may have landed whatever its answer said: a reload shows whether it did.
+  if (result.outcome === "unknown") return { ok: false, reason: COPY.shared.fehler.veraltet };
+  if (abgewiesen.grund === "signIn") return { ok: false, reason: COPY.shared.fehler.abgelaufen };
+  // A grant gone or unread, and a throw no refusal explains, have no line of the catalogue's: the unexpected failure.
+  return { ok: false };
 }
