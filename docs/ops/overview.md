@@ -65,7 +65,7 @@ visible from a configuration file in this repository.
   verified 2026-08-01, which makes them a property to re-verify rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
   than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
-  precompressed at build time (`.claude/rules/ops.md`).
+  precompressed at build time (`docs/decisions.md`).
 - **The AI-crawler opt-out is a request here and an enforcement there.**
   `fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, which each crawler chooses
   whether to obey; what the edge does about them is [`spec.md`](spec.md) §1.8. **The failure to

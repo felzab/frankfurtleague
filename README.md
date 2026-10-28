@@ -75,8 +75,7 @@ pull request and every push to `main`;
 
 Start with [`docs/README.md`](docs/README.md). The domain vocabulary is German (`Spiel`, `Spieltag`,
 `Saison`, `Kader`), and [the glossary](docs/glossary.md) explains each term. Some choices that look
-like mistakes are deliberate: each is listed in section 7 of `.claude/CLAUDE.md`
-or under `.claude/rules/`, the instructions my coding agents work under.
+like mistakes are deliberate: each is listed in [`docs/decisions.md`](docs/decisions.md).
 
 ```text
 fl_frontend/     Next.js app: routes under src/app/, feature slices under src/features/

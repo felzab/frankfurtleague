@@ -516,8 +516,8 @@ would render unstyled. Every route this application declares carries none.
 its own, because `add_header` in a location replaces the inherited set, and which
 `nginx/prod/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location and the
 www redirect for it, and compares each header's value with that file's. A
-restated copy would be a second enforcing policy, which the
-`.claude/rules/cross-surface.md` **csp** clause forbids.
+restated copy would be a second enforcing policy, which the **csp** clause of
+`docs/decisions.md` forbids.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from

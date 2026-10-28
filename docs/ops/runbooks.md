@@ -2085,8 +2085,8 @@ its digest together, then running `pnpm install` to rewrite the lockfile:
 `scripts/tests/test_image_pins.py` refuses a manifest, lockfile and tag naming different releases.
 Once it merges, a machine needs nothing more than the next `pnpm install`.
 
-**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh`
-and `.claude/hooks/implementer-whole-suite.sh` call it bare. Install the pinned release machine-wide from
+**A bare `node` still runs the machine's own**, and the Claude Code hooks under `.claude/hooks/`
+that read their payload with it call it bare. Install the pinned release machine-wide from
 <https://nodejs.org/en/download>, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.
 
