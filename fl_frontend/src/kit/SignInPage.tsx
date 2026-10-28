@@ -122,7 +122,9 @@ function Body(props: SignInView) {
 
   switch (props.view) {
     case "adresse": {
-      const { adresse, senden, passkey } = props;
+      const { adresse, passkey } = props;
+      // The send's press is the form's submit, so `Enter` in the field sends too.
+      const { onPress: senden, ...knopf } = props.senden;
       return (
         <>
           {/* The column's 16 px above the field, as the board drew the view. */}
@@ -131,7 +133,7 @@ function Body(props: SignInView) {
             validationErrors={adresse.fehler === undefined ? undefined : { email: adresse.fehler }}
             onSubmit={(event) => {
               event.preventDefault();
-              senden.onPress();
+              senden();
             }}
             className={slots.form()}>
             <TextField
@@ -151,9 +153,7 @@ function Body(props: SignInView) {
             <Button
               variant="primary"
               type="submit"
-              label={senden.label}
-              isBusy={senden.isBusy}
-              isDisabled={senden.isDisabled}
+              {...knopf}
             />
           </Form>
           {/* Decoration: the passkey's button carries its own name. */}
@@ -167,10 +167,7 @@ function Body(props: SignInView) {
           <div className={slots.acts()}>
             <Button
               variant="secondary"
-              label={passkey.label}
-              isBusy={passkey.isBusy}
-              isDisabled={passkey.isDisabled}
-              onPress={passkey.onPress}
+              {...passkey}
             />
           </div>
         </>
@@ -204,10 +201,7 @@ function Body(props: SignInView) {
             {/* The step aside from the view's one act, quiet as „Später“ is. */}
             <Button
               variant="quiet"
-              label={zurueck.label}
-              isBusy={zurueck.isBusy}
-              isDisabled={zurueck.isDisabled}
-              onPress={zurueck.onPress}
+              {...zurueck}
             />
           </div>
         </>
@@ -226,18 +220,12 @@ function Body(props: SignInView) {
           <div className={slots.acts()}>
             <Button
               variant="primary"
-              label={los.label}
-              isBusy={los.isBusy}
-              isDisabled={los.isDisabled}
-              onPress={los.onPress}
+              {...los}
             />
             {spaeter !== undefined && (
               <Button
                 variant="quiet"
-                label={spaeter.label}
-                isBusy={spaeter.isBusy}
-                isDisabled={spaeter.isDisabled}
-                onPress={spaeter.onPress}
+                {...spaeter}
               />
             )}
           </div>
@@ -262,10 +250,7 @@ function Body(props: SignInView) {
             {/* The step out beside the way on, quiet as „Später“ is. */}
             <Button
               variant="quiet"
-              label={abmelden.label}
-              isBusy={abmelden.isBusy}
-              isDisabled={abmelden.isDisabled}
-              onPress={abmelden.onPress}
+              {...abmelden}
             />
           </div>
         </>
