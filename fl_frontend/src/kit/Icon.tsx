@@ -6,6 +6,8 @@ import Check from "lucide-react/icons/check";
 import ChevronDown from "lucide-react/icons/chevron-down";
 import ChevronLeft from "lucide-react/icons/chevron-left";
 import ChevronRight from "lucide-react/icons/chevron-right";
+import CircleCheck from "lucide-react/icons/circle-check";
+import CircleX from "lucide-react/icons/circle-x";
 import Ellipsis from "lucide-react/icons/ellipsis";
 import FileText from "lucide-react/icons/file-text";
 import Info from "lucide-react/icons/info";
@@ -29,12 +31,16 @@ import { tv } from "tailwind-variants/lite";
 
 /**
  * Every glyph the site draws, by what it means rather than by its drawing, so a glyph changes here and
- * nowhere else. Each is imported from its own module, so a test loading the kit loads these icons, not
- * the whole set. The second group names the pages of a frame's menu, one glyph per page, so no two
- * entries of a rail or a phone bar share a mark.
+ * nowhere else: one name per meaning, and no drawing under two names, so a reader learns each mark once.
+ * Each is imported from its own module, so a test loading the kit loads these icons, not the whole set.
+ * The second group names the pages of a frame's menu, one glyph per page, so no two entries of a rail or
+ * a phone bar share a mark.
  */
 const GLYPHS = {
   aufklappen: ChevronDown,
+  // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
+  erledigt: CircleCheck,
+  fehler: CircleX,
   filter: ListFilter,
   haken: Check,
   info: Info,
@@ -50,7 +56,9 @@ const GLYPHS = {
 
   uebersicht: LayoutDashboard,
   saisons: CalendarRange,
-  spiele: CalendarDays,
+  // A season's matches, in the public frame and the administration's alike. A calendar with its days
+  // marked reads as dated fixtures, and leaves the bare calendar to `kalender`, picking a date.
+  spielplan: CalendarDays,
   spielorte: MapPin,
   schiedsrichter: Whistle,
   bewerbungen: FileText,
