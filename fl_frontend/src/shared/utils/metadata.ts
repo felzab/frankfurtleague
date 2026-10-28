@@ -1,6 +1,25 @@
 import { withSaisonId } from "./saisonHref";
 
+import type { Copy } from "@/core/copy";
+import type { RouteEntry } from "@/core/routes";
 import type { Metadata } from "next";
+
+/**
+ * A page's metadata from its row in `fl_frontend/src/core/routes.ts :: ROUTES` and its address: the
+ * title, the address as the canonical and the preview's, and `noindex` where the row says search
+ * engines may not list the page. A page declaring none inherits the root layout's, whose canonical is
+ * the homepage. A row titled by its record or its teams takes that title as `titel`.
+ */
+export function pageMetadata(row: RouteEntry & { readonly titel: Copy }, pfad: string): Metadata;
+export function pageMetadata(row: RouteEntry, pfad: string, titel: string): Metadata;
+export function pageMetadata(row: RouteEntry, pfad: string, titel?: string): Metadata {
+  return {
+    title: titel ?? (typeof row.titel === "string" ? row.titel : undefined),
+    alternates: { canonical: pfad },
+    openGraph: openGraphFor(pfad),
+    ...(row.indexiert ? {} : { robots: { index: false, follow: false } }),
+  };
+}
 
 /**
  * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter.

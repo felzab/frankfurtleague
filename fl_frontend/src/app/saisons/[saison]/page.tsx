@@ -6,15 +6,14 @@ import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import { matchRowOf, readSaison, readSpielplan } from "./spielplan";
 
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: PageProps<"/saisons/[saison]">): Promise<Metadata> {
-  const path = ROUTES.spielplan.pfad((await params).saison);
-  return { title: ROUTES.spielplan.titel, alternates: { canonical: path }, openGraph: openGraphFor(path) };
+  return pageMetadata(ROUTES.spielplan, ROUTES.spielplan.pfad((await params).saison));
 }
 
 /**

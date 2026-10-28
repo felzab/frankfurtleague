@@ -10,6 +10,7 @@ import { FLSonderereignisSchema, FLSpielOrtFieldPayloadSchema } from "@/features
 import { spielStateKey } from "@/features/spiele/utils";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { pageMetadata } from "@/shared/utils/metadata";
 
 import { spielortAnlegen } from "../../../../../spielortAnlegen";
 import { SPIELORT_REGELN } from "../../../../../spielortRegeln";
@@ -48,8 +49,9 @@ const nameOf = (spiel: FLSpielAdmin) =>
     : ROUTES.verwaltungSpiel.titel(spiel.team1.name, spiel.team2.name);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const gelesen = await lesen((await params).spiel);
-  return gelesen === null ? {} : { title: nameOf(gelesen.spiel) };
+  const { saison, spiel } = await params;
+  const gelesen = await lesen(spiel);
+  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.pfad(saison, spiel), nameOf(gelesen.spiel));
 }
 
 /** The match editor, on today's match read and write. */
