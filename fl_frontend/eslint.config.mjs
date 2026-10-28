@@ -418,6 +418,9 @@ const SOURCE_BANS = [
     // `(?![xy]-)` keeps `gap-x-4` from being read as a bare `gap-` with the value `x-4`.
     selector: inLiteral(String.raw`${TOKEN_START}gap(?:-[xy])?-(?![xy]-)(?!(?:0|0\.5|1|2|3|4|6|8|12)${TOKEN_END})\S+`),
     message: "A gap is one of §1.20's rungs, 0.5 1 2 3 4 6 8 12, or 0 for no gap (docs/frontend/spec.md §1.20).",
+    // The kit spaces on its own 4-to-64-px scale. `Link.tsx` is named too: a file with an exemption of its
+    // own takes the last block matching it, which would otherwise restate this ban there.
+    exempt: ["src/kit/**", "src/kit/Link.tsx"],
   },
   {
     selector: inLiteral(String.raw`(?:^|\s)\S*(?:hover:underline|underline-offset)`),
@@ -435,7 +438,8 @@ const SOURCE_BANS = [
     selector: inLiteral("^_blank$"),
     message:
       "A link opening a new tab is `NewTabLink`, or spreads `NEW_TAB_ATTRIBUTES` on a control whose own name says so: a target spelled here tells a screen reader nothing.",
-    exempt: ["src/shared/components/ui/NewTabLink.tsx"],
+    // The kit's `Link` opens a tab only by its typed prop, and announces nothing beyond what the browser does.
+    exempt: ["src/shared/components/ui/NewTabLink.tsx", "src/kit/Link.tsx"],
   },
   ...[
     ["BRAND_TILE_CLASSES", ["bg-brand-solid", "size-10", "rounded-xl"]],
