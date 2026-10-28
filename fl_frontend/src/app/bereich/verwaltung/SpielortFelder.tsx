@@ -1,3 +1,4 @@
+import { FieldPair } from "@/kit/FieldPair";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
@@ -8,7 +9,8 @@ const WORTE = COPY.verwaltung.spielort;
 
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name, its
- * address and its price. Each posts under its own name, which `spielortAnlegen` reads.
+ * address and its price. Each posts under its own name, which `spielortAnlegen` reads. The street and its
+ * number, and the postcode and its town, each form one line of the address and share a row on desktop.
  */
 export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
   const { pflicht, hoechstens } = regeln;
@@ -21,34 +23,24 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         kind="text"
         isRequired={pflicht.name}
       />
-      <TextField
-        label={WORTE.strasse}
-        name="strasse"
-        width="W3"
-        kind="text"
-        isRequired={pflicht.strasse}
-        maxLength={hoechstens.strasse}
-      />
-      <TextField
-        label={WORTE.hausnummer}
-        name="hausnummer"
-        width="C5"
-        kind="text"
-        isRequired={pflicht.hausnummer}
-        maxLength={hoechstens.hausnummer}
-      />
-      <TextField
-        label={WORTE.plz}
-        name="plz"
-        width="C5"
-        kind="digits"
-        isRequired={pflicht.plz}
-        // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
-        // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
-        // failure, their words being the old pages'.
-        maxLength={5}
-        minLength={5}
-      />
+      <FieldPair>
+        <TextField
+          label={WORTE.strasse}
+          name="strasse"
+          width="W3"
+          kind="text"
+          isRequired={pflicht.strasse}
+          maxLength={hoechstens.strasse}
+        />
+        <TextField
+          label={WORTE.hausnummer}
+          name="hausnummer"
+          width="C5"
+          kind="text"
+          isRequired={pflicht.hausnummer}
+          maxLength={hoechstens.hausnummer}
+        />
+      </FieldPair>
       <TextField
         label={WORTE.stadtteil}
         name="stadtteil"
@@ -57,15 +49,29 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         isRequired={pflicht.stadtteil}
         maxLength={hoechstens.stadtteil}
       />
-      <TextField
-        label={WORTE.stadt}
-        name="stadt"
-        width="W3"
-        kind="text"
-        defaultValue={WORTE.stadtVorgabe}
-        isRequired={pflicht.stadt}
-        maxLength={hoechstens.stadt}
-      />
+      <FieldPair>
+        <TextField
+          label={WORTE.stadt}
+          name="stadt"
+          width="W3"
+          kind="text"
+          defaultValue={WORTE.stadtVorgabe}
+          isRequired={pflicht.stadt}
+          maxLength={hoechstens.stadt}
+        />
+        <TextField
+          label={WORTE.plz}
+          name="plz"
+          width="C5"
+          kind="digits"
+          isRequired={pflicht.plz}
+          // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
+          // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
+          // failure, their words being the old pages'.
+          maxLength={5}
+          minLength={5}
+        />
+      </FieldPair>
       <TextField
         label={WORTE.mietpreis}
         name="mietpreis"
