@@ -101,6 +101,7 @@
    statement and another `@import`, and HeroUI's run above takes no entry that is not HeroUI's. */
 @import "./schemes/2027.css";
 @import "./tokens.css";
+@import "./focus.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
