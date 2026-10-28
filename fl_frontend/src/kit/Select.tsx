@@ -59,8 +59,10 @@ export function Select({
         className={fieldFrame({ width, inset: "start", layout: "trigger" })}>
         {width === "fit" ? (
           // Sized to the longest choice, not the chosen one, so choosing never moves the field: every label
-          // lies in the value's cell, unseen, and the widest sets the cell's width.
-          <span className="grid min-w-0">
+          // lies in the value's cell, unseen, and the widest sets the cell's width. The cell's one column may
+          // narrow below that widest label, so in a column narrower than it the field stops at the column and the
+          // chosen value is cut there, where an `auto` column would hold the widest label and overflow the frame.
+          <span className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
             <SelectValue className="col-start-1 row-start-1 truncate data-placeholder:text-fg-muted" />
             {options.map((option) => (
               <span
