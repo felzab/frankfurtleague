@@ -226,48 +226,60 @@ function ActForm({
 
 /**
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
- * verb. A record's creation opens it over its list. The verb sends the inputs to `action` through the one
- * form wrapper: a done act closes the dialog, a refused one leaves it open with the input kept and the
- * refusal shown.
+ * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
+ * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog,
+ * a refused one leaves it open with the input kept and the refusal shown.
  */
 export function Dialog({
   title,
   act,
   trigger,
+  open,
   action,
   children,
 }: {
   title: Copy;
   /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
   act: { verb: Verb; objekt?: Copy };
-  /** The kit `Button` that opens the dialog. */
-  trigger: ReactElement;
   /** The server action doing the act, reading the form's fields by their `name`s. */
   action: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
   children: ReactNode;
+  /** The kit `Button` that opens the dialog, or none where another control opens it through `open`. */
+  trigger?: ReactElement;
+  /** The open state, held by the control that opens the dialog, such as a combo box's create entry. */
+  open?: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void };
 }) {
-  const [isOpen, setOpen] = useOpenUntilHidden();
+  const [own, setOwn] = useOpenUntilHidden();
+  const isOpen = open?.isOpen ?? own;
+  const setOpen = open?.onOpenChange ?? setOwn;
   const label = act.objekt === undefined ? COPY.shared.verb[act.verb] : COPY.shared.mitObjekt(act.objekt, act.verb);
 
-  return (
+  const overlay = (
+    <DialogOverlay
+      width="form"
+      isDismissable
+      isOpen={isOpen}
+      onOpenChange={setOpen}>
+      <AriaDialog data-kit-focus>
+        <ActForm
+          title={title}
+          label={label}
+          action={action}
+          close={() => setOpen(false)}>
+          {children}
+        </ActForm>
+      </AriaDialog>
+    </DialogOverlay>
+  );
+  return trigger === undefined ? (
+    overlay
+  ) : (
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
       {trigger}
-      <DialogOverlay
-        width="form"
-        isDismissable>
-        <AriaDialog data-kit-focus>
-          <ActForm
-            title={title}
-            label={label}
-            action={action}
-            close={() => setOpen(false)}>
-            {children}
-          </ActForm>
-        </AriaDialog>
-      </DialogOverlay>
+      {overlay}
     </DialogTrigger>
   );
 }

@@ -10,10 +10,17 @@ const WORTE = COPY.verwaltung.spielort;
 /**
  * A new venue's inputs, in the create dialog over the venue list and over the match editor alike: its name, its
  * address and its price. Each posts under its own name, which `spielortAnlegen` reads. The street and its
- * number, and the postcode and its town, each form one line of the address and share a row on desktop, the
+ * number, and the postcode and its town, each form one line of the address and share a row at every width, the
  * postcode before its town as a German address writes it.
  */
-export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
+export function SpielortFelder({
+  regeln,
+  name,
+}: {
+  regeln: SpielortRegeln;
+  /** The name typed into the match editor's venue field before its create entry was chosen. */
+  name?: string;
+}) {
   const { pflicht, hoechstens } = regeln;
   return (
     <>
@@ -22,9 +29,12 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         name="name"
         width="W3"
         kind="text"
+        defaultValue={name}
         isRequired={pflicht.name}
       />
-      <FieldPair short="second">
+      <FieldPair
+        short="second"
+        phone="pair">
         <TextField
           label={WORTE.strasse}
           name="strasse"
@@ -50,7 +60,9 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         isRequired={pflicht.stadtteil}
         maxLength={hoechstens.stadtteil}
       />
-      <FieldPair short="first">
+      <FieldPair
+        short="first"
+        phone="pair">
         <TextField
           label={WORTE.plz}
           name="plz"

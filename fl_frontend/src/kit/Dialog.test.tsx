@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { useState } from "react";
+
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -6,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { ComboBox } from "./ComboBox";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { EditorPage } from "./EditorPage";
@@ -219,4 +222,49 @@ describe("the kit's dialog", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.queryByText(COPY.shared.fehler.veraltet)).toBeNull();
   });
+
+  it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
+    render(<VenueFieldWithDialog />);
+    await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
+    await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.anlegenEintrag }));
+
+    expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
+    expectTheSharedOverlay(screen.getByRole("dialog"));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.zurueck }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
 });
+
+/** The match editor's venue field and its create dialog, which the field's last entry opens. */
+function VenueFieldWithDialog() {
+  const [isOpen, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  return (
+    <>
+      <ComboBox
+        label={COPY.verwaltung.spielort.objekt}
+        options={[{ id: "ost", label: "Sportplatz Ost" }]}
+        create={{
+          label: COPY.verwaltung.spielort.anlegenEintrag,
+          onCreate: (typed) => {
+            setName(typed);
+            setOpen(true);
+          },
+        }}
+      />
+      <Dialog
+        title={NAME}
+        act={{ verb: "anlegen", objekt: NAME }}
+        action={async () => DONE}
+        open={{ isOpen, onOpenChange: setOpen }}>
+        <TextField
+          label={INPUT}
+          name="neu"
+          width="W3"
+          kind="text"
+          defaultValue={name}
+        />
+      </Dialog>
+    </>
+  );
+}

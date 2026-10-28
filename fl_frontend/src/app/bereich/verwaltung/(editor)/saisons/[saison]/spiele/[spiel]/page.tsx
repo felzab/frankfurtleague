@@ -68,6 +68,9 @@ async function Editor({ params }: Pick<Props, "params">) {
   const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);
   if (gelesen === null || gelesen.spiel.saison_id !== saison) notFound();
   const gespeichert = gelesen.spiel;
+  // A retired venue can be booked anew by no match: it is listed only where it is already this match's.
+  const gebucht = gespeichert.ort?.spielort_id ?? null;
+  const waehlbar = spielorte.filter((ort) => ort.inactive_since === null || ort.id === gebucht);
 
   // A no-show needs both sides: while one is open, the write refuses it, so it is offered disabled.
   const beideSeiten = gespeichert.team1 !== null && gespeichert.team2 !== null;
@@ -85,8 +88,8 @@ async function Editor({ params }: Pick<Props, "params">) {
       title={{ record: nameOf(gespeichert) }}
       record={{ id: gespeichert.id, fingerprint: spielStateKey(gespeichert), values: werteOf(gespeichert) }}
       save={spielSpeichern}
-      spielorte={spielorte.map((ort) => ({
-        // A retired venue can be booked anew by no match: it stays only where it is already this match's.
+      spielorte={waehlbar.map((ort) => ({
+        // The match's own retired venue stays in the list, marked and not to be chosen again once left.
         option:
           ort.inactive_since === null
             ? { id: ort.id, label: ort.name }
