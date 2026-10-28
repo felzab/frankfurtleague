@@ -13,7 +13,7 @@ stale.
 
 ## The skeleton
 
-```
+```text
 # Agent register -- <programme / session name>
 
 Repository state at the start: <branch, tip subject, clean or not>.
@@ -55,15 +55,10 @@ distinct lines it matches, past which `ci.py` reads the surplus as new. A row is
 Status RED; `ci.py` turns it CLEARED <push> when a concluded run shows its job passing, never by
 deletion. A NEW line that is only a job's verdict or its name gets no row, since one would expect
 every later failure of that job: it stays NEW, judged from the job's log at each read, until the job
-passes. `--commit <sha>` reads another commit's run and writes nothing. The `invariant-number`
-finding on a reserved invariant id that landed above a lower one not yet landed, or above one left
-unused, is one row, cleared when the lower id lands or the ending closes the gap.>
+passes. `--commit <sha>` reads another commit's run and writes nothing.>
 
 ## File ownership -- the plan's map
-<Each agent's files are its brief's `Owns:` lines, which `reg.py overlap --brief` reads, and its
-invariant ids its brief's VALUES line. A new block of real ids, never a placeholder, starts one past
-the highest any brief in the `Briefs:` directory reserves, never the highest landed, which would
-hand out again an id an unlanded branch holds. An id left unused is a gap the ending closes.>
+<Each agent's files are its brief's `Owns:` lines, which `reg.py overlap --brief` reads.>
 Hubs (written by more than one slice), each with its owner or its named regions:
 Leaves:
 Couplings that are not file edges, shared contracts included:
@@ -73,9 +68,9 @@ Tracked generated files: <each agent whose change moves one commits it regenerat
 <One line per ordering constraint, "<branch or agent> lands after <branch or agent>, because
 <reason>". What landed, and when, is `git log --first-parent` on the session branch.>
 
-## The cycle, per slice -- decided before any finding exists
-| Slice | Rounds | Silent if wrong? Reason | Browser pass |
-| ----- | ------ | ----------------------- | ------------ |
+## The cycle -- decided before any finding exists
+| Lens or area | Silent if wrong? Reason | Board |
+| ------------ | ----------------------- | ----- |
 
 ## Live agents
 | Agent name, then the id the Agent tool returned in backticks | The question it settles | Status |
@@ -92,8 +87,8 @@ PAUSED ones. What an agent owns is its brief's.>
 | ------- | -------------------------------- | ----------- |
 
 ## The ending -- enumerated before the last wave goes out
-<The last wave landed, its audit and its fix; every slice ticked to a landed commit; every gap an
-unused reserved invariant id left closed and every expected-red row closed;
+<The last wave landed; the lens round and its fix; every slice ticked to a landed commit; every
+expected-red row closed;
 `ledger.py open --unclosed` exiting 0; the full gate; the draft pull request's body; every check's conclusion; the owner's
 deploy steps; the handoff and its independent audit; the starter.>
 

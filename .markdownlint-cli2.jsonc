@@ -20,5 +20,12 @@
       },
       "combine": "merge",
     },
+    {
+      // GitHub shows a pull request's title as its heading, so the body a template starts opens on
+      // prose and no heading of its own.
+      "filter": [".github/pull_request_template.md"],
+      "config": { "first-line-heading": false },
+      "combine": "merge",
+    },
   ],
 }

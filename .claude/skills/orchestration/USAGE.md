@@ -16,8 +16,8 @@ Addressed to the owner: every step below is yours to perform. The coordinator ne
   file on disk is the current core.
 - Compaction re-attaches the first 5,000 tokens of each invoked skill, within 25,000 shared by all of
   them and filled from the most recent: the skill's core is held under that size by
-  `scripts/tests/test_orchestration_skill.py`, so it comes back whole, and its other files are read
-  when the core points at them. A session that invoked many other skills since can lose it entirely;
+  `.claude/skills/orchestration/tests/test_orchestration_skill.py`, so it comes back whole, and its
+  other files are read when the core points at them. A session that invoked many other skills since can lose it entirely;
   invoke it again then.
 - Compact at a wave boundary rather than when the window is full, with a focus instruction, for
   example `/compact keep the register path, the branch and the live agent ids`.

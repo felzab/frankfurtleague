@@ -1,7 +1,7 @@
 """ORCHESTRATION · one finished agent branch merged into the session branch.
 
 `git merge --no-ff` brings the branch in whole: the agent's commits keep the hooks they ran in its
-worktree, and the merge commit takes git's own message, which `commit-msg` leaves to git. A conflict
+worktree, and the merge commit takes git's own message, running whatever hooks the checkout has. A conflict
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
@@ -43,7 +43,8 @@ REGENERATED_FROM: Final = "fl_backend/"
 TYPE_CHECKS: Final = (
     (("fl_frontend/",), ("pnpm", "typecheck"), "fl_frontend"),
     (("fl_backend/",), (sys.executable, "-m", "pyright"), "fl_backend"),
-    (("scripts/", ".claude/skills/orchestration/tools/"), (sys.executable, "-m", "pyright"), "scripts"),
+    (("scripts/",), (sys.executable, "-m", "pyright"), "scripts"),
+    ((".claude/skills/orchestration/",), (sys.executable, "-m", "pyright"), ".claude/skills/orchestration"),
 )
 # A merge moving a manifest or a lockfile is checked against the install it implies rather than this
 # checkout's stale one; each runs from the root.

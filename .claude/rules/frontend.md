@@ -4,45 +4,16 @@ paths:
   - "fl_frontend/**/.*"
 ---
 
-# Ratified decisions — the frontend surface
+# Traps — the frontend surface
 
-`.claude/CLAUDE.md` §7's never-clauses whose only violator is a session inside `fl_frontend/`, its
-own config files included, on §7's terms.
+Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
-- **cache** — Make base tags conditional
-- **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
-- **spiele** — Merge the three `SpielCard` variants
-- **pages** — Remove an `await connection()` before a page fetch
-- **lint** — Scope a cross-feature import lint to anything but `core` and `shared`
-- **cache** — Cache an admin-scoped API read
-- **build** — Enable the React Compiler
-- **forms** — Judge a typed field between keystrokes; return the editor to a dialog
-- **spiele** — Guess a voided result rather than dry-running it; scope the undo offer to the destructive save
-- **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
-- **finalrunden** — Write from `/bereich/admin/finalrunden`; render its wiring as cards
-- **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **undo** — Send an undo through anything but its slice's server action
-- **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
-- **auth** — Carry a return destination on the sign-in redirect without the allowlist first
-- **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
-- **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
-
-## Styling and motion
-
-- **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
-- **toast** — Add a new `.toast*` rule to a stylesheet rather than building the appearance in `AppToaster`; call `toast` at a call site rather than `appToast`
-- **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a `@layer`
-- **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
-
-## Traps
-
-`.claude/CLAUDE.md` §6's, on §6's terms: each fails silently.
-
-- Import a HeroUI component's CSS per component, into `fl_frontend/src/app/globals.css`, which loads
-  on every route. Not named there, the component renders unstyled while `tsc`, `next build` and
-  ESLint all pass. Read [the checklist](../../docs/frontend/spec.md#111-adding-a-heroui-component)
-  before writing the code.
+- A HeroUI component a page not yet rebuilt imports needs its stylesheet imported into
+  `fl_frontend/src/app/globals.css`, which loads on every route, at the position it holds in
+  `node_modules/@heroui/styles/dist/components/index.css`, and so does every part it renders beneath
+  it: a popover, a listbox, a button. Without it the component renders unstyled while `tsc`,
+  `next build` and ESLint all pass.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
 - Declare a granular cache tag with `invalidatesOnWrite` in every action writing its resource, in the
-  same change as the tag (`docs/frontend/spec.md :: I1`); a tag nothing invalidates is decoration.
+  same change as the tag; a tag nothing invalidates is decoration.
