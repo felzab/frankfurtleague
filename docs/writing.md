@@ -2,7 +2,7 @@
 
 How documents, code comments, commit messages and pull requests are written in this repository.
 Prettier formats every Markdown file, markdownlint holds the Markdown to one style, and lychee
-checks that every link and every `#fragment` resolves; the gate runs all three. What no tool can
+checks that every link inside the repository and every `#fragment` resolves; the gate runs all three. What no tool can
 check is on this page.
 
 ## Documents and comments
@@ -34,7 +34,8 @@ citation, no header block and no history. A comment that restates the code is de
 - **The scope is one of** `Frontend`, `Backend`, `Docs`, `Repo`, `Ops` (deployment, images, nginx),
   `CI` (`.github/workflows/`), `Database` (the data or its constraints), `Frontend deps` and
   `Backend deps`. A change reaching several combines them, as in `Backend + Frontend`. Dependabot's
-  commit prefixes in `.github/dependabot.yml` follow the same shape.
+  commit prefixes in `.github/dependabot.yml` follow the same shape, adding `Frontend image` and
+  `Backend image` for each Dockerfile's base images.
 - **Keep the subject within 72 characters**, where GitHub truncates a title in a list.
 - **The body is prose wrapped at about 76 characters**, one paragraph per area, each led by its area.
   It carries what the diff cannot: why the change was made, what was verified and how (with the exit
