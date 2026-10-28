@@ -19,7 +19,7 @@ export const COSE_KEY = Buffer.concat([
 ]);
 
 export const CREDENTIAL_RAW_ID = Buffer.from("fabricated-credential-id");
-const CREDENTIAL_ID = CREDENTIAL_RAW_ID.toString("base64url");
+export const CREDENTIAL_ID = CREDENTIAL_RAW_ID.toString("base64url");
 
 const FLAG_PRESENT = 0x01;
 const FLAG_VERIFIED = 0x04;

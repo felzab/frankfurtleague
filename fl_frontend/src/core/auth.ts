@@ -915,6 +915,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       database: { joins: true },
       // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
       ipAddress: { disableIpTracking: true },
+      // The library turns its origin check, and the CSRF checks riding on it, off wherever `NODE_ENV` is
+      // `test` or `TEST` is set, so the check is pinned on whatever the environment says.
+      disableOriginCheck: false,
       ...cookieNaming(origin),
     },
 
