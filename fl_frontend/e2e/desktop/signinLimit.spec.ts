@@ -1,21 +1,19 @@
 /**
  * E2E · the edge's limit on code requests, met as a visitor meets it: one address asking for code
- * after code is refused, with the sign-in's own toast. Desktop alone: the limit is the edge's, and
+ * after code is refused, in the sign-in's own line. Desktop alone: the limit is the edge's, and
  * every browser meets the same answer to the same request.
  */
 import { expect } from "@playwright/test";
 
 import { test } from "../support/journey";
-import { codeStep, pressSend } from "../support/signIn";
+import { codeStep, failureLine, pressSend } from "../support/signIn";
 
 /** An address no record of the made-up league holds, so no request here files a mail. */
 const STRANGER = "niemand@example.com";
 
 test("one address asking for code after code is refused", async ({ page }) => {
   const step = codeStep(page);
-  const refusal = page
-    .getByRole("alertdialog", { name: "Code nicht gesendet" })
-    .filter({ hasText: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut." });
+  const refusal = failureLine(page).filter({ hasText: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut." });
 
   // `nginx/shared/site.conf`'s sign-in zone, five a minute with a burst of three and no delay: four
   // requests at once pass, and each one more needs twelve seconds since the first that this one

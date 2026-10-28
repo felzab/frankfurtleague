@@ -9,22 +9,17 @@
   // and stands in `knip.production.json` alone.
   "ignoreFiles": [
     // Session 1, the spike's pages.
-    "src/core/clock.ts",
-    "src/kit/Link.tsx",
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
     "src/kit/Select.tsx",
     "src/kit/ComboBox.tsx",
     "src/kit/TimeField.tsx",
-    "src/kit/CodeField.tsx",
     "src/kit/TeamPlaque.tsx",
     "src/kit/OptionList.tsx",
     "src/kit/Tabs.tsx",
     "src/kit/MatchRow.tsx",
     "src/kit/Table.tsx",
     "src/kit/EmptyState.tsx",
-    "src/kit/ClassicFrame.tsx",
-    "src/kit/ClassicPage.tsx",
     "src/kit/ListPage.tsx",
     "src/kit/ListTable.tsx",
     // Session 3.

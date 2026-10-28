@@ -26,8 +26,9 @@ test("the administrator signs in again with the passkey alone and their account 
   await context.credentials.create(passkey.rpId, passkey);
   await context.credentials.install();
 
-  // No press: `/signin` asks the browser for a passkey as it loads, and the authenticator answers.
+  // The passkey by its button alone: the press asks the browser for one, and the authenticator answers.
   await page.goto("/signin");
+  await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   // The Übersicht, where `enrolPasskey` lands the code-borne sign-in too.
   await expect(page).toHaveURL(/\/bereich$/);
 

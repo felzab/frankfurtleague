@@ -6,11 +6,12 @@ import { z } from "zod";
 
 import { ADDRESS_ATTEMPTS_EXHAUSTED, forgiveCodeAttempt, readAdmittedSession, signInWithCode } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
+import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
-import { GESPERRT, OHNE_EINTRAG } from "@/features/auth/passkeyAnswers";
+import { OHNE_EINTRAG } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { crossSiteRefusal } from "@/shared/utils/adminMutation";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -24,28 +25,27 @@ const CodeSignInPayloadSchema = SignInPayloadSchema.extend({
 
 /** One answer for every code the store does not hold: mistyped, expired and swept, already spent, or replaced
  * by a newer mail. A sentence naming one cause alone is false for the others, and each retype is counted. */
-const FALSCH = "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.";
+const FALSCH = COPY.anmeldung.abgelehnt.codeFalsch;
 
 /**
  * The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong
  * code, so the reader is sent for a new one.
  */
-const CODE_VERBRAUCHT =
-  "Die Anmeldung hat gerade nicht geklappt, und Dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.";
+const CODE_VERBRAUCHT = COPY.anmeldung.abgelehnt.codeVerbraucht;
 
 /**
  * The library's refusals by code. Each reaches an address holding an account and one holding none
- * alike, so none of them names which it met.
+ * alike, so none of them names which it met. Each is the catalogue's, where the page finds it again.
  */
 const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   // A code never mailed and a code already spent are this one too: the row is gone either way.
   INVALID_OTP: FALSCH,
-  OTP_EXPIRED: "Der Code ist abgelaufen. Fordere einen neuen an.",
-  TOO_MANY_ATTEMPTS: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-  [ADDRESS_ATTEMPTS_EXHAUSTED]: `Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden erneut.`,
-  // The mint's own refusals, met only past a right code, so only the mailbox's holder reads them; the
-  // passkey's answers word the same two.
-  [SIGN_IN_BARRED]: GESPERRT,
+  OTP_EXPIRED: COPY.anmeldung.abgelehnt.codeAbgelaufen,
+  TOO_MANY_ATTEMPTS: COPY.anmeldung.abgelehnt.codeZuOft,
+  [ADDRESS_ATTEMPTS_EXHAUSTED]: COPY.anmeldung.abgelehnt.adresseZuOft(CODE_FAILURE_WINDOW_HOURS),
+  // The mint's own refusals, met only past a right code, worded as one so that no answer tells a barred
+  // address from one holding no record; the passkey's answers word the same two alike.
+  [SIGN_IN_BARRED]: OHNE_EINTRAG,
   [SIGN_IN_HOLDS_NOTHING]: OHNE_EINTRAG,
 };
 

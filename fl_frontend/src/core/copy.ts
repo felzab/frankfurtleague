@@ -1,3 +1,4 @@
+import { KONTAKT_EMAIL } from "./brand";
 import { formatDatum, formatDatumLang, formatZahl } from "./format";
 
 import type { Kalendertag } from "./format";
@@ -72,6 +73,8 @@ export const COPY = katalog({
       unerwartet: UNERWARTET,
       veraltet: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
       abgelaufen: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
+      /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
+      zuVieleVersuche: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
     },
 
     /** Beside the save button once the record is stored. */
@@ -127,6 +130,14 @@ export const COPY = katalog({
     fertig: "Fertig",
     /** The season button's menu. */
     saison: "Saison",
+
+    /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
+    pruefung: {
+      bestaetigen: "Bestätige kurz, dass du ein Mensch bist.",
+      gestoert: "Die Prüfung, ob du ein Mensch bist, ist gerade gestört. Versuche es später erneut.",
+      nichtFertig: "Die Prüfung, ob du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.",
+      nichtGeladen: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`,
+    },
   },
 
   /** Each page's own name, which its tab title and its strip show; the route table names the key. */
@@ -188,6 +199,58 @@ export const COPY = katalog({
 
     /** A page a mail opened whose link no longer holds, above the catalogue's sentence for it. */
     linkUngueltig: "Link nicht mehr gültig",
+  },
+
+  /** Signing in: the address and its code, the passkey, and the answers either can meet. */
+  anmeldung: {
+    /** The tab titles of `/signin` and `/signin/passkey`. */
+    titel: "Anmelden",
+    passkeyTitel: "Passkey",
+
+    adresse: "E-Mail-Adresse",
+    codeSenden: "Code senden",
+    oder: "oder",
+    mitPasskey: "Mit Passkey anmelden",
+    /** The bot check that did not load, naming the passkey, which signs in without it. */
+    pruefungNichtGeladen: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
+
+    /** The code view: one sentence for every address, so it says nothing about who holds an account. */
+    postfach: "Prüfe dein Postfach",
+    codeUnterwegs: (adresse: string) => `Falls zu ${adresse} ein Konto gehört, ist ein Anmeldecode unterwegs.`,
+    /** The six boxes' accessible name: no label stands above them. */
+    code: "Code aus der E-Mail",
+    andereAdresse: "Andere E-Mail-Adresse verwenden",
+
+    /** `/signin` for somebody already signed in. */
+    angemeldetAls: (adresse: string) => `Du bist als ${adresse} angemeldet.`,
+
+    passkey: {
+      einrichten: { titel: "Passkey einrichten", satz: "Die Verwaltung ist erst mit einem Passkey erreichbar.", knopf: "Jetzt einrichten" },
+      anmelden: { titel: "Mit Passkey anmelden", satz: "Melde dich mit dem Passkey an, den du eingerichtet hast.", knopf: "Jetzt anmelden" },
+      angebot: {
+        titel: "Passkey einrichten",
+        satz: "Mit einem Passkey meldest du dich künftig ohne Code an, mit Fingerabdruck, Gesicht oder der Displaysperre deines Geräts.",
+        knopf: "Jetzt einrichten",
+      },
+      spaeter: "Später",
+    },
+
+    /**
+     * The code's and the passkey's refusals: the code route answers them, and the page finds each one here
+     * again. A barred address and one holding no record meet one sentence, so nobody can probe the ban list.
+     */
+    abgelehnt: {
+      codeFalsch: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
+      codeAbgelaufen: "Der Code ist abgelaufen. Fordere einen neuen an.",
+      codeZuOft: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
+      adresseZuOft: (stunden: number) =>
+        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatZahl(stunden)} Stunden erneut.`,
+      codeVerbraucht:
+        "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
+      ohneEintrag: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
+      ohneBestaetigung:
+        "Dieser Passkey hat nicht bestätigt, dass du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.",
+    },
   },
 
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
