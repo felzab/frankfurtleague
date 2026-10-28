@@ -27,7 +27,7 @@ async function Jahr() {
   return COPY.vorlage.copyright(now().getFullYear(), COPY.marke.name);
 }
 
-const footerLink = tv({ base: "rounded-sm text-sm leading-6 text-fg-muted hover:text-fg" });
+const footerLink = tv({ base: "rounded-md text-sm leading-6 text-fg-muted hover:text-fg" });
 
 /**
  * The classic public frame, which a layout places around the landing, About, Kontakt, the sponsors page,
@@ -119,13 +119,13 @@ export function ClassicFrame({
               <p className="text-xs text-fg-muted">{COPY.vorlage.mitUnterstuetzungVon}</p>
               <div className="flex flex-wrap items-center gap-6">
                 {sponsors.map((sponsor) => (
-                  <a
+                  <NextLink
                     key={sponsor.href}
                     href={sponsor.href}
                     rel="sponsored noopener"
                     title={sponsor.name}
                     data-kit-focus="ring"
-                    className="relative block h-6 w-24 rounded-sm">
+                    className="relative block h-6 w-24 rounded-md">
                     {/* An SVG served as it is, which the image optimiser has nothing to do for; small and grey,
                         each logo fitted into the same box whatever its own proportions. */}
                     <Image
@@ -136,7 +136,7 @@ export function ClassicFrame({
                       sizes="6rem"
                       className="object-contain object-left grayscale"
                     />
-                  </a>
+                  </NextLink>
                 ))}
               </div>
             </div>
