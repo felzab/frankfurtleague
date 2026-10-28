@@ -30,7 +30,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const first = tabs.getByRole("tab", { name: "1. Spieltag" });
   await first.click();
   await expect(first).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(/\/saisons\/2027\?tab=[^&]+$/);
+  await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
 
   // A match row is a link to the match's page, which opens over the Spielplan.
   await page
@@ -46,7 +46,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // Back closes the pop-up and leaves the Spielplan on the matchday it showed.
   await page.goBack();
   await expect(popup).toBeHidden();
-  await expect(page).toHaveURL(/\/saisons\/2027\?tab=[^&]+$/);
+  await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
   await expect(first).toHaveAttribute("aria-selected", "true");
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
