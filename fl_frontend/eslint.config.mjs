@@ -276,11 +276,9 @@ const PASSKEY_DELETION = {
 };
 
 /**
- * A variable read off the environment, which `config.ts` alone does: it validates each one and hands each
- * secret to its one holder. `NODE_ENV` and `NEXT_RUNTIME` are Next's own rather than the deployment's: it
- * assigns the first per command (installed `next/dist/docs/01-app/02-guides/environment-variables.md`, "Good
- * to know") and sets the second to name the runtime (`01-app/02-guides/instrumentation.md`, "Importing
- * runtime-specific code").
+ * `NODE_ENV` and `NEXT_RUNTIME` are Next's own, not the deployment's: Next assigns the first per command
+ * and sets the second to name the runtime (installed `02-guides/environment-variables.md`, "Good to know";
+ * `02-guides/instrumentation.md`, "Importing runtime-specific code").
  */
 const ENVIRONMENT_READ = {
   selector:
@@ -660,9 +658,8 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
-  // A dedicated rule wherever one states the ban, over production alone: a test's router double counts
-  // its own `back`, and `src/core/auth.test.ts` calls the plugin's deletion to hold it closed.
-  // `useEditorExit.ts` is exempt from the history ban because it IS the guard.
+  // Production alone: a test's router double counts its own `back`, and `src/core/auth.test.ts` calls
+  // the plugin's deletion to hold it closed. `useEditorExit.ts` IS the history guard.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
