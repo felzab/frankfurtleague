@@ -1,9 +1,7 @@
 import { Suspense } from "react";
 
-import { EmptyState } from "@/kit/EmptyState";
 import { ListPage } from "@/kit/ListPage";
 import { MatchList } from "@/kit/MatchRow";
-import { RailPage } from "@/kit/RailFrame";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -31,33 +29,24 @@ async function Spielplan({ params }: { params: Promise<{ saison: string }> }) {
   const { saison } = await readSaison((await params).saison);
   const { matchdays, current } = await readSpielplan(saison);
 
-  if (current === null) {
-    return (
-      <RailPage
-        area="saison"
-        title={{ route: "spielplan" }}>
-        <EmptyState
-          kind="noch"
-          plural={COPY.spielplan.spieltage}
-        />
-      </RailPage>
-    );
-  }
-
   return (
     <ListPage
       head={{ area: "saison", title: { route: "spielplan" } }}
       list={{
         kind: "spieltage",
-        tabs: {
-          label: COPY.spielplan.spieltage,
-          defaultKey: current,
-          tabs: matchdays.map((matchday) => ({
-            id: matchday.id,
-            label: matchday.label,
-            panel: <MatchList matches={matchday.spiele.map(matchRowOf)} />,
-          })),
-        },
+        tabs:
+          current === null
+            ? null
+            : {
+                label: COPY.spielplan.spieltage,
+                defaultKey: current,
+                tabs: matchdays.map((matchday) => ({
+                  id: matchday.id,
+                  label: matchday.label,
+                  panel: <MatchList matches={matchday.spiele.map(matchRowOf)} />,
+                })),
+              },
+        empty: { kind: "noch", plural: COPY.spielplan.spieltage },
       }}
     />
   );
