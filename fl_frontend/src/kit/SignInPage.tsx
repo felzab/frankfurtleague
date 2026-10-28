@@ -101,8 +101,10 @@ export function SignInPage(props: SignInView) {
     <ClassicPage width="card">
       <div className={slots.column()}>
         <Body {...props} />
+        {/* An alert standing from the first render, so a failure written into it is announced at once: it
+            answers a press the reader just made. */}
         <p
-          aria-live="polite"
+          role="alert"
           className={slots.line()}>
           {props.zeile}
         </p>
