@@ -78,7 +78,9 @@ export function RailFrame({
   const frame = (
     <MenuScope value={{ groups, bar, extra, account }}>
       <LeaveGuardProvider>
-        <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+        {/* `--rail-foot` is the signed-in rail foot's height, which an editor's bar takes too, so the two top
+            hairlines are one line: its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
+        <div className="min-h-dvh [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
           <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-12 shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
@@ -91,7 +93,7 @@ export function RailFrame({
             <Suspense fallback={<div className="min-h-0 flex-1" />}>
               <RailEntries groups={groups} />
             </Suspense>
-            <div className="grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3">
+            <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
                 // The row's height held while the session is judged, so the entries above do not move.
                 <Suspense fallback={<div className="h-12" />}>
