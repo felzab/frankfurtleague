@@ -1322,8 +1322,7 @@ and the absence of log lines is not.
 
 **A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
 runs the two halves of each season independently, and each files its own failure line —
-`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001`
-([`../logging/error-codes.md`](../logging/error-codes.md)) — so the event name is what names the
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001` — so the event name is what names the
 half, and the date alone is not: the application's endpoint stamps its day before the calls that
 follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
 one just as a failed registration call would.
@@ -1552,7 +1551,7 @@ off, the build is not a production one, or the timer stopped, which recreating t
 re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
 `konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
 says that pass is stuck, which recreating the service ends too. Every failure inside a pass is an
-`FE-SWEEP-003` line ([`../logging/error-codes.md`](../logging/error-codes.md)), and the next pass
+`FE-SWEEP-003` line, and the next pass
 asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
@@ -1943,8 +1942,7 @@ them before it ships; the repair is the list's entry taking the library's name.
 
 **To the person, every reason a code does not arrive looks alike**: the page answers one sentence
 whether a code went or not, so the frontend's log is the only record, and no line on this path
-carries the address. Ask when they tried and read that window
-([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
+carries the address. Ask when they tried and read that window:
 
 - `auth.sign_in_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend
   holds for the address, its ban included, so it sent nothing — the backend unreachable, failing,
