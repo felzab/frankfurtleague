@@ -23,6 +23,7 @@
     "src/kit/StatusPage.tsx",
     // Session 4.
     "src/kit/Checkbox.tsx",
+    "src/kit/ChoiceButtons.tsx",
     "src/kit/RadioGroup.tsx",
     "src/kit/Prose.tsx",
     "src/kit/Callout.tsx",
@@ -30,6 +31,7 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
+    "src/kit/Card.tsx",
     "src/kit/Switch.tsx"
   ],
   "ignoreIssues": {

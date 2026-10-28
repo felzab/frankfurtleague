@@ -33,6 +33,21 @@ describe("an address field's autofill", () => {
   });
 });
 
+describe("a field's frame", () => {
+  it("is filled with the surface inside its control edge", () => {
+    render(
+      <TextField
+        label={COPY.shared.startelf}
+        kind="text"
+        width="W3"
+      />,
+    );
+    const classes = classesOf(screen.getByRole("textbox"));
+    expect(classes).toEqual(expect.arrayContaining(["bg-bg-surface", "border-border-control"]));
+    expect(classes).not.toContain("bg-bg");
+  });
+});
+
 describe("a field's inset", () => {
   it.each(["W1", "W2"] as const)("is 10 px in the short width %s", (width) => {
     render(

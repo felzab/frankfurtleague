@@ -56,6 +56,9 @@ const table = tv({
     head: "h-10 bg-bg-surface px-3 text-xs font-medium tracking-[0.04em] whitespace-nowrap text-fg-muted uppercase",
     row: "relative h-14 border-t border-border first:border-t-0 lg:h-13",
     cell: "px-3 whitespace-nowrap",
+    // The name takes the room the facts leave and wraps where it is long, never narrower than 192 px, so a
+    // long fact beside it cannot squeeze it to a letter a line.
+    name: "w-full max-w-0 min-w-48 px-3 py-2 break-words",
   },
   variants: {
     align: {
@@ -81,18 +84,18 @@ const table = tv({
     },
     qualifies: {
       // Drawn inside the first cell, so it takes no width and moves nothing.
-      true: { cell: "shadow-[inset_2px_0_0_var(--brand)]" },
+      true: { cell: "shadow-[inset_2px_0_0_var(--brand)]", name: "shadow-[inset_2px_0_0_var(--brand)]" },
     },
   },
 });
 
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
-    <td className={barred ? "w-full max-w-0 px-3 shadow-[inset_2px_0_0_var(--brand)]" : "w-full max-w-0 px-3"}>
-      {/* The name truncates first; the plaque and the chip keep their size. */}
-      <span className="flex min-w-0 items-center gap-2">
+    <td className={table({ qualifies: barred }).name()}>
+      {/* A long name wraps, its chip following onto the next line; the plaque and the chip keep their size. */}
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
-        <span className="min-w-0 truncate">
+        <span className="min-w-0">
           {row.href === undefined ? (
             row.name
           ) : (

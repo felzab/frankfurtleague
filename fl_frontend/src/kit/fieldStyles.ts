@@ -35,9 +35,12 @@ export const messageLine = tv({
   defaultVariants: { lines: "one" },
 });
 
-/** The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen. */
+/**
+ * The edge a value is typed into: 36 px with a mouse, 44 px and 16-px text on a touch screen, filled with the
+ * surface one step up from the page inside its control edge.
+ */
 export const fieldFrame = tv({
-  base: "rounded-lg border border-border-control bg-bg text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
+  base: "rounded-lg border border-border-control bg-bg-surface text-sm text-fg transition-colors duration-(--motion-state) group-data-invalid:border-danger data-disabled:opacity-50 data-invalid:border-danger pointer-coarse:text-base",
   variants: {
     // The four width classes: up to five characters, a date or a short figure, the column, a paragraph.
     width: {
@@ -94,9 +97,9 @@ export const searchClear = tv({
 /** The six code boxes, sharing the column, with the code's one input laid over them. */
 export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
 
-/** One drawn code box: a field's frame and height, its digit large and centred. */
+/** One drawn code box: a field's frame, fill and height, its digit large and centred. */
 export const codeBox = tv({
-  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
 });
 
 /**
@@ -167,8 +170,28 @@ export const toggleBox = tv({
 /** A checkbox's or a switch's message line, in the label's column. */
 export const toggleLine = tv({ base: "col-start-2" });
 
-/** A radio group's answers, one under another. */
-export const radioList = tv({ base: "flex flex-col gap-2" });
+/** A radio group's answers: one under another, or, where each answer is described, side by side as cards. */
+export const radioList = tv({
+  variants: {
+    layout: {
+      list: "flex flex-col gap-2",
+      cards: "grid gap-2 lg:grid-cols-3",
+    },
+  },
+});
+
+/**
+ * A described answer drawn as a card: its circle, then its title over its line, 10 px apart as a box and its
+ * label are; the chosen card edged 2 px in the link green.
+ */
+export const choiceCard = tv({
+  slots: {
+    card: "grid cursor-default grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-bg p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand",
+    words: "grid gap-1",
+    title: "font-semibold",
+    line: "text-xs text-fg-muted",
+  },
+});
 
 /** The dot inside a chosen radio, in the page's ground. */
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
@@ -213,4 +236,34 @@ export const menuPopover = tv({
 /** One entry of that menu: a fill when the pointer or the arrow keys reach it. */
 export const menuItem = tv({
   base: "flex min-h-9 cursor-default items-center justify-between gap-2 rounded-md px-3 text-sm text-fg data-disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base",
+});
+
+/**
+ * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
+ * surface, and the toggle boxes of a small multi-select, each box standing alone.
+ */
+export const choiceGroup = tv({
+  base: "flex flex-wrap",
+  variants: {
+    kind: {
+      segmented: "inline-flex h-9 self-start rounded-lg border border-border-control bg-bg-surface p-0.5 pointer-coarse:h-11",
+      boxes: "gap-2",
+    },
+  },
+});
+
+/**
+ * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
+ * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
+ * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
+ */
+export const choiceButton = tv({
+  base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
+  variants: {
+    kind: {
+      segmented: "h-full min-w-16 rounded-md border border-transparent px-3 data-selected:border-border-control data-selected:bg-bg-muted",
+      boxes:
+        "h-9 min-w-16 rounded-lg border border-border-control bg-bg px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
+    },
+  },
 });

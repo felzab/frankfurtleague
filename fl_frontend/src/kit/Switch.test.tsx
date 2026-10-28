@@ -69,4 +69,23 @@ describe("a radio group", () => {
     expect(chosen.firstElementChild?.className.split(" ")).toEqual(expect.arrayContaining(["size-2.5", "bg-bg"]));
     expect(drawnBox(COPY.shared.bank).firstElementChild).toBe(null);
   });
+
+  it("draws described answers as cards, each title over its line, the chosen card edged in the link green", () => {
+    render(
+      <RadioGroup
+        label={COPY.shared.saison}
+        layout="cards"
+        choices={[
+          { id: "startelf", label: COPY.shared.startelf, line: COPY.shared.saison },
+          { id: "bank", label: COPY.shared.bank, line: COPY.shared.saison },
+        ]}
+        defaultValue="startelf"
+      />,
+    );
+    const card = screen.getByText(COPY.shared.startelf).closest("label");
+    expect(card?.className.split(" ")).toEqual(expect.arrayContaining(["data-selected:border-brand", "data-selected:inset-ring-brand"]));
+    expect(card?.hasAttribute("data-selected")).toBe(true);
+    expect(screen.getAllByText(COPY.shared.saison).length).toBe(3);
+    expect(screen.getByRole("radio", { name: new RegExp(COPY.shared.bank) })).toBeTruthy();
+  });
 });
