@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -26,23 +26,33 @@ describe("the list template's matchday list", () => {
     );
 
     expect(screen.getByText(COPY.shared.leer.noch(SPIELTAGE))).toBeTruthy();
-    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: SPIELTAGE })).toBeNull();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(COPY.seite.spielplan);
   });
 
-  it("shows the tabs, and no empty state, once a matchday stands", () => {
+  it("shows the tabs and the chosen matchday's matches alone, and no empty state, once a matchday stands", () => {
     render(
       <ListPage
         head={{ area: "saison", title: { route: "spielplan" } }}
         list={{
           kind: "spieltage",
-          tabs: { label: SPIELTAGE, selectedKey: "1", tabs: [{ id: "1", label: "1. Spieltag", panel: null }] },
+          tabs: {
+            label: SPIELTAGE,
+            selectedKey: "2",
+            tabs: [
+              { id: "1", label: "1. Spieltag", panel: "Spiele des ersten" },
+              { id: "2", label: "2. Spieltag", panel: "Spiele des zweiten" },
+            ],
+          },
           empty: { kind: "noch", plural: SPIELTAGE },
         }}
       />,
     );
 
-    expect(screen.getByRole("tablist", { name: SPIELTAGE })).toBeTruthy();
+    const tabs = screen.getByRole("navigation", { name: SPIELTAGE });
+    expect(within(tabs).getByRole("link", { name: "2. Spieltag" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByText("Spiele des zweiten")).toBeTruthy();
+    expect(screen.queryByText("Spiele des ersten")).toBeNull();
     expect(screen.queryByText(COPY.shared.leer.noch(SPIELTAGE))).toBeNull();
   });
 });

@@ -22,21 +22,19 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await page.goto("/saisons/2027");
 
   // The tabs open on the current matchday, the first holding a match still to play.
-  const tabs = page.getByRole("tablist", { name: "Spieltage" });
-  await expect(tabs.getByRole("tab", { name: "2. Spieltag" })).toHaveAttribute("aria-selected", "true");
+  const tabs = page.getByRole("navigation", { name: "Spieltage" });
+  await expect(tabs.getByRole("link", { name: "2. Spieltag" })).toHaveAttribute("aria-current", "page");
   await prefetched;
 
   // A tab is a link to the Spielplan at that matchday, so the address keeps the matchday chosen.
-  const first = tabs.getByRole("tab", { name: "1. Spieltag" });
+  const first = tabs.getByRole("link", { name: "1. Spieltag" });
   await first.click();
-  await expect(first).toHaveAttribute("aria-selected", "true");
+  await expect(first).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
 
-  // A match row is a link to the match's page, which opens over the Spielplan.
-  await page
-    .getByRole("tabpanel")
-    .getByRole("link", { name: /Ahorn.*Kastanie/ })
-    .click();
+  // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
+  // matches are on the page, so the row's name finds it.
+  await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
   const popup = page.getByRole("dialog", { name: "Ahorn gegen Kastanie" });
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
@@ -47,7 +45,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await page.goBack();
   await expect(popup).toBeHidden();
   await expect(page).toHaveURL(/\/saisons\/2027\?tab=gruppenphase-1$/);
-  await expect(first).toHaveAttribute("aria-selected", "true");
+  await expect(first).toHaveAttribute("aria-current", "page");
 
   // Loaded directly, the same address is the match's own page, with no pop-up.
   await page.goto(matchPage);
