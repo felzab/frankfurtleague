@@ -1,3 +1,4 @@
+import css from "@eslint/css";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
@@ -5,6 +6,8 @@ import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
 import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
+
+import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 /**
  * A layer named through the `@/` alias or a relative path. A package's own path never matches, so
@@ -637,10 +640,13 @@ const SOURCE_BAN_BLOCKS = [
   })),
 ];
 
+const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: JS_FILES,
     rules: {
       "react/no-unescaped-entities": "off",
 
@@ -817,6 +823,14 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     rules: jsxA11y.flatConfigs.recommended.rules,
+  },
+
+  // The token file's colours, held to one list and to the contrast each pair's job needs.
+  {
+    files: ["src/app/tokens.css"],
+    language: "css/css",
+    plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
+    rules: { "tokens/contrast": "error" },
   },
 
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
