@@ -24,7 +24,9 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         kind="text"
         isRequired={pflicht.name}
       />
-      <FieldPair short="second">
+      <FieldPair
+        short="second"
+        phone="stack">
         <TextField
           label={WORTE.strasse}
           name="strasse"
@@ -50,7 +52,9 @@ export function SpielortFelder({ regeln }: { regeln: SpielortRegeln }) {
         isRequired={pflicht.stadtteil}
         maxLength={hoechstens.stadtteil}
       />
-      <FieldPair short="first">
+      <FieldPair
+        short="first"
+        phone="stack">
         <TextField
           label={WORTE.plz}
           name="plz"

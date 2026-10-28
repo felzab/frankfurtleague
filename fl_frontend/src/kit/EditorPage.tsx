@@ -20,7 +20,7 @@ import type { Editor, EditorValue } from "./useEditor";
 export type EditorSection = { id: string; title: Copy; help?: Copy; fields: ReactNode };
 
 /**
- * The editor template: one column of at most 760 px, its sections one under another, each a box exactly as
+ * The editor template: one column of at most 760 px, centred in the content, its sections one under another, each a box exactly as
  * tall as its content under its 16-px title, and the record's one save in `EditorBar` at the foot of the
  * viewport. There is no „Abbrechen“: the way out is the frame's „← Zurück“ to the record's list, which an
  * editor's route group places (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
@@ -68,7 +68,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           event.preventDefault();
           editor.submit();
         }}
-        className="grid w-full max-w-[47.5rem] gap-6">
+        className="mx-auto grid w-full max-w-[47.5rem] gap-6">
         {sections.map((section, index) => (
           <Section
             key={section.id}

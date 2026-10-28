@@ -202,31 +202,35 @@ export function RailPage({
   const { head, heading } = strip({ area });
   return (
     <>
-      <header className={head()}>
-        <h1 className={heading()}>{titleOf(title)}</h1>
-        {chip !== undefined && (
-          <Chip
-            tone={chip.tone}
-            label={chip.label}
-          />
-        )}
-        {area === "saison" && (
-          <nav
-            aria-label={COPY.vorlage.navigation}
-            className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
-              <NextLink
-                key={page.pfad()}
-                href={page.pfad()}
-                data-kit-focus="ring"
-                className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
-                {page.titel}
-              </NextLink>
-            ))}
-          </nav>
-        )}
-      </header>
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
+      {/* The title and the content in one column of at most 1280 px, centred beside the rail on a wide screen, so
+          the two keep one left edge at every width; the editor's bar spans the whole width under it. */}
+      <div className="mx-auto flex w-full max-w-[80rem] min-w-0 flex-1 flex-col">
+        <header className={head()}>
+          <h1 className={heading()}>{titleOf(title)}</h1>
+          {chip !== undefined && (
+            <Chip
+              tone={chip.tone}
+              label={chip.label}
+            />
+          )}
+          {area === "saison" && (
+            <nav
+              aria-label={COPY.vorlage.navigation}
+              className="ms-auto hidden gap-1 lg:flex">
+              {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+                <NextLink
+                  key={page.pfad()}
+                  href={page.pfad()}
+                  data-kit-focus="ring"
+                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
+                  {page.titel}
+                </NextLink>
+              ))}
+            </nav>
+          )}
+        </header>
+        <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
+      </div>
       {bar}
     </>
   );

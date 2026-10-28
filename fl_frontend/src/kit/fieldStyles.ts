@@ -58,6 +58,8 @@ export const fieldFrame = tv({
       // and 44 on a touch screen as every field's button is.
       C10: "h-9 w-[calc(11ch+1.375rem+2.25rem)] pointer-coarse:h-11 pointer-coarse:w-[calc(11ch+1.375rem+2.75rem)]",
       W3: "h-9 w-full pointer-coarse:h-11",
+      // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
+      fit: "h-9 w-fit max-w-full min-w-40 pointer-coarse:h-11",
       W4: "min-h-26 w-full resize-none py-2",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
@@ -83,8 +85,8 @@ export const fieldFrame = tv({
   compoundVariants: [
     { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
     { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "W4"], inset: "full", class: "px-3" },
-    { width: ["W3", "W4"], inset: "start", class: "ps-3" },
+    { width: ["W3", "W4", "fit"], inset: "full", class: "px-3" },
+    { width: ["W3", "W4", "fit"], inset: "start", class: "ps-3" },
   ],
 });
 
@@ -274,11 +276,12 @@ export const switchThumb = tv({
 export const menuPopover = tv({
   base: "overflow-auto rounded-lg bg-bg p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
-    // A list is as wide as the field that opened it; a menu keeps a floor of 224 px, so a short list of
-    // words does not open as a sliver, and takes its trigger's width where the trigger is a full-width row.
+    // A list is as wide as the field that opened it, or as its longest entry, never narrower than its field or
+    // wider than the screen; a menu keeps a floor of 224 px, so a short list of words does not open as a
+    // sliver, and takes its trigger's width where the trigger is a full-width row.
     fit: {
       field: "w-(--trigger-width)",
-      content: "",
+      content: "max-w-[calc(100vw-2rem)] min-w-(--trigger-width)",
       menu: "min-w-56",
       trigger: "w-(--trigger-width) min-w-56",
     },

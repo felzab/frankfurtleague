@@ -15,16 +15,16 @@ import type { Copy } from "@/core/copy";
 export type Option = { id: string; label: string } & ({ isDisabled?: false; note?: never } | { isDisabled: true; note: Copy });
 
 /**
- * The menu of choices under a select or a combo box, as wide as its field, the chosen one marked as a form's
- * value. A select hands it the options; a combo box hands them to itself, which filters them as it is typed
- * into.
+ * The menu of choices under a select or a combo box, the chosen one marked as a form's value: as wide as its
+ * field, or as its longest entry under a field sized to its choices. A select hands it the options; a combo
+ * box hands them to itself, which filters them as it is typed into.
  */
-export function OptionList({ options }: { options?: readonly Option[] }) {
+export function OptionList({ options, fit = "field" }: { options?: readonly Option[]; fit?: "field" | "content" }) {
   return (
     <Popover
       data-kit-focus
       offset={4}
-      className={menuPopover({ fit: "field" })}>
+      className={menuPopover({ fit })}>
       <ListBox<Option>
         data-kit-focus
         items={options}>

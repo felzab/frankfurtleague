@@ -19,6 +19,7 @@ export function Select({
   description,
   consequence,
   options,
+  width = "W3",
   isRequired = false,
   isDisabled = false,
   name,
@@ -30,6 +31,8 @@ export function Select({
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
+  /** The column, or as wide as its longest choice for a few short words. */
+  width?: "W3" | "fit";
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
@@ -53,8 +56,24 @@ export function Select({
       />
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ width: "W3", inset: "start", layout: "trigger" })}>
-        <SelectValue className="truncate data-placeholder:text-fg-muted" />
+        className={fieldFrame({ width, inset: "start", layout: "trigger" })}>
+        {width === "fit" ? (
+          // Sized to the longest choice, not the chosen one, so choosing never moves the field: every label
+          // lies in the value's cell, unseen, and the widest sets the cell's width.
+          <span className="grid min-w-0">
+            <SelectValue className="col-start-1 row-start-1 truncate data-placeholder:text-fg-muted" />
+            {options.map((option) => (
+              <span
+                key={option.id}
+                aria-hidden
+                className="invisible col-start-1 row-start-1 whitespace-nowrap">
+                {option.label}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <SelectValue className="truncate data-placeholder:text-fg-muted" />
+        )}
         <Icon
           glyph="aufklappen"
           size={16}
@@ -64,7 +83,10 @@ export function Select({
         description={description}
         consequence={consequence}
       />
-      <OptionList options={options} />
+      <OptionList
+        options={options}
+        fit={width === "fit" ? "content" : "field"}
+      />
     </AriaSelect>
   );
 }
