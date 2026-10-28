@@ -1518,6 +1518,60 @@ def test_ci_names_every_finding_of_every_failed_job_expected_or_new() -> None:
     assert "RED       refusalCoverage  (no line matched, and its job is not recorded: it stays RED)" in said
 
 
+def _vitest_run(annotation: str) -> bytes:
+    """A failed `pnpm test` as the gate replays it under Actions: Vitest 5's summary six spaces in, its own annotations, the verdict."""
+    case = "src/core/plant.test.ts > a suite: with a colon > fails, with a comma"
+    return _log(
+        *(
+            ("frontend-units", line)
+            for line in (
+                "      ━━━ Failed Tests 3 ━━━",
+                # Uncoloured, the project stands in bars; coloured, on a background with a space each side.
+                f"       FAIL  |unit| {case}",
+                "      AssertionError: expected 1 to be 2 // Object.is equality",
+                "      - Expected",
+                "^[[41m^[[1m FAIL ^[[22m^[[49m ^[[30m^[[43m unit ^[[49m^[[39m src/core/plant.test.ts^[[2m > ^[[22mfails at the top level",
+                "      AssertionError: expected 'a' to be 'b' // Object.is equality",
+                # A file failing as a whole, its path repeated in brackets.
+                "       FAIL  |unit| src/core/broken.test.ts [ src/core/broken.test.ts ]",
+                "      Error: Cannot find module './gone'",
+                "       Test Files  2 failed (2)",
+                annotation.format(
+                    title=f"[unit] {case}".replace(":", "%3A").replace(",", "%2C"),
+                    text="AssertionError: expected 1 to be 2 // Object.is equality",
+                ),
+                annotation.format(
+                    title="[unit] src/core/plant.test.ts > fails at the top level",
+                    text="AssertionError: expected 'a' to be 'b' // Object.is equality",
+                ),
+                annotation.format(title="[unit] src/core/broken.test.ts", text="Error: Cannot find module './gone'"),
+                "##[error]frontend unit tests failed.",
+            )
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [
+        # The runner trims a line's leading space before it reads a workflow command, so the replayed
+        # annotation is raised, and logged as its message.
+        "##[error]{text}",
+        "      ::error file=src/core/plant.test.ts,title={title},line=5,column=15::{text}%0A%0A- Expected",
+    ],
+    ids=["raised", "replayed"],
+)
+def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_repeat(annotation: str) -> None:
+    """Vitest's failures read as their errors' messages and the step's verdict, no case named: only node:test's section was parsed."""
+    said, new, flagged = _report(_vitest_run(annotation))
+    assert new == [
+        "src/core/plant.test.ts > a suite: with a colon > fails, with a comma",
+        "src/core/plant.test.ts > fails at the top level",
+        "src/core/broken.test.ts",
+    ], said
+    assert flagged and said[-1] == "3 NEW, 0 expected"
+
+
 def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
     """A `tail -8` of a read printing NEW lines first showed two of its four, and none where the expected blocks ran long."""
     said, _, _ = _report(FAILED_RUN)

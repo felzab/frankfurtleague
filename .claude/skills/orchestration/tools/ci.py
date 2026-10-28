@@ -61,6 +61,13 @@ TSC_RE: Final = re.compile(r"^\s*(?P<text>\S+\(\d+,\d+\): error TS\d+: .+)$")
 NODE_SECTION_RE: Final = re.compile(r"^\s*✖ failing tests:\s*$")
 NODE_AT_RE: Final = re.compile(r"^\s*test at (?P<path>\S+?):\d+:\d+\s*$")
 NODE_FAIL_RE: Final = re.compile(r"^\s*✖ (?P<name>.+?)(?: \([\d.]+m?s\))?\s*$")
+# Vitest's summary names each failing case, or a file that failed as a whole, once under `Failed
+# Tests`/`Failed Suites`: ` FAIL `, the project as `|unit|` or, coloured, ` unit `, then the file and
+# the case's ancestors joined by ` > `; a whole file's path follows in `[ ]`. The error's first line
+# comes next, and Vitest's own annotation for the case repeats it.
+VITEST_FAIL_RE: Final = re.compile(r"^\s*FAIL\s+(?:\|[^|]+\|\s+|\S+\s{2,}(?=\S))?(?P<name>\S.*?)(?:\s+\[ [^\]]+ \])?\s*$")
+# A workflow command escapes a newline in its message as `%0A`, so its first line ends there.
+ESCAPED_NEWLINE: Final = "%0A"
 
 
 class Line(NamedTuple):
@@ -105,12 +112,27 @@ def read(log: str) -> dict[str, Job]:
     """Each failed job's findings in the order printed, its verdict lines, and whether it pointed at the scope jobs."""
     jobs: dict[str, Job] = {}
     node_at: dict[str, str] = {}
+    # Per job: whether a Vitest case waits for its error's first line, and every such line read, by
+    # which that case's own annotation is known as no finding of its own.
+    vitest_waits: dict[str, bool] = {}
+    vitest_errors: dict[str, set[str]] = {}
     for raw in log.splitlines():
         parsed = _text(raw)
         if parsed is None:
             continue
         name, text = parsed
         job = jobs.setdefault(name, Job())
+        if vitest := VITEST_FAIL_RE.match(text):
+            job.found.append(Line(vitest["name"], annotation=False))
+            vitest_waits[name] = True
+            continue
+        if vitest_waits.get(name) and text.strip() and not ANNOTATION_RE.match(text):
+            vitest_errors.setdefault(name, set()).add(text.strip())
+            vitest_waits[name] = False
+            continue
+        repeated = ANNOTATION_RE.match(text) or NESTED_RE.match(text)
+        if repeated and repeated["text"].split(ESCAPED_NEWLINE, 1)[0].strip() in vitest_errors.get(name, ()):
+            continue
         if NODE_SECTION_RE.match(text):
             node_at[name] = ""
         elif (at := NODE_AT_RE.match(text)) and name in node_at:
