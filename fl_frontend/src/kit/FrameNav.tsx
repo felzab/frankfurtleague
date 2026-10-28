@@ -16,7 +16,7 @@ import { signOut } from "@/shared/utils/signOut";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { useDeclaredBack, useLeaveGuard } from "./LeaveGuard";
+import { useLeaveGuard } from "./LeaveGuard";
 import { Menu } from "./Menu";
 import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
@@ -200,10 +200,10 @@ function AccountMenu({ account, trigger }: { account: Account; trigger: ReactEle
  * The entry the address belongs to: the longest one the path equals or lies under, so an area's Übersicht
  * is not marked on a page beneath it that has an entry of its own.
  */
-function currentOf(path: string, hrefs: ReadonlyArray<string>) {
+function currentOf<Href extends string>(path: string, hrefs: ReadonlyArray<Href>) {
   return hrefs
     .filter((href) => path === href || path.startsWith(`${href}/`))
-    .reduce<string | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
+    .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
 function useCurrent(entries: ReadonlyArray<{ href: Route }>) {
@@ -331,23 +331,8 @@ const barPlace = tv({
   },
 });
 
-/**
- * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
- * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
- * In an editor, whose own bar stands in its place, it is not drawn.
- */
-export function BarPlaces({ groups, bar, extra, account }: BarProps) {
-  return useDeclaredBack() === null ? (
-    <Places
-      groups={groups}
-      bar={bar}
-      extra={extra}
-      account={account}
-    />
-  ) : null;
-}
-
-type BarProps = {
+/** The frame's menu as the phone's band and bar draw it, which a nested layout placing them cannot be handed. */
+export type FrameMenu = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
   /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
@@ -355,7 +340,23 @@ type BarProps = {
   account?: AccountRead;
 };
 
-function Places({ groups: given, bar, extra, account }: BarProps) {
+const MenuContext = createContext<FrameMenu | null>(null);
+
+/** Hands the frame's menu to the band and the bar, wherever in the frame's layouts they are placed. */
+export function MenuScope({ value, children }: { value: FrameMenu; children: ReactNode }) {
+  return <MenuContext value={value}>{children}</MenuContext>;
+}
+
+/**
+ * The phone's bottom bar: its pages, „Mehr“ where the menu holds more, and the account as a place of its
+ * own. „Mehr“ opens the rest of the menu as a sheet, grouped as the rail is, with the frame's extra links.
+ */
+export function BarPlaces() {
+  const menu = useContext(MenuContext);
+  return menu === null ? null : <Places {...menu} />;
+}
+
+function Places({ groups: given, bar, extra, account }: FrameMenu) {
   const groups = useEntries(given);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
@@ -521,12 +522,13 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * The start of the phone's band: „← Zurück“ where the page shown is an editor, which declares its way back,
- * or where the area has one of its own, as Konto does; the logo otherwise.
+ * „← Zurück“ in an editor's band, to the list the rail marks for the editor's address: a record's page lies
+ * under its list, so the way back is read from the address rather than declared by each editor.
  */
-export function BandStart({ back: area, brand }: { back?: Route; brand: ReactNode }) {
-  const href = useDeclaredBack() ?? area;
-  return href === undefined ? brand : <BackControl href={href} />;
+export function EditorBack() {
+  const groups = useEntries(useContext(MenuContext)?.groups ?? []);
+  const href = useCurrent(groups.flatMap((group) => group.entries));
+  return href === null ? null : <BackControl href={href} />;
 }
 
 /** A link of the classic header: catalogue words and an address the layout gives. */

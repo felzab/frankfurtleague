@@ -54,7 +54,6 @@ function EditorHoldingDialog({
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
-      back="/bereich/verwaltung/spielorte"
       editor={editor}
       sections={[
         {

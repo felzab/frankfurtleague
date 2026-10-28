@@ -11,8 +11,8 @@ import { spielStateKey } from "@/features/spiele/utils";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { spielortAnlegen } from "../../../../spielortAnlegen";
-import { SPIELORT_REGELN } from "../../../../spielortRegeln";
+import { spielortAnlegen } from "../../../../../spielortAnlegen";
+import { SPIELORT_REGELN } from "../../../../../spielortRegeln";
 import { SpielEditor } from "./SpielEditor";
 import { werteOf } from "./spielLesen";
 import { spielSpeichern } from "./spielSpeichern";
@@ -83,7 +83,6 @@ async function Editor({ params }: Pick<Props, "params">) {
   return (
     <SpielEditor
       title={{ record: nameOf(gespeichert) }}
-      back={ROUTES.verwaltungSpiele.pfad(saison)}
       record={{ id: gespeichert.id, fingerprint: spielStateKey(gespeichert), values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={spielorte.map((ort) => ({
