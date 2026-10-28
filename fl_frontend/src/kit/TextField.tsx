@@ -25,17 +25,30 @@ type Shared = {
   minLength?: number;
 };
 
+/**
+ * What a text or digits field asks of the person about themselves, as the HTML autofill token the browser
+ * fills from what it holds: only where the field asks for the person's own name, school or address.
+ */
+type Autofill = "name" | "given-name" | "family-name" | "organization" | "street-address" | "postal-code" | "address-level2";
+
 /** A single line at its width class, its keyboard set by `kind`; a URL names the example its message shows. */
 type SingleLine = {
   width: "W1" | "W2" | "W3";
-} & ({ kind: "text" | "digits" | "email" | "tel" | "search"; beispiel?: never } | { kind: "url"; beispiel: Copy });
+} & (
+  | { kind: "text" | "digits"; autofill?: Autofill; beispiel?: never }
+  | { kind: "email" | "tel" | "search"; autofill?: never; beispiel?: never }
+  | { kind: "url"; autofill?: never; beispiel: Copy }
+);
 
 /** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; beispiel?: never };
+type Paragraph = { width: "W4"; kind: "text"; autofill?: never; beispiel?: never };
 
 export type TextFieldProps = Shared & (SingleLine | Paragraph);
 
-/** What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill. */
+/**
+ * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
+ * A text or digits field is filled only where its `autofill` names what it asks for.
+ */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined },
   // A count or a figure: a plain field opening the digits keyboard, with no stepper.
@@ -74,7 +87,7 @@ export function TextField(props: TextFieldProps) {
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
-      autoComplete={keys.autoComplete}>
+      autoComplete={props.autofill ?? keys.autoComplete}>
       <FieldLabel
         label={label}
         isRequired={isRequired}

@@ -284,7 +284,7 @@ export function BarPlaces({
 }
 
 // On the dark-green band, as tall as a touch target; the arrow stands where the logo's edge would.
-const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 font-medium text-on-brand" });
+const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
 
 /**
  * „← Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
@@ -338,7 +338,7 @@ export function BackControl({ href }: { href: Route }) {
 export type HeaderLink = { label: Copy; href: Route };
 
 const headerLink = tv({
-  base: "flex h-9 items-center rounded-lg px-3 font-medium whitespace-nowrap",
+  base: "flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap",
   variants: {
     current: {
       true: "text-on-brand",
@@ -375,7 +375,7 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
       <NextLink
         href={anmelden}
         data-kit-focus="ring"
-        className="ms-auto hidden h-9 items-center rounded-lg px-3 font-medium whitespace-nowrap text-on-brand lg:flex">
+        className="ms-auto hidden h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-on-brand lg:flex">
         {COPY.shared.verb.anmelden}
       </NextLink>
       <div className="ms-auto lg:hidden">

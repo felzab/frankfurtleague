@@ -51,7 +51,7 @@ export function EditorBar({
     />
   );
   return (
-    <div className="sticky bottom-0 z-10 flex min-h-14 items-center gap-4 border-t border-border bg-bg px-4 py-2 lg:px-8 lg:py-3">
+    <div className="sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-auto lg:px-8 lg:py-3">
       <p className={statusLine({ tone: status?.tone ?? "none" })}>{status?.text}</p>
       {warning === null ? (
         save(onSave)
