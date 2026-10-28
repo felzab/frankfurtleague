@@ -292,7 +292,7 @@ export const COPY = katalog({
       anmelden: { titel: "Mit Passkey anmelden", satz: "Melde dich mit dem Passkey an, den du eingerichtet hast.", knopf: "Jetzt anmelden" },
       angebot: {
         titel: "Passkey einrichten",
-        satz: "Mit einem Passkey meldest du dich künftig ohne Code an, mit Fingerabdruck, Gesicht oder der Displaysperre deines Geräts.",
+        satz: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
         knopf: "Jetzt einrichten",
       },
       spaeter: "Später",
