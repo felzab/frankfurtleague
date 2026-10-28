@@ -10,14 +10,15 @@ import type { MatchRowProps } from "./MatchRow";
 import type { RailPageHead } from "./RailFrame";
 import type { TableProps } from "./Table";
 
-/** One group of a read page, under its 16-px title: facts, people as table rows, or matches. */
-export type ReadGroup = { title: Copy } & (
+type GroupContent =
   | { kind: "facts"; facts: ReadonlyArray<Fact> }
   | { kind: "table"; table: TableProps }
-  | { kind: "matches"; matches: ReadonlyArray<MatchRowProps & { id: string }> }
-);
+  | { kind: "matches"; matches: ReadonlyArray<MatchRowProps & { id: string }> };
 
-function GroupBody({ group }: { group: ReadGroup }) {
+/** One group of a read page, under its 16-px title: facts, people as table rows, or matches. */
+export type ReadGroup = { title: Copy } & GroupContent;
+
+function GroupBody({ group }: { group: GroupContent }) {
   switch (group.kind) {
     case "facts":
       return <Facts facts={group.facts} />;
@@ -41,7 +42,8 @@ export function ReadPage({
   actsNote,
 }: {
   head: RailPageHead;
-  groups: readonly [ReadGroup, ...ReadGroup[]];
+  /** The first group goes without a title where it is the page's only one: the page's own title names it. */
+  groups: readonly [{ title?: Copy } & GroupContent, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
   acts?: ReadonlyArray<ReactElement>;
   /** Why an act is closed on the record's present state, under the acts. */
@@ -55,7 +57,7 @@ export function ReadPage({
       chip={head.chip}>
       <div className="grid w-full max-w-[47.5rem] gap-6">
         <section className="grid gap-3">
-          <h2 className="text-base font-semibold">{first.title}</h2>
+          {first.title !== undefined && <h2 className="text-base font-semibold">{first.title}</h2>}
           <GroupBody group={first} />
           {acts !== undefined && acts.length > 0 && (
             <div className="grid gap-3 lg:flex lg:flex-wrap lg:items-center">

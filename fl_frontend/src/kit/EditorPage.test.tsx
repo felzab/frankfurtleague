@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { EditorPage } from "./EditorPage";
-import { RailFrame } from "./RailFrame";
+import { RailColumn, RailFrame } from "./RailFrame";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
@@ -30,7 +31,6 @@ function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Prom
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
-      back={ZURUECK}
       editor={editor}
       sections={[
         {
@@ -78,36 +78,41 @@ describe("the editor template's save", () => {
   });
 });
 
-/** The rail frame of an area holding one page, around the page given. */
-function Framed({ children }: { children: ReactNode }) {
+/** The rail frame of an area holding one list, its column placed as an editor's route group places it, or a list's. */
+function Framed({ editor, children }: { editor: boolean; children: ReactNode }) {
   return (
     <RailFrame
       groups={[{ entries: [{ id: "spielorte", label: NAME, href: ZURUECK, icon: "suche" }] }]}
       bar={["spielorte"]}
-      foot={{ kind: "anmelden", href: "/signin" }}>
-      {children}
+      foot={{ kind: "anmelden", href: "/signin" }}
+      columnInLayouts>
+      <RailColumn editor={editor}>{children}</RailColumn>
     </RailFrame>
   );
 }
 
+const saved = async (): Promise<ActionAnswer> => ({ ok: true, value: undefined });
+
 describe("the editor template's way back", () => {
-  it("puts „Zurück“ to its list in the phone's band and takes the bottom bar away while it is shown", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
-    const { rerender } = await act(async () =>
-      render(
-        <Framed>
-          <SpielortEditor save={save} />
-        </Framed>,
-      ),
+  // The server draws the band and the bar as hydration finds them: a page declaring itself an editor only on
+  // the client drew the bar first and hydrated against it.
+  it("is drawn by the server: „Zurück“ to the list the address lies under, and no bottom bar", () => {
+    const html = renderToString(
+      <Framed editor>
+        <SpielortEditor save={saved} />
+      </Framed>,
     );
+    const page = document.createElement("div");
+    page.innerHTML = html;
 
-    expect(screen.getByRole("link", { name: COPY.shared.zurueck }).getAttribute("href")).toBe(ZURUECK);
-    expect(screen.queryByRole("button", { name: COPY.vorlage.mehr })).toBeNull();
+    expect(within(page).getByRole("link", { name: COPY.shared.zurueck }).getAttribute("href")).toBe(ZURUECK);
+    expect(within(page).queryByRole("button", { name: COPY.vorlage.mehr })).toBeNull();
+  });
 
-    // Leaving for a page that is no editor gives the band its logo and the bar its place back.
+  it("gives a list's band its logo and the bar its place", async () => {
     await act(async () =>
-      rerender(
-        <Framed>
+      render(
+        <Framed editor={false}>
           <p>Liste</p>
         </Framed>,
       ),

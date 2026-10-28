@@ -105,9 +105,11 @@ describe("the code field", () => {
     );
     const input = screen.getByRole("textbox", { name: code });
     expect(input.getAttribute("aria-invalid")).toBe("true");
-    const line = screen.getByText(refusal);
-    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(line.id);
-    // Wrapping from its one line, never cut off at it.
+    const message = screen.getByText(refusal);
+    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
+    // In the line under the boxes, which announces it at once and wraps from its one line, never cut off at it.
+    const line = screen.getByRole("alert");
+    expect(line.contains(message)).toBe(true);
     expect(line.className.split(" ")).toContain("min-h-4");
     expect(line.className.split(" ")).not.toContain("truncate");
   });

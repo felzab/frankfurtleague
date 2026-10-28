@@ -83,7 +83,7 @@ export function KontoBox({
               />
             )}
           </div>
-          <div className="grid gap-4">{children}</div>
+          <div className="grid justify-items-start gap-4">{children}</div>
         </div>
         <div className="flex items-center gap-3 border-t border-border bg-bg-surface px-4 py-3">
           <p className={statusLine({ tone: status?.tone ?? "none" })}>{status?.text}</p>

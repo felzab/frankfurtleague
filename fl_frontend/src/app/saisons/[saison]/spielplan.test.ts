@@ -71,7 +71,7 @@ describe("a match as a row", () => {
   it("opens the match's page and adds a shoot-out's goals to the result it carries", () => {
     const row = matchRowOf(spiel({ ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 3 } }));
     expect(row.href).toBe(`/saisons/2027/spiele/${"a".repeat(24)}`);
-    expect(row.when).toBe("14.03.2027 · 15:30");
+    expect(row.when).toBe("So., 14.03. · 15:30");
     expect(row.result).toEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
   });
 
@@ -107,6 +107,11 @@ describe("a match's facts", () => {
   it("set the result first, with the shoot-out's mark", () => {
     const [first] = factsOf(spiel({ ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 3 } }), "Finale");
     expect(first).toEqual({ label: "Ergebnis", value: "5:4 n. E.", figures: true });
+  });
+
+  it("name the side that did not turn up for a no-show", () => {
+    const fact = factsOf(spiel({ sonderereignis: "nichtantreten_team2" }), "1. Spieltag").find((each) => each.label === "Sonderereignis");
+    expect(fact?.value).toBe("Kastanie nicht angetreten");
   });
 
   it("link the venue to its map on another site, which opens in a new tab", () => {

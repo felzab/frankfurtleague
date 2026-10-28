@@ -4,36 +4,25 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 const column = tv({
-  base: "mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-8 lg:py-12",
+  // At least the first screen under the classic header, whose height the frame declares, so on every page
+  // the footer starts just below the screen and is reached by scrolling.
+  base: "mx-auto flex min-h-[calc(100dvh-var(--classic-header))] w-full flex-1 flex-col gap-6 px-4 py-8 lg:py-12",
   variants: {
     // A form or a mailed page in the form column, or one card centred on the page, as a status page stands.
     width: {
       form: "max-w-[47.5rem]",
       card: "max-w-[30rem] justify-center",
     },
-    // At least the first screen under the classic header, whose height the frame declares, so the footer
-    // starts just below the screen and is reached by scrolling.
-    fillsScreen: {
-      true: "min-h-[calc(100dvh-var(--classic-header))]",
-    },
   },
 });
 
 /**
- * A page inside the classic frame: its content in the plain column. The classic frame's layout places the
- * header and the footer around it; a template places this, which with `RailPage` writes every page's `main`.
+ * A page inside the classic frame: its content in the plain column, filling the first screen. The classic
+ * frame's layout places the header and the footer around it; a template places this, which with `RailPage`
+ * writes every page's `main`.
  */
-export function ClassicPage({
-  width,
-  fillsScreen = false,
-  children,
-}: {
-  width: "form" | "card";
-  /** The column fills the first screen, the footer below it: the sign-in's. */
-  fillsScreen?: boolean;
-  children: ReactNode;
-}) {
-  return <main className={column({ width, fillsScreen })}>{children}</main>;
+export function ClassicPage({ width, children }: { width: "form" | "card"; children: ReactNode }) {
+  return <main className={column({ width })}>{children}</main>;
 }
 
 /** A classic page's one title, in Anton at 24 px: at the column's head, or in a status card. */

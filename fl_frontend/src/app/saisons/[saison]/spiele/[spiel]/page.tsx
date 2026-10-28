@@ -2,7 +2,6 @@ import { Suspense } from "react";
 
 import { ReadPage } from "@/kit/ReadPage";
 
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { openGraphFor } from "@/shared/utils/metadata";
 
@@ -39,7 +38,7 @@ async function Spiel({ params }: { params: Promise<{ saison: string; spiel: stri
   return (
     <ReadPage
       head={{ area: "saison", title: { route: "spiel", heim: heim.name, gast: gast.name } }}
-      groups={[{ title: COPY.spielplan.spiel, kind: "facts", facts: factsOf(spiel, spieltag) }]}
+      groups={[{ kind: "facts", facts: factsOf(spiel, spieltag) }]}
     />
   );
 }

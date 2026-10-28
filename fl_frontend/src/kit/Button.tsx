@@ -22,7 +22,7 @@ type Act = {
 
 type ButtonProps =
   | (Act & {
-      variant: "primary" | "secondary" | "danger";
+      variant: "primary" | "secondary" | "danger" | "quiet";
       label: Copy;
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
@@ -46,8 +46,8 @@ function Spinner() {
 }
 
 /**
- * The one control that acts: primary, secondary, danger, or an icon alone; disabled at half opacity. A
- * labelled button may lead with a glyph.
+ * The one control that acts: primary, secondary, danger, quiet, or an icon alone; disabled at half opacity.
+ * A labelled button may lead with a glyph.
  */
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label } = props;

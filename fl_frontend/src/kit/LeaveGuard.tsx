@@ -2,54 +2,28 @@
 
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 /** What leaving would lose: the editor's count of unsaved changes, and how to drop them. */
 export type LeaveGuard = { count: number; discard: () => void };
 
-type Held = {
-  guard: LeaveGuard | null;
-  setGuard: (guard: LeaveGuard | null) => void;
-  back: Route | null;
-  setBack: (back: Route | null) => void;
-};
+type Held = { guard: LeaveGuard | null; setGuard: (guard: LeaveGuard | null) => void };
 
 const GuardContext = createContext<Held | null>(null);
 
 /**
- * Carries an editor's way back and its unsaved changes from the page up to its frame, whose band a layout
- * renders and the page cannot reach otherwise. The rail frame mounts it once around its page.
+ * Carries an editor's unsaved changes from the page up to its frame, whose way back a layout renders and the
+ * page cannot reach otherwise. The rail frame mounts it once around its page.
  */
 export function LeaveGuardProvider({ children }: { children: ReactNode }) {
   const [guard, setGuard] = useState<LeaveGuard | null>(null);
-  const [back, setBack] = useState<Route | null>(null);
-  const value = useMemo(() => ({ guard, setGuard, back, setBack }), [guard, back]);
+  const value = useMemo(() => ({ guard, setGuard }), [guard]);
   return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
 }
 
 /** The changes the way back would lose, or `null` where leaving loses nothing. */
 export function useLeaveGuard() {
   return useContext(GuardContext)?.guard ?? null;
-}
-
-/** The way back the page shown declares, an editor's, or `null` where it declares none. */
-export function useDeclaredBack() {
-  return useContext(GuardContext)?.back ?? null;
-}
-
-/**
- * Declares the page an editor, whose way back is `href`: the frame then puts „Zurück“ in the phone's band and
- * takes the bottom bar away. Hidden by Next's `Activity` or gone, the page withdraws it in the same
- * layout-effect cleanup, before the next page paints.
- */
-export function useDeclareBack(href: Route) {
-  const setBack = useContext(GuardContext)?.setBack;
-  useLayoutEffect(() => {
-    if (setBack === undefined) return undefined;
-    setBack(href);
-    return () => setBack(null);
-  }, [setBack, href]);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLang, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
+import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
 
 import type { Kalendertag, Paar, Uhrzeit } from "./format";
 
@@ -112,6 +112,8 @@ export const COPY = katalog({
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
     frage: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}?`,
     zurueck: "Zurück",
+    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
+    schliessen: "Schließen",
 
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     ende: {
@@ -192,7 +194,7 @@ export const COPY = katalog({
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     wann: (tag: Kalendertag | null, zeit: Uhrzeit | null) =>
-      tag === null ? "Termin offen" : zeit === null ? formatDatum(tag) : `${formatDatum(tag)} · ${formatUhrzeit(zeit)}`,
+      tag === null ? "Termin offen" : zeit === null ? formatDatumMitWochentag(tag) : `${formatDatumMitWochentag(tag)} · ${formatUhrzeit(zeit)}`,
     /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
     ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
       elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
@@ -209,8 +211,15 @@ export const COPY = katalog({
       offen: "Noch offen",
     },
 
-    /** A match's facts: the one group's title, and each fact's label. */
-    spiel: "Spiel",
+    /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
+    sonderereignis: {
+      ausgefallen: "Ausgefallen",
+      nichtAngetreten: (team: string) => `${team} nicht angetreten`,
+      abgebrochen: "Abgebrochen",
+      annulliert: "Annulliert",
+    },
+
+    /** A match's facts, each by its label. */
     fakt: {
       ergebnis: "Ergebnis",
       sonderereignis: "Sonderereignis",
@@ -283,7 +292,7 @@ export const COPY = katalog({
       anmelden: { titel: "Mit Passkey anmelden", satz: "Melde dich mit dem Passkey an, den du eingerichtet hast.", knopf: "Jetzt anmelden" },
       angebot: {
         titel: "Passkey einrichten",
-        satz: "Mit einem Passkey meldest du dich künftig ohne Code an, mit Fingerabdruck, Gesicht oder der Displaysperre deines Geräts.",
+        satz: "Mit einem Passkey meldest du dich künftig sicher ohne Code an.",
         knopf: "Jetzt einrichten",
       },
       spaeter: "Später",

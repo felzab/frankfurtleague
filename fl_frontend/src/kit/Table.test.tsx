@@ -33,6 +33,18 @@ describe("a table's name cell", () => {
     expect(screen.getByText(LANG).className.split(" ")).not.toContain("truncate");
   });
 
+  it("sets the chip inline after the name's last word, so a wrapping name carries it on its last line", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: LANG, chip: { tone: "neutral", label: COPY.verwaltung.spielort.stillgelegt }, cells: { ort: "Nordend" } }])}
+      />,
+    );
+    const holder = screen.getByText(COPY.verwaltung.spielort.stillgelegt).parentElement;
+    expect(holder?.className.split(" ")).toEqual(expect.arrayContaining(["inline-flex", "align-middle"]));
+    // The chip stands in the name's own line box, not as a block of the cell's row beside or under it.
+    expect(holder?.parentElement?.textContent).toBe(`${LANG}${COPY.verwaltung.spielort.stillgelegt}`);
+  });
+
   it("ends a linked row with the chevron, in a column of its own", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { ort: "Nordend" } }])} />);
     const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");

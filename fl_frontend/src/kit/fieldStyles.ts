@@ -7,8 +7,11 @@ import { tv } from "tailwind-variants/lite";
  * because HeroUI's base sheet colours every element's border.
  */
 
-/** A field's label, its frame and its message line, one under another. */
-export const fieldRoot = tv({ base: "group flex min-w-0 flex-col gap-1" });
+/**
+ * A field's label, its frame and its message line, one under another. It fills its column, so a box's grid
+ * can place every child at its own width without a field narrowing to its label.
+ */
+export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
 
 export const fieldLabel = tv({ base: "text-sm font-medium text-fg" });
 
@@ -148,7 +151,7 @@ export const calendarCell = tv({
  * the row starts where the label does, whatever the box's width.
  * @awaitsProduction session 4's `Checkbox`, session 5's `Switch`
  */
-export const toggleField = tv({ base: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
+export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
 
 /**
  * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right.
@@ -251,15 +254,18 @@ export const switchTrack = tv({
 });
 
 /**
- * The switch's thumb, in the page's ground, sliding to the track's end when on.
+ * The switch's thumb: the control edge's grey on the off track, the page's ground on the brand fill once on,
+ * sliding to the track's end when on.
  * @awaitsProduction session 5's `Switch`
  */
 export const switchThumb = tv({
-  base: "size-4 rounded-full bg-bg transition-transform duration-(--motion-state)",
+  base: "size-4 rounded-full transition-[transform,background-color] duration-(--motion-state)",
   variants: {
     selected: {
-      true: "translate-x-4",
-      false: "translate-x-0",
+      true: "translate-x-4 bg-bg",
+      // Off, the thumb takes the control edge's grey, which shows on the muted track in both themes; the
+      // page's ground would sit at 1.3:1 on it.
+      false: "translate-x-0 bg-border-control",
     },
   },
 });
@@ -268,10 +274,13 @@ export const switchThumb = tv({
 export const menuPopover = tv({
   base: "overflow-auto rounded-lg bg-bg p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
-    // A list is as wide as the field that opened it.
+    // A list is as wide as the field that opened it; a menu keeps a floor of 224 px, so a short list of
+    // words does not open as a sliver, and takes its trigger's width where the trigger is a full-width row.
     fit: {
       field: "w-(--trigger-width)",
       content: "",
+      menu: "min-w-56",
+      trigger: "w-(--trigger-width) min-w-56",
     },
   },
 });

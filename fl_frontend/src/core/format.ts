@@ -12,6 +12,7 @@ export type Paar = { readonly team1: number; readonly team2: number };
 const ZEITZONE = "Europe/Berlin";
 
 const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATUM_WOCHENTAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, weekday: "short", day: "2-digit", month: "2-digit" });
 const DATUM_LANG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "numeric", month: "long", year: "numeric" });
 const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, hour: "2-digit", minute: "2-digit" });
@@ -30,6 +31,9 @@ function alsInstant(tag: Kalendertag | Date): Date {
 /** „24.10.2026“: a date in a list, a table or a field message. */
 export const formatDatum = (tag: Kalendertag | Date): string => DATUM.format(alsInstant(tag));
 
+/** „So., 14.03.“: a match's day in its row, whose season already names the year. */
+export const formatDatumMitWochentag = (tag: Kalendertag | Date): string => DATUM_WOCHENTAG.format(alsInstant(tag));
+
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDatumLang = (tag: Kalendertag | Date): string => DATUM_LANG.format(alsInstant(tag));
 
@@ -47,7 +51,10 @@ export function formatUhrzeit(zeit: Uhrzeit | Date): string {
 export const formatZeitpunkt = (zeitpunkt: Date): string => ZEITPUNKT.format(zeitpunkt);
 
 /**
- * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share.
+ * „01.09.2025 – 30.06.2026“, the one place a dash renders; the locale drops what both ends share. The
+ * runtime's ICU data decides the spaces around the dash (`format.test.ts` holds Node's thin spaces), and a
+ * browser's may write others, so a span is formatted on the server and handed to a client component as a
+ * string: formatted during a client component's server render, it hydrates against different text.
  * @awaitsProduction its first page
  */
 export const formatZeitraum = (von: Kalendertag | Date, bis: Kalendertag | Date): string => DATUM.formatRange(alsInstant(von), alsInstant(bis));

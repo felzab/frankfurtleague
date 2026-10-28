@@ -7,7 +7,6 @@ import { ROUTES } from "@/core/routes";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { getSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
-import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
 import { getSpiele } from "@/features/spiele/queries";
 import { canStillBePlayed } from "@/features/spiele/utils";
 import { getSpieltage } from "@/features/spieltage/queries";
@@ -17,7 +16,7 @@ import { buildMapsSearchUrl } from "@/shared/utils/format";
 import type { Copy } from "@/core/copy";
 import type { Kalendertag, Paar, Uhrzeit } from "@/core/format";
 import type { FLSaison } from "@/features/saisons/schemas";
-import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/features/spiele/schemas";
+import type { FLSonderereignis, FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/features/spiele/schemas";
 import type { Fact } from "@/kit/Facts";
 import type { Seasons } from "@/kit/FrameNav";
 import type { MatchRowProps, MatchSide } from "@/kit/MatchRow";
@@ -134,6 +133,19 @@ export function matchRowOf(spiel: FLSpiel): MatchRowProps & { id: string } {
   };
 }
 
+/** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
+function sonderereignisOf(ereignis: FLSonderereignis, spiel: FLSpiel): Copy {
+  const words = COPY.spielplan.sonderereignis;
+  switch (ereignis) {
+    case "nichtantreten_team1":
+      return words.nichtAngetreten(sidesOf(spiel).heim.name);
+    case "nichtantreten_team2":
+      return words.nichtAngetreten(sidesOf(spiel).gast.name);
+    default:
+      return words[ereignis];
+  }
+}
+
 /**
  * What the public read gives for one match, each fact only where it holds a value: the result and what
  * befell the match first, then when and where it is played.
@@ -146,7 +158,7 @@ export function factsOf(spiel: FLSpiel, spieltag: string): Fact[] {
     spiel.ergebnis === null
       ? null
       : { label: fakt.ergebnis, value: COPY.spielplan.ergebnis(toreOf(spiel.ergebnis), spiel.elfmeterschiessen), figures: true },
-    spiel.sonderereignis === null ? null : { label: fakt.sonderereignis, value: SONDEREREIGNIS_LABELS[spiel.sonderereignis] },
+    spiel.sonderereignis === null ? null : { label: fakt.sonderereignis, value: sonderereignisOf(spiel.sonderereignis, spiel) },
     { label: fakt.spieltag, value: spieltag },
     tag === null ? null : { label: fakt.datum, value: formatDatum(tag), figures: true },
     zeit === null ? null : { label: fakt.uhrzeit, value: formatUhrzeit(zeit), figures: true },

@@ -64,8 +64,9 @@ export function OneShotForm({
   const refused = answer !== null && !answer.ok ? answer : null;
   let line: Copy | undefined;
   if (isBlocked) line = COPY.vorlage.felderPruefen;
+  // A refusal its fields carry is pointed at, not repeated, as the editor's status line does.
   else if (refused !== null)
-    line = refused.reason ?? (refused.fieldErrors === undefined ? COPY.shared.fehler.unerwartet : COPY.vorlage.felderPruefen);
+    line = refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen;
 
   const send = (element: HTMLFormElement, act: Act) => {
     setBlocked(false);
@@ -85,7 +86,7 @@ export function OneShotForm({
           send(event.currentTarget, "primary");
         }}
         className="grid gap-6">
-        {children !== undefined && <div className="grid gap-4">{children}</div>}
+        {children !== undefined && <div className="grid justify-items-start gap-4">{children}</div>}
         <div className="grid gap-3">
           <Button
             variant="primary"
@@ -95,7 +96,7 @@ export function OneShotForm({
           />
           {acts.secondary !== undefined && (
             <Button
-              variant="secondary"
+              variant="quiet"
               label={acts.secondary}
               isBusy={isPending && pressed === "secondary"}
               onPress={() => {

@@ -95,7 +95,7 @@ const table = tv({
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
     <td className={table({ qualifies: barred }).name()}>
-      {/* A long name wraps, its chip following onto the next line; the plaque and the chip keep their size. */}
+      {/* A long name wraps; the plaque and the chip keep their size. */}
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
         <span className="min-w-0">
@@ -108,13 +108,16 @@ function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
               text={row.name}
             />
           )}
+          {row.chip !== undefined && (
+            // Inline after the name's last word, so a name that wraps carries its chip on its last line.
+            <span className="ms-2 inline-flex align-middle">
+              <Chip
+                tone={row.chip.tone}
+                label={row.chip.label}
+              />
+            </span>
+          )}
         </span>
-        {row.chip !== undefined && (
-          <Chip
-            tone={row.chip.tone}
-            label={row.chip.label}
-          />
-        )}
       </span>
     </td>
   );

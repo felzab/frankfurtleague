@@ -12,14 +12,13 @@ import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
 
-import { SpielortFelder } from "../../../../SpielortFelder";
+import { SpielortFelder } from "../../../../../SpielortFelder";
 
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
 import type { ActionAnswer } from "@/kit/useFormAction";
-import type { Route } from "next";
-import type { SpielortRegeln } from "../../../../spielortRegeln";
+import type { SpielortRegeln } from "../../../../../spielortRegeln";
 import type { SpielWerte } from "./spielWerte";
 
 const WORTE = COPY.verwaltung.spiel;
@@ -31,7 +30,6 @@ const ORT = COPY.verwaltung.spielort;
  */
 export function SpielEditor({
   title,
-  back,
   record,
   save,
   spielorte,
@@ -42,7 +40,6 @@ export function SpielEditor({
   spielortRegeln,
 }: {
   title: PageTitle;
-  back: Route;
   record: EditorRecord<SpielWerte>;
   save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer>;
   /** The venues to choose from, each with the price a match there costs unless set otherwise. */
@@ -61,7 +58,6 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
-      back={back}
       editor={editor}
       sections={[
         {

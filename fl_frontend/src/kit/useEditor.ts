@@ -153,9 +153,10 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   if (current.blockedVersion === current.version) {
     status = { tone: "error", text: COPY.vorlage.felderPruefen };
   } else if (refused !== null) {
+    // A refusal its fields carry is pointed at, not repeated: the fields say what, the line where to look.
     status = {
       tone: "error",
-      text: refused.reason ?? (refused.fieldErrors === undefined ? COPY.shared.fehler.unerwartet : COPY.vorlage.felderPruefen),
+      text: refused.fieldErrors === undefined ? (refused.reason ?? COPY.shared.fehler.unerwartet) : COPY.vorlage.felderPruefen,
     };
   } else if (count > 0) {
     status = { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) };

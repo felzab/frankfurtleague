@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { RailFrame } from "@/kit/RailFrame";
+import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
@@ -19,39 +19,49 @@ import type { ReactNode } from "react";
  */
 const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "info" }],
+    entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "uebersicht" }],
   },
   {
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
-      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "kalender" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "kalender" },
-      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "suche" },
-      { id: "schiedsrichter", label: ROUTES.verwaltungSchiedsrichter.titel, href: ROUTES.verwaltungSchiedsrichter.pfad(), icon: "haken" },
+      { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "saisons" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spiele" },
+      { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "spielorte" },
+      {
+        id: "schiedsrichter",
+        label: ROUTES.verwaltungSchiedsrichter.titel,
+        href: ROUTES.verwaltungSchiedsrichter.pfad(),
+        icon: "schiedsrichter",
+      },
     ],
   },
   {
     heading: COPY.verwaltung.gruppe.schulenUndSpieler,
     entries: [
-      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, season: "verwaltungBewerbungen", icon: "haken" },
-      { id: "teams", label: ROUTES.verwaltungTeams.titel, season: "verwaltungTeams", icon: "info" },
-      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, season: "verwaltungSpieler", icon: "info" },
-      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, season: "verwaltungRegistrierungen", icon: "haken" },
+      { id: "bewerbungen", label: ROUTES.verwaltungBewerbungen.titel, season: "verwaltungBewerbungen", icon: "bewerbungen" },
+      { id: "teams", label: ROUTES.verwaltungTeams.titel, season: "verwaltungTeams", icon: "teams" },
+      { id: "spieler", label: ROUTES.verwaltungSpieler.titel, season: "verwaltungSpieler", icon: "spieler" },
+      { id: "registrierungen", label: ROUTES.verwaltungRegistrierungen.titel, season: "verwaltungRegistrierungen", icon: "registrierungen" },
     ],
   },
   {
     heading: COPY.verwaltung.gruppe.zugangUndDatenschutz,
     entries: [
-      { id: "administratoren", label: ROUTES.verwaltungAdministratoren.titel, href: ROUTES.verwaltungAdministratoren.pfad(), icon: "info" },
-      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.pfad(), icon: "warnung" },
-      { id: "loeschungen", label: ROUTES.verwaltungLoeschungen.titel, href: ROUTES.verwaltungLoeschungen.pfad(), icon: "schliessen" },
+      {
+        id: "administratoren",
+        label: ROUTES.verwaltungAdministratoren.titel,
+        href: ROUTES.verwaltungAdministratoren.pfad(),
+        icon: "administratoren",
+      },
+      { id: "sperrliste", label: ROUTES.verwaltungSperrliste.titel, href: ROUTES.verwaltungSperrliste.pfad(), icon: "sperrliste" },
+      { id: "loeschungen", label: ROUTES.verwaltungLoeschungen.titel, href: ROUTES.verwaltungLoeschungen.pfad(), icon: "loeschungen" },
       {
         id: "adressaenderungen",
         label: ROUTES.verwaltungAdressaenderungen.titel,
         href: ROUTES.verwaltungAdressaenderungen.pfad(),
-        icon: "info",
+        icon: "adressaenderungen",
       },
-      { id: "protokoll", label: ROUTES.verwaltungProtokoll.titel, href: ROUTES.verwaltungProtokoll.pfad(), icon: "filter" },
+      { id: "protokoll", label: ROUTES.verwaltungProtokoll.titel, href: ROUTES.verwaltungProtokoll.pfad(), icon: "protokoll" },
     ],
   },
 ];
@@ -63,7 +73,8 @@ const RAIL_GROUPS: RailGroup[] = [
  * nothing here redirects, since a redirect thrown in a frame unmounts it whole; an unread grant throws to the
  * error page, and a session turned away is shown no account and no season, while its page's own read sends it
  * to the sign-in. One frame stands around every page of the area, so moving between a list and an editor, or
- * between seasons, keeps it; an editor declares its own way back (`EditorPage`).
+ * between seasons, keeps it. The phone's band and bar are the route groups' (`VerwaltungColumn`): an editor's
+ * route lies in `(editor)`, every other page in `(liste)`.
  */
 export function VerwaltungFrame({ children }: { children: ReactNode }) {
   // One judgement for both reads; the builder stage reaches no sign-in store, hence `connection()` first.
@@ -78,11 +89,24 @@ export function VerwaltungFrame({ children }: { children: ReactNode }) {
       bar={["uebersicht", "spiele", "teams"]}
       // A league-wide page has no counterpart in another season, so a switch there lands on the season's Übersicht.
       season={{ seasons: readSeasons(session), home: "verwaltungUebersicht", withoutSeason: ROUTES.verwaltungSaisons.pfad() }}
-      foot={{ kind: "account", account: readAccount(session) }}>
+      foot={{ kind: "account", account: readAccount(session) }}
+      columnInLayouts>
+      {children}
+    </RailFrame>
+  );
+}
+
+/**
+ * A route group's column: the band, and the bar where the group is no editor's, drawn at once around the page,
+ * which waits in its own boundary until the session is judged.
+ */
+export function VerwaltungColumn({ editor = false, children }: { editor?: boolean; children: ReactNode }) {
+  return (
+    <RailColumn editor={editor}>
       <Suspense>
         <AdminSessionHold>{children}</AdminSessionHold>
       </Suspense>
-    </RailFrame>
+    </RailColumn>
   );
 }
 

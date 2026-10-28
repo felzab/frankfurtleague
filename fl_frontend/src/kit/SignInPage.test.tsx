@@ -13,17 +13,11 @@ const WORTE = COPY.anmeldung;
 const FILLS_SCREEN = "min-h-[calc(100dvh-var(--classic-header))]";
 
 describe("the classic page's column", () => {
-  it("fills the first screen under the header only where the page asks it to", () => {
+  it("fills the first screen under the header at either width, so the footer starts just below it", () => {
     const { rerender } = render(<ClassicPage width="card">{null}</ClassicPage>);
-    expect(screen.getByRole("main").className.split(" ")).not.toContain(FILLS_SCREEN);
+    expect(screen.getByRole("main").className.split(" ")).toContain(FILLS_SCREEN);
 
-    rerender(
-      <ClassicPage
-        width="card"
-        fillsScreen>
-        {null}
-      </ClassicPage>,
-    );
+    rerender(<ClassicPage width="form">{null}</ClassicPage>);
     expect(screen.getByRole("main").className.split(" ")).toContain(FILLS_SCREEN);
   });
 });

@@ -54,7 +54,7 @@ type CodeView = Head & {
   zurueck: Act;
 };
 
-/** A passkey view: one sentence, the address, one primary press; the offer adds a quiet „Später“. */
+/** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
 type PasskeyView = Head & {
   view: "passkey";
   satz: Copy;
@@ -96,11 +96,8 @@ const look = tv({
 export function SignInPage(props: SignInView) {
   const slots = look();
   return (
-    // The sign-in fills the first screen, so the footer starts just below it; the card width centres the
-    // column in it.
-    <ClassicPage
-      width="card"
-      fillsScreen>
+    // The card width centres the column in the first screen the classic page fills.
+    <ClassicPage width="card">
       <div className={slots.column()}>
         <Body {...props} />
         {/* An alert standing from the first render, so a failure written into it is announced at once: it
@@ -108,7 +105,8 @@ export function SignInPage(props: SignInView) {
         <p
           role="alert"
           className={slots.line()}>
-          {props.zeile}
+          {/* The code view's line is the code field's own, under the boxes. */}
+          {props.view === "code" ? null : props.zeile}
         </p>
       </div>
     </ClassicPage>
@@ -188,6 +186,8 @@ function Body(props: SignInView) {
             key={code.versuch}
             label={code.label}
             name="code"
+            // The code's refusal stands under the boxes it refuses, in the field's own line.
+            error={props.zeile ?? undefined}
             isDisabled={code.isDisabled}
             onComplete={code.onComplete}
           />
@@ -223,7 +223,7 @@ function Body(props: SignInView) {
             />
             {spaeter !== undefined && (
               <Button
-                variant="secondary"
+                variant="quiet"
                 label={spaeter.label}
                 isBusy={spaeter.isBusy}
                 isDisabled={spaeter.isDisabled}

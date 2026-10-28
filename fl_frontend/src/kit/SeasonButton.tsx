@@ -47,6 +47,8 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
       <Menu
         label={COPY.shared.saison}
         placement="below"
+        // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
+        width={placement === "rail" ? "trigger" : "content"}
         groups={[
           season.ids.map((id) => ({
             kind: "link" as const,

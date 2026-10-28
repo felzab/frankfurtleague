@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDatum,
   formatDatumLang,
+  formatDatumMitWochentag,
   formatErgebnis,
   formatEuro,
   formatUhrzeit,
@@ -38,6 +39,12 @@ describe("formatDatum", () => {
 describe("formatDatumLang", () => {
   it("names the month, umlaut included", async (t) => {
     await gleich(t, formatDatumLang("2027-03-14"), "14. März 2027");
+  });
+});
+
+describe("formatDatumMitWochentag", () => {
+  it("leads with the short weekday and drops the year", async (t) => {
+    await gleich(t, formatDatumMitWochentag("2027-03-14"), "So., 14.03.");
   });
 });
 
