@@ -55,9 +55,6 @@ const HOP_BY_HOP = new Set([
   "upgrade",
 ]);
 
-/** A request's target, from its absolute form or, for one arriving in origin form, from its `Host`. */
-const targetOf = (message: IncomingMessage): URL | null => URL.parse(message.url ?? "", `http://${message.headers.host ?? ""}`);
-
 /** `net.connect` takes an IPv6 host without the brackets a URL spells it in. */
 const hostOf = (target: URL): string => target.hostname.replace(/^\[(.*)\]$/, "$1");
 
@@ -83,7 +80,7 @@ function endedEarly(): void {
 async function startVisitorProxy(origin: string, visitor: string): Promise<{ server: string; close: () => Promise<void> }> {
   // Its own pool to the stack, so the journey's teardown ends those connections with the rest.
   const agent = new Agent({ keepAlive: true });
-  // Sockets an upgrade or a CONNECT takes off the HTTP server, which `closeAllConnections` no longer sees.
+  // Sockets a CONNECT takes off the HTTP server, which `closeAllConnections` no longer sees.
   const detached = new Set<Socket>();
   const detach = (socket: Socket): void => {
     detached.add(socket);
@@ -91,7 +88,8 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
   };
 
   const server = createServer((incoming, outgoing) => {
-    const target = targetOf(incoming);
+    // A request to a proxy names its target in absolute form.
+    const target = URL.parse(incoming.url ?? "");
     if (target === null) {
       outgoing.writeHead(400).end();
       return;
@@ -111,29 +109,8 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
     pipeline(incoming, upstream, endedEarly);
   });
 
-  // A WebSocket: WebKit asks the proxy for it in origin form, and Chromium inside a CONNECT to the
-  // stack, which arrives here once the CONNECT below hands its socket back to this server. The
-  // handshake goes on raw, so whatever the stack answers reaches the browser as it was sent.
-  server.on("upgrade", (incoming: IncomingMessage, socket: Socket, head: Buffer) => {
-    detach(socket);
-    const target = targetOf(incoming);
-    if (target === null) {
-      socket.destroy();
-      return;
-    }
-    const lines = [`${incoming.method ?? "GET"} ${target.pathname}${target.search} HTTP/1.1`];
-    for (let index = 0; index < incoming.rawHeaders.length; index += 2) {
-      const name = incoming.rawHeaders[index] ?? "";
-      if (!["proxy-connection", "proxy-authorization", VISITOR_HEADER].includes(name.toLowerCase()))
-        lines.push(`${name}: ${incoming.rawHeaders[index + 1] ?? ""}`);
-    }
-    if (target.origin === origin) lines.push(`${VISITOR_HEADER}: ${visitor}`);
-    const upstream = connect(Number(target.port || "80"), hostOf(target));
-    upstream.write(`${lines.join("\r\n")}\r\n\r\n`);
-    upstream.write(head);
-    pipeline(socket, upstream, socket, endedEarly);
-  });
-
+  // Every tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS. One to
+  // the stack would reach its edge unnamed, which the edge check reports.
   server.on("connect", (incoming: IncomingMessage, socket: Socket, head: Buffer) => {
     detach(socket);
     const target = URL.parse(`http://${incoming.url ?? ""}`);
@@ -141,14 +118,6 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
       socket.destroy();
       return;
     }
-    // A tunnel to the stack carries plain HTTP, read by this server like any other request to it.
-    if (target.origin === origin) {
-      socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-      socket.unshift(head);
-      server.emit("connection", socket);
-      return;
-    }
-    // Any other host's tunnel passes untouched: the sign-in's bot check loads from Cloudflare's own over TLS.
     const tunnel = connect(Number(target.port || "443"), hostOf(target), () => {
       socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
       tunnel.write(head);
