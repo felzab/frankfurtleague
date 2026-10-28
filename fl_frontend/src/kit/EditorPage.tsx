@@ -22,8 +22,9 @@ export type EditorSection = { id: string; title: Copy; help?: Copy; fields: Reac
 /**
  * The editor template: its sections one under another in the column of at most 760 px centred in the
  * content (`formColumn`, as the read page's), each a box exactly as tall as its content under its 16-px
- * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the way out is the frame's „← Zurück“ to the record's list, which an
- * editor's route group places (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
+ * title, and the record's one save in `EditorBar` at the foot of the viewport. There is no „Abbrechen“: the
+ * way out is the frame's „‹ Zurück“ to the record's list, which an editor's route group places
+ * (`RailColumn`) and which asks before it drops unsaved changes. The last box ends in the danger rows, the
  * one place an editor's irreversible and retiring acts stand. The fields are the kit's, bound to `editor`'s
  * draft by the page's own client code.
  */

@@ -71,9 +71,9 @@ type Words =
 type Card = {
   placement: "card";
   /**
-   * The card's content, which is the link's accessible name, so it is read as one line. Only `MatchRow`
-   * and `BracketCard` place a card link, and nothing interactive stands inside one: no button, link or
-   * menu, which a link may not contain.
+   * The card's content, which is the link's accessible name, so it is read as one line. Only `MatchRow`,
+   * `BracketCard` and `Card` place a card link, and nothing interactive stands inside one: no button, link
+   * or menu, which a link may not contain.
    */
   children: ReactNode;
   label?: never;

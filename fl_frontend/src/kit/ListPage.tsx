@@ -26,7 +26,7 @@ type MatchdayTabs = {
   tabs: ReadonlyArray<{ id: string; label: string; panel: ReactNode }>;
 };
 
-/** The tab row, and under it the chosen matchday's matches alone: only the labels cross to the client row. */
+/** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
 function Matchdays({ label, selectedKey, tabs }: MatchdayTabs) {
   return (
     <Tabs

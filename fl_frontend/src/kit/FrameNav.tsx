@@ -487,11 +487,11 @@ function AccountPlace({ account: read }: { account: AccountRead }) {
   );
 }
 
-// On the dark-green band, as tall as a touch target; the arrow stands where the logo's edge would.
+// On the dark-green band, as tall as a touch target; the chevron stands where the logo's edge would.
 const back = tv({ base: "-ms-2 flex h-11 items-center gap-1 rounded-lg ps-1 pe-3 text-sm font-medium text-on-brand" });
 
 /**
- * „← Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
+ * „‹ Zurück“ in the band where the logo stands: in Konto, and on a phone in an editor. While an editor holds
  * unsaved changes it asks first, and going back drops them.
  */
 export function BackControl({ href }: { href: Route }) {
@@ -539,7 +539,7 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * „← Zurück“ in an editor's band, to the list the rail marks for the editor's address: a record's page lies
+ * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor's address: a record's page lies
  * under its list, so the way back is read from the address rather than declared by each editor.
  */
 export function EditorBack() {

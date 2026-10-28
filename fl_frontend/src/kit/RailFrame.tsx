@@ -32,11 +32,11 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * their groups, the foot. Below it the dark-green band stands at the top with the logo, the wordmark and the
  * season button, and the bottom bar holds the pages, „Mehr“ and the account.
  *
- * `back` is an area's own way back, as Konto's: „← Zurück“ in the logo's place in the rail's head and in the
+ * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
  * band, and no bottom bar.
  *
  * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
- * of its route groups (`columnInLayouts`): an editor's band holds „← Zurück“ and no bottom bar follows, its own
+ * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
  * bar standing in that place. Each page is then drawn right by the server, which knows the group from the
  * route; a page declaring it on the client would draw the bar until it hydrates, and hydrate it wrongly.
  *
@@ -125,7 +125,7 @@ export function RailFrame({
 
 /**
  * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
- * season button, and the bottom bar under the page. An editor's band holds „← Zurück“ to its list in the
+ * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
  * logo's place, and no bottom bar follows; an area's own `back` does the same for every page of the area.
  */
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
