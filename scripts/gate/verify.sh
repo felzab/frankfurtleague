@@ -341,8 +341,23 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   step "frontend · tsc"
   check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
 
+  # ESLint exits 2 for a count in eslint-suppressions.json larger than what its file still breaks, the
+  # code it gives a crash. The first run passes such a count over, so its 2 is a crash alone; the second
+  # runs on a clean lint, so its 2 is a count alone, which is a finding.
   step "frontend · eslint"
-  check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
+  if check "eslint failed." in_dir fl_frontend pnpm lint --pass-on-unpruned-suppressions; then
+    ok "lint clean"
+    step "frontend · eslint  (every suppression still used)"
+    local stale=0
+    quietly in_dir fl_frontend pnpm lint || stale=$?
+    case "$stale" in
+      0)   ok "every suppression still used" ;;
+      2)   fail "fl_frontend/eslint-suppressions.json counts a violation its file no longer has.
+Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file; its diff names each entry." ;;
+      130) on_interrupt ;;
+      *)   on_error "$stale" "${LINENO}" "pnpm lint" ;;
+    esac
+  fi
 
   step "frontend · knip  (unused files, exports and dependencies)"
   check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
