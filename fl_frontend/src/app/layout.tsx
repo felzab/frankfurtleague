@@ -16,11 +16,10 @@ const anton = Anton({
 });
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the
-// tree spells to the browser to fake, with nothing reporting it. The italic is loaded rather
-// than faked: `fl_frontend/src/app/globals.css` turns font synthesis off.
+// tree spells to the browser to fake, with nothing reporting it. No italic either: with font
+// synthesis off (`fl_frontend/src/app/globals.css`), an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
   variable: "--font-raleway",
 });
@@ -64,9 +63,9 @@ export const metadata: Metadata = {
  * that can afford the fill.
  */
 export const viewport: Viewport = {
-  // `--bg-surface` rather than `--bg-base`: the bar under the chrome is `bg-surface` on both
-  // shells, and a `--bg-base` chrome sits 1.09:1 off it, so the navbar reads as a stripe rather
-  // than as the top of the page.
+  // `fl_frontend/src/app/tokens.css :: --bg-surface` per theme, copied because a `<meta>` colour
+  // resolves no `var()`. Not `--bg`: the bar under the chrome is `bg-surface` on both shells, and a
+  // `--bg` chrome sits 1.09:1 off it, a stripe.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
     { media: "(prefers-color-scheme: dark)", color: "#121212" },

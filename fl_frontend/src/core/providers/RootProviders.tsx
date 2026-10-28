@@ -26,9 +26,11 @@ export function RootProviders({ children }: AppProvidersProps) {
       <I18nProvider locale="de-DE">
         {/* Without `disableTransitionOnChange` every `transition-colors` element eases its own colour
             when `data-theme` moves, and the flip is watchable. */}
+        {/* `system` spelled out although it is today's default: next-themes has changed that default
+            before, and the site follows the visitor's system. */}
         <ThemeProvider
           enableSystem={true}
-          defaultTheme="dark"
+          defaultTheme="system"
           disableTransitionOnChange>
           <AppToaster />
           {children}
