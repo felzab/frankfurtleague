@@ -71,7 +71,7 @@ describe("a match as a row", () => {
   it("opens the match's page and adds a shoot-out's goals to the result it carries", () => {
     const row = matchRowOf(spiel({ ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 3 } }));
     expect(row.href).toBe(`/saisons/2027/spiele/${"a".repeat(24)}`);
-    expect(row.when).toBe("14.03.2027 · 15:30");
+    expect(row.when).toBe("So., 14.03. · 15:30");
     expect(row.result).toEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
   });
 

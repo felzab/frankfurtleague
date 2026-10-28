@@ -12,6 +12,7 @@ export type Paar = { readonly team1: number; readonly team2: number };
 const ZEITZONE = "Europe/Berlin";
 
 const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const DATUM_WOCHENTAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, weekday: "short", day: "2-digit", month: "2-digit" });
 const DATUM_LANG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "numeric", month: "long", year: "numeric" });
 const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, hour: "2-digit", minute: "2-digit" });
@@ -29,6 +30,9 @@ function alsInstant(tag: Kalendertag | Date): Date {
 
 /** „24.10.2026“: a date in a list, a table or a field message. */
 export const formatDatum = (tag: Kalendertag | Date): string => DATUM.format(alsInstant(tag));
+
+/** „So., 14.03.“: a match's day in its row, whose season already names the year. */
+export const formatDatumMitWochentag = (tag: Kalendertag | Date): string => DATUM_WOCHENTAG.format(alsInstant(tag));
 
 /** „24. Oktober 2026“: a date inside a sentence or a mail. */
 export const formatDatumLang = (tag: Kalendertag | Date): string => DATUM_LANG.format(alsInstant(tag));

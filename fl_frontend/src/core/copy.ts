@@ -1,5 +1,5 @@
 import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLang, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
+import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
 
 import type { Kalendertag, Paar, Uhrzeit } from "./format";
 
@@ -194,7 +194,7 @@ export const COPY = katalog({
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
     wann: (tag: Kalendertag | null, zeit: Uhrzeit | null) =>
-      tag === null ? "Termin offen" : zeit === null ? formatDatum(tag) : `${formatDatum(tag)} · ${formatUhrzeit(zeit)}`,
+      tag === null ? "Termin offen" : zeit === null ? formatDatumMitWochentag(tag) : `${formatDatumMitWochentag(tag)} · ${formatUhrzeit(zeit)}`,
     /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
     ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
       elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
