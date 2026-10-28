@@ -295,11 +295,7 @@ def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
 
 
 def test_the_frontend_image_runs_the_node_series_pnpm_installs() -> None:
-    """A Node major apart between the image and what pnpm installs for the checkout and CI is a Node no test ran on.
-
-    The image's base names the one release production runs; `devEngines.runtime` names a range, and the lockfile the release
-    pnpm resolved it to.
-    """
+    """The image's Node major is the one pnpm installs for the checkout and CI: `devEngines` names a range, the lockfile its release."""
     runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
     declared = re.search(r"\d+", runtime["version"])
     resolved = set(re.findall(r"^  node@runtime:(\d+)\.", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))

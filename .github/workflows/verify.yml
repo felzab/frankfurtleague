@@ -169,10 +169,9 @@ jobs:
       - name: Run the ops scope
         run: ./scripts/gate/verify.sh --ops
 
-  # Both image builds, through Docker's own action, which carries the Actions layer cache; the images
-  # scope then asks of them what a successful build does not prove. Each image is written to a file
-  # and loaded, so a push to main hands the publish job exactly the bytes checked here
-  # (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
+  # Both images, built through Docker's own action, which carries the Actions layer cache. Each is
+  # written to a file and loaded, so a push to main hands the publish job exactly the bytes checked
+  # here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -246,9 +245,8 @@ jobs:
           # The layers are compressed already.
           compression-level: 0
 
-  # THE REQUIRED STATUS CHECK. The ruleset requires a check named `verify`; this job is it.
-  # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a failed
-  # need. Every job but this one and `publish` is a need, which the first step below holds.
+  # THE REQUIRED STATUS CHECK, which the ruleset names. `always()`: the verdict is the steps below,
+  # never GitHub's reading of a job skipped over a failed need.
   verify:
     needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()

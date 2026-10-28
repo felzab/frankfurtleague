@@ -40,9 +40,8 @@ IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
 
-# `FL_GATE_COLOR`, never an exported `NO_COLOR` or `FORCE_COLOR`, which prettier and pnpm read too.
-# A scope `scripts/gate/verify.sh` runs beside others cannot answer for itself: its stdout is a file,
-# so `[[ -t 1 ]]` comes back uncoloured. `FORCE_COLOR=0` means off, per npm.
+# `FL_GATE_COLOR`, never an exported `NO_COLOR` or `FORCE_COLOR`, which prettier and pnpm read too: a
+# scope run beside others writes to a file, so `[[ -t 1 ]]` cannot answer. `FORCE_COLOR=0` is off.
 if [[ -n "${FL_GATE_COLOR:-}" ]]; then
   if [[ "$FL_GATE_COLOR" == "1" ]]; then _colour=1; else _colour=0; fi
 elif [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then

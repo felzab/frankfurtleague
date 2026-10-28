@@ -149,10 +149,8 @@ ruff_both() { # $1 the directory · the paths
   ( cd "$dir" && "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
 }
 
-# Spread by file, so each module's fixtures stay on one worker; a stalled case's stack is dumped
-# past 180 s, inside every CI job's timeout. Each `--maxprocesses` below is its measured optimum on a
-# 16-core machine, which `-n auto` caps at the machine's cores (2026-09: `scripts/tests` flat from 8
-# up, the db tier fastest at 6, the default tier level from 6 to 8).
+# By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
+# job's timeout. Each `--maxprocesses` below is its suite's measured optimum on 16 cores (2026-09).
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 
 case "$SCOPE" in
@@ -382,14 +380,12 @@ OPS_SCRATCH=""
 NGINX_CHECK="${REPO_ROOT}/.tmp-nginx-check"
 cleanup_ops() { rm -rf "$NGINX_CHECK" || true; if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings by severity and 1 for its own failure, so its scale is
-# translated to the one `check` reads. The root, so a workflow added anywhere is collected;
-# `--offline`, so a token in the environment turns on no rule that reaches the network;
-# `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on. Run by uv
-# at an exact release, being no dependency of the backend; no Dependabot ecosystem reads this string,
-# so a bump is by hand.
+# zizmor answers 11 to 14 for findings and 1 for its own failure. Run by uv at an exact release, being
+# no backend dependency; no Dependabot ecosystem reads this string, so a bump is by hand.
 run_zizmor() {
   local rc=0
+  # `--offline`, or a token in the environment turns on rules that reach the network;
+  # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
   uvx zizmor@1.31.1 --offline --strict-collection --persona regular . || rc=$?
   case "$rc" in
     0) return 0 ;;
@@ -512,9 +508,8 @@ build_images() {
   fi
 }
 
-# What a successful build does not prove, asked of each image (`scripts/lib/_lib.sh`). Under CI the
-# workflow builds both through `docker/build-push-action`, which carries the layer cache, and names
-# them by `VERIFY_TAG` with `VERIFY_IMAGES_BUILT=1`; this scope then asks the same questions of them.
+# What a successful build does not prove, asked of each image. In CI the workflow builds both through
+# `docker/build-push-action`, which carries the layer cache, and hands them over by `VERIFY_TAG`.
 scope_images() {
   section images
   if [[ -z "${VERIFY_IMAGES_BUILT:-}" ]]; then
