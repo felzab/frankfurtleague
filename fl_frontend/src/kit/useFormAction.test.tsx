@@ -19,11 +19,11 @@ describe("a form's action through the one wrapper", () => {
     expect(await answering(async () => answer)(undefined)).toStrictEqual(answer);
   });
 
-  it("answers any throw with the shared failure line", async () => {
+  it("answers any throw with the stale-page line, since the press may have written before its answer was lost", async () => {
     const answered = answering(async () => {
       throw new Error("An unexpected response was received from the server.");
     });
-    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.unerwartet });
+    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
   });
 
   it("answers the edge's rate refusal with its own reason", async () => {

@@ -14,7 +14,10 @@ const ANLEGEN = "POST /spielorte";
 const stand = vi.hoisted(() => ({
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
-  gefuehrt: true,
+  /** Why the guard turns the create away, or `null` where it admits it. */
+  abgewiesen: null as string | null,
+  /** The spine found that the write it sent may stand, whatever the body made of it. */
+  unklar: false,
 }));
 
 vi.mock("@/features/spielorte/mutations", () => ({
@@ -25,10 +28,15 @@ vi.mock("@/features/spielorte/mutations", () => ({
   },
 }));
 
-// The guard's spine runs the body for a session it judged, or answers its own refusal for one it did not.
+// The guard's spine: it turns a session away with the create's own `turnedAway`, or runs the body and answers
+// its own unclear outcome where the write it sent may stand.
 vi.mock("@/shared/utils/adminMutation", () => ({
-  runAdminMutation: async (_name: string, body: () => Promise<unknown>) =>
-    stand.gefuehrt ? body() : { success: false, error: "Deine Anmeldung ist abgelaufen." },
+  runAdminMutation: async (_name: string, declared: { turnedAway: (grund: string) => string }, body: () => Promise<unknown>) => {
+    if (stand.abgewiesen !== null) return { success: false, error: declared.turnedAway(stand.abgewiesen) };
+    const answer = await body();
+    return stand.unklar ? { success: false, error: "Ob gespeichert wurde, ist unklar.", outcome: "unknown" } : answer;
+  },
+  FORBIDDEN_BY_REFUSAL: { signIn: "abgelaufen", noGrant: "kein Zugang", grantGone: "kein Zugang", unread: "ungelesen" },
 }));
 
 const FELDER: Readonly<Record<SpielortFeld, string>> = {
@@ -50,7 +58,8 @@ const formular = (felder: Partial<Record<SpielortFeld, string>> = {}) => {
 beforeEach(() => {
   stand.gesendet = [];
   stand.ablehnung = null;
-  stand.gefuehrt = true;
+  stand.abgewiesen = null;
+  stand.unklar = false;
 });
 
 describe("the venue dialog's create", () => {
@@ -102,9 +111,23 @@ describe("the venue dialog's create", () => {
     expect(stand.gesendet).toEqual([]);
   });
 
-  it("answers the guard's own refusal as unexpected", async () => {
-    stand.gefuehrt = false;
+  it("sends a session the guard found ended to sign in again, sending nothing", async () => {
+    stand.abgewiesen = "signIn";
+
+    expect(await spielortAnlegen(formular())).toEqual({ ok: false, reason: COPY.shared.fehler.abgelaufen });
+    expect(stand.gesendet).toEqual([]);
+  });
+
+  it("answers the guard's other refusals as unexpected, which no sign-in repairs", async () => {
+    stand.abgewiesen = "unread";
 
     expect(await spielortAnlegen(formular())).toEqual({ ok: false });
+  });
+
+  // A second press would meet the venue the first one made, and say its name is taken.
+  it("sends a create nobody can tell landed to reload the page, never to press again", async () => {
+    stand.unklar = true;
+
+    expect(await spielortAnlegen(formular())).toEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
   });
 });

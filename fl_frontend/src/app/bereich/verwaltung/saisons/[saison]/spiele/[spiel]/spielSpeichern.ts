@@ -8,11 +8,12 @@ import { FLPatchSpielDataPayloadSchema, FLSonderereignisSchema } from "@/feature
 import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spiele/utils";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { isRefusal } from "@/shared/utils/actionError";
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { FORBIDDEN_BY_REFUSAL, invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
 
 import { werteOf } from "./spielLesen";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
+import type { AdminRefusal } from "@/core/auth";
 import type { Copy } from "@/core/copy";
 import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
 import type { EditorSave } from "@/kit/useEditor";
@@ -104,7 +105,14 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
   const id = CustomObjectIdStringSchema.safeParse(change.id);
   if (!id.success) return { ok: false };
 
-  const result = await runAdminMutation("spielSpeichern", async (): Promise<Antwort> => {
+  // Why the guard turned the save away, kept as it judged it: the catalogue words an ended session.
+  const abgewiesen: { grund?: AdminRefusal } = {};
+  const turnedAway = (grund: AdminRefusal) => {
+    abgewiesen.grund = grund;
+    return FORBIDDEN_BY_REFUSAL[grund];
+  };
+
+  const result = await runAdminMutation("spielSpeichern", { stepUp: false, turnedAway }, async (): Promise<Antwort> => {
     // The tags every match list carries, declared ahead of the read; the season's own follow once it names the season.
     invalidatesOnWrite("spiele", "teams");
     const gelesen = await getAdminSpiel(id.data);
@@ -137,7 +145,10 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     }
   });
 
-  if (result.success) return result.antwort;
-  // The guard's own refusals, a session ended among them, carry no words of the catalogue's: the unexpected failure.
-  return "antwort" in result ? result.antwort : { ok: false };
+  if ("antwort" in result) return result.antwort;
+  // The spine's own answers. A write that may have landed whatever its answer said: a reload shows whether it did.
+  if (result.outcome === "unknown") return { ok: false, reason: COPY.shared.fehler.veraltet };
+  if (abgewiesen.grund === "signIn") return { ok: false, reason: COPY.shared.fehler.abgelaufen };
+  // A grant gone or unread, and a throw no refusal explains, have no line of the catalogue's: the unexpected failure.
+  return { ok: false };
 }

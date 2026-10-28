@@ -133,7 +133,7 @@ describe("an editor's draft", () => {
 });
 
 describe("an editor's refused save", () => {
-  it("answers a throw with the shared failure line and keeps the input", async () => {
+  it("answers a throw with the stale-page line and keeps the input", async () => {
     const { result } = editorOn(STORED, async () => {
       throw new Error("the backend is gone");
     });
@@ -141,7 +141,7 @@ describe("an editor's refused save", () => {
     act(() => result.current.set("plz", "60439"));
     await press(result.current.submit);
 
-    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.fehler.unerwartet });
+    expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.fehler.veraltet });
     expect(result.current.draft.plz).toBe("60439");
   });
 

@@ -49,6 +49,10 @@ const stand = vi.hoisted(() => ({
   gesendet: [] as unknown[],
   ablehnung: null as unknown,
   antwort: null as unknown,
+  /** Why the guard turns the save away, or `null` where it admits it. */
+  abgewiesen: null as string | null,
+  /** The spine found that a write it sent may stand, whatever the body made of it. */
+  unklar: false,
 }));
 
 vi.mock("@/features/spiele/queries", () => ({
@@ -63,9 +67,15 @@ vi.mock("@/features/spiele/mutations", () => ({
   },
 }));
 
-// The guard's spine runs the body for a session it judged; its own refusals are not this save's.
+// The guard's spine: it turns a session away with the save's own `turnedAway`, or runs the body and answers
+// its own unclear outcome where the write it sent may stand.
 vi.mock("@/shared/utils/adminMutation", () => ({
-  runAdminMutation: async (_name: string, body: () => Promise<unknown>) => body(),
+  runAdminMutation: async (_name: string, declared: { turnedAway: (grund: string) => string }, body: () => Promise<unknown>) => {
+    if (stand.abgewiesen !== null) return { success: false, error: declared.turnedAway(stand.abgewiesen) };
+    const answer = await body();
+    return stand.unklar ? { success: false, error: "Ob gespeichert wurde, ist unklar.", outcome: "unknown" } : answer;
+  },
+  FORBIDDEN_BY_REFUSAL: { signIn: "abgelaufen", noGrant: "kein Zugang", grantGone: "kein Zugang", unread: "ungelesen" },
   invalidatesOnWrite: () => undefined,
 }));
 
@@ -86,6 +96,8 @@ beforeEach(() => {
   stand.gesendet = [];
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
+  stand.abgewiesen = null;
+  stand.unklar = false;
 });
 
 const FINGERPRINT = spielStateKey(GESPEICHERT);
@@ -203,6 +215,31 @@ describe("the match editor's save", () => {
 
     stand.ablehnung = refusal("REQ-BOOKING-003");
     expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } })).toEqual({
+      ok: false,
+      reason: COPY.shared.fehler.veraltet,
+    });
+  });
+
+  it("sends a session the guard found ended to sign in again, writing nothing", async () => {
+    stand.abgewiesen = "signIn";
+
+    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
+      ok: false,
+      reason: COPY.shared.fehler.abgelaufen,
+    });
+    expect(stand.gesendet).toEqual([]);
+  });
+
+  it("answers a grant the guard found gone as the unexpected failure, which no sign-in repairs", async () => {
+    stand.abgewiesen = "grantGone";
+
+    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({ ok: false });
+  });
+
+  it("sends a save nobody can tell landed to reload the page, never to press again", async () => {
+    stand.unklar = true;
+
+    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
       ok: false,
       reason: COPY.shared.fehler.veraltet,
     });
