@@ -29,12 +29,13 @@ function useRail() {
  * The frame's measures, declared once for the parts drawn to them and for the toasts placed under them: the
  * phone's band, the desktop rail's width and its head, which the title strip shares, and the signed-in rail
  * foot's height, which an editor's bar takes too, so the two top hairlines are one line: its 1-px edge, its
- * 8-px and 12-px padding, and the 48-px account row. The rail's width is one of two tokens, switched by the
- * collapsed attribute, and the grid's columns follow it over the entrance's 200 ms: a 100-ms state change
- * over 184 px reads as a jump. Under reduced motion the token is unset and the width snaps.
+ * 8-px and 12-px padding, and the 48-px account row. The rail's width is 256 px standing open and 72 px
+ * collapsed to its glyphs, 24 px of inset at each side of one, switched by the collapsed attribute; the
+ * grid's columns follow it over the entrance's 200 ms, since a 100-ms state change over 184 px reads as a
+ * jump. Under reduced motion the motion token is unset and the width snaps.
  */
 const root = tv({
-  base: "group min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:var(--container-rail)] data-collapsed:[--rail-width:var(--container-rail-collapsed)] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)] lg:transition-[grid-template-columns] lg:duration-(--motion-in)",
+  base: "group min-h-dvh [--rail-band:3.5rem] [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] [--rail-strip:3rem] [--rail-width:16rem] data-collapsed:[--rail-width:4.5rem] lg:grid lg:grid-cols-[var(--rail-width)_minmax(0,1fr)] lg:transition-[grid-template-columns] lg:duration-(--motion-in)",
 });
 
 /**

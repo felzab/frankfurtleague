@@ -190,8 +190,6 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-rail: 16rem; /* the rail, standing open */
-  --container-rail-collapsed: 4.5rem; /* the rail collapsed to its glyphs: 24 px of inset at each side of one */
   --container-measure: 64ch; /* a line of running text on a legal or consent page */
   --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
 }
