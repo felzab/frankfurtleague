@@ -1204,8 +1204,10 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **The referees whose rows were entered before the confirmation link, for the
   Datenschutzexperte.** An administrator entered them, and their rows carried no consent record.
   Their names were published on every fixture they officiated until their rows were deleted whole,
-  every fixture naming one repointed at the ghost with the name emptied
-  (`docs/backend/spec.md :: I213`), and the action log holding images of them was emptied in full.
+  before the deploy whose fixture read first consults a referee's own consent; every fixture naming
+  one was repointed at the ghost with the name emptied
+  (`fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint`), and the action log
+  holding images of them was emptied in full.
   Nothing informed these people under Art. 14: a row holding no address of its own is never
   mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a real
   address is mailed its link only when an administrator's write mints one
