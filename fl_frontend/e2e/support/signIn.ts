@@ -20,7 +20,10 @@ const isTheSend = async (response: Response): Promise<boolean> =>
   response.request().method() === "POST" && (await response.request().headerValue("next-action")) !== null;
 
 /** The step a send that mailed a code, or would have, shows in the address step's place. */
-export const codeStep = (page: Page): Locator => page.getByRole("status").filter({ hasText: "Prüfe Dein Postfach" });
+export const codeStep = (page: Page): Locator => page.getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
+
+/** The sign-in's one line under its acts, where a send or a code that did not go through says why. */
+export const failureLine = (page: Page): Locator => page.getByRole("alert");
 
 /** Asks for a code on `/signin`; answers the send's response and the text of the step it shows. */
 export async function askForCode(page: Page, address: string): Promise<{ response: Response; answer: string }> {
@@ -53,7 +56,9 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
   const before = await filedMessages();
   await askForCode(page, address);
   const code = await mailedCode(address, before);
-  await page.getByLabel("Code aus der E-Mail").pressSequentially(code);
+  // Typed into the first of the six boxes, each digit moving on to the next as a person's typing does; the
+  // sixth sends the code by itself.
+  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).first().pressSequentially(code);
 }
 
 /** The account page renders for a session alone: without one it sends the visitor to `/signin`. */
@@ -69,8 +74,7 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
   await expect(page).toHaveURL(/\/signin\/passkey$/);
 
-  // Installed only now: on `/signin` the page's conditional sign-in would have asked it for a passkey
-  // before it held one.
+  // Installed only now, on the page whose ceremony it answers, and the page loaded again under it.
   await context.credentials.install();
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();

@@ -34,7 +34,7 @@ import type {
  */
 export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben.";
 
-const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
+export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
 const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
 export const KUERZEL_UNGEPRUEFT = "Ob das Kürzel frei ist, prüfen wir spätestens beim Abschicken.";
 
@@ -383,7 +383,7 @@ export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string):
  * **Seat to Trainer**: the claim is answered on the Trainer's panel, last of the three, so the seat
  * it names holds a person already typed.
  */
-function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
+export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
 }
 

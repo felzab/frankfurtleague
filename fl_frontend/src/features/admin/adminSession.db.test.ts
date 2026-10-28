@@ -378,3 +378,37 @@ describe("the account row the session read joins, against a real store", () => {
     expect(anmeldungen.map(({ id }) => id)).toStrictEqual([String(after._id)]);
   });
 });
+
+/* A session id is whatever the action's caller posted, so only the holder's own user id in the same
+   delete keeps one person's press from ending another person's sign-in. */
+describe("ending one sign-in, with another account's session beside it in the store", () => {
+  it("ends nothing for another account's session id, and says the list is stale", async () => {
+    const { endAnmeldungAction } = await import("@/features/konto/actions.ts");
+    requestHeaders = await signInAsAdministrator();
+    const { adapter } = await auth.$context;
+    const other = await adapter.create<{ name: string; email: string; emailVerified: boolean }, { id: string }>({
+      model: "user",
+      data: { name: "", email: "zweite.person@example.org", emailVerified: true },
+    });
+    const theirs = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "session",
+      data: {
+        userId: other.id,
+        token: "fl-admin-session-db-second-account-session",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    leaveRenderPass();
+    const answer = await runWithIncomingTrace(() => endAnmeldungAction(theirs.id));
+
+    // The stale list's own refusal, and no step-up or validation one, which would leave the row standing anyway.
+    expect(answer).toStrictEqual({ success: false, error: "Die Anmeldung war schon beendet. Lade die Seite neu." });
+    expect(
+      await client.db("auth").collection("session").countDocuments({ token: "fl-admin-session-db-second-account-session" }),
+      "another account's session was ended",
+    ).toBe(1);
+  });
+});

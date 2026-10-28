@@ -6,6 +6,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
 import { answering, useFormAction } from "./useFormAction";
 
@@ -23,6 +24,14 @@ describe("a form's action through the one wrapper", () => {
       throw new Error("An unexpected response was received from the server.");
     });
     expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.unerwartet });
+  });
+
+  it("answers the edge's rate refusal with its own reason", async () => {
+    // Next hands a rejected action the edge's plain-text body as its error's message.
+    const answered = answering(async () => {
+      throw new Error(EDGE_REFUSAL_BODY);
+    });
+    expect(await answered(undefined)).toStrictEqual({ ok: false, reason: COPY.shared.fehler.zuVieleVersuche });
   });
 
   it("lets Next's redirect through to Next", async () => {

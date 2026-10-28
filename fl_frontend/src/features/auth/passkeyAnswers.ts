@@ -1,22 +1,19 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
+import { COPY } from "@/core/copy";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
+
+import type { Copy } from "@/core/copy";
 
 /**
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
  * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
  */
-const OHNE_BESTAETIGUNG =
-  "Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.";
+const OHNE_BESTAETIGUNG = COPY.anmeldung.abgelehnt.ohneBestaetigung;
 
 /**
- * Named plainly: only the holder of the authenticator can reach this refusal, and the ban's own mail
- * has already told them.
+ * An address holding no record of its own in the league, or a barred one, which a retry would not change.
+ * One sentence for both, so no answer here tells who stands on the ban list.
  */
-export const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
-
-/** An address holding no record of its own in the league, which a retry would not change. */
-export const OHNE_EINTRAG = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
+export const OHNE_EINTRAG = COPY.anmeldung.abgelehnt.ohneEintrag;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -27,18 +24,18 @@ export const refusalStatus = (error: unknown): number | undefined =>
   typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : undefined;
 
 /** Every refusal a retry of the same press would meet again, by its code. */
-const WORDED: ReadonlyMap<string, string> = new Map([
+const WORDED: ReadonlyMap<string, Copy> = new Map([
   [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
-  [SIGN_IN_BARRED, GESPERRT],
+  [SIGN_IN_BARRED, OHNE_EINTRAG],
   [SIGN_IN_HOLDS_NOTHING, OHNE_EINTRAG],
 ]);
 
 /**
- * A cancelled prompt, a refused one and a backend that did not answer are one answer; the refusals
- * above are the exceptions, because retrying repeats them.
+ * A cancelled prompt, a refused one and a backend that did not answer are one answer, the shared failure
+ * line; the refusals above are the exceptions, because retrying repeats them.
  */
-export function describeCeremonyRefusal(error: unknown): string {
-  return WORDED.get(refusalCode(error) ?? "") ?? VERSUCHE_ES_ERNEUT_SATZ;
+export function describeCeremonyRefusal(error: unknown): Copy {
+  return WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.fehler.unerwartet;
 }
 
 /** Another ceremony took this one's place, which is no failure a reader made. */
