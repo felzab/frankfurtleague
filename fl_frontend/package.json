@@ -24,6 +24,7 @@
     "knip:prod": "knip --production --no-progress --treat-config-hints-as-errors --config knip.production.json",
     "format": "prettier --write .. --ignore-path ../.prettierignore",
     "format:check": "prettier --check .. --ignore-path ../.prettierignore --cache --cache-strategy content",
+    "lint:md": "cd .. && markdownlint-cli2",
     "typegen": "next typegen",
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
