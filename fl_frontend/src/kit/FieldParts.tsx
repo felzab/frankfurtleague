@@ -15,6 +15,9 @@ import type { Kalendertag } from "@/core/format";
 import type { ValidationResult } from "react-aria-components/FieldError";
 import type { FormStatus } from "./useFormAction";
 
+/** One answer of a fixed choice, a word or a phrase: a radio group's, a segmented control's or a toggle box's. */
+export type Choice = { id: string; label: Copy };
+
 /** What a field's message needs to name the rule its value broke. */
 export type Constraints = {
   maxLength?: number;
