@@ -46,7 +46,9 @@ async function clientsSince(from: number): Promise<string[]> {
     const { size } = await log.stat();
     const appended = Buffer.alloc(Math.max(0, size - from));
     await log.read(appended, 0, appended.length, from);
-    // The last line, while nginx is still writing it, ends in no newline, and is left for the next reading.
+    // nginx writes each line with a write of its own, its `access_log` naming no `buffer`, so the text
+    // ends in a newline and the empty piece after it is dropped. A line caught half-written would be
+    // dropped too and read by no later reading, each starting where the log ended as its journey began.
     const lines = appended.toString("utf8").split("\n").slice(0, -1);
     return lines.map((line) => clientOf(line));
   } finally {

@@ -78,7 +78,9 @@ export function RailFrame({
   const frame = (
     <MenuScope value={{ groups, bar, extra, account }}>
       <LeaveGuardProvider>
-        <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+        {/* `--rail-foot` is the signed-in rail foot's height, which an editor's bar takes too, so the two top
+            hairlines are one line: its 1-px edge, its 8-px and 12-px padding, and the 48-px account row. */}
+        <div className="min-h-dvh [--rail-foot:calc(1px+0.5rem+0.75rem+3rem)] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
           <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-12 shrink-0 items-center bg-brand-solid px-6 text-on-brand [--focus-ring:var(--on-brand)]">
@@ -91,7 +93,7 @@ export function RailFrame({
             <Suspense fallback={<div className="min-h-0 flex-1" />}>
               <RailEntries groups={groups} />
             </Suspense>
-            <div className="grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3">
+            <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
                 // The row's height held while the session is judged, so the entries above do not move.
                 <Suspense fallback={<div className="h-12" />}>
@@ -202,31 +204,35 @@ export function RailPage({
   const { head, heading } = strip({ area });
   return (
     <>
-      <header className={head()}>
-        <h1 className={heading()}>{titleOf(title)}</h1>
-        {chip !== undefined && (
-          <Chip
-            tone={chip.tone}
-            label={chip.label}
-          />
-        )}
-        {area === "saison" && (
-          <nav
-            aria-label={COPY.vorlage.navigation}
-            className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
-              <NextLink
-                key={page.pfad()}
-                href={page.pfad()}
-                data-kit-focus="ring"
-                className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
-                {page.titel}
-              </NextLink>
-            ))}
-          </nav>
-        )}
-      </header>
-      <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
+      {/* The title and the content in one column of at most 1280 px, centred beside the rail on a wide screen, so
+          the two keep one left edge at every width; the editor's bar spans the whole width under it. */}
+      <div className="mx-auto flex w-full max-w-[80rem] min-w-0 flex-1 flex-col">
+        <header className={head()}>
+          <h1 className={heading()}>{titleOf(title)}</h1>
+          {chip !== undefined && (
+            <Chip
+              tone={chip.tone}
+              label={chip.label}
+            />
+          )}
+          {area === "saison" && (
+            <nav
+              aria-label={COPY.vorlage.navigation}
+              className="ms-auto hidden gap-1 lg:flex">
+              {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+                <NextLink
+                  key={page.pfad()}
+                  href={page.pfad()}
+                  data-kit-focus="ring"
+                  className="flex h-9 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap text-fg-muted hover:text-fg">
+                  {page.titel}
+                </NextLink>
+              ))}
+            </nav>
+          )}
+        </header>
+        <main className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-8 lg:px-8 lg:pt-8 lg:pb-12">{children}</main>
+      </div>
       {bar}
     </>
   );

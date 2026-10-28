@@ -19,6 +19,7 @@ import MapPin from "lucide-react/icons/map-pin";
 import Menu from "lucide-react/icons/menu";
 import Monitor from "lucide-react/icons/monitor";
 import Moon from "lucide-react/icons/moon";
+import Plus from "lucide-react/icons/plus";
 import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
 import Shield from "lucide-react/icons/shield";
@@ -40,6 +41,8 @@ import { tv } from "tailwind-variants/lite";
  * a phone bar share a mark.
  */
 const GLYPHS = {
+  // A record created where its list shows, before the act's label.
+  anlegen: Plus,
   aufklappen: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
   dunkel: Moon,

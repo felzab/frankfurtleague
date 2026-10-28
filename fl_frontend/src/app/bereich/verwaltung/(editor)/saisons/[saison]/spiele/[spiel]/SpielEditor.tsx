@@ -1,10 +1,12 @@
 "use client";
 
-import { Button } from "@/kit/Button";
+import { useState } from "react";
+
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
-import { Dialog } from "@/kit/Dialog";
+import { Dialog, useOpenUntilHidden } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
+import { FieldPair } from "@/kit/FieldPair";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { TimeField } from "@/kit/TimeField";
@@ -54,6 +56,9 @@ export function SpielEditor({
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
+  // The create dialog, opened from the venue list's last entry with the name typed into the field.
+  const [neu, setNeu] = useOpenUntilHidden();
+  const [neuerName, setNeuerName] = useState("");
 
   return (
     <EditorPage
@@ -65,54 +70,68 @@ export function SpielEditor({
           title: WORTE.ansetzung,
           fields: (
             <>
-              <DateField
-                label={WORTE.datum}
-                name="datum"
-                value={draft.datum}
-                onChange={(datum) => set("datum", datum)}
-              />
-              <TimeField
-                label={WORTE.uhrzeit}
-                name="uhrzeit"
-                value={draft.uhrzeit}
-                onChange={(uhrzeit) => set("uhrzeit", uhrzeit)}
-              />
-              <ComboBox
-                label={ORT.objekt}
-                name="spielort"
-                options={spielorte.map((ort) => ort.option)}
-                value={draft.spielort}
-                onChange={(spielort) => {
-                  set("spielort", spielort);
-                  // A venue chosen brings its own price, which the person may still change for this match.
-                  const gewaehlt = spielorte.find((ort) => ort.option.id === spielort);
-                  if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
-                }}
-              />
-              {/* Revealed under the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
-              {draft.spielort !== null && (
-                <TextField
-                  label={ORT.mietpreis}
-                  name="mietpreis"
-                  width="C5"
-                  kind="digits"
-                  unit={COPY.shared.einheit.euro}
-                  isRequired={mietpreisPflicht}
-                  value={draft.mietpreis}
-                  onChange={(mietpreis) => set("mietpreis", mietpreis)}
+              {/* A day and its time are one value, sharing their row at every width. */}
+              <FieldPair
+                short="both"
+                phone="pair">
+                <DateField
+                  label={WORTE.datum}
+                  name="datum"
+                  value={draft.datum}
+                  onChange={(datum) => set("datum", datum)}
                 />
-              )}
+                <TimeField
+                  label={WORTE.uhrzeit}
+                  name="uhrzeit"
+                  value={draft.uhrzeit}
+                  onChange={(uhrzeit) => set("uhrzeit", uhrzeit)}
+                />
+              </FieldPair>
+              <FieldPair
+                short="second"
+                phone="stack">
+                <ComboBox
+                  label={ORT.objekt}
+                  name="spielort"
+                  options={spielorte.map((ort) => ort.option)}
+                  value={draft.spielort}
+                  onChange={(spielort) => {
+                    set("spielort", spielort);
+                    // A venue chosen brings its own price, which the person may still change for this match.
+                    const gewaehlt = spielorte.find((ort) => ort.option.id === spielort);
+                    if (gewaehlt !== undefined) set("mietpreis", String(gewaehlt.mietpreis));
+                  }}
+                  create={{
+                    label: ORT.anlegenEintrag,
+                    onCreate: (typed) => {
+                      setNeuerName(typed);
+                      setNeu(true);
+                    },
+                  }}
+                />
+                {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
+                {draft.spielort !== null && (
+                  <TextField
+                    label={ORT.mietpreis}
+                    name="mietpreis"
+                    width="C5"
+                    kind="digits"
+                    unit={COPY.shared.einheit.euro}
+                    isRequired={mietpreisPflicht}
+                    value={draft.mietpreis}
+                    onChange={(mietpreis) => set("mietpreis", mietpreis)}
+                  />
+                )}
+              </FieldPair>
               <Dialog
                 title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
                 act={{ verb: "anlegen", objekt: ORT.objekt }}
                 action={spielortAnlegen}
-                trigger={
-                  <Button
-                    variant="secondary"
-                    label={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                  />
-                }>
-                <SpielortFelder regeln={spielortRegeln} />
+                open={{ isOpen: neu, onOpenChange: setNeu }}>
+                <SpielortFelder
+                  regeln={spielortRegeln}
+                  name={neuerName}
+                />
               </Dialog>
             </>
           ),
@@ -125,6 +144,7 @@ export function SpielEditor({
               label={WORTE.sonderereignis}
               name="sonderereignis"
               options={sonderereignisse}
+              width="fit"
               value={draft.sonderereignis}
               onChange={(sonderereignis) => {
                 if (sonderereignis !== null) set("sonderereignis", sonderereignis);

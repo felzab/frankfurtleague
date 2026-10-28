@@ -18,4 +18,11 @@ test("an administrator's mailed code leads to setting up a passkey", async ({ pa
   await expect(page.getByText(administrator, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Jetzt einrichten" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Später" })).toHaveCount(0);
+
+  // Asked for by its address, a Verwaltung page shows the session nothing: its read turns the session
+  // to the sign-in's landing, which sends an administrator who owes a passkey back to this card.
+  await page.goto("/bereich/verwaltung/spielorte");
+  await expect(page).toHaveURL(/\/signin\/passkey$/);
+  await expect(page.getByText("Die Verwaltung ist erst mit einem Passkey erreichbar.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Spielorte", exact: true })).toHaveCount(0);
 });

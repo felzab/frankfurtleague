@@ -28,8 +28,17 @@ const NEW_VENUE = "Sportplatz Ulmenring";
 const SAISON = "2027";
 const SPIEL_NR = 6;
 
-/** Whether the document scrolls sideways, which no page may. */
-const scrollsSideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+/**
+ * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
+ * `Table` stands in a box of its own that scrolls sideways (`fl_frontend/src/kit/Table.tsx`), so a name
+ * that stops wrapping widens that box's content and never the document's.
+ */
+const scrollsSideways = (page: Page) =>
+  page.evaluate(() =>
+    [document.documentElement, ...Array.from(document.querySelectorAll("table"), (table) => table.parentElement)].some(
+      (box) => box !== null && box.scrollWidth > box.clientWidth,
+    ),
+  );
 
 /**
  * The match's id, read off today's admin match search: no new page lists a season's matches yet, so the
@@ -53,13 +62,13 @@ test("an administrator creates a venue over the Spielorte list, then moves a mat
   await page.goto("/bereich/verwaltung/spielorte");
   await expect(page.getByRole("heading", { level: 1, name: "Spielorte" })).toBeVisible();
 
-  // A long name stands in its row and pushes nothing sideways, on desktop and at a phone's width (D338).
+  // A long name wraps in its row and pushes nothing sideways, on desktop and at a phone's width.
   await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
-  expect(await scrollsSideways(page), "the list scrolls sideways on desktop").toBe(false);
+  expect(await scrollsSideways(page), "the page or its list scrolls sideways on desktop").toBe(false);
   const desktop = page.viewportSize();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("cell", { name: LONG_NAME })).toBeVisible();
-  expect(await scrollsSideways(page), "the list scrolls sideways at a phone's width").toBe(false);
+  expect(await scrollsSideways(page), "the page or its list scrolls sideways at a phone's width").toBe(false);
   if (desktop !== null) await page.setViewportSize(desktop);
 
   await page.getByRole("button", { name: "Spielort anlegen" }).click();
