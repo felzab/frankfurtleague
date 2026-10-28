@@ -953,8 +953,21 @@ def test_a_pair_check_that_could_not_be_made_is_an_advisory() -> None:
     assert "(exit 125)" in output, output
 
 
+# A call at any indentation, `local.sh` asking it of the local stack alone, through its continued lines.
+KEY_CHECK_CALL_RE: Final = re.compile(r"\n *(check_actor_key (?:\\\n|[^\n])*)")
+
+
 def _key_check_call(script: Path) -> str:
-    return "check_actor_key " + script.read_text(encoding="utf-8").split("\ncheck_actor_key ", 1)[1].split("\n\n", 1)[0]
+    found = KEY_CHECK_CALL_RE.search(script.read_text(encoding="utf-8"))
+    assert found is not None, f"{script.name} calls no check_actor_key"
+    return found.group(1)
+
+
+def _line_starting(text: str, call: str) -> int:
+    """Where the first line opening with `call` starts, at any indentation."""
+    found = re.search(rf"\n *{re.escape(call)}", text)
+    assert found is not None, f"no line opens with {call}"
+    return found.start()
 
 
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
@@ -1042,8 +1055,8 @@ def test_the_pair_is_judged_after_the_frontend_s_boot_and_before_anything_starts
     """The boot has refused a key it cannot read where its environment points it, which the pair check takes as read."""
     text = script.read_text(encoding="utf-8")
 
-    assert text.index("\ncheck_frontend_boot_config ") < text.index("\ncheck_actor_key ") < text.index(before), script.name
-    assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\ncheck_actor_key "), script.name
+    assert text.index("\ncheck_frontend_boot_config ") < _line_starting(text, "check_actor_key ") < text.index(before), script.name
+    assert _line_starting(text, 'require_file "$SIGNING_KEY_FILE"') < _line_starting(text, "check_actor_key "), script.name
 
 
 # --- the configuration compose reads, before anything is pulled ---------------------------------------
