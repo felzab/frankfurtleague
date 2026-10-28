@@ -10,6 +10,7 @@ import { Button } from "./Button";
 import { RAIL_ID } from "./railStyles";
 import { Tooltip } from "./Tooltip";
 import { tv } from "./tv";
+import { useDesktop } from "./useDesktop";
 
 import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
@@ -43,12 +44,15 @@ const root = tv({
  * attribute on this element, which the rail's parts style against with `group-data-collapsed:`. The choice
  * is not stored: every page load starts expanded, and it holds while the visitor moves between the frame's
  * pages because Next keeps a layout mounted. Ctrl+B, and Cmd+B on a Mac, flip it from anywhere on the page,
- * as shadcn/ui's sidebar does, so the listener is the window's rather than the toggle's.
+ * as shadcn/ui's sidebar does, so the listener is the window's rather than the toggle's; only where the rail
+ * stands, so a phone's keyboard keeps the browser's own Ctrl+B and no hidden rail folds unseen.
  */
 export function RailRoot({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const isDesktop = useDesktop();
 
   useEffect(() => {
+    if (!isDesktop) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "b" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
@@ -57,7 +61,7 @@ export function RailRoot({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [isDesktop]);
 
   return (
     <RailContext value={{ collapsed, toggle: () => setCollapsed((is) => !is) }}>

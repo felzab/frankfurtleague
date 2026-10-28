@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import {
   Menu as AriaMenu,
@@ -21,6 +21,7 @@ import { Icon } from "./Icon";
 import { menuEntry } from "./Link";
 import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
+import { useDesktop } from "./useDesktop";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -67,27 +68,6 @@ export type MenuProps = {
 };
 
 type Size = "desktop" | "phone";
-
-/**
- * The rail's breakpoint, `lg`, read from its token on the root as Tailwind's guide reads a theme variable in
- * script: from it the rail stands, below it the phone's bars and sheets.
- */
-const desktop = () => window.matchMedia(`(min-width: ${getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-lg")})`);
-
-function subscribe(onChange: () => void) {
-  const query = desktop();
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-/** Whether the rail stands. The server answers desktop; a menu renders its list only once opened. */
-function useDesktop() {
-  return useSyncExternalStore(
-    subscribe,
-    () => desktop().matches,
-    () => true,
-  );
-}
 
 // An entry that acts keeps the arrow; an entry with an address renders an `a`, which shows the pointing hand
 // as every link does, so it takes `menuEntry` alone.

@@ -195,7 +195,7 @@
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a
-   variable: the menu's script asks the same question as `lg:` (`Menu.tsx`). */
+   variable: the kit's script asks the same question as `lg:` (`useDesktop.ts`). */
 @theme static {
   --breakpoint-lg: 64rem;
 }
