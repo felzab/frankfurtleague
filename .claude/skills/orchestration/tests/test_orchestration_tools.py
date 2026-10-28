@@ -1241,6 +1241,35 @@ def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_pat
     assert f"names process {os.getpid()}, still running" in said and "in no messages file" in said, said
 
 
+def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
+    """The hook lets through whatever it cannot read, so a renamed input field turned it off with nothing failing.
+
+    The payload is a PreToolUse input as the hooks reference documents it, `agent_type` among the
+    common fields a subagent's call carries.
+    """
+    assert BASH is not None
+    payload = {
+        "session_id": "s",
+        "transcript_path": "t.jsonl",
+        "cwd": str(REPO_ROOT),
+        "permission_mode": "default",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__Claude_Preview__preview_start",
+        "tool_input": {},
+        "tool_use_id": "toolu_01",
+        "agent_id": "agent-a1b2c3",
+        "agent_type": "implementer",
+    }
+    done = subprocess.run(
+        (BASH, (REPO_ROOT / ".claude" / "hooks" / "writer-tools.sh").as_posix()),
+        input=json.dumps(payload),
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert done.returncode == 2 and "implementer holds no mcp__Claude_Preview__preview_start" in done.stderr, (done.returncode, done.stderr)
+
+
 def test_dispatch_writes_the_messages_file_and_the_row_a_send_resolves_through(tmp_path: Path) -> None:
     """The first dispatch after the landing made no messages file and no live-agent row, so its sends had nowhere to go."""
     plans, register, _ = _fleet(tmp_path)
