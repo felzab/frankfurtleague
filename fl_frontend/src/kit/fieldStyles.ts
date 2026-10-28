@@ -118,12 +118,12 @@ export const searchClear = tv({
   base: "flex h-full w-9 shrink-0 items-center justify-center text-fg-muted group-data-empty:invisible pointer-coarse:w-11",
 });
 
-/** The six code boxes, sharing the column, with the code's one input laid over them. */
-export const codeRow = tv({ base: "relative grid grid-cols-6 gap-2" });
+/** The six code boxes, centred in the column as every code entry sets them, with the code's one input laid over them. */
+export const codeRow = tv({ base: "relative flex justify-center gap-2" });
 
-/** One drawn code box: a field's frame, fill and height, its digit large and centred. */
+/** One drawn code box: a 44-px square in a field's frame and fill, whatever the pointer, its digit large and centred. */
 export const codeBox = tv({
-  base: "flex h-9 w-full items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger pointer-coarse:h-11",
+  base: "flex size-11 items-center justify-center rounded-lg border border-border-control bg-bg-surface font-numeric text-xl font-semibold text-fg tabular-nums transition-colors duration-(--motion-state) group-data-disabled:opacity-50 group-data-invalid:border-danger",
 });
 
 /**
@@ -312,7 +312,6 @@ export const entryMark = tv({
 /**
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame on the
  * surface, and the toggle boxes of a small multi-select, each box standing alone.
- * @awaitsProduction session 4's `ChoiceButtons`
  */
 export const choiceGroup = tv({
   base: "flex flex-wrap",
@@ -328,15 +327,24 @@ export const choiceGroup = tv({
  * One answer of that choice, semibold once chosen. The chosen segment is raised out of its frame, the
  * highlight fill inside a 1-px control edge, as GitHub Primer's segmented control draws it; a chosen box lifts
  * to the surface, its edge one grade stronger, so the edge tells it from its neighbours too.
- * @awaitsProduction session 4's `ChoiceButtons`
  */
 export const choiceButton = tv({
   base: "inline-flex cursor-default items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:opacity-50 data-selected:font-semibold",
   variants: {
     kind: {
-      segmented: "h-full min-w-16 rounded-md border border-transparent px-3 data-selected:border-border-control data-selected:bg-bg-muted",
+      segmented: "h-full rounded-md border border-transparent data-selected:border-border-control data-selected:bg-bg-muted",
       boxes:
         "h-9 min-w-16 rounded-lg border border-border-control bg-bg px-3 data-selected:border-fg-muted data-selected:bg-bg-surface pointer-coarse:h-11",
     },
+    // A segment holds words at the boxes' width, or a glyph alone, as wide as a control is tall, muted until chosen.
+    content: {
+      words: "",
+      glyph: "",
+    },
   },
+  compoundVariants: [
+    { kind: "segmented", content: "words", class: "min-w-16 px-3" },
+    { kind: "segmented", content: "glyph", class: "w-9 text-fg-muted data-selected:text-fg pointer-coarse:w-11" },
+  ],
+  defaultVariants: { content: "words" },
 });

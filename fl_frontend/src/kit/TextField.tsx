@@ -1,5 +1,8 @@
 "use client";
 
+import { useContext } from "react";
+
+import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
 
 import { COPY } from "@/core/copy";
@@ -12,9 +15,6 @@ import type { Constraints } from "./FieldParts";
 
 type Shared = {
   label: Copy;
-  description?: Copy;
-  /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
-  consequence?: Copy;
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
@@ -24,6 +24,20 @@ type Shared = {
   maxLength?: number;
   minLength?: number;
 };
+
+/**
+ * The message line under the field: always there, so a message appearing or going moves nothing; or, on the
+ * sign-in's one-field view whose two acts stand right under the field, there only with the error, so the field
+ * and its acts read as one block and move down together. A line that is not always there describes nothing.
+ */
+type Line =
+  | {
+      line?: "always";
+      description?: Copy;
+      /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
+      consequence?: Copy;
+    }
+  | { line: "withError"; description?: never; consequence?: never };
 
 /**
  * What a text or digits field asks of the person about themselves, as the HTML autofill token the browser
@@ -55,7 +69,7 @@ type SingleLine = {
 /** A paragraph: the column's width at four lines. */
 type Paragraph = { width: "W4"; kind: "text"; autofill?: never; beispiel?: never; unit?: never };
 
-export type TextFieldProps = Shared & (SingleLine | Paragraph);
+export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
@@ -75,6 +89,12 @@ const KINDS = {
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
 const BEISPIEL = { email: COPY.shared.feld.beispielAdresse, digits: COPY.shared.feld.beispielZiffern } as const;
+
+/** The line only once the field is invalid: it reads the field's validation, which the field provides to its children. */
+function LineWithError({ constraints }: { constraints: Constraints }) {
+  const validation = useContext(FieldErrorContext);
+  return validation?.isInvalid === true ? <MessageLine constraints={constraints} /> : null;
+}
 
 /**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at its
@@ -137,11 +157,15 @@ export function TextField(props: TextFieldProps) {
           </span>
         </span>
       )}
-      <MessageLine
-        description={description}
-        consequence={consequence}
-        constraints={constraints}
-      />
+      {props.line === "withError" ? (
+        <LineWithError constraints={constraints} />
+      ) : (
+        <MessageLine
+          description={description}
+          consequence={consequence}
+          constraints={constraints}
+        />
+      )}
     </AriaTextField>
   );
 }

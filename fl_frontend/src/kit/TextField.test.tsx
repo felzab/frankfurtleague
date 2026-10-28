@@ -102,6 +102,47 @@ describe("a field's frame", () => {
   });
 });
 
+describe("a field's message line", () => {
+  it("is always there, holding its place while it says nothing", () => {
+    render(
+      <TextField
+        label={COPY.shared.startelf}
+        kind="text"
+        width="W3"
+      />,
+    );
+    const field = screen.getByRole("textbox");
+    expect(field.parentElement?.children).toHaveLength(3);
+    expect(field.parentElement?.lastElementChild?.className.split(" ")).toContain("h-4");
+  });
+
+  it("appears with the error alone where the field reserves no line, as the sign-in's address field does", async () => {
+    render(
+      <Form onSubmit={(event) => event.preventDefault()}>
+        <TextField
+          label={COPY.anmeldung.adresse}
+          kind="email"
+          width="W3"
+          line="withError"
+        />
+        <Button
+          variant="primary"
+          type="submit"
+          label={COPY.shared.verb.speichern}
+        />
+      </Form>,
+    );
+    const field = screen.getByRole("textbox");
+    expect(field.parentElement?.children).toHaveLength(2);
+
+    await userEvent.type(field, "lena");
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
+    const message = screen.getByText(COPY.shared.feld.format(COPY.shared.feld.beispielAdresse));
+    expect(field.parentElement?.lastElementChild?.contains(message)).toBe(true);
+    expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
+  });
+});
+
 describe("a field's width", () => {
   it.each([
     ["C2", "w-[calc(3ch+1.375rem)]"],

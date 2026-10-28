@@ -40,10 +40,13 @@ type AdressView = Head & {
   passkey: Act;
 };
 
-/** The code view: the address inside the sentence, the six boxes, and one press to use another address. */
+/** The code view: the address set semibold inside the sentence, the six boxes, and one press to use another address. */
 type CodeView = Head & {
   view: "code";
-  satz: Copy;
+  /** The sentence's two parts around the address. */
+  satz: { vor: Copy; nach: Copy };
+  /** The address the code went to: data, not catalogue text. */
+  adresse: string;
   code: {
     label: Copy;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
@@ -76,10 +79,13 @@ export type SignInView = AdressView | CodeView | PasskeyView | AngemeldetView;
 
 const look = tv({
   slots: {
-    column: "flex flex-col gap-6 text-center",
+    // 16 px between the blocks, as Vercel's measured sign-in sets them, so the column reads as one piece.
+    column: "flex flex-col gap-4 text-center",
     head: "grid justify-items-center gap-3",
     sentence: "text-base text-fg",
+    // The address on its own line under a passkey sentence, or marked inside the code view's sentence.
     address: "text-base font-semibold break-all text-fg",
+    marked: "font-semibold break-all",
     acts: "grid gap-3",
     form: "grid gap-4 text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
@@ -90,14 +96,18 @@ const look = tv({
 
 /**
  * The sign-in template, centred as the prototype drew it: the heading, the sentences, the address and the code
- * boxes centred, every button full width. Each view is one step of a sign-in; the page holding its state
- * passes the view it is on. Every outcome stands in the one line under the acts, so nothing above it moves.
+ * boxes centred, every button full width in the 384-px column. Each view is one step of a sign-in; the page
+ * holding its state passes the view it is on. Every outcome stands in the one line under the acts, so nothing
+ * above it moves.
  */
 export function SignInPage(props: SignInView) {
   const slots = look();
   return (
-    // The card width centres the column in the first screen the classic page fills.
-    <ClassicPage width="card">
+    // The sign-in width centres the column in the first screen the classic page fills.
+    <ClassicPage width="signin">
+      {/* The address view's title stands in the page's own column, so the field under it keeps the heading gap
+          every classic page sets above its content; the other views' titles head a block with their sentence. */}
+      {props.view === "adresse" && <ClassicTitle text={props.titel} />}
       <div className={slots.column()}>
         <Body {...props} />
         {/* An alert standing from the first render, so a failure written into it is announced at once: it
@@ -121,7 +131,6 @@ function Body(props: SignInView) {
       const { adresse, senden, passkey } = props;
       return (
         <>
-          <ClassicTitle text={props.titel} />
           <Form
             validationErrors={adresse.fehler === undefined ? undefined : { email: adresse.fehler }}
             onSubmit={(event) => {
@@ -135,6 +144,8 @@ function Body(props: SignInView) {
               width="W3"
               kind="email"
               autofill="username"
+              // The one field of the view, its two acts right under it: the line appears with the error alone.
+              line="withError"
               // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
               // its form in this line, as a malformed one meets the browser's.
               value={adresse.value}
@@ -179,7 +190,9 @@ function Body(props: SignInView) {
             role="status"
             className={slots.head()}>
             <ClassicTitle text={props.titel} />
-            <p className={slots.sentence()}>{props.satz}</p>
+            <p className={slots.sentence()}>
+              {props.satz.vor} <strong className={slots.marked()}>{props.adresse}</strong> {props.satz.nach}
+            </p>
           </div>
           <CodeField
             // Remounted on each refusal, so the boxes empty and the next six digits send by themselves.
@@ -192,8 +205,9 @@ function Body(props: SignInView) {
             onComplete={code.onComplete}
           />
           <div className={slots.acts()}>
+            {/* The step aside from the view's one act, quiet as „Später“ is. */}
             <Button
-              variant="secondary"
+              variant="quiet"
               label={zurueck.label}
               isBusy={zurueck.isBusy}
               isDisabled={zurueck.isDisabled}
@@ -249,8 +263,9 @@ function Body(props: SignInView) {
               placement="button"
               label={weiter.label}
             />
+            {/* The step out beside the way on, quiet as „Später“ is. */}
             <Button
-              variant="secondary"
+              variant="quiet"
               label={abmelden.label}
               isBusy={abmelden.isBusy}
               isDisabled={abmelden.isDisabled}

@@ -277,9 +277,12 @@ export const COPY = katalog({
     /** The bot check that did not load, naming the passkey, which signs in without it. */
     pruefungNichtGeladen: `Die Prüfung, ob du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in deinem Browser oder Werbeblocker und lade die Seite neu, melde dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`,
 
-    /** The code view: one sentence for every address, so it says nothing about who holds an account. */
+    /**
+     * The code view: one sentence for every address, so it says nothing about who holds an account, in the two
+     * parts around the address, which the template sets semibold between them.
+     */
     postfach: "Prüfe dein Postfach",
-    codeUnterwegs: (adresse: string) => `Falls zu ${adresse} ein Konto gehört, ist ein Anmeldecode unterwegs.`,
+    codeUnterwegs: { vor: "Falls zu", nach: "ein Konto gehört, ist ein Anmeldecode unterwegs." },
     /** The six boxes' accessible name: no label stands above them. */
     code: "Code aus der E-Mail",
     andereAdresse: "Andere E-Mail-Adresse verwenden",

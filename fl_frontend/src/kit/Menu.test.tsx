@@ -50,3 +50,50 @@ describe("a navigating menu's current entry", () => {
     expect(screen.getByRole("menuitemradio", { name: "2026" }).hasAttribute("data-selected")).toBe(false);
   });
 });
+
+describe("a menu's foot", () => {
+  beforeEach(() => {
+    const narrow = window.matchMedia;
+    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(narrow(media), { matches: true }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("stands after the entries and outside the menu, its words before its control", async () => {
+    render(
+      <Menu
+        label={COPY.shared.saison}
+        placement="below"
+        trigger={
+          <Button
+            variant="secondary"
+            label={COPY.shared.saison}
+          />
+        }
+        groups={[[{ kind: "link", href: "/saisons/2027", text: "2027" }]]}
+        foot={{
+          label: COPY.seite.darstellung,
+          control: (
+            <Button
+              variant="secondary"
+              label={COPY.vorlage.darstellung.system}
+            />
+          ),
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.saison }));
+
+    const menu = screen.getByRole("menu");
+    const control = screen.getByRole("button", { name: COPY.vorlage.darstellung.system });
+    const row = control.parentElement;
+    expect(menu.contains(control)).toBe(false);
+    // In the menu's popover, after the menu (React Aria's focus sentinels stand between them).
+    expect(row?.parentElement).toBe(menu.parentElement);
+    expect(menu.compareDocumentPosition(row ?? menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row?.firstElementChild?.textContent).toBe(COPY.seite.darstellung);
+    expect(row?.className.split(" ")).toEqual(expect.arrayContaining(["border-t", "justify-between"]));
+  });
+});

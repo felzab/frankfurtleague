@@ -95,7 +95,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       <SignInPage
         view="code"
         titel={COPY.anmeldung.postfach}
-        satz={COPY.anmeldung.codeUnterwegs(address)}
+        satz={COPY.anmeldung.codeUnterwegs}
+        adresse={address}
         code={{ label: COPY.anmeldung.code, versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
         zurueck={{
           label: COPY.anmeldung.andereAdresse,
