@@ -12,8 +12,7 @@ export function useSaisonId(): string | null {
 
 /**
  * The client half of `withSaisonId`. Every admin navigation that is not itself season-scoped goes
- * through one or the other, so no link can quietly lose the season:
- * `fl_frontend/eslint.config.mjs :: UNSEASONED_ADMIN_LINKS` refuses a `/bereich/admin` literal that is neither's first argument.
+ * through one or the other, so no link can quietly lose the season.
  */
 export function useSaisonHref(): (path: string) => string {
   const saisonId = useSaisonId();

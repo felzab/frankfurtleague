@@ -6,14 +6,17 @@
 # the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
 # the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
 # `nginx/prod/` behind a throwaway certificate for the block production alone serves. It answers
-# nothing about which locations the edge makes reachable (`docs/ops/spec.md` I13).
+# nothing about which locations the edge makes reachable.
 #
 # Invariants:
-# - `docs/logging/spec.md` L11, and the edge's half of L12, every line's span.
-# - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
-# - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
-# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
-# - `docs/ops/spec.md` I9, I507, §1.3's server-action and link-page pairs.
+# - A credential a URL carries never reaches an access line, and every line holds the edge's own span.
+# - A visitor's `traceparent` and `X-FL-Actor` are replaced or cleared on every location proxying to
+#   the frontend.
+# - Each security header is sent once, as written, on every location's response.
+# - No visitor is named in the container's own streams.
+# - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
+#   to start it.
+# - `docs/ops/spec.md` §1.3's server-action and link-page pairs.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -168,7 +171,7 @@ EDGE_IMAGE=""
 EDGE_COMMAND=()
 EDGE_TMPFS=()
 # The capabilities and options the model starts nginx with, on both edges below: a master refused a
-# capability it needs never starts (`docs/ops/spec.md :: I507`).
+# capability it needs never starts.
 EDGE_PRIVILEGES=()
 mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
   || echo "unread")
@@ -289,7 +292,7 @@ CASES=(
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
-  # A typed search query, which no page writes (`docs/frontend/spec.md :: I680`): an address in the
+  # A typed search query, which no page writes: an address in the
   # first parameter, a name past another, and the page a visitor came from, plain and encoded.
   "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
   "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
@@ -409,7 +412,7 @@ for case_line in "${CASES[@]}"; do
   esac
 
   # Every line carries the edge's two ids in the envelope's shape, the span the trace's first
-  # sixteen hex (docs/logging/spec.md L12): a `map` capture that failed would leave `span_id`
+  # sixteen hex: a `map` capture that failed would leave `span_id`
   # empty and pass every LEAK case above.
   if [[ ! "$logged" =~ \"trace_id\":\"([0-9a-f]{32})\",\"span_id\":\"([0-9a-f]{16})\", ]]; then
     fail "IDS ${subject}"
@@ -434,8 +437,7 @@ done
 
 # --- the container's own streams ---------------------------------------------------------------
 
-# No line in the container's own streams may name a visitor
-# (`docs/ops/spec.md :: I352`). nginx writes error lines for the requests it refuses or
+# No line in the container's own streams may name a visitor. nginx writes error lines for the requests it refuses or
 # fails itself, and the table above sends none.
 STREAM_MARKER="fl-stream"
 STREAM=( -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/413"
@@ -504,7 +506,7 @@ if (( FAILURES > 0 )); then
 Each line above is what nginx WROTE."
 fi
 
-# --- the security headers, as served (`docs/ops/spec.md` I2) -------------------------------------
+# --- the security headers, as served -----------------------------------------------------------
 
 HEADER_FAILURES=0
 declare -A SENT=() SENT_VALUE=()
@@ -595,7 +597,7 @@ while IFS= read -r location_line; do
 done < "${REPO_ROOT}/nginx/shared/site.conf"
 (( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
 
-# The two headers a visitor may not choose (`docs/logging/spec.md` L7 and L10), sent on every
+# The two headers a visitor may not choose, sent on every
 # request below: nginx forwards every request header no `proxy_set_header` names, so a location
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
@@ -878,10 +880,9 @@ awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"
   open { print }" "${REPO_ROOT}/nginx/shared/site.conf" > "$REFUSAL_PAGE"
 [[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
 
-# The page's colours against the season scheme `fl_frontend/src/app/globals.css` imports, as
-# `fl_frontend/src/core/emailShell.test.ts` holds the mails' to it: both are copied by hand. Read as
-# `scripts/checks/docs_gate/scheme.py :: _read` reads a scheme, copied: its kernel needs packages this
-# scope's interpreter need not hold.
+# The page's colours against the season scheme `fl_frontend/src/app/globals.css` imports, both
+# copied by hand. The read is a standalone script, so it needs nothing of this scope's interpreter
+# beyond its standard library.
 PAGE_PALETTE_READ='
 import re
 import sys
@@ -1151,7 +1152,7 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-# --- the upstreams, found by name while both edges serve (`docs/ops/spec.md :: I9`) ----------------
+# --- the upstreams, found by name while both edges serve --------------------------------------------
 
 RESOLVE_FAILURES=0
 RESOLVER_HOME="nginx/shared/http.conf"
