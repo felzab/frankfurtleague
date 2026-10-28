@@ -274,10 +274,13 @@ export const switchThumb = tv({
 export const menuPopover = tv({
   base: "overflow-auto rounded-lg bg-bg p-1 shadow-menu transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
   variants: {
-    // A list is as wide as the field that opened it.
+    // A list is as wide as the field that opened it; a menu keeps a floor of 224 px, so a short list of
+    // words does not open as a sliver, and takes its trigger's width where the trigger is a full-width row.
     fit: {
       field: "w-(--trigger-width)",
       content: "",
+      menu: "min-w-56",
+      trigger: "w-(--trigger-width) min-w-56",
     },
   },
 });

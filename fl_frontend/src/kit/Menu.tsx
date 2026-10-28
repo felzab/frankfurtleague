@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 
+import { Header } from "react-aria-components/Header";
 import {
   Menu as AriaMenu,
   MenuContext,
@@ -72,6 +73,8 @@ export type MenuProps = {
   groups: ReadonlyArray<ReadonlyArray<MenuEntry> | MenuChoice>;
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
+  /** On desktop, as wide as its entries with the menu's floor, or as wide as a full-width trigger such as the rail's. */
+  width?: "content" | "trigger";
 };
 
 type Size = "desktop" | "phone";
@@ -105,7 +108,7 @@ const item = tv({
 });
 
 // A menu dims nothing and blurs nothing: it stands on the page in the select's menu look.
-const surface = () => menuPopover({ fit: "content" });
+const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit: width === "trigger" ? "trigger" : "menu" });
 
 function Entry({ label, icon, hasMore }: { label: string; icon?: IconName; hasMore?: boolean }) {
   return (
@@ -317,11 +320,14 @@ function Entries({
   );
 }
 
-/** A choice's options in their own section, the chosen one tinted and checked as a form's value is. */
+/**
+ * A choice's options in their own section under its label, which heads the group as the rail heads one, so
+ * the options are not three words standing under a separator; the chosen one tinted and checked as a form's
+ * value is.
+ */
 function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
   return (
     <MenuSection
-      aria-label={choice.label}
       className="grid gap-1"
       selectionMode="single"
       disallowEmptySelection
@@ -330,6 +336,7 @@ function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
         const [id] = keys === "all" ? [] : [...keys];
         if (typeof id === "string") choice.onChange(id);
       }}>
+      <Header className="px-3 py-1 text-xs font-medium text-fg-muted">{choice.label}</Header>
       {choice.options.map((option) => (
         <MenuItem
           key={option.id}
@@ -361,7 +368,7 @@ function Choice({ choice, size }: { choice: MenuChoice; size: Size }) {
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, width = "content" }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
@@ -383,7 +390,7 @@ export function Menu({ label, trigger, head, groups, placement }: MenuProps) {
           placement={placement === "above" ? "top start" : "bottom start"}
           offset={4}
           data-kit-focus
-          className={surface()}>
+          className={surface(width)}>
           {head !== undefined && (
             <Head
               head={head}
