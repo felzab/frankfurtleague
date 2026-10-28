@@ -10,7 +10,6 @@ import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { EmptyStateProps } from "./EmptyState";
 import type { TableProps, TableRow } from "./Table";
 
 /**
@@ -40,9 +39,6 @@ const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
   return (row: TableRow) => row.name.toLowerCase().includes(wanted);
 };
-
-/** The empty state a search leaves, every other field kept, where the list names its plural; else the list's own. */
-const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps => (empty.kind === "satz" ? empty : { ...empty, kind: "suche" });
 
 type Shown = {
   /** The rows the page was served with, so a new render of the page starts the list afresh. */
@@ -128,7 +124,8 @@ export function ListTable({
       <Table
         {...table}
         rows={rows}
-        empty={isSearching ? emptyForSearch(table.empty) : table.empty}
+        // A search that emptied the list says so, in the list's own plural.
+        empty={isSearching ? { ...table.empty, kind: "suche" } : table.empty}
       />
       {more !== undefined && current.cursor !== null && (
         <div>
