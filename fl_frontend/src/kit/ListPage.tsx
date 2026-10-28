@@ -12,7 +12,7 @@ import type { Copy } from "@/core/copy";
 import type { ComponentProps, ReactNode } from "react";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
-import type { ListMore } from "./ListTable";
+import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
 import type { TableProps } from "./Table";
 
@@ -55,7 +55,7 @@ export function ListPage({
 }: {
   head: RailPageHead;
   /** The search field's name, where the list holds about 20 rows or more. */
-  search?: { label: Copy };
+  search?: ListSearch;
   filters?: ReadonlyArray<Filter>;
   create?: ListCreate;
   list:

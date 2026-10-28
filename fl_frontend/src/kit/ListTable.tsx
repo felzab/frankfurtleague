@@ -30,16 +30,15 @@ export type ListMore = {
 };
 
 /**
- * The search field over a list: its name, and the columns it reads beside the row's name, by their keys, such
- * as a venue's address beside the venue's name. A list past one read's cap is searched on the server, which
- * decides what it reads.
+ * The search field over a list, by its name. A list read whole is searched over its rows' names; a list past
+ * one read's cap is searched on the server, which decides what it reads.
  */
-export type ListSearch = { label: Copy; columns?: ReadonlyArray<string> };
+export type ListSearch = { label: Copy };
 
-/** A row's name, or one of the columns the search reads, holds what is typed, upper and lower case alike. */
-const matches = (query: string, columns: ReadonlyArray<string>) => {
+/** A row's name holds what is typed, upper and lower case alike. */
+const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => [row.name, ...columns.map((key) => row.cells[key] ?? "")].some((text) => text.toLowerCase().includes(wanted));
+  return (row: TableRow) => row.name.toLowerCase().includes(wanted);
 };
 
 /** The empty state a search leaves, every other field kept, where the list names its plural; else the list's own. */
@@ -106,7 +105,7 @@ export function ListTable({
   };
 
   const isSearching = current.query.trim() !== "";
-  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query, search?.columns ?? [])) : current.rows;
+  const rows = more === undefined && isSearching ? current.rows.filter(matches(current.query)) : current.rows;
 
   return (
     <>
