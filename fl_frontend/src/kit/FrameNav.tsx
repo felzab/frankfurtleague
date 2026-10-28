@@ -20,6 +20,8 @@ import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
 import { frameLink, menuEntry } from "./Link";
 import { Menu } from "./Menu";
+import { RailTooltip } from "./RailState";
+import { railFade, railGlyph } from "./railStyles";
 import { groupHeading } from "./Section";
 import { Sheet } from "./Sheet";
 import { appToast } from "./Toast";
@@ -239,14 +241,22 @@ function FreshPerPage({ children }: { children: ReactNode }) {
 }
 
 // The current entry is marked as every navigating list marks its place, the link carrying `data-selected`.
+// Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
 const railEntry = tv({
-  base: "flex h-[2.125rem] items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
+  base: "flex h-[2.125rem] items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state)",
   variants: {
     current: {
       true: entryMark({ mark: "place" }),
       false: "text-fg-muted hover:bg-bg-muted hover:text-fg",
     },
   },
+});
+
+// A group's heading fades as the rail collapses and its 24-px line folds away, so the entries below slide
+// up with the width rather than jump, as shadcn/ui's sidebar folds its group labels.
+const railHeading = groupHeading({
+  class:
+    "mb-1 overflow-hidden px-3 py-1 whitespace-nowrap transition-[margin,opacity] duration-(--motion-in) group-data-collapsed:-mt-6 group-data-collapsed:mb-0 group-data-collapsed:opacity-0",
 });
 
 /** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
@@ -258,25 +268,30 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
       aria-label={COPY.vorlage.navigation}
       className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-3 py-2">
       {groups.map((group, index) => (
-        <div
-          key={group.heading ?? index}
-          className="grid gap-1">
-          {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
-          {group.entries.map((entry) => (
-            <NextLink
-              key={entry.id}
-              href={entry.href}
-              aria-current={entry.href === current ? "page" : undefined}
-              data-selected={entry.href === current || undefined}
-              data-kit-focus="inset"
-              className={railEntry({ current: entry.href === current })}>
-              <Icon
-                glyph={entry.icon}
-                size={18}
-              />
-              {entry.label}
-            </NextLink>
-          ))}
+        <div key={group.heading ?? index}>
+          {group.heading !== undefined && <h2 className={railHeading}>{group.heading}</h2>}
+          <div className="grid gap-1">
+            {group.entries.map((entry) => (
+              <RailTooltip
+                key={entry.id}
+                label={entry.label}>
+                <NextLink
+                  href={entry.href}
+                  aria-current={entry.href === current ? "page" : undefined}
+                  data-selected={entry.href === current || undefined}
+                  data-kit-focus="inset"
+                  className={railEntry({ current: entry.href === current })}>
+                  <span className={railGlyph()}>
+                    <Icon
+                      glyph={entry.icon}
+                      size={18}
+                    />
+                  </span>
+                  <span className={railFade()}>{entry.label}</span>
+                </NextLink>
+              </RailTooltip>
+            ))}
+          </div>
         </div>
       ))}
     </nav>
@@ -305,7 +320,11 @@ const avatar = tv({
  */
 export type AccountRead = Promise<Account | null>;
 
-/** The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu. */
+/**
+ * The rail's foot when signed in: the name, the role under it, and „…“; the whole row opens the account menu.
+ * Collapsed, the avatar alone stands centred, 8 px of the row's inset after the foot's 12, and the words
+ * fade, clipped by the row.
+ */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const account = use(read);
   if (account === null) return null;
@@ -316,17 +335,17 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className="flex h-12 w-full items-center gap-3 rounded-lg px-2 text-start text-sm transition-colors duration-(--motion-state) data-hovered:bg-bg-muted">
+          className="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm transition-colors duration-(--motion-state) data-hovered:bg-bg-muted">
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
             {initials(name)}
           </span>
-          <span className="grid min-w-0 flex-1">
+          <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
             <span className="truncate text-xs text-fg-muted">{account.role}</span>
           </span>
-          <span className="text-fg-muted">
+          <span className={railFade({ class: "text-fg-muted" })}>
             <Icon
               glyph="mehr"
               size={16}

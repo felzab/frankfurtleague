@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 
-import { RailFrame } from "./RailFrame";
+import { RailFrame, RailPage } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
 
@@ -82,6 +83,67 @@ describe("the rail's entries", () => {
 
     const current = screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => link.getAttribute("aria-current") === "page");
     expect(current?.hasAttribute("data-selected")).toBe(true);
+  });
+});
+
+/** The signed-out frame around a page with its title strip, where the rail's toggle stands. */
+async function renderPage() {
+  await act(async () =>
+    render(
+      <RailFrame
+        groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
+        bar={["spielorte"]}
+        foot={{ kind: "anmelden", href: ROUTES.anmeldung.pfad() }}>
+        <RailPage
+          area="bereich"
+          title={{ route: "verwaltungSpielorte" }}>
+          <p>Seite</p>
+        </RailPage>
+      </RailFrame>,
+    ),
+  );
+}
+
+/** The rail's own link for the entry, apart from the phone bar's for the same page. */
+function railLink(rail: HTMLElement) {
+  return screen.getAllByRole("link", { name: COPY.seite.spielorte }).find((link) => rail.contains(link));
+}
+
+describe("the rail's collapse", () => {
+  it("keeps each entry's name for a screen reader and names it in a tooltip only while collapsed", async () => {
+    await renderPage();
+    const toggle = screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen });
+    const rail = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
+    if (rail === null) throw new Error("the toggle controls no rail");
+
+    // A tab from the rail's logo reaches the entry as a keyboard would, which is what opens a tooltip on focus.
+    const logo = screen.getAllByRole("link", { name: COPY.marke.name })[0];
+    if (logo === undefined) throw new Error("the rail has no logo");
+
+    // Expanded, the entry shows its own words: focusing it from the keyboard opens no tooltip.
+    logo.focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(railLink(rail));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    await userEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: COPY.vorlage.seitenleiste.ausklappen })).toBe(toggle);
+    expect(railLink(rail)?.textContent).toBe(COPY.seite.spielorte);
+    logo.focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(railLink(rail));
+    expect(screen.getByRole("tooltip").textContent).toBe(COPY.seite.spielorte);
+  });
+
+  it("toggles with Ctrl+B, and with Cmd+B on a Mac, from anywhere on the page", async () => {
+    await renderPage();
+    const toggle = screen.getByRole("button", { name: COPY.vorlage.seitenleiste.einklappen });
+
+    await userEvent.keyboard("{Control>}b{/Control}");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await userEvent.keyboard("{Meta>}b{/Meta}");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 });
 
