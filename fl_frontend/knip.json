@@ -10,26 +10,14 @@
   "ignoreFiles": [
     // Session 1, the spike's pages.
     "src/core/clock.ts",
-    "src/kit/Link.tsx",
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/Select.tsx",
-    "src/kit/ComboBox.tsx",
-    "src/kit/TimeField.tsx",
     "src/kit/CodeField.tsx",
-    "src/kit/TeamPlaque.tsx",
-    "src/kit/OptionList.tsx",
-    "src/kit/Tabs.tsx",
     "src/kit/MatchRow.tsx",
-    "src/kit/Table.tsx",
-    "src/kit/EmptyState.tsx",
     "src/kit/ClassicFrame.tsx",
     "src/kit/ClassicPage.tsx",
-    "src/kit/ListPage.tsx",
-    "src/kit/ListTable.tsx",
     // Session 3.
     "src/kit/BracketCard.tsx",
-    "src/kit/Filters.tsx",
     "src/kit/Facts.tsx",
     "src/kit/Skeleton.tsx",
     "src/kit/StatusPage.tsx",
@@ -43,8 +31,7 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
-    "src/kit/Switch.tsx",
-    "src/kit/SearchField.tsx"
+    "src/kit/Switch.tsx"
   ],
   // Each entry is a reader knip cannot see, or a kit export waiting for its first page. An export nothing
   // reads is deleted or un-exported, never added here.
@@ -64,6 +51,8 @@
     // rest with session 1's spike pages.
     "src/kit/fieldStyles.ts": ["exports"],
     "src/kit/Dialog.tsx": ["exports"],
+    // Session 7, the Protokoll: the one list that pages, whose page names the type of a page of rows.
+    "src/kit/ListTable.tsx": ["types"],
     "src/kit/Toast.tsx": ["exports"],
     "src/kit/Menu.tsx": ["types"],
     "src/kit/FrameNav.tsx": ["exports", "types"],

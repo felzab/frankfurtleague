@@ -16,53 +16,14 @@
   "ignoreFiles": [
     // Session 1, the spike's pages.
     "src/core/clock.ts",
-    "src/core/routes.ts",
-    "src/kit/Button.tsx",
-    "src/kit/Link.tsx",
     "src/kit/Stack.tsx",
     "src/kit/Inline.tsx",
-    "src/kit/Icon.tsx",
-    "src/kit/Tooltip.tsx",
-    "src/kit/TextField.tsx",
-    "src/kit/Select.tsx",
-    "src/kit/ComboBox.tsx",
-    "src/kit/DateField.tsx",
-    "src/kit/TimeField.tsx",
     "src/kit/CodeField.tsx",
-    "src/kit/Chip.tsx",
-    "src/kit/TeamPlaque.tsx",
-    "src/kit/FieldParts.tsx",
-    "src/kit/fieldStyles.ts",
-    "src/kit/OptionList.tsx",
-    "src/kit/dateParts.tsx",
-    "src/kit/Tabs.tsx",
     "src/kit/MatchRow.tsx",
-    "src/kit/Table.tsx",
-    "src/kit/EmptyState.tsx",
-    "src/kit/Section.tsx",
-    "src/kit/HelpPopover.tsx",
-    "src/kit/ConfirmDialog.tsx",
-    "src/kit/Dialog.tsx",
-    "src/kit/Sheet.tsx",
-    "src/kit/Menu.tsx",
-    "src/kit/SeasonButton.tsx",
-    "src/kit/Toast.tsx",
-    "src/kit/buttonStyles.ts",
-    "src/kit/Brand.tsx",
-    "src/kit/FrameNav.tsx",
-    "src/kit/LeaveGuard.tsx",
-    "src/kit/RailFrame.tsx",
     "src/kit/ClassicFrame.tsx",
     "src/kit/ClassicPage.tsx",
-    "src/kit/ListPage.tsx",
-    "src/kit/ListTable.tsx",
-    "src/kit/EditorPage.tsx",
-    "src/kit/EditorBar.tsx",
-    "src/kit/useEditor.ts",
-    "src/kit/useFormAction.ts",
     // Session 3.
     "src/kit/BracketCard.tsx",
-    "src/kit/Filters.tsx",
     "src/kit/Facts.tsx",
     "src/kit/Skeleton.tsx",
     "src/kit/StatusPage.tsx",
@@ -76,11 +37,8 @@
     "src/kit/MailedPage.tsx",
     "src/kit/OneShot.tsx",
     // Session 5.
-    "src/kit/Switch.tsx",
-    "src/kit/SearchField.tsx"
+    "src/kit/Switch.tsx"
   ],
-  // Session 1, the kit's icon set, first imported by the spike's pages.
-  "ignoreDependencies": ["lucide-react"],
   "ignoreIssues": {
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
     // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
@@ -89,7 +47,14 @@
     // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
     "src/features/system/queries.ts": ["exports"],
     // Session 1, the spike's pages: the formatters wait for their first page.
-    "src/core/format.ts": ["exports"]
+    "src/core/format.ts": ["exports"],
+    // Kit exports a page already reaches the file of, waiting for their own first reader: the field
+    // looks for the sign-in's code boxes (session 1) and for the checkbox, radio and switch (sessions 4
+    // and 5); the classic header's links (session 1, the classic frame's pages); the toast's call
+    // (its first caller).
+    "src/kit/fieldStyles.ts": ["exports"],
+    "src/kit/FrameNav.tsx": ["exports"],
+    "src/kit/Toast.tsx": ["exports"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.
