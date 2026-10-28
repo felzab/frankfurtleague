@@ -3,7 +3,7 @@
 # The OS layer the build and the runtime share, so anything added here ships in the image. Debian
 # rather than Alpine: Node's glibc builds are its Tier 1 platform, its musl builds experimental.
 
-# The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
+# The tag names the Node `package.json :: devEngines` pins, and
 # Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
 FROM node:26.12.0-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4 AS base
 
@@ -20,7 +20,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
-# `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
+# `package.json :: packageManager` names the same pnpm.
 ARG PNPM_VERSION=11.28.6
 
 # npm's cache is a mount, so none of it is written into the layer.

@@ -7,7 +7,7 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not docs, ops, db or images
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone: no Docker, and not docs, format, frontend-units, ops, db or images
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 

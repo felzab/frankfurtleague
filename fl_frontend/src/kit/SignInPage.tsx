@@ -76,9 +76,7 @@ export type SignInView = AdressView | CodeView | PasskeyView | AngemeldetView;
 
 const look = tv({
   slots: {
-    // The column fills the first screen under the classic header (`h-14`, `lg:h-16`) less the page column's own
-    // padding (`py-8`, `lg:py-12`), so the footer starts just below it and is reached by scrolling.
-    column: "flex min-h-[calc(100dvh-7.5rem)] flex-col justify-center gap-6 text-center lg:min-h-[calc(100dvh-10rem)]",
+    column: "flex flex-col gap-6 text-center",
     head: "grid justify-items-center gap-3",
     sentence: "text-base text-fg",
     address: "text-base font-semibold break-all text-fg",
@@ -98,7 +96,11 @@ const look = tv({
 export function SignInPage(props: SignInView) {
   const slots = look();
   return (
-    <ClassicPage width="card">
+    // The sign-in fills the first screen, so the footer starts just below it; the card width centres the
+    // column in it.
+    <ClassicPage
+      width="card"
+      fillsScreen>
       <div className={slots.column()}>
         <Body {...props} />
         {/* An alert standing from the first render, so a failure written into it is announced at once: it

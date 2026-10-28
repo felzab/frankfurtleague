@@ -28,7 +28,7 @@ export type PillTone =
   | "finale";
 
 /**
- * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
+ * Every pair below is measured on `surface`, so a
  * pill sits on `surface` or `background` alone: on any other fill its light ink composites under
  * the floor, and `PILL_SOLID_CLASSES` goes there instead.
  */

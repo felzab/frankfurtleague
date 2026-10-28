@@ -49,7 +49,7 @@ export function SpielEditor({
   notizHoechstens: number;
   /** Whether a venue's price for the match is required, read from the write on the server. */
   mietpreisPflicht: boolean;
-  spielortAnlegen: (formData: FormData) => Promise<boolean>;
+  spielortAnlegen: (formData: FormData) => Promise<ActionAnswer>;
   spielortRegeln: SpielortRegeln;
 }) {
   const editor = useEditor(record, save);

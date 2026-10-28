@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react/button";
 
-import { goBackOrPush } from "@/shared/hooks/useEditorExit";
+import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { DISPLAY_HEADING_CLASSES } from "./displayType";
 import { ctaButton } from "./formButtons";

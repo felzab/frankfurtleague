@@ -2,7 +2,9 @@ import { Suspense } from "react";
 
 import { RouteDialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
+import { Link } from "@/kit/Link";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { factsOf, readSaison, readSpiel, sidesOf } from "../../../spielplan";
@@ -29,6 +31,13 @@ async function Popup({ params }: { params: Promise<{ saison: string; spiel: stri
       title={ROUTES.spiel.titel(heim.name, gast.name)}
       beneath={ROUTES.spielplan.pfad(saison.id)}>
       <Facts facts={factsOf(spiel, spieltag)} />
+      {/* A full page load: a client navigation to this same address is intercepted again as this pop-up. */}
+      <Link
+        href={ROUTES.spiel.pfad(saison.id, spiel.id)}
+        placement="standalone"
+        fullPage
+        label={COPY.shared.zumSpiel}
+      />
     </RouteDialog>
   );
 }
