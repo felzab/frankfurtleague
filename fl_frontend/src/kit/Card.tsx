@@ -86,7 +86,7 @@ export function CardLink({ href, title, line }: { href: Route; title: Copy; line
 
 /**
  * One record in a card's rows: its name, which wraps where it is long, with its chip, a fact at the right, the
- * whole row a link through its name.
+ * whole row a link through its name, the chevron at its end saying so.
  */
 export function CardRow({ href, name, chip, detail }: { href: Route; name: string; chip?: ChipProps; detail?: string }) {
   return (
@@ -107,6 +107,7 @@ export function CardRow({ href, name, chip, detail }: { href: Route; name: strin
         )}
       </span>
       {detail !== undefined && <span className="flex shrink-0 items-center font-numeric text-fg-muted tabular-nums">{detail}</span>}
+      <RowEnd />
     </div>
   );
 }

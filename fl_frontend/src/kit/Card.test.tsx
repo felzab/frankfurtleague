@@ -35,6 +35,8 @@ describe("a card", () => {
     const line = link.parentElement?.parentElement;
     expect(line?.className.split(" ")).toContain("flex-wrap");
     expect(line?.lastElementChild?.textContent).toBe(COPY.shared.startelf);
+    // The row ends in the chevron that says it leads on.
+    expect(line?.parentElement?.lastElementChild?.querySelector("svg")).not.toBe(null);
   });
 
   it("makes a chooser's card one link, its title and line read as its name", () => {
@@ -46,5 +48,6 @@ describe("a card", () => {
       />,
     );
     expect(screen.getByRole("link").textContent).toBe(`${COPY.shared.saison}Helmholtzschule`);
+    expect(screen.getByRole("link").querySelector("svg")).not.toBe(null);
   });
 });

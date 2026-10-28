@@ -33,6 +33,18 @@ describe("a table's name cell", () => {
     expect(screen.getByText(LANG).className.split(" ")).not.toContain("truncate");
   });
 
+  it("ends a linked row with the chevron, in a column of its own", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", href: "/saisons/2027", cells: { ort: "Nordend" } }])} />);
+    const row = screen.getByRole("link", { name: "Goethe" }).closest("tr");
+    expect(row?.lastElementChild?.querySelector("svg")).not.toBe(null);
+    expect(row?.children.length).toBe(screen.getAllByRole("columnheader").length + 1);
+  });
+
+  it("draws no chevron where no row leads anywhere", () => {
+    render(<Table {...props([{ id: "1", name: "Goethe", cells: { ort: "Nordend" } }])} />);
+    expect(screen.getByRole("table").querySelector("svg")).toBe(null);
+  });
+
   it("keeps every other value on its line", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { ort: "Nordend" } }])} />);
     expect(cellOf("Nordend").className.split(" ")).toContain("whitespace-nowrap");
