@@ -793,6 +793,15 @@ const classBan = (pattern, message, reach, options) => ban("better-tailwindcss/n
 const CLASS = (body) => String.raw`^(?:[^:]*:)*${body}!?$`;
 
 const KIT_SPACING = "0|1|2|3|4|6|8|12|16";
+/**
+ * A step of the scale plus an offset no design sets: the phone's safe-area inset, or the room React Aria's
+ * sheet measures at run time, as `pb-[calc(1.5rem+var(--sheet-scroll-padding-y))]`.
+ */
+const STEP_REM = String.raw`(?:0\.25|0\.5|0\.75|1|1\.5|2|3|4)rem`;
+const RUNTIME_OFFSET = String.raw`(?:env\(safe-area-inset-(?:top|right|bottom|left)\)|var\(--sheet-[\w-]+\))`;
+const STEP_AND_OFFSET = String.raw`\[(?:calc\(${STEP_REM}_?\+_?${RUNTIME_OFFSET}\)|max\(${STEP_REM},_?${RUNTIME_OFFSET}\))\]`;
+
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 const PALETTE =
   "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
@@ -847,8 +856,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The six code boxes are each an input, so the focus file's field rule draws the active box's edge.
-      element === "input" ? { allow: ["src/kit/CodeField.tsx"] } : {},
+      // The six code boxes are each an input, so the focus file's field rule draws the active box's edge;
+      // the table block is the one that writes a table.
+      { input: { allow: ["src/kit/CodeField.tsx"] }, table: TABLE_BLOCK, tr: TABLE_BLOCK, td: TABLE_BLOCK }[element] ?? {},
     ),
   ),
   // Only a template writes the page's heading and its main landmark.
@@ -900,10 +910,15 @@ const DESIGN_BANS = [
     [
       ["Dialog"],
       "Dialog",
-      ["src/kit/Dialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx"],
+      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx", "src/kit/HelpPopover.tsx"],
       "A dialog is the kit's `Dialog`, `Sheet` or `ConfirmDialog`.",
     ],
-    [["Modal", "ModalOverlay"], "Modal", ["src/kit/Dialog.tsx", "src/kit/Sheet.tsx"], "The overlay is `Dialog`'s and `Sheet`'s alone."],
+    [
+      ["Modal", "ModalOverlay"],
+      "Modal",
+      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
+      "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
+    ],
     [[String.raw`UNSTABLE_Toast\w*`], "Toast", ["src/kit/Toast.tsx"], "A toast is `appToast` through the kit's `Toast`."],
   ].map(([names, subpath, homes, message]) =>
     kitImport(
@@ -956,7 +971,9 @@ const DESIGN_BANS = [
   // classes are held here.
   classBan(
     // `(?![xy]-)` keeps `gap-x-4` from being read as a bare `gap-` with the value `x-4`.
-    CLASS(String.raw`-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse)!?$).+`),
+    CLASS(
+      String.raw`-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET})!?$).+`,
+    ),
     "Spacing is one 4-px scale: 0, 1, 2, 3, 4, 6, 8, 12 or 16.",
     PRODUCTION,
     { pending: notYetRebuilt().spacing },
@@ -2228,8 +2245,8 @@ function notYetRebuilt() {
       ],
     },
     spacing: {
-      // The kit's fix round: its 1-px offsets and its 2-px and 30-px steps.
-      1: ["src/kit/fieldStyles.ts"],
+      // The kit's fix round: its 1-px offsets and its 2-px and 30-px steps, and the tab's 1-px overlap.
+      1: ["src/kit/Tabs.tsx", "src/kit/fieldStyles.ts"],
       3: [
         "src/app/(public)/(meta)/layout.tsx",
         "src/app/(public)/page.tsx",
@@ -2672,6 +2689,8 @@ function notYetRebuilt() {
       ],
     },
     literalText: {
+      // The kit's fix round: the score's colon, which the formatting module writes.
+      1: ["src/kit/MatchRow.tsx"],
       2: ["src/features/system/components/ui/ServerIsLive.tsx"],
       3: [
         "src/app/(public)/page.tsx",
