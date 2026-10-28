@@ -29,7 +29,7 @@ COPY_FROM_RE: Final = re.compile(r"^[ \t]*COPY(?:[ \t]+--\S+)*?[ \t]+--from=(\S+
 RUN_MOUNT_RE: Final = re.compile(r"^[ \t]*RUN((?:[ \t]+--\S+)+)", re.MULTILINE | re.IGNORECASE)
 # A name, a tag, and the registry's digest for it: the tag for the bot to compare, the digest for the pull.
 PINNED_RE: Final = re.compile(r"^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$")
-# This repository's own images, which `publish.yml` re-tags and `deploy.sh` pulls by `:latest`.
+# This repository's own images, which the compose files name by `:latest` for `deploy.sh` to pull.
 OWN_IMAGE_RE: Final = re.compile(r"^ghcr\.io/felzab/frankfurtleague-(?:frontend|backend):latest$")
 # The local stack's override clearing an image the production file names.
 CLEARED: Final = "!reset null"

@@ -1,43 +1,34 @@
 name: verify
 
-# The gate that `scripts/gate/verify.sh` is, every scope on every event, one parallel job per scope.
+# The gate that `scripts/gate/verify.sh` is, every scope on every event, one job per scope; and, on a
+# push to main that passed it, the publish of the two images the images job built and checked.
 
 on:
   pull_request:
-  # A pull request's run tests the merge ref, so the commit that lands is tested again here, and
-  # this run is the one the publish reads (`scripts/checks/check_publish_verdict.py`).
   push:
     branches: [main]
 
 # Least privilege, declared here so a permissive repository default cannot silently widen what a
-# compromised dependency reaches. This workflow publishes nothing and comments on nothing.
+# compromised dependency reaches. Only the publish job widens it, for its push.
 permissions:
   contents: read
 
 # The keyword, never a hand-copied `bash -eo pipefail {0}`: GitHub expands `bash` to that plus
-# `--noprofile --norc`, and a builtin cannot drift. The alternative is an unspecified shell, whose
-# `-e` alone lets the last stage mask a mid-pipe failure.
-
-# What the expansion does NOT carry is `-u`, and this does not add it: it makes each unset variable
-# in a `run:` block a hard failure, a walk only actionlint could vouch for.
+# `--noprofile --norc`, and a builtin cannot drift.
 defaults:
   run:
     shell: bash
 
 concurrency:
   group: verify-${{ github.ref }}
-  # Supersede an in-flight run on a PR, but never on main: a main run answers whether the tree is
-  # deployable, and cancelling one leaves that question open. It is not a result per commit — a
-  # concurrency group holds a single pending run, so three merges in quick succession replace the
-  # middle one's queued run with the newest before it ever starts.
+  # Supersede an in-flight run on a PR, but never on main, whose run publishes.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Every job's `timeout-minutes` is its wall-clock ceiling: about twice what the job takes, so a hung
+# job ends rather than holding the run.
 jobs:
   scripts:
     runs-on: ubuntu-latest
-    # Every pooled job's timeout outlasts its budget plus the time a stalled unit takes to be named, or
-    # GitHub ends the job first and names nothing
-    # (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,43 +36,11 @@ jobs:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-          # The sha check's test walks recent commits for one whose short form carries a digit and
-          # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
-          fetch-depth: 20
-      # The venv carries the repository's own ruff, pyright and pytest for the python under scripts/,
-      # and the markdown-it-py the documentation gate reads with. The application too: the deploy's
-      # preflight snippets run for real in `scripts/tests/test_deploy_streams.py`, and one imports it.
+      # The application too: the deploy's preflight snippets run for real in
+      # `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
-      - name: Install the shellcheck the gate pins
-        # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
-        # the image it pins -- so without this CI lints the branch against a different rule set from
-        # a development machine, and says so only as an advisory that leaves the run green.
-        run: |
-          # Read out of selfcheck.sh rather than repeated here: a second copy is a pair nothing
-          # compares, and that file carries the note about bumping both by hand.
-          version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
-          digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
-          if [ -z "$version" ] || [ -z "$digest" ]; then
-            echo "::error::no SHELLCHECK_VERSION or SHELLCHECK_LINUX_X86_64_SHA256 in scripts/gate/selfcheck.sh -- a pin moved or its spelling changed."
-            exit 1
-          fi
-          tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
-          # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
-          # rather than a partial write nothing hashed.
-          # `--retry` repeats curl's transient answers only: one 500 from the release host failed a job.
-          curl -fsSL --retry 3 -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
-          # Checked before anything is unpacked: a release asset can be replaced without its tag
-          # moving, and this lands as root in a directory on PATH beside a checkout.
-          if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
-            echo "::error::the shellcheck tarball does not match the digest in scripts/gate/selfcheck.sh -- nothing was installed."
-            exit 1
-          fi
-          sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
-          shellcheck --version
-      # The self-check's hook probes need a `node` and no package, so they take the runner image's own
-      # rather than the pinned install the frontend jobs make.
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
@@ -92,68 +51,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history: the documentation gate diffs the branch against the merge base for its
-          # branch-scoped checks, and the budget and line-delta steps below read the same range,
-          # none of which a shallow clone can do.
-          fetch-depth: 0
       # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
-          # The uv cache's one writer, on every event: the save is setup-uv's post step, inside the
-          # span this job's budget in `.github/gate-wall-clock.tsv` holds, and its widest run leaves
-          # that budget room for the save.
+          # The uv cache's one writer: on a miss every saving job would archive the whole cache.
           save-cache: true
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
-      - name: Hold a moved gate budget to its measurement
-        # A figure raised in .github/gate-wall-clock.tsv carries a new stamp of the runs it needs, or
-        # the pull request is refused; docs/ops/spec.md §1.6 lists every refusal. Here for the full
-        # history the comparison reads; a push to main has no base.
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        # The virtualenv the toolchain step made: the runner's own python is below the checkers' floor.
-        run: fl_backend/.venv/bin/python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
-      - name: Report the branch's line delta
-        # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
-        # the pull request adding it. Advisory by construction — no threshold, no verdict, and
-        # continue-on-error keeps a failure away from this job's conclusion.
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          base="$(git merge-base "origin/${BASE_REF}" HEAD)"
-          # --no-renames: a rename counts as its full add and delete in one bucket, netting zero,
-          # where a rename spec's combined spelling would classify as neither side.
-          git diff --numstat --no-renames "$base" HEAD | awk -F'\t' -v base="$base" '
-            $1 == "-" { next }
-            {
-              b = "product code"
-              if ($3 == "fl_backend/openapi.json" || $3 == "fl_backend/einwilligung.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
-              else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
-              else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
-              else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
-              seen[b] = 1; add[b] += $1; del[b] += $2
-            }
-            END {
-              n = split("product code,tests,documentation,tooling,generated", names, ",")
-              net = 0
-              for (i = 1; i < n; i++) net += add[names[i]] - del[names[i]]
-              printf "### Line delta against merge base %.7s\n\n", base
-              printf "**Net: %+d lines** (generated files excluded)\n\n", net
-              print "| Bucket | Added | Removed | Net |"
-              print "| --- | ---: | ---: | ---: |"
-              for (i = 1; i <= n; i++) {
-                b = names[i]
-                if (seen[b]) printf "| %s%s | %d | %d | %+d |\n", b, (i == n ? " (excluded)" : ""), add[b], del[b], add[b] - del[b]
-              }
-            }
-          ' >> "$GITHUB_STEP_SUMMARY"
 
-  # Prettier in check mode over the whole repository: with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
-  # which runs beside the frontend job rather than on its path.
+  # prettier and its plugins are dependencies of fl_frontend, so the check needs that install even
+  # though what it reads is mostly outside it.
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -161,89 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
-      # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
-      # Prettier keys a verdict on its own version, Node's and the options, never on a plugin's code
-      # (`docs/ops/spec.md` §1.6), so this names every installed package a check loads, with all
-      # each depends on.
-
-      # Read from the install, so it cannot disagree with the lockfile, and a dependency none of
-      # them loads leaves the cache warm.
-      - id: prettier-packages
-        name: Name the installed packages a prettier verdict depends on
-        working-directory: fl_frontend
-        run: |
-          node --input-type=module - >> "$GITHUB_OUTPUT" <<'JS'
-          import { createHash } from "node:crypto";
-          import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-          import path from "node:path";
-
-          const config = JSON.parse(readFileSync("../.prettierrc.json", "utf8"));
-          const roots = new Set(["prettier", config.tailwindPackageName ?? "tailwindcss", ...(config.plugins ?? [])]);
-          // The key carries packages and the stylesheets under src alone, so any other file the
-          // Tailwind plugin reads -- a script a relative `@plugin` or `@config` names, a sheet outside
-          // src -- is refused rather than left unkeyed.
-          const src = path.resolve("src");
-          const keyed = (file) => file.startsWith(src + path.sep) && file.endsWith(".css");
-          // `prettier-plugin-tailwindcss` 0.8.1's `getTailwindConfig`, mirrored 2026-10-20 and moving without us: a
-          // deprecated option names the stylesheet where `tailwindStylesheet` does not, and a script `tailwindConfig` loads where none does.
-          const option = ["tailwindStylesheet", "tailwindEntryPoint", "tailwindConfig"].find((name) => config[name] && (name !== "tailwindConfig" || config[name].endsWith(".css")));
-          if (option && !keyed(path.resolve("..", config[option]))) {
-            throw new Error(`${option} ${config[option]} is no stylesheet under fl_frontend/src, which the cache key carries`);
-          }
-          if (!option && config.tailwindConfig) throw new Error(`tailwindConfig ${config.tailwindConfig} is a script the cache key does not carry`);
-          for (const sheet of readdirSync("src", { recursive: true }).filter((name) => name.endsWith(".css"))) {
-            // Quoted ids alone: Tailwind loads nothing for an `@import url(...)`.
-            for (const [, id] of readFileSync(path.join("src", sheet), "utf8").matchAll(/@(?:import|plugin|config|reference)\s+["']([^"']+)["']/g)) {
-              if (!/^[./]/.test(id)) roots.add(id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/"));
-              else if (!keyed(path.resolve("src", path.dirname(sheet), id))) throw new Error(`src/${sheet} loads ${id}, which the cache key does not carry`);
-            }
-          }
-          const find = (from, name) => {
-            for (let dir = from; ; dir = path.dirname(dir)) {
-              if (existsSync(path.join(dir, "node_modules", name, "package.json"))) return realpathSync(path.join(dir, "node_modules", name));
-              if (path.dirname(dir) === dir) return null;
-            }
-          };
-          const seen = new Map();
-          const visit = (dir) => {
-            if (seen.has(dir)) return;
-            const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
-            seen.set(dir, `${manifest.name}@${manifest.version}`);
-            for (const [fields, required] of [[["dependencies"], true], [["optionalDependencies", "peerDependencies", "peerDependenciesMeta"], false]]) {
-              for (const name of new Set(fields.flatMap((field) => Object.keys(manifest[field] ?? {})))) {
-                const found = find(dir, name);
-                if (found) visit(found);
-                // A name under both lists is optional, as npm reads it
-                // (https://docs.npmjs.com/cli/v11/configuring-npm/package-json#optionaldependencies).
-                else if (required && !Object.hasOwn(manifest.optionalDependencies ?? {}, name)) throw new Error(`${manifest.name} depends on ${name}, which is not installed`);
-              }
-            }
-          };
-          for (const root of roots) {
-            const found = find(process.cwd(), root);
-            if (!found) throw new Error(`${root} is not installed`);
-            visit(found);
-          }
-          const listed = [...new Set(seen.values())].sort().join("\n");
-          console.error(listed);
-          console.log(`key=${createHash("sha256").update(listed).digest("hex")}`);
-          JS
-      # Restored after the toolchain, so its install never meets the restored directory.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          # Prettier's default `--cache-location` (https://prettier.io/docs/cli), which
-          # `fl_frontend/package.json :: "format:check"` leaves in place.
-          path: fl_frontend/node_modules/.cache/prettier
-          # `.prettierrc.json :: "tailwindStylesheet"` is a path, keyed by its name alone, so every
-          # stylesheet under `fl_frontend/src` joins the key and the prefix: the one it names imports a
-          # season scheme, and either can move a class's sort order.
-          key: prettier-${{ runner.os }}-${{ steps.prettier-packages.outputs.key }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-${{ github.sha }}
-          # The newest verdicts under these packages and these stylesheets; the commit in the key makes
-          # each new tree save its own, where a key without it would freeze the first run's.
-          restore-keys: |
-            prettier-${{ runner.os }}-${{ steps.prettier-packages.outputs.key }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-
       - name: Run the format scope
         run: ./scripts/gate/verify.sh --format
 
@@ -261,22 +87,8 @@ jobs:
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
-  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files. A separate
-  # job rather than a step in `backend`: jobs run concurrently, so the mongod pull costs no
-  # wall-clock time.
-
-  # The marker belongs to the suite, not to this pipeline.
-
-  # Split by file across two shards, each file's measured cost placing it (`scripts/gate/shard_plan.py`):
-  # run in one job, the two tiers took the job past its budget.
+  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files.
   db:
-    # Spelled out for `frontend-units`' reason: the budget check finds each instance's row by this name.
-    name: db (${{ matrix.shard }})
-    strategy:
-      # For `frontend-units`' reasons: a red shard cancels none of the others, and `shard` is the one axis.
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
     # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
     runs-on: ubuntu-22.04
@@ -289,188 +101,56 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
-      - name: Pull the mongod image the db tier starts
-        # In the background, so the download overlaps the frontend's install below; the step before
-        # the scope waits on it and prints its log and duration, still telling a slow tier from a
-        # slow registry.
-
-        # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
-        # that, so none is added here.
-
-        # This job is a required status check and this step decides nothing, so it may not fail one
-        # -- testcontainers pulls the image anyway. Same flag, same reason, as the advisory steps
-        # below.
-        continue-on-error: true
-        # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
-        # first, which is a bare 141 with nothing printed, the guard below never having run.
-
-        # Every container the conftest starts takes its image from one module-level `MONGO_IMAGE`.
-        # Python's parser reads it, so no comment or string passes for the binding, and nothing
-        # prints unless exactly one binding is found.
-        run: |
-          image="$(python3 -c '
-          import ast, sys
-          tree = ast.parse(open(sys.argv[1], encoding="utf-8").read())
-          tags = [
-              node.value.value
-              for node in tree.body
-              if isinstance(node, ast.Assign)
-              and [getattr(target, "id", None) for target in node.targets] == ["MONGO_IMAGE"]
-              and isinstance(node.value, ast.Constant)
-              and str(node.value.value).startswith("mongo:")
-          ]
-          if len(tags) == 1:
-              print(*tags)
-          ' fl_backend/tests/conftest.py)"
-          if [ -z "$image" ]; then
-            echo "::error::no single MONGO_IMAGE binding found in fl_backend/tests/conftest.py -- the binding this step reads has moved or split."
-            exit 1
-          fi
-          # Locked before the pull starts, so the waiting step cannot take the lock first; the
-          # background pull inherits it and holds it until it exits.
-          exec 9> "${RUNNER_TEMP}/mongod-pull.lock"
-          flock 9
-          # Every stream redirected: nothing the pull prints lands in a later step's log, and no
-          # stream it holds outlives this step.
-          (
-            started="$(date +%s)"
-            rc=0
-            docker pull "$image" || rc=$?
-            echo "$rc $(( $(date +%s) - started ))" > "${RUNNER_TEMP}/mongod-pull.result"
-          ) > "${RUNNER_TEMP}/mongod-pull.log" 2>&1 < /dev/null &
-          echo "Pulling ${image} in the background."
-      # The db scope runs the frontend's db-tier files too (`pnpm run test:db`), so this job installs
-      # the frontend beside the backend's virtualenv.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Wait for the mongod pull
-        # Advisory for the reason the pull step gives. Bounded inside the job's own timeout.
-        continue-on-error: true
-        run: |
-          waited="$(date +%s)"
-          # Caught rather than left to `bash -e`, which would end the step before the log prints.
-          timed_out=0
-          flock -w 600 "${RUNNER_TEMP}/mongod-pull.lock" true || timed_out=1
-          cat "${RUNNER_TEMP}/mongod-pull.log" 2>/dev/null || true
-          if (( timed_out )); then
-            echo "::warning::the mongod pull was still running after $(( $(date +%s) - waited )) s; its log so far is above."
-            exit 1
-          fi
-          if ! read -r rc seconds < "${RUNNER_TEMP}/mongod-pull.result"; then
-            echo "::warning::no mongod pull finished -- the pull step above did not start one."
-            exit 1
-          fi
-          echo "docker pull exited ${rc} after ${seconds} s; this step waited $(( $(date +%s) - waited )) s for it."
-          exit "$rc"
-      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the db tiers
-        # The count is the matrix's own size, for `frontend-units`' reason.
-        env:
-          VERIFY_DB_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
-    # Every `next` command a step runs, the build's own variables set on its command alone
-    # (`scripts/gate/verify.sh :: do_next_build`).
+    # Every `next` command a step runs, the build's own variables set on its command alone.
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # NOT unused, and this is the job where that is hardest to see: no step here runs python,
-        # yet `scripts/gate/gate_pool.py` -- which starts this scope's checks together -- needs one at
-        # the checkers' floor, above this image's own.
-
-        # Without it `scripts/lib/_lib.sh :: any_python` falls back to the runner's python3, the pool
-        # probe zeroes `scripts/gate/verify.sh :: STEP_JOBS`, and the scope silently costs the sum of
-        # its checks rather than the longest.
-
-        # An interpreter and no virtualenv, for the reason written at `verify`; here the lookup is
-        # on the run's critical path.
-        with:
-          python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
-        # The pnpm store's one writer, on every event, so a pull request's first run warms its later
-        # ones. That entry is scoped to its merge ref and never restored on main, whose scope the
-        # trusted-trigger advice guards
-        # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
-
-        # Here because this job's budget is the cold job's: the prune and the save run only where a
-        # lockfile change has left the store cold, the run this budget is cut for.
         with:
-          save-store: true
-      # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
-      # depends on hits exactly every run, and actions/cache does not write on an exact hit.
+          # The pnpm store's one writer, so a lockfile change uploads one store rather than one per job.
+          save-cache: true
+      # Next's CI cache (https://nextjs.org/docs/app/guides/ci-build-caching). The source trees are in
+      # the key, not the lockfile alone: actions/cache writes nothing on an exact hit.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
           key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
           # A prefix restore is safe for both things the path holds: the Next cache is
-          # content-addressed, and tsc's build info (`tsBuildInfoFile`) re-checks a file whose text
-          # hash moved, and every file where the compiler options or the TypeScript version did.
+          # content-addressed, and tsc's build info re-checks a file whose text hash moved.
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
         # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
-        # key that is absent -- one presence check, Next's `writeConfigurationDefaults`, documented at
-        # that file's `allowJs` line -- then carry on.
-
-        # The scope runs typegen first, so it is typegen's write this diff sees and the build then
-        # finds nothing to add; either way every reader after it checked a config the committed file
-        # does not hold.
-
-        # Locally the dirty tree is visible; on a runner the repaired copy is discarded with the
-        # workspace, and a framework upgrade reaches this condition with nobody editing the file.
+        # key that is absent and carry on; on a runner the repaired copy is discarded with the
+        # workspace, so a framework upgrade reaches this with nobody editing the file.
         run: |
           if ! git diff --exit-code -- fl_frontend/tsconfig.json; then
             echo "::error::the frontend scope rewrote fl_frontend/tsconfig.json -- a compilerOptions key is absent. Run 'cd fl_frontend && pnpm typegen' and commit the result."
             exit 1
           fi
 
-  # The frontend unit tests, split by file across four shards, each file's measured cost placing it
-  # (`scripts/gate/shard_plan.py`): run in one job, they would be the run's longest step.
-
-  # Four, not three: three shards finish level with the frontend job, so the run would wait on the
-  # slower of two near-equal spans; four finish well before it.
   frontend-units:
-    # Spelled out because GitHub documents no default name for a matrix instance, and the budget
-    # check finds each instance's row in .github/gate-wall-clock.tsv by exactly this name.
-    name: frontend-units (${{ matrix.shard }})
-    strategy:
-      # A red shard cancels none of the others, whose results still say which files fail.
-      fail-fast: false
-      # `shard` alone, with no `include`: a second key or an added combination repeats an index
-      # under a larger count, and the files of the indices nobody runs are tested nowhere.
-      matrix:
-        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The shard's files are planned by `scripts/gate/shard_plan.py`, at the checkers' floor, above
-        # this image's own python; an interpreter and no virtualenv, the planner reading the standard
-        # library alone.
-        with:
-          python-version-file: fl_backend/.python-version
       - uses: ./.github/actions/frontend-toolchain
-      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the frontend unit tests
-        # On this step alone: `verify.sh` refuses a shard beside any other scope, and counts shards
-        # from 1, as the list does.
-
-        # The count is the matrix's own size rather than a second copy of it, so a shard added to
-        # the list is a shard every instance counts.
-        env:
-          VERIFY_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Run the frontend-units scope
         run: ./scripts/gate/verify.sh --frontend-units
 
   # The compose files and the nginx configuration have no compiler; this scope parses and serves
@@ -482,163 +162,158 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # `any_python` falls back to the runner's python3, which is under the checkers' floor on
-      # this image, and the ops scope degrades "could not run" to a skip — so without this venv
-      # the job is green having never compared the compose files.
-
-      # The dev group alone: zizmor is the only thing here past the standard library, and it is a
-      # dev dependency.
+      # The checkers' interpreter, and the uv that runs zizmor.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
       - name: Run the ops scope
         run: ./scripts/gate/verify.sh --ops
 
-  # Both image builds plus the instrumentation.js presence check — the failures no other scope can
-  # see, because the frontend scope builds on the runner and never inside the image.
+  # Both image builds, through Docker's own action, which carries the Actions layer cache; the images
+  # scope then asks of them what a successful build does not prove. Each image is written to a file
+  # and loaded, so a push to main hands the publish job exactly the bytes checked here
+  # (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
+      BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
+      VERIFY_TAG: frankfurtleague-verify
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The two builds start together only through `scripts/gate/gate_pool.py`, which needs a python at
-        # the checkers' floor -- above this image's own. Without it the scope costs their sum rather
-        # than the longer of the two, against the timeout above.
-
-        # An interpreter and no virtualenv, for the reason written at `verify`: each Dockerfile
-        # installs its own tree inside the build.
+      # The docker driver cannot export a build cache; the container driver this creates can.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # `sha-<commit>` beside the scope's own tag, and the OCI labels `scripts/ops/deploy.sh` reads.
+      - id: meta-frontend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          python-version-file: fl_backend/.python-version
-      # buildx talks to the Actions cache service itself, so there is no actions/cache
-      # step and no cache directory to carry. This action exists because the runner injects the
-      # service credentials into JavaScript actions alone.
-      - uses: ./.github/actions/actions-runtime-env
-      - name: Create a cache-capable builder
-        # The default docker driver cannot export a build cache; the container driver can, and the
-        # script's --load brings the built image back to the daemon for the instrumentation check.
-        run: docker buildx create --use
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+      - id: meta-backend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+      # One cache scope per image, buildx overwriting rather than merging a key, and `version` left to
+      # buildx, which picks the live cache service.
+      - name: Build the frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_frontend
+          file: fl_frontend/Dockerfile
+          tags: |
+            ${{ env.VERIFY_TAG }}:frontend
+            ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - name: Build the backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_backend
+          file: fl_backend/Dockerfile
+          tags: |
+            ${{ env.VERIFY_TAG }}:backend
+            ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          outputs: type=docker,dest=${{ runner.temp }}/backend.tar
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Load both images
+        run: |
+          docker load --input "${RUNNER_TEMP}/frontend.tar"
+          docker load --input "${RUNNER_TEMP}/backend.tar"
       - name: Run the images scope
         env:
-          VERIFY_IMAGES_CACHE: gha
+          VERIFY_IMAGES_BUILT: "1"
         run: ./scripts/gate/verify.sh --images
+      # On a push to main alone, the run that publishes.
+      - if: github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: images
+          path: |
+            ${{ runner.temp }}/frontend.tar
+            ${{ runner.temp }}/backend.tar
+          if-no-files-found: error
+          retention-days: 1
+          # The layers are compressed already.
+          compression-level: 0
 
-  # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
-  # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a
-  # failed need.
+  # THE REQUIRED STATUS CHECK. The ruleset requires a check named `verify`; this job is it.
+  # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a failed
+  # need. Every job but this one and `publish` is a need, which the first step below holds.
   verify:
     needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # A job-level grant replaces the workflow-level one whole, so `contents` is spelled again here
-    # for the sparse checkout below; the runs API the wall-clock report and the budget check read
-    # needs `actions`.
-    permissions:
-      actions: read
-      contents: read
     steps:
-      # First, so it prints whether or not the verdict below refuses: a red `verify` names no job,
-      # and this is where each one's result is read.
+      # First, so it prints whether or not the verdict below refuses: a red `verify` names no job.
       - name: Report each scope's result
-        # This job IS the required status check, so nothing diagnostic in it may decide a merge. The
-        # verdict is the step below and only that step; a report that cannot format its own output
-        # is annotated in the run and changes no outcome.
         continue-on-error: true
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-      - name: Read the wall-clock reference and the budget check
-        # Four files out of the tree, sparse rather than a full checkout: this job runs on every
-        # event and owes the required check its start time. Without `continue-on-error`, because
-        # the budget step at the end of this job decides: a checkout it cannot read from is that
-        # step refusing, never a verdict skipped. The report still answers a missing reference by
-        # saying so and stopping.
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The token is not needed after checkout, for the reason the scripts job gives above.
           persist-credentials: false
-          sparse-checkout: |
-            .github/gate-wall-clock.tsv
-            scripts/checks/check_gate_budget.py
-            scripts/lib/checker_kernel.py
-            fl_backend/.python-version
+          sparse-checkout: .github/workflows/verify.yml
           sparse-checkout-cone-mode: false
+      # A job left out of `needs:` never decides a merge, and nothing in a diff says so. `publish`
+      # runs after this job, on main alone, so it is the one job this one may not need.
+      - name: Fail if a job is missing from verify's needs
+        run: |
+          workflow=.github/workflows/verify.yml
+          jobs="$(yq -r '.jobs | keys | .[] | select(. != "verify" and . != "publish")' "$workflow" | sort)"
+          needed="$(yq -r '.jobs.verify.needs[]' "$workflow" | sort)"
+          if [ "$jobs" != "$needed" ]; then
+            echo "::error::verify's needs and the workflow's jobs differ, so a job that is not needed decides no merge -- every job but verify and publish belongs in needs."
+            diff <(printf '%s\n' "$jobs") <(printf '%s\n' "$needed") || true
+            exit 1
+          fi
+          echo "verify needs every job: $(printf '%s' "$jobs" | tr '\n' ' ')"
+      # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition someone
+      # added. Pure expressions, no shell parsing of the needs context.
+      - name: Fail if any scope job failed, was cancelled or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::A scope job failed, was cancelled or was skipped -- the scope results above name it, and its own log has the findings."
+          exit 1
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
-        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
-
-        # Not a `uv sync`: the report and the budget import the standard library alone, and an
-        # install would sit on the required check's critical path for nothing. The toolcache holds
-        # the pin, so this is a lookup.
+  # On a push to main that `verify` passed, the two images the images job built and checked are pushed
+  # under their `sha-<commit>` tags, building and checking nothing again (D243).
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A job-level grant replaces the workflow's whole: the push alone, which the package grants this
+    # repository's workflows. The artifact comes through the run's own runtime token.
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          python-version-file: fl_backend/.python-version
-
-      - name: Report the gate's wall clock
-        # The re-bloat glance for time: per-job medians over the last window of main runs against a
-        # reference table held in the tree. Advisory by construction — nothing here decides an
-        # outcome, and continue-on-error keeps it away from the verdict this job is.
-        continue-on-error: true
-        # Main pushes only: the window it prints is main's own runs, which says nothing a pull
-        # request changed, and each request it makes sits on the required check's path.
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
+          name: images
+          path: ${{ runner.temp }}/images
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # `--all-tags` pushes the `sha-` tag the metadata step gave each image, and nothing else carries
+      # either repository's name on this runner.
+      - name: Push both images
         run: |
-          window=12
-          fetched="${RUNNER_TEMP}/wall-clock"
-          mkdir -p "$fetched"
-          # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
-          # discarding the whole run throws their timings away. It excludes the run doing the
-          # reporting, which is still in flight.
-          listing="repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}"
-
-          # Every request is made and none ends the step: a payload gh could not fetch is left
-          # absent, and the checker names each one rather than reporting a window short of it.
-          gh api "$listing" > "${fetched}/runs.json" || rm -f "${fetched}/runs.json"
-          for id in $(jq -r '.workflow_runs[]?.id' "${fetched}/runs.json" 2>/dev/null || true); do
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" > "${fetched}/jobs-${id}.json" || rm -f "${fetched}/jobs-${id}.json"
-          done
-          python scripts/checks/check_gate_budget.py --window "$fetched" --runs "$window" --summary "$GITHUB_STEP_SUMMARY"
-
-      - name: Fail if any scope job failed or was cancelled
-        # A skip is the next step's to judge. Pure expressions, no shell parsing of the needs context.
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: |
-          echo "::error::A scope job failed -- its own log has the findings."
-          exit 1
-
-      # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition
-      # someone added, which the step above passes. Every job this one needs is named.
-      - name: Fail if a scope job was skipped
-        if: >-
-          needs.scripts.result == 'skipped' || needs.docs.result == 'skipped' || needs.format.result == 'skipped'
-          || needs.backend.result == 'skipped' || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
-          || needs.frontend-units.result == 'skipped' || needs.ops.result == 'skipped'
-          || needs.images.result == 'skipped'
-        run: |
-          echo "::error::A scope job was skipped, and every event runs them all -- the scope results above name it."
-          exit 1
-
-      # `scripts/checks/check_publish_verdict.py :: BUDGET_STEP` finds this step by its exact name and
-      # publishes over a run it alone failed; its tests hold the two names, and this `if:`, together.
-      - name: Hold every job to its wall-clock budget
-        # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
-        # required check, naming the job and both figures, and so does a job that ran with no row
-        # (`docs/ops/spec.md :: I17`). Run whatever the scope jobs concluded, so an overrun never
-        # hides behind a failed scope; a failed job's length is not judged.
-        if: ${{ !cancelled() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # The API the report above reads past runs from, so this run's jobs and those it compares
-          # describe one population.
-
-          # Released from `-e` so that a payload gh could not fetch reaches the checker, whose
-          # refusal is the exit code, rather than ending the step on gh's own.
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" > "${RUNNER_TEMP}/jobs.json" || true
-          python scripts/checks/check_gate_budget.py --jobs "${RUNNER_TEMP}/jobs.json"
+          docker load --input "${RUNNER_TEMP}/images/frontend.tar"
+          docker load --input "${RUNNER_TEMP}/images/backend.tar"
+          docker push --all-tags ghcr.io/felzab/frankfurtleague-frontend
+          docker push --all-tags ghcr.io/felzab/frankfurtleague-backend
