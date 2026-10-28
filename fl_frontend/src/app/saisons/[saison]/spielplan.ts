@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 
 import { COPY } from "@/core/copy";
 import { formatDatum, formatUhrzeit } from "@/core/format";
@@ -30,8 +31,12 @@ export async function readSaison(saisonId: string): Promise<{ saison: FLSaison }
   return { saison };
 }
 
-/** The season button's seasons: every public season, the newest first; `null` where the public may read none. */
+/**
+ * The season button's seasons: every public season, the newest first; `null` where the public may read none.
+ * Read at request time, so the frame's prerendered shell holds none: the image's build reaches no backend.
+ */
 export async function readSeasons(): Promise<Seasons | null> {
+  await connection();
   const { saisons } = await getSaisons();
   const standard = selectSaison(saisons, undefined);
   if (standard === undefined) return null;
