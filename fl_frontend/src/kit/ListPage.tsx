@@ -112,7 +112,14 @@ export function ListPage({
       ) : (
         <>
           {toolbar !== undefined && <div className="flex flex-wrap items-center gap-3">{toolbar}</div>}
-          {list.tabs === null ? <EmptyState {...list.empty} /> : <Matchdays {...list.tabs} />}
+          {list.tabs === null ? (
+            // Inside the list's box, as `Table` places its own.
+            <div className="overflow-hidden rounded-lg border border-border bg-bg">
+              <EmptyState {...list.empty} />
+            </div>
+          ) : (
+            <Matchdays {...list.tabs} />
+          )}
         </>
       )}
     </RailPage>

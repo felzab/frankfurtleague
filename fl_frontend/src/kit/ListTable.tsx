@@ -42,9 +42,8 @@ const matches = (query: string, columns: ReadonlyArray<string>) => {
   return (row: TableRow) => [row.name, ...columns.map((key) => row.cells[key] ?? "")].some((text) => text.toLowerCase().includes(wanted));
 };
 
-/** The empty state a search leaves, where the list names its plural; else the list's own. */
-const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps =>
-  empty.kind === "satz" ? empty : { kind: "suche", plural: empty.plural, action: empty.action };
+/** The empty state a search leaves, every other field kept, where the list names its plural; else the list's own. */
+const emptyForSearch = (empty: EmptyStateProps): EmptyStateProps => (empty.kind === "satz" ? empty : { ...empty, kind: "suche" });
 
 type Shown = {
   /** The rows the page was served with, so a new render of the page starts the list afresh. */
