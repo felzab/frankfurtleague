@@ -16,7 +16,7 @@ import { test as base } from "@playwright/test";
 
 import { accessLogEnd, expectEdgeSawVisitor } from "./edgeLog";
 
-import type { IncomingHttpHeaders, IncomingMessage, OutgoingHttpHeaders } from "node:http";
+import type { IncomingHttpHeaders, IncomingMessage, OutgoingHttpHeaders, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 
 export type JourneyOptions = {
@@ -64,12 +64,24 @@ function endToEnd(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
 }
 
 /**
- * A stream ended early: the browser left mid-request, as an outgoing document does when a navigation
- * commits, or the stack went away. `pipeline` has destroyed every stream of the pair, which ends the
- * browser's connection as a direct one would have ended, so nothing more is answered.
+ * A piped stream ended early: the browser left mid-request, as an outgoing document does when a
+ * navigation commits, or the stack dropped an answer it had begun. `pipeline` has destroyed every
+ * stream of the pair, which ends the browser's connection as a direct one would have ended, so nothing
+ * more is answered. A target the proxy never reached is answered apart, by `unanswered`.
  */
 function endedEarly(): void {
   // Nothing to answer; see above.
+}
+
+/**
+ * The request to the target failed. No stream of the browser's was piped from it, so nothing else ends
+ * the browser's request, which would wait out the journey's timeout and name no cause: before any answer
+ * it is answered 502, as a gateway answers for a target it cannot reach, and once an answer has begun,
+ * its connection ends, as a direct one would.
+ */
+function unanswered(outgoing: ServerResponse): void {
+  if (outgoing.headersSent || outgoing.destroyed) outgoing.destroy();
+  else outgoing.writeHead(502).end();
 }
 
 /**
@@ -105,7 +117,7 @@ async function startVisitorProxy(origin: string, visitor: string): Promise<{ ser
     outgoing.once("close", () => {
       if (!outgoing.writableFinished) upstream.destroy();
     });
-    upstream.on("error", endedEarly);
+    upstream.on("error", () => unanswered(outgoing));
     pipeline(incoming, upstream, endedEarly);
   });
 
