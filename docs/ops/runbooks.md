@@ -915,7 +915,14 @@ erasure could not delete goes when the address is erased again
 
 **The page refuses two kinds of address, and says so before anyone confirms**: the
 administrator's own, which goes through their account page or an owner; and any holding a grant, to
-an administrator who is not an owner. The page mails the person nothing. **Erasing an administrator's address tells every
+an administrator who is not an owner. **A referee row whose address a hand edit emptied is reached
+once the person's own address stands on it again**
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): on a row the person
+has not confirmed, save that address in the referee editor, which on a row still in service mails
+them a confirmation link first, then erase it; a confirmed row's editor refuses the save
+(`REQ-SCHIEDSRICHTER-011`) and the address tool finds no row by an empty address, so rewrite it by
+hand as [section 9](#9-checking-that-the-hourly-passes-have-run) rewrites a pupil's. The page mails
+the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
