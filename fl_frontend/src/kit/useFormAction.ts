@@ -46,11 +46,13 @@ export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | n
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
  * a server refusal its fields carry, since the fields say what and the line where to look; any other refusal
  * says its reason, or the shared failure line; a done one says what else the write moved, or „Gespeichert“.
- * Nothing for no answer.
+ * Nothing for no answer, nor while a send is on its way: the last answer is none to the press still running,
+ * and the line, a polite live region, is announced only where its words change, so the same refusal twice
+ * goes in afresh after the empty line or a screen reader stays silent on the second.
  */
-export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean): FormStatus {
+export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
   if (isBlocked) return { tone: "error", text: COPY.vorlage.felderPruefen };
-  if (answer === null) return null;
+  if (answer === null || isPending) return null;
   if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.gespeichert };
   return {
     tone: "error",

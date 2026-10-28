@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -39,5 +39,29 @@ describe("the sign-in's send", () => {
       await waitFor(() => expect(handleSignIn).toHaveBeenCalledTimes(press));
       await waitFor(() => expect(document.activeElement).toBe(field));
     }
+  });
+
+  it("empties its status line while a send is on its way, so the same refusal twice is announced twice", async () => {
+    const refusal = { success: false, error: COPY.anmeldung.abgelehnt.ohneEintrag } as const;
+    const second = Promise.withResolvers<typeof refusal>();
+    vi.mocked(handleSignIn).mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
+    render(
+      <SignInFlow
+        next="/"
+        siteKey=""
+      />,
+    );
+    const line = screen.getByRole("status");
+    const send = screen.getByRole("button", { name: COPY.anmeldung.codeSenden });
+    await userEvent.type(screen.getByRole("textbox", { name: COPY.anmeldung.adresse }), "lena@example.com");
+
+    await userEvent.click(send);
+    await waitFor(() => expect(line.textContent).toBe(refusal.error));
+
+    // A polite live region speaks only where its words change.
+    await userEvent.click(send);
+    await waitFor(() => expect(line.textContent).toBe(""));
+    await act(async () => second.resolve(refusal));
+    expect(line.textContent).toBe(refusal.error);
   });
 });

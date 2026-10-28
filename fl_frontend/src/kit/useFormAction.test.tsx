@@ -43,10 +43,14 @@ describe("a form's action through the one wrapper", () => {
 describe("a form's status line for a refusal", () => {
   it("points at the fields rather than repeat a reason they already carry", () => {
     const plz = COPY.shared.feld.pflichtfeld;
-    expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false)).toStrictEqual({
+    expect(statusOf({ ok: false, fieldErrors: { plz }, reason: plz }, false, false)).toStrictEqual({
       tone: "error",
       text: COPY.vorlage.felderPruefen,
     });
+  });
+
+  it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {
+    expect(statusOf({ ok: false, reason: COPY.shared.fehler.zuVieleVersuche }, false, true)).toBeNull();
   });
 });
 

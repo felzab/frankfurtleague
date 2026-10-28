@@ -183,7 +183,7 @@ function ActForm({
     { resetOnLeave: false },
   );
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status = statusOf(refused, isBlocked);
+  const status = statusOf(refused, isBlocked, isPending);
 
   return (
     // A dialog opened from inside another form, such as an editor's section, is a form of its own: React

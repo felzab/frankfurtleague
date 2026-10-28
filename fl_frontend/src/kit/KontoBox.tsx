@@ -35,7 +35,7 @@ export function KontoBox({
   children: ReactNode;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(action, { resetOnLeave: true });
-  const status = statusOf(answer, isBlocked);
+  const status = statusOf(answer, isBlocked, isPending);
 
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-bg">
