@@ -176,6 +176,14 @@ jobs:
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # What the publish job holds the artifact to. A job's outputs are written by that job alone, where
+    # any job of the run holding its runtime token can delete the artifact and upload another under
+    # its name, as upload-artifact's `overwrite` does.
+    outputs:
+      frontend-tag: ${{ steps.bind.outputs.frontend-tag }}
+      frontend-sha256: ${{ steps.bind.outputs.frontend-sha256 }}
+      backend-tag: ${{ steps.bind.outputs.backend-tag }}
+      backend-sha256: ${{ steps.bind.outputs.backend-sha256 }}
     env:
       FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
       BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
@@ -230,6 +238,27 @@ jobs:
           outputs: type=docker,dest=${{ runner.temp }}/backend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
           cache-to: type=gha,scope=backend,mode=max
+      # On every event, so a pull request's run proves the outputs a push to main publishes by.
+      - name: Record each tarball's digest and each image's one tag
+        id: bind
+        env:
+          FRONTEND_TAGS: ${{ steps.meta-frontend.outputs.tags }}
+          BACKEND_TAGS: ${{ steps.meta-backend.outputs.tags }}
+        run: |
+          record() { # $1 the output prefix, $2 the repository, $3 the metadata step's tags, $4 the tarball
+            local digest
+            # Exactly the `sha-` tag: the publish job pushes this one reference, so a second tag the
+            # metadata step gained would otherwise go unpublished without a word.
+            if [[ "$3" == *$'\n'* || "$3" != "$2:sha-"* ]]; then
+              printf '::error::the %s image carries the tags %q, where the publish job pushes exactly one, %s:sha-<commit>.\n' "$1" "$3" "$2"
+              return 1
+            fi
+            digest="$(sha256sum "$4" | cut -d ' ' -f 1)"
+            printf '%s-tag=%s\n%s-sha256=%s\n' "$1" "$3" "$1" "$digest" >> "$GITHUB_OUTPUT"
+            printf '%s: %s, tarball sha256 %s\n' "$1" "$3" "$digest"
+          }
+          record frontend "$FRONTEND_IMAGE" "$FRONTEND_TAGS" "${RUNNER_TEMP}/frontend.tar"
+          record backend "$BACKEND_IMAGE" "$BACKEND_TAGS" "${RUNNER_TEMP}/backend.tar"
       - name: Load both images
         run: |
           docker load --input "${RUNNER_TEMP}/frontend.tar"
@@ -364,9 +393,10 @@ jobs:
           exit 1
 
   # On a push to main that `verify` passed, the two images the images job built and checked are pushed
-  # under their `sha-<commit>` tags, building and checking nothing again (D243).
+  # under their `sha-<commit>` tags, building and checking nothing again.
   publish:
-    needs: verify
+    # `images` for its outputs, which only a job named here can read.
+    needs: [verify, images]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -379,16 +409,31 @@ jobs:
         with:
           name: images
           path: ${{ runner.temp }}/images
+      # Before the registry login, so a replaced tarball never reaches a step holding the push grant.
+      # download-artifact's own digest check reads the run's artifact listing, which describes a
+      # replacement as faithfully as the original. `--strict` refuses an empty output's line.
+      - name: Refuse a tarball other than the one the images job checked
+        env:
+          FRONTEND_SHA256: ${{ needs.images.outputs.frontend-sha256 }}
+          BACKEND_SHA256: ${{ needs.images.outputs.backend-sha256 }}
+        run: |
+          printf '%s  %s\n' \
+            "$FRONTEND_SHA256" "${RUNNER_TEMP}/images/frontend.tar" \
+            "$BACKEND_SHA256" "${RUNNER_TEMP}/images/backend.tar" \
+            | sha256sum --strict --check -
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # `--all-tags` pushes the `sha-` tag the metadata step gave each image, and nothing else carries
-      # either repository's name on this runner.
+      # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
+      # any tag, `:latest` included, which a bare `scripts/ops/deploy.sh` pulls.
       - name: Push both images
+        env:
+          FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}
+          BACKEND_TAG: ${{ needs.images.outputs.backend-tag }}
         run: |
           docker load --input "${RUNNER_TEMP}/images/frontend.tar"
           docker load --input "${RUNNER_TEMP}/images/backend.tar"
-          docker push --all-tags ghcr.io/felzab/frankfurtleague-frontend
-          docker push --all-tags ghcr.io/felzab/frankfurtleague-backend
+          docker push "$FRONTEND_TAG"
+          docker push "$BACKEND_TAG"
