@@ -17,6 +17,7 @@ import LoaderCircle from "lucide-react/icons/loader-circle";
 import Mail from "lucide-react/icons/mail";
 import MapPin from "lucide-react/icons/map-pin";
 import Menu from "lucide-react/icons/menu";
+import Plus from "lucide-react/icons/plus";
 import ScrollText from "lucide-react/icons/scroll-text";
 import Search from "lucide-react/icons/search";
 import Shield from "lucide-react/icons/shield";
@@ -37,6 +38,8 @@ import { tv } from "tailwind-variants/lite";
  * a phone bar share a mark.
  */
 const GLYPHS = {
+  // A record created where its list shows, before the act's label.
+  anlegen: Plus,
   aufklappen: ChevronDown,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
   erledigt: CircleCheck,

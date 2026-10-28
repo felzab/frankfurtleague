@@ -87,6 +87,7 @@ export function ListPage({
               trigger={
                 <Button
                   variant="primary"
+                  leadingIcon="anlegen"
                   label={label}
                 />
               }
