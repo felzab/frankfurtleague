@@ -6,7 +6,6 @@ import { RailFrame } from "@/kit/RailFrame";
 import { judgeAdminRequest } from "@/core/auth";
 import { COPY } from "@/core/copy";
 import { UnreadGrantError } from "@/core/errors";
-import { formatSaison } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { AdminSessionHold } from "@/features/admin/components/providers/AdminSessionHold";
 import { getAdminSaisons } from "@/features/saisons/queries";
@@ -133,8 +132,8 @@ async function Framed({
         gewaehlt === undefined
           ? undefined
           : {
-              current: formatSaison(gewaehlt),
-              seasons: saisonen.map((id) => ({ text: formatSaison(id), href: seasonTarget(id), isCurrent: id === gewaehlt })),
+              current: COPY.shared.saisonName(gewaehlt),
+              seasons: saisonen.map((id) => ({ text: COPY.shared.saisonName(id), href: seasonTarget(id), isCurrent: id === gewaehlt })),
             }
       }
       foot={{

@@ -134,6 +134,8 @@ export const COPY = katalog({
     fertig: "Fertig",
     /** The season button's menu. */
     saison: "Saison",
+    /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
+    saisonName: (id: string) => `Saison ${id}`,
 
     /** The bot check before a public send: refused, disturbed, not yet done, or not loaded at all. */
     pruefung: {

@@ -58,6 +58,3 @@ export function formatErgebnis(tore: Paar, elfmeterschiessen?: Paar | null): str
   const team2 = tore.team2 + (elfmeterschiessen?.team2 ?? 0);
   return `${team1}:${team2}`;
 }
-
-/** „Saison 2027“. A season's id is its year, which takes no thousands separator. */
-export const formatSaison = (saisonId: string): string => `Saison ${saisonId}`;

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatSaison, formatUhrzeit } from "@/core/format";
+import { formatDatum, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { getSaisons } from "@/features/saisons/queries";
@@ -31,10 +31,10 @@ export async function readSaison(saisonId: string): Promise<{ saison: FLSaison; 
 /** The season button's entries: the Spielplan of every public season, the newest first, the one shown marked. */
 export function seasonMenu(saison: FLSaison, saisons: readonly FLSaison[]) {
   return {
-    current: formatSaison(saison.id),
+    current: COPY.shared.saisonName(saison.id),
     seasons: [...saisons]
       .sort((one, other) => other.id.localeCompare(one.id))
-      .map((each) => ({ text: formatSaison(each.id), href: ROUTES.spielplan.pfad(each.id), isCurrent: each.id === saison.id })),
+      .map((each) => ({ text: COPY.shared.saisonName(each.id), href: ROUTES.spielplan.pfad(each.id), isCurrent: each.id === saison.id })),
   };
 }
 
