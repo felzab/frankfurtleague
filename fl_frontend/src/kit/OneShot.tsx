@@ -96,7 +96,7 @@ export function OneShotForm({
           />
           {acts.secondary !== undefined && (
             <Button
-              variant="secondary"
+              variant="quiet"
               label={acts.secondary}
               isBusy={isPending && pressed === "secondary"}
               onPress={() => {
