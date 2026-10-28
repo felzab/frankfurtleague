@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
  * The administration's menu: the Übersicht with no heading, then its three groups. A season's
  * page takes the season the page works in, which the frame reads from the address.
  */
-const RAIL_GROUPS: RailGroup[] = [
+export const RAIL_GROUPS: RailGroup[] = [
   {
     entries: [{ id: "uebersicht", label: ROUTES.verwaltungUebersicht.titel, season: "verwaltungUebersicht", icon: "uebersicht" }],
   },
@@ -25,7 +25,7 @@ const RAIL_GROUPS: RailGroup[] = [
     heading: COPY.verwaltung.gruppe.saisonsUndSpiele,
     entries: [
       { id: "saisons", label: ROUTES.verwaltungSaisons.titel, href: ROUTES.verwaltungSaisons.pfad(), icon: "saisons" },
-      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spiele" },
+      { id: "spiele", label: ROUTES.verwaltungSpiele.titel, season: "verwaltungSpiele", icon: "spielplan" },
       { id: "spielorte", label: ROUTES.verwaltungSpielorte.titel, href: ROUTES.verwaltungSpielorte.pfad(), icon: "spielorte" },
       {
         id: "schiedsrichter",
