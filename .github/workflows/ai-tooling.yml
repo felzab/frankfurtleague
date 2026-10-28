@@ -1,8 +1,8 @@
 name: ai-tooling
 
-# The orchestration tools' own tests, which live with the tools under `.claude/`. No required check
-# names this job: the AI tooling is kept apart from what decides a merge, and this file is the one
-# piece of it outside `.claude/`.
+# The orchestration tools' lint, types and tests, which live with the tools under `.claude/`. No
+# required check names this job: the AI tooling is kept apart from what decides a merge, and this
+# file is the one piece of it outside `.claude/`.
 
 on:
   pull_request:
@@ -26,9 +26,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # pytest and its workers from the backend's dev group; no step imports the application.
-      - uses: ./.github/actions/backend-toolchain
+      # Each later step runs only while the tools' tests are in the tree, so a tree without
+      # `.claude/` passes this job rather than failing it. `hashFiles` is an empty string where
+      # nothing matches, and a step's `if` is the first place it can read the checkout.
+      # pytest, ruff and pyright from the backend's dev group; no step imports the application.
+      - if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
+        uses: ./.github/actions/backend-toolchain
         with:
           application: false
+      # From the root, the skill's `ruff.toml` extending `scripts/ruff.toml`.
+      - name: Lint the orchestration tools
+        if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
+        run: fl_backend/.venv/bin/python -m ruff check .claude/skills/orchestration
+      - name: Check the orchestration tools' format
+        if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
+        run: fl_backend/.venv/bin/python -m ruff format --check .claude/skills/orchestration
+      # From the skill's folder, where pyright finds its `pyrightconfig.json`.
+      - name: Type-check the orchestration tools
+        if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
+        working-directory: .claude/skills/orchestration
+        env:
+          PYRIGHT_PYTHON_IGNORE_WARNINGS: "1"
+        run: ../../../fl_backend/.venv/bin/python -m pyright
       - name: Run the orchestration tools' tests
+        if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
         run: fl_backend/.venv/bin/python -m pytest .claude/skills/orchestration/tests -n auto
