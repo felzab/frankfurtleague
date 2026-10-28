@@ -18,6 +18,7 @@ from app.api.spielberichte.services import (
     BERICHT_GRUND_FEHLT,
     BERICHT_NAME_IN_BEMERKUNGEN,
     BERICHT_NICHT_GESPIELT,
+    BERICHT_NICHT_IM_KADER,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
@@ -27,8 +28,11 @@ from app.api.spielberichte.services import (
     find_abgesagt_refusal,
     find_grund_fehlt_refusal,
     find_name_in_bemerkungen_refusal,
+    find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
+    find_nicht_im_kader_refusal,
     judge_bericht,
+    neu_genannt,
     nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
@@ -233,6 +237,22 @@ class TestACalledOffFixtureTakesNoReport:
         """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report."""
 
         assert nimmt_einen_bericht(spiel(sonderereignis="ausgefallen"), today=TODAY) is False
+
+
+class TestOnlyTheBookedRefereeReports:
+    def test_the_booked_referee_is_admitted_from_any_of_their_records(self):
+        """A person may hold several referee records, read in no set order: the booked one need not come first."""
+
+        assert find_nicht_geleitet_refusal(spiel_raw=spiel(), schiedsrichter_ids=[ObjectId("650000000000000000000204"), SCHIEDSRICHTER]) is None
+
+
+class TestANewlyNamedPupilIsInTheSquad:
+    def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
+        """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
+
+        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
+
+        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 class TestTheRemarksNameNobody:

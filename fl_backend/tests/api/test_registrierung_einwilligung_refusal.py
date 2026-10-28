@@ -15,6 +15,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
+    find_already_confirmed_refusal,
     find_expired_token_refusal,
     persons_named,
     seite_of,
@@ -94,6 +95,13 @@ class TestALinkWhoseTimeIsOver:
         """The mail names that day, and a link dying at the midnight before it lies."""
 
         assert find_expired_token_refusal(bestaetigung={"frist": TODAY}, status="eingereicht", today=TODAY) is None
+
+
+class TestARegistrationAlreadyConfirmed:
+    def test_a_record_stamped_with_an_empty_string_is_still_open(self):
+        """Every reader of a stamp takes an empty one for none, as the application's seats do: the pupil may still answer."""
+
+        assert find_already_confirmed_refusal(einwilligung={"bestaetigt_am": ""}) is None
 
 
 class TestWhichPageTheLinkOpens:

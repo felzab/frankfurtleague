@@ -19,6 +19,7 @@ from app.api.spielbestaetigungen.services import (
     clubs_without_a_season_row,
     compose_ansetzung,
     find_spent_link_refusal,
+    find_vorschlag_vergangen_refusal,
     grund_to_close,
     grund_to_end,
     proposal_payload,
@@ -425,3 +426,10 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
         sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
         assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
+
+
+class TestAProposalBeforeToday:
+    def test_today_is_no_day_before_today(self):
+        """A club proposing today is refused with a sentence saying its date has passed, which it has not."""
+
+        assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
