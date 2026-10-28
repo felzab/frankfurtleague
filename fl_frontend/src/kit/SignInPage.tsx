@@ -97,17 +97,14 @@ const look = tv({
 /**
  * The sign-in template, centred as the prototype drew it: the heading, the sentences, the address and the code
  * boxes centred, every button full width in the 384-px column. Each view is one step of a sign-in; the page
- * holding its state passes the view it is on. Every outcome stands in the one line under the acts, so nothing
- * above it moves.
+ * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
+ * and the code's in their field's own line.
  */
 export function SignInPage(props: SignInView) {
   const slots = look();
   return (
     // The sign-in width centres the column in the first screen the classic page fills.
     <ClassicPage width="signin">
-      {/* The address view's title stands in the page's own column, so the field under it keeps the heading gap
-          every classic page sets above its content; the other views' titles head a block with their sentence. */}
-      {props.view === "adresse" && <ClassicTitle text={props.titel} />}
       <div className={slots.column()}>
         <Body {...props} />
         {/* The code view's refusal is the code field's own, under the boxes. */}
@@ -128,6 +125,8 @@ function Body(props: SignInView) {
       const { adresse, senden, passkey } = props;
       return (
         <>
+          {/* The column's 16 px above the field, as the board drew the view. */}
+          <ClassicTitle text={props.titel} />
           <Form
             validationErrors={adresse.fehler === undefined ? undefined : { email: adresse.fehler }}
             onSubmit={(event) => {

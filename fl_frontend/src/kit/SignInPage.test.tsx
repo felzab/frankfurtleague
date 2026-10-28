@@ -53,7 +53,7 @@ describe("the sign-in template", () => {
     expect(screen.getByRole("main").className.split(" ")).toEqual(expect.arrayContaining([FILLS_SCREEN, "max-w-[24rem]"]));
   });
 
-  it("sets the address view's title in the page's column, the heading gap above the field, and reserves no line under it", () => {
+  it("reserves no line under the address field", () => {
     render(
       <SignInPage
         view="adresse"
@@ -67,11 +67,6 @@ describe("the sign-in template", () => {
       />,
     );
 
-    const main = screen.getByRole("main");
-    // The title is the column's own child, 24 px above the rest as on every classic page; the rest 16 px apart.
-    expect(main.firstElementChild).toBe(screen.getByRole("heading", { level: 1 }));
-    expect(classesOf(main)).toContain("gap-6");
-    expect(classesOf(main.lastElementChild)).toContain("gap-4");
     // Label and field alone: no empty line holds a place under the field.
     const field = screen.getByRole("textbox", { name: WORTE.adresse });
     expect(field.parentElement?.children).toHaveLength(2);
