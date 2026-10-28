@@ -158,7 +158,7 @@ class TestTheBaseTierShape:
         assert (served.nummer, served.position) == (None, None)
 
     def test_the_read_model_accepts_the_initial_it_is_served(self):
-        """`docs/backend/spec.md :: I36` keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
+        """The backend keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
         served = FLSpielerPublic.model_validate(
             {"_id": SPIELER_OIDS["Mueller"], "vorname": "Max", "nachname": "M.", "nummer": "7", "position": "Angriff"}
         )
@@ -370,7 +370,7 @@ def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[M
 
 
 class TestTheSeasonASquadIsReadFor:
-    """`docs/backend/spec.md :: I4`: the squad page names a club and, for the running season, no season."""
+    """The squad page names a club and, for the running season, no season."""
 
     @pytest.mark.parametrize(
         ("named", "read"),

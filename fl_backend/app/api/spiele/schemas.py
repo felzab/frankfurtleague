@@ -139,9 +139,9 @@ MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 class FLSpielTeamFieldPayload(BaseModel):
     """One side of a fixture as the admin PATCH SUBMITS it.
 
-    No name and no shorthand: the server composes them from the season's `saison_teams` row
-    (`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as
-    `docs/backend/spec.md :: I114` allows.
+    No name and no shorthand: the server composes them from the season's `saison_teams` row.
+    A submitted copy is IGNORED rather than refused, as
+    the rule allows.
     """
 
     team_id: CustomObjectId
@@ -186,7 +186,7 @@ class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
 
 # Private, so the payload and the served shape state the booked id once and publish no component of
 # their own. Each extends THIS rather than one extending the other: composing a name onto a payload
-# is what `docs/backend/spec.md :: I3` forbids.
+# is what the rule forbids.
 class _SpielOrtBooking(BaseModel):
     spielort_id: CustomObjectId
 
@@ -197,7 +197,7 @@ class FLSpielOrtFieldPayload(_SpielOrtBooking):
     model_config = ConfigDict(extra="forbid")
 
     # No default, and it stays on the payload where the name does not: this is THIS fixture's rent
-    # rather than a copy of the venue's current default (`docs/backend/spec.md :: I6`).
+    # rather than a copy of the venue's current default.
     mietpreis: int = Field(ge=0)
 
 
@@ -315,7 +315,7 @@ class FLSpielElfmeterschiessen(BaseModel):
     """The penalty shoot-out that settled a knockout fixture whose goals finished level.
 
     No `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the
-    database validators' ratified scope (`docs/backend/spec.md :: I25`).
+    database validators' ratified scope.
     """
 
     team1: int = Field(ge=0)
@@ -386,7 +386,7 @@ class FLBracketFaultSpiel(_BracketFault):
 
 
 class FLBracketFaultOccupant(_BracketFault):
-    """One fixture fielding a team that left the season (`docs/backend/spec.md :: I28`).
+    """One fixture fielding a team that left the season.
 
     The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
     (`fl_backend/app/core/domain.py :: UNENFORCED`).
@@ -421,7 +421,7 @@ class FLBracketFaultSpieltag(_BracketFault):
 
 
 class FLBracketFaultBooking(_BracketFault):
-    """A fixture still to be played booked onto a retired venue or referee (`docs/backend/spec.md :: I257`).
+    """A fixture still to be played booked onto a retired venue or referee.
 
     Nothing is taken off: only a person chooses between reactivating the row and booking another.
     """
@@ -489,7 +489,7 @@ class FLSpielSlotHolder(FLSpielBooking):
     """Any fixture's claim on a venue or a referee, read across every season by `REQ-CLASH-001` and by its report alike."""
 
     id: CustomObjectId = Field(validation_alias="_id")
-    # Unbounded, as a model echoing a stored id is (`docs/backend/spec.md :: I5`): this read spans every
+    # Unbounded, as a model echoing a stored id is: this read spans every
     # season, so one malformed id would answer 500 for a save in another.
     saison_id: str
     ort: _SpielOrtBooking | None
@@ -553,11 +553,11 @@ FLSpielRestorableField = Literal["team1_quelle", "team2_quelle", "datum", "uhrze
 class FLSpielPriorOrt(_SpielOrtBooking):
     """The venue a restore names: which ground, and what that fixture agreed to pay for it.
 
-    Lax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one
-    (`docs/backend/spec.md :: I114`), which is also why the two cannot be one class.
+    Lax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one,
+    which is also why the two cannot be one class.
     """
 
-    # Declared again rather than shared with the payload's, as `docs/backend/spec.md :: I6` has every
+    # Declared again rather than shared with the payload's, as the rule has every
     # model holding this figure declare it.
     mietpreis: int = Field(ge=0)
 
@@ -581,7 +581,7 @@ def other_fields_of(spiel: FLSpiel) -> dict[FLSpielRestorableField, Any]:
         "datum": spiel.datum,
         "uhrzeit": spiel.uhrzeit,
         # Composed names left behind, so a venue renamed since is not read as a field this write
-        # replaced. The rent stays: it is what THIS fixture pays (`docs/backend/spec.md :: I6`).
+        # replaced. The rent stays: it is what THIS fixture pays.
         "ort": None if spiel.ort is None else FLSpielPriorOrt(spielort_id=spiel.ort.spielort_id, mietpreis=spiel.ort.mietpreis),
         "schiedsrichter": (
             None
@@ -670,7 +670,7 @@ class FLPatchSpielPaarungPayload(_SpielRestore):
             team2=self.team2,
             elfmeterschiessen=self.elfmeterschiessen,
             # Re-shaped rather than passed on: the wholesale payload's booking blocks forbid a key
-            # they do not declare, which is what keeps a composed name off a save (`docs/backend/spec.md :: I49`).
+            # they do not declare, which is what keeps a composed name off a save.
             ort=None if ort is None else FLSpielOrtFieldPayload(spielort_id=ort.spielort_id, mietpreis=ort.mietpreis),
             schiedsrichter=(
                 None
@@ -825,10 +825,10 @@ class FLSpielJoined(FLSpielCommon):
     team2: FLSpielTeamFieldJoined | None
 
     # Here and never on `FLSpielCommon`, whose stored child `FLSpiel` would write it onto the fixture at
-    # the next save. Required: only the join composes it (`docs/backend/spec.md :: I763`).
+    # the next save. Required: only the join composes it.
     ansetzung_bestaetigt: bool | None
 
-    # The acceptance gate ahead of the consent gate (`docs/backend/spec.md :: I781`); `FLSpielJoinedAdmin`
+    # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.
     schiedsrichter: Annotated[FLSpielSchiedsrichterFieldPublic | None, BeforeValidator(_withheld_unless_agreed)]
 
@@ -950,7 +950,7 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
 
     # The lists above are what an admin READS; this is what an undo SENDS -- a fixture both of them
     # name is restored once, and neither reports the sides.
-    # ORDER-BEARING: the fixture the request named leads it (`docs/backend/spec.md :: I215`).
+    # ORDER-BEARING: the fixture the request named leads it.
     prior_paarungen: list[FLSpielPriorPaarung] = Field(default_factory=list)
 
     # What the undo sends back of the report this save stamped adopted; null where it stamped none.
@@ -965,7 +965,7 @@ class FLPatchSpielePaarungenResponse(BaseAPIResponse):
     """
 
     # A fixture the replay itself puts back after this rewrite is left out of both: it is the
-    # mechanism the order exists for (`docs/backend/spec.md :: I223`) rather than something an admin
+    # mechanism the order exists for rather than something an admin
     # lost.
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)

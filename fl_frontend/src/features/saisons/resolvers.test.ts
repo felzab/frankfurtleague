@@ -41,8 +41,7 @@ describe("whether a page shows a finished season", () => {
   });
 });
 
-/* The order every admin page and the admin header's default resolve in (`docs/frontend/spec.md ::
-   I359`). */
+/* The order every admin page and the admin header's default resolve in. */
 describe("which season a page addresses", () => {
   const PAST = { id: "2025", status: "past" } as const;
   const ACTIVE = { id: "2026", status: "active" } as const;
@@ -80,7 +79,7 @@ describe("which season an address names", () => {
   });
 
   /* The redirect is a fresh request line and history entry, so an old search query a bookmark still
-     holds stays behind (`docs/frontend/spec.md :: I680`). */
+     holds stays behind. */
   it("leaves an old search query behind on the way back", async () => {
     await expect(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "Lena", gruppe: "A" }), "admin")).rejects.toSatisfy(
       (error) => redirectQuery(error) === "?gruppe=A",

@@ -194,7 +194,7 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
 }
 
 # The same three seats before any of them answered their own link: a seat carries no date until the
-# person enters one at their own confirmation (`docs/backend/spec.md :: I141`).
+# person enters one at their own confirmation.
 UNDATED_SEEDED: dict[str, Any] = {
     **SEEDED_KONTAKTE,
     **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
@@ -338,7 +338,7 @@ class TestTheBlockIsWritten:
 
 @pytest.mark.db
 class TestTheProvenanceIsTheServers:
-    """`docs/backend/spec.md :: I142`: a stored confirmation survives the editor, and nothing an editor sends can create one."""
+    """A stored confirmation survives the editor, and nothing an editor sends can create one."""
 
     def test_a_confirmed_seat_keeps_its_source_and_its_stamp_through_an_edit(self, mongo_replica_set_url: str):
         """The data-loss path: the block is `$set` whole, so a stamp the write does not carry over is destroyed with no refusal.
@@ -361,7 +361,7 @@ class TestTheProvenanceIsTheServers:
         assert trainer["telefon"] == OTHER_TELEFON, "the edit itself did not land, so this case proves nothing"
         assert trainer["einwilligung"]["bestaetigt_am"] == CONFIRMED_ON
         # The date goes the same way, and by the same route: the payload names none, so a save that
-        # did not carry it over would leave a stamped seat with no birthdate at all (I141).
+        # did not carry it over would leave a stamped seat with no birthdate at all.
         assert trainer["geburtsdatum"] == GEBURTSDATUM
         assert response.kontakte is not None and response.kontakte.trainer is not None
         assert response.kontakte.trainer.einwilligung.bestaetigt_am == CONFIRMED_ON
@@ -476,7 +476,7 @@ class TestAPairNoRowAnswers:
 @pytest.mark.db
 class TestOnlyANewlySeatedAddressIsAnchored:
     def test_a_save_keeping_two_seats_anchors_the_third_persons_address_alone(self, mongo_replica_set_url: str):
-        """A kept seat's address is on the row an erasure of it writes already (`docs/backend/spec.md :: I719`).
+        """A kept seat's address is on the row an erasure of it writes already.
 
         Anchored too, it sends that person's own writes round against an administrator's save.
         """

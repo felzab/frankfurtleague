@@ -12,8 +12,7 @@ export default async function PersoenlichStartPage() {
   const subject = await requireSubjectSession();
 
   // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh
-  // sign-in or its passkey step, which `/bereich/admin` sends it on to, not a person's landing
-  // (`docs/frontend/spec.md :: I386`).
+  // sign-in or its passkey step, which `/bereich/admin` sends it on to, not a person's landing.
   if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
 
   const { funktionen, unbestaetigt } = funktionenOf(subject);
@@ -28,7 +27,7 @@ export default async function PersoenlichStartPage() {
       />
     );
 
-  // Every person lands on a page named „Übersicht“ (`docs/frontend/spec.md :: I466`): a team's own
+  // Every person lands on a page named „Übersicht“: a team's own
   // landing is one, so one team alone goes straight on; any other lone place is one card here.
   const [{ art }] = erstes.funktionen;
   if (weitere.length === 0 && art === "kontakt") redirect(erstes.href);

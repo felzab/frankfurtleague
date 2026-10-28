@@ -356,8 +356,7 @@ class TestPatchPayload:
     def test_a_submitted_side_name_never_reaches_the_payload(self, spiel):
         """The other end of the same claim, on the one block that still takes a key it does not declare.
 
-        The stored side EXTENDS this payload, so refusing here would 500 a fixture read
-        (`docs/backend/spec.md :: I49`).
+        The stored side EXTENDS this payload, so refusing here would 500 a fixture read.
         """
 
         parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel))

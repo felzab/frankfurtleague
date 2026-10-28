@@ -98,7 +98,7 @@ export async function adresswechselWirksam({
       const umzug = await carryAccount(bisherige, mitteilung.email);
       if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });
     } catch (error) {
-      // Name only, never the error, which carries an address (`docs/logging/spec.md :: L9`).
+      // Name only, never the error, which carries an address.
       logger.error("adresswechsel.konto_nicht_umgezogen", undefined, {
         error_code: "FE-AUTH-013",
         name: error instanceof Error ? error.name : undefined,
@@ -138,14 +138,14 @@ async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis:
   try {
     // Through the ban list like every message (`fl_frontend/src/core/mail.ts :: sendMail`), and
     // untagged: a delivery event about it is acknowledged and recorded nowhere. A cut or a lost answer here
-    // is its own doubt, never the request's (`docs/frontend/spec.md :: I372`).
+    // is its own doubt, never the request's.
     await runAnsweringOwnCut(() => sendMail({ to: adresse, ...mail }));
     return "gesendet";
   } catch (error) {
     // The fan-out's own reading, so this lone send ends in the words a link mail's do.
     const ausfall = versandAusfallOf(error);
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
-    // Name only, never the error, which carries the address (`docs/logging/spec.md :: L9`).
+    // Name only, never the error, which carries the address.
     logger.error(ereignis, undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
@@ -168,7 +168,7 @@ export function describeAdresswechselMail(mint: Pick<AdresswechselMint, "email" 
         ? `Der Link zur Bestätigung der neuen Adresse ging an ${email}. Bis zur Bestätigung gilt die bisherige.`
         : versand.link === "zurueckgehalten"
           ? ZURUECKGEHALTEN
-          : // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
+          : // Naming no address, as every barred send's report names none.
             versand.link === "gesperrt"
             ? "Der Link zur neuen Adresse ging nicht raus, weil sie auf der Sperrliste steht."
             : `Der Link zur Bestätigung konnte nicht an ${email} verschickt werden. Melde Dich selbst bei der Person.`;
@@ -194,7 +194,7 @@ function describeAnfrage(hinweis: HinweisVersand | null, gueltigBis: string): st
       return `Die bisherige Adresse ist gebeten, die Änderung in ihrem Konto freizugeben, bis ${bis}. Erst danach geht der Link an die neue.`;
     case "zurueckgehalten":
       return ZURUECKGEHALTEN;
-    // Naming no address (`docs/frontend/spec.md :: I542`): the ban list holds the address on file.
+    // Naming no address: the ban list holds the address on file.
     case "gesperrt":
       return "Die Anfrage an die bisherige Adresse ging nicht raus, weil sie auf der Sperrliste steht. Verwirf die Änderung.";
     case "ungewiss":

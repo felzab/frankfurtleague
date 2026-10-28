@@ -25,8 +25,7 @@ class FLEinladungVersand(BaseModel):
 class FLEinladung(BaseModel):
     """One minted link as it is served -- and NO `token_hash`.
 
-    A model declaring the hash would put every live link of the season on an admin read
-    (`docs/backend/spec.md :: I275`).
+    A model declaring the hash would put every live link of the season on an admin read.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -44,8 +43,7 @@ class FLEinladung(BaseModel):
 class FLEinladungZeile(FLEinladung):
     """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
 
-    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors.
     erstellt_von: CustomNonEmptyString | None
     erstellt_von_gesperrt: bool
 
@@ -53,8 +51,7 @@ class FLEinladungZeile(FLEinladung):
 class FLEinladungMintResponse(BaseAPIResponse):
     """A freshly minted registration link, and the only answer that ever carries its raw value.
 
-    Shown once for copying and mailed on a separate press; no later read recovers it from the hash
-    (`docs/backend/spec.md :: I275`).
+    Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
     """
 
     saison_id: CustomNonEmptyString
@@ -100,7 +97,7 @@ class FLEinladungEmpfaenger(BaseModel):
 
 # Five ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
 # that team and `erzeugung_ungewiss` that it cannot tell, and a surface words both apart from the
-# rest (`docs/backend/spec.md :: I282`).
+# rest.
 FLEinladungVersandGrund = Literal[
     "austritt_eingetragen",
     "erzeugung_fehlgeschlagen",

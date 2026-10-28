@@ -296,7 +296,7 @@ _KONTAKTPERSON = _object(
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
         # Nullable: the date arrives with the confirmation, and "non-null once confirmed" is no type or
-        # enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        # enum, so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
@@ -544,8 +544,8 @@ _BERECHTIGUNG_STAND = _object(
     properties={"adresse": {"bsonType": _STRING_OR_NULL}, "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG}},
 )
 
-# A public submission's replay key and the digest of the payload it first carried
-# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Never required: a
+# A public submission's replay key and the digest of the payload it first carried,
+# kept on the squad row an admission writes. Never required: a
 # keyless submission and an administrator's squad row carry none.
 _IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
     "idempotenz_schluessel": {"bsonType": "string"},
@@ -600,7 +600,7 @@ _AUSTRITT = _object(
 _SPIEL_QUELLE = _object(
     nullable=True,
     # `type` alone: `oneOf` could require each variant's own keys, and these validators hold to types,
-    # required fields and enums (`docs/backend/spec.md :: I16`). What stays catchable here is a
+    # required fields and enums. What stays catchable here is a
     # `platz` stored as "2".
     required=("type",),
     properties={
@@ -681,7 +681,7 @@ _SPIELBESTAETIGUNG_ANSETZUNG = _object(
 )
 
 # One seat's links on a confirmation row. The hashes are typed alone, a seat keeping every link it was
-# mailed (`docs/backend/spec.md :: I752`) and a count being no type (`:: I16`).
+# mailed and a count being no type.
 _SPIELBESTAETIGUNG_SITZ = _object(
     nullable=True,
     required=("token_hashes",),
@@ -814,7 +814,7 @@ _SPIELBERICHT_BERICHT = _object(
 
 # Hand-written, never generated: `model_json_schema()` types a `CustomObjectId` as a string, so a
 # generated validator would admit the ObjectId-as-string documents these refuse. Types and enums
-# only (`docs/backend/spec.md :: I16`).
+# only.
 COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     Collection.SAISONS: {
         "$jsonSchema": _object(
@@ -903,7 +903,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
             # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
-            # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
+            # there is no `inactive_since` here.
             required=("_id", "saison_id", "team_id", "gruppe", "austritt", "trikot_farbe", "kontakte", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -917,7 +917,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required`: the entry writes none, the first save minting a link writes it.
                 "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
-                # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
+                # while the season is not `past`. What makes the copy
                 # embedded in its fixtures true rather than merely old.
                 "name": {"bsonType": "string"},
                 "shorthand": {"bsonType": "string"},
@@ -973,7 +973,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
                 # `uniq_spieler_id_saison_id` keeps indexing a retired row, so a second create is a
-                # DUPLICATE KEY answered 409 (`docs/backend/spec.md :: I20`).
+                # DUPLICATE KEY answered 409.
                 "inactive_since": _INACTIVE_SINCE,
                 **_IDEMPOTENZ_PROPERTIES,
             },
@@ -1003,8 +1003,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "team1": _SPIEL_TEAM_FIELD,
                 "team2": _SPIEL_TEAM_FIELD,
-                # Nothing pairs this with the team field beside it: every combination is legitimate
-                # (`docs/backend/spec.md :: I22`).
+                # Nothing pairs this with the team field beside it: every combination is legitimate.
                 "team1_quelle": _SPIEL_QUELLE,
                 "team2_quelle": _SPIEL_QUELLE,
                 "datum": {"bsonType": _STRING_OR_NULL},
@@ -1087,7 +1086,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Each nullable, and exactly one carries a value WHILE the application stands
             # `eingereicht` -- acceptance writes the created club's id beside the school it came
-            # from. The write path holds that; types and enums cannot (`docs/backend/spec.md :: I16`).
+            # from. The write path holds that; types and enums cannot.
             required=(
                 "_id",
                 "saison_id",
@@ -1215,7 +1214,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # would fall outside a rule that is the whole of one-live-invite-per-team.
                 "widerrufen_am": {"bsonType": _STRING_OR_NULL},
                 # The delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`), written
-                # empty by the mint (`docs/backend/spec.md :: I276`). Out of `required`, so a
+                # empty by the mint. Out of `required`, so a
                 # row seeded without one still stores; hand-written because `_object` would spell
                 # the empty `required` mongod refuses.
                 "versand": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
@@ -1250,7 +1249,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": "string"},
-                # Folded, as every address payload stores it (`docs/backend/spec.md :: I332`): a row
+                # Folded, as every address payload stores it: a row
                 # typed otherwise matches no read, each an equality.
                 "email": {"bsonType": "string"},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
@@ -1258,7 +1257,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "nummer": {"bsonType": _STRING_OR_NULL},
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 # Required as KEYS and null until the pupil's own confirmation writes both in one
-                # `$set` (`docs/backend/spec.md :: I285`).
+                # `$set`.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": _REGISTRIERUNG_EINWILLIGUNG,
                 # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
@@ -1275,8 +1274,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=("_id", "adresse", "verwaltung", "erteilt_von", "erteilt_am"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                # The folded sign-in identifier, which nothing here can check without a pattern
-                # (`docs/backend/spec.md :: I16`): a row typed unfolded matches no request, and the
+                # The folded sign-in identifier, which nothing here can check without a pattern:
+                # a row typed unfolded matches no request, and the
                 # boot names it (`app/core/db.py :: warn_about_the_grants`).
                 "adresse": {"bsonType": "string"},
                 "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
@@ -1285,13 +1284,13 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `new Date()`, which is one spelling nobody can mistype.
                 "erteilt_am": {"bsonType": "date"},
                 # Out of `required`: a paste writes no such key, and the comparison stamps it on the
-                # row it finds (`docs/backend/spec.md :: I525`).
+                # row it finds.
                 "gefunden_am": {"bsonType": ["date", "null"]},
                 # Out of `required` for `gefunden_am`'s reason: a paste writes no such key.
                 "gesehen_am": {"bsonType": ["date", "null"]},
                 # Out of `required` too: a pasted `owner` row holds the tier from its grant's own date.
                 "ernannt_am": {"bsonType": ["date", "null"]},
-                # An address change's move alone writes it (`docs/backend/spec.md :: I866`).
+                # An address change's move alone writes it.
                 "fortgefuehrt": _object(
                     required=("berechtigt_seit", "inhaber_seit"),
                     properties={"berechtigt_seit": {"bsonType": "date"}, "inhaber_seit": {"bsonType": ["date", "null"]}},
@@ -1340,7 +1339,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},
                 "geaendert_am": {"bsonType": ["date", "null"]},
                 # Why the grant's address is withheld, which its null never says by itself; a null actor
-                # does, as a ban (`docs/backend/spec.md :: I661`).
+                # does, as a ban.
                 "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row: the claim asks for a null
@@ -1652,7 +1651,7 @@ class SupportIndex:
     keys: tuple[tuple[str, int], ...]
     rule: str
     # The collation of the reads it serves, which must be the index's own: a read under another one walks none of its
-    # string keys (`docs/backend/spec.md :: I54`).
+    # string keys.
     collation: Mapping[str, Any] | None = None
 
 
@@ -1859,7 +1858,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
     # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
-    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I838`).
+    # the only other index on `saison_id` is led by the pupil.
     SupportIndex(
         Collection.SAISON_SPIELER,
         "saison_spieler_saison_id_team_id",
@@ -1875,7 +1874,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "one season's squad rows of one or two clubs, ordered by name",
         collation=GERMAN_COLLATION,
     ),
-    # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
+    # A person's records by the fold every address payload stores, one index per
     # clause of each `$or`, for the registration's pair's reason.
     *(
         SupportIndex(
@@ -1948,7 +1947,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # Zero: `ablauf` is already the German midnight ending the day the row counts.
     TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
     # Zero: an anchor serves only the transactions open while it is written, and its removal is itself a
-    # write that one of them meets as a conflict, so no later removal is ever safer (`docs/backend/spec.md :: I719`).
+    # write that one of them meets as a conflict, so no later removal is ever safer.
     TTLIndex(
         Collection.ADRESSANKER,
         "adressanker_geschrieben_am",
@@ -1965,7 +1964,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
-    # Zero: a lapsed request decides nothing, and every read already treats it as gone (`docs/backend/spec.md :: I851`).
+    # Zero: a lapsed request decides nothing, and every read already treats it as gone.
     TTLIndex(
         Collection.BERECHTIGUNGEN_ANTRAEGE,
         "berechtigungen_antraege_bis",

@@ -59,7 +59,7 @@ async function Berechtigungen() {
 async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();
   // The session and not the grant alone: one made before its holder's promotion is refused an owner's write, so it is
-  // offered none (`docs/frontend/spec.md :: I535`).
+  // offered none.
   if (served === null || !holdsOwnersTier(served.session.createdAt, await verwaltungOf(served.user.email))) return null;
 
   // Folded, as every grant is stored: the session keeps the spelling it signed in with, and the own row is found by it.

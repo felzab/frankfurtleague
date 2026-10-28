@@ -282,7 +282,7 @@ export function FormKaderSection({
               {/* Its cap refusal is the picker's beside it: `teamId` starts null on this branch and
                   `TeamSelect` is its only writer, so a squad at `REQ-SQUAD-003`'s cap never gets here. */}
               {/* Closed until a team is picked, rather than pressed into a refusal whose message lands under the
-                  picker and moves the row (`docs/frontend/spec.md` §1.14). */}
+                  picker and moves the row. */}
               <Hint
                 mode="refusal"
                 reason={!isEntering && teamId === null ? "Wähle zuerst ein Team." : null}

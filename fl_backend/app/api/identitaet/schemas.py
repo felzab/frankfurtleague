@@ -23,7 +23,7 @@ class FLSubjektPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # In the BODY and on no path or query: an address in a URL reaches the edge's access line, which
-    # `docs/logging/spec.md :: L11` keeps a credential out of and an identifier is no better in.
+    # the rule keeps a credential out of and an identifier is no better in.
     email: CustomEmail
 
 
@@ -39,7 +39,7 @@ class FLSubjektSitz(BaseModel):
     # The contact-seat sense of the word, never the captaincy's, which `docs/glossary.md` holds
     # apart (`app/api/spieler/schemas.py :: FLSpielerRolle`).
     rolle: FLKontaktRolle
-    # The junction row's own name, the one the club was PLAYED under (`docs/backend/spec.md :: I13`):
+    # The junction row's own name, the one the club was PLAYED under:
     # a club renamed since is still named here as its seats were held.
     team_name: str
     # The one read this lookup makes of `saisons`. The current-season narrowing is the caller's, and
@@ -74,8 +74,7 @@ class FLSubjekt(BaseModel):
     spieler: list[FLSubjektSpieler]
     schiedsrichter: list[FLSubjektSchiedsrichter]
     # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
-    # panel and none is confirmed, which empty lists alone would report as nothing held
-    # (`docs/backend/spec.md :: I374`).
+    # panel and none is confirmed, which empty lists alone would report as nothing held.
     unbestaetigt: bool
 
 
@@ -86,16 +85,16 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     """
 
     # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
-    # records, and the ban is keyed under a secret only this operation needs (`docs/backend/spec.md :: I389`).
+    # records, and the ban is keyed under a secret only this operation needs.
     gesperrt: bool
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
     # the endpoint's alone for `gesperrt`'s reason too -- no person endpoint authorises against it.
     verwaltung: FLVerwaltung | None
     # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
-    # where it stands (`docs/backend/spec.md :: I525`).
+    # where it stands.
     berechtigt_seit: FLUtcInstant | None
     # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
-    # owner's power (`docs/backend/spec.md :: I534`).
+    # owner's power.
     inhaber_seit: FLUtcInstant | None
 
 
@@ -175,7 +174,7 @@ class FLSelbstErasureSitz(BaseModel):
     """One seat on a team's season row, named as the row names it."""
 
     saison_id: str
-    # The row's own name, the one the club played that season under (`docs/backend/spec.md :: I13`).
+    # The row's own name, the one the club played that season under.
     team_name: str
     rolle: FLKontaktRolle
     vorname: str
@@ -243,8 +242,8 @@ def _trimmed_as_the_page_trims(value: Any) -> Any:
     return trimmed(value) if isinstance(value, str) else value
 
 
-# A lookup asking no more than any payload stores, an `@` within the stored ceiling
-# (`docs/backend/spec.md :: I329`): a record stored under an older rule stays erasable.
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling:
+# a record stored under an older rule stays erasable.
 ErasureAdresse = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),

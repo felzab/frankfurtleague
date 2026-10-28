@@ -13,7 +13,7 @@ export type PageExitOptions = {
 };
 
 /**
- * The guarded exit (`docs/frontend/spec.md :: I225`). A fresh tab reads `history.length` as 1, so
+ * The guarded exit. A fresh tab reads `history.length` as 1, so
  * the comparison is against 1 and not against 0.
  */
 export function goBackOrPush(router: ReturnType<typeof useRouter>, fallbackHref: string): void {
@@ -31,8 +31,7 @@ export function usePageExit({ fallbackHref }: PageExitOptions) {
     // leaving with a field focused strands it set on a tree the router keeps.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    // A transition and not a bare call: `isLeaving` is what disables a control while it leaves
-    // (`docs/frontend/spec.md :: I68`).
+    // A transition and not a bare call: `isLeaving` is what disables a control while it leaves.
     startLeaving(() => {
       goBackOrPush(router, fallbackHref);
     });

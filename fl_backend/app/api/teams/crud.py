@@ -69,7 +69,7 @@ async def pull_a_club_to_enter(
     )
 
     # A retirement judges junction rows and writes only the club, so only a write to the club puts an
-    # entry in its write set (`docs/backend/spec.md :: I53`).
+    # entry in its write set.
     await anchor_in_db(
         collection=teams_collection,
         db_filter={"_id": team_id},
@@ -103,7 +103,7 @@ async def void_moved_seats(
     # REQUIRED: the void commits with the seat writes or neither does, so the old holder's link dies at the write.
     session: AsyncClientSession,
 ) -> None:
-    """Null the links of every seat these writes emptied or handed on, on their teams' confirmations (`docs/backend/spec.md :: I758`).
+    """Null the links of every seat these writes emptied or handed on, on their teams' confirmations.
 
     Once per transaction, after its seat writes: a call costs the same however many rows it covers.
     """

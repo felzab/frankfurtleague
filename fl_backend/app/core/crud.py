@@ -54,7 +54,7 @@ writes_sent_var: ContextVar[WritesSent | None] = ContextVar("writes_sent", defau
 
 
 def a_write_may_stand() -> bool:
-    """Whether a write this request sent may stand, the judgement `DB-FAIL-002` is answered on (`docs/backend/spec.md :: I321`)."""
+    """Whether a write this request sent may stand, the judgement `DB-FAIL-002` is answered on."""
 
     record = writes_sent_var.get()
     # Unbound is outside any request, where nothing says what was sent: unknown is the answer that
@@ -124,7 +124,7 @@ async def patch_one_in_db(
 
     _sending_a_write()
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
-    # update's own is taken with the write (`docs/backend/spec.md :: I39`).
+    # update's own is taken with the write.
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
@@ -138,7 +138,7 @@ async def patch_one_in_db(
         return stored
 
     # Read back, never taken from the driver: `findAndModify` answers a match it left unchanged as one it
-    # rewrote (`docs/backend/spec.md :: I732`). Inside a transaction alone, where no rival writes between
+    # rewrote. Inside a transaction alone, where no rival writes between
     # the two reads.
     after = await read_back() if session is not None and session.in_transaction else None
     if after is None or _as_stored(after, collection) != _as_stored(before, collection):
@@ -174,13 +174,13 @@ async def patch_many_in_db(
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
-    One log row with the filter and the count, never pre-images (`docs/backend/spec.md :: I40`).
+    One log row with the filter and the count, never pre-images.
     """
 
     _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
 
-    # A fan-out that changed nothing records nothing, as a removal that took nothing (`docs/backend/spec.md :: I744`): so a
+    # A fan-out that changed nothing records nothing, as a removal that took nothing: so a
     # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
     if not result.modified_count:
         return result
@@ -208,9 +208,9 @@ async def anchor_in_db(
     # REQUIRED: committed on its own, an anchor conflicts with nobody.
     session: AsyncClientSession,
 ) -> None:
-    """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts (`docs/backend/spec.md :: I53`).
+    """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts.
 
-    Logs no row: it changes nothing a reader sees, and the transaction's other writes are the action (`docs/backend/spec.md :: I40`).
+    Logs no row: it changes nothing a reader sees, and the transaction's other writes are the action.
     """
 
     _sending_a_write()
@@ -230,7 +230,7 @@ async def anchor_by_id_in_db(
     # REQUIRED, for `anchor_in_db`'s reason.
     session: AsyncClientSession,
 ) -> None:
-    """Write the document of each id, creating any not yet written, so a rival writing one conflicts (`docs/backend/spec.md :: I53`).
+    """Write the document of each id, creating any not yet written, so a rival writing one conflicts.
 
     Logs no row, for `anchor_in_db`'s reason.
     """
@@ -330,7 +330,7 @@ async def delete_many_from_db(
     db_filter: Mapping[str, Any],
     session: AsyncClientSession,
 ) -> DeleteResult:
-    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I48`).
+    """Remove a set and keep every image, in one log row.
 
     Read first and unbounded: a cap would log fewer documents than the delete took, and the
     shortfall would read as a smaller action rather than a lost record.
@@ -349,7 +349,7 @@ async def delete_many_from_db(
         # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
         raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
 
-    # A removal that took nothing records nothing (`docs/backend/spec.md :: I744`): a cascade keyed on a
+    # A removal that took nothing records nothing: a cascade keyed on a
     # season would otherwise log an empty row on every replace of a season holding none.
     if not before:
         return result
@@ -358,7 +358,7 @@ async def delete_many_from_db(
         collection=collection,
         operation="delete_many",
         # The removed ids, so a person's erasure can select this row: its `(collection,
-        # document_id)` filter matches an array field on its members (`docs/backend/spec.md :: I42`).
+        # document_id)` filter matches an array field on its members.
         document_id=[document["_id"] for document in before],
         db_filter=db_filter,
         before=before,
@@ -378,7 +378,7 @@ async def erase_many_from_db(
     """Remove a set and keep NO image, the values themselves being what an erasure destroys.
 
     Filter on IDS alone: the log stores a filter's values as text, so one naming a person would
-    preserve what this call destroys (`docs/backend/spec.md :: I48`).
+    preserve what this call destroys.
     """
 
     _sending_a_write()
@@ -386,7 +386,7 @@ async def erase_many_from_db(
     # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)
 
-    # A removal that took nothing records nothing, as `delete_many_from_db` (`docs/backend/spec.md :: I744`).
+    # A removal that took nothing records nothing, as `delete_many_from_db`.
     if not result.deleted_count:
         return result
 
@@ -471,7 +471,7 @@ def literal_pattern(value: str) -> str:
 
 
 # Section 3, what a write does beyond the driver call: a refusal becomes the status its check chose, and a
-# retirement is a date on `inactive_since` rather than a state of its own (`docs/backend/spec.md :: I12`).
+# retirement is a date on `inactive_since` rather than a state of its own.
 
 
 def refuse(refusal: WriteRefusal | None) -> None:

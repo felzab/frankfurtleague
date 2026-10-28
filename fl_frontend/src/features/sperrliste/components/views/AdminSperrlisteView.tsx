@@ -10,8 +10,7 @@ import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. No address
-   among the keys, a stored ban holding none; the author is read as its card prints it
-   (`docs/frontend/spec.md :: I681`). */
+   among the keys, a stored ban holding none; the author is read as its card prints it. */
 const SEARCH_KEYS: readonly SearchKey<FLSperrlisteZeile>[] = [
   "grund",
   { name: "erstellt_von", getFn: (eintrag) => vonOderGesperrt(eintrag.erstellt_von, eintrag.erstellt_von_gesperrt) },
@@ -19,7 +18,7 @@ const SEARCH_KEYS: readonly SearchKey<FLSperrlisteZeile>[] = [
 
 /**
  * **No `renderDeleteModal`**: removing a ban is confirmed on the row itself, through the shared
- * two-press control (`docs/frontend/spec.md :: I37`).
+ * two-press control.
  */
 export function AdminSperrlisteView({ sperrliste, anzahlGesamt }: { sperrliste: FLSperrlisteZeile[]; anzahlGesamt: number }) {
   return (

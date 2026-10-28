@@ -64,13 +64,12 @@ export type BewerbungMailOutcome = {
   withheld: readonly string[];
   /**
    * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
-   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
-   * (`docs/frontend/spec.md :: I366`).
+   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome.
    */
   ungewiss: readonly string[];
   /**
    * How many addresses the ban list kept the message from: in no list above, and a count rather than
-   * addresses, so nothing a caller reports can name one (`docs/frontend/spec.md :: I542`).
+   * addresses, so nothing a caller reports can name one.
    */
   gesperrt: number;
 };
@@ -78,7 +77,7 @@ export type BewerbungMailOutcome = {
 /**
  * Both feminine, which every `die ${betreff}` in this module and in
  * `fl_frontend/src/features/bewerbungen/actions.ts :: notifyBewerbung` assumes: a third noun would
- * have to bring its own article (`docs/frontend/spec.md` §1.12).
+ * have to bring its own article.
  */
 export type BewerbungBetreff = "Zusage" | "Absage";
 
@@ -112,7 +111,7 @@ function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: Bewe
   // order the form asks for them, which is the order a reader holding two is told them in.
   for (const seat of BEWERBUNG_SEATS) {
     const person = kontakte[seat.value];
-    // The fold the API stores (`docs/backend/spec.md :: I332`), so a message goes where its delivery events are matched
+    // The fold the API stores, so a message goes where its delivery events are matched
     // back: the public route hands the addresses as typed.
     const address = person === null ? "" : asSignInIdentifier(person.email);
     if (address === "") continue;
@@ -298,7 +297,7 @@ async function meldeAngenommen(
     });
   } catch (error) {
     // Never thrown on: the message HAS gone, and a caller told otherwise would report a send that
-    // happened as one that did not. Name only, never the error (`docs/logging/spec.md :: L9`).
+    // happened as one that did not. Name only, never the error.
     logger.error("bewerbung.zustellung_ungemeldet", undefined, {
       error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
@@ -317,7 +316,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
   const settled = await Promise.allSettled(
     // `async`, so a compose that throws is inside the settled boundary too: without it the throw
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
-    // failure for a written decision (`docs/frontend/spec.md :: I39`).
+    // failure for a written decision.
     recipients.map(async (recipient) => {
       const mail = buildMail(recipient);
       const sendung =
@@ -357,7 +356,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
     const ausfall = versandAusfallOf(result.reason);
 
     // Counted and nothing more: no failure line, the gate's own being the record, and no delivery
-    // state, which would store on the seat that its address is barred (`docs/frontend/spec.md :: I542`).
+    // state, which would store on the seat that its address is barred.
     if (ausfall === "gesperrt") {
       gesperrt += 1;
       return;
@@ -373,7 +372,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       return;
     }
     // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
-    // message and a stack, and the address stays off the stream (`docs/logging/spec.md :: L9`).
+    // message and a stack, and the address stays off the stream.
     logger.error("bewerbung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: result.reason instanceof Error ? result.reason.name : undefined,
@@ -428,7 +427,7 @@ export function describeBewerbungMail(
   }
 
   // A send broken off unanswered may have arrived, so it is named apart from a refused one, and never as the whole
-  // decision's doubt: the decision has committed (`docs/frontend/spec.md :: I372`).
+  // decision's doubt: the decision has committed.
   const offen = [
     ...(verfehlt.length === 0 ? [] : [`Nicht erreicht wurden: ${verfehlt.join(", ")}.`]),
     ...(ungewiss.length === 0 ? [] : [`Ob die ${betreff} bei ${ungewiss.join(", ")} ankam, ist unklar.`]),

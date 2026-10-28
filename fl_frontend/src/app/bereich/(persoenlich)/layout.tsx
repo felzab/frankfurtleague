@@ -13,7 +13,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 /**
  * Not async, for the reason `fl_frontend/src/app/bereich/admin/layout.tsx` states. The frame paints before
- * the session read; only what the person's Funktionen decide waits on it (`docs/frontend/spec.md :: I735`).
+ * the session read; only what the person's Funktionen decide waits on it.
  */
 export default function PersoenlichLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -51,10 +51,9 @@ export default function PersoenlichLayout({ children }: { children: React.ReactN
 
 async function PersonEntries() {
   // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
-  // ahead of this runs at build time (`docs/frontend/spec.md :: I448`).
+  // ahead of this runs at build time.
   await connection();
-  // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away
-  // (`docs/frontend/spec.md :: I834`).
+  // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return <PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />;
   const { funktionen } = funktionenOf(subject);

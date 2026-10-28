@@ -58,7 +58,7 @@ describe("leserichtungHref", () => {
   });
 
   /* A bookmark can still hold a search query, and a reversal built from it would write the typed name
-     into a fresh history entry (`docs/frontend/spec.md :: I680`). */
+     into a fresh history entry. */
   it("leaves an old search query behind", () => {
     expect(leserichtungHref(new URLSearchParams("q=Lena&status=a"), "asc")).toBe("?status=a&order=asc");
   });

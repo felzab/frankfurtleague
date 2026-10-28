@@ -12,7 +12,7 @@ const KEINE: Verwaltung = { verwaltung: null, berechtigt_seit: null, inhaber_sei
 
 /**
  * The grant an address holds, read per request and never stamped on a session, which a revoke made
- * in the database would outlive (`docs/frontend/spec.md :: I121`). Throws on every backend failure:
+ * in the database would outlive. Throws on every backend failure:
  * each reader decides what an unread grant means.
  */
 export async function verwaltungOf(email: string): Promise<Verwaltung> {
@@ -29,7 +29,7 @@ export async function verwaltungOf(email: string): Promise<Verwaltung> {
 
 /**
  * Whether a session made at `made` is no older than `seit`: a privilege holds for sessions made since it
- * alone (`docs/frontend/spec.md :: I470`), judged here because ending older sessions at the change misses
+ * alone, judged here because ending older sessions at the change misses
  * one written in the database.
  */
 export function madeSince(made: Date | string, seit: string | null): boolean {
@@ -42,8 +42,7 @@ export function madeSince(made: Date | string, seit: string | null): boolean {
 
 /**
  * Whether a session the administrator's guard admitted holds an owner's power: the grant `owner`, and
- * the session made since that tier took effect, where the backend judges an owner's write
- * (`docs/frontend/spec.md :: I535`).
+ * the session made since that tier took effect, where the backend judges an owner's write.
  */
 export function holdsOwnersTier(made: Date | string, { verwaltung, inhaber_seit }: Verwaltung): boolean {
   return verwaltung === "owner" && madeSince(made, inhaber_seit);

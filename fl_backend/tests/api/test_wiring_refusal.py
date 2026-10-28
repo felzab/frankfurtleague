@@ -254,7 +254,7 @@ stored_shape_cases = pytest.mark.parametrize(("nr", "stored_wiring", "moved_to",
 
 
 class TestAStoredShapeDoesNotLatch:
-    """Every rule above judges a source this payload MOVES (`docs/backend/spec.md :: I44`).
+    """Every rule above judges a source this payload MOVES.
 
     The classes above judge the same shapes INTRODUCED, which is the step, and none of these is one.
     """

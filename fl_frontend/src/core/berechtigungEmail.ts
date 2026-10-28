@@ -139,7 +139,7 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
   return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
 }
 
-/** How a request ended, told to its requester alone (`docs/backend/spec.md :: I867`). */
+/** How a request ended, told to its requester alone. */
 export type AntragEnde = {
   readonly art: "antrag_abgelehnt" | "antrag_beendet";
   // The address the request was for, or why it is withheld.
@@ -192,13 +192,13 @@ export function buildAntragEndeEmail(endeRoh: AntragEnde, rawOrigin: string): Be
 
 /**
  * **The body depends on the change alone**, never on when it is sent or to whom: a repeat under one key
- * must compose the same message for the provider to collapse it (`docs/frontend/spec.md :: I457`).
+ * must compose the same message for the provider to collapse it.
  */
 export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRoh: Urheber, rawOrigin: string): BerechtigungEmail {
   const origin = mailOrigin(rawOrigin);
   const ziel = `${origin}${ZIEL_PFAD}`;
-  // Folded once, before either part prints them: this notice has no column of facts to fold them on the way
-  // (`docs/frontend/spec.md :: I89`), and an `owner` grant reaches it from the database, past every check the API makes.
+  // Folded once, before either part prints them: this notice has no column of facts to fold them on the way,
+  // and an `owner` grant reaches it from the database, past every check the API makes.
   const { adresse } = aenderungRoh;
   const aenderung: Zugangsaenderung = { ...aenderungRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
   const urheber: Urheber = urheberRoh === null || urheberRoh.von === null ? urheberRoh : { ...urheberRoh, von: einzeilig(urheberRoh.von) };

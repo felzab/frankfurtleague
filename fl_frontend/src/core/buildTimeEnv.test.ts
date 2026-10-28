@@ -9,7 +9,7 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /**
  * The names the builder stage sets, its base image's `NODE_VERSION` among them; a name added here is a
- * claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
+ * claim about the Dockerfile and that image.
  */
 const PROVIDED_WHILE_BUILDING = new Set([
   "CI",
@@ -48,7 +48,7 @@ const isFunctionLike = (node: ts.Node): boolean =>
   ts.isSetAccessor(node) ||
   ts.isConstructorDeclaration(node);
 
-/** Every module-scope expression that CONSUMES a value the builder leaves undefined (`docs/frontend/spec.md :: I45`). */
+/** Every module-scope expression that CONSUMES a value the builder leaves undefined. */
 function moduleScopeConsumers(fileName: string, source: string): Finding[] {
   const sourceFile = ts.createSourceFile(
     fileName,
@@ -251,8 +251,7 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
         if (resolvesToEnv(declaration.initializer)) derived.add(declaration.name.text);
         else if (literal !== undefined && carriesEnv(literal, false)) holders.set(declaration.name.text, literal);
 
-        // Only the call's own arguments are spared, never a read consumed inside them
-        // (`docs/frontend/spec.md` §1.9).
+        // Only the call's own arguments are spared, never a read consumed inside them.
         if (declaration.name.text === VALIDATION) validator = unwrap(declaration.initializer);
       }
     }
@@ -271,7 +270,7 @@ const envReaders = modules.filter((file) =>
 describe("what a module does with the environment while the image builds", () => {
   it("tells a consumed value from a composed one, and a module's body from a function's", () => {
     /* The reader on input, because the tree is CLEAN and a sweep that saw nothing would report the
-       same answer (`docs/frontend/spec.md` §1.9). */
+       same answer. */
     const sample = [
       'import { authSecret, frontend_config, mongodbUri } from "./config";',
       "",

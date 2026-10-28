@@ -3,7 +3,7 @@ CORE · structured logging
 
 One logger for the whole service, beside its child for the erasure journal, and nothing else in it
 writes to stdout: a stray `print` breaks
-`docs/logging/spec.md :: L1`. Log the field NAME, never the submitted value -- payloads carry
+the rule. Log the field NAME, never the submitted value -- payloads carry
 personal data.
 """
 
@@ -21,7 +21,7 @@ from app.core.config import BackendConfig
 FL_LOGGER_NAME = "frankfurtleague"
 
 # The erasure journal's child of that logger, pinned at INFO below whatever `LOG_LEVEL_APP` says: a
-# restore replays the erasures made since its backup from these lines (`docs/backend/spec.md :: I666`).
+# restore replays the erasures made since its backup from these lines.
 JOURNAL_LOGGER_SUFFIX = "loeschung"
 
 # A sentinel rather than an absent field, so a parser can rely on the key existing on every line.
@@ -33,8 +33,7 @@ NO_REQUEST_SENTINEL = "SYSTEM"
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default=NO_REQUEST_SENTINEL)
 span_id_var: ContextVar[str] = ContextVar("span_id", default=NO_REQUEST_SENTINEL)
 
-# Listed once, so both formatters put the same set beside the message rather than inside it
-# (`docs/logging/spec.md :: L9`).
+# Listed once, so both formatters put the same set beside the message rather than inside it.
 STRUCTURED_EXTRAS = ("error_code", "jti", "method", "path", "status", "duration_ms")
 
 # The code on a failure line no call site of ours wrote -- uvicorn's, pymongo's, the reloader's.
@@ -53,7 +52,7 @@ class ForwardedFailureFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         # Scoped to the OTHER loggers rather than to a missing code: a default for whichever caller
-        # forgot one would hide exactly the omission `docs/logging/spec.md` §1.2 exists to refuse.
+        # forgot one would hide exactly the omission the rule exists to refuse.
         own = record.name == FL_LOGGER_NAME or record.name.startswith(f"{FL_LOGGER_NAME}.")
         if not own and record.levelno >= logging.WARNING and getattr(record, "error_code", None) is None:
             record.error_code = FORWARDED_FAILURE_CODE
@@ -81,7 +80,7 @@ def _structured_extras(record: logging.LogRecord) -> dict[str, Any]:
 
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        # The key ORDER is the envelope's (`docs/logging/spec.md` §1.2): the frontend writes the
+        # The key ORDER is the envelope's: the frontend writes the
         # same order, and both suites assert it.
         log_record: dict[str, Any] = {
             "timestamp": format_timestamp(record.created),
@@ -122,7 +121,7 @@ def _console_value(value: Any) -> str:
 
 
 class LevelAwareFormatter(logging.Formatter):
-    """The development console line, in the one shape `docs/logging/spec.md` §1.4 fixes for both surfaces."""
+    """The development console line, in the one shape fixed for both surfaces."""
 
     COLORS = {
         logging.DEBUG: LoggingColors.DEBUG_BG,

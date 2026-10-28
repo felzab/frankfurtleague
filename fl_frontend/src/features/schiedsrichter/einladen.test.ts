@@ -138,7 +138,7 @@ describe("the re-send the editor's panel presses", () => {
     }
   });
 
-  /* As the save reports its own link: a barred send is filed rather than failed (`docs/frontend/spec.md :: I542`). */
+  /* As the save reports its own link: a barred send is filed rather than failed. */
   it("reports a re-sent link that did not leave as failed, and a barred one as barred", async () => {
     mail.answerWith(() => "refused");
     const refused = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

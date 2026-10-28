@@ -20,8 +20,7 @@ function useHydrated(): boolean {
 
 /**
  * In `native` mode react-aria commits on each DOM `change`, so an edited field cleared again paints the
- * browser's required message on the blur; `aria` leaves a missing value to `guardSubmit`
- * (`docs/frontend/spec.md :: I71`).
+ * browser's required message on the blur; `aria` leaves a missing value to `guardSubmit`.
  */
 export function Form({
   onSubmit,
@@ -30,7 +29,7 @@ export function Form({
   ...props
 }: Omit<FormProps, "validationBehavior" | "action" | "method" | "onSubmit" | "validationErrors" | "ref"> & {
   // A handler, and no `action` at all: React resets a form whose `action` is a function, and
-  // react-aria pushes each field's mount-time value back through its setter (`docs/frontend/spec.md :: I32`).
+  // react-aria pushes each field's mount-time value back through its setter.
   onSubmit: () => void;
   /** Its draft hook's ref, error map and payload schemas, the last of which every shared field below reads its required mark off. */
   wiring: DraftFormWiring;
@@ -42,7 +41,7 @@ export function Form({
       <HeroUIForm
         {...props}
         // For the submit no handler catches, an Enter before hydration: by default a GET, putting every
-        // field, an address among them, into the URL and each log keeping a query (`docs/frontend/spec.md :: I461`).
+        // field, an address among them, into the URL and each log keeping a query.
         method="post"
         ref={ref}
         validationErrors={validationErrors}
@@ -50,12 +49,12 @@ export function Form({
         onSubmit={(event) => {
           event.preventDefault();
           // A portal moves the DOM and not React's tree, through which a submit still bubbles into any
-          // form rendering this one (`docs/frontend/spec.md :: I711`).
+          // form rendering this one.
           event.stopPropagation();
           onSubmit();
         }}>
         {/* The form's default button until hydration, and disabled: the browser then ignores an Enter no
-            handler is there to catch (`docs/frontend/spec.md :: I461`). */}
+            handler is there to catch. */}
         {!hydrated && (
           <button
             type="submit"

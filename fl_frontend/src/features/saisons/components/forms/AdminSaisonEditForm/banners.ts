@@ -85,7 +85,7 @@ export function buildSaisonBanners({
       id: "saison.qualifiers-overflow",
       severity: "danger",
       // `state` though the two figures are the draft's: a season stored over-qualifying still saves
-      // its dates (`docs/backend/spec.md :: I44`), and the step that would introduce or widen the
+      // its dates, and the step that would introduce or widen the
       // excess is refused rather than confirmed.
       raisedBy: "state",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
@@ -96,7 +96,7 @@ export function buildSaisonBanners({
 
   // The reach is invisible at the field: the table is scored on read, so a total moves with nothing
   // announcing it. Conditional because a season with nothing played reaches this too. The body keeps
-  // its `auch` under §1.12's played-fixture exception.
+  // its `auch` under the played-fixture exception.
   if (isRescoringChanged) {
     banners.push({
       id: "saison.scoring-changed",
@@ -121,7 +121,7 @@ export function buildSaisonBanners({
     });
   }
 
-  // Fixed copy, never re-derived from §1.12: the sentence is the whole entry, since it already
+  // Fixed copy, never re-derived: the sentence is the whole entry, since it already
   // answers what the change raises.
   if (isStufenChanged) {
     banners.push({

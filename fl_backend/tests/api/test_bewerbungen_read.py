@@ -48,7 +48,7 @@ def bewerbung_document(
 ) -> dict[str, Any]:
     """One stored application. Validated by the route, so every required field is here.
 
-    A `team_id` empties `schule`: the two are exclusive (`docs/backend/spec.md :: I16`), and a row
+    A `team_id` empties `schule`: the two are exclusive, and a row
     naming both collides on neither.
     """
 

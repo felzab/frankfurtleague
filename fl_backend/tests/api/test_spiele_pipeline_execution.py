@@ -372,7 +372,7 @@ def withheld(document: Mapping[str, Any]) -> bool:
 
 
 class TestTheRefereeIsServedOnceAgreed:
-    """`docs/backend/spec.md :: I781`: two-valued, so a booking the pass has not reached, or asked and not agreed, names nobody."""
+    """Two-valued, so a booking the pass has not reached, or asked and not agreed, names nobody."""
 
     @pytest.mark.parametrize("von", [{"art": "schiedsrichter"}, {"art": "admin"}], ids=["their own", "the league's"])
     def test_an_agreement_to_the_ansetzung_as_it_stands_serves_them(self, mongo_url: str, von: dict[str, Any]):

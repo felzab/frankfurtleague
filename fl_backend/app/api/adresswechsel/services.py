@@ -287,7 +287,7 @@ def build_lapsed_terms(now: datetime) -> dict[str, Any]:
 def build_due_terms(now: datetime) -> dict[str, Any]:
     """A confirmed change with no waiting time left at `now`, an owed approval judged at the effect rather than here.
 
-    A grant ended since the confirmation, by any route, leaves nothing to approve (`docs/backend/spec.md :: I847`).
+    A grant ended since the confirmation, by any route, leaves nothing to approve.
     """
 
     return {
@@ -411,7 +411,7 @@ def _gezeigtes_label(label: str) -> str:
 
 
 def maskierte_adresse(email: str) -> str:
-    """The pending address a league-started change shows its address on file (`docs/backend/spec.md :: I822`).
+    """The pending address a league-started change shows its address on file.
 
     Three bullets whatever the length; the last label alone, needing no public-suffix list; decoded first, so an
     internationalised domain shows its own letter.
@@ -534,7 +534,7 @@ def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | No
     if folded != adresse:
         return None
 
-    # Naming neither address: the message reaches the refusal's log line (`docs/logging/spec.md :: L9`).
+    # Naming neither address: the message reaches the refusal's log line.
     return WriteRefusal(
         error_code=ADRESSWECHSEL_UNVERAENDERT,
         status=HTTPStatus.CONFLICT,

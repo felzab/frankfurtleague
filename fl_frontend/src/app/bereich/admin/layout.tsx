@@ -34,8 +34,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 }
 
 /**
- * Nothing for a refused session, judged before the slot's own read, which would redirect from the frame
- * (`docs/frontend/spec.md :: I834`): an action's POST renders this layout into its response too.
+ * Nothing for a refused session, judged before the slot's own read, which would redirect from the frame:
+ * an action's POST renders this layout into its response too.
  */
 async function AdminSaisonSlot() {
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the image build.

@@ -50,8 +50,7 @@ class FLAktorMitAdresse(BaseModel):
 class FLAktorMitAdresseZeile(FLAktorMitAdresse):
     """An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."""
 
-    # Null exactly where `email_gesperrt` is set, as the grants list withholds its actors
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `email_gesperrt` is set, as the grants list withholds its actors.
     email: str | None
     email_gesperrt: bool
 
@@ -111,7 +110,7 @@ class FLAktionRequest(BaseModel):
 class FLAktion(BaseModel):
     """One recorded write.
 
-    A read model, so nothing here refuses a stored value (`docs/backend/spec.md :: I36`): this
+    A read model, so nothing here refuses a stored value: this
     collection holds copies of documents from every other one, and a row it cannot serve is a row
     nobody can see was recorded.
     """
@@ -139,8 +138,7 @@ class FLAktion(BaseModel):
     def _judge_the_stored_image(cls, data: Any) -> Any:
         """Whether the row secured an image, computed from the stored `before` this model drops.
 
-        Presence-aware, so a dropped field cannot read as a stored null
-        (`docs/backend/spec.md :: I107`).
+        Presence-aware, so a dropped field cannot read as a stored null.
         """
 
         if isinstance(data, Mapping) and "stand_gesichert" not in data:
@@ -154,7 +152,7 @@ class FLAktion(BaseModel):
         """An ObjectId everywhere but `saisons`, whose `_id` is the season string.
 
         Text rather than a union: the wire names only the row a restore targets; a
-        removal's id array serves the redaction alone (`docs/backend/spec.md :: I42`).
+        removal's id array serves the redaction alone.
         """
 
         return None if value is None or isinstance(value, list) else str(value)
@@ -167,7 +165,7 @@ class FLAktionMitStand(FLAktion):
     """
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
-    # carries every image it took (`docs/backend/spec.md :: I48`).
+    # carries every image it took.
     before: dict[str, Any] | list[dict[str, Any]] | None
 
     @field_validator("before", mode="before")
@@ -176,7 +174,7 @@ class FLAktionMitStand(FLAktion):
         """The stored image is a real Mongo document, so its ids are `ObjectId`s that JSON cannot carry.
 
         Converted on the way out rather than on the way in: the row keeps the document as it stood,
-        and only the wire sees text (`docs/backend/spec.md :: I43`).
+        and only the wire sees text.
         """
 
         return _stringify_oids(value)
@@ -207,8 +205,7 @@ def parse_facet_list(value: Any) -> Any:
 
 class FLAktionenFilterParams(BaseModel):
     # LISTS, because the bar offering the two is multi-select and a two-value selection has no other
-    # request that expresses it. Published as the STRING they arrive as: an array parameter is one
-    # `fl_frontend/src/core/apiRequests.test.ts :: mirroredFacts` cannot compare.
+    # request that expresses it. Published as the STRING they arrive as.
     collection: Annotated[list[str] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
     operation: Annotated[list[FLAktionOperation] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
     # A term of its own rather than the kinds it stands for: the bar offers the categories, and a

@@ -16,7 +16,7 @@ from app.shared.folding import is_stored_identifier
 
 
 class Refusal(NamedTuple):
-    """A boot refusal's sentence and the code its log line carries (`docs/logging/spec.md` §1.2).
+    """A boot refusal's sentence and the code its log line carries.
 
     One object rather than two constants, so a cause cannot be given a sentence and left without a code.
     """
@@ -84,8 +84,8 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
     """
 
     grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
-    # The one reading every reader of a grant takes (`docs/backend/spec.md :: I453`): the validator
-    # refuses no spelling (`:: I16`), so a hand-typed row may be stored that no request matches.
+    # The one reading every reader of a grant takes: the validator
+    # refuses no spelling, so a hand-typed row may be stored that no request matches.
     live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
 
     if len(live) < len(grants):
@@ -126,7 +126,7 @@ async def lifespan(app: FastAPI):
             # it resolved out of the value, which is the half an operator must not be handed.
             raise DatabaseUnreachableError(refusal.sentence) from None
 
-        # Reapplied on every boot, and a failure refuses the start (`docs/backend/spec.md :: I15`).
+        # Reapplied on every boot, and a failure refuses the start.
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:

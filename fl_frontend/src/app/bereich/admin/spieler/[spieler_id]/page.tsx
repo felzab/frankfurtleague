@@ -19,7 +19,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The squad editor. One player per URL; WHICH season's squad row it addresses is the sidemenu
- * selector's `?saison_id=`. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * selector's `?saison_id=`. It resolves nothing itself.
  */
 export default function AdminSpielerEditPage(props: NextPageProps<{ spieler_id: string }>) {
   return (

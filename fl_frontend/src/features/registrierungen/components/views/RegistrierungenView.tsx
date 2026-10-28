@@ -16,7 +16,7 @@ export type RegistrierungenUnvollstaendig = { richtung: Leserichtung; umkehrHref
 
 /**
  * A team's pending registrations on its seat holder's panel, every seat alike. The heading stays when
- * the last row is decided, so the focus has somewhere to land (`docs/frontend/spec.md :: I536`).
+ * the last row is decided, so the focus has somewhere to land.
  */
 export function RegistrierungenView({
   registrierungen,

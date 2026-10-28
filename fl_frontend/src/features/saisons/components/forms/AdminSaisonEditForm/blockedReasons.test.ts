@@ -386,7 +386,7 @@ describe("what each half of the window promises", () => {
       // the admin stops rather than going to the fixture.
       expect(record).not.toMatch(/nicht mehr/);
 
-      // Nothing writes `status` back to `future` (`docs/backend/spec.md :: I18`), so the same phrase
+      // Nothing writes `status` back to `future`, so the same phrase
       // here would send an admin after a route the product does not have.
       expect(block({ ...DRAWN, saisonStatus: "active" }) ?? "").not.toMatch(/erst wieder/);
     });

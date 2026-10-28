@@ -226,7 +226,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "that may since have been deleted. A row surviving its subject is the point where that subject is a "
             "fixture or a season. Where it is a PERSON the surviving row is instead the leak, which is why every "
             "write destroying a person's values reaches in here and redacts them in place rather than dropping "
-            "the row -- the enumeration of those writes is `docs/backend/spec.md :: I42`'s, not this note's."
+            "the row -- the enumeration of those writes is the rule's, not this note's."
         ),
     ),
     Aggregate(
@@ -239,15 +239,15 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "which stays true however either person is recorded afterwards -- so it is in no boundary with `spieler`, "
             "with an application, or with whatever a later sign-up writes, and it carries no reference to any of them. "
             "That independence is what lets the row outlive the erasure of the person it bars and of the administrator "
-            "it names (`docs/backend/spec.md :: I268`), where a member of either person's own boundary would have to go "
+            "it names, where a member of either person's own boundary would have to go "
             "with them. What bounds it instead is the league's own calendar: `gesperrt_bis_saison_id` names the last "
-            "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
+            "season the ban covers, and the activation that runs past it ERASES "
             "the row rather than deleting it, so the bound is outlived by no log image either "
-            "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
+            ". Anonymous it is not: `erstellt_von` is that "
             "administrator's address in plain and `grund` is free text, refused a name the address's records hold as "
-            "stored (`docs/backend/spec.md :: I726`) and so naming the person barred only spelled otherwise or where no "
+            "stored and so naming the person barred only spelled otherwise or where no "
             "record names them, both served -- "
-            "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
+            "`erstellt_von` withheld where the ban list holds that administrator too -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
     ),
@@ -290,18 +290,17 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
-            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant, "
+            "both committing. The announced record and the outbox join it because a grant, "
             "a revoke or a tier change made here moves all three in one transaction: the change, the record accounting for it, and the "
-            "notice announcing it, so the comparison finds only what the database was edited to (`docs/backend/spec.md :: "
-            "I451`). A row names an address rather than a person record, as a ban does, so it is in no boundary with "
+            "notice announcing it, so the comparison finds only what the database was edited to. "
+            "A row names an address rather than a person record, as a ban does, so it is in no boundary with "
             "`spieler`, a seat or a referee. The ban list is held apart by refusal in both directions rather than by "
             "membership, each write reading the other collection inside its own transaction. A grant is always "
             "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
             "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
             "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
             "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
-            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
-            "(`docs/backend/spec.md :: I848`)."
+            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit."
         ),
     ),
     Aggregate(
@@ -315,7 +314,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "attempt none more. Its key names the "
             "day, so a new day is a new row rather than a reset, and the TTL index removes it once that day has ended. It "
             "names the person by the action log's pseudonym and never an address, so the person's erasure removes every "
-            "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
+            "count of theirs, whatever its day, in its own transaction."
         ),
     ),
     Aggregate(
@@ -326,7 +325,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "One folded address's conflict point. Held true against nothing: it states no fact about the league and no "
             "read serves it, and its one purpose is to sit in the write set of every transaction writing that address "
             "into a record and of that address's erasure, so the two conflict rather than both committing "
-            "(`docs/backend/spec.md :: I719`). It names the address by a keyed hash and never in plain, and the TTL "
+            ". It names the address by a keyed hash and never in plain, and the TTL "
             "index removes it after its last write; its removal is itself a write a transaction still open meets as a "
             "conflict, so no anchor is ever kept for safety."
         ),
@@ -456,7 +455,7 @@ REFERENCES: tuple[Reference, ...] = (
             "A matchday is removed by a confirmed replace (`REQ-SPIELPLAN-005`), which draws both afresh, or by an undraw "
             "(`REQ-SPIELPLAN-006`), which draws neither. Each removes the season's fixtures in the same transaction, so the "
             "reference cannot dangle -- not because nothing is ever removed, but because neither collection is removed "
-            "without the other (`docs/backend/spec.md :: I46`)."
+            "without the other."
         ),
     ),
     Reference(
@@ -1117,7 +1116,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
-        "evidence (`docs/backend/spec.md :: I613`)",
+        "evidence",
         "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(
@@ -3457,7 +3456,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "A refusal would land on the season's rules patch, and the seasons it would land on are the ones whose "
             "stored rows no current write path produces -- latching those shut against every later edit, their dates "
-            "included (`docs/backend/spec.md :: I44`), rather than catching a mistake. Nothing opens the gap afresh: "
+            "included, rather than catching a mistake. Nothing opens the gap afresh: "
             "the draw writes every phase at exactly its implied count, and `REQ-RULES-011` holds the three numbers "
             "that count follows from to the fixtures drawn from them, in either direction, from the season's first "
             "fixture onward. The matchday's own write never reads the count at all: `anzahl_spiele` is derived for "
@@ -3507,9 +3506,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "fixture's result puts it back among those still to be played without any request naming it, and refusing "
             "that would refuse the correction upstream -- or any save of the season, the resolution running whole -- over a "
             "booking nobody touched, where a result a rewrite destroys is reported rather than refused. The row stays "
-            "booked and is reported as a derived fault (`docs/backend/spec.md :: I257`), because only a person chooses "
+            "booked and is reported as a derived fault, because only a person chooses "
             "between reactivating it and booking another, and a save keeping it books nothing new. The ghost a referee's "
-            "erasure leaves is a retired row like any other and is reported the same way (`docs/backend/spec.md :: I259`)."
+            "erasure leaves is a retired row like any other and is reported the same way."
         ),
         near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
         proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
@@ -3523,8 +3522,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "may since hold, and refusing the rewrite would refuse the correction upstream over a clash it never chose. "
             "Which of the two moves is a competition call, so every claim is reported as a derived fault, and a save of "
             "either fixture keeping its slot -- a note, a result -- commits, where refusing it would hold the legitimately "
-            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused "
-            "(`docs/backend/spec.md :: I257`)."
+            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused."
         ),
         near=("REQ-CLASH-001",),
         proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
@@ -3542,12 +3540,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, and no sweep "
             "selects on `inactive_since`. The application clocks in `app/api/bewerbungen/sweep_router.py` select on a "
-            "season and a deadline and remove applications rather than retired rows (`docs/backend/spec.md :: I150`). "
+            "season and a deadline and remove applications rather than retired rows. "
             "The season-after deletion, ruled 2026-10-15, selects pupils on the seasons' statuses and counts a retired "
             "squad row as keeping its pupil, so retiring a row never brings that deletion nearer "
-            "(`docs/backend/spec.md :: I690`). Beside it, an erasure on a request, the person's own or an "
+            ". Beside it, an erasure on a request, the person's own or an "
             "administrator's answering one, removes a row, selecting a subject by its address, never by an age, and "
-            "asking no retirement first. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records "
+            "asking no retirement first. `inactive_since` stays a date: it records "
             "WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "

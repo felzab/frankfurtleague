@@ -7,7 +7,7 @@ const REFUSED = 3;
 export async function registerOnNode() {
   const { frontend_config, checkedAs } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
-    // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
+    // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
     process.exitCode = refusal instanceof BootRefusal ? REFUSED : 1;
     process.stdout.write("", () => process.exit());
@@ -41,7 +41,7 @@ export async function registerOnNode() {
   }
 
   // Its own switch, never another sweep's: arming it starts the league's fixture mail, and an operator stops every
-  // season's at once with it alone. Compared to "on" for the reason above (`docs/frontend/spec.md :: I740`).
+  // season's at once with it alone. Compared to "on" for the reason above.
   if (process.env.NODE_ENV === "production" && frontend_config.SPIEL_SWEEP === "on") {
     const { armSpielSweep } = await import("./features/spielbestaetigungen/sweep");
     armSpielSweep();
@@ -55,7 +55,7 @@ export async function registerOnNode() {
   }
 
   // Unawaited: Next serves nothing until this hook returns, and the site serves without these
-  // indexes, where an outage of the store would otherwise hold every page (`docs/frontend/spec.md :: I498`).
+  // indexes, where an outage of the store would otherwise hold every page.
   if (process.env.NODE_ENV === "production") {
     const { buildAuthIndexes } = await import("./core/authIndexes");
     void buildAuthIndexes();

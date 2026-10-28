@@ -33,7 +33,7 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
-# models stay lax (`docs/backend/spec.md :: I49`).
+# models stay lax.
 
 # TWO members and not three: an admission deletes the row, its content having become the person and
 # the squad row, so a state naming an admitted registration would be one no document is ever read in.
@@ -80,8 +80,7 @@ class FLRegistrierungEntscheidung(BaseModel):
 class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
     """A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."""
 
-    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors.
     von: CustomNonEmptyString | None
     von_gesperrt: bool
 
@@ -89,7 +88,7 @@ class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
 class FLRegistrierungEinwilligung(FLEinwilligung):
     """A pending registration's consent record, each choice and `datum` optional here alone.
 
-    A returning pupil's page asks no choice (`docs/backend/spec.md :: I557`).
+    A returning pupil's page asks no choice.
     """
 
     umfang: FLEinwilligungUmfang | None = None
@@ -121,10 +120,10 @@ class FLRegistrierung(BaseModel):
     # The three a squad often does not know at registration, each stated by the caller rather than
     # defaulted.
     position: FLSpielerPosition | None
-    # Patterned on the submission's payload alone (`docs/backend/spec.md :: I254`).
+    # Patterned on the submission's payload alone.
     nummer: str | None
     stufe: FLSpielerStufe | None
-    # Null until the pupil confirms, which is the pairing `docs/backend/spec.md :: I141` rests on.
+    # Null until the pupil confirms.
     geburtsdatum: CustomOptionalDateString
     einwilligung: FLRegistrierungEinwilligung | None
     bestaetigung: FLRegistrierungBestaetigung | None
@@ -201,7 +200,7 @@ class FLPostRegistrierungResponse(BaseAPIResponse):
     """
 
     registrierung_id: CustomObjectId
-    # Null on a replay whose row needs no fresh link (`docs/backend/spec.md :: I347`), and
+    # Null on a replay whose row needs no fresh link, and
     # the caller then mails nothing.
     bestaetigung_token: CustomNonEmptyString | None
     frist: CustomDateString
@@ -248,7 +247,7 @@ FLRegistrierungUmfang = Literal["kader_oeffentlich", "intern"]
 
 # What a reopened link shows. The page's own `ungueltig` and `unlesbar` are not here: a token
 # nothing opens is a refusal rather than a state, and an unreadable one never reached the backend.
-# `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+# `gesperrt` ranks first.
 FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 # The two pages one link may open, members of `app/shared/einwilligung.py :: Seite`: the returning
@@ -265,7 +264,7 @@ class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):
 
 
 class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
-    """What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."""
+    """What one confirmation link opens, and no field past the ones declared here."""
 
     zustand: FLRegistrierungBestaetigungZustand
     # The club's short name and its own `full_name`, a club here BEING a school: the ruled consent
@@ -298,8 +297,7 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     # the person's.
     umfang: FLRegistrierungUmfang | None
     medien: bool | None
-    # The label of the words the page showed: the write refuses any but the running one
-    # (`docs/backend/spec.md :: I550`).
+    # The label of the words the page showed: the write refuses any but the running one.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
@@ -339,7 +337,7 @@ class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
 class FLRegistrierungSweepErinnerung(BaseModel):
     """One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.
 
-    The token is the RAW fresh one (`docs/backend/spec.md :: I296`).
+    The token is the RAW fresh one.
     """
 
     registrierung_id: CustomObjectId
@@ -369,10 +367,7 @@ class FLRegistrierungSweepBenachrichtigung(BaseModel):
 
 
 class FLRegistrierungSweepResponse(BaseAPIResponse):
-    """One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.
-
-    The ordering that makes those three true is `docs/backend/spec.md :: I297`.
-    """
+    """One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes."""
 
     saison_id: str
     erinnerungen: list[FLRegistrierungSweepErinnerung]
@@ -384,8 +379,7 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
     redigierte_aktionen: int
-    # One sum over every clock rather than a count a clock: the line logging each row names its clock
-    # (`docs/backend/spec.md :: I720`).
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     fehlgeschlagen: int
 
 

@@ -128,7 +128,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/* `docs/frontend/spec.md :: I733`: a call sent with less left could go on deleting after the spine dropped `spieler`, and
+/* A call sent with less left could go on deleting after the spine dropped `spieler`, and
    the squad page would serve the pupils it deleted. */
 describe("an activation whose deletion would outrun the request's deadline", () => {
   /**
@@ -182,7 +182,7 @@ describe("an activation whose deletion would outrun the request's deadline", () 
 
 describe("an activation whose deletion call the request's deadline cuts", () => {
   /* Sent with its need left, a call still meets the deadline where the backend overran its own: the press answers that
-     cut itself, and the hourly pass's drop of `spieler` follows whatever the call deleted (`docs/frontend/spec.md :: I705`). */
+     cut itself, and the hourly pass's drop of `spieler` follows whatever the call deleted. */
   it("answers the activation saved and the deletion unfinished, never as of unknown outcome, and files a warning", async () => {
     aktivierungMs = REQUEST_DEADLINE_MS - CALL_MS - WRITE_NEEDS_MS;
     const pressed = activateSaisonAction({ id: SAISON_ID });

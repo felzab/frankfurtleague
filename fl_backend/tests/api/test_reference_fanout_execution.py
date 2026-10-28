@@ -383,7 +383,7 @@ def after_renaming_the_club(
 
 @pytest.mark.db
 class TestAVenueRenameReachesTheFixturesThatEmbedIt:
-    """`docs/backend/spec.md :: I13` against a real mongod: the fan-out is an `update_many` no response shape can prove."""
+    """Against a real mongod: the fan-out is an `update_many` no response shape can prove."""
 
     def test_the_name_is_rewritten_on_every_fixture_at_the_venue(self, mongo_replica_set_url: str):
         _, fixtures = after_renaming_the_venue(mongo_replica_set_url)

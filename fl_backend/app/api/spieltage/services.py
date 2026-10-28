@@ -68,10 +68,10 @@ def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:
     return {"saison_id": saison_id, "saison_phase": PHASE_ORDER[0], "position": 1}
 
 
-# The period's one test (`docs/backend/spec.md :: I334`): a second spelling lets the invite
+# The period's one test: a second spelling lets the invite
 # tell a pupil one thing while the squad row stores another.
 def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
-    """Whether an entry made on `today` is a Nachnominierung, on `docs/backend/spec.md :: I335`'s terms."""
+    """Whether an entry made on `today` is a Nachnominierung, on the rule's terms."""
 
     # A type test rather than truthiness: an undated matchday stores `None`, and a value of any other
     # type is no date this comparison can order.
@@ -166,7 +166,7 @@ def find_spieltag_order_refusal(
     undated one states no date to compare, so the caller passes neither.
     """
 
-    # The STEP, never the state (`docs/backend/spec.md :: I44`): an `ende`-only edit resubmits this
+    # The STEP, never the state: an `ende`-only edit resubmits this
     # `beginn`. A first dating moves from no pair at all, so it is judged against both neighbours.
     moved_earlier = stored_beginn is None or beginn < stored_beginn
     moved_later = stored_beginn is None or beginn > stored_beginn

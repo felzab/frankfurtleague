@@ -776,7 +776,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
 
 class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
-        """Alpha replaces Beta in the semi-final, and `docs/backend/spec.md :: I25b` says both halves of the old result go."""
+        """Alpha replaces Beta in the semi-final, and the rule says both halves of the old result go."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
@@ -1036,7 +1036,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         """Releases spanning two fixtures reach the fixture each one names.
 
         Written under one id they would all land on the first, leaving the second holding a club the
-        payload also fields -- the double entry `docs/backend/spec.md :: I30` bars.
+        payload also fields -- the double entry the rule bars.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1115,7 +1115,7 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
 
 
 # The quarter-final corrected so Alpha won it, which hands Alpha the semi-final's first slot and voids
-# the result the semi-final was played to (`docs/backend/spec.md :: I25b`).
+# the result the semi-final was played to.
 OVERTURNED = {"team1": side(ALPHA, 3), "team2": side(BETA, 1)}
 
 # Any day: the queue's date arm is not what these cases read.
@@ -1171,10 +1171,7 @@ async def reopened_by_the_overturn(database: AsyncDatabase, client: AsyncMongoCl
 
 
 class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
-    """The resolution voids a result no request named and refuses nothing: the retired row stays booked, and the queue names it.
-
-    `docs/backend/spec.md :: I257`.
-    """
+    """The resolution voids a result no request named and refuses nothing: the retired row stays booked, and the queue names it."""
 
     @pytest.mark.parametrize(
         ("booked", "reported"),

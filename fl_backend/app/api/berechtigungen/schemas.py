@@ -19,7 +19,7 @@ def as_utc(moment: datetime) -> datetime:
 FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # Closed, and mirrored by `app/core/constraints.py :: _VERWALTUNG`. `owner` holds every power
-# `administration` does and is reached only by an owner's tier change, never by a grant (`docs/backend/spec.md :: I436`).
+# `administration` does and is reached only by an owner's tier change, never by a grant.
 FLVerwaltung = Literal["owner", "administration"]
 
 # Why an administrator may not approve an act on a grant: their own address, their own start, an owner's act without an
@@ -39,7 +39,7 @@ FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
 # What else an outbox row tells: a request's end, for its requester: refused by an administrator, or ended by its
-# address's change (`docs/backend/spec.md :: I867`).
+# address's change.
 FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
 
 # What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)
@@ -47,12 +47,12 @@ FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
 FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt", "adresswechsel"], FLBerechtigungAntragEndeArt]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
-# Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).
+# Stated, since a null actor also stands for one whose address is withheld.
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
 # Why a queued row's GRANT address is withheld: its holder barred, or erased. Never the actor's,
 # whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
-# for an erasure (`docs/backend/spec.md :: I661`).
+# for an erasure.
 FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
 
 
@@ -76,24 +76,22 @@ class FLBerechtigung(BaseModel):
     erteilt_von: str
     erteilt_am: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
-    # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one
-    # (`docs/backend/spec.md :: I525`).
+    # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one.
     gefunden_am: datetime | None = None
     # Written once, by the first pass to read the row, dead or live, or by the write here that first
-    # records it: a row carrying it and no record was edited after it was seen (`docs/backend/spec.md :: I529`).
+    # records it: a row carrying it and no record was edited after it was seen.
     gesehen_am: datetime | None = None
     # When the row last became `owner` by a promotion, written by the tier change and by a comparison
-    # finding one made in the database: an older session holds no owner's power (`docs/backend/spec.md :: I534`).
+    # finding one made in the database: an older session holds no owner's power.
     ernannt_am: datetime | None = None
-    # Written by an address change's move alone, read by the four-eyes rule and never by a session's check
-    # (`docs/backend/spec.md :: I866`).
+    # Written by an address change's move alone, read by the four-eyes rule and never by a session's check.
     fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
 
 
 class FLBerechtigungAdresswechsel(BaseModel):
     """The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
 
-    Who started it, how and why is what a pretext hides (`docs/backend/spec.md :: I858`, `:: I859`).
+    Who started it, how and why is what a pretext hides.
     """
 
     id: CustomObjectId
@@ -120,8 +118,7 @@ class FLBerechtigungZeile(BaseModel):
     """One grant as the list serves it."""
 
     id: CustomObjectId
-    # Null exactly where `gesperrt` is set: a barred address is answered on no route
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `gesperrt` is set: a barred address is answered on no route.
     adresse: str | None
     gesperrt: bool
     verwaltung: FLVerwaltung
@@ -180,7 +177,7 @@ class FLBerechtigungenListResponse(BaseAPIResponse):
     """Every live grant, uncapped: a list the floor of two is judged over is never served in part."""
 
     berechtigungen: list[FLBerechtigungZeile]
-    # The rows no request can match, left out rather than failing the page (`docs/backend/spec.md :: I453`).
+    # The rows no request can match, left out rather than failing the page.
     uebersprungen: int = Field(ge=0)
     # Every request not yet lapsed, oldest first.
     antraege: list[FLBerechtigungAntragZeile]

@@ -23,7 +23,7 @@ export function bestaetigteEmpfaenger(kontakte: FLSaisonTeamKontakte | null): re
     const adresse = person === null ? "" : person.email.trim();
     if (person === null || adresse === "" || person.einwilligung.bestaetigt_am === null) continue;
 
-    // One mailbox is one stored address, each the fold the API stores (`docs/backend/spec.md :: I332`).
+    // One mailbox is one stored address, each the fold the API stores.
     if (!gefunden.has(adresse)) gefunden.set(adresse, { rolle: rolle, vorname: person.vorname, email: adresse });
   }
 

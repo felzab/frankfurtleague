@@ -291,8 +291,7 @@ describe("buildSpielBanners", () => {
     expect(new Set(titles).size).toBe(titles.length);
   });
 
-  /* The picker above spells the member's own name, so a title opening with it is the second telling
-     (`docs/frontend/spec.md` §1.12, diagnostic 4). */
+  /* The picker above spells the member's own name, so a title opening with it is the second telling. */
   it("never opens a meaning with the label the reader has just picked", () => {
     for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"] as const) {
       const title = build({ isNewlyChosen: true, sonderereignis }).find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "";

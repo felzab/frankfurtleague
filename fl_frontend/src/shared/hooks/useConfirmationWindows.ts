@@ -10,7 +10,7 @@ import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 export interface ConfirmedUntil {
   /** Epoch milliseconds on the server's clock, as `enrolmentUntil` is. */
   readonly freshUntil: number | null;
-  /** The enrolment's narrower window, inside the step-up's (`docs/frontend/spec.md :: I411`). */
+  /** The enrolment's narrower window, inside the step-up's. */
   readonly enrolmentUntil: number | null;
   /** The server's clock as it read both, so a page measures what is left of each rather than comparing two clocks. */
   readonly servedAt: number;
@@ -19,7 +19,7 @@ export interface ConfirmedUntil {
 /** Both windows as a page holds them, in epoch milliseconds on the browser's clock. */
 type OpenUntil = Omit<ConfirmedUntil, "servedAt">;
 
-/** A confirmation's two windows as a page knows them, whichever surface it is (`docs/frontend/spec.md :: I494`). */
+/** A confirmation's two windows as a page knows them, whichever surface it is. */
 export interface ConfirmationWindows {
   readonly until: OpenUntil;
   /** Whether a write sent at `now` would be refused for want of a confirmation as recent as `demand` asks. */
@@ -56,7 +56,7 @@ function skewOf(served: ConfirmedUntil): number {
 
 /**
  * `served` is a server render's own object: a new one replaces whatever the page confirmed itself, even
- * carrying the same figures, since a refused write's refresh is such a render (`docs/frontend/spec.md :: I433`).
+ * carrying the same figures, since a refused write's refresh is such a render.
  */
 export function useConfirmationWindows(served: ConfirmedUntil): ConfirmationWindows {
   const [seen, setSeen] = useState(served);

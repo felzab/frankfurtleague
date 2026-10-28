@@ -51,7 +51,7 @@ export type KontaktZeile = "offen" | "saison_vorbei" | "ausgetreten";
  * stranger, owed none.
  */
 export interface KontaktBestaetigungData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /**
    * Every seat this one link answers for, as one phrase, rendered by the caller:

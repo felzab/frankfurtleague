@@ -107,11 +107,10 @@ export function partlyRestored(error: unknown, refusals: Readonly<Record<string,
  */
 export async function runAdminUndo(mutationName: string, fn: (session: AdminSession) => Promise<UndoOutcome>): Promise<UndoOutcome> {
   const answer = await runAdminMutation(mutationName, { stepUp: false, turnedAway: undoTurnedAway, wording: UNDO_WORDING }, fn);
-  // Still the step-up refusal, its page's figure read again (`docs/frontend/spec.md :: I433`), in the undo's own words.
+  // Still the step-up refusal, its page's figure read again, in the undo's own words.
   if (!answer.success && "stepUp" in answer) return { ...answer, error: UNDO_UNBESTAETIGT };
 
-  // The spine drops the tags behind a half that went back and leaves the page to the action
-  // (`docs/frontend/spec.md :: I233`).
+  // The spine drops the tags behind a half that went back and leaves the page to the action.
   if (!answer.success && answer.outcome === "partial") refresh();
 
   return answer;

@@ -12,8 +12,7 @@ import type { Facet } from "@/shared/utils/facets";
 
 /**
  * The URL is the only state, so a selection survives reload and a shared link, and the selection is
- * `useFacetSelection`'s so a list and its bar cannot read one URL differently. Its values are picked, never typed
- * (`docs/frontend/spec.md :: I680`).
+ * `useFacetSelection`'s so a list and its bar cannot read one URL differently. Its values are picked, never typed.
  */
 export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const searchParams = useSearchParams();

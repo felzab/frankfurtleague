@@ -9,7 +9,7 @@ import { AdminStepUpProvider } from "./AdminStepUpProvider";
 // In the layout's `Suspense`, never the layout, which would go fully dynamic.
 /**
  * Holds the admin page slot until the session is judged, and never redirects: a redirect thrown in the frame unmounts
- * it whole, so each page's own read turns a refused session away (`docs/frontend/spec.md :: I834`).
+ * it whole, so each page's own read turns a refused session away.
  */
 export async function AdminSessionHold({ children }: { children: React.ReactNode }) {
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
@@ -26,6 +26,6 @@ export async function AdminSessionHold({ children }: { children: React.ReactNode
   const served = judged.session;
 
   // Read off the session this render already holds, so a step-up press asks before it sends
-  // rather than after the server refuses it (`docs/frontend/spec.md :: I433`).
+  // rather than after the server refuses it.
   return <AdminStepUpProvider served={{ ...confirmedUntil(served), inhaberId: served.user.id }}>{children}</AdminStepUpProvider>;
 }

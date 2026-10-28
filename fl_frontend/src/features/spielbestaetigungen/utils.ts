@@ -115,7 +115,7 @@ function grundZumSchliessen(
 
 /**
  * `fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_end` spelled again: why the next pass shuts a row
- * still holding its party's question, or `null`. Both tiers run one table of it (`docs/frontend/spec.md :: I783`).
+ * still holding its party's question, or `null`. Both tiers run one table of it.
  */
 export function grundZumEnde(
   zeile: FLSpielbestaetigung,
@@ -129,7 +129,7 @@ export function grundZumEnde(
 }
 
 /**
- * The rows that still speak for the fixture as it stands (`docs/frontend/spec.md :: I783`): nothing the next pass ends,
+ * The rows that still speak for the fixture as it stands: nothing the next pass ends,
  * and about the Ansetzung it holds, as the public card reads a discard. Any other chips an answer the pass drops.
  */
 export function geltendeBestaetigungen(
@@ -337,7 +337,7 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
   }
 }
 
-/** A referee's two answers' toast titles, each failure the negation of its success (`docs/frontend/spec.md :: I250`). */
+/** A referee's two answers' toast titles, each failure the negation of its success. */
 export const ZUSAGE_GESPEICHERT = "Deine Zusage ist gespeichert";
 export const ZUSAGE_NICHT_GESPEICHERT = "Deine Zusage wurde nicht gespeichert";
 export const ABSAGE_GESPEICHERT = "Deine Absage ist gespeichert";

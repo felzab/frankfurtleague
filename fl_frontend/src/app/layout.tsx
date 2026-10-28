@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 
 /**
  * Not the brand fill the manifest opens an installed app on: this bar is on every screen at once,
- * and the brand budget is salience (`docs/frontend/spec.md :: I164`). A splash is the one screen
+ * and the brand budget is salience. A splash is the one screen
  * that can afford the fill.
  */
 export const viewport: Viewport = {
@@ -79,7 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="de"
       suppressHydrationWarning
       className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
-      {/* No containing-block trigger on either root (`docs/frontend/spec.md :: I29`): one would make
+      {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
       <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
         <RootProviders>{children}</RootProviders>

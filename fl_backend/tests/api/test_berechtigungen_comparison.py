@@ -65,7 +65,7 @@ def test_each_change_carries_both_states_the_stamp_is_handed_back():
 
 
 def test_a_grant_found_new_is_one_the_comparison_stamps_and_a_tier_change_is_not():
-    """A repointed address is a new grant to its new holder, whose sessions before it must not administer (`docs/backend/spec.md :: I525`)."""
+    """A repointed address is a new grant to its new holder, whose sessions before it must not administer."""
 
     changes = compare(
         grants=[row(FIRST, "berta@schule.de"), row(SECOND, "carla@schule.de", "owner")],
@@ -76,7 +76,7 @@ def test_a_grant_found_new_is_one_the_comparison_stamps_and_a_tier_change_is_not
 
 
 def test_a_promotion_found_in_place_is_one_the_comparison_dates_and_a_demotion_and_a_new_owner_are_not():
-    """A new owner's row is dated by its `gefunden_am`; a demotion takes the power at once (`docs/backend/spec.md :: I534`)."""
+    """A new owner's row is dated by its `gefunden_am`; a demotion takes the power at once."""
 
     changes = compare(
         grants=[row(FIRST, "anna@schule.de", "owner"), row(SECOND, "berta@schule.de"), row(THIRD, "carla@schule.de", "owner")],
@@ -148,7 +148,7 @@ PROMOTED = datetime(2026, 5, 1, 8, 0)
 
 
 class TestWhenAnOwnersPowerTookEffect:
-    """`inhaber_seit`: a session older than it administers and holds no owner's power (`docs/backend/spec.md :: I534`)."""
+    """`inhaber_seit`: a session older than it administers and holds no owner's power."""
 
     def test_a_promotion_after_the_grant_dates_the_tier(self):
         assert inhaber_seit(stored(verwaltung="owner", gefunden_am=FOUND, ernannt_am=PROMOTED), ANNOUNCED_OWNER) == PROMOTED.replace(tzinfo=UTC)

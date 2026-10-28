@@ -28,7 +28,7 @@ const ABGLEICH_START_DELAY_MS = 60 * 1000;
 
 /**
  * Arms the reconciliation pass for the life of this process. Every change to the grants reaches it,
- * a change made in the database directly included, through the claim's outbox (`docs/backend/spec.md :: I439`).
+ * a change made in the database directly included, through the claim's outbox.
  */
 export function armBerechtigungenAbgleich(): void {
   const erster = setTimeout(() => void runBerechtigungenAbgleich(), ABGLEICH_START_DELAY_MS);
@@ -116,11 +116,11 @@ async function abgleichen(): Promise<void> {
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
   // A request, and an address change waiting on an approval, goes to whoever could approve it alone: neither the address
-  // it is for nor whoever asked (`docs/backend/spec.md :: I856`, `:: I862`). A request's end goes to its requester (`:: I867`).
+  // it is for nor whoever asked. A request's end goes to its requester.
   const adressen = [...new Set(aenderung.an ?? [...empfaenger, ...genannt])];
   const erreicht = offen.get(aenderung.id) ?? new Set<string>();
 
-  // Given up by the backend's count (`docs/backend/spec.md :: I480`): stamped unmailed rather than claimed
+  // Given up by the backend's count: stamped unmailed rather than claimed
   // for ever, and this line is all that says who was never told, by count and never by address.
   if (aenderung.aufgegeben) {
     offen.delete(aenderung.id);
@@ -203,7 +203,7 @@ function nachricht(aenderung: FLBerechtigungAenderung): BerechtigungEmail {
 /** A row's address as a notice names it, or why it is withheld. */
 function adresseOf(aenderung: FLBerechtigungAenderung, stand: FLBerechtigungAenderung["jetzt"]): string | Vorenthalten {
   // `geloescht` read rather than the null: an erased holder's address is withheld as a barred one's is, and
-  // every other withheld grant address is a barred one's (`docs/backend/spec.md :: I661`).
+  // every other withheld grant address is a barred one's.
   return stand?.adresse ?? { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
 }
 

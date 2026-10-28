@@ -65,7 +65,7 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
   return saisons.find((saison) => saison.status === "active") ?? saisons[0];
 }
 
-/** Every admin page's season (`docs/frontend/spec.md :: I359`); `undefined` only for a league holding none. */
+/** Every admin page's season; `undefined` only for a league holding none. */
 export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison | undefined> {
   const requestedSaisonId = await resolveSaisonId(searchParamsPromise, "admin");
   // The list even where the URL names no season: the running season alone leaves a league before its
@@ -75,7 +75,7 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
   return selectSaison(saisons, requestedSaisonId);
 }
 
-/** For a page whose reads name a season: a league holding none is sent to the page that creates one (`docs/frontend/spec.md :: I363`). */
+/** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
 export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison> {
   return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/bereich/admin/saisons");
 }

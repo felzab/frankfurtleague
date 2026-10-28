@@ -96,7 +96,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     }
 
     // Wherever the write may stand, a lost answer included, as the action spine drops them. `{ expire: 0 }`:
-    // `updateTag` throws here (`docs/frontend/spec.md :: I14`), and the default profile serves the old entry once more.
+    // `updateTag` throws here, and the default profile serves the old entry once more.
     if (requestWriteSent() && (answer.success || ("outcome" in answer && answer.outcome !== undefined))) {
       for (const tag of requestWriteTags()) revalidateTag(tag, { expire: 0 });
     }

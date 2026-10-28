@@ -178,10 +178,10 @@ export async function undoAdminSchiedsrichterEditAction(
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
     const payload = validated.data;
 
-    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row.
     invalidatesOnWrite("spiele");
     // The replay is a save, its mint judged as the save's own action judges one: without this the undo
-    // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
+    // is a second door to that save with no step-up.
     const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(payload.id);
     const unconfirmed = stored !== null && saveMayMint(stored.schiedsrichter, payload.kontakt.email) ? refuseUnconfirmed(session) : null;
     if (unconfirmed !== null) return unconfirmed;

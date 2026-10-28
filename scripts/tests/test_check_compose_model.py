@@ -41,12 +41,12 @@ def test_the_production_shape_is_clean():
 
 
 def test_a_database_joining_production_fails():
-    """I174: the pinned set is what a `mongo` service breaks."""
+    """The pinned set is what a `mongo` service breaks."""
     assert len(checker.production(model(**PRODUCTION["services"], mongo={}), "p")) == 1
 
 
 def test_any_production_port_fails_the_edge_included():
-    """`docs/ops/spec.md` I1: production's nginx publishes nothing either; the connector reaches it over the network."""
+    """Production's nginx publishes nothing either; the connector reaches it over the network."""
     found = checker.production(model(frontend={}, backend={}, nginx={"ports": [port("443", 443)]}, cloudflared={}), "p")
     assert len(found) == 1
 
@@ -673,9 +673,7 @@ def test_the_local_stack_reading_a_database_login_from_secrets_fails():
 
     found = checker.secret_holders(rendered, "p", RENDER, "local")
 
-    assert [finding.detail for finding in found] == [
-        "p: the secret backend_mongodb_uri is declared and SECRET_HOLDERS lists no such secret (I508)"
-    ]
+    assert [finding.detail for finding in found] == ["p: the secret backend_mongodb_uri is declared and SECRET_HOLDERS lists no such secret"]
 
 
 # --- which service reads which login from an inline config -------------------------------------------
@@ -740,7 +738,7 @@ def test_a_login_config_one_reader_lacks_fails():
 
     found = checker.config_holders(rendered, "p", "local")
 
-    assert [finding.detail for finding in found] == ["p: nothing reads a config as backend_mongodb_uri, not ['backend'] (I508)"]
+    assert [finding.detail for finding in found] == ["p: nothing reads a config as backend_mongodb_uri, not ['backend']"]
 
 
 def test_a_second_reader_of_a_login_config_fails():
@@ -802,9 +800,7 @@ def test_the_key_file_under_a_second_secret_name_fails():
 
     found = checker.secret_holders(rendered, "p", RENDER, "production")
 
-    assert [finding.detail.split("\n")[0] for finding in found] == [
-        "p: the secret copy is declared and SECRET_HOLDERS lists no such secret (I508)"
-    ]
+    assert [finding.detail.split("\n")[0] for finding in found] == ["p: the secret copy is declared and SECRET_HOLDERS lists no such secret"]
 
 
 def test_main_judges_the_secret_holders_of_both_models():
@@ -920,9 +916,7 @@ def test_a_file_the_schema_never_reads_handed_to_the_frontend_fails():
 
     found = checker.frontend_files(model(frontend=frontend), "p", "production", SCHEMA)
 
-    assert [finding.detail for finding in found] == [
-        "p: compose hands the frontend ['sperrliste_schluessel'], which its schema never reads (I430)"
-    ]
+    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['sperrliste_schluessel'], which its schema never reads"]
 
 
 def test_a_file_the_schema_starts_reading_fails_until_compose_mounts_it():
@@ -1161,7 +1155,7 @@ def test_a_file_the_backend_never_reads_handed_to_it_fails():
 
     found = checker.backend_files(model(backend=backend), "p", SETTINGS)
 
-    assert [finding.detail for finding in found] == ["p: compose hands the backend ['auth_secret'], which its schema never reads (I430)"]
+    assert [finding.detail for finding in found] == ["p: compose hands the backend ['auth_secret'], which its schema never reads"]
 
 
 def test_a_file_the_backend_starts_reading_fails_until_compose_mounts_it():
@@ -1238,7 +1232,7 @@ def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
     ],
 )
 def test_a_bind_mount_reaching_the_secrets_directory_fails(service: str, source: Path):
-    """A bind is a second route to the key, past the one mount I472 names, and the tunnel token beside it."""
+    """A bind is a second route to the key, past the one mount the rule names, and the tunnel token beside it."""
     found = checker.secrets_directory(model(**{service: _bound(source)}), "p", RENDER)
 
     assert len(found) == 1, found

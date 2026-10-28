@@ -691,7 +691,7 @@ class TestTheStateRead:
 
     @pytest.mark.parametrize("barred", [False, True], ids=("a minter the list does not hold", "a barred minter"))
     def test_a_barred_minter_is_withheld_beside_a_flag(self, mongo_replica_set_url: str, barred: bool):
-        """The grants list's rule on every admin read: no barred address is served in plain (`docs/backend/spec.md :: I452`)."""
+        """The grants list's rule on every admin read: no barred address is served in plain."""
 
         async def body(database: AsyncDatabase) -> Any:
             await mint(database, TWO_SEATS)
@@ -774,7 +774,7 @@ class TestTheSeasonWidePress:
         assert addressed[str(WITHDRAWN)] == ()
 
     def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I544`. A link nobody sent stands, as the mailer leaves a barred team's.
+        """A link nobody sent stands, as the mailer leaves a barred team's.
 
         One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
         """

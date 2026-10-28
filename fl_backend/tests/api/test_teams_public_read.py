@@ -259,7 +259,7 @@ class TestARetiredClubStaysOutOfTheBaseTierReads:
 
 @pytest.mark.db
 class TestAPastSeasonKeepsTheRetiredClubsThatPlayedIt:
-    """`docs/backend/spec.md :: I252`: a finished season's table has to add up with the fixtures it still shows."""
+    """A finished season's table has to add up with the fixtures it still shows."""
 
     def test_the_standings_keep_them(self, seeded_url: str):
         response = on_a_league(seeded_url, lambda database: read_teams(database, base_filters(saison_id=PAST_SAISON, in_gruppen=True)))
@@ -347,7 +347,7 @@ def played_group(saison_id: str) -> list[dict[str, Any]]:
 
 @pytest.mark.db
 class TestTheBracketPlacesTheClubsTheTableRanks:
-    """`docs/backend/spec.md :: I252` through the save's own resolution, over a season holding a club that left the league."""
+    """Through the save's own resolution, over a season holding a club that left the league."""
 
     @pytest.mark.parametrize(
         ("saison_id", "status", "seeded"),

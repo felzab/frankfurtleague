@@ -68,7 +68,7 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 
 // Each answer is compared whole: a guard's refusal carries no `gleich`, and a case reading that
 // field alone would pass on a refusal.
-describe("which session a holder check calls the holder's (docs/frontend/spec.md :: I428)", () => {
+describe("which session a holder check calls the holder's", () => {
   it("answers held for the account page's holder, and not held for another person's session", async () => {
     const holder = await arriveSignedIn(PERSON_EMAIL);
     expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: true });

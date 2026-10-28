@@ -36,8 +36,7 @@ const LINK_UNGUELTIG =
 const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Für einen neuen Versuch fordere auf Deiner Kontoseite einen neuen an.";
 
 /**
- * Completes a mailed deletion link, the league's records before the account (`docs/frontend/spec.md ::
- * I675`). The person-record spine sends the actor the backend's person route reads, and refuses
+ * Completes a mailed deletion link, the league's records before the account. The person-record spine sends the actor the backend's person route reads, and refuses
  * sessions the library itself would accept.
  */
 export async function loescheKontoAction(token: string): Promise<ActionResult> {
@@ -51,19 +50,19 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
     // Unconditional: the erasure reaches a squad and a fixture whatever this person turns out to hold.
     invalidatesOnWrite("spieler", "spiele");
 
-    // Refused before the library spends the link, so the same link completes once another owner is made
-    // (`docs/frontend/spec.md :: I708`); the backend refuses two owners at once. Read for an owner alone,
+    // Refused before the library spends the link, so the same link completes once another owner is made;
+    // the backend refuses two owners at once. Read for an owner alone,
     // the one tier that can be the last.
     if (subject.subjekt.verwaltung === "owner" && (await getLoeschungAnsicht()).letzter_inhaber) {
       return { success: false, error: LETZTE_INHABERIN };
     }
 
     // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
-    // of the enrolment's minutes (`docs/frontend/spec.md :: I707`), judged before the library spends the link.
+    // of the enrolment's minutes, judged before the library spends the link.
     if (subject.subjekt.verwaltung !== null) {
       const verwaltend = await getKontoSession();
       if (verwaltend === null || enrolmentUntil(verwaltend) === null) {
-        // The page's figures read again, so its next press asks first (`docs/frontend/spec.md :: I433`).
+        // The page's figures read again, so its next press asks first.
         refresh();
         return stepUpRequired();
       }
@@ -135,7 +134,7 @@ async function istFrischBestaetigt(): Promise<boolean> {
 }
 
 /**
- * The person's own start from the account page, inside the enrolment window (`docs/frontend/spec.md :: I806`): the
+ * The person's own start from the account page, inside the enrolment window: the
  * link goes to the new address, a stop link to the signed-in one, and, where a grant moves, word to its approvers.
  */
 export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
@@ -159,7 +158,7 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
     }
 
     const { link } = await mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" });
-    // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
+    // The approvers are told through the grants' outbox the start queued, drained behind
     // the answer: mailing them here too would tell each twice.
     if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
 

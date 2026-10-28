@@ -118,8 +118,8 @@ async def post_berechtigungen_abgleich(
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         changes = compare(grants=grants, announced=announced)
         if changes:
-            # Anchored before the pass writes, so a revoke or a ban judging these rows conflicts with it
-            # (`docs/backend/spec.md :: I462`). The read repeats this snapshot's, and a pass queueing
+            # Anchored before the pass writes, so a revoke or a ban judging these rows conflicts with it.
+            # The read repeats this snapshot's, and a pass queueing
             # nothing logs no anchor.
             await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
@@ -142,7 +142,7 @@ async def post_berechtigungen_abgleich(
             )
             # The record now accounts for each change, the notice for it standing queued.
             # Bookkeeping, so removed with no image: an image carries the address into a log every
-            # administrator reads for twelve months (`docs/backend/spec.md :: I465`).
+            # administrator reads for twelve months.
             await erase_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
                 db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
@@ -154,7 +154,7 @@ async def post_berechtigungen_abgleich(
             if current:
                 await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=current, session=session)
             # This pass's clock and not the row's `erteilt_am`, which a paste typed and a repoint kept
-            # from the address before (`docs/backend/spec.md :: I525`).
+            # from the address before.
             if found := gefunden(changes):
                 await patch_many_in_db(
                     collection=berechtigungen_collection,
@@ -163,7 +163,7 @@ async def post_berechtigungen_abgleich(
                     session=session,
                 )
             # Nothing dates the promotion's edit, so its owner's power dates from this pass, as the tier
-            # change dates one made there (`docs/backend/spec.md :: I534`).
+            # change dates one made there.
             if raised := ernannt(changes):
                 await patch_many_in_db(
                     collection=berechtigungen_collection,
@@ -173,7 +173,7 @@ async def post_berechtigungen_abgleich(
                 )
 
         # Every row no pass has read, a dead one included: once its record is gone, this mark tells an
-        # edit made since from a paste nothing has seen (`docs/backend/spec.md :: I529`). The unseen
+        # edit made since from a paste nothing has seen. The unseen
         # alone, so a quiet pass writes nothing.
         if unseen := [row["_id"] for row in grants if row.get("gesehen_am") is None]:
             await patch_many_in_db(
@@ -190,8 +190,8 @@ async def post_berechtigungen_abgleich(
         if claimable:
             token = secrets.token_urlsafe(24)
             # Every claimed row written, so two overlapping calls conflict on the rows both read and
-            # the retry sees them held (`docs/backend/spec.md :: I454`); the count rises in this write,
-            # so a retried claim counts once (`:: I480`).
+            # the retry sees them held; the count rises in this write,
+            # so a retried claim counts once.
             await patch_many_in_db(
                 collection=berechtigungen_postausgang_collection,
                 db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},
@@ -212,7 +212,7 @@ async def post_berechtigungen_abgleich(
             sperrliste, claimed_addresses - stored, massgebliche_saison_id=massgebliche_saison_id, session=session
         )
 
-        # Read at the claim rather than stored with the row, so a request decided since asks nobody (`docs/backend/spec.md :: I856`).
+        # Read at the claim rather than stored with the row, so a request decided since asks nobody.
         offene = (
             {
                 antrag["_id"]: antrag
@@ -311,7 +311,7 @@ def _genehmiger(
 def _antragsteller(row: Mapping[str, Any], holders: Set[str]) -> list[str]:
     """A request's end goes to its requester, read now: nobody once they are erased, barred or revoked.
 
-    One who moved is told at the address their own change carried the row to (`docs/backend/spec.md :: I866`).
+    One who moved is told at the address their own change carried the row to.
     """
 
     von = row.get("geaendert_von")
@@ -333,7 +333,7 @@ def _adresswechsel_genehmiger(
     if record is None or not isinstance(genehmigung, Mapping) or genehmigung.get("genehmigt_am") is not None:
         return []
     bis = als_utc(genehmigung.get("bis"))
-    # Past its week, or its address's grant ended since, which leaves nothing to approve (`docs/backend/spec.md :: I847`).
+    # Past its week, or its address's grant ended since, which leaves nothing to approve.
     if bis is None or bis <= now or not any(grant["adresse"] == record["adresse"] for grant in lebendige(grants)):
         return []
 
@@ -354,7 +354,7 @@ def _answered(row: Mapping[str, Any], barred: set[str], *, an: list[str] | None)
     jetzt, vorher = withheld(zeile.jetzt, barred), withheld(zeile.vorher, barred)
     geaendert_von = withheld_actor(zeile.geaendert_von, barred)
     # A stored reason answers only beside a withheld grant address: beside a present one it explains
-    # nothing of the grant's (`docs/backend/spec.md :: I661`).
+    # nothing of the grant's.
     vorenthalten = zeile.vorenthalten if any(stand is not None and stand.adresse is None for stand in (zeile.jetzt, zeile.vorher)) else None
 
     return {
@@ -407,7 +407,7 @@ async def post_berechtigungen_angekuendigt(
             return 0
 
         # By the ids the claim holds, with no image: the rows carry addresses, and an imageless
-        # removal's filter is all the log keeps (`docs/backend/spec.md :: I465`).
+        # removal's filter is all the log keeps.
         removed = await erase_many_from_db(
             collection=berechtigungen_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in held]}}, session=session
         )

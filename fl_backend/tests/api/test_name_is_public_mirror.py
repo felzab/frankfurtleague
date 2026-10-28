@@ -2,7 +2,7 @@
 
 Hand-written rather than derived from either spelling: a table taken from one would compare that
 spelling with itself. One sheet rather than a table and two homes, so a spelling with no case
-beneath it reads as a case that is missing (`docs/backend/spec.md :: I262`).
+beneath it reads as a case that is missing.
 """
 
 from __future__ import annotations

@@ -205,8 +205,8 @@ describe("who the seam answers for", () => {
     expect((await getSubjectSession())?.admin).toBe(true);
   });
 
-  /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds
-     (`docs/frontend/spec.md :: I313`): the person lane serves it no more than the administrator's does. */
+  /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds:
+     the person lane serves it no more than the administrator's does. */
   it("answers no subject for a session whose passkey no row holds any more", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     madeByPasskey(store, row);
@@ -216,7 +216,7 @@ describe("who the seam answers for", () => {
     expect(await getSubjectSession()).toBe(null);
   });
 
-  /* The admin guard refuses a session its grant postdates (`docs/frontend/spec.md :: I470`), so a control
+  /* The admin guard refuses a session its grant postdates, so a control
      gated on this mark offers it nothing either; the person's records stand. */
   it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async ({
     onTestFinished,
@@ -379,7 +379,7 @@ describe("the request the seam makes", () => {
     expect(call.method).toBe("POST");
     expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v${API_VERSION}/identitaet/subjekt`);
     // An address on a path or a query reaches the edge's access line, which nothing downstream
-    // un-logs (`docs/logging/spec.md :: L11`).
+    // un-logs.
     assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);
   });
 

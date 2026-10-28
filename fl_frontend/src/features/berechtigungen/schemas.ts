@@ -92,8 +92,7 @@ export type FLBerechtigungenListResponse = z.infer<typeof FLBerechtigungenListRe
 
 /**
  * The grant, the address alone: no tier travels, the application granting `administration` only. Held
- * to the sign-in library's own rule besides the address box's, since a grant it refuses admits nobody
- * (`docs/frontend/spec.md :: I316`).
+ * to the sign-in library's own rule besides the address box's, since a grant it refuses admits nobody.
  */
 export const FLPostBerechtigungPayloadSchema = z.object({
   email: KontaktEmailSchema.refine((email) => isSignInLibraryAddress(asSignInIdentifier(email)), {
@@ -184,7 +183,7 @@ export const FLBerechtigungAenderungSchema = z.object({
   // Why the grant's own address is null, each the subject's alone: the actor's state is read off `geaendert_von`.
   gesperrt: z.boolean(),
   geloescht: z.boolean(),
-  // Counted by the backend on the row (`docs/backend/spec.md :: I480`), so a restart of this process never
+  // Counted by the backend on the row, so a restart of this process never
   // hands a notice a second budget of passes.
   aufgegeben: z.boolean(),
   // A request's own recipients, in `empfaenger`'s place: whoever could approve it now, none once nobody can; its

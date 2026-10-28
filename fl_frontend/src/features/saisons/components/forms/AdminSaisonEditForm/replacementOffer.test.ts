@@ -18,7 +18,7 @@ const BLANK: FLSpiel = FLSpielSchema.parse(spielFields({ id: "0".repeat(24), spi
  * The shared side, named per case and narrowed to this schema's own `austritt_type` union.
  *
  * `fl_frontend/src/test-support/fixtures.ts` types that field as a plain string, a module under
- * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
+ * `shared` being unable to import a feature slice's schema.
  */
 const side = (teamId: string, name: string, austrittType: FLAustritt["type"] | null = null): FLSpiel["team1"] => ({
   ...sharedSide(teamId, { name, shorthand: name.slice(0, 2).toUpperCase() }),

@@ -4,11 +4,11 @@ import { schlechtesterVersand, versandGrad, versandWarnt } from "./linkVersand.t
 
 import type { LinkVersand, VersandGrad } from "./linkVersand.ts";
 
-/** Every way a link mail ends, and the grade its administrator is told (`docs/frontend/spec.md :: I725`). */
+/** Every way a link mail ends, and the grade its administrator is told. */
 const GRADE: readonly (readonly [LinkVersand, VersandGrad])[] = [
   ["gesendet", "gesendet"],
   ["fehlgeschlagen", "fehlgeschlagen"],
-  // Filed and never sent, and never a failure (`docs/frontend/spec.md :: I542`).
+  // Filed and never sent, and never a failure.
   ["gesperrt", "abgelegt"],
   ["zurueckgehalten", "abgelegt"],
 ];

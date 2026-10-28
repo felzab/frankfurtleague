@@ -2,7 +2,7 @@
 API · every read and write of the grants that reaches a collection
 
 The anchor lives here beside the read it protects, so no caller can judge the list without writing
-every row of it (`docs/backend/spec.md :: I53`).
+every row of it.
 """
 
 from collections.abc import Mapping, Sequence, Set
@@ -54,7 +54,7 @@ async def pull_the_list_to_judge(
     # at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> list[Mapping[str, Any]]:
-    """Read every grant, then write each one, in the caller's transaction (`docs/backend/spec.md :: I438`).
+    """Read every grant, then write each one, in the caller's transaction.
 
     A snapshot re-validates no read: a rival judging the list writes the same rows, so whichever
     lands second meets a write conflict and retries.
@@ -108,7 +108,7 @@ async def _grant_and_its_record(
     *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str]
 ) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
     # A snapshot, or a commit landing between the row's read and the join pairs the row before it
-    # with the record after (`docs/backend/spec.md :: I530`).
+    # with the record after.
     async with berechtigungen_collection.database.client.start_session(snapshot=True) as session:
         return await _grant_and_its_record_in(
             berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=fields, session=session
@@ -119,7 +119,7 @@ async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: 
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
     No dead-row check: each caller folds an address the address rule admitted, and a row equal to
-    that is live (`docs/backend/spec.md :: I453`).
+    that is live.
     """
 
     grant = await _grant_and_its_record(
@@ -134,7 +134,7 @@ async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: 
         return None
 
     # The tier in effect rather than the row's: a promotion made in the database and not yet found is
-    # no session's, so it is answered as the administrator it still is (`docs/backend/spec.md :: I534`).
+    # no session's, so it is answered as the administrator it still is.
     inhaber = inhaber_seit(row, angekuendigt)
 
     return ("administration" if inhaber is None else "owner"), seit, inhaber
@@ -148,7 +148,7 @@ async def live_unbarred_grant_since(
 ) -> datetime | None:
     """The actor check's question: when the live grant this identifier holds took effect, read by one equality beside the ban list's.
 
-    `None` for a barred holder, who is no administrator (`docs/backend/spec.md :: I463`).
+    `None` for a barred holder, who is no administrator.
     """
 
     # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
@@ -203,7 +203,7 @@ async def anchor_the_actors_grant(
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
-    """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place (`docs/backend/spec.md :: I462`).
+    """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place.
 
     Read, then written by id: a write filtered on the address copies it into the log's filter text.
     """
@@ -250,7 +250,7 @@ async def read_the_announced(
 async def read_the_claimable(
     *, berechtigungen_postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
 ) -> list[Mapping[str, Any]]:
-    """The outbox rows no claim holds, oldest first, a page at a time (`docs/backend/spec.md :: I454`).
+    """The outbox rows no claim holds, oldest first, a page at a time.
 
     The lease is compared by the database, which holds the stamp as UTC and compares it as one.
     """
@@ -281,7 +281,7 @@ async def grant_in_session(
     """Write a grant, its announced row and its outbox row, answering its id.
 
     The announced row moves with the grant and the outbox carries its notice, so the comparison never announces this write
-    twice (`docs/backend/spec.md :: I451`).
+    twice.
     """
 
     document: dict[str, Any] = {
@@ -291,7 +291,7 @@ async def grant_in_session(
         "erteilt_von": erteilt_von,
         "erteilt_am": now,
         # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
-        # than a fresh paste (`docs/backend/spec.md :: I529`).
+        # than a fresh paste.
         "gesehen_am": now,
         **({} if fortgefuehrt is None else {"fortgefuehrt": fortgefuehrt}),
     }
@@ -329,8 +329,7 @@ async def revoke_in_session(
 ) -> None:
     """Remove one grant and its announced row, queueing the notice of its end.
 
-    A database edit nobody was told of goes out first, or the revoke's notice would be its only trace
-    (`docs/backend/spec.md :: I451`).
+    A database edit nobody was told of goes out first, or the revoke's notice would be its only trace.
     """
 
     for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced):
@@ -359,5 +358,5 @@ async def revoke_in_session(
 
     await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
-    # none (`docs/backend/spec.md :: I465`).
+    # none.
     await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)

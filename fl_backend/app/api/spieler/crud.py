@@ -39,7 +39,7 @@ async def pull_a_person_to_enter(
     """A 404 where nobody stands behind the id, the sentinel included.
 
     The erasure writes no row this entry writes, so only the anchor on the person puts the two in one
-    write set (`docs/backend/spec.md :: I53`).
+    write set.
     """
 
     await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection=["_id"], session=session)
@@ -178,8 +178,7 @@ async def erase_person_in_session(
     spieler_id: CustomObjectId,
     # The caller's, so several erasures in one transaction redact under one instant.
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
     """Remove the person and their squad rows, then redact the log. Whether they may be erased is the caller's to judge."""

@@ -6,8 +6,8 @@ import type { FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload } from "@/featur
 const SITZE = KONTAKT_ROLLEN.map(({ value }) => value);
 
 /**
- * Whether a contacts save may mint or void a seat's link, a step-up write either way
- * (`docs/frontend/spec.md :: I432`): a SUPERSET of the backend's test, for
+ * Whether a contacts save may mint or void a seat's link, a step-up write either way:
+ * a SUPERSET of the backend's test, for
  * `fl_frontend/src/features/schiedsrichter/linkMint.ts`'s reason. Raw strings where the backend folds them.
  */
 export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: FLSaisonTeamKontaktePayload | null): boolean {

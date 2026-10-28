@@ -11,7 +11,7 @@ export interface SidemenuHint {
   points?: readonly { term: string; detail: string }[];
   /**
    * A closing caveat, for the one thing a reader would otherwise look for here and not find. It counts
-   * against the cap like a bullet (`docs/frontend/spec.md` §1.12).
+   * against the cap like a bullet.
    */
   note?: string;
 }
@@ -53,18 +53,18 @@ export type ActionFailure = {
   fieldErrors?: FieldErrors;
   /**
    * What the press says where no rendered control takes `fieldErrors`, in place of `error`, which then
-   * points at marks nobody can see (`docs/frontend/spec.md :: I344`).
+   * points at marks nobody can see.
    */
   unplacedError?: string;
   /**
    * The backend's code for a failure a field can own; the form places the message, holding the payload it submitted. A
-   * 409's body carries nothing else (L4 in `docs/logging/spec.md`), and one code covers one rule, not one field.
+   * 409's body carries nothing else, and one code covers one rule, not one field.
    */
   errorCode?: string;
   /**
    * Present where a title saying nothing was saved would be false: `unknown` where nobody can tell
-   * whether the write landed (`docs/frontend/spec.md :: I326`), `partial` where one write of the press
-   * stands and a later one was refused (`:: I531`).
+   * whether the write landed, `partial` where one write of the press
+   * stands and a later one was refused.
    */
   outcome?: "unknown" | "partial";
 };

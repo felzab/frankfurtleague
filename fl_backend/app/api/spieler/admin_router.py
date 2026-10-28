@@ -253,7 +253,7 @@ async def post_saison_spieler(
     Put a player in a team's squad for a season.
 
     404 where no player has this id. One row per player per season: moving a player is a PATCH of
-    `team_id`, and a repeat is a 409 even where the row is retired (`docs/backend/spec.md :: I20`). A
+    `team_id`, and a repeat is a 409 even where the row is retired. A
     squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
     taken from the body: it is true from the first day of the season's matchday 1, and false while
     that matchday is undated.
@@ -309,8 +309,7 @@ async def post_saison_spieler(
 
         return document
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
         # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
@@ -391,8 +390,7 @@ async def patch_saison_spieler(
             return_document=ReturnDocument.AFTER,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             moved = await session.with_transaction(move_the_player)
@@ -451,7 +449,7 @@ async def reactivate_saison_spieler(
     """
     Clear a squad row's `inactive_since`, with the number and position it had.
 
-    Where a repeat create is redirected (`docs/backend/spec.md :: I20`): a create reviving the row
+    Where a repeat create is redirected: a create reviving the row
     would overwrite both. Refused where the squad has filled up, where its club left, or where the
     `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
     """
@@ -505,8 +503,7 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             revived = await session.with_transaction(bring_the_player_back)

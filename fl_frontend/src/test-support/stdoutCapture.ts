@@ -19,7 +19,7 @@ function beginCapture(): { written: WrittenLines; restore: () => void } {
     if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
     written.raw.push(text);
     // Here rather than in each suite: a writer that emitted two documents in one chunk would
-    // otherwise be read as one by every caller (`docs/logging/spec.md :: L1`).
+    // otherwise be read as one by every caller.
     assert.ok(text.endsWith("\n") && !text.slice(0, -1).includes("\n"), `one document per line, got ${text}`);
     written.documents.push(JSON.parse(text) as Record<string, unknown>);
     return true;

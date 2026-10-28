@@ -10,7 +10,7 @@ import type { Readable } from "node:stream";
 const EXPIRED = (killed: number): string =>
   `this file's replica set's expiry pass counted ${String(killed)} kill(s) of transactions past MongoDB's transaction lifetime limit. ` +
   "A case that left one open or deadlocked on it can pass while it waited: the slowest case is the one to read " +
-  "(`docs/frontend/spec.md` §1.9).";
+  ".";
 
 const UNREAD =
   "this file's replica set reported no number for `metrics.abortExpiredTransactions.successfulKills` or for `timedOutKills` in " +
@@ -98,7 +98,7 @@ async function teardownFailure(judge: () => Promise<string | null>, close: () =>
 }
 
 /**
- * The file's one teardown, every client's close inside `close` (`docs/frontend/spec.md` §1.9). Each
+ * The file's one teardown, every client's close inside `close`. Each
  * db suite owns its container, so nothing else moves the count.
  */
 async function closeJudgingExpiredTransactions(mongod: StartedMongoDBContainer | undefined, close: () => Promise<void>): Promise<void> {
@@ -262,5 +262,5 @@ async function startJudged(container: ReplicaSetContainer): Promise<JudgedReplic
   return { mongod, closing: (close) => void closes.push(close) };
 }
 
-/** A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). */
+/** A db suite's one way to a replica set. */
 export const startJudgedReplicaSet = (): Promise<JudgedReplicaSet> => startJudged(replicaSetContainer());

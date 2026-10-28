@@ -28,8 +28,8 @@ function redactedParameterNames(): string[] {
 }
 
 /**
- * Fails unless `link`'s credential rides in a parameter the edge redacts, matched by name alone
- * (`docs/logging/spec.md :: L11`). In `core` because core's tests call it and import no `shared`;
+ * Fails unless `link`'s credential rides in a parameter the edge redacts, matched by name alone.
+ * In `core` because core's tests call it and import no `shared`;
  * `eslint.config.mjs :: TEST_ONLY` keeps it out of production code.
  */
 export function assertRedactedAtTheEdge(link: string): void {

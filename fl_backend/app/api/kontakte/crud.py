@@ -42,8 +42,8 @@ async def clear_seats(
 ) -> int:
     """Null these people's slots, one patch per row holding any, and answer how many slots.
 
-    `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`
-    (`docs/backend/spec.md :: I40`): each row's own history keeps the write that emptied the seat.
+    `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`:
+    each row's own history keeps the write that emptied the seat.
     """
 
     cleared = 0
@@ -73,7 +73,7 @@ async def remove_their_reasons(
 ) -> None:
     """Every reason these addresses' holders typed, from any seat, out of the confirmation rows and their log images.
 
-    Matched on the holder the answer stored, never the seat, whose earlier or later holder's reason stays (`docs/backend/spec.md :: I759`).
+    Matched on the holder the answer stored, never the seat, whose earlier or later holder's reason stays.
     """
 
     await remove_the_holders_reasons(
@@ -108,7 +108,7 @@ async def remove_the_holders_reasons(
     if rows:
         await patch_many_in_db(
             collection=spielbestaetigungen_collection,
-            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text (`docs/backend/spec.md :: I48`).
+            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text.
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
             session=session,
@@ -143,8 +143,7 @@ async def erase_kontaktperson_in_session(
     bewerbung_rows: Sequence[Mapping[str, Any]],
     # The caller's, so several erasures in one transaction redact under one instant.
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> SeatsCleared:
     """Clear, then redact, the rows the caller read in-session, so a retry re-reads them."""
@@ -157,7 +156,7 @@ async def erase_kontaktperson_in_session(
     cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
 
     # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure: the void then costs it
-    # the same however many rows the person sat in (`docs/backend/spec.md :: I758`).
+    # the same however many rows the person sat in.
     held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
     if held:
         voids = [

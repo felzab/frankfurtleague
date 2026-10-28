@@ -87,8 +87,8 @@ WIEDERHOLUNG_PROJECTION = [
 ]
 
 # What a season read takes on this tier: the window, and the status judging it, served only as
-# whether it ended. `docs/backend/spec.md :: I47` withholds a `future` season, as one taking
-# applications is; `:: I111` carves this much out.
+# whether it ended. The rule withholds a `future` season, as one taking
+# applications is; its carve-out is this much.
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
@@ -135,7 +135,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     """
     Return the season taking applications today -- its window open and the season not ended; 404 when none is.
 
-    What is served is the window and whether its season has ended, never the season: `docs/backend/spec.md :: I47`
+    What is served is the window and whether its season has ended, never the season: the rule
     withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
     """
 
@@ -241,7 +241,7 @@ async def get_trikotfarben(
 
     # Not `refuse_withheld_saison`, which would 404 every season this read exists for: one taking
     # applications is `future`. Whether it takes applications gates it instead, so
-    # `docs/backend/spec.md :: I111`'s carve-out stays the window reads' own.
+    # the carve-out stays the window reads' own.
     bewerbung, saison_status = await _pull_window(saisons_collection=saisons_collection, saison_id=saison_id)
 
     # `saison_nimmt_bewerbungen_an`, the judgement `/fenster` and the submission already take: one
@@ -278,13 +278,12 @@ async def _answer_as_the_first(
     today: str,
     session: AsyncClientSession,
 ) -> FLPostBewerbungResponse:
-    """The answer a stored key gets: the application it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
+    """The answer a stored key gets: the application it already holds, never a second one."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
     # Before the mint below, as the first press asks it before its own, or a ban entered since is
-    # answered with fresh links. The fingerprint just matched, so `gehasht` keys the stored addresses
-    # (`docs/backend/spec.md :: I414`).
+    # answered with fresh links. The fingerprint just matched, so `gehasht` keys the stored addresses.
     gesperrt = await _any_gesperrt(sperrliste=sperrliste, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
     refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
@@ -373,7 +372,7 @@ async def post_bewerbung(
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
-        """The replay or the judged insert, in one transaction: either write is the request's only one (`docs/backend/spec.md :: I52`)."""
+        """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
         # Before every judgement: a replay answers what the first request did, whatever has closed since.
         stored = (
@@ -471,7 +470,7 @@ async def post_bewerbung(
             },
             session=session,
         )
-        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`).
+        # The addresses entering here, which an erasure of one running now never read.
         await anchor_the_addresses(
             seat_adressen(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), seats=KONTAKT_ROLLEN),
             adressanker_collection=adressanker_collection,

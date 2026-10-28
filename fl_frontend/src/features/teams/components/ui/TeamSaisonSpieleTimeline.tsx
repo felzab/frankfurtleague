@@ -43,7 +43,7 @@ const ERGEBNIS_WORT: Record<FLSpielErgebnisFor, string> = {
 
 /**
  * `"use client"` is required: this section holds the details modal's state and hands each card the
- * callback that opens it, which a Server Component may not pass (`docs/frontend/spec.md :: I13`).
+ * callback that opens it, which a Server Component may not pass.
  */
 export function TeamSaisonSpieleTimeline({
   teamSpiele,

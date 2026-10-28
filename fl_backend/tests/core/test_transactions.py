@@ -237,7 +237,7 @@ class _RefusedOnSomeAttempts:
 
 
 class TestARowFailingAloneIsPassedOver:
-    """`docs/backend/spec.md :: I720` over doubles, for the failures no row carries, which no database case reaches cheaply."""
+    """Over doubles, for the failures no row carries, which no database case reaches cheaply."""
 
     @pytest.mark.parametrize(
         ("failure", "code", "line"),
@@ -440,7 +440,7 @@ class TestARowFailingAloneIsPassedOver:
         assert (result, len(caplog.records)) == (answered, len(answered[1]))
 
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
-        """A judge's (`docs/backend/spec.md :: I575`), which every half meets too: halved, the call would answer 200 for an actor it refuses."""
+        """A judge's, which every half meets too: halved, the call would answer 200 for an actor it refuses."""
 
         refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
         rows = _Rows(PAGE + 1, lambda read: refusal)
@@ -499,7 +499,7 @@ def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list
 
 
 class TestAShareIsTakenApartOverTheRowsItTook:
-    """`docs/backend/spec.md :: I728`: halving its whole read would re-read the page past the share, at its share's cost."""
+    """Halving its whole read would re-read the page past the share, at its share's cost."""
 
     def test_the_halves_read_no_row_passed_over_in_place_or_left_past_the_share(self, caplog: pytest.LogCaptureFixture):
         """Row 0 is passed over in place, rows 1 and 2 are the share, row 3 is past it, and writing row 2 fails."""
@@ -519,7 +519,7 @@ class TestAShareIsTakenApartOverTheRowsItTook:
 
 
 class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
-    """`docs/backend/spec.md :: I323`: once a half owing a message has committed, the call answers it whatever stops the rest."""
+    """Once a half owing a message has committed, the call answers it whatever stops the rest."""
 
     @staticmethod
     def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int, int]], list[Any]]:
@@ -594,7 +594,7 @@ PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
 
 
 class TestEveryAttemptJudgesItsActorFirst:
-    """`docs/backend/spec.md :: I575`: the judge a binder bound is entered inside every attempt the driver makes, around its callback."""
+    """The judge a binder bound is entered inside every attempt the driver makes, around its callback."""
 
     def test_the_judge_is_entered_before_the_callback_and_left_after_it_on_every_attempt(self):
         """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
@@ -1146,7 +1146,7 @@ def _sessions_a_judge_carried(judge: Any, grants: list[Mapping[str, Any]]) -> tu
 
 
 class TestEveryJudgeReadsInTheAttemptsSession:
-    """`docs/backend/spec.md :: I575`, `:: I576`: a judge's read left off the session judges what committed last, not the attempt's snapshot.
+    """A judge's read left off the session judges what committed last, not the attempt's snapshot.
 
     Entered through `JudgedSession`, which no in-session sweep over a callback's source reaches.
     """
@@ -1176,7 +1176,7 @@ class TestEveryJudgeReadsInTheAttemptsSession:
 class TestThePersonsJudgeAnchorsOnlyWhereAWriteMayStand:
     @pytest.mark.parametrize(("sent", "anchored"), [(False, False), (True, True)], ids=("nothing sent", "a write sent"))
     def test_the_anchor_follows_the_requests_record(self, sent: bool, anchored: bool):
-        """Anchored with nothing sent, the address's anchor stands for no write and the request reads as having sent one (I321)."""
+        """Anchored with nothing sent, the address's anchor stands for no write and the request reads as having sent one."""
 
         record = WritesSent(sent=sent)
         token = writes_sent_var.set(record)
@@ -1312,7 +1312,7 @@ def _the_block(source: str) -> ast.AsyncWith:
 
 
 class TestEveryTransactionRunsOnTheHelpersSession:
-    """`docs/backend/spec.md :: I539`: a session opened past `transaction_session`, or a failure kept inside one, ends with no abort sent."""
+    """A session opened past `transaction_session`, or a failure kept inside one, ends with no abort sent."""
 
     def test_no_session_able_to_transact_is_opened_past_it(self):
         assert _sessions_opened_past_the_helper() == {f"app/core/transactions.py :: {TRANSACTION_SESSION}"}

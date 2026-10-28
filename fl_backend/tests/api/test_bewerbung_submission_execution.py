@@ -438,7 +438,7 @@ LINK_MAY_BE_OUT = [
 
 
 class TestTheSubmissionKey:
-    """`docs/backend/spec.md :: I346` and `:: I347`, over the shipped unique index."""
+    """Over the shipped unique index."""
 
     def test_a_second_press_stores_no_second_application_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -534,7 +534,7 @@ class TestTheSubmissionKey:
         assert after == before
 
     def test_a_seat_stamped_empty_is_no_answer_and_the_replay_still_hands_links(self, mongo_replica_set_url: str):
-        """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the replay's filter reads it the same way."""
+        """`is_confirmed` reads `""` as unconfirmed, and the replay's filter reads it the same way."""
 
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
@@ -890,7 +890,7 @@ class TestASubmissionMadeOverTheWire:
             pytest.param("not-a-uuid", id="not a uuid"),
             # Version 1, which carries its host's clock: a guessable key lets a stranger store other details under it first.
             pytest.param("6fa459ea-ee8a-11ca-8d6b-0800200c9a66", id="a time-based uuid"),
-            # The IETF draft's structured-field string: the bare token is this API's form (`docs/backend/spec.md :: I350`).
+            # The IETF draft's structured-field string: the bare token is this API's form.
             pytest.param('"1b4e28ba-2fa1-4d2b-883f-0016d3cca427"', id="the draft's quoted form"),
         ],
     )

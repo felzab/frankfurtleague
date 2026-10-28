@@ -269,7 +269,7 @@ class RunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 class TestFourEyesOnAGrant:
-    """`docs/backend/spec.md :: I848`: a grant takes effect only on another administrator's approval, wherever one could give it."""
+    """A grant takes effect only on another administrator's approval, wherever one could give it."""
 
     def test_a_grant_another_administrator_could_approve_waits_as_a_request_and_announces_no_grant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -340,7 +340,7 @@ class TestFourEyesOnAGrant:
 
 
 class TestFourEyesOnAPromotion:
-    """`docs/backend/spec.md :: I848`: a promotion waits on another owner where one exists; a lone owner promotes alone."""
+    """A promotion waits on another owner where one exists; a lone owner promotes alone."""
 
     def test_a_promotion_another_owner_could_approve_waits_as_a_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -411,7 +411,7 @@ def asked(answer: Any) -> list[tuple[str | None, str | None, list[str] | None]]:
 
 
 class TestTheRequestAsksItsApprovers:
-    """`docs/backend/spec.md :: I856`: a request is mailed to whoever could approve it as the claim reads it, and to nobody else."""
+    """A request is mailed to whoever could approve it as the claim reads it, and to nobody else."""
 
     def test_a_grants_request_goes_to_its_other_administrators_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -481,7 +481,7 @@ class TestTheRequestAsksItsApprovers:
 
 
 class TestOneRequestPerAddress:
-    """`docs/backend/spec.md :: I851`: one request per address, and one lapsed is gone to every reader at once."""
+    """One request per address, and one lapsed is gone to every reader at once."""
 
     def test_a_second_request_about_an_address_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -546,7 +546,7 @@ class TestOneRequestPerAddress:
 
 
 class TestWhoMayDecide:
-    """`docs/backend/spec.md :: I849`: neither the requester nor the subject approves; an owner's act takes an owner held since before it."""
+    """Neither the requester nor the subject approves; an owner's act takes an owner held since before it."""
 
     @pytest.mark.parametrize(
         ("als", "refused"),
@@ -644,7 +644,7 @@ class TestWhoMayDecide:
 
 
 class TestARequestOutlivesNoRequester:
-    """`docs/backend/spec.md :: I850`: a revoke, a demotion or a ban of the requester leaves their request approved by nobody."""
+    """A revoke, a demotion or a ban of the requester leaves their request approved by nobody."""
 
     def test_a_revoked_requesters_grant_is_approved_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -680,7 +680,7 @@ class TestTheApprovalJudgesTheAddressAgain:
     """What the direct act refuses, the approval refuses too, judged when it is pressed: a week is long enough for a ban or a paste."""
 
     def test_a_subject_barred_since_is_withheld_on_the_list_and_granted_nothing(self, mongo_replica_set_url: str):
-        """Withheld beside its flag as a grant's address is (`docs/backend/spec.md :: I452`), and the request left to be refused."""
+        """Withheld beside its flag as a grant's address is, and the request left to be refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
@@ -774,7 +774,7 @@ class TestTheRacesEndInOneState:
 
 
 class TestTheRefusalIsJournalled:
-    """`docs/backend/spec.md :: I852`: a restore from before a refusal or a withdrawal brings the request back only until its replay."""
+    """A restore from before a refusal or a withdrawal brings the request back only until its replay."""
 
     @pytest.mark.parametrize(
         ("als", "art"), [pytest.param(BERND, "antrag_abgelehnt", id="refused"), pytest.param(ANNA, "antrag_zurueckgezogen", id="withdrawn")]
@@ -837,7 +837,7 @@ class TestTheRefusalIsJournalled:
 
 
 class TestTheReplayTellsTheRequesterAgain:
-    """`docs/backend/spec.md :: I870`: a restore takes back the requester's notice with the end, and the replay queues it again."""
+    """A restore takes back the requester's notice with the end, and the replay queues it again."""
 
     @pytest.mark.parametrize(
         ("end", "expected"),
@@ -879,7 +879,7 @@ class TestTheReplayTellsTheRequesterAgain:
 
 
 class TestTheErasureTakesEveryRequestOfTheAddress:
-    """`docs/backend/spec.md :: I854`: a request outlives neither its subject nor its requester, lapsed or not."""
+    """A request outlives neither its subject nor its requester, lapsed or not."""
 
     def test_a_request_about_the_address_and_every_one_made_by_it_go_imageless(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -914,7 +914,7 @@ class TestTheErasureTakesEveryRequestOfTheAddress:
 
 
 class TestTheAddressMoveIsNoNewGrant:
-    """`docs/backend/spec.md :: I853`: an administrator's address change moves their grant on its own approval, asking nobody again."""
+    """An administrator's address change moves their grant on its own approval, asking nobody again."""
 
     def test_the_moved_grant_writes_no_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -941,7 +941,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, *, at: datetim
 
 
 class TestAMovedAdministratorKeepsTheirStanding:
-    """`docs/backend/spec.md :: I866`: the four-eyes rule dates the person, so their own address change keeps their since-when.
+    """The four-eyes rule dates the person, so their own address change keeps their since-when.
 
     `EMAIL`'s grant predates the request asked an hour ago; the move half an hour ago grants `NEW_EMAIL` afresh after it.
     """
@@ -1028,7 +1028,7 @@ async def erased_whole(database: AsyncDatabase, client: AsyncMongoClient, identi
 
 
 class TestTheRequesterIsToldHowItEnded:
-    """`docs/backend/spec.md :: I867`: a refusal and an address change's end tell the requester, naming nobody who acted."""
+    """A refusal and an address change's end tell the requester, naming nobody who acted."""
 
     def test_a_refusal_queues_its_requester_a_notice_beside_the_removal(self, mongo_replica_set_url: str):
         """Queued after the removal took the request's own notice, and naming the requester, never Bernd who refused it."""
@@ -1116,7 +1116,7 @@ async def anna_barred(database: AsyncDatabase, client: AsyncMongoClient, _: Obje
 
 
 class TestTheRequestersNoticeReadsItsRecipientAtTheClaim:
-    """`docs/backend/spec.md :: I867`: the requester is read as the claim finds them, so one who left the administration hears nothing."""
+    """The requester is read as the claim finds them, so one who left the administration hears nothing."""
 
     def test_a_requester_erased_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
         expected = [("antrag_abgelehnt", NEU, "administration", ERASED_ACTOR_MARKER, [])]
@@ -1129,7 +1129,7 @@ class TestTheRequestersNoticeReadsItsRecipientAtTheClaim:
         assert told_after(mongo_replica_set_url, annas_grant_revoked) == [("antrag_abgelehnt", NEU, "administration", ANNA, [])]
 
     def test_a_requester_who_moved_before_the_claim_is_told_at_the_new_address(self, mongo_replica_set_url: str):
-        """Their own address change carries the queued notice with their grant (`docs/backend/spec.md :: I866`), on the real clock."""
+        """Their own address change carries the queued notice with their grant, on the real clock."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(MOVER_ID, EMAIL, "administration"))

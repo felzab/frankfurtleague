@@ -33,7 +33,7 @@ from app.shared.schemas.custom import CustomObjectId
 # --- The LINK's view and answer.
 
 # What the VIEW reads off the fixture: the Ansetzung's inputs, what the page states of it, and what
-# `grund_to_close` decides on. Never the referee, the rent or the note (`docs/backend/spec.md :: I185`).
+# `grund_to_close` decides on. Never the referee, the rent or the note.
 ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
@@ -290,8 +290,7 @@ async def erase_referee_confirmations_in_session(
     schiedsrichter_ids: Sequence[CustomObjectId],
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """Remove every confirmation row these referees are the party of with its log images, and repoint any other image of theirs at the ghost.
@@ -311,8 +310,8 @@ async def erase_referee_confirmations_in_session(
 
     erased = 0
     if rows:
-        # Removed, never repointed as the fixtures are: the sweep mints the ghost no row (`docs/backend/spec.md :: I761`).
-        # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text (`:: I48`).
+        # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
+        # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
         removed = await erase_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
@@ -350,7 +349,7 @@ async def anchor_the_seats_minted(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a mint read its links' holders off (`docs/backend/spec.md :: I770`).
+    """Write the season rows a mint read its links' holders off.
 
     A seat write voids the links its own snapshot holds, never one a mint writes beside it.
     """
@@ -365,7 +364,7 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows the notice step read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
+    """Write the season rows the notice step read its notices' mailboxes off.
 
     An erasure or a Widerspruch empties the seat on that row and writes nothing the notice step writes.
     """
@@ -380,7 +379,7 @@ async def anchor_the_referees_told(
     # REQUIRED: committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a step tells: the mint's and the reminder's (`docs/backend/spec.md :: I760`), the notice step's (`:: I762`).
+    """Write the referees a step tells: the mint's and the reminder's, the notice step's.
 
     A referee's erasure deletes only the rows its snapshot holds, never the mint's insert beside it, so this write conflicts.
     """

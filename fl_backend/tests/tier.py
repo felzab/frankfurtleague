@@ -14,14 +14,9 @@ SERVER_FIXTURES = frozenset({"mongo_url", "mongo_replica_set_url"})
 # client holds it, so one opened by a db test can send them while an unmarked test is running.
 _HOUSEKEEPING = frozenset({"killCursors", "endSessions"})
 
-_UNMARKED_FIXTURE = (
-    "{test} asks for {fixtures} and carries no `@pytest.mark.db`. The default tier starts no server, so mark it (`docs/backend/spec.md` §1.6)."
-)
+_UNMARKED_FIXTURE = "{test} asks for {fixtures} and carries no `@pytest.mark.db`. The default tier starts no server, so mark it."
 _UNMARKED_COMMAND = "{test} carries no `@pytest.mark.db` and sent a MongoDB server {commands}."
-_UNMARKED_ADVICE = (
-    "The default tier starts no server, so this passes only where one happens to answer. Mark it, or keep it off the database"
-    " (`docs/backend/spec.md` §1.6)."
-)
+_UNMARKED_ADVICE = "The default tier starts no server, so this passes only where one happens to answer. Mark it, or keep it off the database."
 
 
 def is_db_marked(item: pytest.Item) -> bool:
@@ -55,7 +50,7 @@ def _named(sent: tuple[str, str, int | None]) -> str:
 class UnmarkedDatabaseUse(monitoring.CommandListener):
     """pytest-django's database block, held at the driver's documented listener rather than a patch.
 
-    A command sent while a fixture tears down is the builder's (`docs/backend/spec.md` §1.6).
+    A command sent while a fixture tears down is the builder's.
     """
 
     def __init__(self) -> None:
@@ -186,19 +181,18 @@ TIER_GUARD = TierGuard()
 _EXPIRED = (
     "the db tier's replica set's expiry pass counted {killed} kill(s) of transactions past MongoDB's transaction lifetime limit. A"
     " case deadlocked on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while"
-    " one waited it out (`docs/backend/spec.md` §1.6).{named}"
+    " one waited it out.{named}"
 )
 
 _KILLS_UNREAD = (
     "the db tier's replica set reported no number for `metrics.abortExpiredTransactions.successfulKills` or for `timedOutKills` in"
     " `serverStatus` at the run's start or its end, so whether a transaction ran to MongoDB's lifetime limit during this run was"
-    " not judged: find where this server version reports them (`docs/backend/spec.md` §1.6)."
+    " not judged: find where this server version reports them."
 )
 
 _KILLS_RESTARTED = (
     "the db tier's replica set reported fewer expiry kills at the run's end than at its start, which a mongod restart does, so"
-    " whether a transaction ran to MongoDB's lifetime limit before it was not judged: find why the replica set's mongod restarted"
-    " (`docs/backend/spec.md` §1.6)."
+    " whether a transaction ran to MongoDB's lifetime limit before it was not judged: find why the replica set's mongod restarted."
 )
 
 # Both: mongod's expiry pass, interrupting a transaction's operation in flight and failing to check its session out

@@ -13,7 +13,7 @@ import type { FLKontoAdresswechselResponse, FLKontoEinwilligungenResponse } from
  * Every confirmed consent record the signed-in address holds, empty rather than refused where it holds
  * none: the account page is every signed-in person's.
  */
-// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getKontoEinwilligungen = cache(async (): Promise<FLKontoEinwilligungenResponse> =>
   runPersonRead(() =>
     apiClient<FLKontoEinwilligungenResponse>("/konto/einwilligungen", FLKontoEinwilligungenResponseSchema, { authType: "admin" }),
@@ -32,7 +32,7 @@ export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsich
 
 /**
  * The signed-in address's address control: whether it holds a record to move, and the change pending there with its
- * new address, whole where the person typed it and masked where the league did (`docs/backend/spec.md :: I822`).
+ * new address, whole where the person typed it and masked where the league did.
  */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
 export const getKontoAdresswechsel = cache(async (): Promise<FLKontoAdresswechselResponse> =>

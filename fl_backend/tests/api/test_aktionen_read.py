@@ -100,7 +100,7 @@ class TestARecordedRowSurvivesTheResponseModel:
         assert json.loads(FLAktion.model_validate(row).model_dump_json())["document_id"] == str(document_id)
 
     def test_a_removals_id_array_serves_as_null(self):
-        """The removed ids serve the redaction's `$in` alone (`docs/backend/spec.md :: I42`).
+        """The removed ids serve the redaction's `$in` alone.
 
         On the wire the row stays a set-write: `document_id` names the one row a restore
         targets, and an array rendered as its Python repr would read as a dead id.
@@ -144,7 +144,7 @@ class TestAPersonsPseudonymIsServedAsItsPrefix:
 
 
 class TestABarredActorIsWithheldOnBothReads:
-    """No barred address is served in plain, an actor's included (`docs/backend/spec.md :: I452`)."""
+    """No barred address is served in plain, an actor's included."""
 
     @pytest.mark.parametrize("model", [FLAktion, FLAktionMitStand])
     def test_an_address_the_ban_list_holds_is_null_beside_the_flag(self, model: type[FLAktion] | type[FLAktionMitStand]):
@@ -186,10 +186,10 @@ class TestABarredActorIsWithheldOnBothReads:
 
 
 class TestTheListReportsTheImageWithoutServingIt:
-    """The list row answers `stand_gesichert` in the image's place (`docs/backend/spec.md :: I107`).
+    """The list row answers `stand_gesichert` in the image's place.
 
     The empty array is load-bearing: a removal that matched nothing secured no document, and must
-    not badge like a kept image (I48).
+    not badge like a kept image.
     """
 
     @pytest.mark.parametrize(
@@ -345,7 +345,7 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
 class TestATruncatedPageSaysSo:
     """The log takes a row per recorded write and keeps it twelve months, so this read reaches the cap by ordinary use.
 
-    The probe-row shape is `get_bewerbungen`'s (`docs/backend/spec.md :: I45`); the boundary
+    The probe-row shape is `get_bewerbungen`'s; the boundary
     cases mirror `test_bewerbungen_read.py`'s.
     """
 

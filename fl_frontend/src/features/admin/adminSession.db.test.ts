@@ -90,7 +90,7 @@ const CREDENTIAL_ID = "fl-admin-session-db";
 
 /**
  * Signs the administrator in, and makes the session one a passkey its row still holds minted, which
- * alone the guard admits (`docs/frontend/spec.md :: I313`).
+ * alone the guard admits.
  */
 async function signInAsAdministrator(): Promise<Headers> {
   const verified = await signInByCode(auth, ADMIN_EMAIL);
@@ -203,7 +203,7 @@ async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
 }
 
 /* A render cannot write the cookie, so a read that refreshes the row from one carries it past the
-   cookie the browser holds (`docs/frontend/spec.md :: I496`): the library's own passkey list reads the
+   cookie the browser holds: the library's own passkey list reads the
    session that way. */
 describe("the account and passkey pages, each across one render pass", () => {
   it("reads the account page's session once for its three guards and writes no row", async () => {
@@ -322,7 +322,7 @@ describe("the holder's passkeys, with another account's beside them in the store
 
 /* The account row reaches the guards through the session read's own `$lookup`, which the unit tier's
    memory adapter implements apart: a stamp or a row lost in that join serves a session the ending
-   ended (`docs/frontend/spec.md :: I528`). */
+   ended. */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard", async () => {
     const { readServedSession } = await import("@/core/auth.ts");

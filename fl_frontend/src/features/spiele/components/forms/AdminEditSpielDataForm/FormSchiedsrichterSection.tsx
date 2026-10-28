@@ -45,7 +45,7 @@ export function FormSchiedsrichterSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The LIST's word for a nameless row rather than the erasure's, this read serving no erased person
-  // and never the ghost (`docs/backend/spec.md :: I227`). Nothing written comes from here:
+  // and never the ghost. Nothing written comes from here:
   // `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchiedsrichterFieldPayloadSchema` carries
   // the id and the fee alone.
   const offered: Angeboten[] = schiedsrichter.map((candidate) => ({

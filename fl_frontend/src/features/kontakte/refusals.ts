@@ -40,7 +40,7 @@ export function mapKontakteRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    // The backend's judgement of a seat's label (`docs/backend/spec.md :: I610`): an editor opened
+    // The backend's judgement of a seat's label: an editor opened
     // before a deploy moved the form's label sends it for a person the row did not hold.
     case "REQ-EINWILLIGUNG-001":
       return BEWERBUNG_VERALTET;
@@ -64,7 +64,7 @@ export function mapKontakteRefusal(error: unknown): string | null {
 
 export const KONTAKTE_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
   // Only a deploy between the label's read and the write leaves the replay naming a label the backend
-  // has moved past (`docs/backend/spec.md :: I610`).
+  // has moved past.
   "REQ-EINWILLIGUNG-001":
     "Die Rücknahme würde eine Kontaktperson unter einer Fassung der Hinweise eintragen, die nicht mehr gilt. " +
     "Sie wurde nicht ausgeführt. Lade die Seite neu und trage die Kontakte dort erneut ein.",

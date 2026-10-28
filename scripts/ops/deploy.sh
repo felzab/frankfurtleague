@@ -242,7 +242,7 @@ read_env_names() {
 
 # The one place the environment files are read AS FILES, and so the only place a name nothing declares
 # can be seen: compose hands the container its keys as variables instead
-# (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
+# (`fl_backend/app/core/config.py :: model_config`).
 check_env_names() {
   local rc=0
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
@@ -347,7 +347,7 @@ edge_control_opened() {
   return 1
 }
 
-# What nginx LOADED against this checkout (`docs/ops/spec.md :: I355`): its mounts show what a pull
+# What nginx LOADED against this checkout: its mounts show what a pull
 # wrote whether or not anything reloaded it since. 1 where the two differ, 2 where either went unread.
 edge_reads_checkout() {
   local pair host_dir edge_dir file sum path dump="" listed="" rc=0
@@ -455,7 +455,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
     edge_reads_checkout
     return
   fi
-  # A running nginx finds the recreated pair by name without this (`docs/ops/spec.md :: I9`): the
+  # A running nginx finds the recreated pair by name without this: the
   # reload applies what the pull changed under `nginx/prod/` and `nginx/shared/`, and its new workers
   # hold no address cached from before the recreate.
 
@@ -508,7 +508,7 @@ STOPPED_SERVICES=()
 
 # One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
 # every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
-# deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
+# deploy recreates the pair twice.
 copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
   local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc stop_rc=0
   local -a held=() to_stop=()
@@ -594,7 +594,7 @@ Then reload the edge:  ${EDGE_RELOAD_TYPED}"
     return 1
   fi
   ok "${named} started again, on the build they were running"
-  # nginx finds the pair started again by name (`docs/ops/spec.md :: I9`): the reload applies what the
+  # nginx finds the pair started again by name: the reload applies what the
   # pull left under nginx/prod/ and nginx/shared/, and its new workers hold no address from before
   # the stop.
   reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
@@ -1161,7 +1161,7 @@ check_frontend_env_names
 
 step "Each service's settings and secret files, as its own boot builds them"
 # Through compose: only the service's own container holds its variables, mounts and the user its files
-# are handed to (`docs/ops/spec.md :: I510`). `run` publishes no port or alias, so nothing reaches the
+# are handed to. `run` publishes no port or alias, so nothing reaches the
 # frontend's one-off server.
 check_frontend_boot_config "NOTHING has been recreated, and the site is untouched." production \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
@@ -1312,7 +1312,7 @@ Strict-Transport-Security, so every visitor is being served without them."
   fi
 
   # The container healthcheck calls this from inside, so it stays green while the edge answers a
-  # monitor 404 or 400 (docs/ops/spec.md I13). The version is spelled here -- §4 names the sites a
+  # monitor 404 or 400. The version is spelled here -- §4 names the sites a
   # version left behind breaks.
   step "The liveness probe, through the edge"
   probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"

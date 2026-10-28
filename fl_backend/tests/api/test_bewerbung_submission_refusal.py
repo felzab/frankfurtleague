@@ -143,12 +143,12 @@ def test_the_corpus_this_module_moves_one_field_of_is_valid():
 A_CHILDS_BIRTHDATE = "2018-01-01"
 
 # What the junction's own editor sends for one person's consent: the source and the stamp are on no
-# payload (`docs/backend/spec.md :: I142`).
+# payload.
 JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "text_version": "v3", "datum": TODAY}
 
 
 class TestNoBirthdateOnAnyPayload:
-    """`docs/backend/spec.md :: I141`: the date reaches the league from its own person at their confirmation, so no payload spells the key."""
+    """The date reaches the league from its own person at their confirmation, so no payload spells the key."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
@@ -505,7 +505,7 @@ class TestWhatTheSubmissionPayloadRefuses:
         assert FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "blau"})).trikot is not None
 
     def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
-        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
+        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row."""
 
         stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": "blau"}
 
@@ -821,7 +821,7 @@ class TestTheOpponentTheSchoolWants:
         assert len(cast(str, FLPostBewerbungPayload.model_validate(at_the_bound).wunschgegner)) == BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH
 
     def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
-        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
+        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row."""
 
         over = stored_application(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH * 2))
 

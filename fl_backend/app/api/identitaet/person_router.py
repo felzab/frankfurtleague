@@ -129,13 +129,13 @@ async def erase_selbst(
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
         # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
-        # row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        # row is its own fold, so equality is the fold's judgement.
         if any(grant["adresse"] == identifier for grant in grants):
             refuse_unconfirmed()
         # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         if holds_an_owner_grant(identifier, grants):
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
-            # the one retried finds itself the last (`docs/backend/spec.md :: I438`).
+            # the one retried finds itself the last.
             await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
             barred = await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session)
             refuse(find_letzter_inhaber_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
@@ -249,7 +249,7 @@ async def get_erasure_ansicht(
         )
         # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
         grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
-        # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        # A live row is its own fold, so equality is the fold's judgement.
         own = next((grant for grant in grants if grant["adresse"] == identifier), None)
         letzter_inhaber = holds_an_owner_grant(identifier, grants) and (
             find_letzter_inhaber_erasure_refusal(

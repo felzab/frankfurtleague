@@ -177,7 +177,7 @@ export function FormSchuleSection({
               <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
                 <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
                 {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
-                    truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
+                    truncated name ends against this button. `hover: "css"`
                     because HeroUI renders this as a plain `<button>`. */}
                 <Autocomplete.ClearButton
                   type="button"

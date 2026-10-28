@@ -53,7 +53,7 @@ export type SchiedsrichterEmail = { subject: string; html: string; text: string 
 // reader is a stranger, owed none.
 /** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
 export interface SchiedsrichterBestaetigungData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;

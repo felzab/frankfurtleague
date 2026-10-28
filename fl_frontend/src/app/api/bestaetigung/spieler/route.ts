@@ -18,7 +18,7 @@ async function ansichtFuerToken(token: string): Promise<GelesenerLink | null> {
   return readAfterAnsweredWrite(ROUTE_NAME, () => getSpielerBestaetigungAnsicht(token));
 }
 
-// A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
+// A route handler and not a server action.
 /**
  * POST alone, and no GET: a mail scanner fetches every link in a message, and the same-origin guard
  * cannot tell a scanner's GET from a reader's, so a link that wrote on GET would confirm for the

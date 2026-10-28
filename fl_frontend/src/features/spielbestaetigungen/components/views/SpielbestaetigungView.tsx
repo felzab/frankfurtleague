@@ -92,7 +92,7 @@ function nachAntwort(abschluss: SpielbestaetigungAbschluss, ansicht: FLSpielbest
 }
 
 /**
- * **It names no person** (`docs/frontend/spec.md :: I737`): a link may sit in a mailbox an administrator
+ * **It names no person**: a link may sit in a mailbox an administrator
  * typed wrong, so the page serves the clubs, the fixture, the deadline, a proposal and the answering seat.
  */
 export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart }) {

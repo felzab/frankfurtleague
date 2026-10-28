@@ -91,7 +91,7 @@ router = APIRouter(
 )
 
 # Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
-# (`docs/backend/spec.md :: I40`) loses; a 20th close takes the worst call past
+# loses; a 20th close takes the worst call past
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
 CLOSES_PER_PASS: Final = 19
@@ -512,7 +512,7 @@ async def sweep_spielbestaetigungen(
         """Answer a share of the notices the season's closed rows hold.
 
         The grants' claim, stamp and cap, with the row as the outbox: their record ends, this row lives on. No lease:
-        one process runs the pass (`docs/ops/spec.md :: I149`).
+        one process runs the pass.
         """
 
         rows = await batch.saw(
@@ -591,7 +591,7 @@ async def sweep_spielbestaetigungen(
         refuse_a_stalled_page(read=len(rows), moved=len(judged) + len(batch.refused), page=SWEEP_PAGE, clock="notice", saison_id=saison_id)
 
         # Ahead of the writes: what each answer's mailbox was read off, so a seat emptied or an address moved beside this
-        # step conflicts with it rather than leaving the replaced mailbox told (`docs/backend/spec.md :: I762`).
+        # step conflicts with it rather than leaving the replaced mailbox told.
         told_clubs = sorted(
             {
                 junctions[row["partei"]["team_id"]]["_id"]
@@ -611,7 +611,7 @@ async def sweep_spielbestaetigungen(
                 schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_ids=told_referees, session=session
             )
 
-        # Bookkeeping on rows the close already imaged, so a fan-out each, logged by filter and count (`docs/backend/spec.md :: I40`).
+        # Bookkeeping on rows the close already imaged, so a fan-out each, logged by filter and count.
         answered = [row["_id"] for row, notice in taken if notice is not None]
         if answered:
             await patch_many_in_db(
@@ -674,7 +674,7 @@ async def sweep_spielbestaetigungen(
         held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in read if not void_notice_held(row)}
         stande = {spiel["_id"]: ansetzung_stand_of(spiel) for spiel in spiele}
         # Waits on a row about an Ansetzung the fixture left while it is unclosed or holds a notice this pass did not
-        # answer; one answered now is mailed ahead of the request (`docs/backend/spec.md :: I769`).
+        # answer; one answered now is mailed ahead of the request.
         waiting = {
             row["spiel_id"]
             for row in read
@@ -929,7 +929,7 @@ async def sweep_spielbestaetigungen(
     fehlgeschlagen = 0
 
     async def after_what_is_owed[R](step: Callable[[], Awaitable[R]], *, clock: str, may_stand: Callable[[], str]) -> R | None:
-        """`docs/backend/spec.md :: I753`: once a step committed something owed, a later failure is answered, not raised.
+        """Once a step committed something owed, a later failure is answered, not raised.
 
         `may_stand` names what the step's commit would have written, for a commit whose answer was lost.
         """
@@ -1017,8 +1017,7 @@ async def sweep_spielbestaetigungen(
     erinnerungen: list[FLSpielbestaetigungSweepAnfrage] = []
     reminder_share = Batch(share=REMINDERS_PER_PASS)
     if minted is not None:
-        # A row inserted this pass is wholly the mint's; a row it updated owes the reminder its other seats
-        # (`docs/backend/spec.md :: I767`).
+        # A row inserted this pass is wholly the mint's; a row it updated owes the reminder its other seats.
         minted_now = _Minted(
             anfragen=anfragen,
             einteilungen=einteilungen,
@@ -1160,7 +1159,7 @@ async def mitgeteilt_spielbestaetigungen(
 
     Every named row of this season still holding its notice stops holding it. A row holding none -- stamped already,
     dropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:
-    one process runs the pass, so no second pass can hold the rows named (`docs/ops/spec.md :: I149`). One
+    one process runs the pass, so no second pass can hold the rows named. One
     transaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.
     """
 

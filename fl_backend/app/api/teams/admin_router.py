@@ -317,7 +317,7 @@ async def patch_team(
     """
     Update a club, then rewrite the name and shorthand its unfinished seasons carry.
 
-    The junction and every match hold a copy of both (`docs/backend/spec.md :: I13`); a `past`
+    The junction and every match hold a copy of both; a `past`
     season keeps the name it was played under.
     """
 
@@ -463,8 +463,7 @@ async def post_saison_team(
     """
     Enter a team into a season, in a group, under the name the club carries today.
 
-    A club with no row here is ABSENT from that season rather than merely unlisted
-    (`docs/backend/spec.md :: I11`).
+    A club with no row here is ABSENT from that season rather than merely unlisted.
     """
 
     async def enter_the_club(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -501,7 +500,7 @@ async def post_saison_team(
             "austritt": None,
             "trikot_farbe": None,
             "kontakte": None,
-            # Copied rather than joined on read (`docs/backend/spec.md :: I95`): once the season is
+            # Copied rather than joined on read: once the season is
             # `past` this is the name it was played under, which makes the copy in its fixtures true
             # rather than merely old.
             "name": team_raw["name"],
@@ -511,8 +510,7 @@ async def post_saison_team(
 
         return document
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
         # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
@@ -550,8 +548,8 @@ async def patch_saison_team(
     """
     Rewrite a team's row for one season: group, exit record and kit colour.
 
-    All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated
-    (`docs/backend/spec.md :: I31`). The contact block is `PATCH .../kontakte`'s.
+    All three are required and replaced WHOLESALE: an omitted key is a 422, never a team reinstated.
+    The contact block is `PATCH .../kontakte`'s.
     """
 
     async def move_the_club(session: AsyncClientSession) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
@@ -598,8 +596,7 @@ async def patch_saison_team(
 
         return existing_raw, updated_raw
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         # One transaction, because a group change makes two writes: this row and the season the group's
         # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
@@ -706,7 +703,7 @@ async def patch_saison_team_kontakte(
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
         # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
-        # Widerspruch alone (`docs/backend/spec.md :: I570`).
+        # Widerspruch alone.
         owed = links_owed(kontakte=kontakte, stored=stored.get("kontakte"))
         # A ban committing after this read conflicts with the save on the saver's own grant row, which
         # the ban's judgement writes with every other (`pull_the_list_to_judge`), so the retry reads it.
@@ -717,12 +714,12 @@ async def patch_saison_team_kontakte(
             session=session,
         )
         # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
-        # after the save is the press's (`docs/backend/spec.md :: I505`).
+        # after the save is the press's.
         refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(barred)))
 
         # Read only where a link is minted, and in session as the address is. Unanchored: a rollover
         # committing after this read leaves the mail asking the open row's answer, which the press then
-        # refuses (`docs/backend/spec.md :: I570`).
+        # refuses.
         zeile: FLKontaktZeile = "offen"
         if owed:
             saison_raw = await pull_one_from_db(
@@ -744,7 +741,7 @@ async def patch_saison_team_kontakte(
         )
 
         # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
-        # handed out or taken away is a step-up write (`docs/backend/spec.md :: I566`).
+        # handed out or taken away is a step-up write.
         voids = voids_a_live_link(
             stored_kontakte=stored.get("kontakte"),
             kontakte=kontakte,
@@ -765,13 +762,13 @@ async def patch_saison_team_kontakte(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        # Judged on the block read in this transaction (`docs/backend/spec.md :: I758`).
+        # Judged on the block read in this transaction.
         await void_moved_seats(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
             session=session,
         )
-        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`): the
+        # The addresses entering here, which an erasure of one running now never read: the
         # newly seated alone, a kept seat's being on this row, which that erasure writes already.
         await anchor_the_addresses(
             [adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)],
@@ -892,7 +889,7 @@ async def replace_saison_team(
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called (`docs/backend/spec.md :: I95`). No `tore`: a fixture
+        # about what this club is called. No `tore`: a fixture
         # holding one has taken place, which `REQ-REPLACE-002` has already refused.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
@@ -913,12 +910,12 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
+            # colour, the contacts and their links leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        # The outgoing club's people, read in this transaction, leave their match links behind (`docs/backend/spec.md :: I758`).
+        # The outgoing club's people, read in this transaction, leave their match links behind.
         await void_moved_seats(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=outgoing_raw.get("kontakte"), kontakte=None)],
@@ -935,8 +932,8 @@ async def replace_saison_team(
             session=session,
         )
 
-        # By address and by name, the application being reached by document
-        # (`docs/backend/spec.md :: I673`): it spells an address the editor corrected on the row the old
+        # By address and by name, the application being reached by document:
+        # it spells an address the editor corrected on the row the old
         # way. Its other people keep their seats.
         await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
         await redact_seats_in_documents(

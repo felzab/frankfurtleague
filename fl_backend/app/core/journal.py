@@ -229,7 +229,7 @@ def parse_line(message: str) -> JournalLine | None:
 class Journal:
     """Entered around a transaction block, writing what its last attempt noted once the commit lands or loses its answer.
 
-    Outside the block, whose abort a failure meets first (`docs/backend/spec.md :: I539`); never in the callback.
+    Outside the block, whose abort a failure meets first; never in the callback.
     """
 
     def __init__(self) -> None:

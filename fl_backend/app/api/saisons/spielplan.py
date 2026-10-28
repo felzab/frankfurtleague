@@ -114,7 +114,7 @@ def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tupl
     shift_of = max(number_of_groups, qualifiers_per_group)
 
     # One qualifier of every group per block of `number_of_groups` slots, the latest a bracket can
-    # push two qualifiers of one group into meeting (`docs/backend/spec.md :: I199`). Pairing
+    # push two qualifiers of one group into meeting. Pairing
     # partnered groups alone fixes who meets
     # and not where (`tests/api/test_spielplan.py :: TestTheConstructionBeatsTheObviousRuntimeRule`).
     return tuple((offered[(slot % number_of_groups) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_group]) for slot in range(field))

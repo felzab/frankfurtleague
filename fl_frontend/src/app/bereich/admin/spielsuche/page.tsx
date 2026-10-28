@@ -32,7 +32,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
   ]);
 
   // Over the whole season rather than over the matches fetched beside it: a knockout round's label
-  // counts the matchdays its phase holds (`docs/frontend/spec.md` I27).
+  // counts the matchdays its phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 
   return (

@@ -169,7 +169,7 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # A ban entered through its route re-judges its actor's grant (`docs/backend/spec.md :: I450`).
+            # A ban entered through its route re-judges its actor's grant.
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             for team_id, name, shorthand in ((TEAM_OID, TEAM_NAME, "AD"), (OTHER_TEAM_OID, "Falken", "FA"), (INCOMING_TEAM_OID, "Eulen", "EU")):
@@ -554,7 +554,7 @@ class TestABarredAddressIsRefused:
         assert row["kontakte"]["ansprechperson"]["email"] == "jonas@example.com"
 
     def test_a_kept_person_whose_address_was_barred_after_their_seating_is_not_refused(self, mongo_replica_set_url: str):
-        """The control: the save seats nobody new, and the ban is the confirmation press's to answer (`docs/backend/spec.md :: I505`)."""
+        """The control: the save seats nobody new, and the ban is the confirmation press's to answer."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await save(database, THREE)
@@ -970,7 +970,7 @@ class TestTheDeadline:
 
 
 class TestABanAfterTheMint:
-    """`docs/backend/spec.md :: I505`, `:: I506`, `:: I515` and `:: I490` on a season row's link."""
+    """On a season row's link."""
 
     def test_the_view_answers_gesperrt_and_the_consent_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1233,7 +1233,7 @@ ITS_TEAM_LEFT: dict[str, Any] = {"$set": {"austritt": {"type": "rueckzug", "grun
 
 
 class TestALinkOutlivingItsSeason:
-    """A link minted while the season ran asks no consent once it has ended or the team left it (`docs/backend/spec.md :: I570`)."""
+    """A link minted while the season ran asks no consent once it has ended or the team left it."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
         if how in ("past", "both"):

@@ -3,8 +3,7 @@ import z from "zod";
 import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
-// hold it (`docs/glossary.md :: Kürzel`). `fl_backend/tests/shared/test_frontend_mirrors.py` pairs
-// that one declaration with the backend's, so a literal beside it is compared by nothing.
+// hold it (`docs/glossary.md :: Kürzel`). A literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
@@ -67,7 +66,7 @@ export type FLAustrittType = FLAustritt["type"];
 /**
  * Trimmed before its floor, mirroring `fl_backend/app/api/teams/schemas.py :: strip_austritt_grund`.
  * Never on the read schema above: a stored blank must still parse, or one club's row fails the list
- * it appears in (`docs/backend/spec.md :: I36`).
+ * it appears in.
  */
 const FLAustrittPayloadSchema = FLAustrittSchema.extend({
   grund: z.string().trim().nonempty({ error: "Bitte gib einen Grund an." }),
@@ -171,8 +170,7 @@ export type FLKontaktKenntnisnahmePayload = z.infer<typeof FLKontaktKenntnisnahm
 
 /**
  * Mirrors `FLKontaktperson`. Mailbox and number are shapeless here on purpose: `GET /teams/memberships`
- * is the only route to a bad row, so a value refused on read would lock itself in
- * (`docs/backend/spec.md :: I36`).
+ * is the only route to a bad row, so a value refused on read would lock itself in.
  */
 export const FLKontaktpersonSchema = z.object({
   vorname: z.string().nonempty(),
@@ -193,7 +191,7 @@ export const FLKontaktpersonPayloadSchema = z.object({
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No `geburtsdatum`: the payload carries none, and a mirror requiring one refuses every seat whose
-  // person has not confirmed yet (`docs/backend/spec.md :: I141`).
+  // person has not confirmed yet.
   einwilligung: FLKontaktKenntnisnahmePayloadSchema,
 });
 export type FLKontaktpersonPayload = z.infer<typeof FLKontaktpersonPayloadSchema>;
@@ -308,12 +306,12 @@ export const FLGruppenTeamSchema = z.object({
   // out of the season, and the club's own page publishes the reason and the date.
   austritt_type: FLAustrittSchema.shape.type.nullable(),
   // Fixtures neither counted nor called off, so points are still to be awarded here. This is the
-  // term that lets a club yet to play its first fixture hold a placing (`docs/backend/spec.md :: I24b`).
+  // term that lets a club yet to play its first fixture hold a placing.
   anzahl_ausstehende_spiele: z.int().nonnegative(),
 });
 export type FLGruppenTeam = z.infer<typeof FLGruppenTeamSchema>;
 
-// Each list arrives in STANDING order. **Never re-sort one here** (`docs/frontend/spec.md :: 1.2`).
+// Each list arrives in STANDING order. **Never re-sort one here**.
 /**
  * A SUBSET of the closed set: the backend seeds the groups one season offers, so a key per name
  * would fail every season running fewer than the set holds.
@@ -408,7 +406,7 @@ export type FLReactivateTeamPayload = z.infer<typeof FLReactivateTeamPayloadSche
 
 /**
  * One form, split by the action into two requests. One form on purpose: every list read joins the
- * junction strictly (backend spec I11), so a club created without a row is invisible to every
+ * junction strictly, so a club created without a row is invisible to every
  * surface that could give it one.
  */
 export const FLCreateTeamFormPayloadSchema = z.object({

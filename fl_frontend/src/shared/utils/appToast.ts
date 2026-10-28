@@ -68,8 +68,7 @@ export const appToast = {
     unklarTitle?: string,
     teilweiseTitle?: string,
   ) =>
-    // A toast marks nothing, so a refused payload speaks its sentence for a map no control shows
-    // (`docs/frontend/spec.md :: I344`).
+    // A toast marks nothing, so a refused payload speaks its sentence for a map no control shows.
     raise("danger", failureToastTitle(title, failure.outcome, unklarTitle, teilweiseTitle), {
       description: failure.unplacedError ?? failure.error,
     }),

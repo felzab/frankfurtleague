@@ -68,8 +68,8 @@ function kontaktangabe({ kontakte }: AdminBewerbungRow): Kontaktangabe {
 }
 
 /**
- * **A card per application at every width, never a table** (`docs/frontend/spec.md` §1.19): an
- * identity column's share of `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: STEP`
+ * **A card per application at every width, never a table**: an
+ * identity column's share
  * clips the contact address the league writes to. Memoised per `AdminCrudView`'s collection-identity
  * note.
  */

@@ -30,7 +30,7 @@ from app.core.middlewares import request_deadline_var
 from app.core.recording import actor_var
 
 # Shared by every abort a request sends past its deadline, or a loop of cut transactions waits out
-# one apiece; far above a round trip, and inside the page's margin (`docs/backend/spec.md :: I320`).
+# one apiece; far above a round trip, and inside the page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort
@@ -123,7 +123,7 @@ class JudgedSession:
     async def with_transaction[T, *Arguments](
         self, callback: Callable[[AsyncClientSession, *Arguments], Awaitable[T]], *arguments: *Arguments
     ) -> T:
-        """`callback` in one transaction, the actor judged again in each attempt the driver retries (`docs/backend/spec.md :: I575`)."""
+        """`callback` in one transaction, the actor judged again in each attempt the driver retries."""
 
         async def judged(session: AsyncClientSession) -> T:
             async with self._judge(session):
@@ -134,7 +134,7 @@ class JudgedSession:
 
 @asynccontextmanager
 async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedSession]:
-    """The session every transaction runs on: work failing inside it leaves the server no transaction (`docs/backend/spec.md :: I539`)."""
+    """The session every transaction runs on: work failing inside it leaves the server no transaction."""
 
     actor = actor_var.get()
     judge = actor_judge_var.get()
@@ -156,13 +156,13 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedS
 
 
 class StalledPage(ValueError):
-    """A full page that moved nothing (`docs/backend/spec.md :: I295`): no row carries it, so `isolate` never halves it."""
+    """A full page that moved nothing: no row carries it, so `isolate` never halves it."""
 
 
 class Batch:
     """One transaction of a sweep's clock: which rows it may take, and what its last attempt read, took and passed over.
 
-    `isolate` halves what a failed one took, or its whole read where it took nothing yet (`docs/backend/spec.md :: I728`).
+    `isolate` halves what a failed one took, or its whole read where it took nothing yet.
     """
 
     def __init__(self, *, among: Sequence[Any] | None = None, passed: Sequence[Any] = (), share: int | None = None) -> None:
@@ -204,7 +204,7 @@ class Batch:
     def judged[Row: Mapping[str, Any], T](self, rows: Iterable[Row], judge: Callable[[Row], T]) -> list[tuple[Row, T]]:
         """Each row beside what `judge` answers for it; one it raises on is passed over in place, nothing written.
 
-        Its stored data fails in code alone, so no attempt is taken apart for it (`docs/backend/spec.md :: I728`).
+        Its stored data fails in code alone, so no attempt is taken apart for it.
         """
 
         answered: list[tuple[Row, T]] = []
@@ -250,14 +250,14 @@ def carried_by_a_row(failure: Exception) -> bool:
     """Whether halving the rows can isolate a failure.
 
     A deadline meets every half too, a stalled page is the page's own, and a refusal the request
-    answers -- a judge's (`docs/backend/spec.md :: I575`) among them -- is the request's.
+    answers -- a judge's among them -- is the request's.
     """
 
     return not isinstance(failure, (StalledPage, BaseAPIException)) and not (isinstance(failure, PyMongoError) and failure.timeout)
 
 
 def diagnosis_of(failure: Exception) -> tuple[str, str]:
-    """A failure's code, and what locates its cause with no value of the record it met (`docs/logging/spec.md :: L9`).
+    """A failure's code, and what locates its cause with no value of the record it met.
 
     What the request's own handler logs for it, so a row passed over is found as a failed call's write is.
     """
@@ -300,7 +300,7 @@ async def isolate[T](
 ) -> tuple[list[T], list[Any]]:
     """Each half of a failed transaction's rows run on its own, down to each row failing alone, which is logged and left standing.
 
-    `docs/backend/spec.md :: I720`. Answers what committed and the ids passed over, in place or alone.
+    Answers what committed and the ids passed over, in place or alone.
     """
 
     committed: list[T] = []
@@ -359,7 +359,7 @@ async def isolate[T](
     try:
         await split(failed, failure)
     except Exception as stop:
-        # Answered rather than raised once a half owing a message has committed (`docs/backend/spec.md :: I323`).
+        # Answered rather than raised once a half owing a message has committed.
         if not owes or not committed:
             raise
         _log_stopped(stop, what=what, clock=clock, cut=cut)
@@ -448,7 +448,7 @@ async def drain(
     what: str,
     clock: str,
 ) -> tuple[int, int, list[Any]]:
-    """A full page is erased and read again: the population filling it is the one only the erasure shrinks (`docs/backend/spec.md :: I295`).
+    """A full page is erased and read again: the population filling it is the one only the erasure shrinks.
 
     Answers what it erased, what it redacted, and the ids it passed over.
     """
@@ -498,7 +498,7 @@ async def drain(
 
 
 def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:
-    """Raise where a full page moved nothing: the same rows come back for ever (`docs/backend/spec.md :: I295`).
+    """Raise where a full page moved nothing: the same rows come back for ever.
 
     Beside `drain`, which takes the page the same way: each slice keeps its own `SWEEP_PAGE`.
     """

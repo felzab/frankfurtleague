@@ -37,7 +37,7 @@ const LISTED_OFFENE_SPIELE = 8;
 
 /**
  * What the operator reads before turning the switch on (`docs/ops/runbooks.md` §9). Said as a bound: the count
- * includes pupils whose stored address no request matches, whom the run passes over (`docs/backend/spec.md :: I718`).
+ * includes pupils whose stored address no request matches, whom the run passes over.
  */
 function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, eingeschaltet } }: { loeschung: SaisonLoeschungVorschau }) {
   if (eingeschaltet && spieler === 1) {
@@ -278,8 +278,7 @@ export function FormRolloverSection({
                     : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}
                 </p>
                 {/* The switch's word alone: with it off, this press deletes nobody, whatever the count above says it would.
-                    „Zurückholen“ and not „keinen Weg zurück“: the deletion takes the pupils' log images too
-                    (`docs/frontend/spec.md` §1.3). */}
+                    „Zurückholen“ and not „keinen Weg zurück“: the deletion takes the pupils' log images too. */}
                 {loeschung?.eingeschaltet === true && (
                   <p className="fluid-xxs leading-normal font-medium text-foreground">
                     {loeschung.spieler === 1

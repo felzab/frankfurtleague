@@ -28,7 +28,7 @@ SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"
 
 # One label per purpose: the same master keys the action log's pseudonyms
 # (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
-# Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
+# Not a rotation scheme.
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
 
 
@@ -47,7 +47,7 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
 
 
 def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
-    """An actor field with a barred address withheld, compared on the fold the barred set holds (`docs/backend/spec.md :: I452`)."""
+    """An actor field with a barred address withheld, compared on the fold the barred set holds."""
 
     if actor is None or sign_in_identifier(actor) in gesperrt:
         return None

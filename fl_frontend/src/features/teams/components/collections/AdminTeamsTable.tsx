@@ -216,8 +216,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         className="hidden w-full md:block"
         {...focusSection("teams-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* Never scrolled at a width this table renders at
-              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+          {/* Never scrolled at a width this table renders at. It stays for a platform
               scrollbar wider than the step allows for and for text zoom, where a clipped column would
               hide a cell a bar reaches. */}
           <Table.ScrollContainer>
@@ -237,8 +236,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 {/* The season's one fact about a club that a reader scans down the page, so it keeps
                     a column; `w-24` is its heading's width, which runs wider than any group letter. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-24`}>Gruppe</Table.Column>
-                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-                holds the arithmetic, and it is the count a new action changes. */}
+                {/* Three controls — it is the count a new action changes. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-48 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 

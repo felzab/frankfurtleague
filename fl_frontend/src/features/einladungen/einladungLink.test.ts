@@ -83,7 +83,7 @@ describe("the invite link the mail carries", () => {
 });
 
 /* A link built on the published origin sends a reader of the local stack into production, and the
-   two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
+   two origins are separate settings. */
 describe("the origin each press mints its invite link on", () => {
   it("is the configured one on the link the mint hands the panel", async () => {
     answerTheWrite(() =>

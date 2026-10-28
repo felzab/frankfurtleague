@@ -1,6 +1,6 @@
 /**
- * A fixture's report as the backend serves it to either reader. Untyped, `shared` naming no slice's schema
- * (`docs/frontend/spec.md` I9): a typed suite parses it through its mirror.
+ * A fixture's report as the backend serves it to either reader. Untyped, `shared` naming no slice's schema:
+ * a typed suite parses it through its mirror.
  */
 
 const BERICHT_SPIEL_ID = "68c1f0a2b3c4d5e6f7a8b9e2";

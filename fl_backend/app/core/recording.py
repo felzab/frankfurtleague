@@ -5,7 +5,7 @@ Every write in the application funnels through `app/core/crud.py`, so recording 
 the log complete by construction rather than by discipline -- a page listing some of the writes is a
 page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
 
-This module deliberately stores the values a write REPLACED, which `docs/logging/spec.md` forbids the
+This module deliberately stores the values a write REPLACED, which are forbidden in the
 log stream: a restore replays what a write replaced, so the prior document is the point. That is what
 makes retention and redaction this module's problem rather than the stream's.
 """
@@ -95,7 +95,7 @@ actor_var: ContextVar[Actor | PersonActor] = ContextVar("actor", default=SYSTEM_
 request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=None)
 
 # The request an administrator's erasure answers, set around that erasure's whole transaction alone and
-# reset after it: a value left standing lands on the next request's rows (`docs/backend/spec.md :: I683`).
+# reset after it: a value left standing lands on the next request's rows.
 anlass_var: ContextVar[str | None] = ContextVar("anlass", default=None)
 
 
@@ -192,7 +192,7 @@ def _row(
         "before": before,
         "modified_count": modified_count,
         # Set when a write destroying a person's values overwrites theirs here. Null means the image
-        # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
+        # still holds what it recorded.
         "redacted_at": None,
         "anlass": anlass_var.get(),
     }
@@ -242,7 +242,7 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
 
 
 def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I671`).
+    """Overwrite the IMAGE a row recorded and stamp it, in one `$set`.
 
     `document_id` stays: it names what the row was about, and dropping it would leave a row
     nothing can attribute to the write that redacted it.
@@ -270,7 +270,7 @@ def row_images(row: Mapping[str, Any]) -> list[tuple[str, Any]]:
 def build_image_redactions(
     rows: Sequence[Mapping[str, Any]], *, judge: Callable[[Mapping[str, Any]], ImageEdits], at: str
 ) -> list[tuple[list[Any], Mapping[str, Any]]]:
-    """Overwrite only what `judge` finds of the departing person in each image, one update per overwrite (`docs/backend/spec.md :: I42`).
+    """Overwrite only what `judge` finds of the departing person in each image, one update per overwrite.
 
     Never the whole image where others share the document: their earlier states are their consent trail.
     """
