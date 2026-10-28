@@ -734,13 +734,13 @@ const SOURCE_BANS = [
 
 const PROPERTY_BANS = [
   // `back` on the history and on Next's router, a destructured `{ back }` of either included. A test's
-  // router double counts its own `back`. `useEditorExit.ts` IS the history guard.
+  // router double counts its own `back`. `goBackOrPush.ts` IS the history guard.
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
       { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
       SOURCE,
-      { allow: ["src/shared/hooks/useEditorExit.ts"] },
+      { allow: ["src/core/goBackOrPush.ts"] },
     ),
   ),
   // The passkey plugin's own deletion, on whatever object or binding carries it. A test may call it to
@@ -863,8 +863,15 @@ const DESIGN_BANS = [
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
       // The six code boxes are each an input, so the focus file's field rule draws the active box's edge;
-      // the table block is the one that writes a table.
-      { input: { allow: ["src/kit/CodeField.tsx"] }, table: TABLE_BLOCK, tr: TABLE_BLOCK, td: TABLE_BLOCK }[element] ?? {},
+      // the table block is the one that writes a table; the kit's link writes the one plain anchor, its
+      // full-document load, which neither Next's link nor React Aria's under the app's router makes.
+      {
+        input: { allow: ["src/kit/CodeField.tsx"] },
+        a: { allow: ["src/kit/Link.tsx"] },
+        table: TABLE_BLOCK,
+        tr: TABLE_BLOCK,
+        td: TABLE_BLOCK,
+      }[element] ?? {},
     ),
   ),
   // Only a template writes the page's heading and its main landmark.

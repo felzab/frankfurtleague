@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { TextField } from "./TextField";
@@ -18,8 +19,9 @@ type Spielort = { name: string };
 
 const NAME = COPY.seite.spielorte;
 const INPUT = COPY.seite.spiele;
+const DONE: ActionAnswer = { ok: true, value: undefined };
 
-function CreateDialog({ create }: { create: (formData: FormData) => Promise<boolean> }) {
+function CreateDialog({ create }: { create: (formData: FormData) => Promise<ActionAnswer> }) {
   return (
     <Dialog
       title={NAME}
@@ -46,7 +48,7 @@ function EditorHoldingDialog({
   create,
 }: {
   save: (change: EditorSave<Spielort>) => Promise<ActionAnswer>;
-  create: (formData: FormData) => Promise<boolean>;
+  create: (formData: FormData) => Promise<ActionAnswer>;
 }) {
   const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
   return (
@@ -83,9 +85,49 @@ async function createThroughTheDialog() {
   await userEvent.click(screen.getByRole("button", { name: COPY.shared.mitObjekt(NAME, "anlegen") }));
 }
 
+/**
+ * React Aria's documented modal layout, which keeps a box above a phone's open keyboard: the dim as tall as
+ * the page, and the wrapper centring the box as tall as the visible window and stuck to its top. jsdom draws
+ * nothing, so the layout is read from the classes and the heights React Aria writes for them.
+ */
+function expectTheSharedOverlay(dialog: HTMLElement) {
+  const wrapper = dialog.parentElement?.parentElement;
+  const overlay = wrapper?.parentElement;
+  expect(wrapper?.className.split(" ")).toEqual(
+    expect.arrayContaining(["sticky", "top-0", "h-(--visual-viewport-height)", "place-items-center"]),
+  );
+  expect(overlay?.className.split(" ")).toEqual(expect.arrayContaining(["absolute", "top-0", "h-(--page-height)"]));
+  expect(overlay?.className.split(" ")).not.toContain("fixed");
+  expect(overlay?.style.getPropertyValue("--page-height")).not.toBe("");
+  expect(overlay?.style.getPropertyValue("--visual-viewport-height")).not.toBe("");
+}
+
+describe("the kit's confirmation", () => {
+  it("stands in the overlay every dialog shares", async () => {
+    render(
+      <ConfirmDialog
+        verb="loeschen"
+        subject={NAME}
+        consequence={COPY.shared.fehler.veraltet}
+        tone="danger"
+        trigger={
+          <Button
+            variant="secondary"
+            label={COPY.shared.verb.loeschen}
+          />
+        }
+        onConfirm={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.loeschen }));
+
+    expectTheSharedOverlay(screen.getByRole("alertdialog"));
+  });
+});
+
 describe("the kit's dialog", () => {
   it("sends its inputs to its action", async () => {
-    const create = vi.fn(async (_formData: FormData) => true);
+    const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(<CreateDialog create={create} />);
 
     await createThroughTheDialog();
@@ -96,7 +138,7 @@ describe("the kit's dialog", () => {
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
-    const create = vi.fn(async (_formData: FormData) => true);
+    const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(
       <EditorHoldingDialog
         save={save}
@@ -111,5 +153,70 @@ describe("the kit's dialog", () => {
     expect(save).not.toHaveBeenCalled();
     // The editor's draft stands, waiting for its own save.
     expect(screen.getByText(COPY.vorlage.aenderungenOffen(1))).toBeTruthy();
+  });
+
+  it("closes once its act is done", async () => {
+    render(<CreateDialog create={async () => DONE} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("stays open on a refused act, the input kept, the field's message under it and the line beside the acts", async () => {
+    render(<CreateDialog create={async () => ({ ok: false, fieldErrors: { neu: COPY.shared.feld.schonVergeben } })} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(COPY.shared.feld.schonVergeben)).toBeTruthy());
+    const input = screen.getByRole("textbox", { name: INPUT });
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect((input as HTMLInputElement).value).toBe("Sportpark Nord");
+    expect(screen.getByText(COPY.vorlage.felderPruefen)).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("shows the reason a refusal brings in its status line", async () => {
+    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.fehler.veraltet })} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("answers an act that throws with the unexpected failure, and stays open", async () => {
+    render(
+      <CreateDialog
+        create={async () => {
+          throw new Error("unreachable");
+        }}
+      />,
+    );
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.unerwartet)).toBeTruthy());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("stands in the overlay every dialog shares", async () => {
+    render(<CreateDialog create={async () => DONE} />);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+
+    expectTheSharedOverlay(screen.getByRole("dialog"));
+  });
+
+  it("opens again without the refusal it showed before it closed", async () => {
+    render(<CreateDialog create={async () => ({ ok: false, reason: COPY.shared.fehler.veraltet })} />);
+
+    await createThroughTheDialog();
+    await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.zurueck }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.anlegen }));
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.queryByText(COPY.shared.fehler.veraltet)).toBeNull();
   });
 });

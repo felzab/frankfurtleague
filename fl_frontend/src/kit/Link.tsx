@@ -54,11 +54,18 @@ export function Link<T extends string>({
   href,
   placement,
   newTab = false,
+  fullPage = false,
   ...content
 }: {
   href: Route<T>;
   /** Opens the target in a new tab; nothing else does. */
   newTab?: boolean;
+  /**
+   * Loads the target as a whole document, the plain anchor's navigation, rather than Next's client one. An
+   * intercepting route catches every client navigation to its address, so this is the one way from a pop-up
+   * to the page it stands for: Next shows that page, not the pop-up, on a full page load.
+   */
+  fullPage?: boolean;
 } & (
   | ({
       /** `row` only inside a table row, which `Table` writes; `button` for a page's one next step. */
@@ -66,14 +73,13 @@ export function Link<T extends string>({
     } & Words)
   | Card
 )) {
-  return (
-    <NextLink
-      href={href}
-      data-kit-focus={FOCUS[placement]}
-      className={link({ placement })}
-      target={newTab ? "_blank" : undefined}
-      rel={newTab ? "noopener noreferrer" : undefined}>
-      {content.children ?? content.label ?? content.text}
-    </NextLink>
-  );
+  const anchor = {
+    href,
+    "data-kit-focus": FOCUS[placement],
+    className: link({ placement }),
+    target: newTab ? "_blank" : undefined,
+    rel: newTab ? "noopener noreferrer" : undefined,
+  };
+  const words = content.children ?? content.label ?? content.text;
+  return fullPage ? <a {...anchor}>{words}</a> : <NextLink {...anchor}>{words}</NextLink>;
 }
