@@ -1,6 +1,6 @@
-import { formatDatum, formatDatumLang, formatZahl } from "./format";
+import { formatDatum, formatDatumLang, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
 
-import type { Kalendertag } from "./format";
+import type { Kalendertag, Paar, Uhrzeit } from "./format";
 
 declare const copyMarke: unique symbol;
 
@@ -45,6 +45,9 @@ export type Verb = keyof typeof VERB;
 const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
 const UNERWARTET = "Etwas ist schiefgelaufen. Versuch es erneut.";
+
+// The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
+const NACH_ELFMETERSCHIESSEN = "n. E.";
 
 export const COPY = katalog({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -115,7 +118,7 @@ export const COPY = katalog({
     protokoll: "Protokoll",
     kORunde: "K.-o.-Runde",
     kOBaum: "K.-o.-Baum",
-    nachElfmeterschiessen: "n. E.",
+    nachElfmeterschiessen: NACH_ELFMETERSCHIESSEN,
     disqualifiziert: "DQ",
     startelf: "Startelf",
     bank: "Bank",
@@ -158,6 +161,43 @@ export const COPY = katalog({
     sperrliste: "Sperrliste",
     loeschungen: "Löschungen",
     adressaenderungen: "Adressänderungen",
+  },
+
+  /** The Spielplan, and a match's page, which opens as the pop-up over it. */
+  spielplan: {
+    /** The matchday tabs' name, and the plural an empty Spielplan names. */
+    spieltage: "Spieltage",
+    /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
+    wann: (tag: Kalendertag | null, zeit: Uhrzeit | null) =>
+      tag === null ? "Termin offen" : zeit === null ? formatDatum(tag) : `${formatDatum(tag)} · ${formatUhrzeit(zeit)}`,
+    /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
+    ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
+      elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
+
+    /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
+    quelle: {
+      gruppeKurz: (gruppe: string, platz: number) => `${gruppe}${formatZahl(platz)}`,
+      gruppe: (gruppe: string, platz: number) => `${formatZahl(platz)}. der Gruppe ${gruppe}`,
+      siegerKurz: (spiel: number) => `S${formatZahl(spiel)}`,
+      sieger: (spiel: number) => `Sieger von Spiel ${formatZahl(spiel)}`,
+      verliererKurz: (spiel: number) => `V${formatZahl(spiel)}`,
+      verlierer: (spiel: number) => `Verlierer von Spiel ${formatZahl(spiel)}`,
+      /** A side with neither a club nor a source yet. */
+      offen: "Noch offen",
+    },
+
+    /** A match's facts: the one group's title, and each fact's label. */
+    spiel: "Spiel",
+    fakt: {
+      ergebnis: "Ergebnis",
+      sonderereignis: "Sonderereignis",
+      spieltag: "Spieltag",
+      datum: "Datum",
+      uhrzeit: "Uhrzeit",
+      ort: "Ort",
+      schiedsrichter: "Schiedsrichter",
+      notiz: "Notiz",
+    },
   },
 
   /** The page templates' own words: the frames around a page, the editor's bar, a list's paging, the end states. */
