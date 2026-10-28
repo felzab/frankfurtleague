@@ -843,8 +843,8 @@ const DESIGN_BANS = [
     PRODUCTION,
     { only: [TOGGLE_OFFSET.home] },
   ),
-  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`, `src/app/globals.css`), as a step of
-  // spacing is: a literal is a second width for a box the tokens already name.
+  // A width cap and a letterfit are the tokens' (`src/app/tokens.css`), as a step of spacing is: a literal is
+  // a second width for a box the tokens already name.
   classBan(
     CLASS(String.raw`(?:max-w|tracking)-\[.+\]`),
     "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
