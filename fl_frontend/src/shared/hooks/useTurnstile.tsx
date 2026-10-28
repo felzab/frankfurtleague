@@ -5,7 +5,7 @@ import Script from "next/script";
 
 import { useTheme } from "next-themes";
 
-import { KONTAKT_EMAIL } from "@/core/brand";
+import { COPY } from "@/core/copy";
 import { MENSCH_BESTAETIGEN } from "@/core/turnstileToken";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { postClientError } from "@/shared/utils/clientError";
@@ -21,13 +21,13 @@ const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?ren
 const TOKEN_WAIT_MS = 10_000;
 
 /** A press past `TOKEN_WAIT_MS` with no token minted. */
-const NOCH_NICHT_FERTIG = "Die Prüfung, ob Du ein Mensch bist, ist noch nicht fertig. Versuche es gleich erneut.";
+const NOCH_NICHT_FERTIG = COPY.shared.pruefung.nichtFertig;
 
 /**
  * A form's sentence for a check that did not load. A blocked check stays refused, so the league's address is the
  * way in for a browser that will not load it.
  */
-const NICHT_GELADEN = `Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, oder schreib uns an ${KONTAKT_EMAIL}.`;
+const NICHT_GELADEN = COPY.shared.pruefung.nichtGeladen;
 
 /** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
 type TurnstileApi = {
