@@ -16,6 +16,7 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
+import { feldMeldung } from "./zodGerman";
 
 import type { ActionAnswer } from "@/kit/useFormAction";
 import type { z } from "zod";
@@ -137,33 +138,35 @@ function fieldOf(path: readonly PropertyKey[]): string | undefined {
   return path.findLast((segment): segment is string => typeof segment === "string");
 }
 
-// Redesign: replaced by FE-TRANSPORT's `fl_frontend/src/core/zodGerman.ts :: feldMeldung` once it lands.
-function feldMeldung(issue: z.core.$ZodIssue, beispiele: Readonly<Record<string, Copy | undefined>> = {}): Copy {
-  const { feld } = COPY.shared;
-  if (issue.code === "too_big" && issue.origin === "string") return feld.hoechstensZeichen(Number(issue.maximum));
-  if (issue.code === "too_small" && issue.origin === "string")
-    return Number(issue.minimum) <= 1 ? feld.pflichtfeld : feld.mindestensZeichen(Number(issue.minimum));
-  if (issue.code === "invalid_type") return feld.pflichtfeld;
-  const beispiel = beispiele[fieldOf(issue.path) ?? ""];
-  return beispiel === undefined ? COPY.shared.fehler.unerwartet : feld.format(beispiel);
-}
-
-/** The input parsed, or the answer placing each refusal on its box: an issue naming no box is the unexpected failure. */
+/**
+ * The input parsed, or the answer placing each refusal on its box. Each box's line is the German error map's, asked
+ * per parse: the map reads the raw issue's input and schema, which a finished parse's issues no longer carry. An
+ * issue naming no box, or one a schema's own message words past the map, is the unexpected failure.
+ */
 function parsed<Schema extends z.ZodType>(
   declared: Declared<Schema>,
   raw: unknown,
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
-  const result = declared.input.safeParse(stripped(posted(raw)));
+  const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
+  const fieldErrors: Record<string, Copy> = {};
+  const result = declared.input.safeParse(stripped(posted(raw)), {
+    error: (issue) => {
+      const path = issue.path ?? [];
+      const field = fieldOf(path);
+      const example = field === undefined ? undefined : examples[field];
+      const line = feldMeldung(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
+      // The first issue on a box is the one it shows.
+      if (field !== undefined) fieldErrors[field] ??= line;
+      return line;
+    },
+  });
   if (result.success) return { input: result.data };
 
-  const fieldErrors: Record<string, Copy> = {};
-  for (const issue of result.error.issues) {
+  const unplaced = result.error.issues.some((issue) => {
     const field = fieldOf(issue.path);
-    if (field === undefined) return { answer: UNEXPECTED };
-    // The first issue on a box is the one it shows.
-    fieldErrors[field] ??= feldMeldung(issue, declared.examples);
-  }
-  return { answer: { ok: false, fieldErrors } };
+    return field === undefined || fieldErrors[field] === undefined;
+  });
+  return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
 /** The backend's refusal in this screen's words where it words the code, else the shared line its kind answers. */
