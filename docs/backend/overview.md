@@ -23,7 +23,8 @@ A slice carries only the files it needs. **A router declares one access tier**, 
 two tiers has two routers: `router.py` for its reads, at the tier its readers need, `admin_router.py`
 for the administration, and further routers named for their caller, such as
 `bewerbungen/public_router.py` for the public application form or a `sweep_router.py` for a
-retention pass. `app/main.py` mounts them all.
+retention pass. `app/main.py` mounts them all, each under its slice's tag, which with the handler's
+name makes the operation's id in `openapi.json`.
 
 ## Authorization
 
@@ -35,14 +36,16 @@ being written in the wrong file. `fl_backend/app/core/security.py` holds the gua
   address against a stored grant (`Berechtigung`) on every request; a signed-in person's router binds
   the record that admits them (their `Funktion`) instead.
 - **`system`** — the frontend process's own calls: the retention sweeps, the mail delivery events and
-  the subject lookup, plus diagnostics.
+  the subject lookup.
+
+Each guard presents its key as a bearer scheme of its own, `BaseKey`, `AdminKey` or `SystemKey`, so
+an operation's `security` in `openapi.json` names the tier it takes.
 
 The actor token travels in the `X-FL-Actor` header: the frontend signs it for the person behind a
 request, and the backend verifies it against `ACTOR_TOKEN_PUBLIC_KEY`
-(`fl_backend/app/core/actor_token.py`). **`system/router.py` is the one router with no guard of its
-own**, because `/system/is_live` is both the container healthcheck and the public uptime probe, and
-a probe that needs a secret fails for the wrong reasons; every other endpoint there declares the
-system key itself.
+(`fl_backend/app/core/actor_token.py`). **`system/router.py` holds the two routes with no guard**:
+`/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
+needs a secret fails for the wrong reasons, and the service's root `/`.
 
 ## Data access
 

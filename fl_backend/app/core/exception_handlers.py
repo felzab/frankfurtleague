@@ -211,18 +211,16 @@ DUPLICATE_KEY_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.CONFLICT]
 DOCUMENT_NOT_FOUND_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.NOT_FOUND]
 
 
+# Session 2: the sweep removes every declaration of these three and deletes them.
 def stores_nothing() -> None:
-    """Declared by an operation storing nothing whatever its method, so the published document marks it.
-
-    The declaration decides no answer here: a deadline's is judged on the writes the request sent.
-    """
+    """Declared by an operation storing nothing whatever its method; nothing reads the declaration."""
 
 
-# Each dependency whose boolean query flag, set, makes its operation store nothing, keyed to that
-# flag, so the condition is published (`app/main.py :: publish_stores_nothing`) rather than kept.
+# Session 2: the sweep removes every declaration of these three and deletes them.
 STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
 
 
+# Session 2: the sweep removes every declaration of these three and deletes them.
 def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
     def register(dependency: Dependency) -> Dependency:
         STORES_NOTHING_WHEN[dependency] = flag
