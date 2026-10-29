@@ -396,9 +396,6 @@ const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
 /** A success's report, or the refusal's sentence where the action failed. */
 const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
 
-/** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
-const REFRESH_ALONE = [{ name: "refresh", args: [] }];
-
 describe("the application's writes", () => {
   it("reach each published path and method, the id and the seat in the path and the fields alone in the body", async () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
@@ -443,33 +440,6 @@ describe("the application's writes", () => {
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
       report(5),
     ]);
-  });
-});
-
-describe("what each decision moves", () => {
-  /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
-     or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
-     leaves every unscoped read stale. */
-  it("invalidates the club reads the acceptance wrote into", async () => {
-    const [acceptance] = DECISIONS;
-    answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
-
-    expect((await acceptance.press()).success, "the acceptance never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the acceptance clears other than the club reads it wrote into").toStrictEqual([
-      { name: "updateTag", args: ["teams"] },
-      { name: "updateTag", args: ["teams:saison_id:2026"] },
-      ...REFRESH_ALONE,
-    ]);
-  });
-
-  /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag on a decline", async () => {
-    const [, decline] = DECISIONS;
-    answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
-
-    expect((await decline.press()).success, "the decline never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the decline clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
@@ -1063,16 +1033,6 @@ describe("the re-sent confirmation link", () => {
     for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
     for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
   });
-
-  /* This moves the application's own confirmation block and its deadline, and no cached read holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the re-send clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
 });
 
 describe("the corrected contact address", () => {
@@ -1129,16 +1089,6 @@ describe("the corrected contact address", () => {
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    expect((await kontaktEmailKorrigierenAction(KORREKTUR)).success, "the correction never landed, so its tags are judged on nothing").toBe(
-      true,
-    );
-    expect(cacheCalls, "the correction clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
@@ -1216,14 +1166,6 @@ describe("the person seated where one stepped out", () => {
     expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
     // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
     expect(answerOf(result), "a refused send is reported as something other than the reseat's own").toBe(BESETZUNG_OHNE_LINK);
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt()));
-
-    expect((await besetzeKontaktSitzAction(SITZ)).success, "the reseat never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the reseat clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 

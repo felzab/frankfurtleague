@@ -4,6 +4,7 @@ import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refu
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
 import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants.ts";
@@ -286,46 +287,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
 });
 
 describe("the undraw action", () => {
-  /* The removal takes away exactly what the draw wrote, so anything the draw's write invalidated
-     answers differently after this too. A narrower set leaves a cached season holding fixtures. */
-  it("clears the draw's own tag set", async () => {
-    /** Every invalidation the last press made, in its order. */
-    const cleared = (): typeof cacheCalls => cacheCalls.splice(0);
-
-    answerWith(() =>
-      Promise.resolve({
-        acknowledged: 1,
-        saison_id: SAISON_ID,
-        spieltage: 3,
-        spiele: 12,
-        generiert_am: "2026-03-01",
-        removed_spieltage: 0,
-        removed_spiele: 0,
-      }),
-    );
-    expect((await generateSpielplanAction({ id: SAISON_ID })).success, "the draw never landed, so its tags are judged on nothing").toBe(true);
-    // Spelled out rather than taken from the draw, so a set both presses lose, the refresh among it, fails.
-    const DRAWN = [
-      { name: "updateTag", args: ["saisons"] },
-      { name: "updateTag", args: ["spieltage"] },
-      { name: "updateTag", args: ["spiele"] },
-      { name: "updateTag", args: [`spiele:saison_id:${SAISON_ID}`] },
-      { name: "updateTag", args: ["teams"] },
-      { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
-      { name: "refresh", args: [] },
-    ];
-    expect(cleared(), "the draw clears a set other than the reads it moves").toStrictEqual(DRAWN);
-
-    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
-    expect((await undrawSpielplanAction({ id: SAISON_ID })).success, "the undraw never landed, so its tags are judged on nothing").toBe(true);
-
-    expect(cleared(), "the undraw clears a set other than the draw's").toStrictEqual(DRAWN);
-    expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "POST", body: {} },
-      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "DELETE", body: undefined },
-    ]);
-  });
-
   /* One sentence over the counts would report a watermark-only season as nothing done: it answers
      with two zeroes and `watermark_cleared`. */
   it("reports the three outcomes a 200 can carry apart", async () => {
@@ -555,9 +516,9 @@ describe("the deletion the activation runs", () => {
     loeschungSwitch = "on";
   });
 
-  /* The spine drops the tags once the body settles: a run behind the answer lands after the drop, and a squad page
-     names deleted pupils for days. One list reads the order rather than assuming it. */
-  it("runs the pass to its end after the activation, every tag dropped after the last call's answer", async () => {
+  /* The spine clears the tag once the body settles: a run behind the answer lands after the clear, and a squad page
+     names deleted pupils until the lifetime passes. One list reads the order rather than assuming it. */
+  it("runs the pass to its end after the activation, the tag cleared after the last call's answer", async () => {
     const order: string[] = [];
     let gelesen = 0;
     const nachtragen = (): void => {
@@ -585,11 +546,7 @@ describe("the deletion the activation runs", () => {
       `POST /saisons/${SAISON_ID}/activate`,
       `answered ${LAUF}`,
       `answered ${LAUF}`,
-      "updateTag(saisons)",
-      "updateTag(spiele)",
-      "updateTag(spieltage)",
-      "updateTag(teams)",
-      "updateTag(spieler)",
+      `updateTag(${SITE_CACHE_TAG})`,
       "refresh()",
     ]);
     expect(message).toBe(`${AKTIVIERT} 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht.`);
@@ -666,7 +623,7 @@ describe("the deletion the activation runs", () => {
       { trace_id: "t".repeat(32) },
     ],
   ] as const) {
-    it(`answers the activation saved after ${fall}, says what the hourly pass finishes, and still drops the tags`, async () => {
+    it(`answers the activation saved after ${fall}, and says what the hourly pass finishes`, async () => {
       aktivierungUndLaeufe(
         () => Promise.resolve(gelaufen(1, 4, ORT)),
         () => Promise.reject(fehler()),
@@ -677,10 +634,6 @@ describe("the deletion the activation runs", () => {
       expect(message).toBe(
         `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. ` +
           "Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
-      );
-      assert.ok(
-        cacheCalls.some(({ name, args }) => name === "updateTag" && args[0] === "spieler"),
-        "the deletion that did land left the squad pages naming its pupils",
       );
       expect(loggedLines.filter(({ message: line }) => line === "loeschung.umstellung_failed")).toStrictEqual([
         { level: "error", message: "loeschung.umstellung_failed", meta: { error_code: "FE-SWEEP-001", name: fehler().name, ...anfrage } },

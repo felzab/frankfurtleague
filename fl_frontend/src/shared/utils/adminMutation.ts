@@ -6,8 +6,9 @@ import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { declareWriteTags, requestEndsOwnSession, requestWriteSent, requestWriteTags } from "@/core/requestScope";
+import { requestEndsOwnSession, requestWriteSent } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
 import { logActionFailure } from "./actionFailure";
@@ -96,9 +97,7 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<
-  { forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[]; endsOwnSession: boolean }
-> {
+): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; endsOwnSession: boolean }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -120,17 +119,16 @@ async function runGuarded<S, T extends { success: boolean }>(
 
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
-    const tags = requestWriteTags();
     const endsOwnSession = requestEndsOwnSession();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
       logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
+      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, endsOwnSession: endsOwnSession };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
+    return { forbidden: false, answer: answer, wrote: wrote, endsOwnSession: endsOwnSession };
   });
 }
 
@@ -146,30 +144,21 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote, tags, endsOwnSession } = guarded;
+  const { answer, wrote, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
   // A write that may have ended its caller's session renders no page again, whose own check would redirect and empty the area;
-  // the page leaves by a document load. No such write declares a tag to drop.
+  // the page leaves by a document load. Such a write removes a passkey, which no cached read holds.
   if (endsOwnSession) return answer;
 
-  // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
-  // write feeds keeps serving what it replaced for days otherwise.
-  if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
+  // Wherever a write may stand, a lost answer and a partial one included, and whatever it wrote: every cached read
+  // carries the one tag, so no write has to know which of them it moves.
+  if (wrote && (answer.success || outcome !== undefined)) updateTag(SITE_CACHE_TAG);
   // Here, where no action can forget it. Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
   // dropping the refused entries.
   if (wrote && (answer.success || outcome === "unknown")) refresh();
 
   return answer;
-}
-
-/**
- * The cache tags a body's write feeds, declared before the write is sent: this spine, and a public
- * route's (`fl_frontend/src/shared/utils/publicRoute.ts`), drop them once the body settles, a lost
- * answer included, which a drop after the awaited write never reaches.
- */
-export function invalidatesOnWrite(...tags: readonly string[]): void {
-  declareWriteTags(tags);
 }
 
 /**

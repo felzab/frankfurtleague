@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 
 import { isContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
+import { requestWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { logActionFailure } from "./actionFailure";
@@ -95,10 +96,10 @@ export async function handlePublicRequest<T extends { success: boolean }>(
       answer = outcomeUnknown();
     }
 
-    // Wherever the write may stand, a lost answer included, as the action spine drops them. `{ expire: 0 }`:
+    // Wherever the write may stand, a lost answer included, as the action spine clears it. `{ expire: 0 }`:
     // `updateTag` throws here, and the default profile serves the old entry once more.
     if (requestWriteSent() && (answer.success || ("outcome" in answer && answer.outcome !== undefined))) {
-      for (const tag of requestWriteTags()) revalidateTag(tag, { expire: 0 });
+      revalidateTag(SITE_CACHE_TAG, { expire: 0 });
     }
 
     return answer;
