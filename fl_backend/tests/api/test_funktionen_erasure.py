@@ -45,7 +45,6 @@ from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import JOURNAL_TOKEN
-from app.core.logging import setup_custom_logger
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_hash
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
@@ -216,10 +215,6 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 @functools.cache
 def _app() -> FastAPI:
     return create_app(CONFIG)
-
-
-# The suite's settings with the application's own lines silenced, as an operator may set them.
-QUIET = CONFIG.model_copy(update={"log_level_app": "WARNING"})
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -1193,28 +1188,6 @@ class TestTheJournal:
         assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM} halter={halter}"]
         # Its own label: under the log's, every choice's line would name the pseudonym the erasure's line alone names.
         assert expected != PSEUDONYM
-
-    def test_the_line_is_written_whatever_the_application_log_level(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches the journal written through the application's own logger, which `LOG_LEVEL_APP=WARNING` silences.
-
-        No `caplog.at_level` here: it would lower the very levels this case is about.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            quiet = create_app(QUIET)
-            # The build's `dictConfig` took every handler off the root, `caplog`'s among them: that one back, at no level.
-            logging.getLogger().addHandler(caplog.handler)
-            try:
-                async with app_client(mongo_replica_set_url, app=quiet, now=NOW) as http:
-                    return (await http.post(PATH, headers=as_person(TYPED))).status_code
-            finally:
-                # The suite's own levels back, for every case after this one.
-                setup_custom_logger(CONFIG)
-
-        status = on_a_league(mongo_replica_set_url, body)
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-
-        assert (status, len(lines)) == (200, 1)
 
 
 class OwnersErasingAtOnce(InterleavedCollection):

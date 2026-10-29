@@ -67,7 +67,7 @@ from app.core.actor_token import ActorTokenKey
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
-from app.core.logging import setup_custom_logger
+from app.core.logging import setup_logging
 from app.core.middlewares import TracedApp
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -202,7 +202,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.
-    setup_custom_logger(config)
+    setup_logging()
 
     app = TracedApp(lifespan=lifespan)
     app.state.config = config
