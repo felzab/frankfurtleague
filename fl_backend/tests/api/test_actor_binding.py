@@ -446,14 +446,14 @@ class TestThePersonsSession:
 
         app.add_api_route(PERSON_PROBE, probe, methods=["PATCH"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
         app.dependency_overrides[get_ban_lookup] = lambda: _unbarred
-        TestClient(app, raise_server_exceptions=False).patch(PERSON_PROBE, headers=as_person(MIXED_CASE))
+        response = TestClient(app, raise_server_exceptions=False).patch(PERSON_PROBE, headers=as_person(MIXED_CASE))
 
         [row] = log.rows
         pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
         # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
-        assert asked == []
+        assert (response.status_code, asked) == (200, [])
 
     def test_a_person_the_list_does_not_hold_is_served(self):
         """The control: every refusal below would pass on a check refusing everybody."""
