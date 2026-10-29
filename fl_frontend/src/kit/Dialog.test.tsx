@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -218,6 +218,25 @@ describe("the kit's dialog", () => {
 
     await waitFor(() => expect(screen.getByText(COPY.shared.fehler.veraltet)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("empties its status line while its act is on its way, so the same refusal twice is announced twice", async () => {
+    const refusal: ActionAnswer = { ok: false, reason: COPY.shared.fehler.veraltet };
+    const second = Promise.withResolvers<ActionAnswer>();
+    // React batches ongoing transitions together, so an act left unsettled by a failing case holds the next one's.
+    onTestFinished(() => second.resolve(refusal));
+    const create = vi.fn<(formData: FormData) => Promise<ActionAnswer>>().mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
+    render(<CreateDialog create={create} />);
+
+    await createThroughTheDialog();
+    const line = within(screen.getByRole("dialog")).getByRole("status");
+    await waitFor(() => expect(line.textContent).toBe(COPY.shared.fehler.veraltet));
+
+    // A polite live region speaks only where its words change.
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.mitObjekt(NAME, "anlegen") }));
+    await waitFor(() => expect(line.textContent).toBe(""));
+    await act(async () => second.resolve(refusal));
+    expect(line.textContent).toBe(COPY.shared.fehler.veraltet);
   });
 
   it("answers an act that throws with the stale-page line, and stays open", async () => {
