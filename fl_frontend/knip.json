@@ -35,8 +35,6 @@
     "src/**/schemas.ts": ["exports", "types", "duplicates"],
     // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
     // exported facet array; a URL parameter stays exported beside the rest of its family.
-    "src/features/*/facets.ts": ["exports"],
-    // `docs/decisions.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/features/*/facets.ts": ["exports"]
   }
 }
