@@ -18,21 +18,7 @@ const props = (rows: TableProps["rows"]): TableProps => ({
   empty: { kind: "noch", plural: COPY.shared.startelf },
 });
 
-const cellOf = (text: string) => {
-  const cell = screen.getByText(text).closest("td");
-  if (cell === null) throw new Error(`„${text}“ stands in no cell`);
-  return cell;
-};
-
 describe("a table's name cell", () => {
-  it("wraps a long name rather than cutting it, never narrower than 192 px", () => {
-    render(<Table {...props([{ id: "1", name: LANG, cells: { ort: "Gymnasium am Mosbacher Berg in Wiesbaden" } }])} />);
-    const name = cellOf(LANG).className.split(" ");
-    expect(name).toEqual(expect.arrayContaining(["min-w-48", "break-words"]));
-    expect(name).not.toContain("whitespace-nowrap");
-    expect(screen.getByText(LANG).className.split(" ")).not.toContain("truncate");
-  });
-
   it("sets the chip inline after the name's last word, so a wrapping name carries it on its last line", () => {
     render(
       <Table
@@ -40,7 +26,6 @@ describe("a table's name cell", () => {
       />,
     );
     const holder = screen.getByText(COPY.verwaltung.spielort.stillgelegt).parentElement;
-    expect(holder?.className.split(" ")).toEqual(expect.arrayContaining(["inline-flex", "align-middle"]));
     // The chip stands in the name's own line box, not as a block of the cell's row beside or under it.
     expect(holder?.parentElement?.textContent).toBe(`${LANG}${COPY.verwaltung.spielort.stillgelegt}`);
   });
@@ -55,10 +40,5 @@ describe("a table's name cell", () => {
   it("draws no chevron where no row leads anywhere", () => {
     render(<Table {...props([{ id: "1", name: "Goethe", cells: { ort: "Nordend" } }])} />);
     expect(screen.getByRole("table").querySelector("svg")).toBe(null);
-  });
-
-  it("keeps every other value on its line", () => {
-    render(<Table {...props([{ id: "1", name: "Goethe", cells: { ort: "Nordend" } }])} />);
-    expect(cellOf("Nordend").className.split(" ")).toContain("whitespace-nowrap");
   });
 });

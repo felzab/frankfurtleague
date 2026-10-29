@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { createContext, useCallback, useContext } from "react";
 
 import { useSaisonId } from "@/shared/hooks/useSaisonHref";

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Section` replaces it.
 import { useId, useState } from "react";
 
 import ChevronDown from "@gravity-ui/icons/ChevronDown";

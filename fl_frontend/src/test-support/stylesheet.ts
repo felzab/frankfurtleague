@@ -31,3 +31,19 @@ export function selectorsOf(rule: Rule): string[] {
     [],
   );
 }
+
+/** What `root` declares for one class, each declaration with the selector it stands under. */
+export function declared(root: Root, name: string, prop: string): { selector: string; value: string }[] {
+  const found: { selector: string; value: string }[] = [];
+  root.walkRules((rule) => {
+    const selectors = selectorsOf(rule)
+      .map((selector) => selector.replace(/\\(.)/g, "$1"))
+      .filter((selector) => selector.includes(`.${name}`));
+    if (selectors.length === 0) return;
+    // Own declarations only: the walk visits a nested rule on its own.
+    for (const decl of rule.nodes) {
+      if (decl.type === "decl" && decl.prop === prop) found.push({ selector: selectors.join(", "), value: decl.value });
+    }
+  });
+  return found;
+}

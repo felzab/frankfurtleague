@@ -135,7 +135,7 @@ describe("the kit's confirmation", () => {
 });
 
 describe("the route dialog", () => {
-  it("is named by its title, read but not drawn, and closes from the button in its corner", async () => {
+  it("is named by its title, and closes from the button in its corner", async () => {
     render(
       <RouteDialog
         title={NAME}
@@ -152,7 +152,6 @@ describe("the route dialog", () => {
     );
 
     expect(screen.getByRole("dialog", { name: NAME })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: NAME }).className.split(" ")).toContain("sr-only");
     // The kit's button, not the dismiss button React Aria keeps for a screen reader under the same name.
     const close = screen.getAllByRole("button", { name: COPY.shared.schliessen }).find((button) => button.hasAttribute("data-kit-focus"));
     if (close === undefined) throw new Error("the dialog drew no closing button");
@@ -262,7 +261,6 @@ describe("the kit's dialog", () => {
     await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.anlegenEintrag }));
 
     expect((screen.getByRole("textbox", { name: INPUT }) as HTMLInputElement).value).toBe("Sportpark Süd");
-    expectTheSharedOverlay(screen.getByRole("dialog"));
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.zurueck }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });

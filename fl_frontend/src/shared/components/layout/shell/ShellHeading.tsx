@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { usePathname } from "next/navigation";
 
 import { FOCUS_HEADING } from "../../../utils/focusAfterWrite";

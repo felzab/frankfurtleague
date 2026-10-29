@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/KontoBox` replaces it.
+
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { Angabe } from "./Angabe";

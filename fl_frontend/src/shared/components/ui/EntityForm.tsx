@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/EditorPage` replaces it.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 

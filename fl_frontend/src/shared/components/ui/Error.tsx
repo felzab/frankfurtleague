@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
 import { useTransition } from "react";
 import Link from "next/link";
 

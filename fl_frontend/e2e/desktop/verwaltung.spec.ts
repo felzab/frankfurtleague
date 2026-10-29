@@ -40,6 +40,7 @@ const scrollsSideways = (page: Page) =>
     ),
   );
 
+// Session 5: reads the id off the new match list once it stands, and the old search goes from this journey.
 /**
  * The match's id, read off today's admin match search: no new page lists a season's matches yet, so the
  * old search's editor link names it.

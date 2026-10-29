@@ -147,7 +147,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const { answer } = form;
   const refused = answer !== null && !answer.ok && current.version === current.sentVersion ? answer : null;
   // A refusal stands only over the draft it was sent with; the count of unsaved fields stands over a done save.
-  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedVersion === current.version);
+  const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedVersion === current.version, form.isPending);
   const status: FormStatus =
     answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) } : answered;
 

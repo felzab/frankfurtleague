@@ -61,7 +61,7 @@ export function OneShotForm({
   }
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  const status = statusOf(refused, isBlocked);
+  const status = statusOf(refused, isBlocked, isPending);
 
   const send = (element: HTMLFormElement, act: Act) => {
     setPressed(act);

@@ -2,13 +2,14 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
+import { ThemeColor } from "@/kit/ThemeColor";
+
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
-import { THEME_COLOR } from "@/core/themeColor";
 import { openGraphFor } from "@/shared/utils/metadata";
 
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 
 const anton = Anton({
   weight: "400",
@@ -59,20 +60,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * Not the brand fill the manifest opens an installed app on: this bar is on every screen at once,
- * and the brand budget is salience. A splash is the one screen
- * that can afford the fill.
- */
-export const viewport: Viewport = {
-  // The first paint's, by the system's scheme, until `RootProviders` sets the chosen theme's. Not `--bg`:
-  // the bar under the chrome is `bg-surface` on both shells, and a `--bg` chrome sits 1.09:1 off it, a stripe.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
-    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
-  ],
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -83,7 +70,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           the page the containing block for every portalled overlay. */}
       {/* Session 8: `fluid-base`, which makes every unsized inherited text fluid, goes with the old pages. */}
       <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
-        <RootProviders>{children}</RootProviders>
+        <RootProviders>
+          <ThemeColor />
+          {children}
+        </RootProviders>
       </body>
     </html>
   );

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; the kit's fields replaces it.
+
 import { tv } from "tailwind-variants";
 
 /** One row of a refusable list. `refusal` is why it cannot be taken, and `meta` what the row says otherwise. */

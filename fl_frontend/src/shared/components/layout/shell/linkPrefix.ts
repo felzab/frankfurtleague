@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { useParams } from "next/navigation";
 
 export type AddressParams = Readonly<Record<string, string | string[] | undefined>>;

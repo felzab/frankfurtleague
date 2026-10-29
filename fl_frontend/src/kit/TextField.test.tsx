@@ -57,7 +57,7 @@ describe("a digits field", () => {
     expect(screen.getByText(COPY.shared.feld.format(COPY.shared.feld.beispielZiffern))).toBeTruthy();
   });
 
-  it("sets its unit after the field and outside it, hidden from assistive technology", () => {
+  it("sets its unit after the field and outside it, read once as the field's description", () => {
     render(
       <TextField
         label={COPY.shared.startelf}
@@ -70,6 +70,7 @@ describe("a digits field", () => {
     const unit = field.nextElementSibling;
     expect(unit?.textContent).toBe(COPY.shared.einheit.euro);
     expect(unit?.getAttribute("aria-hidden")).toBe("true");
+    expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(unit?.id);
     expect(field.contains(unit ?? null)).toBe(false);
   });
 

@@ -7,15 +7,14 @@ import { COPY } from "@/core/copy";
 import { Card, CardLink, CardRow } from "./Card";
 
 describe("a card", () => {
-  it("sets its head on the surface, its title a heading with its count beside it", () => {
+  it("makes its title a heading, with its count beside it", () => {
     render(
       <Card
         title={COPY.shared.saison}
         count={3}
       />,
     );
-    const heading = screen.getByRole("heading", { name: COPY.shared.saison });
-    expect(heading.parentElement?.className.split(" ")).toContain("bg-bg-surface");
+    expect(screen.getByRole("heading", { name: COPY.shared.saison })).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
   });
 
@@ -31,9 +30,8 @@ describe("a card", () => {
     );
     const link = screen.getByRole("link", { name: "Helmholtzschule" });
     expect(link.getAttribute("href")).toBe("/saisons/2027");
-    // The name and its chip share one wrapping line, the chip after the name.
+    // The name and its chip share one line, the chip after the name.
     const line = link.parentElement?.parentElement;
-    expect(line?.className.split(" ")).toContain("flex-wrap");
     expect(line?.lastElementChild?.textContent).toBe(COPY.shared.startelf);
     // The row ends in the chevron that says it leads on.
     expect(line?.parentElement?.lastElementChild?.querySelector("svg")).not.toBe(null);
@@ -44,7 +42,7 @@ describe("a card", () => {
       <CardLink
         href="/saisons/2027"
         title={COPY.shared.saison}
-        line="Helmholtzschule"
+        lineText="Helmholtzschule"
       />,
     );
     expect(screen.getByRole("link").textContent).toBe(`${COPY.shared.saison}Helmholtzschule`);

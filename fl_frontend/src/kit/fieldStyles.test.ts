@@ -1,27 +1,12 @@
-import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
+import { compiledGlobals, declared as declaredIn } from "@/test-support/stylesheet.ts";
 import { describe, expect, it } from "vitest";
 
 import { dateSegment, fieldFrame } from "./fieldStyles";
 
 const compiled = compiledGlobals();
 
-const unescape = (selector: string): string => selector.replace(/\\(.)/g, "$1");
-
-/** What the built stylesheet declares for one class, each declaration with the selector it stands under. */
-async function declared(name: string, prop: string): Promise<{ selector: string; value: string }[]> {
-  const found: { selector: string; value: string }[] = [];
-  (await compiled).walkRules((rule) => {
-    const selectors = selectorsOf(rule)
-      .map(unescape)
-      .filter((selector) => selector.includes(`.${name}`));
-    if (selectors.length === 0) return;
-    // Own declarations only: the walk visits a nested rule on its own.
-    for (const decl of rule.nodes) {
-      if (decl.type === "decl" && decl.prop === prop) found.push({ selector: selectors.join(", "), value: decl.value });
-    }
-  });
-  return found;
-}
+/** What the built stylesheet declares for one class. */
+const declared = async (name: string, prop: string) => declaredIn(await compiled, name, prop);
 
 /** The one class of a recipe's output that names a width. */
 const widthOf = (classes: string) => classes.split(" ").filter((name) => /^w-/.test(name));

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Filters` replaces it.
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Facts` replaces it.
+
 import { NICHT_HINTERLEGT } from "@/shared/utils/format";
 
 import type { ReactNode } from "react";

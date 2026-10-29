@@ -112,7 +112,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   }
 
   const refused = answer !== null && answer !== verlassen && !answer.ok ? answer : null;
-  const sendFehler = refused === null ? null : (refused.reason ?? null);
+  // None while a send is on its way, as the kit's `statusOf` answers, so the same refusal twice is announced twice.
+  const sendFehler = refused === null || send.isPending ? null : (refused.reason ?? null);
 
   const mitPasskey = async () => {
     setPasskeyLaeuft(true);

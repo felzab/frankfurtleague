@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
