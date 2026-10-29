@@ -64,6 +64,7 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
+    // Session 8: goes with HeroUI's packages.
     // HeroUI's root is imported for `useOverlayState` alone, which no subpath publishes.
     // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root
     // import to narrow.

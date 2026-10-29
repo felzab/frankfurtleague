@@ -1,4 +1,4 @@
-// Redesign: goes with its last importer; `kit/SectionTitle` replaces it.
+// Redesign: goes with its last importer; `kit/Section`'s `SectionTitle` replaces it.
 
 import { FOCUS_HEADING } from "@/shared/utils/focusAfterWrite";
 

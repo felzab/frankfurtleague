@@ -127,7 +127,7 @@ export function RailFrame({
           </aside>
 
           <div className="flex min-h-dvh min-w-0 flex-col">{columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}</div>
-          {/* Fixed, so no grid cell: inside the frame for the measures it is placed by. */}
+          {/* Inside the rail's state, whose collapsed width its edge follows. */}
           <ToastRegion frame="rail" />
         </RailRoot>
       </LeaveGuardProvider>

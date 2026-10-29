@@ -11,8 +11,11 @@ const EDGE = 3;
 
 const GROUNDS = ["bg", "bg-surface", "bg-muted"];
 
-/** [foreground, ground, floor, the job named in the report]. */
-const PAIRS = [
+/**
+ * [foreground, ground, floor, the job named in the report]. `token-contrast.test.mjs` holds every button
+ * look's text and ground, hovered and pressed too, to a pair listed here.
+ */
+export const PAIRS = [
   ...["fg", "fg-muted", "brand", "success", "info", "warn", "danger"].flatMap((ink) => GROUNDS.map((ground) => [ink, ground, TEXT, "text"])),
   ["on-brand", "brand-solid", TEXT, "text on the primary button"],
   ["on-brand", "brand-solid-hover", TEXT, "text on the primary button, hovered"],

@@ -8,6 +8,8 @@ paths:
 
 Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
+<!-- Session 8: the HeroUI trap below goes with HeroUI's last stylesheet import. -->
+
 - A HeroUI component a page not yet rebuilt imports needs its stylesheet imported into
   `fl_frontend/src/app/globals.css`, which loads on every route, at the position it holds in
   `node_modules/@heroui/styles/dist/components/index.css`, and so does every part it renders beneath
