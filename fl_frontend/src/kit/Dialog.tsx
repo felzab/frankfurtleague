@@ -52,7 +52,7 @@ const dim = tv({
  * `Inset` reads its card's.
  */
 const dialogBox = tv({
-  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:--spacing(6)]",
+  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:var(--spacing-6)]",
   variants: {
     width: {
       question: "max-w-question",
