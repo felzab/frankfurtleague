@@ -35,9 +35,6 @@ importers:
       fuse.js:
         specifier: ^7.5.0
         version: 7.5.0
-      jose:
-        specifier: ^6.2.12
-        version: 6.2.12
       lucide-react:
         specifier: ^1.62.0
         version: 1.62.0(@types/react@19.3.0)(react@19.3.1)

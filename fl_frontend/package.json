@@ -15,7 +15,7 @@
   },
   "packageManager": "pnpm@11.28.6",
   "scripts": {
-    "dev": "NODE_OPTIONS=--max-old-space-size=8192 ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key SECRETS_DIR=../secrets next dev --turbo",
+    "dev": "NODE_OPTIONS=--max-old-space-size=8192 SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
@@ -44,7 +44,6 @@
     "better-auth": "^1.7.10",
     "client-only": "^0.0.1",
     "fuse.js": "^7.5.0",
-    "jose": "^6.2.12",
     "lucide-react": "^1.62.0",
     "mongodb": "^7.7.0",
     "next": "^16.4.2",
