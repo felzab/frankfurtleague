@@ -2,8 +2,6 @@ import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
 import {
-  ADRESS_SATZ_HTML,
-  ADRESS_SATZ_TEXT,
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
   art21Satz,
@@ -65,113 +63,7 @@ const einteilungSatz = (gruppe: string, farbe: string | null): string =>
     ? `Wir haben Euch in Gruppe ${gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`
     : `Wir haben Euch in Gruppe ${gruppe} untergebracht und Euch die Trikotfarbe ${farbe} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
 
-/** One run of a season's paragraph, spelled once for both branches so the two cannot state it apart. */
-type Lauf = string | { readonly betont: string };
-
-/** The person a season's acceptance comes from: named on the sender line, and in the card closing the body. */
-interface Absender {
-  readonly name: string;
-  readonly rolle: string;
-  readonly telefon: string;
-  /** International form, which a phone dials from wherever it is. */
-  readonly telefonHref: string;
-  /** An inbox this person reads: the sending address is read by nobody, and a named sender invites replies. */
-  readonly antwortAn: string;
-}
-
-/**
- * Its paragraphs are wording the league dictated, to the team as „ihr“: where they part from
- * the rule, „Generalversammlung“, „Versammlung“ and „Sitzung“ for one meeting
- * included, the wording wins.
- */
-interface SaisonZusage {
-  /** The subject after the season: what the school is asked to do, the heading already stating the decision. */
-  readonly betreff: string;
-  /** The meeting, panelled first under the welcome, where a school looks before reading on. */
-  readonly versammlung: { readonly titel: string; readonly fakten: readonly Fakt[] };
-  /** Under the meeting's panel. */
-  readonly einladung: readonly (readonly Lauf[])[];
-  /** Under the team's panel, after the sentence fixing group and colour. */
-  readonly einteilungHinweise: readonly (readonly Lauf[])[];
-  readonly fragenSatz: string;
-  readonly gruss: string;
-  readonly absender: Absender;
-}
-
-/** A season's text is added here before that season's acceptances go out. */
-const SAISON_ZUSAGEN: ReadonlyMap<string, SaisonZusage> = new Map([
-  [
-    "2027",
-    // Sent only until the meeting: no 2027 acceptance goes out after 20 November 2026, which is what lets
-    // the subject and the first panel lead with the invitation.
-    {
-      betreff: "Einladung zur Generalversammlung am 20. November",
-      versammlung: {
-        titel: "Erste Generalversammlung",
-        fakten: [
-          { label: "Wann", value: "Freitag, 20. November 2026, 19:00 Uhr" },
-          { label: "Wo", value: "Vereinsheim der SV 07 Heddernheim" },
-          { label: "Wer", value: "eine Vertreterin oder ein Vertreter pro Schule" },
-        ],
-      },
-      einladung: [
-        [
-          "Wir laden Euch herzlich dazu ein, am ",
-          { betont: "Freitag, den 20. November 2026" },
-          `, zur ersten Generalversammlung der ${BRAND_NAME} zu kommen! Die Sitzung findet ab `,
-          { betont: "19:00 Uhr" },
-          " im Vereinsheim der SV 07 Heddernheim statt. Pro Schule ist eine Vertreterin oder ein Vertreter zugelassen.",
-        ],
-        [
-          "In dieser Versammlung werden wichtige Grundsteine für die Saison gelegt und essentielle Entscheidungen getroffen. Eine Teilnahme Eurer Schule ist daher enorm wichtig.",
-        ],
-      ],
-      einteilungHinweise: [
-        [
-          "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.",
-        ],
-      ],
-      fragenSatz:
-        "Bei Fragen oder Unklarheiten stehe ich Euch selbstverständlich jederzeit für den Verein zur Verfügung. Meine Kontaktdaten stehen unten in der Signatur.",
-      gruss: "Sportliche Grüße",
-      absender: {
-        name: "Jonathan Kroh",
-        rolle: "Sportliche Kommunikation",
-        telefon: "0173 5640095",
-        telefonHref: "tel:+491735640095",
-        antwortAn: KONTAKT_EMAIL,
-      },
-    },
-  ],
-]);
-
-function absatzHtml(laeufe: readonly Lauf[]): string {
-  return laeufe.map((lauf) => (typeof lauf === "string" ? escapeHtml(lauf) : strong(escapeHtml(lauf.betont)))).join("");
-}
-
-function absatzText(laeufe: readonly Lauf[]): string {
-  return laeufe.map((lauf) => (typeof lauf === "string" ? lauf : lauf.betont)).join("");
-}
-
 const EINTEILUNG_TITEL = "Eure Einteilung";
-
-/** The rule is the top border of the cell holding the name lines, so the rule and the lines it opens move as one block. */
-function signaturKarte({ name, rolle, telefon, telefonHref }: Absender): string {
-  return `<table ${TABLE_ATTRS} width="100%">
-                  <tr>
-                    <td class="${RULE_MAIL_CLASS}" style="border-top:1px solid ${RULE_COLOR};padding:12px 0 16px;">
-                      <p class="${HEAD_MAIL_CLASS}" style="margin:0;${LABEL_TEXT}color:${HEADING_COLOR};font-weight:700;">${escapeHtml(name)}</p>
-                      <p class="${TEXT_MAIL_CLASS}" style="margin:0;${LABEL_TEXT}color:${TEXT_COLOR};">${escapeHtml(`${rolle}, ${BRAND_NAME}`)}</p>
-                      <p class="${TEXT_MAIL_CLASS}" style="margin:0;${LABEL_TEXT}color:${TEXT_COLOR};">${link(telefonHref, telefon)}</p>
-                    </td>
-                  </tr>
-                </table>`;
-}
-
-/** The same close as lines, which is how a letter's signature reads without markup. */
-function signaturZeilen({ name, rolle, telefon }: Absender): string[] {
-  return [name, `${rolle}, ${BRAND_NAME}`, telefon];
-}
 
 /**
  * For the reader who never applied: anybody can type any address into a public form. Last in the
@@ -253,7 +145,7 @@ function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
 const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
 
-export type BewerbungEmail = { subject: string; html: string; text: string; absender?: { readonly name: string; readonly antwortAn: string } };
+export type BewerbungEmail = { subject: string; html: string; text: string };
 
 /**
  * What an accepted application is told. `gruppe`, `trikotFarbeLabel`, `trikotFarbeHex` and `rollenText` arrive rendered
@@ -349,11 +241,7 @@ interface Nachricht {
   /* Stated per message, because what ignoring costs differs. Defaulted, it would tell a contact
      whose own seat is holding the application open that there is nothing to do. */
   readonly ignorierSatz: string;
-  /** Who signs the message. The close then names them where it otherwise states the no-reply note. */
-  readonly absender?: Absender;
 }
-
-const antwortSatz = (name: string): string => `Antworten auf diese E-Mail erreichen ${name}.`;
 
 /** The brand colour on „Saison NNNN“ wherever it stands whole, which is the phrase every message turns on. */
 function saisonPhrase(saisonId: string): string {
@@ -413,14 +301,14 @@ function renderFakten(fakten: readonly Fakt[], titel?: string): string {
 
 /** The shell's card, filled with this message: its panel where it has one above the prose, the prose, and the note every reader may need. */
 function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
-  const { headingVor, saisonId, origin, empfaenger, fakten, aktionen, ignorierSatz, absender } = nachricht;
+  const { headingVor, saisonId, origin, empfaenger, fakten, aktionen, ignorierSatz } = nachricht;
 
   return renderKarte({
     titel: ueberschrift(nachricht),
     ueberschrift: `${escapeHtml(headingVor)} ${saisonPhrase(saisonId)}`,
     bloecke: [...(fakten.length === 0 ? [] : [renderFakten(fakten)]), ...bloecke, paragraph(escapeHtml(ignorierSatz), "0", ASIDE_TEXT)],
     aktionen: aktionen,
-    fuss: `${EMPFAENGER_SATZ[empfaenger]} ${absender === undefined ? ANTWORT_SATZ_HTML : `${escapeHtml(antwortSatz(absender.name))} ${ADRESS_SATZ_HTML}`}`,
+    fuss: `${EMPFAENGER_SATZ[empfaenger]} ${ANTWORT_SATZ_HTML}`,
     origin: origin,
   });
 }
@@ -449,8 +337,7 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
   // The note closes the body here as it closes the card there, and a message whose links all stand
   // in its prose lists nothing under it rather than closing on a blank line.
   const unten = [nachricht.ignorierSatz, ...(nachricht.textAktionen.length === 0 ? [] : ["", ...nachricht.textAktionen])];
-  const antwort = nachricht.absender === undefined ? ANTWORT_SATZ_TEXT : `${antwortSatz(nachricht.absender.name)} ${ADRESS_SATZ_TEXT}`;
-  const fuss = textFooter(nachricht.origin, [EMPFAENGER_SATZ[nachricht.empfaenger], antwort]);
+  const fuss = textFooter(nachricht.origin, [EMPFAENGER_SATZ[nachricht.empfaenger], ANTWORT_SATZ_TEXT]);
 
   return [stuffSignatureDelimiter(oben.join("\n")), "", ...unten, ...fuss].join("\n");
 }
@@ -487,7 +374,6 @@ export function buildBewerbungZusageEmail({
   // In the panel only: the prose keeps the league's wording. As text beside the square, because classic
   // Outlook on Windows draws none; and never in any other shape, which no supplier could match.
   const hex = farbe !== null && trikotFarbeHex !== null && FARBFELD_HEX.test(trikotFarbeHex) ? trikotFarbeHex : null;
-  const zusatz = SAISON_ZUSAGEN.get(saisonId);
 
   // No row for the decision or the season: the heading states both.
   const einteilungFakten: readonly Fakt[] = [
@@ -513,7 +399,6 @@ export function buildBewerbungZusageEmail({
     aktionen: aktionenPaar(site),
     textAktionen: textAktionenPaar(site),
     ignorierSatz: IGNORIER_SATZ,
-    absender: zusatz?.absender,
   };
 
   const html = renderHtml(nachricht, [
@@ -524,22 +409,12 @@ export function buildBewerbungZusageEmail({
     paragraph(
       `vielen Dank für Eure Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME}. Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war. ${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} aufgenommen. Herzlich willkommen!`,
     ),
-    ...(zusatz === undefined
-      ? []
-      : [
-          renderFakten(zusatz.versammlung.fakten, zusatz.versammlung.titel),
-          ...zusatz.einladung.map((absatz) => paragraph(absatzHtml(absatz))),
-        ]),
     renderFakten(einteilungFakten, EINTEILUNG_TITEL),
     paragraph(escapeHtml(einteilung)),
-    ...(zusatz?.einteilungHinweise ?? []).map((absatz) => paragraph(absatzHtml(absatz))),
     // Unemphasised, unlike the name above it: a school skims the bold, and a club set in it would read
     // as the fixture the draw has not drawn.
     ...(gegner === "" ? [] : [paragraph(wunschgegnerSatz(escapeHtml(gegner)))]),
     paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
-    ...(zusatz === undefined
-      ? []
-      : [paragraph(escapeHtml(zusatz.fragenSatz)), paragraph(escapeHtml(zusatz.gruss), "0 0 12px"), signaturKarte(zusatz.absender)]),
   ]);
 
   const text = renderText(nachricht, [
@@ -548,35 +423,18 @@ export function buildBewerbungZusageEmail({
     `vielen Dank für Eure Bewerbung für die Saison ${saisonId} der ${BRAND_NAME}.`,
     "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
     `${team} ist für die Saison ${saisonId} aufgenommen. Herzlich willkommen!`,
-    ...(zusatz === undefined
-      ? []
-      : [
-          "",
-          zusatz.versammlung.titel,
-          ...textFakten(zusatz.versammlung.fakten),
-          ...zusatz.einladung.flatMap((absatz) => ["", absatzText(absatz)]),
-        ]),
     "",
     EINTEILUNG_TITEL,
     ...textFakten(einteilungFakten),
     "",
     einteilung,
-    ...(zusatz?.einteilungHinweise ?? []).flatMap((absatz) => ["", absatzText(absatz)]),
     // The separating blank line rides WITH the sentence, so an unnamed opponent leaves no gap behind.
     ...(gegner === "" ? [] : ["", wunschgegnerSatz(gegner)]),
     "",
     `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
-    ...(zusatz === undefined ? [] : ["", zusatz.fragenSatz, "", zusatz.gruss, "", ...signaturZeilen(zusatz.absender)]),
   ]);
 
-  if (zusatz === undefined) return { subject: `Willkommen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
-
-  return {
-    subject: `Willkommen in der Saison ${saisonId}: ${zusatz.betreff}`,
-    html: html,
-    text: text,
-    absender: { name: `${zusatz.absender.name}, ${BRAND_NAME}`, antwortAn: zusatz.absender.antwortAn },
-  };
+  return { subject: `Willkommen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
