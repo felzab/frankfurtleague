@@ -30,6 +30,7 @@ from app.api.spieltage.schemas import FLSpieltagRecord
 from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
 from app.core.collections import Collection
 from app.core.config import get_config  # noqa: TID251
+from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 
 RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaisonRecord,
@@ -81,7 +82,7 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
 
 async def _main() -> int:
     config = get_config()
-    client = AsyncMongoClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=config.db_server_selection_timeout)
+    client = AsyncMongoClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
     try:
         return await read_back(client, config.db_base_name)
     # The type alone: the driver's message names the host it resolved out of the secret.

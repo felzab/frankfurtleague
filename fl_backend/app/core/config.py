@@ -3,18 +3,11 @@ import re
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Final
 
-# Unpublished: python-dotenv's `__all__` offers no reader of line numbers, and these are the parser
-# its own `dotenv_values` runs. uv.lock pins the release, so a reshaped one arrives by a lock bump,
-# which the line-number cases in `tests/core/test_config.py` meet.
-from dotenv.parser import Original, parse_stream
 from fastapi import Request
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
-from pydantic_core import PydanticCustomError
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
-
-LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 # A property of THIS CODE, never a deployment's: an environment able to set it could serve
 # `/api/v2/` from code implementing v0.
@@ -65,28 +58,23 @@ class EnvironmentValidationError(Exception):
     """
 
 
-# A model validator judges a PAIR, and pydantic gives its issue an empty `loc`, so the fields it
-# read are recovered from the error type it raised rather than from the issue's own location.
-POOL_BOUNDS_ERROR: Final = "db_pool_bounds"
-MODEL_ERROR_FIELDS: Final = {POOL_BOUNDS_ERROR: ("db_min_connections", "db_max_connections")}
+# The issue pydantic raises for a name the dotenv file holds and the class does not declare.
+UNDECLARED: Final = "extra_forbidden"
 
 
 def _failing_names(error: ValidationError) -> list[str]:
-    """The failing fields, spelled as their source spells them.
+    """The declared fields that failed, spelled as their source spells them.
 
     An issue's own message and its `input_value` each quote what was rejected, so neither is read.
-    A model-level issue's `input_value` is the WHOLE settings mapping, so this path never widens.
+    An undeclared name is the file's own text, which a pasted key's line keeping the dotenv shape
+    would be, so `_undeclared` counts it and nothing names it.
     """
     # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
-    names: set[str] = set()
-    for issue in error.errors():
-        if issue["loc"]:
-            names.add(str(issue["loc"][0]))
-        elif fields := MODEL_ERROR_FIELDS.get(issue["type"]):
-            names.update(fields)
-        else:
-            names.add("<unknown>")
-    return sorted(names)
+    return sorted({str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in error.errors() if issue["type"] != UNDECLARED})
+
+
+def _undeclared(error: ValidationError) -> int:
+    return sum(issue["type"] == UNDECLARED for issue in error.errors())
 
 
 class _EnvironmentFields(BaseModel):
@@ -95,53 +83,6 @@ class _EnvironmentFields(BaseModel):
     # The characters MongoDB accepts in a database name: a value carrying a separator or a space
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
-    db_server_selection_timeout: int = Field(
-        # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first
-        # request waits on. Here a request's shorter deadline governs, so only the boot waits this long,
-        # and no visitor waits on the boot.
-        default=15000,
-        # Milliseconds. Zero fails every operation before the driver has looked at anything, and the
-        # ceiling keeps a failed ping inside the window `scripts/ops/deploy.sh` waits for health in, so
-        # the reason reaches the log excerpt it prints.
-        gt=0,
-        le=60_000,
-        description="MongoDB server-selection timeout in ms",
-    )
-    db_min_connections: int = Field(default=5, ge=0, description="Min pool size")
-    # At least one: pymongo refuses a zero maximum at construction, which is a stack trace during
-    # the lifespan rather than a named variable at the gate.
-    db_max_connections: int = Field(default=100, ge=1, description="Max pool size")
-
-    log_level_app: LogLevel = Field(
-        default="INFO",
-        description="The minimal level a log has to reach to be processed",
-    )
-    log_level_db: LogLevel = Field(
-        default="WARNING",
-        description="The minimal level a database related log has to reach to be processed",
-    )
-    # Defaults to the production format: a `.env` omitting the variable must not log ANSI-colourised
-    # output into the container's json-file stream.
-    log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
-
-    @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
-    def normalize_logging_case(cls, value: object) -> object:
-        # `LOG_FORMAT=JSON` or `LOG_LEVEL_APP=info` must select the intended branch rather than fail
-        # the boot over casing.
-        if isinstance(value, str):
-            return value.lower() if value.lower() in ("console", "json") else value.upper()
-        return value
-
-    @model_validator(mode="after")
-    def validate_the_pool_bounds_against_each_other(self) -> Self:
-        # Each bound alone admits a minimum above the maximum. pymongo refuses that pair while
-        # CONSTRUCTING the client, and `db.py :: _refusal_for` reads its `ValueError` as an
-        # unopenable URI -- blaming the URI's file for these two.
-        if self.db_min_connections > self.db_max_connections:
-            # `PydanticCustomError` rather than a `ValueError`, whose issue type `value_error` every
-            # field validator here shares: the token is what `_failing_names` recovers the pair from.
-            raise PydanticCustomError(POOL_BOUNDS_ERROR, "the pool minimum must not exceed the maximum")
-        return self
 
 
 # Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
@@ -245,17 +186,12 @@ class BackendConfig(_EnvironmentFields, _SecretFields):
     model_config = ConfigDict(extra="forbid", validate_by_name=True)
 
 
-# Every name either half declares, as the environment spells it: the names a refusal may print. Any
-# other is the dotenv file's own text, which a pasted key's line keeping the dotenv shape would be.
-SETTING_NAMES: Final = frozenset(name.upper() for name in BackendEnvironment.model_fields | BackendConfig.model_fields)
-
-
 def read_environment() -> BackendEnvironment:
     """The environment half, refused by the names it could not accept; the deploy's preflight reads this alone."""
     try:
         return BackendEnvironment()
     except ValidationError as error:
-        failing = _failing_names(error)
+        failing, undeclared = _failing_names(error), _undeclared(error)
     except ValueError as error:
         # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
         # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
@@ -263,30 +199,19 @@ def read_environment() -> BackendEnvironment:
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
     # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
     # quotes each rejected value into the traceback uvicorn prints.
-    raise _environment_refusal(failing) from None
+    raise _environment_refusal(failing, undeclared) from None
 
 
-def _environment_refusal(failing: list[str]) -> EnvironmentValidationError:
-    """A declared name by name, upper-cased as the environment spells it; any other by the line declaring it, and a count.
+def _environment_refusal(failing: list[str], undeclared: int) -> EnvironmentValidationError:
+    """Each declared name that failed, upper-cased as the environment spells it, and a count of the undeclared ones.
 
     The first sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`),
     so one hint in `scripts/ops/deploy.sh` covers both.
     """
-    named = [name.upper() for name in failing if name.upper() in SETTING_NAMES or name == "<unknown>"]
-    undeclared = {name.lower() for name in failing if name.upper() not in SETTING_NAMES and name != "<unknown>"}
-    sentences = [f"Invalid environment variables: {', '.join(named)}"] if named else []
+    sentences = [f"Invalid environment variables: {', '.join(name.upper() for name in failing)}"] if failing else []
     if undeclared:
-        # python-dotenv's own parser, opened as it opens the file.
-        with Path(str(BackendEnvironment.model_config.get("env_file"))).open(encoding="utf-8") as stream:
-            lines = sorted(_name_line(binding.original) for binding in parse_stream(stream) if (binding.key or "").lower() in undeclared)
-        sentences.append(f"Undeclared environment variables on {len(lines)} line(s): {', '.join(map(str, lines))}")
+        sentences.append(f"Undeclared environment variables: {undeclared}")
     return EnvironmentValidationError("; ".join(sentences))
-
-
-def _name_line(original: Original) -> int:
-    """The line a binding's name stands on: python-dotenv numbers a binding from the blank lines it opens with."""
-    leading = original.string[: len(original.string) - len(original.string.lstrip())]
-    return original.line + leading.count("\n")
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:

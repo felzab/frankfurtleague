@@ -70,10 +70,6 @@ services:
     build:
       context: ./fl_backend
       dockerfile: Dockerfile
-    environment:
-      # The stack shows the production stream even when the developer's `fl_backend/.env` selects the
-      # console format for `fastapi dev`.
-      - LOG_FORMAT=json
     # Production's list without the login, which the config below replaces as the frontend's does.
     secrets: !override
       - sperrliste_schluessel

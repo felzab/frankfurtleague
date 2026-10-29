@@ -57,6 +57,7 @@ from app.core.collections import Collection
 # Outside any request, so the environment's settings rather than an application's.
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
 from app.core.crud import patch_one_in_db, post_one_to_db
+from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from app.core.drosselung import build_counts_filter, erase_counts_in_session
 from app.core.exceptions import BaseAPIException
 from app.core.journal import JournalLine, parse_line
@@ -780,7 +781,7 @@ def _main() -> int:
     async def main() -> int:
         client: AsyncMongoClient = AsyncMongoClient(
             host=config.mongodb_uri.get_secret_value(),
-            serverSelectionTimeoutMS=config.db_server_selection_timeout,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
             uuidRepresentation="standard",
         )
         try:

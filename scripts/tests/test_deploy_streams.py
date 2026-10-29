@@ -542,7 +542,7 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     # The application is installed wherever this scope runs, CI's job included, so an import failure
     # here is the case failing, never the advisory arm the case below pins.
     assert "snippet=3" in output, output
-    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "Undeclared environment variables: 1" in output, output
     assert "A_NAME_NOTHING_DECLARES" not in output, output
     assert "a value no case reads" not in output, output
     # The fixture's file declares nothing the backend requires either, so a missing required variable
@@ -550,13 +550,13 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     assert "DB_BASE_NAME" in output, output
 
 
-def test_the_snippet_numbers_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
+def test_the_snippet_counts_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
     """The backend's own refusal, read in its image as the deploy reads it: a name the settings do not declare is the file's text."""
     code, output, _ = _run(f"{_written('fl_backend/.env', 'KEYDATAvxq==\n')}{SNIPPET}", PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
     assert "snippet=3" in output, output
-    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "Undeclared environment variables: 1" in output, output
     assert "vxq" not in output.lower(), output
 
 
@@ -573,14 +573,14 @@ export SECRETS_DIR=run-secrets
 """
 
 
-def test_the_snippet_refuses_a_line_a_secret_file_replaced_naming_it_alone() -> None:
-    """The file is otherwise one the settings accept, so the line alone is what refuses, and its name alone what is printed."""
+def test_the_snippet_refuses_a_line_a_secret_file_replaced_printing_no_value() -> None:
+    """The file is otherwise one the settings accept, so the line alone is what refuses, by count; `refuse_credential_lines` names it first."""
     left_behind = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
     code, output, _ = _run(left_behind + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
     assert "snippet=3" in output, output
-    assert re.search(r"^Invalid environment variables: MONGODB_URI\r?$", output, re.MULTILINE), output
+    assert re.search(r"^Undeclared environment variables: 1\r?$", output, re.MULTILINE), output
     assert "a value no case reads" not in output, output
 
 
@@ -635,7 +635,7 @@ SCHEMA_SHAPES: Final = [
     pytest.param("API_URL=http://backend:8000/api?x=1&y=[2]", id="url-query"),
     pytest.param("AUTH_URL=https://a@frankfurtleague.de:443/~b/c;d=(e)!f*g+h,i%20-_.", id="url-every-character"),
     pytest.param("API_VERSION=0", id="integer"),
-    pytest.param("LOG_LEVEL_APP=WARNING", id="enum"),
+    pytest.param("APP_ENV=production", id="enum"),
     pytest.param("SECRETS_DIR=/run/secrets", id="path"),
     pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
     pytest.param("DB_BASE_NAME=fl_db-1", id="database-name"),

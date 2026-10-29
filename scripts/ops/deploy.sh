@@ -248,11 +248,11 @@ check_env_names() {
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it declares and could not accept, by name; the lines declaring a name it does not, by
-number alone; or the type of a read that failed before it reached one. No value is printed, and no
-name the backend does not declare. A named variable is a value to correct; a numbered line is one
-to open, then delete or answer with a field in the settings class, nothing in that class reading
-its name -- so it reads as omitted and the shipped default serves production.
+variables it declares and could not accept, by name; how many names it does not declare, as a
+count alone; or the type of a read that failed before it reached one. No value is printed, and no
+name the backend does not declare. A named variable is a value to correct; an undeclared name is a
+line to find and delete, nothing in the settings class reading it -- so it reads as omitted and the
+shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
