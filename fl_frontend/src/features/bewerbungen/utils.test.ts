@@ -1,4 +1,4 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { answerSettled, answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
@@ -36,7 +36,7 @@ import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungAnsicht } from "./types.ts";
 
 /** The label the backend runs on the contact page, off the registry it generated. */
-const KONTAKT_LABEL = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+const KONTAKT_LABEL = laufendeFassung("bestaetigung_kontakt").text_version;
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {

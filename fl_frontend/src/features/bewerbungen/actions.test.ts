@@ -1,6 +1,6 @@
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
@@ -79,7 +79,7 @@ const writes = client.calls;
 const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
 /** The label the backend runs on the application form, off the registry it generated. */
-const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
 // `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
 doubleActions({ modules: ["@/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });

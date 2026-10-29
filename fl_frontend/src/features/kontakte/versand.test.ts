@@ -1,6 +1,6 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { einwilligungAnswer, publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { einwilligungAnswer, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { membershipAnswer } from "@/test-support/membershipFixtures.ts";
@@ -17,7 +17,7 @@ const ORIGIN = "http://localhost:3000";
 vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN } }));
 
 /** The label the backend runs on the application form, off the registry it generated. */
-const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_TEAM_ID = "6890a1b2c3d4e5f6071f0001";

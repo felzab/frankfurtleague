@@ -2,23 +2,18 @@ import z from "zod";
 
 import type { FLEinwilligungFassung } from "./schemas";
 
-// A list rather than a bare union, so `fl_frontend/src/core/einwilligungSeiten.test.ts` holds it equal
-// to the pages the backend runs: a page added on one side alone goes red there.
 /** The pages this frontend renders a running label's words on, spelled as the backend keys them. */
-export const EINWILLIGUNG_SEITEN = [
-  "bewerbung",
-  "bestaetigung_kontakt",
-  "bestaetigung_kontakt_verwaltung",
-  "bestaetigung_kontakt_saison",
-  "bestaetigung_spieler",
-  "bestaetigung_spieler_wiederkehrend",
-  "bestaetigung_schiedsrichter",
-  "konto_spieler",
-  "konto_schiedsrichter",
-  "konto_kontakt",
-] as const;
-
-export type EinwilligungSeite = (typeof EINWILLIGUNG_SEITEN)[number];
+export type EinwilligungSeite =
+  | "bewerbung"
+  | "bestaetigung_kontakt"
+  | "bestaetigung_kontakt_verwaltung"
+  | "bestaetigung_kontakt_saison"
+  | "bestaetigung_spieler"
+  | "bestaetigung_spieler_wiederkehrend"
+  | "bestaetigung_schiedsrichter"
+  | "konto_spieler"
+  | "konto_schiedsrichter"
+  | "konto_kontakt";
 
 // Each list is its page's whole set: a served map missing or adding a key fails `gekeyteFassung`
 // rather than rendering a gap or dropping a paragraph. The contact pages share one set, placing

@@ -1,4 +1,4 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { assert, describe, expect, it } from "vitest";
 
@@ -19,7 +19,7 @@ import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 
 /** The label the backend runs on the application form, which a seat opened blank stamps. */
-const LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const LABEL = laufendeFassung("bewerbung").text_version;
 
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
   vorname: "Erika",

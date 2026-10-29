@@ -1,4 +1,4 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
@@ -29,7 +29,7 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 /** The label the application form runs, off the registry the backend generated. */
-const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
