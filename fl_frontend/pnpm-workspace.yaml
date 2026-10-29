@@ -3,6 +3,10 @@ allowBuilds:
   # optional native binding and the cpu-features probe it builds with serve nothing, and protobufjs's
   # script only prints a version notice.
   cpu-features: false
+  # Orval's, which bundles the transport only to read its parameters. Its binary comes from the
+  # `@esbuild/*` package the lockfile pins; its script only checks for it and, finding none, installs
+  # one through npm, past the lockfile and this file's policies. Refused, a missing binary fails loudly.
+  esbuild: false
   protobufjs: false
   # Its native code comes from the prebuilt @img packages the lockfile pins; pnpm lists it only for
   # the source build its binding.gyp offers, which nothing here needs.

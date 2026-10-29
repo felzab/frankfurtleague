@@ -17969,10 +17969,10 @@
           "id",
           "beginn",
           "ende",
-          "anzahl_spiele",
           "position",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "anzahl_spiele"
         ],
         "title": "FLSpieltag",
         "type": "object"

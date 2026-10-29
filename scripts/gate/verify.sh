@@ -3,7 +3,9 @@
 # SCRIPTS · the pre-merge gate — every scope, or the scopes a run names.
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
-# `compilerOptions` key is absent; the frontend CI job diffs that path.
+# `compilerOptions` key is absent; the frontend CI job diffs that path. The db scope's contract check
+# regenerates `fl_backend/openapi.json` and `fl_frontend/src/core/generated/`, which moves a file only
+# where its committed copy is stale, the finding that check reports.
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
@@ -273,13 +275,6 @@ scope_docs() {
   check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
-
-  # `openapi.json` publishes every endpoint and model docstring, so a reword edits it. Needs the
-  # virtualenv and no database: `build_test_config` supplies the settings.
-  step "docs · openapi.json matches the docstrings it publishes"
-  check --checker "The published document no longer matches the models and docstrings it is built from. The output above names the repair." \
-    env "PYTHONPATH=${REPO_ROOT}/fl_backend" "$PY" -m tests.openapi_document --check \
-    && ok "openapi.json is current"
   return 0
 }
 
@@ -519,9 +514,31 @@ files under nginx/shared/ decide it." bash nginx/edge_test.sh \
 
 # --- db --------------------------------------------------------------------------------------------
 
+CONTRACT_PATHS=(fl_backend/openapi.json fl_frontend/src/core/generated)
+
+# The published document regenerated from the routes and models, the client regenerated from it, and
+# both compared with the tree: a route, a model or a docstring the committed files do not hold is a
+# finding. Each generator rewrites only files whose committed copy is then stale. An untracked file is
+# one a generation added, which `git diff` alone would pass. A generator that fails reaches no verdict.
+contract_check() {
+  uv run --directory fl_backend --frozen python -m app.openapi_document || return 3
+  ( cd fl_frontend && pnpm exec orval ) || return 3
+  local untracked
+  untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
+  if [[ -n "$untracked" ]]; then printf 'Written by the generation and not committed:\n%s\n' "$untracked"; return 1; fi
+  git diff --exit-code -- "${CONTRACT_PATHS[@]}"
+}
+
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
+  # This scope because it alone has both the backend's virtualenv and the frontend's install.
+  step "db · the contract and its generated client match the code they are built from"
+  check "The committed contract no longer matches the code it is generated from; the diff above names each file.
+Fix with:  uv run --directory fl_backend --frozen python -m app.openapi_document && (cd fl_frontend && pnpm exec orval)  -- then commit both." \
+    contract_check \
+    && ok "the contract and the client are current"
+
   # `loadfile` for isolation too: `fl_backend/tests/api/test_erasure_commit_fail_points.py` sets the
   # server's one `failCommand`, so its cases run one after another on one worker.
   step "db · pytest -m db, distributed over the two shared mongods"

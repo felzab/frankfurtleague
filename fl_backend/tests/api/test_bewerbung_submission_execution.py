@@ -13,10 +13,9 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
-from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
+from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     BEWERBUNG_ADRESSE_GESPERRT,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
@@ -48,7 +47,7 @@ from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
@@ -949,95 +948,6 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         ),
         **fields,
     }
-
-
-def _stored_with(database: AsyncDatabase, kader: Mapping[str, Any]) -> Awaitable[str]:
-    """One application inserted straight past the models, so only the `$jsonSchema` can be refusing it."""
-
-    async def _insert() -> str:
-        document = _stored_application(kader=dict(kader))
-        try:
-            await database[Collection.BEWERBUNGEN].insert_one(document)
-        except OperationFailure as failure:
-            assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-            return "rejected"
-        return "accepted"
-
-    return _insert()
-
-
-class TestTheDatabaseRefusesACountItCannotHold:
-    """The half no model can prove: `gute_spieler` is non-nullable in the `$jsonSchema` too.
-
-    Without it the validator could drift back to `int|null` with every Python test still green.
-    """
-
-    def test_a_null_count_is_refused_by_the_validator(self, mongo_replica_set_url: str):
-        null_count = {"voraussichtliche_groesse": 14, "gute_spieler": None}
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, null_count)) == "rejected"
-
-    def test_an_omitted_count_is_refused_too(self, mongo_replica_set_url: str):
-        """`required` names the key, so an absent one is a rejection rather than a stored null."""
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, {"voraussichtliche_groesse": 14})) == "rejected"
-
-    def test_a_real_count_is_stored(self, mongo_replica_set_url: str):
-        """The control: without it both cases above would pass on a validator that refuses every kader."""
-
-        real_count = {"voraussichtliche_groesse": 14, "gute_spieler": 0}
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, real_count)) == "accepted"
-
-
-class TestTheDatabaseHoldsAClubWithNoWebsite:
-    """The half no model can prove: `website_url` is nullable in BOTH `$jsonSchema`s too.
-
-    A model relaxed while a validator stayed `bsonType: "string"` refuses the write at the driver,
-    which is the direction that ships silently.
-    """
-
-    def test_an_application_naming_no_website_is_stored(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            response = await submit(database, team_id=None, schule=schule_block(website_url=None))
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
-
-            assert stored is not None
-            # Parsed through the read model too: storing it and being unable to read it back would
-            # 500 the triage list over the one row an administrator has to decide.
-            return FLBewerbung(**stored).schule
-
-        schule_read = on_a_league(mongo_replica_set_url, body)
-
-        assert schule_read is not None
-        assert schule_read.website_url is None
-
-    def test_a_club_naming_no_website_is_stored(self, mongo_replica_set_url: str):
-        """`teams` carries its own validator, and acceptance is what writes a club from an application."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.TEAMS].insert_one(club_document(UNKNOWN_OID, "Ohnesite", "OSX") | {"website_url": None})
-            stored = await database[Collection.TEAMS].find_one({"_id": UNKNOWN_OID})
-
-            assert stored is not None
-            return stored["website_url"]
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
-    def test_the_key_is_still_required_even_when_null(self, mongo_replica_set_url: str):
-        """Nullable, not optional: `required` names the key, so an omitted one is still a rejection."""
-
-        async def body(database: AsyncDatabase) -> str:
-            document = club_document(UNKNOWN_OID, "Ohneschluessel", "OKX")
-            del document["website_url"]
-            try:
-                await database[Collection.TEAMS].insert_one(document)
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "rejected"
 
 
 class TestAKuerzelARetiredClubStillHolds:

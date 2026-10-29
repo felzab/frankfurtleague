@@ -8,7 +8,9 @@ from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_r
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class FLSpieltag(BaseModel):
+class FLSpieltagRecord(BaseModel):
+    """A matchday as `spieltage` stores it, which `FLSpieltag` serves with its derived count."""
+
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # NULLABLE where the payload's pair is not: a drawn matchday carries no span until somebody sets
@@ -17,14 +19,17 @@ class FLSpieltag(BaseModel):
     beginn: CustomDateString | None
     ende: CustomDateString | None
 
-    # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
-    # expects none.
-    anzahl_spiele: int = Field(ge=0)
     # STORED, and unique within one phase of one season. `ge=1` because the reader renders this very
     # number -- "1. Spieltag", "Viertelfinale (2)" -- so a zero would be a matchday nobody counts.
     position: int = Field(ge=1)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+
+
+class FLSpieltag(FLSpieltagRecord):
+    # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
+    # expects none.
+    anzahl_spiele: int = Field(ge=0)
 
 
 FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])

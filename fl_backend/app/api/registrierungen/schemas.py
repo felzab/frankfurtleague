@@ -99,13 +99,7 @@ class FLRegistrierungEinwilligung(FLEinwilligung):
     nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
-class FLRegistrierung(BaseModel):
-    """One pupil's registration for one team's season, as stored, its decision as served.
-
-    The submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills
-    `geburtsdatum`, and a decline writes `status` and `entscheidung`.
-    """
-
+class _RegistrierungStored(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
     team_id: CustomObjectId
@@ -126,6 +120,15 @@ class FLRegistrierung(BaseModel):
     # Null until the pupil confirms.
     geburtsdatum: CustomOptionalDateString
     einwilligung: FLRegistrierungEinwilligung | None
+
+
+class FLRegistrierung(_RegistrierungStored):
+    """One pupil's registration for one team's season, as stored, its decision as served.
+
+    The submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills
+    `geburtsdatum`, and a decline writes `status` and `entscheidung`.
+    """
+
     bestaetigung: FLRegistrierungBestaetigung | None
     # As served, so a row reaches the wire only through
     # `app/api/registrierungen/services.py :: mit_vorenthaltener_entscheidung`.
@@ -134,6 +137,23 @@ class FLRegistrierung(BaseModel):
     # unconfirmed registration may be admitted, and two readers deriving that differently is how an
     # unconfirmed pupil gets a squad row.
     bestaetigt: bool
+
+
+class FLRegistrierungBestaetigungRecord(FLRegistrierungBestaetigung):
+    """One registration's bookkeeping as `registrierungen` stores it: its link's hash, and the one a reminder replaced."""
+
+    token_hash: str
+    token_hash_zuvor: str | None = None
+
+
+class FLRegistrierungRecord(_RegistrierungStored):
+    """One registration as `registrierungen` stores it: its decision before any decider is withheld, and what no read serves."""
+
+    bestaetigung: FLRegistrierungBestaetigungRecord | None
+    entscheidung: FLRegistrierungEntscheidung | None
+    # The submission's replay key and digest.
+    idempotenz_schluessel: str | None = None
+    idempotenz_fingerabdruck: str | None = None
 
 
 FLRegistrierungListAdapter = TypeAdapter(list[FLRegistrierung])

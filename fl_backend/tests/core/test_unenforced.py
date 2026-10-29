@@ -60,8 +60,9 @@ from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES
+from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
+from app.core.readback import RECORD_MODELS
 from tests.core.app_source import (
     APP_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
@@ -530,9 +531,9 @@ class TestADoubleBookingALiftedNoShowLeaves:
 class TestNoBracketFaultIsStored:
     """That the discriminator every fault variant carries is on no collection, so no fault can have been written."""
 
-    @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS), ids=str)
+    @pytest.mark.parametrize("collection", sorted(RECORD_MODELS), ids=str)
     def test_no_collection_stores_a_faults_reason(self, collection):
-        assert "reason" not in COLLECTION_VALIDATORS[collection]["$jsonSchema"]["properties"]
+        assert "reason" not in RECORD_MODELS[collection].model_fields
 
     def test_every_variant_is_discriminated_by_that_field(self):
         """Pinned so the check above keeps meaning what it says: a variant discriminated some other way would slip past it."""
@@ -760,13 +761,6 @@ class TestAStoredPreImageIsNeverRevalidated:
         """The other half of the containment: the page-sized read cannot serve what it does not declare."""
 
         assert "before" not in FLAktion.model_fields
-
-    def test_the_validator_asks_no_more_of_it(self):
-        """The other end of the same claim: a `$jsonSchema` tightening it would refuse the write rather than the read."""
-
-        before = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]["properties"]["before"]
-
-        assert set(before) == {"bsonType"}
 
 
 class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:

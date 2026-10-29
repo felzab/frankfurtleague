@@ -55,11 +55,11 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
 from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, admin_judge, get_grant_lookup
+from app.core.security import ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, PASSKEY_FACTOR, admin_judge, get_grant_lookup
 from app.core.transactions import actor_judge_var
 from app.main import create_app
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.actor_tokens import SignedActor, actor_claims, sign, verified_actor
+from tests.actor_tokens import SignedActor, session_headers, verified_actor
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
@@ -1598,15 +1598,15 @@ class TestWhatMarksARowSeen:
 
 
 def since(seconds_ago: int) -> datetime:
-    """An instant `seconds_ago` before the real clock, which the actor tokens below are signed against."""
+    """An instant `seconds_ago` before the real clock, which the sessions below are judged against."""
 
     return datetime.now(UTC) - timedelta(seconds=seconds_ago)
 
 
 def signed_in_at(email: str, auth_time: int) -> dict[str, str]:
-    """One session's token, minted afresh by each request: its `iat` moves on, its sign-in stays where it was made."""
+    """One session's headers, its sign-in where it was made."""
 
-    return {**ADMIN_KEY, ACTOR_HEADER: sign({**actor_claims(email), "auth_time": auth_time})}
+    return {**ADMIN_KEY, **session_headers(email, auth_time=auth_time, factor=PASSKEY_FACTOR)}
 
 
 async def asked(http: Any, email: str, auth_time: int) -> tuple[int, str | None]:

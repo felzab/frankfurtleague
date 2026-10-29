@@ -29,7 +29,7 @@ from app.core.exceptions import ActorForbiddenException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.security import ACTOR_NOT_ADMIN, admin_judge, bind_actor, person_judge
+from app.core.security import ACTOR_NOT_ADMIN, admin_judge, attribute_the_administrator, bind_actor, person_judge
 from app.core.transactions import (
     ABORT_GRACE_S,
     UNJUDGED_KINDS,
@@ -923,7 +923,7 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> None:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
@@ -959,7 +959,7 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> int:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
@@ -1199,7 +1199,7 @@ class TestTheAdministratorsBinderBindsTheirJudge:
         request = Request({"type": "http", "method": "PATCH", "path": "/api/v0/spielorte", "headers": [], "query_string": b""})
 
         async def bound() -> tuple[object, object]:
-            binder = bind_actor(request, claims, config)
+            binder = bind_actor(request, attribute_the_administrator(claims, config))
             await anext(binder)
             during = actor_judge_var.get()
             with contextlib.suppress(StopAsyncIteration):

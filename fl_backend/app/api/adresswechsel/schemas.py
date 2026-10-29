@@ -82,6 +82,14 @@ class FLAdresswechsel(BaseModel):
     beendet: FLAdresswechselBeendet | None
 
 
+class FLAdresswechselRecord(FLAdresswechsel):
+    """One change as `adresswechsel` stores it, its two links' hashes with it."""
+
+    # Null on the `freigabe` way, which mails the new mailbox no link.
+    token_hash: str | None
+    stopp_hash: str
+
+
 # What an end owes after its commit: an effect's completion notice and account carry, or a refused due change's notice.
 FLAdresswechselPostausgangArt = Literal["wirksam", "verworfen"]
 

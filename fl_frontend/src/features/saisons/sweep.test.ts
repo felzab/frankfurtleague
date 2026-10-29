@@ -306,6 +306,11 @@ describe("one pass of the pupils' deletion", () => {
 const LAUF_SENDER = "postLoeschungLauf";
 const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
 
+/** The path's second spelling, Orval's from the published contract: a sender no caller may reach yet. */
+const GENERATED_MODULE = "core/generated/client/sdk.ts";
+const GENERATED_URL = "getIdentitaetPostLoeschungLaufUrl";
+const GENERATED_SENDERS = ["identitaetPostLoeschungLauf", GENERATED_URL];
+
 function declaresOrImports(node: ts.Identifier, where: string): boolean {
   if (ts.isFunctionDeclaration(node.parent) && node.parent.name === node) return where === LAUF_SENDER_MODULE;
 
@@ -328,10 +333,11 @@ describe("the deletion pass's callers", () => {
     const src = path.resolve(import.meta.dirname, "..", "..");
     const uses: string[] = [];
     const senders: string[] = [];
+    const generatedUses: string[] = [];
 
     for (const file of filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
       const text = readFileSync(file, "utf8");
-      if (!text.includes(LAUF_SENDER) && !text.includes(LAUF)) continue;
+      if (![LAUF_SENDER, LAUF, ...GENERATED_SENDERS].some((needle) => text.includes(needle))) continue;
       const where = path.relative(src, file).split(path.sep).join("/");
 
       const visit = (node: ts.Node): void => {
@@ -340,12 +346,20 @@ describe("the deletion pass's callers", () => {
         if (ts.isIdentifier(node) && node.text === LAUF_SENDER && !declaresOrImports(node, where)) uses.push(`${where} :: ${enclosing(node)}`);
         if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && node.text.includes(LAUF))
           senders.push(`${where} :: ${enclosing(node)}`);
+        // An import, an alias's source name or a namespace's property: any of them outside the generated folder is
+        // a caller the hand-written sender never sees.
+        if (ts.isIdentifier(node) && GENERATED_SENDERS.includes(node.text) && !where.startsWith("core/generated/"))
+          generatedUses.push(`${where} :: ${enclosing(node)}`);
         ts.forEachChild(node, visit);
       };
       visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
     }
 
     expect(uses.sort()).toStrictEqual(["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
-    expect(senders).toStrictEqual([`${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
+    // The generated URL builder spells the path in both arms of its query ternary.
+    expect(senders.sort()).toStrictEqual(
+      [`${GENERATED_MODULE} :: ${GENERATED_URL}`, `${GENERATED_MODULE} :: ${GENERATED_URL}`, `${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`].sort(),
+    );
+    expect(generatedUses).toStrictEqual([]);
   });
 });

@@ -264,6 +264,33 @@ class FLSaisonTeamBestaetigungen(BaseModel):
     stellvertretung: FLSaisonTeamBestaetigung | None
 
 
+class FLSaisonTeamBestaetigungRecord(FLSaisonTeamBestaetigung):
+    """One seat's link as the season row stores it, its hash with it."""
+
+    token_hash: str
+
+
+class FLSaisonTeamBestaetigungenRecord(FLSaisonTeamBestaetigungen):
+    trainer: FLSaisonTeamBestaetigungRecord | None
+    ansprechperson: FLSaisonTeamBestaetigungRecord | None
+    stellvertretung: FLSaisonTeamBestaetigungRecord | None
+
+
+class FLSaisonTeamRecord(BaseModel):
+    """One club's season as `saison_teams` stores it; no read serves the row whole."""
+
+    id: CustomObjectId = Field(validation_alias="_id")
+    saison_id: str
+    team_id: CustomObjectId
+    gruppe: FLGruppenNames
+    austritt: FLAustritt | None
+    trikot_farbe: FLTrikotFarbe | None
+    kontakte: FLSaisonTeamKontakte | None
+    bestaetigungen: FLSaisonTeamBestaetigungenRecord | None = None
+    name: str
+    shorthand: str
+
+
 class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
     """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
 

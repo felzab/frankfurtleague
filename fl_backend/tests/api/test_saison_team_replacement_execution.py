@@ -37,10 +37,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_replacement_test")
 
-# Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
-# cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
-UNCONSTRAINED_DATABASE_NAME = worker_database("fl_replacement_unconstrained_test")
-
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
 
@@ -251,19 +247,11 @@ def on_a_seeded_season(
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
     junctions: Sequence[dict[str, Any]] | None = None,
-    constrained: bool = True,
 ) -> Any:
-    """`active` by default: a mid-season withdrawal is what this endpoint is for.
-
-    The SHIPPED validators too, `constrained=False` being the case whose subject is a row they forbid.
-    """
-
-    # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
-    collections = () if constrained else (Collection.SPIELE,)
-    database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
+    """`active` by default: a mid-season withdrawal is what this endpoint is for."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
                 [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
@@ -584,14 +572,8 @@ class TestTheOutgoingClubsSquadIsRetired:
                 await call_replace(database, client)
             return await squad_now(database)
 
-        # UNCONSTRAINED, alone in this file: `Z` is no group the shipped validator admits, and the
-        # defence under test is the endpoint's own guard against a stored one that got past it.
-        squad = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")],
-            constrained=False,
-        )
+        # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
+        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 

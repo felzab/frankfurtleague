@@ -63,7 +63,6 @@ from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
-from app.core.actor_token import ActorTokenKey
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
@@ -206,8 +205,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
 
     app = TracedApp(lifespan=lifespan)
     app.state.config = config
-    # Once, here: the `kid` a token must name is this key's thumbprint, and no request recomputes it.
-    app.state.actor_token_key = ActorTokenKey.from_public_key(config.actor_token_public_key)
 
     register_exception_handlers(app)
 

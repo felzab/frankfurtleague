@@ -40,6 +40,12 @@ class FLEinladung(BaseModel):
     versand: FLEinladungVersand | None = None
 
 
+class FLEinladungRecord(FLEinladung):
+    """One minted link as `einladungen` stores it, its hash with it."""
+
+    token_hash: str
+
+
 class FLEinladungZeile(FLEinladung):
     """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
 

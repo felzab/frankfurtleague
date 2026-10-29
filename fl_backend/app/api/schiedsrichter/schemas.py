@@ -118,6 +118,18 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     geburtsdatum: CustomOptionalDateString = None
 
 
+class FLSchiedsrichterBestaetigungRecord(FLSchiedsrichterBestaetigung):
+    """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its link's hash with it."""
+
+    token_hash: str
+
+
+class FLSchiedsrichterRecord(FLSchiedsrichter):
+    """A referee as `schiedsrichter` stores them."""
+
+    bestaetigung: FLSchiedsrichterBestaetigungRecord | None = None
+
+
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 
 

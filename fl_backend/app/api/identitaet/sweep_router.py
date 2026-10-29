@@ -13,7 +13,6 @@ from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoesc
 from app.api.identitaet.services import abgeschlossene_saison_id, ohne_passende_adresse
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
@@ -25,6 +24,7 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonsCollection,
@@ -142,7 +142,7 @@ async def post_loeschung_lauf(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
+    drosselung_collection: DrosselungCollection,
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,

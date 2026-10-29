@@ -157,7 +157,7 @@ class _SaisonPayload(_SaisonWritable):
         return self
 
 
-class FLSaison(_SaisonWritable):
+class _SaisonStored(_SaisonWritable):
     # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands:
     # without it, an id like "2026/27" validates here and every document pointing at it fails on read.
     id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
@@ -167,9 +167,19 @@ class FLSaison(_SaisonWritable):
     # DEFAULTED: the season's creation writes no key, the generator being what writes it.
     spielplan: FLSaisonSpielplan | None = None
 
+
+class FLSaison(_SaisonStored):
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
     schedule: tuple[FLSaisonPhaseSchedule, ...]
+
+
+class FLSaisonRecord(_SaisonStored):
+    """A season as `saisons` stores it: no derived schedule, and the passes' own clocks, which no read serves."""
+
+    sweep_gelaufen_am: str | None = None
+    registrierung_sweep_gelaufen_am: str | None = None
+    spiel_sweep_gelaufen_am: str | None = None
 
 
 FLSaisonListAdapter = TypeAdapter(list[FLSaison])

@@ -22,13 +22,13 @@
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
 // with `directConnection=true`: no other server is reachable by that address, so this script cannot
-// write anywhere but the stack it is handed to. The backend has booted first, so every validator is
-// in place and judges each insert, and `python -m app.core.constraints --check` judges the whole
-// afterwards; the frontend starts only once both have passed (`docs/ops/spec.md` §1.5).
+// write anywhere but the stack it is handed to. The backend has booted first, so every index is in
+// place, and `python -m app.core.readback` judges every document afterwards; the frontend starts
+// only once it has passed (`docs/ops/spec.md` §1.5).
 //
 // Invariants:
 // - Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.
-// - Every document is spelled as the backend writes it: each key the validator requires, written
+// - Every document is spelled as the backend writes it: each key its record model requires, written
 //   null rather than left out, and the copies a fixture embeds taken from the row they copy.
 // - It empties every collection of the application database first and never touches `auth`, the
 //   sign-in store the frontend keeps beside it.

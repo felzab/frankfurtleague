@@ -141,9 +141,9 @@ async def a_due_person(database: AsyncDatabase, position: int) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
@@ -201,8 +201,14 @@ async def live(database: AsyncDatabase) -> list[ObjectId]:
     return await database[Collection.ADRESSWECHSEL].distinct("_id", {"beendet": None})
 
 
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+
+
 def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2126-04-01T00:00:00+00:00",
@@ -430,15 +436,14 @@ class TestOneChangeHoldsBackNoOther:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first, second = a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_YESTERDAY)
             await database[Collection.ADRESSWECHSEL].insert_many([first, second])
-            await database[Collection.AKTIONEN].insert_one(
-                refusing_its_redaction(Collection.ADRESSWECHSEL, first), bypass_document_validation=True
-            )
+            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(Collection.ADRESSWECHSEL, first))
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
             answer = await sweep(database, client)
 
             return (answer.entfernt, answer.verbleibend), await live(database)
 
         with caplog.at_level("ERROR"):
-            counts, standing = on_a_league(mongo_replica_set_url, body)
+            counts, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert counts == (1, 1)
         assert standing == [numbered(1)]
@@ -454,15 +459,14 @@ class TestOneChangeHoldsBackNoOther:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             changes = [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in failing]
             await database[Collection.ADRESSWECHSEL].insert_many(changes)
-            await database[Collection.AKTIONEN].insert_many(
-                [refusing_its_redaction(Collection.ADRESSWECHSEL, change) for change in changes], bypass_document_validation=True
-            )
+            await database[Collection.AKTIONEN].insert_many([refusing_its_redaction(Collection.ADRESSWECHSEL, change) for change in changes])
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
             await database[Collection.ADRESSWECHSEL].insert_one(a_change(last, minted=MINTED_TO_LAPSE_YESTERDAY))
             answers = await a_pass(database, client)
 
             return [answer.entfernt for answer in answers], numbered(last) in await live(database)
 
-        ended, standing = on_a_league(mongo_replica_set_url, body)
+        ended, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (ended, standing) == ([0, 1], False)
 

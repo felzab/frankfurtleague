@@ -21,7 +21,9 @@ import type { SentRequest } from "./errors";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
-const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
+/** The path every endpoint is spelled under; `fl_backend/openapi.json` writes it into each of its paths. */
+export const BASE_FETCH_PATH = `/api/v${frontend_config.API_VERSION}`;
+const BASE_FETCH_URL = `${frontend_config.API_URL}${BASE_FETCH_PATH}`;
 
 /**
  * The backend's own deadline on a request, retyped from `fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`:
@@ -127,6 +129,15 @@ const handleFetchResponse = async ({
   });
 };
 
+/** A query as the backend reads it: an absent or null value is left out, so its parameter takes its default. */
+export function queryOf(params: FetchOptions["params"]): URLSearchParams {
+  const query = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) query.append(key, String(value));
+  });
+  return query;
+}
+
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
   // the ids reach the header and the errors, never the returned value.
@@ -169,13 +180,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
   }
 
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        urlObj.searchParams.append(key, String(value));
-      }
-    });
-  }
+  queryOf(params).forEach((value, key) => urlObj.searchParams.append(key, value));
 
   const sent = sentRequestOf(customOptions.method, readOnly);
 

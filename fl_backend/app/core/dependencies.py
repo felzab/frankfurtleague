@@ -7,86 +7,60 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core import clock
-from app.core.db import (
-    get_adressanker_collection,
-    get_adresswechsel_collection,
-    get_adresswechsel_postausgang_collection,
-    get_aktionen_collection,
-    get_berechtigungen_angekuendigt_collection,
-    get_berechtigungen_antraege_collection,
-    get_berechtigungen_collection,
-    get_berechtigungen_postausgang_collection,
-    get_bewerbungen_collection,
-    get_database,
-    get_db_client,
-    get_drosselung_collection,
-    get_einladungen_collection,
-    get_registrierungen_collection,
-    get_saison_spieler_collection,
-    get_saison_teams_collection,
-    get_saisons_collection,
-    get_schiedsrichter_collection,
-    get_sperrliste_collection,
-    get_spielberichte_collection,
-    get_spielbestaetigungen_collection,
-    get_spiele_collection,
-    get_spieler_collection,
-    get_spielorte_collection,
-    get_spieltage_collection,
-    get_teams_collection,
-)
+from app.core.collections import Collection
+from app.core.db import collection_dependency, get_database, get_db_client
 
 DBClient = Annotated[AsyncMongoClient, Depends(get_db_client)]
 
 DB = Annotated[AsyncDatabase, Depends(get_database)]
 
-SpieleCollection = Annotated[AsyncCollection, Depends(get_spiele_collection)]
+SpieleCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELE))]
 
-SpielerCollection = Annotated[AsyncCollection, Depends(get_spieler_collection)]
+SpielerCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELER))]
 
-SpieltageCollection = Annotated[AsyncCollection, Depends(get_spieltage_collection)]
+SpieltageCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELTAGE))]
 
-TeamsCollection = Annotated[AsyncCollection, Depends(get_teams_collection)]
+TeamsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.TEAMS))]
 
-SaisonsCollection = Annotated[AsyncCollection, Depends(get_saisons_collection)]
+SaisonsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SAISONS))]
 
-SpielorteCollection = Annotated[AsyncCollection, Depends(get_spielorte_collection)]
+SpielorteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELORTE))]
 
-SchiedsrichterCollection = Annotated[AsyncCollection, Depends(get_schiedsrichter_collection)]
+SchiedsrichterCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SCHIEDSRICHTER))]
 
-SaisonTeamsCollection = Annotated[AsyncCollection, Depends(get_saison_teams_collection)]
+SaisonTeamsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SAISON_TEAMS))]
 
-SaisonSpielerCollection = Annotated[AsyncCollection, Depends(get_saison_spieler_collection)]
+SaisonSpielerCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SAISON_SPIELER))]
 
-AktionenCollection = Annotated[AsyncCollection, Depends(get_aktionen_collection)]
+AktionenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.AKTIONEN))]
 
-BewerbungenCollection = Annotated[AsyncCollection, Depends(get_bewerbungen_collection)]
+BewerbungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BEWERBUNGEN))]
 
-SperrlisteCollection = Annotated[AsyncCollection, Depends(get_sperrliste_collection)]
+SperrlisteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPERRLISTE))]
 
-EinladungenCollection = Annotated[AsyncCollection, Depends(get_einladungen_collection)]
+EinladungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.EINLADUNGEN))]
 
-RegistrierungenCollection = Annotated[AsyncCollection, Depends(get_registrierungen_collection)]
+RegistrierungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.REGISTRIERUNGEN))]
 
-BerechtigungenCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]
+BerechtigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN))]
 
-BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_angekuendigt_collection)]
+BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANGEKUENDIGT))]
 
-BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_postausgang_collection)]
+BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_POSTAUSGANG))]
 
-AdressankerCollection = Annotated[AsyncCollection, Depends(get_adressanker_collection)]
+AdressankerCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSANKER))]
 
-SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(get_spielbestaetigungen_collection)]
+SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
-SpielberichteCollection = Annotated[AsyncCollection, Depends(get_spielberichte_collection)]
+SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
 
-AdresswechselCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_collection)]
+AdresswechselCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSWECHSEL))]
 
-AdresswechselPostausgangCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_postausgang_collection)]
+AdresswechselPostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSWECHSEL_POSTAUSGANG))]
 
-DrosselungCollection = Annotated[AsyncCollection, Depends(get_drosselung_collection)]
+DrosselungCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.DROSSELUNG))]
 
-BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_antraege_collection)]
+BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANTRAEGE))]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

@@ -50,8 +50,6 @@ from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHO
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
 from app.core.codes import Code
-from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.exceptions import WriteRefusal
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
@@ -113,12 +111,6 @@ def draw(groups: int, teams: int, qualifiers: int, entered: Sequence[EnteredTeam
     return draw_spielplan(saison_id=SAISON_ID, rules=season, entered=entered_for(groups, teams) if entered is None else entered)
 
 
-def validator(collection: Collection) -> dict[str, Any]:
-    """One collection's `$jsonSchema`, read off the shipped constraint rather than restated here."""
-
-    return dict(COLLECTION_VALIDATORS[collection]["$jsonSchema"])
-
-
 def matchday_phases(plan: Spielplan) -> dict[ObjectId, FLSaisonPhase]:
     return {spieltag["_id"]: spieltag["saison_phase"] for spieltag in plan.spieltage}
 
@@ -175,7 +167,7 @@ class TestTheCircleMethodPairsAGroup:
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_nobody_is_paired_twice_in_one_round(self, teams: int):
-        """A club fielded twice on one matchday is what `app/core/constraints.py :: report_relations` counts as a violation."""
+        """A club fielded twice on one matchday is a state no Spieltag may hold."""
 
         for pairs in circle_rounds(teams):
             sides = [side for pair in pairs for side in pair]
@@ -689,36 +681,13 @@ class TestSpielNrRunsOnceThroughTheSeason:
                     assert quelle["spiel_nr"] < spiel["spiel_nr"]
 
 
-class TestTheEmittedDocumentsSatisfyTheShippedValidators:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_fixture_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELE)
-
-        for spiel in draw(*shape).spiele:
-            assert set(declared["required"]) <= set(spiel) <= set(declared["properties"])
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_matchday_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELTAGE)
-
-        for spieltag in draw(*shape).spieltage:
-            assert set(declared["required"]) <= set(spieltag) <= set(declared["properties"])
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_side_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELE)["properties"]["team1"]
-
-        for spiel in draw(*shape).spiele:
-            for side in (spiel["team1"], spiel["team2"]):
-                if side is not None:
-                    assert set(declared["required"]) <= set(side) <= set(declared["properties"])
-
+class TestTheEmittedDocumentsReadBack:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_fixture_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """A document only the writer can read is one the first `GET /spiele` answers 500 on."""
+        """A document only the writer can read is one the first `GET /spiele` answers 500 on; one key no model declares, one nothing reads."""
 
         for spiel in draw(*shape).spiele:
-            FLSpiel.model_validate(spiel)
+            FLSpiel.model_validate(spiel, extra="forbid")
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
@@ -728,7 +697,7 @@ class TestTheEmittedDocumentsSatisfyTheShippedValidators:
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
 
         for spieltag in draw(*shape).spieltage:
-            FLSpieltag.model_validate({**spieltag, "anzahl_spiele": expected_matches(season, spieltag["saison_phase"])})
+            FLSpieltag.model_validate({**spieltag, "anzahl_spiele": expected_matches(season, spieltag["saison_phase"])}, extra="forbid")
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_nothing_is_scheduled_and_nothing_has_happened(self, shape: tuple[int, int, int]):

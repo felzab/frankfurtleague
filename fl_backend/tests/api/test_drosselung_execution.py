@@ -29,7 +29,7 @@ from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALT
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
+from app.core.db import collection_dependency, get_database
 from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DrosselungException
 from app.core.logging import FL_LOGGER_NAME
@@ -474,7 +474,7 @@ SPIELER = Consent(
     {"umfang": "kader_oeffentlich"},
     PERSON_STAND,
     YOUNG_STAND,
-    get_spieler_collection,
+    collection_dependency(Collection.SPIELER),
     f"{API}/spieler/selbst/einwilligung",
 )
 CONSENTS = [
@@ -487,7 +487,7 @@ CONSENTS = [
             {"umfang": "kader_oeffentlich"},
             PERSON_STAND,
             YOUNG_STAND,
-            get_schiedsrichter_collection,
+            collection_dependency(Collection.SCHIEDSRICHTER),
             f"{API}/schiedsrichter/selbst/{YOUNG_REFEREE}/einwilligung",
         ),
         id="a referee's record",
@@ -500,7 +500,7 @@ CONSENTS = [
             {"umfang": "kontaktdaten"},
             PERSON_SEAT_STAND,
             YOUNG_SEAT_STAND,
-            get_saison_teams_collection,
+            collection_dependency(Collection.SAISON_TEAMS),
             f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
         ),
         id="a contact seat",

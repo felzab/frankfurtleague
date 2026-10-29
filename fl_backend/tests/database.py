@@ -12,11 +12,12 @@ from pymongo.mongo_client import MongoClient
 
 from app.core.constraints import apply_constraints
 
-# MongoDB's code for a document its `$jsonSchema` refused, which the driver names nowhere. Asserted on
-# rather than caught broadly, so an unrelated failure cannot pass as the refusal a case drives.
+# MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
+# failure mid-transaction installs one. Asserted on rather than caught broadly, so an unrelated failure
+# cannot pass as the refusal a case drives.
 DOCUMENT_VALIDATION_FAILED = 121
 
-# One collection's enforcement: its validator, both validation modes, and every index it carries.
+# One collection's enforcement: any validator a case installed, both validation modes, and every index it carries.
 Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]
 
@@ -89,13 +90,13 @@ def shared_client(url: str) -> AsyncMongoClient:
 
 
 _DRIFT = (
-    "'{database}' carries enforcement this session did not build ({moved}). A body that narrows a validator, or adds or drops"
+    "'{database}' carries enforcement this session did not build ({moved}). A body that installs a validator, or adds or drops"
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
 )
 
 _DRIFT_SYNC = (
     "'{database}' carries enforcement this session did not build ({moved}). This fixture reads the schema where it seeds, so what"
-    " left it ran EARLIER in this database and the test named here only inherited it. A body that narrows a validator, or adds or"
+    " left it ran EARLIER in this database and the test named here only inherited it. A body that installs a validator, or adds or"
     " drops an index, takes a database no other test shares -- this one is `build_test_config`'s, which every app under test reads."
 )
 
@@ -187,31 +188,20 @@ def _guard(message: str, name: str, baseline: Schema, present: Schema, foreign: 
         raise AssertionError(message.format(database=name, moved=", ".join(moved)))
 
 
-def _reusable(key: tuple[str, str], constraints: bool, collections: Iterable[str]) -> Schema | None:
-    """The baseline to clear against, or `None` when this database has to be built.
-
-    `collections` is verified rather than assumed: a caller asking for one a built database never
-    got would otherwise be handed a database without it.
-    """
+def _reusable(key: tuple[str, str], constraints: bool) -> Schema | None:
+    """The baseline to clear against, or `None` when this database has to be built."""
 
     built = _BUILT.get(key)
-    if built is None or built[0] != constraints or not set(collections) <= built[1].keys():
+    if built is None or built[0] != constraints:
         return None
 
     return built[1]
 
 
-async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool, collections: Iterable[str]) -> Schema:
+async def _build(client: AsyncMongoClient, database: AsyncDatabase, constraints: bool) -> Schema:
     await client.drop_database(database.name)
     if constraints:
         await apply_constraints(database)
-    # What a caller asks of `collections` is that they EXIST -- a transaction cannot create one --
-    # and a constrained build has already made every validated collection, which `create_collection`
-    # would then refuse by name.
-    made = set(await database.list_collection_names())
-    for collection in collections:
-        if collection not in made:
-            await database.create_collection(collection)
 
     built, _ = await _schema(database)
 
@@ -234,12 +224,11 @@ async def a_clean_database(
     name: str,
     *,
     constraints: bool = True,
-    collections: Iterable[str] = (),
     mutates_schema: bool = False,
 ) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
-    `mutates_schema=True` is the opt-out for a body that narrows a validator or moves an index: what
+    `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds.
     """
 
@@ -249,13 +238,13 @@ async def a_clean_database(
     key = (str(url), name)
     database = client[name]
 
-    baseline = _reusable(key, constraints, collections)
+    baseline = _reusable(key, constraints)
     # Dropped before either path runs: a build or a clear that raises would otherwise leave an
     # entry describing a database that no longer matches it, failing the next test for this one.
     _BUILT.pop(key, None)
 
     if baseline is None:
-        baseline = await _build(client, database, constraints, collections)
+        baseline = await _build(client, database, constraints)
     else:
         await _clear(database, baseline)
 
