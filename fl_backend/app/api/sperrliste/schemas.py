@@ -43,6 +43,13 @@ class FLSperrlisteEintrag(BaseModel):
     gesperrt_bis_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
+class FLSperrlisteEintragRecord(FLSperrlisteEintrag):
+    """One ban as `sperrliste` stores it: the lookup key and the version of the key it was taken under."""
+
+    adresse_hash: str
+    schluessel_version: str
+
+
 class FLSperrlisteZeile(FLSperrlisteEintrag):
     """One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."""
 

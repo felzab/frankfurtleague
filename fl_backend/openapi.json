@@ -30792,11 +30792,6 @@
             ],
             "title": "Ende"
           },
-          "anzahl_spiele": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Anzahl Spiele"
-          },
           "position": {
             "type": "integer",
             "minimum": 1.0,
@@ -30818,6 +30813,11 @@
             "maxLength": 4,
             "minLength": 4,
             "title": "Saison Id"
+          },
+          "anzahl_spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Anzahl Spiele"
           }
         },
         "type": "object",
@@ -30825,10 +30825,10 @@
           "id",
           "beginn",
           "ende",
-          "anzahl_spiele",
           "position",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "anzahl_spiele"
         ],
         "title": "FLSpieltag"
       },
