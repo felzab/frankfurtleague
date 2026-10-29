@@ -258,7 +258,6 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/bestaetigung/spiel`           | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`        |
 | `= /api/mail/zustellung`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                              |
 | the `/` twins                         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                              |
-| `= /api/revalidate` and its `/` twin  | none            | Answered `404` at the edge: the league caches' invalidation, a Next route handler this server alone calls over loopback                                                                                  |
 | `= /api/v0/system/is_live`            | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                      |
 | `= /signin`                           | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                                  |
 | `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                    |
@@ -273,7 +272,7 @@ address, and nginx asks Docker's embedded DNS again once its cached answer lapse
 answer lapses, a worker that cached the old address still sends requests there, and each waits out
 nginx's connect timeout and answers 504 (measured 2026-10-18 on Docker Desktop's engine).
 
-**Every `/api/...` path but the liveness probe and the refused invalidation reaches Next** — some
+**Every `/api/...` path but the liveness probe reaches Next** — some
 through a block naming it, the rest through the catch-all, which answers Next's HTML 404 where
 nothing routes the path (§3). The
 liveness location is exact-match precisely so that nothing can join it there; nothing in the
@@ -283,13 +282,8 @@ what meets it.
 
 **Every route handler in the App Router tree is accounted for against these locations, public or
 not**: an exact-match location carrying `limit_req`, a prefix location covering it with a reason
-recorded at `scripts/checks/check_public_routes.py :: REASONS`, `/api/auth` for the sign-in
-library's catch-all, or, for a handler `scripts/checks/check_public_routes.py :: INTERNAL` records
-as this server's alone, an exact match and its twin refusing it with a bare client error. **That
-row and the refusal hold each other**: a recorded handler some location forwards is a finding, and
-so is a refused one no row records, a public route refused by mistake answering every visitor 404.
-`nginx/edge_test.sh` posts each refused path as its caller would, under a double slash, a dot
-segment, a percent-encoded letter and a query, and fails any that reaches Next. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
+recorded at `scripts/checks/check_public_routes.py :: REASONS`, or `/api/auth` for the sign-in
+library's catch-all. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
 URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`. A
@@ -1167,7 +1161,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A page a mailed link opens answers `429` with „Zu viele Aufrufe“                                                                                                                   | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                         | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                                                                                                                 | The error page streams after headers, so the edge status is 200                                                                               | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                                                                                                                          | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own        | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
-| Reference data stale after a hand edit: the first visit past its read's revalidate time still gets it, up to its expiry, a week at most (`cacheLife` in each slice's `queries.ts`) | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                         | Drop the five league tags ([`runbooks.md`](runbooks.md) §20); waiting takes a day, plus one stale answer to the visit refreshing each entry                                                                          |
+| Reference data stale after a hand edit: the first visit a minute past an entry's fill still gets that entry, and one nobody visits expires after one hour (`cacheLife("minutes")`) | Working as intended — a change no save makes clears no cached entry                                                                           | Nothing: wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                                                                                                                    |
 | League table or fixtures stale after a season edit                                                                                                                                 | Same cause — a season decides the default season and the points                                                                               | Same remedy, once the backend's own season cache has expired: dropped sooner, the frontend refills from it                                                                                                           |
 
 ## 4. Known-open

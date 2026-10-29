@@ -542,14 +542,7 @@ const SOURCE_BANS = [
       "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
     ),
     SOURCE,
-    {
-      allow: [
-        "src/shared/utils/publicRoute.ts",
-        // The drop is its whole work, made after the write it answers for landed elsewhere, so no write of its own can
-        // lose an answer ahead of it.
-        "src/app/api/revalidate/route.ts",
-      ],
-    },
+    { allow: ["src/shared/utils/publicRoute.ts"] },
   ),
   syntaxBan(
     // Per function, so a module caching a public read beside a caller's own is held too, which the

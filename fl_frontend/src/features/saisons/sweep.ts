@@ -2,7 +2,6 @@ import "server-only";
 
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { revalidateOverLoopback } from "@/core/revalidation";
 import { HOUR_MS } from "@/core/timeUnits";
 
 import { loeschungLaufen } from "./loeschung";
@@ -41,7 +40,8 @@ export function armLoeschungSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over the pupils the season-after rule makes due, then the squad cache's drop.
+ * One pass over the pupils the season-after rule makes due. The squad pages stop naming them within the `minutes`
+ * lifetime their cached read keeps.
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -65,9 +65,6 @@ export async function runLoeschungSweep(): Promise<void> {
 /** The rest the activation press left, without a deadline of its own: a timer has no request a long run would hold back. */
 async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
-  // On every pass, one deleting nobody included: a press's call its deadline cut may delete in the backend after the
-  // press dropped this tag, and no pass's count shows those pupils.
-  await revalidateOverLoopback(["spieler"]);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
   // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.

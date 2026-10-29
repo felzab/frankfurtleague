@@ -330,9 +330,6 @@ export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYS
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
 
-/** The port Next's standalone server listens on, which the container's healthcheck reaches it on too. */
-export const serverPort = (): number => Number.parseInt(process.env.PORT ?? "", 10) || 3000;
-
 /** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
 export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
 

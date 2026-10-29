@@ -52,12 +52,9 @@ write names the reads it moves. The league's reads keep Next's `minutes` lifetim
 since a label's words never change. **The administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
 
-**An edit made straight in MongoDB, or a call to the API that bypasses an action, is served stale**
-until its cache lifetime lets a visit refresh it, since invalidation lives in the action and not in
-the endpoint. One route,
-`fl_frontend/src/app/api/revalidate/route.ts`, drops the base tags from outside a request, on the
-system key; [`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb) gives the
-command.
+**A change no save makes, a background pass's or an edit made straight in MongoDB, is served stale
+for at most the `minutes` lifetime**: the clear lives in the spines, and nothing clears the tag from
+outside a request ([`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb)).
 
 **Backend and frontend models are hand-mirrored**: Pydantic on one side, Zod on the other, with no
 generation step. A disagreement between them is the first thing to check when behaviour looks
