@@ -263,9 +263,9 @@ describe("who the seam answers for", () => {
     expect(answer.admin).toBe(false);
   });
 
-  /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
-     records can act on. */
-  it("answers the three lists, the two flags and the grant alone, carrying no transport envelope", async () => {
+  /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
+     beside them stays out of the session. */
+  it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 

@@ -32,8 +32,8 @@ export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession
     body: JSON.stringify(payload),
   });
 
-  // Never the parsed body: `acknowledged` is the transport saying a write landed, which a caller
-  // reading records has nothing to do with.
+  // Field by field rather than the body: `apiClient` types the answer and parses nothing, so the body
+  // would carry into the session whatever else the backend ever answered.
   return {
     sitze: answer.sitze,
     spieler: answer.spieler,
@@ -47,7 +47,7 @@ export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession
 });
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
-export type AnmeldungRecords = Omit<FLAnmeldungResponse, "acknowledged">;
+export type AnmeldungRecords = FLAnmeldungResponse;
 
 // React's `cache` for `lookUpSubjekt`'s reason. Its own read rather than the subject's: only a sign-in
 // pays for the two collections `konto` reads beyond the subject's three.

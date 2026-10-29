@@ -166,7 +166,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ acknowledged: 1, ...answerAt(path, backend) }), {
+  return new Response(JSON.stringify(answerAt(path, backend)), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -3545,7 +3545,7 @@ describe("a person's own account deletion", () => {
     const answer = await asPerson("loeschende@example.org", () =>
       deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
         erasures.push("erased");
-        return Promise.resolve({ acknowledged: 1 });
+        return Promise.resolve({});
       }),
     );
 
