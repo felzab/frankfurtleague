@@ -85,17 +85,6 @@ the machine is outside the repository. What it does tell you:
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
   the check judges it; a line the two parsers
   could read differently was refused before either image was asked.
-- **The pulled frontend image is asked the same of `fl_frontend/.env`**
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
-  frontend does not declare, given by its line number, and a name it requires that the file omits,
-  given by name, each refuse the deploy at exit 2 with nothing recreated**. The remedy differs by
-  kind — open a numbered line, then delete it, correct its spelling, or declare the name in the
-  schema, nothing in that schema reading an undeclared one;
-  **write a missing required one into the file with its value**. That is where a release adding a
-  required name meets a host nobody edited. Every VALUE, an empty one included, is the frontend's own
-  boot's to judge, in the step below. It does catch the misspelling whose value is EMPTY that the
-  backend's reader drops, and a line its reader cannot take at all is an advisory rather than a
-  refusal ([`spec.md`](spec.md) §1.5).
 - **Each application service's own boot then judges its settings and secret files, before anything
   is recreated**, in a one-off container started as the stack starts the service, so with its
   variables, as its own user and in its own group. The frontend's runs the image's own server, which

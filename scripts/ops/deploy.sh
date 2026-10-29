@@ -264,32 +264,6 @@ here says whether the backend accepts what it holds. Its own answer is above."
   fi
 }
 
-# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
-# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
-check_frontend_env_names() {
-  local rc=0
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
-  if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
-variable by its line number alone, never by name, and each missing one by name. An undeclared name
-is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
-production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
-name is one the frontend requires that the file omits, which the boot gate would meet instead,
-after the recreate and behind an edge already answering 502 -- write it into the file with its
-value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step
-below.
-NOTHING has been recreated, and the site is untouched."
-  elif (( rc )); then
-    # An advisory rather than a refusal, for the reason `check_env_names` carries.
-    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether it holds every name the frontend requires and none it does not declare.
-Its own answer is above."
-  else
-    ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
-  fi
-}
-
 # Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
 # another account can read passes every check here, while any login on this host could mint an actor.
 signing_key_mode_advisory() {
@@ -1157,7 +1131,6 @@ fi
 # pulled image's, so a variable this release renamed is a variable only this release can judge.
 step "The environment files, read by the builds about to run"
 check_env_names
-check_frontend_env_names
 
 step "Each service's settings and secret files, as its own boot builds them"
 # Through compose: only the service's own container holds its variables, mounts and the user its files

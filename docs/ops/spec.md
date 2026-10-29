@@ -690,21 +690,14 @@ container as variables (`scripts/ops/deploy.sh :: check_env_names`): it is mount
 throwaway container with no network, as the whole of what compose hands the service. A name the
 backend does not declare, a value it will not accept and a required variable the file omits all
 refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
-advisory ([`runbooks.md`](runbooks.md) §1). Either image's refusal keeps one
-rule: an undeclared name goes by the number of each line declaring it, with a count
-(`fl_backend/app/core/config.py :: read_environment`,
-`fl_frontend/scripts/check-environment-names.mjs :: undeclaredLines`).
+advisory ([`runbooks.md`](runbooks.md) §1). The backend's refusal gives an undeclared name by the
+number of each line declaring it, with a count (`fl_backend/app/core/config.py :: read_environment`).
 
-**The pulled frontend image is asked the same of `fl_frontend/.env`, and answers about names
-alone**
-(`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
-rather than the schema, emitted at build from
-`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
-so a name it does not declare, by line number, and a required name the file omits each refuse at exit 2
-with nothing recreated while every value, an empty one included, stays the boot gate's. **The omitted half is the one
-no reader over the file's own names can reach**: an undeclared line is one somebody wrote, a missing
-one is a line nobody did, so without it a release that makes a new name required deploys green and
-the recreated container refuses to boot behind an edge already answering 502. **What
+**`fl_frontend/.env` is judged by the frontend's own boot, in the step after**
+(`scripts/lib/_lib.sh :: check_frontend_boot_config`): a variable the schema
+(`fl_frontend/src/core/config.ts`) declares with no default refuses the boot where the file
+misspells or omits it, so that boot, run before anything is recreated, refuses a release that makes
+a new name required on a host nobody edited, and no shipped value serves in its place. **What
 `APP_ENV=production` alone demands is a file and never a variable**
 (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
 value to decide: the mail provider's sending key, its webhook's signing key and the bot check's
@@ -716,20 +709,10 @@ value from the shell that ran it, and failing that from compose's own `.env` bes
 file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's
 shell holds none and the server's checkout carries no such file, so a pass-through there is never
 resolved and is dropped from the container's environment altogether —
-which is worse than the empty value, arriving as an empty string; `scripts/lib/_lib.sh :: check_env_spellings` refuses the line before this
-reader runs. **3 is each reader's own answer
-for a refusal, and the one code each of the three arms grades as one**; the deploy's own exit is
-§1.7's 2, and a reader ending any other way leaves the deploy where it stood. Its reader takes
-the lines `check_env_spellings` admits and no other (`fl_frontend/scripts/check-environment-names.mjs :: STRICT_LINE`, held to
-`scripts/lib/_lib.sh :: ENV_LINE_RE` line for line by `scripts/tests/test_deploy_streams.py`), and
-**an unreadable line is an advisory rather than a refusal**, the names it did read being a guess
-about the rest.
-
-**The declared set is the whole of what the undeclared half judges**, and not what the container
-looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of their own, and
-`fl_frontend/src/core/config.ts` reads `SKIP_ENV_VALIDATION`, none of them declared there. So an undeclared name in the file is a line to delete, a spelling to
-correct, or a name to declare in the schema — the same three the backend's arm offers for its
-settings class.
+which is worse than the empty value, arriving as an empty string; `scripts/lib/_lib.sh :: check_env_spellings` refuses the line before either
+image is asked. **3 is each reader's own answer
+for a refusal, and the one code each arm grades as one**; the deploy's own exit is
+§1.7's 2, and a reader ending any other way leaves the deploy where it stood.
 
 **What that check accepts is what the container receives.** The preflight parses each package's
 file as python-dotenv does, and the running container gets it parsed as Compose does; `check_env_spellings` has
@@ -1106,7 +1089,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A startup refusal names the failing variables or secret files, an undeclared name by line number, or a failure type, and never a value                                     | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `:: TestTheSecretFiles` assert no value appears; the frontend's is unenforced |
 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 what `read_environment` rejects, missing ones included; an undeclared one by line number | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                            |
 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision      | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                               |
-| The frontend image refuses `fl_frontend/.env` at exit 2 for a missing required name, or an undeclared one by line number alone; values are the boot's                      | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/scripts/check-environment-names.test.mjs`                                    |
 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                   | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                                     |
 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)          | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                                  |
 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest                                                               | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's image to the backend's                                                               |

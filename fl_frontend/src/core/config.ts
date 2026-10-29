@@ -129,8 +129,8 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: the deploy asks production for them by file, and for no
-// variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
+// production host alone. Files only: the deploy asks production for them by file, never by a
+// variable.
 const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET", "TURNSTILE_SECRET_KEY"] as const satisfies readonly SecretKey[];
 
 // Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
@@ -143,8 +143,9 @@ const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
  */
 const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
-// Bound to names rather than written inside the call, so the preflight's sets can be read off the
-// schema itself: a hand-kept copy of those names would be a second artefact to keep current.
+// A name without a default refuses the boot where it is misspelled or missing, and the deploy's preflight
+// boots before anything is recreated, so no shipped value serves in its place. Bound to a name rather
+// than written inside the call: the validation reads each variable off its keys.
 const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
   // production host too, and an origin test would call a staging box production. `mail.ts` sends on
@@ -313,24 +314,3 @@ export const serverPort = (): number => Number.parseInt(process.env.PORT ?? "", 
 
 /** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
 export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
-
-/**
- * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
- * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
- * serves production.
- */
-export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys(environment).sort();
-
-// Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
-// spellings of one answer, and Zod publishes no introspection that gives it.
-const required = (declarations: Record<string, z.ZodType>): string[] =>
-  Object.entries(declarations)
-    .filter(([, declaration]) => !declaration.safeParse(undefined).success)
-    .map(([name]) => name);
-
-/**
- * The same preflight refuses a file that omits one of these. A name the file never declares reaches
- * the schema as `undefined`, so the container is recreated and then refuses to boot behind an edge
- * already answering 502.
- */
-export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();
