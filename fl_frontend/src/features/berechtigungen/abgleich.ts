@@ -86,7 +86,7 @@ async function abgleichen(): Promise<void> {
   }
 
   if (claim.uebersprungen > gewarntUebersprungen) {
-    logger.warn("berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: claim.uebersprungen });
+    logger.warn("berechtigung.abgleich_uebersprungen", { anzahl: claim.uebersprungen });
   }
   // Down as well as up, so a row repaired and another made dead later is warned of again.
   gewarntUebersprungen = claim.uebersprungen;
@@ -127,7 +127,6 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   if (aenderung.aufgegeben) {
     offen.delete(aenderung.id);
     logger.error("berechtigung.notice_abandoned", undefined, {
-      error_code: "FE-MAIL-011",
       art: aenderung.art,
       // Every recipient where this process holds no pass of the row's, a restart among the reasons.
       nicht_erreicht: adressen.filter((adresse) => !erreicht.has(adresse)).length,
@@ -166,7 +165,6 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
       if (!(error instanceof MailRecipientError)) alleErledigt = false;
       // The name alone: a failure on this path routinely carries the address.
       logger.error("berechtigung.notice_failed", undefined, {
-        error_code: "FE-MAIL-009",
         name: error instanceof Error ? error.name : "unknown",
       });
     }
@@ -228,5 +226,5 @@ function urheber(aenderung: FLBerechtigungAenderung): Urheber {
 
 /** Which half stopped, the error's name and what the call says of its request, never a person. */
 function logAbgleichFailure(event: "berechtigung.abgleich_failed" | "berechtigung.stempel_failed", error: unknown): void {
-  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
+  logger.error(event, undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
 }

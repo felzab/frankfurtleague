@@ -1,5 +1,5 @@
 /**
- * A fault only the browser saw, logged as FE-CLIENT-001. Cut to the route's ceilings, so a long message is
+ * A fault only the browser saw, logged as `client.crash_reported`. Cut to the route's ceilings, so a long message is
  * recorded short rather than refused whole; never throws, a lost report being no second fault.
  */
 export function postClientError(message: string, stack?: string): void {

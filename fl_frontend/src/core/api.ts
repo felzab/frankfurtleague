@@ -13,10 +13,9 @@ import {
   mayHaveWritten,
   UnattributedAdminCallError,
 } from "./errors";
-import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, requestTimeLeft } from "./requestScope";
+import { boundCall, getRequestActor, getRequestTraceId, requestTimeLeft } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
-import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+import { ACTOR_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { SentRequest } from "./errors";
 
@@ -47,11 +46,6 @@ export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>;
-  /**
-   * Read on the minting branch alone: a fill has no page request to join to, so this is the only
-   * record of which function asked for it.
-   */
-  cacheFill?: { name: string; args: unknown };
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
    * a dry run: its timeout is a read that failed, never a write of unknown outcome.
@@ -136,22 +130,9 @@ const handleFetchResponse = async ({
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
   // the ids reach the header and the errors, never the returned value.
-  const scopedTraceId = getRequestTraceId();
-  const traceId = scopedTraceId ?? mintTraceId();
-  const spanId = getRequestSpanId() ?? mintSpanId();
+  const traceId = getRequestTraceId() ?? mintTraceId();
 
-  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, readOnly, ...customOptions } = options;
-
-  // INFO rather than DEBUG: a fill is rare beside requests, and the default `LOG_LEVEL` must show
-  // the join between a fill and what asked for it. The arguments are cache-key filters, never a
-  // submitted value.
-  if (cacheFill && scopedTraceId === undefined) {
-    logger.info("cache fill", {
-      cache_fill: { name: cacheFill.name, args: JSON.stringify(cacheFill.args) },
-      trace_id: traceId,
-      span_id: spanId,
-    });
-  }
+  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, readOnly, ...customOptions } = options;
 
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
@@ -161,9 +142,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // make the call.
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
-  // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
-  // of its own.
-  headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
+  // The edge's trace, which the backend reads off it and writes on its own lines.
+  headers.set(TRACEPARENT_HEADER, formatTraceparent(traceId));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.

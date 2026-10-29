@@ -34,7 +34,6 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
   } catch (failed) {
     // The NAME alone: a failure in the sign-in store routinely carries the address.
     logger.error("funktionen.erasure_account_not_deleted", undefined, {
-      error_code: "FE-AUTH-012",
       name: failed instanceof Error ? failed.name : "unknown",
     });
     // A rollback leaves the account standing; any other failure may be its commit's, landed or not.
@@ -177,7 +176,6 @@ export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Prom
     } catch (failed) {
       // The NAME alone, as the ban's own sign-out logs it: the address must reach no line.
       logger.error("funktionen.sessions_not_ended", undefined, {
-        error_code: "FE-AUTH-006",
         name: failed instanceof Error ? failed.name : "unknown",
       });
       return { success: false, error: ANMELDUNGEN_NICHT_BEENDET };

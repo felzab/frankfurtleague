@@ -89,7 +89,6 @@ async function notifyBewerbung({
     // The decision has committed by the time this runs, so a read that fails on the way to the
     // message must not come back as a write that did not happen. Name only, never the error.
     logger.error("bewerbung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });

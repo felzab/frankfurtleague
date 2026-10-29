@@ -131,7 +131,7 @@ async function sweepAlleSaisons(): Promise<void> {
   // A warning where rows were passed over, each pass moving on past them, or a notice was given up, its party told by
   // nobody: only these counts tell such a pass from a healthy one.
   if (zaehler.fehlgeschlagen === 0 && zaehler.aufgegeben === 0) logger.info("spielbestaetigung.sweep_pass", zaehler);
-  else logger.warn("spielbestaetigung.sweep_pass", { error_code: "FE-SWEEP-004", ...zaehler });
+  else logger.warn("spielbestaetigung.sweep_pass", zaehler);
 }
 
 /**
@@ -173,7 +173,6 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   for (const aufgegeben of antwort.mitteilungen_aufgegeben) {
     // Named field by field, never spread: the line names the fixture and the party's kind, never a person.
     logger.warn("spielbestaetigung.mitteilung_aufgegeben", {
-      error_code: "FE-SWEEP-004",
       saison_id: saisonId,
       spielbestaetigung_id: aufgegeben.spielbestaetigung_id,
       spiel_id: aufgegeben.spiel_id,
@@ -400,7 +399,6 @@ async function mailSpielleitung(address: string, scope: readonly string[], bauen
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
     // Name only, never the error: its message can carry the address.
     logger.error("spielbestaetigung.spielleitung_failed", undefined, {
-      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: SWEEP_OPERATION,
     });
@@ -411,7 +409,6 @@ async function mailSpielleitung(address: string, scope: readonly string[], bauen
 /** The season and the error's name, never a person: this line is written for a season nobody swept. */
 function logSweepFailure(error: unknown, saisonId: string | undefined): void {
   logger.error("spielbestaetigung.sweep_failed", undefined, {
-    error_code: "FE-SWEEP-004",
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),
     saison_id: saisonId,

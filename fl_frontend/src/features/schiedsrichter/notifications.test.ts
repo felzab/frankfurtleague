@@ -5,7 +5,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN, LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } }));
+vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN } }));
 
 /* The real minter and the fan-out it hands the link to, called: the backend client the delivery
    report goes through and the mailer are the doubles. */

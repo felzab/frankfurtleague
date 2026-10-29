@@ -91,7 +91,7 @@ describe("a request of ours Cloudflare refuses", () => {
       expect(await turnstileRefusal(TEST_TOKEN)).toBe(PRUEFUNG_GESTOERT);
       expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
       expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
-      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"error_code":"FE-TURNSTILE-002","codes":"${code}","status":400`));
+      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"codes":"${code}","status":400`));
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }
@@ -104,7 +104,7 @@ describe("a request of ours Cloudflare refuses", () => {
       expect(await turnstileRefusal(TEST_TOKEN)).toBe(PRUEFUNG_GESTOERT);
       expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
       expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
-      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"error_code":"FE-TURNSTILE-002","status":${String(status)}`));
+      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"status":${String(status)}`));
     });
   }
 });
@@ -161,7 +161,6 @@ describe("a check Cloudflare could not answer", () => {
       expect(asked.length).toBe(1);
       expect(logs.length, `wrote ${String(logs.length)} lines`).toBe(1);
       expect(logs[0]?.message).toBe("turnstile.unjudged");
-      expect(logs[0]?.meta ?? "").toMatch(/"error_code":"FE-TURNSTILE-001"/);
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }
