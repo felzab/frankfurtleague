@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/FrameNav` replaces it.
+
 import type { SidemenuHint } from "@/shared/types/types";
 
 /**

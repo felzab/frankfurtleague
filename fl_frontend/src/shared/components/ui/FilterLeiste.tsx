@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Filters` replaces it.
 import { useEffect, useRef, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 

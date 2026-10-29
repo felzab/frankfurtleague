@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
 import Link from "next/link";
 
 import { useShellSaisonHref } from "@/shared/components/layout/shell/ShellSaisonQuery";

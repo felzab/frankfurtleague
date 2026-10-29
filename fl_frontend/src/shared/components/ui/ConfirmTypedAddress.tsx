@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { useEffect, useRef, useState } from "react";
 
 import { Input } from "@heroui/react/input";

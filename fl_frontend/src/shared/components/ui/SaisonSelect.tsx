@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replaces it.
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Callout` replaces it.
+
 import { Callout } from "./Callout";
 import { inlineBannersAt } from "./railBanner";
 

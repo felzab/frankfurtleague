@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
+
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /** One column that cannot outgrow its container: an `auto` track takes a wide table's max-content, where a flex column stretches. */

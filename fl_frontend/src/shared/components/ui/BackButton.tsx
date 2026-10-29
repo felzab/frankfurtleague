@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 
 import { Button } from "@heroui/react/button";

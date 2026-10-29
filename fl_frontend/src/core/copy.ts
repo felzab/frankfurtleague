@@ -73,6 +73,7 @@ export const COPY = katalog({
       beispielAdresse: "name@example.com",
       // A digits field's example: figures alone, whatever the field counts.
       beispielZiffern: "123",
+      // Redesign: the first field taking a range reads it.
       zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
       fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
       spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,
@@ -93,6 +94,7 @@ export const COPY = katalog({
 
     /** The four toast titles; a toast carries no body. */
     toast: {
+      // Redesign: these three are read once copying, sending a link and signing out each toast through the kit.
       kopiert: "Kopiert",
       linkGesendet: "Link gesendet",
       abgemeldet: "Abgemeldet",
@@ -126,8 +128,10 @@ export const COPY = katalog({
 
     /** The match pop-up's way to the match's own page. */
     zumSpiel: "Zum Spiel",
+    // Redesign: the first fact its reader could supply, shown empty, reads it.
     nichtHinterlegt: "Nicht hinterlegt",
     uebersicht: "Übersicht",
+    // Redesign: the account menu reads it once it offers a second role.
     funktionWechseln: "Funktion wechseln",
     mehr: "Mehr …",
     weitereLaden: "Weitere 50 laden",
@@ -138,6 +142,7 @@ export const COPY = katalog({
     nachElfmeterschiessen: NACH_ELFMETERSCHIESSEN,
     // Session 3: its page reads it.
     disqualifiziert: "DQ",
+    // Redesign: a line-up's chips read these.
     startelf: "Startelf",
     bank: "Bank",
 

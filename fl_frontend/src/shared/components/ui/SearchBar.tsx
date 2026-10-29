@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/SearchField` replaces it.
 import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";

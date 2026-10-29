@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
+
 /**
  * One declaration, the bar's brand block and the rail sharing a vertical seam. **Only the `lg:` half**: below it the
  * rail is a full-width drawer while the brand block sizes to a hamburger.

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Chip` replaces it.
+
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { labelBadge } from "./badges";

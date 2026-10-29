@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Table` replaces it.
 import Link from "next/link";
 
 import ArrowRotateLeft from "@gravity-ui/icons/ArrowRotateLeft";

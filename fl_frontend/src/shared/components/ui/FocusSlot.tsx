@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer.
+
 import { focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactNode } from "react";

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer.
 import { useState } from "react";
 
 import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "./textLink";

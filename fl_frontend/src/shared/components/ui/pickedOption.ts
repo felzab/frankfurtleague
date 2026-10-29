@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/OptionList` replaces it.
+
 /**
  * A picked row's fill, HeroUI shipping an empty selected block. Spelled once so a facet's options and
  * the bar's read-order rows cannot mark a current row two ways. Never a tint here.

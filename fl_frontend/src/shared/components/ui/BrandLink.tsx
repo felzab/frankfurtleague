@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Brand` replaces it.
+
 import Link from "next/link";
 
 import { WORDMARK_CLASSES } from "./displayType";

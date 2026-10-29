@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/EditorPage` replaces it.
 import Pencil from "@gravity-ui/icons/Pencil";
 import Plus from "@gravity-ui/icons/Plus";
 import Xmark from "@gravity-ui/icons/Xmark";

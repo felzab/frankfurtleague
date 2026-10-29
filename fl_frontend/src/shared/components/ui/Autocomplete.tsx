@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replaces it.
 import { Autocomplete as HeroUIAutocomplete } from "@heroui/react/autocomplete";
 
 import { useRequiredMark } from "./RequiredMarks";
