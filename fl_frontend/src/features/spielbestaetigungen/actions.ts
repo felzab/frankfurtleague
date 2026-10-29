@@ -1,7 +1,6 @@
 "use server";
 
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eintragenSpielbestaetigung, verwerfenSpielbestaetigung } from "./mutations";
@@ -34,10 +33,6 @@ export async function eintragenSpielbestaetigungAction(
       throw error;
     }
 
-    if (!operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Zusage wurde nicht eingetragen", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return { success: true, updated_document: operation.updated_document, message: "Die Zusage steht als Antwort der Verwaltung der Liga." };
   });
 }
@@ -63,10 +58,6 @@ export async function verwerfenSpielbestaetigungAction(
       const refusal = mapSpielbestaetigungAdminRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Vorschlag wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return { success: true, updated_document: operation.updated_document, message: "Der Termin bleibt, wie er ist." };

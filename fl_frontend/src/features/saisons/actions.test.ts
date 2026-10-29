@@ -563,13 +563,10 @@ describe("the deletion the activation runs", () => {
     });
   }
 
-  it("deletes nobody where the activation was refused or not acknowledged", async () => {
+  it("deletes nobody where the activation was refused", async () => {
     answerWith((call) =>
       call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-001")),
     );
-    expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
-
-    answerWith((call) => Promise.resolve(call.endpoint === LAUF ? gelaufen(1, 0) : { ...landed(call), acknowledged: 0 }));
     expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
 
     expect(laeufe(), "a season that did not turn active had its pupils deleted").toBe(0);

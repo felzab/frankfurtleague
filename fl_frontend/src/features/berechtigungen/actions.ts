@@ -2,7 +2,6 @@
 
 import { afterTheResponse } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { runBerechtigungenAbgleich } from "./abgleich";
@@ -65,10 +64,6 @@ export async function postBerechtigungAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const { created_id, beantragt } = postOperation;
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
     // grant's own time on every request. A request is the pass's too, which mails it
@@ -88,17 +83,12 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let deleteOperation;
     try {
-      deleteOperation = await deleteBerechtigung(validated.data);
+      await deleteBerechtigung(validated.data);
     } catch (error) {
       const refusal = mapEntziehenRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht entzogen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     ankuendigenNachDerAntwort();
@@ -128,10 +118,6 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // A promotion's request as well as a tier moved: the pass mails the request to the owners who could approve it.
     ankuendigenNachDerAntwort();
 
@@ -150,17 +136,12 @@ export async function genehmigeAntragAction(rawPayload: FLBerechtigungAntragKeyP
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let antwort;
     try {
-      antwort = await postAntragGenehmigung(validated.data);
+      await postAntragGenehmigung(validated.data);
     } catch (error) {
       const refusal = mapAntragGenehmigungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     ankuendigenNachDerAntwort();
@@ -179,17 +160,12 @@ export async function lehneAntragAbAction(rawPayload: FLBerechtigungAntragKeyPay
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let antwort;
     try {
-      antwort = await deleteAntrag(validated.data);
+      await deleteAntrag(validated.data);
     } catch (error) {
       const refusal = mapAntragAblehnungRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return { success: true, message: ANTRAG_GELOESCHT_MESSAGE };

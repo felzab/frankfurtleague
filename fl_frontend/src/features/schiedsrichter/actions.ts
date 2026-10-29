@@ -2,8 +2,8 @@
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { returnMayMint, saveMayMint } from "./linkMint";
@@ -66,10 +66,6 @@ export async function postSchiedsrichterAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const mint = postOperation.bestaetigung;
     // The address the MINT names, never the one this caller sent: only the mint's own transaction
     // can say which mailbox the credential was made for.
@@ -129,13 +125,6 @@ export async function patchSchiedsrichterAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return {
-        success: false,
-        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
-      };
-    }
-
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
     const mint = postOperation.bestaetigung;
@@ -188,8 +177,6 @@ export async function undoAdminSchiedsrichterEditAction(
     } catch (error) {
       return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
     }
-
-    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten.");
 
     // The replay puts the earlier address back, which the endpoint reads as a correction and mints
     // for: unmailed, that token exists in the database alone and the referee's own link is dead.
@@ -253,10 +240,6 @@ export async function einladeSchiedsrichterAction(
       throw error;
     }
 
-    if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // The address the MINT read in its own transaction, never `email` above: this read is the older
     // of the two, and a save landing between them moved the mailbox the credential was made for.
     const mint = mintOperation.bestaetigung;
@@ -302,10 +285,6 @@ export async function deleteSchiedsrichterAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: postOperation.updated_document,
@@ -347,10 +326,6 @@ export async function reactivateSchiedsrichterAction(
       const refusal = mapReactivateRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so

@@ -201,18 +201,6 @@ describe("the re-send the editor's panel presses", () => {
     });
   }
 
-  /* The one refusal here that no endpoint publishes, so `publishedRefusals` never reaches it and a verb
-     drifting back would stand unseen beside the sentences that say „senden“. */
-  it("names the send in the league's own verb where the mint was not acknowledged", async () => {
-    mint = () => ({ acknowledged: 0, bestaetigung: minted("anna@example.de") });
-
-    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
-
-    expect(res.success).toBe(false);
-    expect(res.success ? "" : res.error).toMatch(/Der Bestätigungslink wurde nicht gesendet/);
-    expect(mail.sent).toStrictEqual([]);
-  });
-
   it("refuses a payload that is no identifier, without reaching the endpoint", async () => {
     const res = await einladeSchiedsrichterAction({ id: "nicht-hex" });
 

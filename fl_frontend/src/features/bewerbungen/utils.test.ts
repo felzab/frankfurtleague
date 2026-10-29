@@ -166,7 +166,6 @@ describe("which season a row belongs to", () => {
 
 describe("which state the window puts the page in", () => {
   const fenster = (overrides: Partial<FLBewerbungFensterResponse> = {}): FLBewerbungFensterResponse => ({
-    acknowledged: 1,
     saison_id: "2627",
     offen: true,
     von: "2026-05-01",
@@ -599,7 +598,6 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
 const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht> => ({
   zustand: "gueltig",
   ansicht: {
-    acknowledged: 1,
     zustand: "gueltig",
     quelle: "bewerbung",
     zeile: null,

@@ -26,7 +26,6 @@ import type { RegistrierungFormDraft } from "./types.ts";
 import type { GelesenerLink } from "./utils.ts";
 
 const ANSICHT: FLEinladungAnsichtResponse = {
-  acknowledged: 1,
   team: "Lessing-Kolleg",
   schule: "Lessing-Kolleg Oberstufengymnasium",
   saison_id: "2026",

@@ -19,7 +19,6 @@ import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
@@ -61,13 +60,6 @@ export async function POST(request: NextRequest) {
         const refusal = mapBewerbungSubmitRefusal(error);
         if (refusal) return { success: false as const, ...refusal };
         throw error;
-      }
-
-      if (!eingang.acknowledged) {
-        return {
-          success: false as const,
-          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
-        };
       }
 
       // No cache to move: no public read holds an application, and both triage reads are uncached.
