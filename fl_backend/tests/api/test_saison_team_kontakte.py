@@ -28,7 +28,7 @@ from app.api.teams.services import (
 from app.core.adressanker import adressanker_id
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
@@ -449,7 +449,7 @@ class TestNothingElseOnTheRowMoves:
 class TestAPairNoRowAnswers:
     def test_an_unknown_club_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await write_kontakte(database, NEW_KONTAKTE, team_id=ABSENT_OID)
 
             return await row_now(database), await junction_log(database)
@@ -464,7 +464,7 @@ class TestAPairNoRowAnswers:
         """The pair is what is addressed: a club that exists and a season that exists still name no row."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await write_kontakte(database, NEW_KONTAKTE, saison_id="2027")
 
             return await row_now(database)
@@ -527,7 +527,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
                 erasures.append(await erase_the_seats_person(database))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
             # An erasure committing first refuses the save at its read, before it reaches the write.
             junction.assert_landed_inside(serially=0)
@@ -561,7 +561,7 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         """A refusal has to stop the write rather than accompany it: the pre-image is the only copy of the block."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, NEW_KONTAKTE, stand=kontakte_stand_of(PARTLY_CONFIRMED))
 
             return refused.value, await row_now(database), await junction_log(database)
@@ -999,7 +999,7 @@ class TestTheLabelASaveNames:
         """The second row is the one keyed on the PERSON: a seat keyed arm would admit the old holder's label for a stranger."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, sent)
 
             return refused.value, await row_now(database), await junction_log(database)
@@ -1033,7 +1033,7 @@ class TestTheLabelASaveNames:
 
         async def body(database: AsyncDatabase) -> Any:
             saved = await write_kontakte(database, NEW_KONTAKTE)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, stand=saved.kontakte_stand)
 
             return refused.value.error_code, await row_now(database)

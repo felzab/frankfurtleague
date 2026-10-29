@@ -782,8 +782,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A pending address change stands until it takes effect, its new mailbox declines it, the
   address on file stops it, a later change of the address replaces it, an administrator discards it,
-  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**
-  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the address
+  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**: the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
   (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN`) and a re-send
   restarts it, the stop link lasting as long as the change stands; a change an administrator
@@ -1057,7 +1056,6 @@ Each row cites where the decision now lives.
 
 | Entry | Decision                                                                                                                                                                                                            |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| —     | Narrow the refusal's sentence to the window in which the undraw it recommends is possible (`fl_backend/app/core/domain.py :: RULES` on `REQ-RULES-011`)                                                             |
 | —     | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
 | —     | The toast clause stands in `docs/decisions.md`; a toast's appearance is built in `fl_frontend/src/core/providers/AppToaster.tsx`                                                                                    |
 | —     | Announcing that a season rollover is due stays deferred until one is actually missed                                                                                                                                |

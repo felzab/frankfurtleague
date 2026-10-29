@@ -59,7 +59,7 @@ from app.core.config import EnvironmentValidationError, get_config  # noqa: TID2
 from app.core.crud import patch_one_in_db, post_one_to_db
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from app.core.drosselung import build_counts_filter, erase_counts_in_session
-from app.core.exceptions import BaseAPIException
+from app.core.exceptions import APIError
 from app.core.journal import JournalLine, parse_line
 from app.core.logging import trace_id_var
 from app.core.middlewares import resolve_trace_id
@@ -702,7 +702,7 @@ async def run_replay(
                 else await plan_replay(line, database, schluessel=schluessel, session=None, now=now, window=window)
             )
         # The type alone: a driver's or a validator's message can quote the stored document, an address among it.
-        except (PyMongoError, BaseAPIException) as failure:
+        except (PyMongoError, APIError) as failure:
             left["replays that failed"] += 1
             print(f"    failed, nothing written: {type(failure).__name__}", file=out)
             continue

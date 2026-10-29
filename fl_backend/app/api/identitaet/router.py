@@ -18,7 +18,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_
 from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.dependencies import AdresswechselPostausgangCollection, BerechtigungenCollection
-from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
@@ -35,7 +34,6 @@ router = APIRouter(
     "/subjekt",
     response_model=FLSubjektResponse,
     summary="Say which league records one mailbox holds",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_subjekt(
     subjekt_data: Annotated[FLSubjektPayload, Body()],
@@ -113,7 +111,6 @@ async def get_subjekt(
     "/anmeldung",
     response_model=FLAnmeldungResponse,
     summary="Say whether one mailbox may be offered a sign-in",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_anmeldung(
     anmeldung_data: Annotated[FLSubjektPayload, Body()],
@@ -156,7 +153,6 @@ async def get_anmeldung(
     "/gesperrt",
     response_model=FLGesperrtResponse,
     summary="Say whether a ban stands on an address about to be mailed",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_gesperrt(gesperrt_data: Annotated[FLGesperrtPayload, Body()], sperrliste: SperrlisteLookup) -> FLGesperrtResponse:
     """
@@ -184,7 +180,6 @@ async def get_gesperrt(gesperrt_data: Annotated[FLGesperrtPayload, Body()], sper
     "/referenzen",
     response_model=FLReferenzenResponse,
     summary="Say which of these sign-in addresses no record references",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_referenzen(
     referenzen_data: Annotated[FLReferenzenPayload, Body()],

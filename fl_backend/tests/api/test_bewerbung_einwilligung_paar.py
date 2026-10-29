@@ -14,7 +14,7 @@ from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
@@ -186,7 +186,7 @@ class TestTheFloorIsThePersons:
         paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)

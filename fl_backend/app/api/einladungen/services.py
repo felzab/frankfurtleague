@@ -36,7 +36,6 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN,
         status=HTTPStatus.NOT_FOUND,
-        message="this team is not entered in that season, so there is nothing for a registration link to open",
     )
 
 
@@ -53,7 +52,6 @@ def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.EINLADUNG_SAISON_VORBEI,
         status=HTTPStatus.CONFLICT,
-        message="this season has ended, and a registration link for it would open nothing",
     )
 
 
@@ -70,7 +68,6 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
     return WriteRefusal(
         error_code=Code.EINLADUNG_UNBEKANNT,
         status=HTTPStatus.NOT_FOUND,
-        message="this registration link opens nothing: no invitation matches it, or the one it was minted for has been replaced",
     )
 
 

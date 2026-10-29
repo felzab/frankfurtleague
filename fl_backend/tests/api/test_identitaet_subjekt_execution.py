@@ -435,7 +435,6 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [
             {
                 "saison_id": PAST_SAISON,
@@ -477,7 +476,6 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],
@@ -497,7 +495,6 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],

@@ -45,7 +45,6 @@ def find_fassung_refusal(
         return WriteRefusal(
             error_code=Code.FASSUNG_UNZULAESSIG,
             status=HTTPStatus.CONFLICT,
-            message=f"the consent wording named on {', '.join(abgewiesen)} is not one this page stores now; reload the page and submit again",
         )
 
     return None
@@ -87,15 +86,11 @@ def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: 
         error_code=Code.SELBST_MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=(
-            f"a consent to publishing photographs, video and interviews is given from {MEDIEN_MIN_AGE_YEARS} years of age only, "
-            "judged on the birthdate the record holds once this write lands"
-        ),
     )
 
 
 def served_fassung(text_version: str, fassung: Fassung) -> FLEinwilligungFassung:
-    """One label as the words read serves it, and as `fl_backend/einwilligung.json` records it."""
+    """One label as the words read serves it."""
 
     texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
 

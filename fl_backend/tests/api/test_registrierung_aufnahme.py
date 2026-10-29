@@ -33,7 +33,7 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -319,7 +319,7 @@ async def read(
 
 
 async def refused(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refusal:
+    with pytest.raises(APIError) as refusal:
         await call
 
     return refusal.value.error_code
@@ -450,7 +450,7 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document())
             await admit(database, client, registrierung_id)
             before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id)
 
             return before, await snapshot(database)
@@ -944,7 +944,7 @@ class TestAReturningRegistration:
             await confirm_as_returning(database, client)
             gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
             before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id, spieler_id=None)
 
             return (gone.spieler, gone.registrierungen), before, await snapshot(database)
@@ -1186,7 +1186,7 @@ class TestTheDecline:
                 await decline(database, client, registrierung_id, grund="andere_person", identifier=THEO)
 
             registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await decline(database, client, registrierung_id, registrierungen=registrierungen)
 
             return registrierungen.passes, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
@@ -1216,7 +1216,7 @@ class TestTheDecline:
             await decline(database, client, registrierung_id)
             before = await snapshot(database)
             for press in (decline, admit):
-                with pytest.raises(DocumentNotFoundException):
+                with pytest.raises(DocumentNotFoundError):
                     await press(database, client, registrierung_id)
 
             return before, await snapshot(database)

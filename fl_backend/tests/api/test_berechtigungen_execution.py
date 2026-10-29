@@ -48,7 +48,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
-from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import PASSKEY_FACTOR, admin_judge, get_grant_lookup
 from app.core.transactions import actor_judge_var
@@ -337,7 +337,7 @@ async def addresses(database: AsyncDatabase) -> list[str]:
 
 
 async def refusal_of(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as raised:
+    with pytest.raises(APIError) as raised:
         await call
 
     return str(raised.value.error_code)
@@ -437,7 +437,7 @@ class TestWhatAGrantStoresAndQueues:
 
     def test_a_revoke_naming_no_grant_is_a_404_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await revoke(database, client, ObjectId())
 
             return await addresses(database)
@@ -655,7 +655,7 @@ class TestOnlyAnOwnerRevokes:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(ActorForbiddenException) as refused:
+            with pytest.raises(APIError) as refused:
                 await revoke(database, client, BERND_ID, als=DEAD_OWNER)
 
             return refused.value.error_code, await database[Collection.BERECHTIGUNGEN].count_documents({"_id": BERND_ID})
@@ -690,7 +690,7 @@ class TestAnActorRevokedMidRequest:
     def test_a_grant_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            with pytest.raises(ActorForbiddenException) as refused:
+            with pytest.raises(APIError) as refused:
                 await grant(database, client, als=ANNA, berechtigungen=racing)
             racing.assert_landed_inside(serially=0)
 
@@ -701,7 +701,7 @@ class TestAnActorRevokedMidRequest:
     def test_a_ban_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            with pytest.raises(ActorForbiddenException) as refused:
+            with pytest.raises(APIError) as refused:
                 await ban(database, client, als=ANNA, berechtigungen=racing)
             racing.assert_landed_inside(serially=0)
 
@@ -805,7 +805,7 @@ class TestAnOwnerChangesATier:
         """A dead row made an owner would be an owner nobody can sign in as."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await change(database, client, target, "owner")
 
         on_a_league(mongo_replica_set_url, body, grants=[*the_three_grants(), grant_document(DEAD_ID, DEAD_OWNER, "administration")])

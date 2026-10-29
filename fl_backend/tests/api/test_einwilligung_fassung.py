@@ -10,7 +10,7 @@ from app.api.einwilligung.router import get_fassung
 from app.api.einwilligung.services import find_fassung_refusal
 from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
@@ -41,8 +41,6 @@ class TestTheLabelAWriteStamps:
 
         assert refusal is not None
         assert refusal.error_code == Code.FASSUNG_UNZULAESSIG
-        assert "ansprechperson" in refusal.message
-        assert "trainer" not in refusal.message, "a place naming the running label is named as refused"
 
     @pytest.mark.parametrize(
         "held",
@@ -99,7 +97,7 @@ class TestTheWordsRead:
     def test_a_label_the_registry_does_not_hold_answers_nothing(self, label: str):
         """Never the nearest label's words: a record would then claim words its person never read."""
 
-        with pytest.raises(DocumentNotFoundException) as missed:
+        with pytest.raises(DocumentNotFoundError) as missed:
             asyncio.run(get_fassung(label))
 
         assert missed.value.error_code == Code.DOCUMENT_NOT_FOUND
@@ -122,7 +120,7 @@ class TestTheReadsOverHttp:
             response = CLIENT.get(f"{PREFIX}/fassungen/{label}", headers=BASE_AUTH)
 
             assert response.status_code == HTTPStatus.OK, label
-            assert response.json() == {"acknowledged": 1, "fassung": as_registered(label)}, label
+            assert response.json() == {"fassung": as_registered(label)}, label
 
     def test_a_label_the_registry_does_not_hold_is_the_not_found_body(self):
         response = CLIENT.get(f"{PREFIX}/fassungen/2026-07", headers=BASE_AUTH)
@@ -135,4 +133,4 @@ class TestTheReadsOverHttp:
         response = CLIENT.get(f"{PREFIX}/seiten", headers=BASE_AUTH)
 
         assert response.status_code == HTTPStatus.OK
-        assert response.json() == {"acknowledged": 1, "laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}
+        assert response.json() == {"laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}

@@ -130,7 +130,6 @@ class TestWhatALeakedLinkLearns:
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterBestaetigungAnsichtResponse.model_fields) == {
-            "acknowledged",
             "zustand",
             "mindestalter",
             "medien_mindestalter",
@@ -140,7 +139,7 @@ class TestWhatALeakedLinkLearns:
     def test_the_answer_declares_exactly_what_the_press_echoes(self):
         """The same equality on the press's answer, which the same token holder reads."""
 
-        assert set(FLSchiedsrichterBestaetigungResponse.model_fields) == {"acknowledged", "umfang", "medien", "bestaetigt_am"}
+        assert set(FLSchiedsrichterBestaetigungResponse.model_fields) == {"umfang", "medien", "bestaetigt_am"}
 
     def test_the_mint_answers_the_address_the_link_was_minted_for(self):
         """REQUIRED and not optional: a caller left to its own earlier read mails the credential to a mailbox a rival save has replaced."""

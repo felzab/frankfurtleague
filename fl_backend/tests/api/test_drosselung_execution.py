@@ -31,7 +31,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import collection_dependency, get_database
 from app.core.drosselung import TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
-from app.core.exceptions import DrosselungException
+from app.core.exceptions import APIError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.core.security import akteur_pseudonym
@@ -318,7 +318,7 @@ class TestTheCeilingUnderConcurrency:
         outcomes, stored, row = seeded(mongo_replica_set_url, steps)
 
         # A duplicate key here is a first insert the server refused rather than retried as an update.
-        assert Counter(type(outcome).__name__ for outcome in outcomes) == {"NoneType": ceiling, DrosselungException.__name__: 5}
+        assert Counter(type(outcome).__name__ for outcome in outcomes) == {"NoneType": ceiling, APIError.__name__: 5}
         assert stored == {count_id("spieler", PERSON): ceiling + 5}
         # Set by the insert alone, which this race is the only case to make.
         assert row["ablauf"] == MIDNIGHT_UTC

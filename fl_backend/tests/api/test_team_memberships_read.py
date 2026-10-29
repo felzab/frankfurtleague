@@ -42,7 +42,6 @@ class TestTheResponseModel:
     def test_an_empty_membership_list_is_a_valid_club(self):
         response = FLTeamsMembershipsResponse.model_validate(
             {
-                "acknowledged": 1,
                 "teams": [
                     {
                         "_id": "69ea37a048b415de4f59417b",

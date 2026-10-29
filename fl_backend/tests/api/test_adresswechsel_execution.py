@@ -52,7 +52,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.drosselung import build_counts_filter
-from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
@@ -249,22 +249,17 @@ class TestThePersonsStart:
             return sorted(minted.model_dump()), (await change(database, minted.id))["email"]
 
         assert on_a_person(mongo_replica_set_url, body) == (
-            ["acknowledged", "bisherige_email", "email", "genehmiger_anzahl", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
+            ["bisherige_email", "email", "genehmiger_anzahl", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
             NEW_EMAIL,
         )
 
-    def test_the_address_signed_in_on_is_refused_in_any_spelling_and_named_nowhere(self, mongo_replica_set_url: str):
-        """Its message reaches the refusal's log line, which names no submitted value."""
-
+    def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await start(database, client, email=TYPED.upper())
-            return refused.value.error_code, refused.value.error_detail["message"]
+            return refused.value.error_code
 
-        code, message = on_a_person(mongo_replica_set_url, body)
-
-        assert code == Code.ADRESSWECHSEL_UNVERAENDERT
-        assert "@" not in message
+        assert on_a_person(mongo_replica_set_url, body) == Code.ADRESSWECHSEL_UNVERAENDERT
 
     def test_an_address_holding_nothing_a_change_moves_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -562,7 +557,7 @@ class TestTheSystemsReadOfTheNewAddress:
         status, answered, written = on_a_person(mongo_replica_set_url, body)
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        assert "/adresswechsel/sweep/adresse -> 200" in written, (
+        assert f'"path": "/api/v{API_VERSION}/adresswechsel/sweep/adresse", "status": 200' in written, (
             "the request's own line was not captured, so the absence below holds of nothing"
         )
         assert NEW_EMAIL not in written.lower()
@@ -909,7 +904,7 @@ class TestTheStop:
 
     def test_with_nothing_pending_the_account_page_answers_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException) as missed:
+            with pytest.raises(DocumentNotFoundError) as missed:
                 await stop_here(database, client)
             return missed.value.status_code
 
@@ -922,7 +917,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
     def test_a_start_by_code_is_refused_where_the_address_holds_a_grant_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
-            with pytest.raises(ActorConfirmationRequiredException):
+            with pytest.raises(APIError):
                 await start(database, client, refuse_unconfirmed=person_check(factor=None))
             return await database[Collection.ADRESSWECHSEL].count_documents({})
 
@@ -942,7 +937,7 @@ class TestAGrantHoldersOwnPressAsksAPasskey:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             started = await administrator_starts(database, client, grund=None, operator=OWNER)
-            with pytest.raises(ActorConfirmationRequiredException):
+            with pytest.raises(APIError):
                 await approve_as_the_address(database, client, started.id, refuse_unconfirmed=person_check(factor=None))
             approved = await approve_as_the_address(database, client, started.id)
             return approved.token is not None
@@ -989,7 +984,7 @@ class TestTheAddressOnFilesApproval:
     def test_another_address_s_change_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             theirs = await administrator_starts(database, client, grund=None, adresse=OTHER_EMAIL)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await approve_as_the_address(database, client, theirs.id)
             return await change(database, theirs.id)
 
@@ -1105,7 +1100,7 @@ class TestTheTool:
             started = await administrator_starts(database, client, grund=GRUND)
             await discard(database, client, started.id)
             ended = await refused_code(tool_read(database, client, adresswechsel_id=started.id))
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await tool_read(database, client, adresswechsel_id=ObjectId())
             return ended, await refused_code(discard(database, client, started.id)), await refused_code(resend(database, client, started.id))
 
@@ -1128,7 +1123,7 @@ class TestTheTool:
     def test_a_change_not_waiting_on_the_new_mailbox_is_sent_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=None)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await resend(database, client, started.id)
             return "not found"
 
@@ -1140,7 +1135,7 @@ class TestTheTool:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=GRUND)
             await answer(database, client, started.token)
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await resend(database, client, started.id)
             return (await change(database, started.id))["gueltig_bis"]
 
@@ -1517,7 +1512,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             try:
                 await tool_read(database, client, adresswechsel_id=minted.id, operator=reader)
                 verwehrt = None
-            except WriteRefusalException as refused:
+            except APIError as refused:
                 verwehrt = {Code.EIGENE_ADRESSE: "eigene", Code.VERWALTUNG_ADRESSE: "verwaltung"}[refused.error_code]
 
             pupils = await call(get_spieler_memberships, database, client, operator=reader)
@@ -2036,7 +2031,7 @@ async def outcome_code(call: Awaitable[Any]) -> str | None:
 
     try:
         await call
-    except WriteRefusalException as refused:
+    except APIError as refused:
         return refused.error_code
     return None
 

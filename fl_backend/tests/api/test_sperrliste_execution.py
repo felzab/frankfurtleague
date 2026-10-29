@@ -16,7 +16,7 @@ from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_h
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -182,7 +182,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
 
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == Code.SPERRLISTE_ADRESSE_GESPERRT
@@ -195,7 +195,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await ban(database, client)
 
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client, email=BANNED_RETYPED)
 
             assert raised.value.error_code == Code.SPERRLISTE_ADRESSE_GESPERRT
@@ -238,7 +238,7 @@ class TestABanOfAnAdministratorsAddress:
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             # `ADMIN` holds `administration` rather than `owner`, so the refusal reads every grant.
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client, email=ADMIN.upper())
             refused = await database[Collection.SPERRLISTE].count_documents({})
             # The control: a check refusing every address would pass the refusal above.
@@ -461,7 +461,7 @@ class TestLiftingABan:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await ban(database, client)
 
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await delete_sperrliste_eintrag(
                     sperrliste_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
                     sperrliste_collection=database[Collection.SPERRLISTE],
@@ -523,7 +523,7 @@ class TestANameInTheGrund:
     def test_it_is_refused_on_the_box_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await everything_in(database)
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client, email=TYPED, grund=f"Falsche Angaben von {NACHNAME}")
 
             return raised.value, before == await everything_in(database)
@@ -533,11 +533,9 @@ class TestANameInTheGrund:
         assert (refusal.error_code, refusal.status_code, refusal.fields) == (
             Code.NAME_IM_GRUND,
             422,
-            [{"in": "body", "path": ["grund"], "kind": Code.NAME_IM_GRUND}],
+            (("grund",),),
         )
         assert untouched
-        # The message reaches the refusal's log line.
-        assert NACHNAME.lower() not in refusal.error_detail["message"].lower()
 
     @pytest.mark.parametrize("kind", SURNAME_OF)
     def test_every_kind_of_the_addresss_records_lends_its_names(self, mongo_replica_set_url: str, kind: str):
@@ -548,7 +546,7 @@ class TestANameInTheGrund:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             renamed = f"{VORNAME} {ANOTHER_SURNAME}" if field == "name" else ANOTHER_SURNAME
             assert (await database[collection].update_one(row, {"$set": {field: renamed}})).modified_count == 1
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client, email=TYPED, grund=f"Falsche Angaben, siehe {ANOTHER_SURNAME}")
 
             return raised.value.error_code
@@ -591,7 +589,7 @@ class TestANameARivalWritesMidBan:
             racing.append(SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], rival))
             try:
                 await ban_through_the_route(database, client, email=TYPED, grund=grund, von=ADMIN, today=TODAY, saisons=racing[-1])
-            except WriteRefusalException as refusal:
+            except APIError as refusal:
                 return refusal.error_code, before == await rows_of(database)
 
             return "banned", before == await rows_of(database)

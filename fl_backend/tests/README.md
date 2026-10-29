@@ -30,8 +30,6 @@ them.
 | `shared/`                                                                | The custom types and shared schemas under `app/shared/`                                                             |
 | `core/`                                                                  | What `app/core/` declares, and what a real `mongod` does with it                                                    |
 | `api/`                                                                   | The endpoint suites, split by concern rather than by entity                                                         |
-| `openapi_document.py`                                                    | Not a test — builds and writes `openapi.json` (`--write` / `--check`)                                               |
-| `einwilligung_document.py`                                               | Not a test — builds and writes `einwilligung.json` (`--write` / `--check`)                                          |
 
 ## Two tiers, and one of them needs Docker
 

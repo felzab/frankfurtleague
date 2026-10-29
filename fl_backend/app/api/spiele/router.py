@@ -10,12 +10,10 @@ from app.api.spiele.schemas import (
     FLSpielJoinedListAdapter,
 )
 from app.api.spiele.services import build_spiele_filter, build_spiele_pipeline, build_spiele_sort
-from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, get_german_date_str
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -26,7 +24,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpieleListResponse, summary="List Spiele", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get("", response_model=FLSpieleListResponse, summary="List Spiele")
 async def get_spiele(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
@@ -65,7 +63,7 @@ async def get_spiele(
     return FLSpieleListResponse(spiele=spiele)
 
 
-@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
 async def get_spiel(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
@@ -85,7 +83,7 @@ async def get_spiel(
         limit=1,
     )
     if not spiele_raw:
-        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     # The fixture's OWN season, after the read: a match of a season being drawn up then misses for
     # the same reason an id naming no match does.

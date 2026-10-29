@@ -143,7 +143,6 @@ def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]])
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_VORHANDEN,
         status=HTTPStatus.CONFLICT,
-        message="this email address already holds access to the administration",
     )
 
 
@@ -175,7 +174,6 @@ def find_nur_inhaber_refusal(
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_NUR_INHABER,
         status=HTTPStatus.FORBIDDEN,
-        message="only an owner, signed in since becoming one, revokes access to the administration or changes its tier",
     )
 
 
@@ -191,7 +189,6 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list; lift the ban before granting it access to the administration",
     )
 
 
@@ -204,7 +201,6 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_INHABER,
         status=HTTPStatus.CONFLICT,
-        message="an owner's access is not revoked; make them an administrator first",
     )
 
 
@@ -221,7 +217,6 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_MINDESTZAHL,
         status=HTTPStatus.CONFLICT,
-        message=f"the administration keeps at least {MINDESTZAHL} people with access; grant another before revoking this one",
     )
 
 
@@ -238,7 +233,6 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_LETZTER_INHABER,
         status=HTTPStatus.CONFLICT,
-        message="the administration keeps at least one owner; make another person an owner first",
     )
 
 

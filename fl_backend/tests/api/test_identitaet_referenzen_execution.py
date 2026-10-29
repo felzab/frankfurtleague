@@ -285,7 +285,6 @@ class TestWhatLetsAnAccountGo:
         assert answered(mongo_replica_set_url) == (
             200,
             {
-                "acknowledged": 1,
                 "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
             },
         )

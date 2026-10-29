@@ -431,7 +431,7 @@ def find_unbekannt_refusal(*, found: bool) -> WriteRefusal | None:
     if found:
         return None
 
-    return WriteRefusal(error_code=Code.ADRESSWECHSEL_UNBEKANNT, status=HTTPStatus.NOT_FOUND, message="this link opens no address change")
+    return WriteRefusal(error_code=Code.ADRESSWECHSEL_UNBEKANNT, status=HTTPStatus.NOT_FOUND)
 
 
 def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
@@ -443,7 +443,6 @@ def find_beendet_refusal(*, offen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_BEENDET,
         status=HTTPStatus.CONFLICT,
-        message="this address change has ended or was answered already; reload to see what became of it",
     )
 
 
@@ -456,7 +455,6 @@ def find_abgelaufen_refusal(*, abgelaufen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_ABGELAUFEN,
         status=HTTPStatus.GONE,
-        message="this step of the address change has lapsed; the change ends within the hour and may be started afresh",
     )
 
 
@@ -469,7 +467,6 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_BESTAETIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -482,7 +479,6 @@ def find_ersetzte_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_ERSETZTE_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this address change can no longer take effect; the address on file stays",
     )
 
 
@@ -495,7 +491,6 @@ def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_VERGEBEN,
         status=HTTPStatus.CONFLICT,
-        message="another pupil's entry holds this email address, and an address belongs to one entry alone",
     )
 
 
@@ -512,7 +507,6 @@ def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | No
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_UNVERAENDERT,
         status=HTTPStatus.CONFLICT,
-        message="the typed email address is the one on file already",
     )
 
 
@@ -529,7 +523,6 @@ def find_name_im_grund_refusal(*, nennt_namen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_NAME_IM_GRUND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason for this address change names the person, and the log keeps every row it files for a year",
         fields=(("grund",),),
     )
 
@@ -543,7 +536,6 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list, so no address link may be sent to it; lift the entry first",
     )
 
 
@@ -556,7 +548,6 @@ def find_nichts_refusal(*, leer: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_NICHTS,
         status=HTTPStatus.CONFLICT,
-        message="this email address holds nothing an address change moves",
     )
 
 
@@ -573,7 +564,6 @@ def find_kein_genehmiger_refusal(*, genehmiger: int) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_KEIN_GENEHMIGER,
         status=HTTPStatus.CONFLICT,
-        message="nobody could approve this change of an administrator's address; make another person an owner or an administrator first",
     )
 
 
@@ -586,7 +576,6 @@ def find_keine_genehmigung_offen_refusal(*, offen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_KEINE_GENEHMIGUNG_OFFEN,
         status=HTTPStatus.CONFLICT,
-        message="no approval waits on this address change",
     )
 
 
@@ -603,20 +592,17 @@ def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None)
         return WriteRefusal(
             error_code=Code.ADRESSWECHSEL_GENEHMIGUNG_JUENGER,
             status=HTTPStatus.FORBIDDEN,
-            message="a change is approved by an administrator who held their access since before it started",
         )
 
     if verwehrt == "inhaber":
         return WriteRefusal(
             error_code=Code.ADRESSWECHSEL_GENEHMIGUNG_INHABER,
             status=HTTPStatus.FORBIDDEN,
-            message="this change moves an owner's access, which another owner, signed in since becoming one, approves",
         )
 
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT,
         status=HTTPStatus.FORBIDDEN,
-        message="a change is approved by an administrator other than its person and the one who started it",
     )
 
 
@@ -632,7 +618,6 @@ def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_NICHT_GEDECKT,
         status=HTTPStatus.CONFLICT,
-        message="the address came to hold access to the administration this change was not approved for; start it again",
     )
 
 
@@ -648,7 +633,6 @@ def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_BELEGT,
         status=HTTPStatus.CONFLICT,
-        message="the new email address holds entries of its own, so this change cannot move these onto it",
     )
 
 
@@ -661,5 +645,4 @@ def find_neue_berechtigt_refusal(*, berechtigt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADRESSWECHSEL_NEUE_BERECHTIGT,
         status=HTTPStatus.CONFLICT,
-        message="the new email address already holds access to the administration",
     )

@@ -51,7 +51,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal, WriteRefusalException
+from app.core.exceptions import APIError, WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests.payloads import spiel_patch_body
 
@@ -467,14 +467,6 @@ def booking_refusal_for(season_docs: list[dict[str, Any]], nr: int, resolved: Re
     return None if refusal is None else refusal.error_code
 
 
-def booking_refusal_message_for(season_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
-    """The sentence rather than the code, for the one case where two rows share a code and must not share a wording."""
-
-    refusal = booking_refusal(season_docs, nr, resolved, **overrides)
-
-    return None if refusal is None else refusal.message
-
-
 class TestTheBookingRefusal:
     """`REQ-BOOKING-001`: a fixture is booked into a venue and a referee the league still has, and only a MOVED reference is judged."""
 
@@ -691,19 +683,6 @@ class TestTheGhostIsRefusedAsAnyRetiredRowIs:
 
         assert booking_refusal_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **PLAYED_AGAIN) is None
 
-    def test_the_sentence_names_the_resource_and_offers_no_reactivation(self, season):
-        """Read against the named row's own sentence.
-
-        One wording for both prints a referee called nothing and offers a control the ghost has not
-        got.
-        """
-
-        ghost = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=GHOST_REFEREE), **CLEARED)
-        named = booking_refusal_message_for(season, 2, references(ort=LIVE_VENUE, schiedsrichter=RETIRED_REFEREE), **CLEARED)
-
-        assert ghost is not None and "the Schiedsrichter chosen" in ghost and "reactivate" not in ghost
-        assert named is not None and "B. Whistle" in named and "reactivate" in named
-
 
 def anchored_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> BookedReferences:
     return find_references_to_anchor(FLSpiel.model_validate(stored_spiel(season_docs, nr)), payload_for(season_docs, nr, **overrides), RULES)
@@ -903,7 +882,7 @@ class TestEligibility:
         assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, team1=None) is None
 
     def test_a_disqualified_team_stored_on_a_knockout_fixture_stays_editable_too(self, season):
-        """The tolerance carries no phase: `UNENFORCED`'s departed club keeps what it stands on wherever that sits in the bracket.
+        """The tolerance carries no phase: the departed club `docs/domain.md` permits keeps what it stands on wherever that sits in the bracket.
 
         Spiel 29 is a semi-final holding Adler by hand, and the resubmit moves neither the date nor
         the event.
@@ -993,22 +972,6 @@ class TestEligibility:
 
         assert eligibility_for(season, 1, missing, datum=AFTER_THE_FIXTURE) is None
 
-    def test_the_refusal_names_the_way_past_it_on_a_group_fixture(self, season):
-        """The carve-out above is not one an admin finds unprompted, so the refusal that turns on it says so."""
-
-        refusal = eligibility_refusal_for(season, 1, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
-
-        assert refusal is not None and "cancel it or record the walkover first" in refusal.message
-
-    def test_a_knockout_fixture_is_offered_the_walkover_and_not_the_cancellation(self, season):
-        """The slot has to say who advances: a no-show names the side that stayed away, a cancellation names nobody."""
-
-        refusal = eligibility_refusal_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
-
-        assert refusal is not None
-        assert "record the walkover first" in refusal.message
-        assert "cancel it" not in refusal.message
-
     def test_a_knockout_walkover_against_a_departed_club_is_permitted(self, resolved_knockout):
         """A departed semi-finalist that did not appear, which the phase gate made unreachable.
 
@@ -1026,13 +989,6 @@ class TestEligibility:
         departed = {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}
 
         assert eligibility_for(resolved_knockout, 30, departed, sonderereignis="nichtantreten_team2") == Code.ELIGIBILITY_DISQUALIFIED
-
-    def test_the_refusal_names_the_club_the_season_knows(self, season):
-        """The payload carries no name, so the one an admin reads comes from the junction row this rule already holds."""
-
-        refusal = eligibility_refusal_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
-
-        assert refusal is not None and "Cronberg" in refusal.message
 
     def test_a_team_with_no_row_for_the_season_is_refused(self, season):
         """A dangling reference rather than an odd draw: the form offers only the season's teams."""
@@ -1573,9 +1529,6 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
-        assert "Adler" in refusal.message
-        # Both fixtures, because either is a place the correction could be made.
-        assert "29" in refusal.message and "30" in refusal.message
 
     def test_a_resolution_that_creates_no_pair_is_permitted(self, unresolved_slot_beside_a_hand_set_one):
         """The same slot settling on anybody else, which is the ordinary case the refusal must not reach."""
@@ -1598,7 +1551,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
     def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             asyncio.run(
                 advance_bracket_winners(
                     spiele_collection=cast(AsyncCollection, _SeasonCollection(a_decided_gruppe_seating_its_winner_twice)),
@@ -1616,7 +1569,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         season = FLSpielListAdapter.validate_python(a_decided_gruppe_seating_its_winner_twice)
 
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             asyncio.run(
                 preview_bracket_after_patch(
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
@@ -1645,23 +1598,11 @@ class TestTheClashComparesRealTime:
         refusal = find_clash_refusal(datum="2026-03-08", uhrzeit="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
 
         assert refusal is not None and refusal.error_code == Code.FIXTURE_DOUBLE_BOOKED
-        assert "60 minutes away" in refusal.message
 
     def test_the_same_hour_a_day_apart_still_passes(self):
         """The other direction of the same change: a whole day's separation must not become a clash."""
 
         assert find_clash_refusal(datum="2026-03-08", uhrzeit="18:00:00", booked=[self.slot("2026-03-07", "18:00:00")]) is None
-
-    def test_the_offender_named_is_the_earliest_across_the_window(self):
-        """Sorted by day and then by clock, so the message names the earliest offender rather than whichever the read returned first."""
-
-        refusal = find_clash_refusal(
-            datum="2026-03-08",
-            uhrzeit="00:30:00",
-            booked=[self.slot("2026-03-08", "03:00:00", nr=9), self.slot("2026-03-07", "23:30:00", nr=4)],
-        )
-
-        assert refusal is not None and "spiel_nr 4" in refusal.message
 
     def test_the_read_fetches_every_day_the_buffer_reaches(self):
         """A day the rule compares and the read never fetches is a clash nothing sees, so one number has to bound both."""

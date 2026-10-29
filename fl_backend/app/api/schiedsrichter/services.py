@@ -145,16 +145,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     if not upcoming_spiel_nrs:
         return None
 
-    named = ", ".join(str(nr) for nr in upcoming_spiel_nrs[:5])
-    rest = f" and {len(upcoming_spiel_nrs) - 5} more" if len(upcoming_spiel_nrs) > 5 else ""
-
     return WriteRefusal(
         error_code=Code.REFEREE_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are assigned to them (spiel_nr {named}{rest}); "
-            "reassign or cancel those fixtures first"
-        ),
     )
 
 
@@ -283,7 +276,6 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_TOKEN_UNKNOWN,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 
 
@@ -296,7 +288,6 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_TOKEN_EXPIRED,
         status=HTTPStatus.GONE,
-        message="this link has expired; the administration can send a fresh one",
     )
 
 
@@ -310,7 +301,6 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
-        message="this entry has already been confirmed; an answer is given once",
     )
 
 
@@ -325,7 +315,6 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -339,7 +328,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.SCHIEDSRICHTER_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
@@ -347,7 +335,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.SCHIEDSRICHTER_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
     return None
@@ -367,7 +354,6 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         error_code=Code.SCHIEDSRICHTER_MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
 
@@ -384,7 +370,6 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_RETIRED,
         status=HTTPStatus.CONFLICT,
-        message="this referee is retired and takes no new fixtures, so there is nothing left to collect a consent for; reactivate them first",
     )
 
 
@@ -408,7 +393,6 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_KEINE_ADRESSE,
         status=HTTPStatus.CONFLICT,
-        message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
 
@@ -421,7 +405,6 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_ADRESSE_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
 
 
@@ -456,7 +439,6 @@ def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL,
         status=HTTPStatus.CONFLICT,
-        message="this referee has confirmed their entry, so their address moves only through an address change; keep the stored one here",
     )
 
 

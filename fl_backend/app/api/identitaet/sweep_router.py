@@ -39,7 +39,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -129,7 +128,6 @@ async def _erase_one(
     "/lauf",
     response_model=FLLoeschungLaufResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_loeschung_lauf(
     params: Annotated[FLLoeschungLaufParams, Query()],
@@ -205,10 +203,10 @@ async def post_loeschung_lauf(
     ohne_adresse = ohne_passende_adresse(share)
     if ohne_adresse:
         # The ids alone, as every line of this run: the address is what the pupil's erasure exists to remove.
+        # Left out of the deletion: each one's stored address is empty, unfolded or refused by the address rule.
         fl_logger.warning(
-            f"Pupils left out of the deletion, their stored address empty, unfolded or refused by the address rule: "
-            f"{len(ohne_adresse)} ({', '.join(str(spieler_id) for spieler_id in ohne_adresse)})",
-            extra={"error_code": Code.STORED_DATA_INVALID},
+            "identitaet.loeschung_unaddressed",
+            extra={"error_code": Code.STORED_DATA_INVALID, "spieler_ids": [str(spieler_id) for spieler_id in ohne_adresse]},
         )
 
     # One instant for every redaction this call makes, as one erasure's steps share one.
@@ -264,16 +262,19 @@ async def post_loeschung_lauf(
                 ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
                 fl_logger.warning(
-                    f"Database deadline passed at pupil {row['_id']}"
-                    f"{', its erasure unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
-                    extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
+                    "identitaet.loeschung_cut",
+                    extra={
+                        "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                        "spieler_id": str(row["_id"]),
+                        "erasure_unanswered": ungewiss,
+                    },
                 )
                 abgebrochen = True
                 break
 
             # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
             code, diagnosis = diagnosis_of(failure)
-            fl_logger.error(f"Pupil {row['_id']} was not erased: {diagnosis}", extra={"error_code": code})
+            fl_logger.error("identitaet.loeschung_failed", extra={"error_code": code, "spieler_id": str(row["_id"]), "diagnosis": diagnosis})
             fehlgeschlagen += 1
             continue
 

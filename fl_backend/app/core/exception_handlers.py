@@ -1,5 +1,4 @@
-import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -142,23 +141,6 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     return error_response(status.HTTP_409_CONFLICT, Code.DUPLICATE_KEY)
 
 
-# Session 2: the sweep moves its two tests off this and deletes it with `refused_index_of`.
-_INDEX_NAME = re.compile(r"index: (\S+) dup key")
-
-
-# Session 2: the sweep moves its two tests off this and deletes it with `_INDEX_NAME`.
-def refused_index_of(exc: DuplicateKeyError) -> str | None:
-    """The name of the unique index that refused, and nothing else of the server's report.
-
-    `errmsg` embeds the duplicate key as a document -- the field AND the value that collided -- so
-    it is parsed for the one token the line may carry rather than logged.
-    """
-
-    match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
-
-    return match.group(1) if match else None
-
-
 # Every failure status an operation answers; the 405 of a method no operation serves is none of them.
 FAILURE_STATUSES: Final = (
     HTTPStatus.BAD_REQUEST,
@@ -179,29 +161,6 @@ FAILURE_RESPONSE_REF: Final = "#/components/responses/{status}"
 FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
 }
-
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DUPLICATE_KEY_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.CONFLICT]
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DOCUMENT_NOT_FOUND_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.NOT_FOUND]
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing() -> None:
-    """Declared by an operation storing nothing whatever its method; nothing reads the declaration."""
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
-    def register(dependency: Dependency) -> Dependency:
-        STORES_NOTHING_WHEN[dependency] = flag
-        return dependency
-
-    return register
 
 
 async def db_exception_handler(request: Request, exc: PyMongoError):

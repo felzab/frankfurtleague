@@ -26,7 +26,7 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
 )
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     adresswechsel_document,
@@ -1029,7 +1029,7 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
     squad = _SentSquadReads(database[Collection.SAISON_SPIELER])
     async with database.client.start_session() as session:
-        with contextlib.suppress(WriteRefusalException):
+        with contextlib.suppress(APIError):
             await read(squad, session)
     [issued] = squad.sent
     return issued

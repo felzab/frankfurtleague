@@ -136,7 +136,7 @@ class Code(StrEnum):
     SAISON_SPAN_BELOW_SCHEDULE = "REQ-DATE-005"
     # `position` and `beginn` order a phase independently, so nothing else stops a season from showing
     # its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
-    # postponement takes, and the message names it.
+    # postponement takes.
     SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
     SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = "REQ-DATE-009"
     DROSSELUNG_ERREICHT = "REQ-DROSSELUNG-001"
@@ -274,13 +274,10 @@ class Code(StrEnum):
     # One code, because one repair reaches all three: every offered group holding exactly
     # `teams_per_group`, short or over, and no club standing outside them.
     SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
-    # ONE code for both halves of the window -- `future`, and nothing recorded. They differ in kind:
-    # `status` moves one way, what was entered can be cleared, so the MESSAGE names the repair.
+    # ONE code for both halves of the window -- `future`, and nothing recorded.
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
-    # A code of its own, never `REQ-SPIELPLAN-005`'s: a rule resolves to ONE `implemented_by`, and that
-    # one already names `find_spielplan_refusal`.
     SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-006"
-    # A code of its own beside the window's: a report is no field of a fixture, and the window's sentence counts fixtures.
+    # A code of its own beside the window's: a report is no field of a fixture.
     SPIELPLAN_BERICHTE_EINGEREICHT = "REQ-SPIELPLAN-007"
     SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
     # Its own code beside `SPIELTAG_OCCUPIED`, because the repair differs and no side of this save named

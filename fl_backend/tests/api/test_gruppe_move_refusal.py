@@ -28,10 +28,3 @@ class TestTheWindowForAGroupChange:
 
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_GRUPPE_LOCKED
-
-    def test_the_refusal_names_the_count_and_the_route_out(self):
-        refusal = find_gruppe_move_refusal(fixtures_drawn=6)
-
-        assert refusal is not None
-        assert "6" in refusal.message
-        assert "swap" in refusal.message

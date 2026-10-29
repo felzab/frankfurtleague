@@ -19,7 +19,7 @@ from app.api.teams.admin_router import get_team_memberships
 from app.api.teams.router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests import documents
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -156,11 +156,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def raised_by(url: str, body: Body) -> DocumentNotFoundException:
+def raised_by(url: str, body: Body) -> DocumentNotFoundError:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
-        with pytest.raises(DocumentNotFoundException) as refusal:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
+        with pytest.raises(DocumentNotFoundError) as refusal:
             await body(database)
 
         return refusal.value

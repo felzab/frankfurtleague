@@ -40,8 +40,9 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
+from app.core.logging import JSONFormatter
 from app.main import create_app
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -215,7 +216,7 @@ def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
 
 
 def counts(answer: Any) -> dict[str, Any]:
-    return answer.model_dump(exclude={"acknowledged", "nach"})
+    return answer.model_dump(exclude={"nach"})
 
 
 # Past any population a case seeds, so the read names every due pupil at once.
@@ -521,9 +522,11 @@ class TestAStoredAddressNoRequestMatchesIsPassedOver:
             answer, nach, standing = on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
-        warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == Code.STORED_DATA_INVALID]
-        assert [message.endswith(f": 1 ({numbered(1)})") for message in warnings] == [True]
-        assert not [message for message in warnings if "thessaly" in message.lower()]
+        warnings = [record for record in caplog.records if getattr(record, "error_code", None) == Code.STORED_DATA_INVALID]
+        assert [(record.getMessage(), getattr(record, "spieler_ids", None)) for record in warnings] == [
+            ("identitaet.loeschung_unaddressed", [str(numbered(1))])
+        ]
+        assert not [record for record in warnings if "thessaly" in JSONFormatter().format(record).lower()]
 
     def test_one_corrected_so_after_the_read_is_judged_again_and_stands(self, mongo_replica_set_url: str):
         """The transaction's own judgement: drop its stored-address test and the erasure runs on a spelling no row holds folded."""
@@ -770,9 +773,12 @@ class TestOneRecordHoldsBackNobody:
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"]) == (1, 1, 1)
         assert standing == [numbered(1)]
         failures = [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED]
-        assert [str(numbered(1)) in record.getMessage() and "WriteError" in record.getMessage() for record in failures] == [True]
+        assert [(getattr(record, "spieler_id", None), "WriteError" in getattr(record, "diagnosis", "")) for record in failures] == [
+            (str(numbered(1)), True)
+        ]
         # Neither the address nor the name, which the line would keep past the erasure it reports.
-        assert not [record for record in failures if address_of(1) in record.getMessage() or "Quintessa" in record.getMessage()]
+        lines = [JSONFormatter().format(record) for record in failures]
+        assert not [line for line in lines if address_of(1) in line or "Quintessa" in line]
 
     def test_a_failure_not_the_databases_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catch the database's failures alone and the call fails, the second pupil standing and the next pass stopping at the first again."""
@@ -806,15 +812,15 @@ class TestOneRecordHoldsBackNobody:
 
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"], nach) == (1, 1, 1, None)
         assert standing == [numbered(1)]
-        failures = [
-            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH
-        ]
-        # Located by the frame that raised it, and never by its message, which can quote a value.
-        [(level, line)] = failures
-        assert (level, re.fullmatch(rf"Pupil {numbered(1)} was not erased: NotTheDatabases in aggregate at .+\.py:\d+", line) is not None) == (
+        [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
+        assert (failure.levelname, failure.getMessage(), getattr(failure, "spieler_id", None)) == (
             "ERROR",
-            True,
-        ), line
+            "identitaet.loeschung_failed",
+            str(numbered(1)),
+        )
+        # Located by the frame that raised it, and never by its message, which can quote a value.
+        diagnosis = getattr(failure, "diagnosis", "")
+        assert re.fullmatch(r"NotTheDatabases in aggregate at .+\.py:\d+", diagnosis) is not None, diagnosis
 
 
 # Long enough that the pupil before the stall is erased inside it on a loaded machine.
@@ -862,11 +868,11 @@ class TestTheDeadlineStopsTheCall:
         assert standing == [numbered(2), numbered(3)]
         assert after_the_next_pass == []
         lines = [
-            (record.levelname, record.getMessage())
+            (record.levelname, record.getMessage(), getattr(record, "spieler_id", None), getattr(record, "erasure_unanswered", None))
             for record in caplog.records
             if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
-        assert lines == [("WARNING", f"Database deadline passed at pupil {numbered(2)}: the call stops, and the rest stay due")]
+        assert lines == [("WARNING", "identitaet.loeschung_cut", str(numbered(2)), False)]
 
 
 @functools.cache
@@ -1070,7 +1076,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
 
     def test_an_unknown_season_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await preview_loeschung(
                     saison_id="2099",
                     saisons_collection=database[Collection.SAISONS],

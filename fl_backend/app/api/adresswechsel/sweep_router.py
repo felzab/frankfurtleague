@@ -59,8 +59,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
@@ -120,7 +119,7 @@ async def _end_the_lapsed_change(
     now: datetime,
     stamp: str,
 ) -> None:
-    """One change in a transaction of its own, judged again there: `DocumentNotFoundException` where it has not lapsed.
+    """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed.
 
     Unjournalled: restored, a lapsed change lapses again at the next pass.
     """
@@ -176,7 +175,7 @@ async def _make_the_due_change_take_effect(
 ) -> FLAdresswechselPostausgangArt | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
-    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundException` where stopped,
+    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundError` where stopped,
     discarded or replaced since the page was read.
     """
 
@@ -259,7 +258,6 @@ async def _make_the_due_change_take_effect(
     "",
     response_model=FLAdresswechselSweepResponse,
     summary="End the lapsed address changes, and make the due ones take effect",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_adresswechsel(
     params: Annotated[FLAdresswechselSweepParams, Query()],
@@ -368,7 +366,7 @@ async def sweep_adresswechsel(
                     now=germany_now,
                     stamp=stamp,
                 )
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.
             uebersprungen += 1
             continue
@@ -381,16 +379,24 @@ async def sweep_adresswechsel(
                 ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
                 fl_logger.warning(
-                    f"Database deadline passed at the {welche} address change {row['_id']}"
-                    f"{f', its {was} unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
-                    extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
+                    "adresswechsel.sweep_cut",
+                    extra={
+                        "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                        "art": welche,
+                        "adresswechsel_id": str(row["_id"]),
+                        # The step whose commit went out unanswered, null where none did.
+                        "unanswered": was if ungewiss else None,
+                    },
                 )
                 abgebrochen = True
                 break
 
             # The id and what locates the failure, never an address this pass handles.
             code, diagnosis = diagnosis_of(failure)
-            fl_logger.error(f"The {welche} address change {row['_id']} saw no {was}: {diagnosis}", extra={"error_code": code})
+            fl_logger.error(
+                "adresswechsel.sweep_row_failed",
+                extra={"error_code": code, "art": welche, "schritt": was, "adresswechsel_id": str(row["_id"]), "diagnosis": diagnosis},
+            )
             continue
 
         if not row["faellig"]:
@@ -518,7 +524,6 @@ async def post_adresswechsel_zugestellt(
     "/adresse",
     response_model=FLAdresswechselAdresseResponse,
     summary="Say which address a live change would move to",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_adresse(
     adresse_data: Annotated[FLAdresswechselAdressePayload, Body()],

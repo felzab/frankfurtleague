@@ -15,7 +15,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bestaetigte_kenntnisnahme,
@@ -334,7 +334,7 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(WriteRefusalException) as refusal:
+    with pytest.raises(APIError) as refusal:
         await call_replace(database, client, incoming_team_id=incoming)
 
     return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)
@@ -742,7 +742,7 @@ class TestWhoMayArrive:
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, incoming_team_id=ABSENT)
             return await row_of(database, WITHDRAWN)
 
@@ -756,7 +756,7 @@ class TestWhatIsAddressed:
         """A replacement addresses a junction row, not a club: `RETIRED` holds a `teams` document and no row here."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, team_id=RETIRED)
             return await spiele_now(database)
 
@@ -766,7 +766,7 @@ class TestWhatIsAddressed:
 
     def test_an_unknown_season_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, saison_id="1999")
             return await row_of(database, WITHDRAWN)
 

@@ -1,6 +1,7 @@
 import functools
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from typing import NamedTuple
 
 from fastapi import Depends, FastAPI, Request
@@ -13,7 +14,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import DatabaseUnavailableException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.shared.folding import is_stored_identifier
 
@@ -165,7 +166,7 @@ async def lifespan(app: FastAPI):
 
 async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=Code.NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client
 
 
@@ -176,7 +177,7 @@ async def get_database(
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=Code.NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client[config.db_base_name]
 
 

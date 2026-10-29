@@ -73,7 +73,6 @@ def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) 
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN,
         status=HTTPStatus.CONFLICT,
-        message="this season is not taking registrations today; the registration window is closed",
     )
 
 
@@ -90,7 +89,6 @@ def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
         status=HTTPStatus.CONFLICT,
-        message="the team this link belongs to does not play that season, so there is no squad to register for",
     )
 
 
@@ -107,7 +105,6 @@ def find_stufe_refusal(*, stufe: Any, erlaubte_stufen: Sequence[str]) -> WriteRe
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
         status=HTTPStatus.CONFLICT,
-        message="this season does not take registrations for that Stufe; pick one the form offers",
     )
 
 
@@ -126,7 +123,6 @@ def find_kader_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusa
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_KADER_VOLL,
         status=HTTPStatus.CONFLICT,
-        message="this team's squad is full for that season; ask the team before registering again",
     )
 
 
@@ -144,7 +140,6 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_ADRESSE_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="this email address cannot be used to register; use another, or ask the league",
     )
 
 
@@ -218,7 +213,6 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="this submission key already carries a registration sent with other details; the first one stands as it was sent",
     )
 
 
@@ -387,7 +381,6 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_TOKEN_UNKNOWN,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no registration; it may have been replaced by a newer one, or the registration is gone",
     )
 
 
@@ -400,7 +393,6 @@ def find_expired_token_refusal(*, bestaetigung: Any, status: Any, today: str) ->
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_TOKEN_EXPIRED,
         status=HTTPStatus.GONE,
-        message="this link has expired, or the registration has been decided; registering again through the team's link is the way back",
     )
 
 
@@ -413,7 +405,6 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
-        message="this registration has already been confirmed; an answer is given once",
     )
 
 
@@ -428,7 +419,6 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -443,7 +433,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.REGISTRIERUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"this consent is given from {REGISTRIERUNG_MIN_ALTER_JAHRE} years of age, and the date entered does not reach it",
         )
 
     # One ceiling over every consent flow, refusing a mistyped century rather than a real age.
@@ -452,7 +441,6 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
             error_code=Code.REGISTRIERUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
     return None
@@ -540,10 +528,6 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_WAHLEN_UNPASSEND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message=(
-            "the answers sent are not the ones this link's page asks: a returning pupil's page asks no choice and no "
-            "birthdate, a new pupil's page both choices and the birthdate"
-        ),
     )
 
 
@@ -560,7 +544,6 @@ def find_ohne_geburtsdatum_refusal(*, seite: FLRegistrierungSeite, gespeichert: 
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_OHNE_GEBURTSDATUM,
         status=HTTPStatus.CONFLICT,
-        message="the person this link confirms holds no birthdate for the returning pupil's page to take; the league corrects the record",
     )
 
 
@@ -578,7 +561,6 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         error_code=Code.REGISTRIERUNG_MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
 
@@ -826,7 +808,6 @@ def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_UNBESTAETIGT,
         status=HTTPStatus.CONFLICT,
-        message="this registration has not been confirmed by the pupil yet, so it cannot be admitted",
     )
 
 
@@ -852,7 +833,6 @@ def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_r
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_PERSON_FEHLT,
         status=HTTPStatus.CONFLICT,
-        message="the person this registration was confirmed as is not stored at its address, so it admits nobody; decline it instead",
     )
 
 
@@ -881,7 +861,6 @@ def find_person_refusal(
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_PERSON_NICHT_BENANNT,
         status=HTTPStatus.CONFLICT,
-        message="the person named is not the one this registration resolves to; read the registration again and answer its question",
     )
 
 
@@ -897,7 +876,6 @@ def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> Write
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_SCHON_IM_KADER,
         status=HTTPStatus.CONFLICT,
-        message="this person already plays in a squad this season",
     )
 
 
@@ -914,7 +892,6 @@ def find_schon_aufgenommen_refusal(*, gespeichert: Any, fingerabdruck: str) -> W
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_SCHON_AUFGENOMMEN,
         status=HTTPStatus.CONFLICT,
-        message="this registration has already been admitted into the team's squad; nothing was stored",
     )
 
 

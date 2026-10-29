@@ -158,7 +158,7 @@ class TestTheAnswer:
         async def body(_database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             return (await ask(mongo_replica_set_url, GESPERRT)).json()
 
-        assert on_a_list(mongo_replica_set_url, body) == {"acknowledged": 1, "gesperrt": True}
+        assert on_a_list(mongo_replica_set_url, body) == {"gesperrt": True}
 
     def test_the_question_stores_nothing(self, mongo_replica_set_url: str):
         """Asked about a barred address, the case most likely to write something down: no log row and no ban row moves."""

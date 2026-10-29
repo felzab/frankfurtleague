@@ -37,7 +37,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -84,7 +83,6 @@ async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any]
     "/{saison_id}",
     response_model=FLRegistrierungSweepResponse,
     summary="Run one season's registration retention clocks",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def sweep_registrierungen(
     saison_id: str,
@@ -422,7 +420,7 @@ async def sweep_registrierungen(
         # After the commit, so a retried transaction writes no second line. A count and never an id:
         # a line naming the registration would tie it to the ban for as long as the log is kept.
         if share.withheld:
-            fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} registration(s)")
+            fl_logger.info("registrierungen.reminders_withheld", extra={"saison_id": saison_id, "registrierungen": share.withheld})
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,

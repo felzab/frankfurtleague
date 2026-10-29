@@ -42,8 +42,6 @@ const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
   advanced_to: [],
   released_sides: [],
   bracket_faults: [],
-  prior_paarungen: [],
-  prior_bericht: null,
 };
 
 /** The fixture the save reads before and after its write, every payload it sends, and what the write answers. */

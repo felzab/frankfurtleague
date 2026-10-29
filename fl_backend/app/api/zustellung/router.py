@@ -27,7 +27,6 @@ from app.api.zustellung.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
 
@@ -90,7 +89,6 @@ async def _apply(
     "/angenommen",
     response_model=FLZustellungResponse,
     summary="Record the message the provider accepted for this record",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def angenommen_zustellung(
     angenommen_data: Annotated[FLZustellungAngenommenPayload, Body()],
@@ -134,7 +132,6 @@ async def angenommen_zustellung(
     "/abgewiesen",
     response_model=FLZustellungResponse,
     summary="Record the send the provider refused for this record",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def abgewiesen_zustellung(
     abgewiesen_data: Annotated[FLZustellungAbgewiesenPayload, Body()],
@@ -177,7 +174,6 @@ async def abgewiesen_zustellung(
     "",
     response_model=FLZustellungResponse,
     summary="Apply one delivery event to the record its message was sent about",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_zustellung(
     ereignis_data: Annotated[FLZustellungEreignisPayload, Body()],

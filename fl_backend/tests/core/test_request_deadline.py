@@ -57,7 +57,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
-FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
+FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
 # Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
@@ -103,7 +103,7 @@ class TestTheDeadlinesTheApplicationSets:
         """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
 
         ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
-        assert ceiling is not None, f"{FRONTEND_API} no longer declares `BASE_FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
+        assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
 
         # Positive, because pymongo reads a zero deadline as none at all.
         assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
@@ -587,9 +587,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
     def test_the_line_names_the_deadline_rather_than_a_crash(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, NetworkTimeout("timed out"))
 
-        assert [record.getMessage().split(" (")[0] for record in caplog.records if getattr(record, "error_code", None)] == [
-            "Database deadline passed"
-        ]
+        assert [record.getMessage() for record in caplog.records if getattr(record, "error_code", None)] == ["http.database_timeout"]
 
 
 # The shape `with_transaction` hands on when a commit went out and no answer came back within the deadline.

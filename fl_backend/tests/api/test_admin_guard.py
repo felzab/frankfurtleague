@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
 from app.core.codes import Code
-from app.core.exception_handlers import stores_nothing
 from app.core.security import (
     PERSON_ACTOR_BINDERS,
     bind_actor,
@@ -34,12 +33,14 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 
-# The extension and the tier names, spelled here rather than imported from `app/main.py`: a
-# comparison taking them from the pass it checks would let a rename through, and the frontend's own
-# comparison is what would fail instead.
-TIER_EXTENSION = "x-fl-tier"
-EXPECTED_TIERS: dict[Callable[..., Any], str] = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
-UNGUARDED_TIER = "none"
+# The security scheme each guard publishes, spelled here rather than imported from
+# `app/core/security.py`: a comparison taking them from the code it checks would let a rename
+# through, and the frontend's generated client is what would fail instead.
+EXPECTED_SCHEMES: dict[Callable[..., Any], str] = {
+    verify_access_base: "BaseKey",
+    verify_access_admin: "AdminKey",
+    verify_access_system: "SystemKey",
+}
 
 # `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
 # healthcheck: one that needs a secret fails for the wrong reasons (`app/core/security.py`).
@@ -325,12 +326,12 @@ def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
     return False
 
 
+# The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
+# line. Named, because nothing a route declares tells such a read from a write.
+ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/adresswechsel/ansicht", "post"), ("/api/v0/identitaet/erasure/ansicht", "post")})
+
 # Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
-ADMIN_TIER_WRITES = [
-    operation
-    for operation in ADMIN_TIER_OPERATIONS
-    if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
-]
+ADMIN_TIER_WRITES = [operation for operation in ADMIN_TIER_OPERATIONS if operation[1] != "get" and operation not in ADMIN_TIER_READS_OVER_POST]
 
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
@@ -391,18 +392,18 @@ def test_every_person_operation_binds_a_person_after_the_key():
     assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"
 
 
-def test_every_guard_this_file_knows_names_a_tier():
-    """A guard in one set and not the other publishes `none` for a route that is in fact guarded."""
-    assert SLICE_GUARDS == set(EXPECTED_TIERS)
+def test_every_guard_this_file_knows_names_a_scheme():
+    """A guard in one set and not the other publishes no security for a route that is in fact guarded."""
+    assert SLICE_GUARDS == set(EXPECTED_SCHEMES)
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
-def test_the_published_tier_is_the_guard_the_route_carries(path: str, method: str):
+def test_the_published_security_is_the_guard_the_route_carries(path: str, method: str):
     """The frontend sends the key this names, so a wrong one here is a 401 nobody meets until a page opens."""
     guards = guards_of(ROUTES_BY_OPERATION[(path, method)])
-    expected = "+".join(sorted(EXPECTED_TIERS[guard] for guard in guards)) or UNGUARDED_TIER
+    expected = [{EXPECTED_SCHEMES[guard]: []} for guard in sorted(guards, key=lambda guard: EXPECTED_SCHEMES[guard])]
 
-    assert APP.openapi()["paths"][path][method].get(TIER_EXTENSION) == expected
+    assert APP.openapi()["paths"][path][method].get("security", []) == expected
 
 
 def test_the_mutation_inventory_clears_its_floor():

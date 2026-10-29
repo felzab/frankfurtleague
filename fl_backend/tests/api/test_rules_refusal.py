@@ -6,8 +6,6 @@ import pytest
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import (
     FROZEN_RULES_FIELDS,
-    SEEDING_RULES_FIELD,
-    SHAPE_RULES_FIELDS,
     find_rules_refusal,
     find_undraw_refusal,
 )
@@ -59,7 +57,6 @@ def judge(
     largest_squad: int = 0,
     attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
-    recorded: int = 0,
     played_knockout: int = 0,
 ) -> WriteRefusal | None:
     return find_rules_refusal(
@@ -71,7 +68,6 @@ def judge(
         largest_squad=largest_squad,
         attached_by_phase=attached,
         drawn_fixtures=drawn,
-        recorded_fixtures=recorded,
         played_knockout_fixtures=played_knockout,
     )
 
@@ -104,7 +100,7 @@ class TestTheBracketMustHaveAShape:
         assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
     def test_refuses_a_field_larger_than_the_phase_set_can_hold(self):
-        """The message names `MAX_QUALIFIERS` rather than a constant, so adding a phase moves the bound and the wording together."""
+        """Past `MAX_QUALIFIERS`, which no phase set reaches."""
 
         refusal = judge(proposed=rules(groups=4, per_group=8, qualifiers=8))
 
@@ -167,13 +163,6 @@ class TestADrawIsNeverWorthMoreThanAWin:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_DRAW_OUTVALUES_WIN
 
-    def test_the_refusal_names_both_numbers(self):
-        refusal = judge(proposed=rules(win=3, draw=4))
-
-        assert refusal is not None
-        assert "4" in refusal.message
-        assert "3" in refusal.message
-
     def test_permits_resubmitting_an_existing_excess_unchanged(self):
         """`rules` is required on the patch, so a season stored this way would otherwise be unpatchable."""
 
@@ -235,7 +224,6 @@ class TestADrawnForfeitCannotDecideAKnockout:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
-        assert "2:2" in refusal.message
 
     def test_a_season_playing_no_knockout_round_may_regulate_a_level_award(self):
         """3 x 1 reaches no bracket, so no round is left without a winner; `REQ-RULES-001` passes the product because it did not change."""
@@ -292,7 +280,6 @@ class TestNarrowingTheGroupCount:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_GROUPS_IN_USE
-        assert "C, D" in refusal.message
 
     def test_permits_dropping_a_group_nobody_is_in(self):
         """A season being set up narrows freely — the guard is about stranding, not about the number."""
@@ -322,7 +309,6 @@ class TestNarrowingTheCapacity:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_CAPACITY_BELOW_USE
-        assert "6" in refusal.message
 
     def test_permits_a_capacity_that_still_fits(self):
         assert judge(stored=rules(per_group=6), proposed=rules(per_group=4), occupancy={"A": 4, "B": 2}) is None
@@ -347,7 +333,6 @@ class TestNarrowingTheSquadCap:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_KADER_BELOW_USE
-        assert "20" in refusal.message
 
     def test_permits_widening_the_cap(self):
         assert judge(stored=rules(kader=18), proposed=rules(kader=25), largest_squad=18) is None
@@ -418,7 +403,6 @@ class TestAFinishedSeasonFreezes:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SAISON_FINISHED
-        assert field in refusal.message
 
     @pytest.mark.parametrize(
         ("label", "changed"),
@@ -463,21 +447,6 @@ class TestAFinishedSeasonFreezes:
 # The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
 DRAWN_FIXTURES = 24
 
-# The two repairs `REQ-RULES-011` composes, anchored on the write each one asks for rather than on
-# the prose around it. Both end in the same draw, so the undraw is what tells them apart.
-UNDRAW_FIRST = "undraw the Spielplan"
-DRAW_AGAIN = "the Spielplan again"
-
-# Each shape field, moved on its own, and whether its repair has to start by undrawing.
-SHAPE_REPAIR_CASES: tuple[tuple[str, dict[str, Any], bool], ...] = (
-    ("number_of_groups", {"groups": 2}, True),
-    ("teams_per_group", {"per_group": 6}, True),
-    ("qualifiers_per_group", {"qualifiers": 4}, False),
-)
-
-# A field added to the shape and not to the cases above would otherwise go untested in silence.
-assert tuple(field for field, _, _ in SHAPE_REPAIR_CASES) == SHAPE_RULES_FIELDS, "the shape fields and the repairs for them have drifted apart"
-
 
 class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     """The three numbers a season's fixture list is generated from."""
@@ -498,7 +467,6 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
-        assert label in refusal.message
 
     def test_widening_a_group_is_refused_though_no_bound_is_crossed(self):
         """The case nothing else reaches: `REQ-RULES-006` refuses a narrowing alone.
@@ -546,50 +514,6 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
 
-    def test_the_refusal_names_drawing_the_season_again(self):
-        """Inside the planning window: naming the shape unchangeable where the draw is open sends an admin looking for nothing."""
-
-        refusal = judge(status="future", stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert "draw the Spielplan again" in refusal.message
-
-    @pytest.mark.parametrize(("field", "changed", "undraws"), SHAPE_REPAIR_CASES, ids=[field for field, _, _ in SHAPE_REPAIR_CASES])
-    def test_the_refusal_names_the_repair_the_moved_field_has(self, field: str, changed: dict[str, Any], undraws: bool):
-        """One repair for all three passes every other assertion in this class and sends an admin to a write the draw refuses.
-
-        A redraw cannot move the other two: `REQ-SPIELPLAN-004` asks every offered group for exactly `teams_per_group`.
-        """
-
-        refusal = judge(status="future", stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert DRAW_AGAIN in refusal.message
-        assert (UNDRAW_FIRST in refusal.message) == undraws, f"{field} was offered the other field's repair"
-
-        # Composed per moved field, so a field standing still must not be named: naming it lends it
-        # whichever repair the clause carries, and the two are not interchangeable.
-        also_named = [other for other in SHAPE_RULES_FIELDS if other != field and other in refusal.message]
-        assert not also_named, f"the refusal for {field} also names {also_named}"
-
-    @pytest.mark.parametrize(
-        ("changed", "named"),
-        [
-            ({"groups": 2, "per_group": 6}, ("number_of_groups", "teams_per_group")),
-            ({"groups": 2, "qualifiers": 4}, ("number_of_groups", "qualifiers_per_group")),
-        ],
-        ids=["both of the pinned ones", "a pinned one and the redrawable one"],
-    )
-    def test_a_step_moving_two_of_them_names_both(self, changed: dict[str, Any], named: tuple[str, ...]):
-        """A dropped clause is a field the admin repairs on the next refusal instead of this one, and an undraw is not a step to repeat."""
-
-        refusal = judge(status="future", stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert UNDRAW_FIRST in refusal.message
-        unnamed = [field for field in named if field not in refusal.message]
-        assert not unnamed, f"the refusal drops {unnamed}, so the admin reads a repair for half of what they changed"
-
     def test_permits_resubmitting_the_drawn_shape_unchanged(self):
         """`rules` is required on the patch, so a dates-only edit resubmits all three unchanged."""
 
@@ -609,14 +533,6 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
 
         assert refusal is None
 
-    def test_the_refusal_names_how_many_fixtures_stand_on_the_shape(self):
-        """The message is the log line, and the count is what says whether a redraw is one matchday's work or the season's."""
-
-        refusal = judge(stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert str(DRAWN_FIXTURES) in refusal.message
-
     def test_it_is_reported_before_a_bound_on_the_same_field(self):
         """`REQ-RULES-004` would name a placing to raise the count back over; here the count may not move at all."""
 
@@ -634,9 +550,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert refusal.error_code == Code.RULES_SAISON_FINISHED
 
 
-# Every window state the repair has to survive. The verdict is asserted against `find_undraw_refusal`
-# rather than trusted here, so a row describing a window that has moved fails rather than passing
-# over it.
+# Every state of the window, and whether the undraw runs in it.
 UNDRAW_WINDOW_CASES: tuple[tuple[str, int, bool], ...] = (
     ("future", 0, True),
     ("future", 2, False),
@@ -647,74 +561,13 @@ UNDRAW_WINDOW_CASES: tuple[tuple[str, int, bool], ...] = (
 # In case order: a row added above without one here fails `parametrize` rather than mislabelling a case.
 WINDOW_IDS: tuple[str, ...] = ("planned and untouched", "planned but carrying a record", "running", "finished")
 
-WINDOW_STATES: tuple[tuple[str, int], ...] = tuple((status, recorded) for status, recorded, _ in UNDRAW_WINDOW_CASES)
 
-# `past` dropped, and derived rather than retyped so a row added above reaches this set: `REQ-RULES-005`
-# freezes `qualifiers_per_group`, so a finished season is answered by that freeze instead of this rule.
-REDRAW_WINDOW_CASES = tuple(case for case in UNDRAW_WINDOW_CASES if case[0] != "past")
-REDRAW_WINDOW_IDS = tuple(label for label, case in zip(WINDOW_IDS, UNDRAW_WINDOW_CASES, strict=True) if case[0] != "past")
-
-
-class TestTheShapeRefusalRecommendsNoRepairTheSpielplanRefuses:
-    """`REQ-RULES-011`'s two repairs are both Spielplan writes, and one window holds both.
-
-    The freeze holds in every status and only the sentence narrows. Outside the window a repair
-    naming the undraw sends an admin to a write answered `REQ-SPIELPLAN-006`.
-    """
+class TestTheUndrawWindow:
+    """`REQ-SPIELPLAN-006`: a planned season with nothing recorded against it, and no other."""
 
     @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
-    def test_each_case_states_the_window_the_undraw_actually_holds(self, status: str, recorded: int, undraw_runs: bool):
-        """The floor: every case below reads its window off this table, so a table gone stale would pass them all."""
-
+    def test_the_undraw_runs_only_inside_the_window(self, status: str, recorded: int, undraw_runs: bool):
         assert (find_undraw_refusal(saison_status=status, recorded_fixtures=recorded) is None) is undraw_runs
-
-    @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
-    def test_the_undraw_is_named_only_where_it_runs(self, status: str, recorded: int, undraw_runs: bool):
-        """`teams_per_group` is a pinned field, and undrawing is where its only repair starts."""
-
-        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
-        assert (UNDRAW_FIRST in refusal.message) is undraw_runs
-
-    @pytest.mark.parametrize(("status", "recorded", "redraw_runs"), REDRAW_WINDOW_CASES, ids=REDRAW_WINDOW_IDS)
-    def test_the_redraw_is_named_only_where_it_runs(self, status: str, recorded: int, redraw_runs: bool):
-        """`qualifiers_per_group`'s repair is a confirmed replace, which `REQ-SPIELPLAN-005` holds to the undraw's own window."""
-
-        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(qualifiers=4), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
-        assert (DRAW_AGAIN in refusal.message) is redraw_runs
-
-    @pytest.mark.parametrize(("status", "recorded"), WINDOW_STATES, ids=WINDOW_IDS)
-    def test_only_the_field_that_moved_is_named_in_any_window(self, status: str, recorded: int):
-        """A narrowed clause joining the whole tuple rather than what moved would lend a field standing still the freeze the clause carries."""
-
-        refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert "teams_per_group" in refusal.message
-        assert [field for field in SHAPE_RULES_FIELDS if field != "teams_per_group" and field in refusal.message] == []
-
-    def test_a_season_past_the_window_is_told_the_numbers_are_settled(self):
-        """Nothing returns a season to `future`, so a condition to meet would name a state nobody can reach."""
-
-        refusal = judge(status="active", stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert "for the rest of this season" in refusal.message
-
-    def test_a_planned_season_carrying_a_record_is_told_what_shut_the_window(self):
-        """The record half has a way back and the status half has none, so calling the numbers settled here denies a repair they hold."""
-
-        refusal = judge(status="future", recorded=2, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
-
-        assert refusal is not None
-        assert "for the rest of this season" not in refusal.message
-        assert "2 fixture(s)" in refusal.message
-        assert "nothing entered against it" in refusal.message
 
 
 # A season whose bracket is under way: one knockout fixture has left a record. Its fixtures were
@@ -773,20 +626,6 @@ class TestAStartedKnockoutFreezesTheTiebreak:
 
         assert refusal is None
 
-    def test_the_refusal_names_the_field_and_the_count(self):
-        """The message is the log line: the field says which control is spent, the count says how far the bracket has run."""
-
-        refusal = judge(
-            stored=rules(),
-            proposed=rules(tiebreak=OTHER_TIEBREAK),
-            drawn=DRAWN_BEFORE_THE_KNOCKOUT,
-            played_knockout=PLAYED_KNOCKOUT_FIXTURES,
-        )
-
-        assert refusal is not None
-        assert SEEDING_RULES_FIELD in refusal.message
-        assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.message
-
     def test_a_finished_season_is_reported_as_finished_first(self):
         """Both freezes cover `tiebreak_order`, and `REQ-RULES-005` also explains why the points beside it will not move."""
 
@@ -840,14 +679,6 @@ class TestNarrowingBelowAMatchdaysFixtures:
         """A matchday over its count got there by fixtures added, never by rules a dates-only edit resubmits unchanged."""
 
         assert judge(stored=rules(groups=2, qualifiers=4), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8}) is None
-
-    def test_the_refusal_names_the_phase_and_both_counts(self):
-        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
-
-        assert refusal is not None
-        assert "gruppenphase" in refusal.message
-        assert "8" in refusal.message
-        assert "4" in refusal.message
 
     def test_a_stranding_narrowing_is_reported_before_this_one(self):
         """`REQ-RULES-002` names a group and its teams; this rule names an arithmetic consequence of the same edit."""
@@ -919,13 +750,6 @@ class TestAGroupCannotQualifyMoreThanItHolds:
 
         assert refusal is not None
         assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GROUP
-
-    def test_the_refusal_names_both_numbers(self):
-        refusal = judge(proposed=rules(qualifiers=8, per_group=4))
-
-        assert refusal is not None
-        assert "8" in refusal.message
-        assert "4" in refusal.message
 
 
 # What a bound refuses, as against a key that is absent or of the wrong type.

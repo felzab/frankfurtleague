@@ -112,7 +112,6 @@ services:
     healthcheck:
       # `/system/is_live` is the one probe that needs no key, and it deliberately does not touch
       # MongoDB — a liveness check that needs the database fails for reasons a restart cannot fix.
-      # `/system/is_ready` answers that question instead, and is guarded.
 
       # The API version is hardcoded here and must match
       # `fl_backend/app/core/config.py :: API_VERSION`, which records why it is a constant rather

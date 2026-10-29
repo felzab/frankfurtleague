@@ -21,7 +21,7 @@ from app.core.exception_handlers import (
     refused_properties_of,
     rejected_fields_of,
 )
-from app.core.exceptions import BaseAPIException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import actor_var
@@ -47,10 +47,8 @@ def _abort_budget() -> float:
 
 def _log_left_open(cause: str) -> None:
     # Never raised: the request answers the failure that brought it here.
-    fl_logger.error(
-        f"A transaction this request opened may stand open on the server until its lifetime limit: {cause}",
-        extra={"error_code": Code.DATABASE_FAILED},
-    )
+    # The transaction may stand open on the server until its lifetime limit.
+    fl_logger.error("transactions.left_open", extra={"error_code": Code.DATABASE_FAILED, "cause": cause})
 
 
 async def _abort_on_the_server(session: AsyncClientSession) -> None:
@@ -250,7 +248,7 @@ def carried_by_a_row(failure: Exception) -> bool:
     answers -- a judge's among them -- is the request's.
     """
 
-    return not isinstance(failure, (StalledPage, BaseAPIException)) and not (isinstance(failure, PyMongoError) and failure.timeout)
+    return not isinstance(failure, (StalledPage, APIError)) and not (isinstance(failure, PyMongoError) and failure.timeout)
 
 
 def diagnosis_of(failure: Exception) -> tuple[str, str]:
@@ -278,7 +276,9 @@ def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> Non
     # No unanswered commit reaches here: `with_transaction` retries one until the deadline, which
     # `isolate` never halves.
     code, diagnosis = diagnosis_of(failure)
-    fl_logger.error(f"{what} {row_id} was passed over by the {clock} clock: {diagnosis}", extra={"error_code": code})
+    fl_logger.error(
+        "transactions.row_passed_over", extra={"error_code": code, "what": what, "row_id": str(row_id), "clock": clock, "diagnosis": diagnosis}
+    )
 
 
 async def isolate[T](
@@ -362,11 +362,7 @@ async def isolate[T](
         _log_stopped(stop, what=what, clock=clock, cut=cut)
 
     if stopped:
-        fl_logger.warning(
-            f"The request's deadline holds no further attempt taking the {clock} clock's rows apart: the call answers what committed, "
-            "and the rest stay due",
-            extra={"error_code": Code.DATABASE_FAILED},
-        )
+        fl_logger.warning("transactions.isolation_out_of_time", extra={"error_code": Code.DATABASE_FAILED, "clock": clock})
 
     return committed, passed
 
@@ -376,23 +372,16 @@ def _log_stopped(stop: Exception, *, what: str, clock: str, cut: Sequence[Any]) 
 
     if not (isinstance(stop, PyMongoError) and stop.timeout):
         code, diagnosis = diagnosis_of(stop)
-        fl_logger.warning(
-            f"Taking the {clock} clock's rows apart stopped at a failure no row carries ({diagnosis}): the call answers what committed, "
-            "and the rest stay due",
-            extra={"error_code": code},
-        )
+        fl_logger.warning("transactions.isolation_stopped", extra={"error_code": code, "clock": clock, "diagnosis": diagnosis})
     # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
     elif stop.has_error_label(UNKNOWN_COMMIT_RESULT):
+        # Those rows may have been written with nobody told; the call answers what else committed.
         fl_logger.warning(
-            f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
-            "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",
-            extra={"error_code": Code.UNKNOWN_OUTCOME},
+            "transactions.isolation_commit_unanswered",
+            extra={"error_code": Code.UNKNOWN_OUTCOME, "clock": clock, "what": what, "row_ids": [str(row_id) for row_id in cut]},
         )
     else:
-        fl_logger.warning(
-            f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
-            extra={"error_code": Code.DATABASE_FAILED},
-        )
+        fl_logger.warning("transactions.isolation_cut", extra={"error_code": Code.DATABASE_FAILED, "clock": clock})
 
 
 async def run_isolated[T](

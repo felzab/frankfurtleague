@@ -102,7 +102,7 @@ class TestTheKuerzelCheck:
         name, shorthand, _ = RETIRED_CLUB
         body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
 
-        assert set(body) == {"acknowledged", "shorthand", "vergeben"}
+        assert set(body) == {"shorthand", "vergeben"}
         assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
 
 

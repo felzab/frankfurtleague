@@ -60,7 +60,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import act_row, anlass_var, log_stamp
 from app.core.security import (
     bind_actor,
@@ -84,7 +83,6 @@ router = APIRouter(
     "/erasure/ansicht",
     response_model=FLErasureAnsichtResponse,
     summary="Show what an erasure of an address would remove",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_erasure_ansicht_auf_anfrage(
     ansicht_data: Annotated[FLErasureAnsichtPayload, Body()],
@@ -232,7 +230,6 @@ async def get_erasure_ansicht_auf_anfrage(
     "/erasure",
     response_model=FLErasureResponse,
     summary="Erase every record an address holds, on that person's request",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def erase_auf_anfrage(

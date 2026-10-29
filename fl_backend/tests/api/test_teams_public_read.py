@@ -14,10 +14,10 @@ from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FL
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.openapi_document import build_document
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import bestaetigte_kenntnisnahme
-from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 from .conftest import unwritten

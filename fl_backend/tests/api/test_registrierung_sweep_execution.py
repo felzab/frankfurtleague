@@ -23,7 +23,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.logging import FL_LOGGER_NAME
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
 from app.main import create_app
@@ -299,11 +299,11 @@ class TestTheReminderClock:
         assert document["bestaetigung"]["token_hash"] == hash_token(f"first-{REMIND_OID}")
         assert second == []
 
-        withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+        withheld = [record for record in caplog.records if record.getMessage() == "registrierungen.reminders_withheld"]
         # A count, never an id: a line naming the registration would tie it to the ban. One per pass,
         # each having asked the ban afresh.
-        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"] * 2
-        assert not any(str(REMIND_OID) in record.getMessage() for record in caplog.records if "withheld" in record.getMessage())
+        assert [(getattr(record, "saison_id", None), getattr(record, "registrierungen", None)) for record in withheld] == [(SAISON_ID, 1)] * 2
+        assert not any(str(REMIND_OID) in JSONFormatter().format(record) for record in withheld)
 
     def test_a_barred_registration_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
         """Skipped before the share is cut: it stays due, so taken first it would fill the share on every pass."""
@@ -514,11 +514,18 @@ async def refuse_the_redaction_of(database: AsyncDatabase, registrierung_id: Obj
 REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
 
 
-def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
+def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
     return [
-        (record.levelname, getattr(record, "error_code", None), record.getMessage())
+        (
+            record.levelname,
+            getattr(record, "error_code", None),
+            getattr(record, "what", None),
+            getattr(record, "row_id", None),
+            getattr(record, "clock", None),
+            getattr(record, "diagnosis", None),
+        )
         for record in caplog.records
-        if "passed over" in record.getMessage()
+        if record.getMessage() == "transactions.row_passed_over"
     ]
 
 
@@ -550,9 +557,7 @@ class TestOneRowHoldsBackNoOther:
             REMIND_OID in {e.registrierung_id for e in answer.erinnerungen},
         ) == (1, 1, 1, True)
         assert (DECLINED_OID in left, SECOND_OID in left) == (True, False)
-        assert passed_over(caplog) == [
-            ("ERROR", Code.DATABASE_FAILED, f"Registration {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
     def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -570,9 +575,7 @@ class TestOneRowHoldsBackNoOther:
             [CONFIRMED_OID],
         )
         assert (left, day) == ([REMIND_OID, OTHER_SEASON_OID], TODAY)
-        assert passed_over(caplog) == [
-            ("ERROR", Code.DATABASE_FAILED, f"Registration {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
     def test_a_seasons_end_whose_every_erasure_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
         """No half commits, so the day is stamped alone: the count is all that tells this pass from a clean one."""
@@ -603,9 +606,13 @@ class TestOneRowHoldsBackNoOther:
         erased, count, left = on_a_league(mongo_replica_set_url, body, status="past")
 
         assert (erased, count, left) == (OVERFLOW, 1, [SECOND_OID])
-        assert [line for _, _, line in passed_over(caplog)] == [
-            f"Registration {SECOND_OID} was passed over by the season's end clock: ValidationError: "
-            "[{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
+        assert [entry[2:] for entry in passed_over(caplog)] == [
+            (
+                "Registration",
+                str(SECOND_OID),
+                "season's end",
+                "ValidationError: [{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]",
+            )
         ]
 
     def test_a_refused_erasure_by_the_deadline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -631,9 +638,7 @@ class TestOneRowHoldsBackNoOther:
             True,
         )
         assert (EXPIRED_OID in left, SECOND_OID in left) == (True, False)
-        assert passed_over(caplog) == [
-            ("ERROR", Code.DATABASE_FAILED, f"Registration {EXPIRED_OID} was passed over by the deadline clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(EXPIRED_OID), "deadline", f"{REFUSED_TRACE_ID}")]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """An empty address, which the validator stores and the answer's model refuses before any stamp is written."""
@@ -651,9 +656,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert (REMIND_OID in answered, SECOND_OID in answered, count, stamp) == (True, False, 1, None)
         refusal = "ValidationError: [{'loc': 'email', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
-        assert passed_over(caplog) == [
-            ("ERROR", Code.STORED_DATA_INVALID, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Registration", str(SECOND_OID), "reminder", f"{refusal}")]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A hand-edited registration short of a field it now requires: strict validation refuses the stamp's update.
@@ -679,12 +682,10 @@ class TestOneRowHoldsBackNoOther:
 
         assert (answered, count, stamp) == ({REMIND_OID, INSIDE_OID}, 1, None)
         refusal = "OperationFailure, code 121: [{'loc': 'einladung_id', 'type': 'required', 'msg': 'property is missing'}]"
-        assert passed_over(caplog) == [
-            ("ERROR", Code.DATABASE_FAILED, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
-        ]
-        assert [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()] == [
-            f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(SECOND_OID), "reminder", f"{refusal}")]
+        assert [
+            getattr(record, "registrierungen", None) for record in caplog.records if record.getMessage() == "registrierungen.reminders_withheld"
+        ] == [1]
 
     def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
         """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""

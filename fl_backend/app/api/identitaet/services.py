@@ -484,7 +484,6 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
     return WriteRefusal(
         error_code=Code.FUNKTION_NICHT_GEHALTEN,
         status=HTTPStatus.FORBIDDEN,
-        message="the signed-in person holds no seat on this team in this season, so its panel is not theirs to read or change",
     )
 
 
@@ -507,7 +506,6 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
     return WriteRefusal(
         error_code=Code.LETZTER_INHABER_ERASURE,
         status=HTTPStatus.CONFLICT,
-        message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
     )
 
 
@@ -526,7 +524,6 @@ def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal
     return WriteRefusal(
         error_code=Code.EIGENE_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="an administrator does not act on their own address here; their own account page does, or an owner",
     )
 
 
@@ -579,7 +576,6 @@ def find_verwaltung_adresse_refusal(
     return WriteRefusal(
         error_code=Code.VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
     )
 
 
@@ -607,7 +603,6 @@ def find_fremder_adresswechsel_refusal(
     return WriteRefusal(
         error_code=Code.FREMDER_ADRESSWECHSEL,
         status=HTTPStatus.FORBIDDEN,
-        message="erasing this address would end an administrator's pending address change, which only an owner ends",
     )
 
 
@@ -742,7 +737,6 @@ def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRe
     return WriteRefusal(
         error_code=Code.NAME_IM_ANLASS,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
         fields=(("anlass",),),
     )
 
@@ -761,7 +755,6 @@ def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefu
     return WriteRefusal(
         error_code=Code.NAME_IM_GRUND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason for this ban names a person the address's records hold, and the ban keeps it past that person's erasure",
         fields=(("grund",),),
     )
 
@@ -855,7 +848,6 @@ def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteR
     return WriteRefusal(
         error_code=Code.KEIN_INHABER,
         status=HTTPStatus.CONFLICT,
-        message="the grants hold no live owner, so the database read is not the league's and no address is judged unreferenced",
     )
 
 

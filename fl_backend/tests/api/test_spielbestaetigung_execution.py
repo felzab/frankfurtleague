@@ -269,7 +269,6 @@ class TestWhatALinkOpens:
         view = on_a_fixture(mongo_replica_set_url, body)
 
         assert view.model_dump(mode="json") == {
-            "acknowledged": 1,
             "zustand": "gueltig",
             "seite": "team2",
             "ansetzung": {

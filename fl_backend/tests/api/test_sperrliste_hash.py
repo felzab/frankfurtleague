@@ -181,7 +181,7 @@ class TestWhatTheCheckAnswers:
     def test_a_banned_address_is_refused_under_the_published_code(self):
         """The LITERAL: comparing the code to the constant that produced it would hold after a rename the frontend never heard of.
 
-        `fl_backend/app/core/domain.py :: RULES` and each slice's own mapper both key on this string.
+        `fl_backend/app/core/codes.py :: Code` and each slice's own mapper both key on this string.
         """
 
         refusal = find_sperrliste_refusal(gesperrt=True)
@@ -195,11 +195,3 @@ class TestWhatTheCheckAnswers:
         """The control: a check refusing everything would pass the case above and stop every sign-up."""
 
         assert find_sperrliste_refusal(gesperrt=False) is None
-
-    def test_the_refusal_quotes_no_address(self):
-        """The detail reaches a log line and an admin's screen, and the address is the one value this feature exists not to keep."""
-
-        refusal = find_sperrliste_refusal(gesperrt=True)
-
-        assert refusal is not None
-        assert "@" not in refusal.message

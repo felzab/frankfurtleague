@@ -21,7 +21,7 @@ from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
@@ -222,7 +222,7 @@ class TestALeagueWithNoSeasonRunning:
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == Code.SPERRLISTE_KEINE_SAISON

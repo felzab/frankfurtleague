@@ -7,6 +7,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any, cast, get_args, get_type_hints
 
@@ -25,8 +26,8 @@ from app.core import security
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
-from app.core.exceptions import ActorForbiddenException
-from app.core.logging import fl_logger
+from app.core.exceptions import APIError
+from app.core.logging import JSONFormatter, fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
 from app.core.security import admin_judge, attribute_the_administrator, bind_actor, person_judge
@@ -240,25 +241,24 @@ class TestARowFailingAloneIsPassedOver:
     """Over doubles, for the failures no row carries, which no database case reaches cheaply."""
 
     @pytest.mark.parametrize(
-        ("failure", "code", "line"),
+        ("failure", "code", "diagnosis"),
         [
             pytest.param(
                 lambda: _FailedInTheCallback(A_STORED_VALUE),
                 Code.UNHANDLED_CRASH,
-                r"Row 1 was passed over by the test clock: _FailedInTheCallback in erase at .+test_transactions\.py:\d+",
+                r"_FailedInTheCallback in erase at .+test_transactions\.py:\d+",
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
                 lambda: OperationFailure(A_STORED_VALUE, 121, {"errInfo": {"details": {"missingProperties": ["trace_id"]}}}),
                 Code.DATABASE_FAILED,
-                re.escape("Row 1 was passed over by the test clock: OperationFailure, code 121: ")
-                + re.escape("[{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
+                re.escape("OperationFailure, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
                 id="refused, with the properties the validator refused",
             ),
             pytest.param(
                 lambda: _refused_by_the_answer(),
                 Code.STORED_DATA_INVALID,
-                re.escape("Row 1 was passed over by the test clock: ValidationError: ")
+                re.escape("ValidationError: ")
                 + re.escape(
                     "[{'loc': 'geburtsdatum', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"
                 ),
@@ -267,7 +267,7 @@ class TestARowFailingAloneIsPassedOver:
         ],
     )
     def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
-        self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, line: str
+        self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, diagnosis: str
     ):
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
@@ -285,9 +285,13 @@ class TestARowFailingAloneIsPassedOver:
         assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
         # The page after the one it failed in, read without it: read with it, it fails that page whole again.
         assert rows.read[-1] == [4, 5, 6]
-        [(logged_code, logged)] = [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records]
+        [record] = caplog.records
+        line = JSONFormatter().format(record)
+        assert (record.getMessage(), getattr(record, "error_code", None)) == ("transactions.row_passed_over", code)
+        assert (getattr(record, "what", None), getattr(record, "row_id", None), getattr(record, "clock", None)) == ("Row", "1", "test")
+        assert re.fullmatch(diagnosis, getattr(record, "diagnosis", "")) is not None, line
         # The record's value reaches no line: a line about an erasure would outlive it.
-        assert (logged_code, re.fullmatch(line, logged) is not None, A_STORED_VALUE in logged) == (code, True, False), logged
+        assert A_STORED_VALUE not in line
 
     def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
         """The first page commits whole before row 5 fails: a drain taking apart only its first page raises the whole pass here."""
@@ -338,13 +342,11 @@ class TestARowFailingAloneIsPassedOver:
             answered = _isolated(_Rows(4, raises), owes=True)
 
         assert answered == ([(1, 1, 0)], [1])
-        assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"] == [
-            (
-                Code.UNKNOWN_OUTCOME,
-                "Database deadline passed taking the test clock's rows apart, the commit of Row 2, 3 unanswered: those may have been "
-                "written with nobody told, the call answers what else committed, and the rest stay due",
-            )
-        ]
+        assert [
+            (getattr(record, "error_code", None), record.getMessage(), getattr(record, "what", None), getattr(record, "row_ids", None))
+            for record in caplog.records
+            if record.levelname == "WARNING"
+        ] == [(Code.UNKNOWN_OUTCOME, "transactions.isolation_commit_unanswered", "Row", ["2", "3"])]
 
     def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
         """No row to halve, so taking it apart would answer an empty success over a read that failed."""
@@ -442,10 +444,10 @@ class TestARowFailingAloneIsPassedOver:
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
         """A judge's, which every half meets too: halved, the call would answer 200 for an actor it refuses."""
 
-        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
         rows = _Rows(PAGE + 1, lambda read: refusal)
 
-        with pytest.raises(ActorForbiddenException):
+        with pytest.raises(APIError):
             _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
@@ -512,7 +514,7 @@ class TestAShareIsTakenApartOverTheRowsItTook:
         assert answered == ([[1]], [0, 2])
         assert clock.read == [[0, 1, 2, 3], [1], [2]]
         # Each logged once, the row passed over in place by the attempt that judged it.
-        assert sorted(record.getMessage().split(" was ")[0] for record in caplog.records) == ["Row 0", "Row 2"]
+        assert sorted(str(getattr(record, "row_id", "")) for record in caplog.records) == ["0", "2"]
 
     def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
         assert _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
@@ -550,7 +552,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
-        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
         def raises(read: list[int]) -> Exception | None:
             if read == [0, 1, 2, 3]:

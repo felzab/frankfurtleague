@@ -31,7 +31,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePaylo
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
@@ -226,7 +226,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     sperrliste=ban_list(database),
                     today=TODAY,
                 )
-            except WriteRefusalException as refused:
+            except APIError as refused:
                 assert refused.error_code == "REQ-ANSETZUNG-001"
                 continue
             answering[row].add(seat)

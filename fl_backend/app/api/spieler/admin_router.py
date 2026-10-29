@@ -48,7 +48,6 @@ from app.core.dependencies import (
     SpieltageCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
@@ -130,7 +129,6 @@ async def get_spieler_memberships(
     "/nachnominierung/{saison_id}",
     response_model=FLSpielerNachnominierungResponse,
     summary="Whether a squad entry into a season today is a Nachnominierung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spieler_nachnominierung(
     saison_id: str,
@@ -160,7 +158,6 @@ async def get_spieler_nachnominierung(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Update a Spieler's name",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spieler(
     spieler_id: CustomRouteObjectId,
@@ -189,7 +186,6 @@ async def patch_spieler(
     by_id("spieler_id"),
     response_model=FLSpielerAdminSingleResponse,
     summary="Retire a Spieler (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spieler(
     spieler_id: CustomRouteObjectId,
@@ -212,7 +208,6 @@ async def delete_spieler(
     f"{by_id('spieler_id')}/reactivate",
     response_model=FLSpielerAdminSingleResponse,
     summary="Bring a retired Spieler back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spieler(
     spieler_id: CustomRouteObjectId,
@@ -235,7 +230,6 @@ async def reactivate_spieler(
     response_model=FLSaisonSpielerResponse,
     status_code=201,
     summary="Add a Spieler to a squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -321,7 +315,6 @@ async def post_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Update a squad entry",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -336,7 +329,7 @@ async def patch_saison_spieler(
     Update a player's squad entry for that season.
 
     Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
-    (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+    (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
     (`REQ-SQUAD-004`).
     """
 
@@ -397,7 +390,6 @@ async def patch_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonSpielerResponse,
     summary="Remove a Spieler from a squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_saison_spieler(
     spieler_id: CustomRouteObjectId,
@@ -431,7 +423,6 @@ async def delete_saison_spieler(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/reactivate",
     response_model=FLSaisonSpielerResponse,
     summary="Put a Spieler back in a squad they left",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_saison_spieler(
     spieler_id: CustomRouteObjectId,

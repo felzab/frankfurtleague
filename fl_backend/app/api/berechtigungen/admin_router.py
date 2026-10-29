@@ -59,7 +59,6 @@ from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.adressanker import anchor_the_addresses
-from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -72,8 +71,7 @@ from app.core.dependencies import (
     DBClient,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
@@ -270,7 +268,6 @@ def _antrag_zeile(
     response_model=FLPostBerechtigungResponse,
     status_code=201,
     summary="Grant access to the administration",
-    responses={409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def post_berechtigung(
@@ -423,7 +420,6 @@ async def _genehmiger_exist(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungWriteResponse,
     summary="Revoke access to the administration",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def delete_berechtigung(
@@ -461,7 +457,7 @@ async def delete_berechtigung(
         if grant is None:
             # Resolved from the list already read rather than a second query, so a miss is a 404 before
             # anything is removed: `delete_many_from_db` taking no row would answer 200.
-            raise DocumentNotFoundException(filter={"_id": berechtigung_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         refuse(find_inhaber_refusal(grant=grant))
 
@@ -492,7 +488,6 @@ async def delete_berechtigung(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungStufeResponse,
     summary="Change a grant between administrator and owner",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def patch_berechtigung(
@@ -543,7 +538,7 @@ async def patch_berechtigung(
         # A live row alone: the list serves no other, and an owner nobody can sign in as could demote nobody back.
         grant = next((row for row in live if row["_id"] == berechtigung_id), None)
         if grant is None:
-            raise DocumentNotFoundException(filter={"_id": berechtigung_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         # Ahead of the anchor, so the tier already held writes nothing, not even an `aktionen` row: an
         # answer that writes nothing is a snapshot no rival can make wrong.
@@ -685,7 +680,6 @@ async def _move_the_tier_in_session(
     f"/antraege{by_id('antrag_id')}/genehmigung",
     response_model=FLBerechtigungAntragGenehmigtResponse,
     summary="Approve a grant or a promotion another administrator asked for",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # The enrolment window a grant takes, not the step-up's: the approval hands access to the administration over.
     dependencies=[Depends(verify_recent_confirmation)],
 )
@@ -771,7 +765,7 @@ async def post_antrag_genehmigung(
         # The grant the request named, at the address it named: one repointed in the database since is somebody else's.
         grant = next((row for row in lebendige(grants) if row["_id"] == antrag["berechtigung_id"] and row["adresse"] == adresse), None)
         if grant is None:
-            raise DocumentNotFoundException(filter={"_id": antrag["berechtigung_id"]}, error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
         if grant["verwaltung"] != OWNER:
             refuse(find_gesperrt_refusal(gesperrt=adresse in barred))
             await _move_the_tier_in_session(
@@ -799,7 +793,6 @@ async def post_antrag_genehmigung(
     f"/antraege{by_id('antrag_id')}",
     response_model=FLBerechtigungAntragAbgelehntResponse,
     summary="Refuse a grant or a promotion another administrator asked for, or withdraw one's own",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_antrag(

@@ -340,9 +340,17 @@ async def _first_commit_unanswered(
     return commits.answered
 
 
-def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str]]:
+# The fields the three sweeps' stopping lines carry beside their code.
+STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "adresswechsel_id", "unanswered", "clock", "may_stand")
+
+
+def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str, dict[str, Any]]]:
     return [
-        (getattr(record, "error_code", None), record.getMessage())
+        (
+            getattr(record, "error_code", None),
+            record.getMessage(),
+            {field: getattr(record, field) for field in STOPPING_FIELDS if hasattr(record, field)},
+        )
         for record in caplog.records
         if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
     ]
@@ -365,10 +373,7 @@ class TestTheSweepsNameACommitTheyCannotRead:
 
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
-            (
-                Code.UNKNOWN_OUTCOME,
-                f"Database deadline passed at pupil {pupil_numbered(1)}, its erasure unanswered: the call stops, and the rest stay due",
-            )
+            (Code.UNKNOWN_OUTCOME, "identitaet.loeschung_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
         ]
 
     def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
@@ -386,8 +391,8 @@ class TestTheSweepsNameACommitTheyCannotRead:
         assert _stopping_lines(caplog) == [
             (
                 Code.UNKNOWN_OUTCOME,
-                f"Database deadline passed at the lapsed address change {change_numbered(1)}, its end unanswered: "
-                "the call stops, and the rest stay due",
+                "adresswechsel.sweep_cut",
+                {"art": "lapsed", "adresswechsel_id": str(change_numbered(1)), "unanswered": "end"},
             )
         ]
 
@@ -449,9 +454,8 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
         assert _stopping_lines(caplog) == [
             (
                 Code.UNKNOWN_OUTCOME,
-                "The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for "
-                f"fixture(s) {confirmations.SPIEL} may have been written with nobody told, the call answers what else committed, "
-                "and the rest stay due",
+                "spielbestaetigungen.clock_commit_unanswered",
+                {"clock": "mint", "may_stand": f"the rows minted for fixture(s) {confirmations.SPIEL}"},
             )
         ]
         assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(

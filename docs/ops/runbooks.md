@@ -693,8 +693,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
-(`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
+`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their

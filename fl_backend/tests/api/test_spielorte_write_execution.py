@@ -181,3 +181,21 @@ class TestAnEditOntoATakenVenueNameIsRefused:
 
         assert response.status_code == 200, response.json()
         assert stored_names(seeded_url) == sorted([STANDING_NAME, FREE_NAME])
+
+
+class TestASecondRetireKeepsTheDayTheVenueLeft:
+    """`inactive_since` is the day the record left, so a retire repeated from a second open tab moves nothing."""
+
+    def test_the_stamp_stays_and_the_retire_answers_success(self, seeded_url: str):
+        response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", {}, method="DELETE")
+
+        assert response.status_code == 200
+        assert response.json()["updated_document"]["inactive_since"] == RETIRED_SINCE
+
+        client = MongoClient(seeded_url)
+        try:
+            stored = client[DATABASE_NAME][Collection.SPIELORTE].find_one({"_id": RETIRED_OID}, {"inactive_since": 1})
+        finally:
+            client.close()
+
+        assert stored is not None and stored["inactive_since"] == RETIRED_SINCE

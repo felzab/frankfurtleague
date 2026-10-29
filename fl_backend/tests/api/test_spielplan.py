@@ -888,7 +888,6 @@ def refusal_for(
     saison_status: str = "future",
     fixtures_drawn: int = 0,
     spieltage_held: int = 0,
-    watermark: Mapping[str, Any] | None = None,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
     replace: bool = False,
@@ -898,7 +897,6 @@ def refusal_for(
         saison_status=saison_status,
         fixtures_drawn=fixtures_drawn,
         spieltage_held=spieltage_held,
-        watermark=watermark,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
@@ -938,7 +936,6 @@ class TestAFinishedSeason:
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_SAISON_FINISHED
-        assert "past" in refusal.message
 
     def test_a_running_season_is_permitted(self):
         """The pair to `REQ-ACTIVATE-003`, and the whole reason this refuses `past` alone.
@@ -995,72 +992,6 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
-        assert "gruppe C holds 0 of 6" in refusal.message
-        assert "gruppe D holds 0 of 6" in refusal.message
-
-    def test_every_short_group_is_named_at_once(self):
-        """One press, one list: an admin filling them one at a time would meet this refusal per group."""
-
-        refusal = refusal_for(occupancy={"A": 6, "B": 4, "C": 6, "D": 2})
-
-        assert refusal is not None
-        assert refusal.message.split(";")[0] == "gruppe B holds 4 of 6, gruppe D holds 2 of 6"
-
-    def test_the_message_names_the_group_and_what_it_holds(self):
-        """The same sentence the short direction gets, because an admin repairing either reads the same page."""
-
-        refusal = refusal_for(occupancy={"A": 7, "B": 6, "C": 6, "D": 9})
-
-        assert refusal is not None
-        assert "gruppe A holds 7 of 6" in refusal.message
-        assert "gruppe D holds 9 of 6" in refusal.message
-
-    def test_both_directions_are_reported_by_one_press(self):
-        """Repairing a season one refusal at a time is what naming every offending group at once avoids."""
-
-        refusal = refusal_for(occupancy={"A": 7, "B": 4, "C": 6, "D": 6})
-
-        assert refusal is not None
-        assert "gruppe A holds 7 of 6" in refusal.message
-        assert "gruppe B holds 4 of 6" in refusal.message
-
-    def test_the_message_names_the_group_what_it_holds_and_what_the_season_offers(self):
-        """A 500 out of `_squads` names the club and reaches no admin; this is the same fact as an answer to the press."""
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1, "D": 3}, rules=two_groups)
-
-        assert refusal is not None
-        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
-        assert "gruppe D holds 3 and a season of 2 group(s) does not offer it" in refusal.message
-
-    def test_a_stranded_club_is_reported_beside_a_group_off_its_size(self):
-        """One question, so one answer: every group the season cannot draw truthfully, in one message."""
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        refusal = refusal_for(occupancy={"A": 5, "B": 6, "C": 1}, rules=two_groups)
-
-        assert refusal is not None
-        assert "gruppe A holds 5 of 6" in refusal.message
-        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
-
-    def test_the_message_names_every_group_in_one_fixed_order(self):
-        """The refusal is the admin's answer and the log line alike, and an order that moves between runs is neither.
-
-        Offered groups in the season's own order, then the stranded ones by name, whatever order the
-        occupancy map arrived in.
-        """
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        # Out of name order on purpose: `generate_spielplan` counts rows off a cursor no index sorts.
-        refusal = refusal_for(occupancy={"D": 3, "C": 4, "B": 4, "A": 5}, rules=two_groups)
-
-        assert refusal is not None
-        assert refusal.message.split(";")[0] == (
-            "gruppe A holds 5 of 6, gruppe B holds 4 of 6, "
-            "gruppe C holds 4 and a season of 2 group(s) does not offer it, "
-            "gruppe D holds 3 and a season of 2 group(s) does not offer it"
-        )
 
     def test_a_group_the_season_does_not_offer_is_not_counted(self):
         """`offered_gruppen` bounds it: a two-group season is not short because C and D are absent from the map."""
@@ -1070,7 +1001,6 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
             saison_status="future",
             fixtures_drawn=0,
             spieltage_held=0,
-            watermark=None,
             rules=two_groups,
             occupancy_by_gruppe={"A": 6, "B": 6},
             replace=False,
@@ -1373,7 +1303,7 @@ class TestASideMovedOffTheDrawClosesTheWindow:
 def shared(code: Code) -> WriteRefusal:
     """A refusal as the season's own write answers it, which the draw then re-codes."""
 
-    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT, message="the shared check's detail")
+    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
 
 def on_the_draw(code: Code, *, shape_stated: bool) -> tuple[Code, HTTPStatus] | None:
@@ -1427,4 +1357,3 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
         answered = as_the_draw_answers(shared(Code.RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
 
         assert answered is not None
-        assert answered.message == "the shared check's detail"

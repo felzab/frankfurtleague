@@ -13,10 +13,10 @@ from pydantic import TypeAdapter
 from app.core.codes import Code
 from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX, ObjectIdConvertor
 from app.main import create_app
+from app.openapi_document import build_document
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.core.app_source import api_routes, application
-from tests.openapi_document import build_document
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 

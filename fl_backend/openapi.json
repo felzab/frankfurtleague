@@ -128,6 +128,9 @@
             "type": "string"
           }
         },
+        "required": [
+          "status"
+        ],
         "title": "CheckIsLiveResponse",
         "type": "object"
       },
@@ -3305,6 +3308,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Geburtsdatum"
@@ -3442,6 +3449,7 @@
           }
         },
         "required": [
+          "quelle",
           "ergebnis",
           "ausstehend",
           "geburtsdatum",
@@ -4121,7 +4129,7 @@
             "type": "string"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -5139,7 +5147,7 @@
         "type": "object"
       },
       "FLBracketFaultOccupant": {
-        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`).",
+        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`docs/domain.md`'s what the model permits on purpose).",
         "properties": {
           "ausgeschieden_seit": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6842,7 +6850,9 @@
           "saison_id",
           "spieltage",
           "spiele",
-          "generiert_am"
+          "generiert_am",
+          "removed_spieltage",
+          "removed_spiele"
         ],
         "title": "FLGenerateSpielplanResponse",
         "type": "object"
@@ -7514,6 +7524,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Telefon"
@@ -9098,7 +9112,8 @@
         },
         "required": [
           "updated_document",
-          "fanned_out_to_spiele"
+          "fanned_out_to_spiele",
+          "bestaetigung"
         ],
         "title": "FLPatchSchiedsrichterResponse",
         "type": "object"
@@ -9114,6 +9129,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Datum"
@@ -9268,6 +9287,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Uhrzeit"
@@ -9360,6 +9383,11 @@
             "type": "array"
           }
         },
+        "required": [
+          "advanced_to",
+          "released_sides",
+          "bracket_faults"
+        ],
         "title": "FLPatchSpielDataResponse",
         "type": "object"
       },
@@ -9510,7 +9538,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -10236,7 +10264,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -10884,6 +10912,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Geburtsdatum"
@@ -12126,6 +12158,7 @@
           }
         },
         "required": [
+          "quelle",
           "ergebnis",
           "geburtsdatum",
           "whatsapp",
@@ -12468,6 +12501,7 @@
           }
         },
         "required": [
+          "format",
           "saisons"
         ],
         "title": "FLSaisonsListResponse",
@@ -12486,6 +12520,7 @@
           }
         },
         "required": [
+          "format",
           "saison"
         ],
         "title": "FLSaisonsSingleResponse",
@@ -12827,7 +12862,8 @@
           }
         },
         "required": [
-          "updated_document"
+          "updated_document",
+          "bestaetigung"
         ],
         "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
@@ -17053,6 +17089,7 @@
         },
         "required": [
           "spiele",
+          "bracket_faults",
           "spielberichte"
         ],
         "title": "FLSpieleActionRequiredResponse",
@@ -18884,6 +18921,7 @@
           }
         },
         "required": [
+          "format",
           "gruppen",
           "qualifiers_per_group"
         ],
@@ -18907,6 +18945,7 @@
           }
         },
         "required": [
+          "format",
           "teams"
         ],
         "title": "FLTeamsListResponse",
@@ -18943,6 +18982,7 @@
           }
         },
         "required": [
+          "format",
           "team"
         ],
         "title": "FLTeamsSingleResponse",
@@ -19213,7 +19253,7 @@
     }
   },
   "info": {
-    "title": "FastAPI",
+    "title": "Frankfurt League API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -30811,7 +30851,7 @@
         ]
       },
       "patch": {
-        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not\n(`REQ-SQUAD-004`).",
+        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not\n(`REQ-SQUAD-004`).",
         "operationId": "spieler_patch_saison_spieler",
         "parameters": [
           {

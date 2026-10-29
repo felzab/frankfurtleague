@@ -279,7 +279,7 @@ class TestTheWindowReads:
 
         response = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
 
-        assert set(response.json()) == {"acknowledged", "saison_id", "fenster"}
+        assert set(response.json()) == {"saison_id", "fenster"}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
         for withheld in (stored["status"], stored["start_date"], stored["rules"]["tiebreak_order"]):
             assert withheld not in response.text
@@ -289,7 +289,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/fenster/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
+        assert set(body) == {"saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
 
 
 class TestTheAssignedColoursRead:
@@ -323,7 +323,7 @@ class TestTheAssignedColoursRead:
 
         body = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "vergeben"}
+        assert set(body) == {"saison_id", "vergeben"}
 
     def test_a_season_read_that_would_404_still_serves_its_colours(self, seeded_url: str):
         """The finding this endpoint exists for: the rule withholds a `future` season's clubs whole."""

@@ -430,4 +430,4 @@ def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica
     response = asyncio.run(_answered())
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "unbestaetigt": False, "konto": True, "gesperrt": False, "verwaltung": None}
+    assert response.json() == {"unbestaetigt": False, "konto": True, "gesperrt": False, "verwaltung": None}

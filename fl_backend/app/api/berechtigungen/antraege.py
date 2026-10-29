@@ -22,7 +22,7 @@ from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, post_many_to_db, refuse
-from app.core.exceptions import DocumentNotFoundException, WriteRefusal
+from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
@@ -111,7 +111,7 @@ async def pull_the_antrag(
         collection=berechtigungen_antraege_collection, pipeline=[{"$match": {"_id": antrag_id, **build_offen_filter(now)}}], session=session
     )
     if not found:
-        raise DocumentNotFoundException(filter={"_id": antrag_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return found[0]
 
@@ -276,7 +276,6 @@ def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_ANTRAG_OFFEN,
         status=HTTPStatus.CONFLICT,
-        message="a request about this email address already waits on another administrator's approval",
     )
 
 
@@ -290,20 +289,17 @@ def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None)
         return WriteRefusal(
             error_code=Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER,
             status=HTTPStatus.FORBIDDEN,
-            message="a request is decided by an administrator who held their access since before it was made",
         )
 
     if verwehrt == "inhaber":
         return WriteRefusal(
             error_code=Code.BERECHTIGUNG_GENEHMIGUNG_INHABER,
             status=HTTPStatus.FORBIDDEN,
-            message="a request for an owner's access is decided by another owner, signed in since becoming one",
         )
 
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
         status=HTTPStatus.FORBIDDEN,
-        message="a request is approved by an administrator other than the person it is about and the one who made it",
     )
 
 
@@ -316,5 +312,4 @@ def find_antrag_verfallen_refusal(*, steht: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERECHTIGUNG_ANTRAG_VERFALLEN,
         status=HTTPStatus.CONFLICT,
-        message="the administrator who made this request has lost the access it asks for; refuse it, and ask again",
     )

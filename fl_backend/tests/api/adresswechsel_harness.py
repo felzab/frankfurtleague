@@ -38,7 +38,7 @@ from app.api.konto.router import delete_adresswechsel as stop_on_the_account_pag
 from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, StepUpCheck, get_person_confirmation_check
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
@@ -347,7 +347,7 @@ def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refused:
+    with pytest.raises(APIError) as refused:
         await call
 
     return refused.value.error_code

@@ -288,14 +288,13 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 
     A shared shirt number is refused on no write path and is declared permitted in
-    `fl_backend/app/core/domain.py :: UNENFORCED`.
+    `docs/domain.md`'s what the model permits on purpose.
     """
 
     if not team_in_saison:
         return WriteRefusal(
             error_code=Code.SQUAD_TEAM_NOT_IN_SAISON,
             status=HTTPStatus.CONFLICT,
-            message="the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
 
     return None
@@ -309,12 +308,9 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
     """
 
     if squad_size >= max_kadergroesse:
-        noun = "player" if max_kadergroesse == 1 else "players"
-
         return WriteRefusal(
             error_code=Code.SQUAD_FULL,
             status=HTTPStatus.CONFLICT,
-            message=f"the squad is full ({squad_size}/{max_kadergroesse} {noun}); a season's rules cap how many players a team may field in it",
         )
 
     return None
@@ -353,7 +349,6 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
     return WriteRefusal(
         error_code=Code.SQUAD_ROLLE_TAKEN,
         status=HTTPStatus.CONFLICT,
-        message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
     )
 
 
@@ -402,7 +397,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
 def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
     """Each `nummer` two or more LIVE rows of one squad wear, an ausgetragen row wearing none.
 
-    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`docs/domain.md`'s what the model permits on purpose).
     """
 
     worn = Counter(row["nummer"] for row in rows if row.get("inactive_since") is None and row.get("nummer") is not None)
@@ -432,7 +427,6 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
     return WriteRefusal(
         error_code=Code.KADER_STUFE_NICHT_ERLAUBT,
         status=HTTPStatus.CONFLICT,
-        message="this season's rules do not offer that Stufe; pick one of the season's erlaubte_stufen",
     )
 
 

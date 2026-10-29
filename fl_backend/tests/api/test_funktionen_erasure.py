@@ -43,7 +43,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.db import NO_OWNER
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import PASSKEY_FACTOR, akteur_pseudonym, loeschung_journal_hash
@@ -850,7 +850,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
         answer = on_a_league(mongo_replica_set_url, body)
 
-        assert {key: value for key, value in answer.items() if key != "acknowledged"} == {
+        assert answer == {
             "spieler": 1,
             "saison_spieler": 1,
             "schiedsrichter": 1,
@@ -1091,7 +1091,7 @@ class TestTheSentinelIsNobodyToErase:
                     session=session,
                 )
 
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 async with transaction_session(client) as session:
                     await session.with_transaction(erase)
 
@@ -1335,7 +1335,7 @@ class WritesRecorded:
 
 class TestEachStepWritesWhatItDeclares:
     def test_the_collections_each_step_writes_are_the_ones_it_declares(self, mongo_replica_set_url: str):
-        """`reaches` is what the completeness case in `tests/core/test_domain.py` trusts; here it is held to the writes themselves.
+        """`reaches` is what each step declares; here it is held to the writes themselves.
 
         The seed and a grant of the person's own give every step something to write in each collection it declares.
         """
