@@ -302,7 +302,6 @@ async def post_saison(
             post_operation = await session.with_transaction(enter_the_season)
 
     return FLPostSaisonResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=str(post_operation.inserted_id),
     )
 

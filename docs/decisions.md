@@ -60,7 +60,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change
 - **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
-- **domain** — Generate `app/core/domain.py`
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
 - **spiele** — Merge the cancellation count into the scoring lookup
@@ -69,9 +68,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 ## The seams between frontend and backend
 
 - **db** — Add a second direct `MongoClient`
-- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a
-  published ceiling
-- **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
+- **system** — Remove the system key
 - **cache** — Add an invalidation endpoint, or clear the site-wide cache tag outside the save spines;
   fault staleness within the `minutes` lifetime after a change no save makes
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP

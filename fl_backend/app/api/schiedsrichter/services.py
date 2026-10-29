@@ -5,6 +5,7 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
@@ -21,7 +22,7 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.kontakt import FLKontakt
 
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
-REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
+REFEREE_STILL_ASSIGNED = Code.REFEREE_STILL_ASSIGNED
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -163,19 +164,18 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 # --- The CONFIRMATION LINK. Every predicate below reads a missing `bestaetigung` block as "nothing
 # was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SCHIEDSRICHTER_RETIRED = "REQ-SCHIEDSRICHTER-001"
-SCHIEDSRICHTER_TOKEN_UNKNOWN = "REQ-SCHIEDSRICHTER-002"
-SCHIEDSRICHTER_TOKEN_EXPIRED = "REQ-SCHIEDSRICHTER-003"
-SCHIEDSRICHTER_ALREADY_CONFIRMED = "REQ-SCHIEDSRICHTER-004"
-SCHIEDSRICHTER_ALTER = "REQ-SCHIEDSRICHTER-005"
-SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
+SCHIEDSRICHTER_RETIRED = Code.SCHIEDSRICHTER_RETIRED
+SCHIEDSRICHTER_TOKEN_UNKNOWN = Code.SCHIEDSRICHTER_TOKEN_UNKNOWN
+SCHIEDSRICHTER_TOKEN_EXPIRED = Code.SCHIEDSRICHTER_TOKEN_EXPIRED
+SCHIEDSRICHTER_ALREADY_CONFIRMED = Code.SCHIEDSRICHTER_ALREADY_CONFIRMED
+SCHIEDSRICHTER_ALTER = Code.SCHIEDSRICHTER_ALTER
+SCHIEDSRICHTER_KEINE_ADRESSE = Code.SCHIEDSRICHTER_KEINE_ADRESSE
 # Its own code and never `app/api/sperrliste/services.py :: SPERRLISTE_ADRESSE_GESPERRT`, which a
 # client already maps to a second ban of one address: two conditions under one code are two a
 # frontend cannot part.
-SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
-SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
-SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
+SCHIEDSRICHTER_ADRESSE_GESPERRT = Code.SCHIEDSRICHTER_ADRESSE_GESPERRT
+SCHIEDSRICHTER_MEDIEN_ALTER = Code.SCHIEDSRICHTER_MEDIEN_ALTER
+SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = Code.SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -459,8 +459,7 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     return _address_moves(stored=stored, payload_email=payload_email)
 
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = "REQ-SCHIEDSRICHTER-011"
+SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
 
 
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:

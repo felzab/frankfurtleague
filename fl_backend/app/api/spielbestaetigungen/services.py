@@ -28,6 +28,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 from app.api.teams.services import has_taken_place, seats_changing_holder
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -129,16 +130,16 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
     return None
 
 
-# --- The LINK's view and answer. What each code refuses is `fl_backend/app/core/domain.py :: RULES`.
+# --- The LINK's view and answer.
 
-ANSETZUNG_TOKEN_UNKNOWN = "REQ-ANSETZUNG-001"
-ANSETZUNG_BEANTWORTET = "REQ-ANSETZUNG-002"
-ANSETZUNG_FRIST_VORBEI = "REQ-ANSETZUNG-003"
-ANSETZUNG_GEAENDERT = "REQ-ANSETZUNG-004"
-ANSETZUNG_ENTSCHIEDEN = "REQ-ANSETZUNG-005"
-ANSETZUNG_VORSCHLAG_VERGANGEN = "REQ-ANSETZUNG-007"
-ANSETZUNG_GESCHLOSSEN = "REQ-ANSETZUNG-009"
-ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
+ANSETZUNG_TOKEN_UNKNOWN = Code.ANSETZUNG_TOKEN_UNKNOWN
+ANSETZUNG_BEANTWORTET = Code.ANSETZUNG_BEANTWORTET
+ANSETZUNG_FRIST_VORBEI = Code.ANSETZUNG_FRIST_VORBEI
+ANSETZUNG_GEAENDERT = Code.ANSETZUNG_GEAENDERT
+ANSETZUNG_ENTSCHIEDEN = Code.ANSETZUNG_ENTSCHIEDEN
+ANSETZUNG_VORSCHLAG_VERGANGEN = Code.ANSETZUNG_VORSCHLAG_VERGANGEN
+ANSETZUNG_GESCHLOSSEN = Code.ANSETZUNG_GESCHLOSSEN
+ANSETZUNG_GESPERRT = Code.ANSETZUNG_GESPERRT
 
 # A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
 # page tells apart from a deadline that ran out.
@@ -544,8 +545,8 @@ def compose_antwort_update(
 # --- The ADMINISTRATOR's settle and discard. Each check judges the row read in-session and its write's filter
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
-ANSETZUNG_NICHT_EINTRAGBAR = "REQ-ANSETZUNG-013"
-ANSETZUNG_NICHT_VERWERFBAR = "REQ-ANSETZUNG-014"
+ANSETZUNG_NICHT_EINTRAGBAR = Code.ANSETZUNG_NICHT_EINTRAGBAR
+ANSETZUNG_NICHT_VERWERFBAR = Code.ANSETZUNG_NICHT_VERWERFBAR
 
 # Exactly what the season-wide read serves: every stored field but the hashes and the holder
 # (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`), kept off the wire from the driver up.
@@ -633,7 +634,7 @@ def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: M
 
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
 
-ANSETZUNG_FREMDE_ZEILE = "REQ-ANSETZUNG-015"
+ANSETZUNG_FREMDE_ZEILE = Code.ANSETZUNG_FREMDE_ZEILE
 
 # The close a referee's own decline writes in its transaction: outside `GRUENDE_UNGUELTIG`, so the row reads as
 # their decline, and outside `GRUENDE_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.

@@ -136,7 +136,6 @@ async def post_schiedsrichter(
         post_operation = await session.with_transaction(judge_and_create)
 
     return FLPostSchiedsrichterResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
         # The payload's own address, which this transaction wrote: there is no earlier row for a
         # rival save to have moved between the caller's read and the mint.

@@ -366,7 +366,7 @@ async def post_berechtigung(
     async with transaction_session(db) as session:
         created_id, beantragt = await session.with_transaction(judge_and_grant)
 
-    return FLPostBerechtigungResponse(acknowledged=1, created_id=created_id, beantragt=beantragt)
+    return FLPostBerechtigungResponse(created_id=created_id, beantragt=beantragt)
 
 
 async def _queue_the_request(
