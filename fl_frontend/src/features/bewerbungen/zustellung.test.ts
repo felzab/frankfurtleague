@@ -534,7 +534,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.anmeldecode_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-007");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
@@ -571,7 +570,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.berechtigungshinweis_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-010");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
@@ -596,7 +594,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.spielleitung_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-014");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");

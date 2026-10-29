@@ -37,13 +37,13 @@ const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503
  */
 const OHNE_EINTRAG = {
   // The sign-in code: anything but a delivery locks out whoever holds no passkey.
-  anmeldung: { ereignis: "mail.anmeldecode_nicht_zugestellt", error_code: "FE-MAIL-007" },
+  anmeldung: { ereignis: "mail.anmeldecode_nicht_zugestellt" },
   // The grants' notice, whose outbox row is gone once stamped: a holder the notice missed.
-  berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt", error_code: "FE-MAIL-010" },
+  berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt" },
   // Every message to a referee about a fixture, whatever
   // `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailSpielleitung` sends: their row holds no seat to record one on.
-  spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt", error_code: "FE-MAIL-014" },
-} as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string; error_code: string }>;
+  spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt" },
+} as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string }>;
 
 function signedByProvider(roh: string, headers: Record<string, string>): boolean {
   const secret = resendWebhookSecret();
@@ -94,9 +94,9 @@ export async function POST(request: NextRequest) {
 
     // A lane no store holds reads its message id bare, having no record's payload to carry it in.
     if ("nachricht_id" in meldung) {
-      const { ereignis, error_code } = OHNE_EINTRAG[meldung.ziel];
+      const { ereignis } = OHNE_EINTRAG[meldung.ziel];
       if (meldung.stand !== "zugestellt") {
-        logger.warn(ereignis, { error_code: error_code, stand: meldung.stand, nachricht_id: meldung.nachricht_id });
+        logger.warn(ereignis, { stand: meldung.stand, nachricht_id: meldung.nachricht_id });
       }
 
       return ANGEWENDET([]);
