@@ -1,16 +1,9 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { documentsWrittenByAsync } from "@/core/stdoutCapture.ts";
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
+import { describe, expect, it, vi } from "vitest";
 
 const CONFIG_DOUBLE = { frontend_config: { LOG_FORMAT: "json", LOG_LEVEL: "INFO" } };
 
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG_DOUBLE,
-  },
-});
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 
 const { POST } = await import("./route.ts");
 const { NextRequest } = await import("next/server");
@@ -28,28 +21,28 @@ function report(headers: Record<string, string>): InstanceType<typeof NextReques
 
 describe("POST /api/client-error", () => {
   // The route runs under no request scope, so the line's ids come from the header it reads itself;
-  // a real trace beside the sentinel span would file the ingest under no hop (L12).
+  // a real trace beside the sentinel span would file the ingest under no hop.
   it("logs the ingest request's trace under a span of this hop's own", async () => {
     let status = 0;
     const written = await documentsWrittenByAsync(async () => {
       status = (await POST(report({ traceparent: `00-${TRACE}-${SPAN}-01` }))).status;
     });
 
-    assert.equal(status, 204);
-    assert.equal(written.length, 1);
+    expect(status).toBe(204);
+    expect(written.length).toBe(1);
     const [document] = written;
-    assert.equal(document?.error_code, "FE-CLIENT-001");
-    assert.equal(document?.route, "/spiele");
-    assert.equal(document?.trace_id, TRACE);
-    assert.match(String(document?.span_id), /^[a-f0-9]{16}$/);
-    assert.notEqual(document?.span_id, SPAN);
+    expect(document?.error_code).toBe("FE-CLIENT-001");
+    expect(document?.route).toBe("/spiele");
+    expect(document?.trace_id).toBe(TRACE);
+    expect(String(document?.span_id)).toMatch(/^[a-f0-9]{16}$/);
+    expect(document?.span_id).not.toBe(SPAN);
   });
 
   it("carries the sentinel on both ids where the header is malformed", async () => {
     const [document] = await documentsWrittenByAsync(() => POST(report({ traceparent: "PROBE-AAA" })));
 
-    assert.equal(document?.trace_id, "SYSTEM");
-    assert.equal(document?.span_id, "SYSTEM");
+    expect(document?.trace_id).toBe("SYSTEM");
+    expect(document?.span_id).toBe("SYSTEM");
   });
 
   it("logs nothing for a cross-site caller", async () => {
@@ -58,7 +51,7 @@ describe("POST /api/client-error", () => {
       status = (await POST(report({ "sec-fetch-site": "cross-site" }))).status;
     });
 
-    assert.equal(status, 403);
-    assert.deepEqual(written, []);
+    expect(status).toBe(403);
+    expect(written).toStrictEqual([]);
   });
 });

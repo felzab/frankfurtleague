@@ -7,7 +7,7 @@ bear out is still corrected, and a lesson is written as what is true.
 
 ## Required sections
 
-```
+```text
 # Handoff -- <session name> to <next session name>
 
 ## Read these, in this order
@@ -40,7 +40,8 @@ next session starts. Nothing the owner has ruled.>
 on <date>. Where a fact needed a command this session could not run, say so.>
 
 - Branch, and the commit SUBJECTS -- never SHAs.
-- Gate state: the full `./scripts/gate/verify.sh`'s exit code, its closing line, the findings.
+- Gate state: the full `./scripts/gate/verify.sh`'s exit code and its closing line, quoted (green,
+  it reads `Green — every scope, no findings, <time>. Safe to merge.`), and the findings.
 - Counts, each with who measured it, when, and that it will move.
 - What could NOT be established, and why.
 ```
@@ -60,11 +61,12 @@ and carries the lines below — never a copy of the handoff. Where a programme's
 every starter carries, that list wins over the page bound. The owner sends `/orchestration` as its
 own message before pasting it.
 
-```
+```text
 - Invoke the `orchestration` skill first if it is not already in context.
-- Read <handoff path> before doing anything else, then the decisions table of the programme
-  register it names. Where the handoff and a rule file -- `~/.claude/CLAUDE.md`, the repository's
-  `.claude/CLAUDE.md` -- disagree, the rule file wins on process; a ruling binds the programme
+- Read <handoff path> before doing anything else, then this session's slice of the programme
+  register, <slice path>; search the whole register by command when a question reaches beyond it.
+  Where the handoff and a rule file -- `~/.claude/CLAUDE.md`, the repository's `.claude/CLAUDE.md`
+  -- disagree, the rule file wins on process; a ruling binds the programme
   whose register holds it, and is history for any other.
 - Your scope is <session scope>. Its exit condition is <exit condition>. One pull request.
 - Raise every open question the moment it arises, in one batch where you can, never in a wrap-up.

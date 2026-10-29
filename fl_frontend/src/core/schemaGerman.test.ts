@@ -1,10 +1,8 @@
-import assert from "node:assert/strict";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { schemaModules } from "@/test-support/schemaModules.ts";
+import { assert, describe, expect, it } from "vitest";
 import z from "zod";
-
-import { schemaModules } from "@/core/schemaModules.ts";
 
 /**
  * Zod's own wording, which is English. Matched rather than the German it replaces: a field MISSING its sentence
@@ -125,24 +123,18 @@ describe("what the walker reads off a schema", () => {
   it("keeps the array's path under an index, so an array of scalars still yields a leaf", () => {
     const probes = leafPaths(z.object({ bewerbung_ids: z.array(z.string()) }));
 
-    assert.deepEqual(
-      probes.map((probe) => probe.path),
-      ["bewerbung_ids.0"],
-    );
+    expect(probes.map((probe) => probe.path)).toStrictEqual(["bewerbung_ids.0"]);
   });
 
   it("finds nothing where a schema carries no field, which is the state the floor below refuses", () => {
-    assert.deepEqual(leafPaths(z.object({})), []);
+    expect(leafPaths(z.object({}))).toStrictEqual([]);
   });
 
   it("probes a nullable leaf with its type's own emptiness, never with the null it takes by construction", () => {
-    assert.deepEqual(
-      leafPaths(z.object({ datum: z.string().nullable(), name: z.string() })).map(({ path, wrong }) => [path, wrong]),
-      [
-        ["datum", ""],
-        ["name", ""],
-      ],
-    );
+    expect(leafPaths(z.object({ datum: z.string().nullable(), name: z.string() })).map(({ path, wrong }) => [path, wrong])).toStrictEqual([
+      ["datum", ""],
+      ["name", ""],
+    ]);
   });
 });
 
@@ -176,7 +168,7 @@ describe("what a bound schema says when a field is emptied", () => {
 
         for (const issue of result.error.issues) {
           if (issue.path.join(".") !== path) continue;
-          assert.doesNotMatch(issue.message, ZOD_DEFAULT, `${name}.${path} shows Zod's English: "${issue.message}"`);
+          expect(issue.message, `${name}.${path} shows Zod's English: "${issue.message}"`).not.toMatch(ZOD_DEFAULT);
         }
       });
     }

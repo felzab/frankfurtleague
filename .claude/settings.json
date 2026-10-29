@@ -1,7 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "permissions": {
-    "ask": ["Edit(**/docs/_standard/**)"],
     "deny": [
       "Read(//**/.env*)",
       "Edit(//**/.env*)",
@@ -119,9 +123,6 @@
       "Bash(git push * -f*)",
       "Bash(git push *--force*)",
       "Bash(git push * +*)",
-      "Bash(git commit -n*)",
-      "Bash(git commit * -n*)",
-      "Bash(git commit *--no-verify*)",
       "Bash(gh pr ready*)",
       "Bash(gh pr merge*)",
       "PowerShell(git reset *--hard*)",
@@ -129,9 +130,6 @@
       "PowerShell(git push * -f*)",
       "PowerShell(git push *--force*)",
       "PowerShell(git push * +*)",
-      "PowerShell(git commit -n*)",
-      "PowerShell(git commit * -n*)",
-      "PowerShell(git commit *--no-verify*)",
       "PowerShell(gh pr ready*)",
       "PowerShell(gh pr merge*)"
     ],
@@ -162,26 +160,6 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-standard.sh\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Monitor|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/implementer-whole-suite.sh\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "^(mcp__.*|Skill)$",
         "hooks": [
           {
@@ -193,6 +171,16 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-written.sh\"",
+            "timeout": 30
+          }
+        ]
+      },
       {
         "matcher": "SendMessage",
         "hooks": [
@@ -227,24 +215,9 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/warn-orphan-server.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   },
   "worktree": {
     "baseRef": "head"
-  },
-  "env": {
-    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-5-5"
   }
 }

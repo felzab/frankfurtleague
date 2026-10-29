@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import {
   adressenAndererPersonen,
@@ -107,9 +105,9 @@ describe("a seat an erasure emptied", () => {
   it("is its own terminal state rather than an outstanding one", () => {
     const seat2 = seatOf(standsOf2(ERASED), "ansprechperson");
 
-    assert.equal(seat2.stand.art, "geloescht");
-    assert.equal(seat2.satz, "Keine Bestätigung mehr möglich");
-    assert.equal(seat2.name, null);
+    expect(seat2.stand.art).toBe("geloescht");
+    expect(seat2.satz).toBe("Keine Bestätigung mehr möglich");
+    expect(seat2.name).toBe(null);
   });
 
   /* A declined seat and an erased one are both empty, and the row has to say which happened: one
@@ -120,9 +118,9 @@ describe("a seat an erasure emptied", () => {
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(seatOf(standsOf2(ERASED), "ansprechperson").nameSatz, "Auf eigenen Wunsch gelöscht");
-    assert.equal(seatOf(standsOf2(declined), "ansprechperson").nameSatz, "Niemand mehr in der Bewerbung");
-    assert.equal(seatOf(standsOf2(ERASED), "trainer").nameSatz, "Clara Meier");
+    expect(seatOf(standsOf2(ERASED), "ansprechperson").nameSatz).toBe("Auf eigenen Wunsch gelöscht");
+    expect(seatOf(standsOf2(declined), "ansprechperson").nameSatz).toBe("Niemand mehr in der Bewerbung");
+    expect(seatOf(standsOf2(ERASED), "trainer").nameSatz).toBe("Clara Meier");
   });
 
   /* The count is over the seats that have CONFIRMED, and an erased seat has not: „1 von 3“ over a
@@ -130,12 +128,12 @@ describe("a seat an erasure emptied", () => {
   it("counts as open, so the acceptance stays closed against it", () => {
     const stands = standsOf2(ERASED);
 
-    assert.equal(stands.filter(istOffen).length, 3);
-    assert.equal(istOffen(seatOf(stands, "ansprechperson")), true);
+    expect(stands.filter(istOffen).length).toBe(3);
+    expect(istOffen(seatOf(stands, "ansprechperson"))).toBe(true);
   });
 
   it("is offered no link, no link being mintable for it", () => {
-    assert.deepEqual([...linkAngebot(standsOf2(ERASED))].sort(), ["stellvertretung", "trainer"]);
+    expect([...linkAngebot(standsOf2(ERASED))].sort()).toStrictEqual(["stellvertretung", "trainer"]);
   });
 
   /* Two empty slots and one repair between them: the seat its own person stepped out of takes
@@ -146,12 +144,10 @@ describe("a seat an erasure emptied", () => {
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(
-      zusageHindernis(standsOf2(ERASED), TEAM),
+    expect(zusageHindernis(standsOf2(ERASED), TEAM)).toBe(
       "Eine Kontaktperson hat ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
     );
-    assert.equal(
-      zusageHindernis(standsOf2(declined), TEAM),
+    expect(zusageHindernis(standsOf2(declined), TEAM)).toBe(
       "Eine Kontaktperson hat widersprochen. Besetze ihre Rolle mit einer anderen Person oder lehne die Bewerbung ab.",
     );
   });
@@ -165,7 +161,7 @@ describe("a seat an erasure emptied", () => {
       bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
     });
 
-    assert.match(zusageHindernis(standsOf2(bothSeats), TEAM) ?? "", /nur noch abgelehnt/);
+    expect(zusageHindernis(standsOf2(bothSeats), TEAM) ?? "").toMatch(/nur noch abgelehnt/);
   });
 
   /* The reader meets this satz under a row calling the seat an Eintrag gelöscht, and a second
@@ -176,7 +172,7 @@ describe("a seat an erasure emptied", () => {
     for (const rootOf of ["Eintrag", "lösch"]) {
       assert.ok(satz.includes(rootOf), `the reason drops „${rootOf}“, which is the root the row above it uses`);
     }
-    assert.equal(satz.split(". ").length, 2, "the reason is one long sentence again, which is what made the last one unreadable");
+    expect(satz.split(". ").length, "the reason is one long sentence again, which is what made the last one unreadable").toBe(2);
   });
 });
 
@@ -189,9 +185,9 @@ describe("the seats another person may be put in", () => {
   /* `seat_awaits_a_replacement` parts the two empty slots by the day the decline left in the entry
      an erasure took with the person, and a control over an erased seat is a press the write refuses. */
   it("offers the seat its own person stepped out of, and no seat in any other state", () => {
-    assert.deepEqual([...sitzAngebot(standsOf2(DECLINED))], ["ansprechperson"]);
-    assert.deepEqual([...sitzAngebot(standsOf2(ERASED))], []);
-    assert.deepEqual([...sitzAngebot(standsOf2(seatsOf()))], []);
+    expect([...sitzAngebot(standsOf2(DECLINED))]).toStrictEqual(["ansprechperson"]);
+    expect([...sitzAngebot(standsOf2(ERASED))]).toStrictEqual([]);
+    expect([...sitzAngebot(standsOf2(seatsOf()))]).toStrictEqual([]);
   });
 
   /* One answer emptied both seats and one write fills both, so a second control would put a second
@@ -204,7 +200,7 @@ describe("the seats another person may be put in", () => {
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: ABGELEHNT },
     });
 
-    assert.deepEqual([...sitzAngebot(standsOf2(paar))], ["trainer"]);
+    expect([...sitzAngebot(standsOf2(paar))]).toStrictEqual(["trainer"]);
   });
 
   /* The write reaches both seats of a claimed pair or neither
@@ -237,7 +233,7 @@ describe("the seats another person may be put in", () => {
     ];
 
     for (const nurEiner of halbePaare) {
-      assert.deepEqual([...sitzAngebot(standsOf2(nurEiner))], []);
+      expect([...sitzAngebot(standsOf2(nurEiner))]).toStrictEqual([]);
     }
   });
 
@@ -250,7 +246,7 @@ describe("the seats another person may be put in", () => {
       bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
     });
 
-    assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
+    expect([...linkAngebot(standsOf2(trainerGone))].sort()).toStrictEqual(["ansprechperson", "stellvertretung"]);
   });
 });
 
@@ -265,15 +261,15 @@ describe("what a seat's own refusal is called", () => {
   it("names it with the queue badge's word rather than the application status's", () => {
     const seat2 = seatOf(standsOf2(DECLINED), "ansprechperson");
 
-    assert.equal(seat2.satz, "Widersprochen am 04.09.2026");
+    expect(seat2.satz).toBe("Widersprochen am 04.09.2026");
     assert.ok(!seat2.satz.includes("Abgelehnt"), "a seat's refusal is called what the league calls its own decision");
   });
 
   /* The strip's row and the queue's chip are one word in two positions, the participle where a day
      follows it and the noun where the chip stands alone; two roots would read as two states. */
   it("shares that word with the chip the queue shows for the same row", () => {
-    assert.equal(endstand(standsOf2(DECLINED)), "Widerspruch");
-    assert.match(seatOf(standsOf2(DECLINED), "ansprechperson").satz, /^Widerspr/);
+    expect(endstand(standsOf2(DECLINED))).toBe("Widerspruch");
+    expect(seatOf(standsOf2(DECLINED), "ansprechperson").satz).toMatch(/^Widerspr/);
   });
 });
 
@@ -286,8 +282,8 @@ describe("what the queue says of an application no answer can complete", () => {
   /* „2 von 3 bestätigt“ over a row whose third seat is gone sends an administrator waiting for an
      answer nobody can give. Both terminal states take the count's place, each in its own word. */
   it("names the state that ended it rather than counting towards an answer", () => {
-    assert.equal(endstand(standsOf2(ERASED)), "Eintrag gelöscht");
-    assert.equal(endstand(standsOf2(DECLINED)), "Widerspruch");
+    expect(endstand(standsOf2(ERASED))).toBe("Eintrag gelöscht");
+    expect(endstand(standsOf2(DECLINED))).toBe("Widerspruch");
   });
 
   /* One chip per row, so a row carrying both has to choose: the decline is the state an
@@ -299,12 +295,12 @@ describe("what the queue says of an application no answer can complete", () => {
       bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
     });
 
-    assert.equal(endstand(standsOf2(bothSeats)), "Widerspruch");
+    expect(endstand(standsOf2(bothSeats))).toBe("Widerspruch");
   });
 
   it("says nothing of a row an answer can still complete", () => {
-    assert.equal(endstand(standsOf2(seatsOf())), null);
-    assert.equal(
+    expect(endstand(standsOf2(seatsOf()))).toBe(null);
+    expect(
       endstand(
         standsOf2(
           seatsOf({
@@ -314,8 +310,7 @@ describe("what the queue says of an application no answer can complete", () => {
           }),
         ),
       ),
-      null,
-    );
+    ).toBe(null);
   });
 });
 
@@ -326,7 +321,8 @@ describe("the reason the Zusage is closed", () => {
     const stands = standsOf2(seatsOf({ stellvertretung: person("Bernd", "2026-09-03") }));
     const satz = zusageHindernis(stands, TEAM);
 
-    assert.equal(satz, "Eine Zusage ist ohne alle Bestätigungen nicht möglich.");
+    expect(satz).toBe("Eine Zusage ist ohne alle Bestätigungen nicht möglich.");
+    assert.ok(satz !== null);
     // A name in it would move with the seats, which is what makes it a list rather than a rule.
     assert.ok(!satz.includes("Meier"), "the reason names a person, so it reads as a list of today's outstanding seats");
   });
@@ -337,13 +333,13 @@ describe("the reason the Zusage is closed", () => {
     const twinned = person("Anna", null);
     const pairOf = standsOf2(seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" }));
 
-    assert.equal(zusageHindernis(pairOf, TEAM), zusageHindernis(standsOf2(seatsOf()), TEAM));
+    expect(zusageHindernis(pairOf, TEAM)).toBe(zusageHindernis(standsOf2(seatsOf()), TEAM));
   });
 
   /* `REQ-BEWERBUNG-002` is judged before `REQ-BEWERBUNG-013`, so the reason under the control is
      the one the write would answer with rather than the first one this page happens to find. */
   it("answers the row naming no club before it answers a seat", () => {
-    assert.match(zusageHindernis(standsOf2(ERASED), null) ?? "", /^Ohne eine neue Schule/);
+    expect(zusageHindernis(standsOf2(ERASED), null) ?? "").toMatch(/^Ohne eine neue Schule/);
   });
 
   it("closes nothing once every seat has confirmed", () => {
@@ -353,7 +349,7 @@ describe("the reason the Zusage is closed", () => {
       trainer: person("Clara", "2026-09-03"),
     });
 
-    assert.equal(zusageHindernis(standsOf2(allSeats), TEAM), null);
+    expect(zusageHindernis(standsOf2(allSeats), TEAM)).toBe(null);
   });
 
   /* The reseat replaces the entry the Widerspruch wrote into, so the seated person's own stamp
@@ -366,8 +362,8 @@ describe("the reason the Zusage is closed", () => {
       bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    assert.equal(zusageHindernis(standsOf2(wiederBesetzt), TEAM), null);
-    assert.equal(endstand(standsOf2(wiederBesetzt)), null, "the queue still names a Widerspruch the reseat has undone");
+    expect(zusageHindernis(standsOf2(wiederBesetzt), TEAM)).toBe(null);
+    expect(endstand(standsOf2(wiederBesetzt)), "the queue still names a Widerspruch the reseat has undone").toBe(null);
   });
 });
 
@@ -378,7 +374,7 @@ describe("the two seats one person holds", () => {
   /* One answer writes both seats (`fl_backend/app/api/bewerbungen/einwilligung_router.py`), so two
      controls would put two messages in one mailbox over one decision. */
   it("are offered one link, on the Trainer's own row", () => {
-    assert.deepEqual([...linkAngebot(standsOf2(PAAR))].sort(), ["stellvertretung", "trainer"]);
+    expect([...linkAngebot(standsOf2(PAAR))].sort()).toStrictEqual(["stellvertretung", "trainer"]);
   });
 
   /* Where the Trainer's own seat can take no link, the claim must not silence the seat that can:
@@ -391,7 +387,7 @@ describe("the two seats one person holds", () => {
       bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
     });
 
-    assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
+    expect([...linkAngebot(standsOf2(trainerGone))].sort()).toStrictEqual(["ansprechperson", "stellvertretung"]);
   });
 });
 
@@ -406,18 +402,18 @@ describe("what became of the last message to a seat", () => {
 
     const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
 
-    assert.equal(seat2.stand.art, "bestaetigt");
-    assert.equal(seat2.zustellung?.stand, "unzustellbar");
+    expect(seat2.stand.art).toBe("bestaetigt");
+    expect(seat2.zustellung?.stand).toBe("unzustellbar");
   });
 
   it("is null on a seat no message has been accepted for", () => {
-    assert.equal(seatOf(standsOf2(seatsOf()), "ansprechperson").zustellung, null);
+    expect(seatOf(standsOf2(seatsOf()), "ansprechperson").zustellung).toBe(null);
   });
 
   /* The address is the value the correction control edits and the thing the delivery chip is about,
      so the row reads it off the seat rather than off a second read of the application. */
   it("carries the address the seat's links go to", () => {
-    assert.equal(seatOf(standsOf2(seatsOf()), "ansprechperson").email, "anna@schule.example");
+    expect(seatOf(standsOf2(seatsOf()), "ansprechperson").email).toBe("anna@schule.example");
   });
 
   /* The form stores the empty string where nobody typed an address, and a row offering to re-send
@@ -425,8 +421,8 @@ describe("what became of the last message to a seat", () => {
   it("reads an address nobody typed as none at all", () => {
     const emptyBlock = seatsOf({ ansprechperson: { ...person("Anna", null)!, email: "" } });
 
-    assert.equal(seatOf(standsOf2(emptyBlock), "ansprechperson").email, null);
-    assert.equal(seatOf(standsOf2(ERASED), "ansprechperson").email, null);
+    expect(seatOf(standsOf2(emptyBlock), "ansprechperson").email).toBe(null);
+    expect(seatOf(standsOf2(ERASED), "ansprechperson").email).toBe(null);
   });
 });
 
@@ -443,11 +439,11 @@ describe("a seat nobody answered on an application already decided", () => {
   it("says no confirmation can come, and nothing is outstanding", () => {
     const trainer = seatOf(standsOf2(ENTSCHIEDEN), "trainer");
 
-    assert.equal(trainer.stand.art, "unbeantwortet");
-    assert.equal(trainer.satz, "Keine Bestätigung mehr möglich");
-    assert.doesNotMatch(trainer.satz, /Ausstehend/);
+    expect(trainer.stand.art).toBe("unbeantwortet");
+    expect(trainer.satz).toBe("Keine Bestätigung mehr möglich");
+    expect(trainer.satz).not.toMatch(/Ausstehend/);
     // The same application still open is the state the decided one differs from.
-    assert.match(seatOf(standsOf2(seatsOf()), "trainer").satz, /^Ausstehend, Link gesendet am/);
+    expect(seatOf(standsOf2(seatsOf()), "trainer").satz).toMatch(/^Ausstehend, Link gesendet am/);
   });
 
   /* The decision moves only the seats still waiting: a confirmation and a Widerspruch are answers
@@ -455,8 +451,8 @@ describe("a seat nobody answered on an application already decided", () => {
   it("keeps every answer a person gave", () => {
     const stands = standsOf2(ENTSCHIEDEN);
 
-    assert.equal(seatOf(stands, "ansprechperson").satz, "Bestätigt am 02.09.2026");
-    assert.equal(seatOf(stands, "stellvertretung").satz, "Widersprochen am 04.09.2026");
+    expect(seatOf(stands, "ansprechperson").satz).toBe("Bestätigt am 02.09.2026");
+    expect(seatOf(stands, "stellvertretung").satz).toBe("Widersprochen am 04.09.2026");
   });
 
   /* The count is still over the seats that confirmed, and the queue's chip names only what a person
@@ -464,9 +460,9 @@ describe("a seat nobody answered on an application already decided", () => {
   it("counts as unconfirmed, is offered no link, and adds no chip to the queue", () => {
     const openOnly = standsOf2(seatsOf({ status: "angenommen" }));
 
-    assert.equal(openOnly.filter(istOffen).length, 3);
-    assert.deepEqual([...linkAngebot(openOnly)], []);
-    assert.equal(endstand(openOnly), null);
+    expect(openOnly.filter(istOffen).length).toBe(3);
+    expect([...linkAngebot(openOnly)]).toStrictEqual([]);
+    expect(endstand(openOnly)).toBe(null);
   });
 });
 
@@ -476,16 +472,14 @@ describe("what the strip says of an incomplete application's deadline", () => {
   /* The read judges the deadline's own day as running, as the sweep does, so the sentence follows the
      read alone: a date this browser holds decides nothing. */
   it("words a deadline the read judges running as what happens if an answer stays out", () => {
-    assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: false }),
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: false })).toBe(
       "Bleibt eine Bestätigung bis zum 07.09.2026 aus, wird die Bewerbung gelöscht.",
     );
   });
 
   /* Past it, the future tense promised a deletion that is already owed. */
   it("words a passed deadline as passed, and names when the deletion comes", () => {
-    assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: true }),
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: true })).toBe(
       "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.",
     );
   });
@@ -500,29 +494,26 @@ describe("what the strip says of an incomplete application's deadline", () => {
       seatsOf({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar"), trainer: OFFEN } }),
     );
 
-    assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: true }),
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: true })).toBe(
       "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
-    assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: false }),
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: false })).toBe(
       "Die Frist für die Bestätigungen läuft bis zum 07.09.2026. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
     // A delay is not a refusal: the provider may still carry the notice.
-    assert.match(
+    expect(
       loeschungsSatz({
         ...OFFEN_UND_FRIST,
         staende: standsOf2(seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
         istAbgelaufen: true,
       }) ?? "",
-      /nächsten stündlichen Prüfung/,
-    );
-    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: otherPerson, istAbgelaufen: true }) ?? "", /nächsten stündlichen Prüfung/);
+    ).toMatch(/nächsten stündlichen Prüfung/);
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: otherPerson, istAbgelaufen: true }) ?? "").toMatch(/nächsten stündlichen Prüfung/);
   });
 
   /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
   it("says nothing where the deletion clock does not reach the application", () => {
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, istAbgelaufen: false }), null);
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, istAbgelaufen: false })).toBe(null);
 
     const allSeats = standsOf2(
       seatsOf({
@@ -531,7 +522,7 @@ describe("what the strip says of an incomplete application's deadline", () => {
         trainer: person("Clara", "2026-09-03"),
       }),
     );
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: allSeats, istAbgelaufen: true }), null);
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: allSeats, istAbgelaufen: true })).toBe(null);
   });
 });
 
@@ -542,14 +533,14 @@ describe("the addresses a correction may not take", () => {
     const twinned = person("Anna", null);
     const stands = standsOf2(seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" }));
 
-    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "trainer")), ["bernd@schule.example"]);
-    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "ansprechperson")), ["bernd@schule.example"]);
-    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "stellvertretung")), ["anna@schule.example", "anna@schule.example"]);
+    expect(adressenAndererPersonen(stands, seatOf(stands, "trainer"))).toStrictEqual(["bernd@schule.example"]);
+    expect(adressenAndererPersonen(stands, seatOf(stands, "ansprechperson"))).toStrictEqual(["bernd@schule.example"]);
+    expect(adressenAndererPersonen(stands, seatOf(stands, "stellvertretung"))).toStrictEqual(["anna@schule.example", "anna@schule.example"]);
   });
 
   it("leaves out a seat that holds no address", () => {
     const stands = standsOf2(ERASED);
 
-    assert.deepEqual(adressenAndererPersonen(stands, seatOf(stands, "trainer")), ["bernd@schule.example"]);
+    expect(adressenAndererPersonen(stands, seatOf(stands, "trainer"))).toStrictEqual(["bernd@schule.example"]);
   });
 });

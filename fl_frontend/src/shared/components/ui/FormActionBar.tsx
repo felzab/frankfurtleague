@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/EditorBar` replaces it.
 import { Button } from "@heroui/react/button";
 
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
@@ -60,8 +61,7 @@ export function FormActionBar({
 
         <div className="flex w-full flex-row gap-3 sm:w-auto">
           {/* `isPending` and never `isDisabled` while a write runs: a disabled button drops the keyboard's focus to the
-              page, where react-aria's pending state keeps it and takes no press. Leaving is
-              `docs/frontend/spec.md :: I68`'s. */}
+              page, where react-aria's pending state keeps it and takes no press. */}
           <Button
             type="button"
             variant="secondary"

@@ -35,7 +35,7 @@ services:
       - AUTH_URL=http://localhost:3000
       # The point of this stack is the production behaviour, and the developer's `fl_frontend/.env`
       # legitimately holds `console` for `pnpm dev` -- overridden so the stack always writes the
-      # production stream (docs/logging/spec.md).
+      # production stream.
       - LOG_FORMAT=json
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
@@ -94,7 +94,7 @@ services:
       mongo:
         condition: service_healthy
 
-  # Production declares no database service and must not gain one (`docs/ops/spec.md :: I174`).
+  # Production declares no database service and must not gain one.
   mongo:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
     # cluster runs, so a copy taken from it restores into a server of its own major version. Pinned
@@ -111,8 +111,8 @@ services:
     user: mongodb
     restart: unless-stopped
     ports:
-      # Loopback only, and the one port outside nginx on either stack: it is here for a database
-      # client on the host, and any other interface publishes an unauthenticated mongod.
+      # Loopback only, as nginx's, and the one port outside nginx on either stack: it is here for a
+      # database client on the host, and any other interface publishes an unauthenticated mongod.
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
@@ -145,9 +145,10 @@ services:
       start_interval: 3s
 
   nginx:
-    # Production publishes nothing; this stack serves the edge on 3000.
+    # Production publishes nothing; this stack serves the edge on 3000 to this host alone, since any
+    # other interface serves a copy of production's data to every machine on the developer's network.
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the
     # base file's reason, and no ./certs.
     volumes: !override
@@ -184,7 +185,7 @@ secrets: !override
     file: ./secrets/internal_api_key_admin
 
 # Both logins, inline: the `mongo` service above holds no credential, so this is no secret, and no
-# machine keeps a copy of production's login to aim the stack at (`docs/ops/spec.md :: I508`).
+# machine keeps a copy of production's login to aim the stack at.
 configs:
   local_mongodb_uri:
     content: mongodb://mongo:27017/?directConnection=true

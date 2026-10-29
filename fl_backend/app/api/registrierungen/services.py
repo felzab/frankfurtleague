@@ -2,8 +2,7 @@
 API · the registration's judgements, spelled apart from the request
 
 Every predicate here takes values and never a collection or a session: the router does the reading,
-so a refusal is judged against what the submission's own transaction can see
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+so a refusal is judged against what the submission's own transaction can see.
 """
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
@@ -108,7 +107,7 @@ def find_stufe_refusal(*, stufe: Any, erlaubte_stufen: Sequence[str]) -> WriteRe
     """`REQ-REGISTRIERUNG-003`: the season's rules do not offer this Stufe.
 
     A null passes: the form may leave it unanswered. Refused server-side because
-    `docs/backend/spec.md :: I158` protects a STORED row, and nobody has stored this one.
+    the rule protects a STORED row, and nobody has stored this one.
     """
 
     if stufe is None or stufe in erlaubte_stufen:
@@ -192,8 +191,7 @@ def compose_registrierung(
         "position": position,
         "nummer": nummer,
         "stufe": stufe,
-        # Both null until the pupil's own confirmation writes them in one `$set`
-        # (`docs/backend/spec.md :: I141`).
+        # Both null until the pupil's own confirmation writes them in one `$set`.
         "geburtsdatum": None,
         "einwilligung": None,
         "bestaetigung": bestaetigung,
@@ -213,7 +211,7 @@ def compose_bestaetigung(*, token_hash: str, today: str, frist: str) -> dict[str
 
 
 # --- The SUBMISSION KEY, as the application's submission keeps it
-# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`, `docs/backend/spec.md :: I346`).
+# (`app/api/bewerbungen/services.py :: payload_fingerabdruck`).
 
 REGISTRIERUNG_SCHLUESSEL_ABWEICHEND = "REQ-REGISTRIERUNG-011"
 
@@ -238,7 +236,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
 def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
     """The state a replay hands a fresh link in, as its update's filter; `None` where the row holds no live hash.
 
-    Unconfirmed, unreminded and not on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    Unconfirmed, unreminded and not on record as reached by a mail.
     """
 
     block = registrierung_raw.get("bestaetigung")
@@ -329,7 +327,7 @@ def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
 
 
 # An INCLUSION, so the rest of a registration -- the surname, the shirt number, the position and the
-# Stufe -- is what this base-tier read cannot serve (`docs/backend/spec.md :: READ-CONTACT-001`).
+# Stufe -- is what this base-tier read cannot serve.
 
 # NEITHER hash is projected: the FILTER above matches on them, and a hash a handler never reads is a
 # credential carried through a base-tier request for nothing.
@@ -380,7 +378,7 @@ def link_is_over(*, bestaetigung: Any, status: Any, today: str) -> bool:
 
 
 def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, gesperrt: bool) -> FLRegistrierungBestaetigungZustand:
-    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+    """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A pupil who answered on the last valid day is shown that they did.
     """
@@ -609,13 +607,13 @@ def compose_confirmation_update(
 ) -> Mapping[str, Any]:
     """The ONE `$set` a confirmation is: the whole consent record beside the date.
 
-    `docs/backend/spec.md :: I141` rests on the two landing together, and between two writes the row
+    The two land together, and between two writes the row
     would hold a birthdate nobody had yet consented to the league keeping.
     """
 
     if umfang is None and medien is None:
         # The returning pupil's page asked nothing, so the record holds no choice, no evidence and no
-        # `datum`, the day a consent was given (`docs/backend/spec.md :: I557`).
+        # `datum`, the day a consent was given.
         return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": {"bestaetigt_am": today, "text_version": text_version}}}
 
     if umfang is None or medien is None:
@@ -664,8 +662,7 @@ def compose_sweep_stamp(*, today: str) -> Mapping[str, Any]:
     return {"$set": {REGISTRIERUNG_SWEEP_FELD: today}}
 
 
-# One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do
-# (`docs/backend/spec.md :: I295`).
+# One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do.
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
 # The consent stamp, at the path a null `einwilligung` and a null stamp both answer: `$in` with null
@@ -762,7 +759,7 @@ def bestaetigung_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: 
     """Whether the deadline clock takes this registration, strictly past its `frist`.
 
     STRICTLY, because the link still answers on the deadline's own day. No notice goes out either
-    way (`docs/backend/spec.md :: I290`).
+    way.
     """
 
     if registrierung_raw.get("status") != SUBMITTED:
@@ -780,7 +777,7 @@ def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_sta
     """Whether the season's own end takes this registration.
 
     Whatever the pupil answered and whether or not a message could reach them: no admission can be
-    taken for a season that is over (`docs/backend/spec.md :: I292`).
+    taken for a season that is over.
     """
 
     return registrierung_raw.get("status") == SUBMITTED and season_has_ended(saison_status=saison_status)
@@ -801,8 +798,7 @@ def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) 
 def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str) -> Mapping[str, Any]:
     """The reminder's ONE `$set`: the stamp and the fresh hash, the first kept live beside it.
 
-    `verschickt_am` and `frist` stay: a reminder is not a re-send
-    (`docs/backend/spec.md :: I152`).
+    `verschickt_am` and `frist` stay: a reminder is not a re-send.
     """
 
     block = bestaetigung if isinstance(bestaetigung, Mapping) else {}
@@ -840,7 +836,7 @@ def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
 def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every registration of these addresses, of every status: a declined row holds the same person until its month is out."""
 
-    # Folded here, the form every registration stores (`docs/backend/spec.md :: I332`).
+    # Folded here, the form every registration stores.
     return {"email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})}}
 
 
@@ -989,7 +985,7 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Not one key of the block, its label and day included: they name the last confirmation that
-        # asked its choices (`docs/backend/spec.md :: I611`). Nor the date, the person's own copy,
+        # asked its choices. Nor the date, the person's own copy,
         # which would undo a correction made since.
         fields.pop("geburtsdatum")
 
@@ -1055,7 +1051,7 @@ def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
 
 
 def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
-    """A stored registration with its decision as the list serves it (`docs/backend/spec.md :: I452`)."""
+    """A stored registration with its decision as the list serves it."""
 
     if row.get("entscheidung") is None:
         return dict(row)

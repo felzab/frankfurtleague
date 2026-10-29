@@ -280,8 +280,7 @@ export function FormGruppenSwapSection({
             )}
 
             <ConfirmActionRow confirm={twoPress}>
-              {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
-                  §1.14). */}
+              {/* On the control, never a sentence beside it that a pick would unmount. */}
               <FocusSlot name="tausch">
                 <ConfirmPressButton
                   confirm={twoPress}

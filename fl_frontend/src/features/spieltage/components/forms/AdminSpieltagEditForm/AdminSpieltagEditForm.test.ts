@@ -1,23 +1,19 @@
-import "@/shared/testing/dom.ts";
-import "@/shared/testing/renderTest.ts";
-
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+// @vitest-environment jsdom
 import { setImmediate as settled } from "node:timers/promises";
 
 import { act, createElement as h } from "react";
 
+import { doubleActions, doubleToasts } from "@/test-support/actionDoubles.ts";
+import { underNext } from "@/test-support/nextContexts.ts";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-
-import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types.ts";
 
 const { calls, answered } = doubleActions({
-  modules: ["/src/features/spieltage/actions.ts"],
+  modules: ["@/features/spieltage/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Der Spieltag wurde aktualisiert." }),
 });
 
@@ -110,11 +106,11 @@ describe("the one date a final's Spieltag is given", () => {
      it would follow a string the page makes rather than the row's own state. Here the two disagree. */
   it("dates a final once and every other matchday twice, on the stored phase rather than the label", () => {
     let unmount = renderEditor(spieltag("finale", "Endspiel"));
-    assert.deepEqual(pickers(), ["Datum"], "a final's matchday is asked for two dates");
+    expect(pickers(), "a final's matchday is asked for two dates").toStrictEqual(["Datum"]);
     unmount();
 
     unmount = renderEditor(spieltag("halbfinale", "Finale"));
-    assert.deepEqual(pickers(), ["Beginn", "Ende"], "a Halbfinale named „Finale“ is asked for one date");
+    expect(pickers(), "a Halbfinale named „Finale“ is asked for one date").toStrictEqual(["Beginn", "Ende"]);
     unmount();
   });
 
@@ -124,17 +120,15 @@ describe("the one date a final's Spieltag is given", () => {
     const user = userEvent.setup();
     let unmount = renderEditor(spieltag("finale", "Endspiel"));
     await stepDay(user, "Datum", "ArrowUp");
-    assert.deepEqual(
-      await save(user),
-      [{ id: ID, beginn: "2026-08-11", ende: "2026-08-11" }],
-      "the one picked day is not both ends of the span",
-    );
+    expect(await save(user), "the one picked day is not both ends of the span").toStrictEqual([
+      { id: ID, beginn: "2026-08-11", ende: "2026-08-11" },
+    ]);
     unmount();
 
     calls.length = 0;
     unmount = renderEditor(spieltag("halbfinale", "Halbfinale", { ende: "2026-08-12" }));
     await stepDay(user, "Ende", "ArrowUp");
-    assert.deepEqual(await save(user), [{ id: ID, beginn: "2026-08-10", ende: "2026-08-13" }]);
+    expect(await save(user)).toStrictEqual([{ id: ID, beginn: "2026-08-10", ende: "2026-08-13" }]);
     unmount();
   });
 
@@ -146,8 +140,8 @@ describe("the one date a final's Spieltag is given", () => {
     await stepDay(user, "Datum", "ArrowUp");
 
     const rows = await changeList(user);
-    assert.equal(rows.length, 1, `one picked day is listed as ${String(rows.length)} changes: ${rows.join(" | ")}`);
-    assert.match(rows[0] ?? "", /^Datum:/);
+    expect(rows.length, `one picked day is listed as ${String(rows.length)} changes: ${rows.join(" | ")}`).toBe(1);
+    expect(rows[0] ?? "").toMatch(/^Datum:/);
     unmount();
   });
 
@@ -165,7 +159,7 @@ describe("the one date a final's Spieltag is given", () => {
 describe("what bounds the Zeitraum pickers", () => {
   /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
      STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
-     own answer and carries no sentence beside it (`docs/frontend/spec.md` §1.12, diagnostic 4). */
+     own answer and carries no sentence beside it. */
   it("greys out every day outside the season in every picker of either panel, and no day inside it", async () => {
     const user = userEvent.setup();
 
@@ -176,16 +170,16 @@ describe("what bounds the Zeitraum pickers", () => {
       const unmount = renderEditor(row);
 
       const triggers = screen.getAllByRole("button", { name: /^Kalender/ });
-      assert.equal(triggers.length, pickerCount, `${panel} offers other than one calendar per picker`);
+      expect(triggers.length, `${panel} offers other than one calendar per picker`).toBe(pickerCount);
 
       for (const [which, trigger] of triggers.entries()) {
         const picker = `${panel}'s picker ${String(which + 1)}`;
         await user.click(trigger);
 
-        assert.equal(isOffered(dayCell(1)), false, `${picker} offers the day before the season`);
-        assert.equal(isOffered(dayCell(2)), true, `${picker} greys out the season's first day`);
-        assert.equal(isOffered(dayCell(29)), true, `${picker} greys out the season's last day`);
-        assert.equal(isOffered(dayCell(30)), false, `${picker} offers the day after the season`);
+        expect(isOffered(dayCell(1)), `${picker} offers the day before the season`).toBe(false);
+        expect(isOffered(dayCell(2)), `${picker} greys out the season's first day`).toBe(true);
+        expect(isOffered(dayCell(29)), `${picker} greys out the season's last day`).toBe(true);
+        expect(isOffered(dayCell(30)), `${picker} offers the day after the season`).toBe(false);
 
         await user.keyboard("{Escape}");
       }

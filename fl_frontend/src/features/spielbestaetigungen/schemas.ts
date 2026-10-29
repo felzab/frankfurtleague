@@ -27,8 +27,7 @@ const bestaetigungToken = z
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
 /**
- * Restated from `fl_backend/app/api/spielbestaetigungen/schemas.py :: ANFRAGEN_LISTED_PER_PASS` and held to the
- * `maxItems` the stamp's payload publishes by `fl_frontend/src/core/payloadBounds.test.ts`.
+ * Restated from `fl_backend/app/api/spielbestaetigungen/schemas.py :: ANFRAGEN_LISTED_PER_PASS`.
  */
 const ANFRAGEN_LISTED_PER_PASS = 83;
 

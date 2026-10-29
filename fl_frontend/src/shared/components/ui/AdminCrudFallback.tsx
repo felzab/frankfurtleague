@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
+
 import { card } from "./card";
 import { ROW_ACTION_SIZE_CLASSES } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";

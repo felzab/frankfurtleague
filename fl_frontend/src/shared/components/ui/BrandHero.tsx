@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Brand` replaces it.
+
 import { DISPLAY_HEADING_CLASSES, WORDMARK_CLASSES } from "./displayType";
 import { FLLogo } from "./FLLogo";
 

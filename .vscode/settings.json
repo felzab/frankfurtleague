@@ -1,7 +1,3 @@
-// .vscode/settings.json — the editor layer of the formatting rules. Prettier's installation guide
-// orders the layers editor, then CI, then a pre-commit hook: a save that formats is what keeps
-// `.githooks/pre-commit` from having to reformat and re-stage the same file.
-
 // Per language rather than one workspace-wide `editor.formatOnSave`: that arms whatever formatter
 // a developer happens to have for Python, shell or TOML, none of which is what the gate checks.
 // `.editorconfig` carries what those files need instead.
@@ -13,16 +9,10 @@
   "prettier.prettierPath": "fl_frontend/node_modules/prettier",
   "prettier.configPath": ".prettierrc.json",
   "prettier.ignorePath": ".prettierignore",
-  // Relative, and never with a leading slash: `.vscode/markdown.css`'s own header carries why.
-  "markdown.styles": [".vscode/markdown.css"],
   // Pylance reads `pyrightconfig.json` only at the workspace root, so `scripts/`'s never reaches
   // it. Naming its two `extraPaths` here makes the editor resolve what the gate resolves; a root
   // config would govern `fl_backend` too.
   "python.analysis.extraPaths": ["scripts/lib", "scripts/checks"],
-  // The editor layer of `fl_frontend/eslint.config.mjs :: VENDOR_ROOTS`: an auto-import offers each
-  // component's or icon's own subpath rather than the root the lint refuses. It applies after a
-  // window reload.
-  "typescript.preferences.autoImportSpecifierExcludeRegexes": ["^@heroui/react$", "^@gravity-ui/icons$"],
   "[typescript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[typescriptreact]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[javascript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },

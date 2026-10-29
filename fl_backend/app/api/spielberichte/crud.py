@@ -156,7 +156,7 @@ async def pull_genannt(
 
 
 async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spieler_ids: Iterable[ObjectId], session: AsyncClientSession) -> None:
-    """One anchor over every pupil a write newly names, so an erasure of one of them conflicts with it (`docs/backend/spec.md :: I53`)."""
+    """One anchor over every pupil a write newly names, so an erasure of one of them conflicts with it."""
 
     ids = sorted(set(spieler_ids))
     if not ids:
@@ -166,7 +166,7 @@ async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spiele
 
 
 async def anchor_the_season_reported_in(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> None:
-    """The season a report's first write and a draw's removal both write, so the two conflict (`docs/backend/spec.md :: I833`)."""
+    """The season a report's first write and a draw's removal both write, so the two conflict."""
 
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
@@ -285,8 +285,7 @@ async def repoint_referee_reports_in_session(
     schiedsrichter_ids: Sequence[CustomObjectId],
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """Repoint every report these referees sent at the ghost, in the document and in its log images.
@@ -327,7 +326,7 @@ async def stamp_the_adoption(
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
 ) -> FLSpielPriorBericht | None:
-    """Stamp the report adopted at `version`, matching it only while it still stands there (`docs/backend/spec.md :: I811`).
+    """Stamp the report adopted at `version`, matching it only while it still stands there.
 
     Answers the adoption it replaced, for the save's undo to put back; `None` where it stamped nothing.
     """

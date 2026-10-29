@@ -55,7 +55,7 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
 
     # Both, never the scope alone: `app/core/constraints.py :: _EINWILLIGUNG` admits a null
     # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. The stamp is
-    # the shared predicate's to judge (`docs/backend/spec.md :: I387`), `""` included.
+    # the shared predicate's to judge, `""` included.
     return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
@@ -430,15 +430,15 @@ def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any
 
 
 # A representative's edit is held to the season's list, where the administrator's form is trusted to
-# offer it (`docs/backend/spec.md :: I158`).
+# offer it.
 KADER_STUFE_NICHT_ERLAUBT = "REQ-SQUAD-005"
 
 
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
     """`REQ-SQUAD-005`: the edit writes a Stufe the season's rules do not offer.
 
-    The stored value passes: a season narrowed after the row was written leaves it valid
-    (`docs/backend/spec.md :: I158`), and refusing it would lock the row's other fields too.
+    The stored value passes: a season narrowed after the row was written leaves it valid,
+    and refusing it would lock the row's other fields too.
     """
 
     if stufe is None or stufe == stored_stufe or stufe in erlaubte_stufen:

@@ -83,7 +83,7 @@ export type SpielerBestaetigungGespeichert = {
 export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang> & { readonly seite: "bestaetigung_spieler" };
 
 // No control keys: the page asks no choice and shows none.
-export type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel> & {
+type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel> & {
   readonly seite: "bestaetigung_spieler_wiederkehrend";
 };
 

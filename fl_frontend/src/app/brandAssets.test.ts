@@ -1,22 +1,31 @@
-import "@/shared/testing/renderTest.ts";
-
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
-import { assertEveryTokenIsRead, schemeTokens } from "@/core/schemeReader.ts";
+import postcss from "postcss";
+import { assert, describe, expect, it } from "vitest";
+
+import { THEME_COLOR } from "@/core/themeColor";
 
 import manifest from "./manifest.ts";
 
-const { viewport } = await import("./layout.tsx");
+/** The token blocks of `tokens.css`, by the selector each theme opens. */
+const THEME_SELECTOR = { light: ":root", dark: '[data-theme="dark"]' } as const;
 
 /**
- * Read rather than restated: the three assets below are the only places spelling a scheme colour
- * outside a stylesheet, so one moving without them leaves a favicon, an installed app and the
- * browser's chrome on the season before.
+ * Every custom property one theme's block declares. Parsed by PostCSS rather than matched, so a
+ * declaration inside a comment, or two joined on one line, reads as the stylesheet reads it.
  */
-const SCHEME = readFileSync(path.resolve(import.meta.dirname, "schemes", "2027.css"), "utf8");
+function tokensOf(theme: keyof typeof THEME_SELECTOR): Map<string, string> {
+  const file = path.resolve(import.meta.dirname, "tokens.css");
+  const tokens = new Map<string, string>();
+  postcss.parse(readFileSync(file, "utf8"), { from: file }).walkRules((rule) => {
+    if (rule.selector !== THEME_SELECTOR[theme]) return;
+    rule.walkDecls(/^--/, (declaration) => void tokens.set(declaration.prop, declaration.value.toLowerCase()));
+  });
+  // An empty map would answer every comparison below with `undefined` on both sides of nothing.
+  assert(tokens.size > 0, `tokens.css opens no ${theme} block at ${THEME_SELECTOR[theme]}`);
+  return tokens;
+}
 
 const ICON = readFileSync(path.resolve(import.meta.dirname, "icon.svg"), "utf8");
 
@@ -27,53 +36,35 @@ function iconColours(): Set<string> {
   return new Set([...ICON.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0].toLowerCase()));
 }
 
+/*
+ * The three assets that cannot read a stylesheet copy a token's value by hand: the icon is an SVG
+ * file, the manifest is served as JSON, and a `<meta>` colour resolves no `var()`. A token moving
+ * without them leaves a favicon, an installed app and the browser's chrome on the colour before.
+ */
 describe("the brand assets that cannot read a stylesheet", () => {
-  it("reads every colour the season scheme declares, so the assertions below are against real values", () => {
-    assertEveryTokenIsRead(SCHEME);
-  });
+  it("paints the icon in the brand fill and its accent", () => {
+    const light = tokensOf("light");
 
-  it("paints the icon in the scheme's own brand pair", () => {
-    const tokens = schemeTokens(SCHEME, "light");
-    const fill = tokens.get("--accent-brand-solid");
-    const mark = tokens.get("--accent-on-brand");
-    assert.ok(fill !== undefined && mark !== undefined, "the scheme declares no brand pair");
-
-    assert.deepEqual(
-      [...iconColours()].sort(),
-      [fill, mark].sort(),
-      "fl_frontend/src/app/icon.svg carries a colour the season scheme does not declare",
+    expect([...iconColours()].sort(), "fl_frontend/src/app/icon.svg carries a colour tokens.css does not declare").toStrictEqual(
+      [light.get("--brand-solid"), light.get("--brand-accent")].sort(),
     );
   });
 
-  it("opens an installed app on the scheme's brand fill", () => {
-    const fill = schemeTokens(SCHEME, "light").get("--accent-brand-solid");
-    assert.ok(fill !== undefined);
+  it("opens an installed app on the brand fill, under the browser bar's ground", () => {
+    const light = tokensOf("light");
+    const fill = light.get("--brand-solid");
+    const bar = light.get("--bg-surface");
+    assert(fill !== undefined && bar !== undefined, "tokens.css declares no --brand-solid or no --bg-surface");
 
     const answered = manifest();
-    for (const key of ["theme_color", "background_color"] as const)
-      assert.equal(answered[key], fill, `manifest.ts's ${key} is not the season scheme's brand fill`);
+    expect(answered.background_color, "manifest.ts's background_color is not --brand-solid").toBe(fill);
+    // One value with no colour-scheme media: the light theme's, the page's own metas carrying the dark one.
+    expect(answered.theme_color, "manifest.ts's theme_color is not the light theme's --bg-surface").toBe(bar);
   });
 
-  // A `<meta>` colour is a literal or nothing: `content` resolves no `var()`, so the head is the
-  // third place a scheme colour is spelled by hand.
   it("paints the browser's chrome in each theme's own bar ground", () => {
-    const themeColor = viewport.themeColor;
-    assert.ok(Array.isArray(themeColor), "the `viewport` export declares no theme colour per colour scheme");
-
-    const schemeOf = (theme: string) => `(prefers-color-scheme: ${theme})`;
-    const declared = new Map(themeColor.map(({ media, color }) => [media, color]));
-    assert.deepEqual(
-      [...declared.keys()].sort(),
-      [schemeOf("dark"), schemeOf("light")],
-      "the `viewport` export declares no theme colour per colour scheme",
-    );
-
     for (const theme of ["light", "dark"] as const) {
-      assert.equal(
-        declared.get(schemeOf(theme)),
-        schemeTokens(SCHEME, theme).get("--bg-surface"),
-        `the ${theme} theme colour is not that theme's ground for the bar under the chrome`,
-      );
+      expect(THEME_COLOR[theme], `the ${theme} theme colour is not that theme's --bg-surface`).toBe(tokensOf(theme).get("--bg-surface"));
     }
   });
 
@@ -87,7 +78,8 @@ describe("the brand assets that cannot read a stylesheet", () => {
       .flatMap((tag) => [...tag[0].matchAll(/\b(?:width|height)="(\d+)"/g)].map((m) => Number(m[1])))
       .filter((n) => n < 512);
 
-    assert.ok(strokes.length > 0 && bars.length > 0, "the icon was not parsed, so this case proves nothing");
-    for (const width of [...strokes, ...bars]) assert.ok(width >= 48, `a feature of ${String(width)} units disappears at 16px`);
+    assert(strokes.length > 0 && bars.length > 0, "the icon was not parsed, so this case proves nothing");
+    for (const width of [...strokes, ...bars])
+      expect(width, `a feature of ${String(width)} units disappears at 16px`).toBeGreaterThanOrEqual(48);
   });
 });

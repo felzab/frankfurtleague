@@ -1,9 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { side, spielFields } from "@/shared/testing/fixtures.ts";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { side, spielFields } from "@/test-support/fixtures.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
@@ -67,27 +65,27 @@ const marked = (teams: FLGruppenTeam[], qualifiersPerGroup = 2) => [...computeQu
 
 describe("computeQualifyingTeamIds", () => {
   it("marks the first teams in the order the backend ranked them", () => {
-    assert.deepEqual(marked([row(1), row(2), row(3), row(4)]), [TEAM_ID(1), TEAM_ID(2)]);
+    expect(marked([row(1), row(2), row(3), row(4)])).toStrictEqual([TEAM_ID(1), TEAM_ID(2)]);
   });
 
   it("passes over a disqualified team and gives the place to the team below", () => {
-    assert.deepEqual(marked([row(1, { disqualified: true }), row(2), row(3)]), [TEAM_ID(2), TEAM_ID(3)]);
+    expect(marked([row(1, { disqualified: true }), row(2), row(3)])).toStrictEqual([TEAM_ID(2), TEAM_ID(3)]);
   });
 
   it("marks a team whose first fixture is still to come", () => {
     // It will have a counting match, so the backend seeds it — and a marker that passed over it
     // would highlight a different club than the bracket names.
-    assert.deepEqual(marked([row(1, { gespielt: 0, ausstehend: 3 }), row(2), row(3)]), [TEAM_ID(1), TEAM_ID(2)]);
+    expect(marked([row(1, { gespielt: 0, ausstehend: 3 }), row(2), row(3)])).toStrictEqual([TEAM_ID(1), TEAM_ID(2)]);
   });
 
   it("passes over a team with nothing played and nothing left", () => {
     // Zeroes rank above a negative goal difference, so this row can sit high while it has earned
     // nothing and can earn nothing.
-    assert.deepEqual(marked([row(1, { gespielt: 0 }), row(2), row(3)]), [TEAM_ID(2), TEAM_ID(3)]);
+    expect(marked([row(1, { gespielt: 0 }), row(2), row(3)])).toStrictEqual([TEAM_ID(2), TEAM_ID(3)]);
   });
 
   it("marks fewer than the count when the group cannot fill it", () => {
-    assert.deepEqual(marked([row(1), row(2, { disqualified: true })]), [TEAM_ID(1)]);
+    expect(marked([row(1), row(2, { disqualified: true })])).toStrictEqual([TEAM_ID(1)]);
   });
 
   it("marks the leaders in a group whose matches have not started", () => {
@@ -95,16 +93,16 @@ describe("computeQualifyingTeamIds", () => {
     // where the ranking put it rather than nowhere.
     const drawn = [row(1, { gespielt: 0, ausstehend: 3 }), row(2, { gespielt: 0, ausstehend: 3 }), row(3, { gespielt: 0, ausstehend: 3 })];
 
-    assert.deepEqual(marked(drawn), [TEAM_ID(1), TEAM_ID(2)]);
+    expect(marked(drawn)).toStrictEqual([TEAM_ID(1), TEAM_ID(2)]);
   });
 
   it("marks nobody in a group with no fixtures drawn at all", () => {
     // The case the legend is hidden for: a highlight nobody can see needs no explanation under it.
-    assert.deepEqual(marked([row(1, { gespielt: 0 }), row(2, { gespielt: 0 })]), []);
+    expect(marked([row(1, { gespielt: 0 }), row(2, { gespielt: 0 })])).toStrictEqual([]);
   });
 
   it("takes the count from the season rather than assuming two", () => {
-    assert.deepEqual(marked([row(1), row(2), row(3), row(4)], 3), [TEAM_ID(1), TEAM_ID(2), TEAM_ID(3)]);
+    expect(marked([row(1), row(2), row(3), row(4)], 3)).toStrictEqual([TEAM_ID(1), TEAM_ID(2), TEAM_ID(3)]);
   });
 });
 
@@ -114,17 +112,17 @@ describe("computePlatzByTeamId", () => {
   it("numbers past a disqualified row, matching the backend's platz", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { disqualified: true }), row(3)]);
 
-    assert.equal(platz.get(TEAM_ID(1)), 1);
-    assert.equal(platz.get(TEAM_ID(2)), undefined);
-    assert.equal(platz.get(TEAM_ID(3)), 2);
+    expect(platz.get(TEAM_ID(1))).toBe(1);
+    expect(platz.get(TEAM_ID(2))).toBe(undefined);
+    expect(platz.get(TEAM_ID(3))).toBe(2);
   });
 
   // The „Kein Platz“ the cell still has to reach: nothing earned and nothing left to earn it with.
   it("gives a row with nothing played and nothing left no ordinal", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0 })]);
 
-    assert.equal(platz.get(TEAM_ID(2)), undefined);
-    assert.equal(platz.size, 1);
+    expect(platz.get(TEAM_ID(2))).toBe(undefined);
+    expect(platz.size).toBe(1);
   });
 
   // The backend numbers a club yet to play, so a cell that skips it reads „Kein Platz“ on that row and 2
@@ -132,14 +130,14 @@ describe("computePlatzByTeamId", () => {
   it("numbers a row whose first fixture is still to come, and moves the row below it down", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0, ausstehend: 2 }), row(3)]);
 
-    assert.equal(platz.get(TEAM_ID(2)), 2);
-    assert.equal(platz.get(TEAM_ID(3)), 3);
+    expect(platz.get(TEAM_ID(2))).toBe(2);
+    expect(platz.get(TEAM_ID(3))).toBe(3);
   });
 
   it("numbers every club in a group that has yet to kick off", () => {
     const drawn = [row(1, { gespielt: 0, ausstehend: 3 }), row(2, { gespielt: 0, ausstehend: 3 })];
 
-    assert.deepEqual([...computePlatzByTeamId(drawn).values()], [1, 2]);
+    expect([...computePlatzByTeamId(drawn).values()]).toStrictEqual([1, 2]);
   });
 
   // The shared-predicate property: whoever the marker may consider, the numbering numbers.
@@ -149,7 +147,7 @@ describe("computePlatzByTeamId", () => {
     const numbered = new Set(computePlatzByTeamId(teams).keys());
     const qualifying = computeQualifyingTeamIds({ teams, qualifiersPerGroup: teams.length });
 
-    assert.deepEqual(numbered, qualifying);
+    expect(numbered).toStrictEqual(qualifying);
   });
 });
 
@@ -182,7 +180,7 @@ const fixture = ({
   saison_phase: phase,
   ergebnis,
   // `austritt_type` respelled: the shared fixture types it structurally, `shared` being unable to
-  // import the slice's own schema (`docs/frontend/spec.md :: I9`), and this shape wants the literal.
+  // import the slice's own schema, and this shape wants the literal.
   team1: { ...side(heim), austritt_type: null },
   team2: { ...side(gast), austritt_type: null },
   team1_quelle: heimQuelle,
@@ -202,17 +200,17 @@ describe("computeSaisonVerlauf", () => {
   it("claims no outcome for a group phase the team has not visibly come through", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]);
 
-    assert.deepEqual(verlauf, [{ phase: "gruppenphase", outcome: "unknown" }]);
+    expect(verlauf).toStrictEqual([{ phase: "gruppenphase", outcome: "unknown" }]);
   });
 
   it("says nothing about a team with no fixtures at all", () => {
-    assert.deepEqual(verlaufOf([]), []);
+    expect(verlaufOf([])).toStrictEqual([]);
   });
 
   it("reports the group phase as come through once a knockout fixture fields the team off its placing", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "viertelfinale", heimQuelle: PLATZ(1) })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "gruppenphase", outcome: "advanced" },
       { phase: "viertelfinale", outcome: "pending" },
     ]);
@@ -223,7 +221,7 @@ describe("computeSaisonVerlauf", () => {
   it("claims no outcome for a group phase with no result, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase" }), fixture({ phase: "viertelfinale", heimQuelle: PLATZ(1) })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "gruppenphase", outcome: "unknown" },
       { phase: "viertelfinale", outcome: "pending" },
     ]);
@@ -236,7 +234,7 @@ describe("computeSaisonVerlauf", () => {
       [null, "0:4", "2:2"].map((ergebnis) => verlaufOf([fixture({ phase: "gruppenphase", ergebnis })])[0]?.outcome),
     );
 
-    assert.deepEqual(groupOutcomes, new Set(["unknown"]));
+    expect(groupOutcomes).toStrictEqual(new Set(["unknown"]));
   });
 
   it("orders the rounds as a season plays them, not as the fixtures arrive", () => {
@@ -244,14 +242,14 @@ describe("computeSaisonVerlauf", () => {
     // would otherwise show the two rounds out of order.
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "0:2" }), fixture({ phase: "viertelfinale", ergebnis: "3:1" })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "viertelfinale", outcome: "won" },
       { phase: "halbfinale", outcome: "out" },
     ]);
   });
 
   it("reads each round's result from the team's own side of the fixture", () => {
-    assert.deepEqual(verlaufOf([fixture({ phase: "finale", ergebnis: "0:2", heim: OPPONENT, gast: SUBJECT })]), [
+    expect(verlaufOf([fixture({ phase: "finale", ergebnis: "0:2", heim: OPPONENT, gast: SUBJECT })])).toStrictEqual([
       { phase: "finale", outcome: "won" },
     ]);
   });
@@ -259,7 +257,7 @@ describe("computeSaisonVerlauf", () => {
   // A knockout finishing level is a draw to every reader but the bracket, so with nothing downstream
   // the page has no winner to name.
   it("claims no winner for a round that finished level and led nowhere yet", () => {
-    assert.deepEqual(verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" })]), [{ phase: "halbfinale", outcome: "level" }]);
+    expect(verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" })])).toStrictEqual([{ phase: "halbfinale", outcome: "level" }]);
   });
 
   // The one case the shoot-out would otherwise be read for: the evidence the tie broke this team's
@@ -267,7 +265,7 @@ describe("computeSaisonVerlauf", () => {
   it("reports a level round as come through when a later round fields the team as a winner", () => {
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" }), fixture({ phase: "finale", heimQuelle: SIEGER_VON(13) })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "halbfinale", outcome: "advanced" },
       { phase: "finale", outcome: "pending" },
     ]);
@@ -281,7 +279,7 @@ describe("computeSaisonVerlauf", () => {
       fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) }),
     ]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "viertelfinale", outcome: "advanced" },
       { phase: "halbfinale", outcome: "pending" },
     ]);
@@ -292,7 +290,7 @@ describe("computeSaisonVerlauf", () => {
   it("reports a lost round as lost where a later round fields the team by hand", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale", ergebnis: "0:2" }), fixture({ phase: "halbfinale" })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "viertelfinale", outcome: "out" },
       { phase: "halbfinale", outcome: "pending" },
     ]);
@@ -303,7 +301,7 @@ describe("computeSaisonVerlauf", () => {
   it("claims no outcome for an unplayed round, however deep the team is standing", () => {
     const verlauf = verlaufOf([fixture({ phase: "viertelfinale" }), fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) })]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "viertelfinale", outcome: "pending" },
       { phase: "halbfinale", outcome: "pending" },
     ]);
@@ -317,7 +315,7 @@ describe("computeSaisonVerlauf", () => {
       fixture({ phase: "halbfinale", ergebnis: "1:0", heimQuelle: PLATZ(1) }),
     ]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "gruppenphase", outcome: "advanced" },
       { phase: "halbfinale", outcome: "won" },
     ]);
@@ -331,7 +329,7 @@ describe("computeSaisonVerlauf", () => {
       fixture({ phase: "finale", ergebnis: "4:0", heim: OPPONENT, gast: TEAM_ID(3) }),
     ]);
 
-    assert.deepEqual(verlauf, [{ phase: "viertelfinale", outcome: "won" }]);
+    expect(verlauf).toStrictEqual([{ phase: "viertelfinale", outcome: "won" }]);
   });
 });
 
@@ -343,7 +341,7 @@ describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
   it("reports the side the shoot-out went against as out, and nothing still undecided", () => {
     const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "1:1", heim: OPPONENT, gast: SUBJECT, elfmeterschiessen: ELFMETER })]);
 
-    assert.deepEqual(verlauf, [{ phase: "halbfinale", outcome: "outInShootOut" }]);
+    expect(verlauf).toStrictEqual([{ phase: "halbfinale", outcome: "outInShootOut" }]);
   });
 
   /* A shoot-out names its winner as goals do, so the round reads as won rather than as the
@@ -351,8 +349,8 @@ describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
   it("reports the side the shoot-out went for as having won, however deep it stands", () => {
     const winner = fixture({ phase: "halbfinale", ergebnis: "1:1", heim: SUBJECT, gast: OPPONENT, elfmeterschiessen: ELFMETER });
 
-    assert.deepEqual(verlaufOf([winner]), [{ phase: "halbfinale", outcome: "wonInShootOut" }]);
-    assert.deepEqual(verlaufOf([winner, fixture({ phase: "finale" })]), [
+    expect(verlaufOf([winner])).toStrictEqual([{ phase: "halbfinale", outcome: "wonInShootOut" }]);
+    expect(verlaufOf([winner, fixture({ phase: "finale" })])).toStrictEqual([
       { phase: "halbfinale", outcome: "wonInShootOut" },
       { phase: "finale", outcome: "pending" },
     ]);
@@ -362,8 +360,8 @@ describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
   it("reads a final decided on penalties right for both finalists", () => {
     const finale = fixture({ phase: "finale", ergebnis: "2:2", heim: SUBJECT, gast: OPPONENT, elfmeterschiessen: { team1: 3, team2: 4 } });
 
-    assert.deepEqual(verlaufOf([finale], SUBJECT), [{ phase: "finale", outcome: "outInShootOut" }]);
-    assert.deepEqual(verlaufOf([finale], OPPONENT), [{ phase: "finale", outcome: "wonInShootOut" }]);
+    expect(verlaufOf([finale], SUBJECT)).toStrictEqual([{ phase: "finale", outcome: "outInShootOut" }]);
+    expect(verlaufOf([finale], OPPONENT)).toStrictEqual([{ phase: "finale", outcome: "wonInShootOut" }]);
   });
 
   // A winner's reference outranks a shoot-out loss as it outranks one on goals.
@@ -373,7 +371,7 @@ describe("computeSaisonVerlauf over a knockout decided in a shoot-out", () => {
       fixture({ phase: "halbfinale", heimQuelle: SIEGER_VON(25) }),
     ]);
 
-    assert.deepEqual(verlauf, [
+    expect(verlauf).toStrictEqual([
       { phase: "viertelfinale", outcome: "advanced" },
       { phase: "halbfinale", outcome: "pending" },
     ]);
@@ -396,11 +394,11 @@ describe("computeSaisonVerlauf beside a third-place play-off", () => {
   it("reports a semi-final lost on goals as lost for the loser the play-off fields", () => {
     const spiele = bracket({ ergebnis: "1:3" });
 
-    assert.deepEqual(verlaufOf(spiele, SUBJECT), [
+    expect(verlaufOf(spiele, SUBJECT)).toStrictEqual([
       { phase: "halbfinale", outcome: "out" },
       { phase: "finale", outcome: "pending" },
     ]);
-    assert.deepEqual(verlaufOf(spiele, DRITTER), [
+    expect(verlaufOf(spiele, DRITTER)).toStrictEqual([
       { phase: "halbfinale", outcome: "out" },
       { phase: "finale", outcome: "pending" },
     ]);
@@ -409,7 +407,7 @@ describe("computeSaisonVerlauf beside a third-place play-off", () => {
   it("reports a semi-final lost on penalties as lost in the shoot-out for the loser the play-off fields", () => {
     const spiele = bracket({ ergebnis: "2:2", elfmeterschiessen: { team1: 3, team2: 5 } });
 
-    assert.deepEqual(verlaufOf(spiele, DRITTER), [
+    expect(verlaufOf(spiele, DRITTER)).toStrictEqual([
       { phase: "halbfinale", outcome: "outInShootOut" },
       { phase: "finale", outcome: "pending" },
     ]);
@@ -418,7 +416,7 @@ describe("computeSaisonVerlauf beside a third-place play-off", () => {
   // The other half of the same fixture list: a semi-final left level with no shoot-out names no winner,
   // and the play-off beside it is no evidence of one.
   it("claims no winner for a level semi-final whose side the play-off fields", () => {
-    assert.deepEqual(verlaufOf(bracket({ ergebnis: "1:1" }), DRITTER), [
+    expect(verlaufOf(bracket({ ergebnis: "1:1" }), DRITTER)).toStrictEqual([
       { phase: "halbfinale", outcome: "level" },
       { phase: "finale", outcome: "pending" },
     ]);
@@ -437,8 +435,8 @@ describe("computeEntscheidungFor", () => {
       elfmeterschiessen: { team1: 3, team2: 5 },
     });
 
-    assert.deepEqual(entscheidung(spiel, SUBJECT), { ergebnisFor: "S", imElfmeterschiessen: true });
-    assert.deepEqual(entscheidung(spiel, OPPONENT), { ergebnisFor: "N", imElfmeterschiessen: true });
+    expect(entscheidung(spiel, SUBJECT)).toStrictEqual({ ergebnisFor: "S", imElfmeterschiessen: true });
+    expect(entscheidung(spiel, OPPONENT)).toStrictEqual({ ergebnisFor: "N", imElfmeterschiessen: true });
   });
 
   /* The table's reading of a group fixture stands however a record reached it, as the bracket's own
@@ -446,19 +444,19 @@ describe("computeEntscheidungFor", () => {
   it("leaves a group draw a draw, a stray shoot-out record included", () => {
     const spiel = fixture({ phase: "gruppenphase", ergebnis: "2:2", elfmeterschiessen: { team1: 4, team2: 2 } });
 
-    assert.deepEqual(entscheidung(spiel), { ergebnisFor: "U", imElfmeterschiessen: false });
+    expect(entscheidung(spiel)).toStrictEqual({ ergebnisFor: "U", imElfmeterschiessen: false });
   });
 
   it("lets the goals decide a fixture they already decided, whatever a shoot-out record says", () => {
     const spiel = fixture({ phase: "halbfinale", ergebnis: "0:1", elfmeterschiessen: { team1: 4, team2: 2 } });
 
-    assert.deepEqual(entscheidung(spiel), { ergebnisFor: "N", imElfmeterschiessen: false });
+    expect(entscheidung(spiel)).toStrictEqual({ ergebnisFor: "N", imElfmeterschiessen: false });
   });
 
   /* A level count names nobody, and a winner guessed from one would be the page's own invention. */
   it("names no winner from a level knockout with no shoot-out or a level one", () => {
-    assert.deepEqual(entscheidung(fixture({ phase: "finale", ergebnis: "1:1" })), { ergebnisFor: "U", imElfmeterschiessen: false });
-    assert.deepEqual(entscheidung(fixture({ phase: "finale", ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 4 } })), {
+    expect(entscheidung(fixture({ phase: "finale", ergebnis: "1:1" }))).toStrictEqual({ ergebnisFor: "U", imElfmeterschiessen: false });
+    expect(entscheidung(fixture({ phase: "finale", ergebnis: "1:1", elfmeterschiessen: { team1: 4, team2: 4 } }))).toStrictEqual({
       ergebnisFor: "U",
       imElfmeterschiessen: false,
     });
@@ -467,7 +465,7 @@ describe("computeEntscheidungFor", () => {
   it("claims nothing for a team the fixture does not field", () => {
     const spiel = fixture({ phase: "finale", ergebnis: "1:1", elfmeterschiessen: { team1: 5, team2: 4 } });
 
-    assert.deepEqual(entscheidung(spiel, TEAM_ID(3)), { ergebnisFor: "?", imElfmeterschiessen: false });
+    expect(entscheidung(spiel, TEAM_ID(3))).toStrictEqual({ ergebnisFor: "?", imElfmeterschiessen: false });
   });
 });
 
@@ -476,30 +474,30 @@ const umfang = (fannedOutToSpiele: number, ausgetrageneSquadRows: number) =>
 
 describe("describeReplacementUmfang", () => {
   it("reports the fixtures with their own zero and their own singular", () => {
-    assert.match(umfang(0, 0), /^Für das ausscheidende Team war noch kein Spiel angesetzt\./);
-    assert.match(umfang(1, 0), /^Ein angesetztes Spiel wurde übernommen\./);
-    assert.match(umfang(7, 0), /^7 angesetzte Spiele wurden übernommen\./);
+    expect(umfang(0, 0)).toMatch(/^Für das ausscheidende Team war noch kein Spiel angesetzt\./);
+    expect(umfang(1, 0)).toMatch(/^Ein angesetztes Spiel wurde übernommen\./);
+    expect(umfang(7, 0)).toMatch(/^7 angesetzte Spiele wurden übernommen\./);
   });
 
   it("reports the squad rows with their own singular", () => {
-    assert.match(umfang(0, 1), /Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen\./);
-    assert.match(umfang(0, 4), /4 Kadereinträge des ausscheidenden Teams wurden ausgetragen\./);
+    expect(umfang(0, 1)).toMatch(/Ein Kadereintrag des ausscheidenden Teams wurde ausgetragen\./);
+    expect(umfang(0, 4)).toMatch(/4 Kadereinträge des ausscheidenden Teams wurden ausgetragen\./);
   });
 
   /* `ausgetragene_squad_rows` counts the LIVE rows this write stamped, so zero is a fact about the squad
      at that moment and never about the club's history: one whose players were all ausgetragen first
      reports zero too. */
   it("says the squad stood empty at zero, never that the club had no players", () => {
-    assert.match(umfang(0, 0), /Im Kader des ausscheidenden Teams stand kein Spieler\./);
-    assert.doesNotMatch(umfang(0, 0), /hatte das ausscheidende Team keine/);
+    expect(umfang(0, 0)).toMatch(/Im Kader des ausscheidenden Teams stand kein Spieler\./);
+    expect(umfang(0, 0)).not.toMatch(/hatte das ausscheidende Team keine/);
   });
 
   /* `stillgelegt` would report these pupils out of every pick list there is, the endpoint stamping
      `saison_spieler` and touching no `spieler` document. */
   it("never calls a squad row's retirement a Stilllegung", () => {
     for (const report of [umfang(0, 0), umfang(2, 1), umfang(2, 9)]) {
-      assert.doesNotMatch(report, /stillgelegt|Stilllegen/, "the report retires the people rather than their squad entries");
-      assert.doesNotMatch(report, /Spieler wurde/, "the report writes about people where the write moved entries");
+      expect(report, "the report retires the people rather than their squad entries").not.toMatch(/stillgelegt|Stilllegen/);
+      expect(report, "the report writes about people where the write moved entries").not.toMatch(/Spieler wurde/);
     }
   });
 
@@ -507,20 +505,20 @@ describe("describeReplacementUmfang", () => {
      `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
   it("names the reassignment as the repair, and names it only where it retired a row", () => {
     for (const report of [umfang(0, 1), umfang(3, 9)]) {
-      assert.match(report, /Um einen solchen Eintrag zu reaktivieren/);
-      assert.match(report, /Bereich „Kader“ einem Team dieser Saison zu/);
-      assert.doesNotMatch(report, /geplante Saison|wieder in dieser Saison steht/, "the report names a repair the rule does not ask for");
+      expect(report).toMatch(/Um einen solchen Eintrag zu reaktivieren/);
+      expect(report).toMatch(/Bereich „Kader“ einem Team dieser Saison zu/);
+      expect(report, "the report names a repair the rule does not ask for").not.toMatch(/geplante Saison|wieder in dieser Saison steht/);
     }
 
-    assert.doesNotMatch(umfang(3, 0), /[Rr]eaktivieren/, "nothing was retired and the report warns about it anyway");
+    expect(umfang(3, 0), "nothing was retired and the report warns about it anyway").not.toMatch(/[Rr]eaktivieren/);
   });
 
   /* It lands in a toast with no figures beside it, so each half has to stand as a sentence. */
   it("writes whole sentences, with nothing left dangling", () => {
     for (const report of [umfang(0, 0), umfang(1, 1), umfang(12, 3)]) {
-      assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      assert.match(report, /\.$/, "the report does not end in a full stop");
-      assert.doesNotMatch(report, /dafür|diesen Platz/, "the report leans on a word with no antecedent");
+      expect(report, "the report opens lower-case").toMatch(/^[A-ZÄÖÜ0-9]/);
+      expect(report, "the report does not end in a full stop").toMatch(/\.$/);
+      expect(report, "the report leans on a word with no antecedent").not.toMatch(/dafür|diesen Platz/);
     }
   });
 });
@@ -576,16 +574,15 @@ describe("buildKontaktRows", () => {
       SAISON,
     );
 
-    assert.equal(rows.length, 1, "the club contributes something other than one row");
-    assert.equal(rows[0]?.id, rows[0]?.teamId, "the row is keyed by something other than the club it stands for");
-    assert.deepEqual(
+    expect(rows.length, "the club contributes something other than one row").toBe(1);
+    expect(rows[0]?.id, "the row is keyed by something other than the club it stands for").toBe(rows[0]?.teamId);
+    expect(
       rows[0]?.seats.map((seat) => seat.rolle),
-      ["ansprechperson", "stellvertretung", "trainer"],
       "the seats are not the three the editor asks for, in its order",
-    );
+    ).toStrictEqual(["ansprechperson", "stellvertretung", "trainer"]);
     // Null and not five empty strings: a seat holds a whole person or none, never a half of one.
-    assert.equal(rows[0]?.seats[2]?.person, null);
-    assert.equal(rows[0]?.seats[0]?.person?.vorname, "Erika");
+    expect(rows[0]?.seats[2]?.person).toBe(null);
+    expect(rows[0]?.seats[0]?.person?.vorname).toBe("Erika");
   });
 
   /* What the completeness badge reads. Counted off the seats rather than stored beside them, so it
@@ -607,8 +604,8 @@ describe("buildKontaktRows", () => {
       SAISON,
     );
 
-    assert.equal(voll[0]?.besetzt, 3);
-    assert.equal(teilweise[0]?.besetzt, 1);
+    expect(voll[0]?.besetzt).toBe(3);
+    expect(teilweise[0]?.besetzt).toBe(1);
   });
 
   it("badges no shared seat while the trainer holds nobody, whatever the claim asserts", () => {
@@ -626,7 +623,7 @@ describe("buildKontaktRows", () => {
 
     // The claim is an assertion nothing checks, so an empty Trainer seat must not badge the seat
     // beside it as holding the same person.
-    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, false);
+    expect(rows[0]?.seats[1]?.istTrainerZugleich).toBe(false);
   });
 
   /* The claim names a seat, so the badge has to follow it. Pinned to the Ansprechperson, a Trainer
@@ -645,8 +642,8 @@ describe("buildKontaktRows", () => {
       SAISON,
     );
 
-    assert.equal(rows[0]?.seats[0]?.istTrainerZugleich, false, "the badge stayed on the seat the claim does not name");
-    assert.equal(rows[0]?.seats[1]?.istTrainerZugleich, true);
+    expect(rows[0]?.seats[0]?.istTrainerZugleich, "the badge stayed on the seat the claim does not name").toBe(false);
+    expect(rows[0]?.seats[1]?.istTrainerZugleich).toBe(true);
   });
 
   /* Both shapes nobody on file is stored in, the claim an erasure leaves standing over empty seats
@@ -654,9 +651,9 @@ describe("buildKontaktRows", () => {
   it("contributes no row at all for a club with nobody on file, whichever shape stores it", () => {
     const leer = { trainer: null, ansprechperson: null, stellvertretung: null } as const;
 
-    assert.deepEqual(buildKontaktRows([club(null)], SAISON), []);
-    assert.deepEqual(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: null })], SAISON), []);
-    assert.deepEqual(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: "ansprechperson" })], SAISON), []);
+    expect(buildKontaktRows([club(null)], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: null })], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: "ansprechperson" })], SAISON)).toStrictEqual([]);
   });
 });
 
@@ -666,13 +663,11 @@ describe("holdsNobody", () => {
   it("reads no block and a block of empty seats alike, and any one held seat as somebody", () => {
     const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
 
-    assert.equal(holdsNobody(null), true);
-    assert.equal(holdsNobody(leer), true);
+    expect(holdsNobody(null)).toBe(true);
+    expect(holdsNobody(leer)).toBe(true);
     for (const { value } of KONTAKT_ROLLEN) {
-      assert.equal(
-        holdsNobody({ ...leer, [value]: kontaktperson("Erika") }),
+      expect(holdsNobody({ ...leer, [value]: kontaktperson("Erika") }), `a block holding only the ${value} reads as nobody on file`).toBe(
         false,
-        `a block holding only the ${value} reads as nobody on file`,
       );
     }
   });
@@ -691,12 +686,11 @@ describe("the club filter a link into the contacts list preselects", () => {
     const teamFacet = facets.find((facet) => facet.param === "team");
 
     assert.ok(teamFacet, "the contacts list offers no club filter for a link to preselect");
-    assert.deepEqual(teamFacet.read(rows[0]!), [rows[0]!.teamId], "the club facet reads something other than the row's club");
-    assert.deepEqual(
+    expect(teamFacet.read(rows[0]!), "the club facet reads something other than the row's club").toStrictEqual([rows[0]!.teamId]);
+    expect(
       teamFacet.options.map((option) => option.value),
-      [rows[0]!.teamId],
       "the club facet offers clubs the list does not hold",
-    );
+    ).toStrictEqual([rows[0]!.teamId]);
   });
 
   /* Who seated a person is the one origin a seat keeps. */
@@ -719,11 +713,8 @@ describe("the club filter a link into the contacts list preselects", () => {
     const facet = buildKontakteFacets([]).find((each) => each.param === "einwilligung");
 
     assert.ok(facet !== undefined && row !== undefined, "the contacts list offers no origin filter, or no row");
-    assert.deepEqual([...facet.read(row)].sort(), ["bewerbung", "liga"], "the facet reads an origin other than who seated each person");
-    assert.deepEqual(
-      facet.options.map((option) => option.value),
-      EINGETRAGEN_VON_OPTIONS.map((option) => option.value),
-    );
+    expect([...facet.read(row)].sort(), "the facet reads an origin other than who seated each person").toStrictEqual(["bewerbung", "liga"]);
+    expect(facet.options.map((option) => option.value)).toStrictEqual(EINGETRAGEN_VON_OPTIONS.map((option) => option.value));
   });
 
   /* Two arms that partition the list: every row answers exactly one, so the facet cannot leave a club
@@ -734,11 +725,11 @@ describe("the club filter a link into the contacts list preselects", () => {
     for (let besetzt = 1; besetzt <= KONTAKT_ROLLEN.length; besetzt += 1) {
       assert.ok(angeboten.has(kontakteBesetzung(besetzt)), `${String(besetzt)} seats grade to something the filter does not offer`);
     }
-    assert.equal(kontakteBesetzung(3), "vollstaendig");
+    expect(kontakteBesetzung(3)).toBe("vollstaendig");
     // Every arm below full: pinned only at the top, a grader answering „vollstaendig“ for one seat
     // passes, and the badge then calls a club reachable through one person fully staffed.
-    assert.equal(kontakteBesetzung(1), "teilweise");
-    assert.equal(kontakteBesetzung(2), "teilweise");
+    expect(kontakteBesetzung(1)).toBe("teilweise");
+    expect(kontakteBesetzung(2)).toBe("teilweise");
   });
 });
 
@@ -751,23 +742,20 @@ describe("the group filter the teams list offers", () => {
   /* A group the season does not run can hold nobody, so every letter past the count reads zero for
      every club there is (`fl_frontend/src/features/teams/facets.ts :: buildTeamFacets`). */
   it("cuts the offer to the groups the selected season runs", () => {
-    assert.deepEqual(offered(2), ["A", "B"]);
-    assert.deepEqual(offered(4), ["A", "B", "C", "D"]);
+    expect(offered(2)).toStrictEqual(["A", "B"]);
+    expect(offered(4)).toStrictEqual(["A", "B", "C", "D"]);
   });
 
   /* The rows still span every season, so the unnarrowed offer is the honest one — and a facet
      offering nothing is a filter cell a reader cannot use at all. */
   it("offers the whole set where no season resolves", () => {
-    assert.deepEqual(offered(null), [...GRUPPEN_OPTIONS]);
+    expect(offered(null)).toStrictEqual([...GRUPPEN_OPTIONS]);
   });
 
   /* Only the one dimension moves: the season and status facets read fields no group count reaches,
      and a rebuild that dropped either would take the list's default narrowing with it. */
   it("leaves the other facets and their order alone", () => {
-    assert.deepEqual(
-      buildTeamFacets(2).map((facet) => facet.param),
-      TEAM_FACETS.map((facet) => facet.param),
-    );
+    expect(buildTeamFacets(2).map((facet) => facet.param)).toStrictEqual(TEAM_FACETS.map((facet) => facet.param));
     for (const facet of TEAM_FACETS) {
       if (facet.param === "gruppe") continue;
 
@@ -779,22 +767,22 @@ describe("the group filter the teams list offers", () => {
 describe("what a website box reports upward", () => {
   /* The scheme lives in the input group's prefix, so what the box holds is the rest of the URL. */
   it("puts the scheme back on whatever was typed", () => {
-    assert.equal(toWebsiteUrl("www.beispielschule.de"), "https://www.beispielschule.de");
+    expect(toWebsiteUrl("www.beispielschule.de")).toBe("https://www.beispielschule.de");
   });
 
   /* A pasted full address must not come back doubled. */
   it("de-duplicates a scheme that was pasted in with the address", () => {
-    assert.equal(toWebsiteUrl("https://www.beispielschule.de"), "https://www.beispielschule.de");
-    assert.equal(toWebsiteUrl("HTTP://www.beispielschule.de"), "https://www.beispielschule.de");
+    expect(toWebsiteUrl("https://www.beispielschule.de")).toBe("https://www.beispielschule.de");
+    expect(toWebsiteUrl("HTTP://www.beispielschule.de")).toBe("https://www.beispielschule.de");
   });
 
   /* ONE spelling of "no website" is ever written, so no reader downstream tests for two.
      `OptionalExternalUrlSchema` refuses `""` outright (`schemas.test.ts`), so an empty box
      reported as one would be refused rather than stored. */
   it("reports no website as null, never as the empty string", () => {
-    assert.equal(toWebsiteUrl(""), null);
-    assert.equal(toWebsiteUrl("   "), null);
-    assert.equal(toWebsiteUrl("https://"), null);
+    expect(toWebsiteUrl("")).toBe(null);
+    expect(toWebsiteUrl("   ")).toBe(null);
+    expect(toWebsiteUrl("https://")).toBe(null);
   });
 });
 
@@ -806,8 +794,8 @@ describe("what a new Kenntnisnahme cites", () => {
     const laufend = publishedLaufendeFassung("bewerbung").text_version;
     const frisch = buildEmptyKontaktperson(laufend).einwilligung;
 
-    assert.equal(frisch.text_version, laufend, "a new Kenntnisnahme cites a version the league did not stamp");
-    assert.notEqual(frisch.text_version, "", "a new Kenntnisnahme cites no wording at all");
+    expect(frisch.text_version, "a new Kenntnisnahme cites a version the league did not stamp").toBe(laufend);
+    expect(frisch.text_version, "a new Kenntnisnahme cites no wording at all").not.toBe("");
   });
 });
 
@@ -815,10 +803,7 @@ describe("the kit palette", () => {
   /* The option's type refuses a colour the wire does not carry, never one the palette leaves out,
      which would read with no name and no swatch on every row storing it. */
   it("names and draws every colour the wire carries, once each and in the wire's order", () => {
-    assert.deepEqual(
-      TRIKOT_FARBE_OPTIONS.map((option) => option.value),
-      FLTrikotFarbeSchema.options,
-    );
+    expect(TRIKOT_FARBE_OPTIONS.map((option) => option.value)).toStrictEqual(FLTrikotFarbeSchema.options);
   });
 });
 
@@ -830,7 +815,7 @@ describe("which kit colours the wish picker offers", () => {
   /* First, because every case below compares against the palette: a filter that had stopped reading
      `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */
   it("offers the whole palette while nothing is assigned", () => {
-    assert.deepEqual(values([]), alle);
+    expect(values([])).toStrictEqual(alle);
     assert.ok(alle.length > 1, "the palette holds one colour or none, so no exclusion below can be observed");
   });
 
@@ -841,17 +826,14 @@ describe("which kit colours the wish picker offers", () => {
 
     assert.ok(!uebrig.includes("rot"), "an assigned colour is still offered");
     assert.ok(!uebrig.includes("blau"), "an assigned colour is still offered");
-    assert.equal(uebrig.length, alle.length - 2, "the exclusion dropped something other than the two assigned colours");
+    expect(uebrig.length, "the exclusion dropped something other than the two assigned colours").toBe(alle.length - 2);
   });
 
   /* Order carries the palette's, so a school reads the same list it reads everywhere else. */
   it("keeps the palette's own order in what is left", () => {
     const uebrig = values(["rot"]);
 
-    assert.deepEqual(
-      uebrig,
-      alle.filter((farbe) => farbe !== "rot"),
-    );
+    expect(uebrig).toStrictEqual(alle.filter((farbe) => farbe !== "rot"));
   });
 
   /* A stored assignment stays pickable in its own editor: without this, reopening a saved row would
@@ -864,18 +846,18 @@ describe("which kit colours the wish picker offers", () => {
      answer there, and the field stays required: the picker offers only what the season can still
      give. */
   it("offers nothing once the season has assigned every colour", () => {
-    assert.deepEqual(values(alle), []);
+    expect(values(alle)).toStrictEqual([]);
   });
 
   /* And only there: emptied a colour early, the picker would withhold one the season still has. */
   it("still offers the last colour the season has left", () => {
-    assert.deepEqual(values(alle.slice(1)), alle.slice(0, 1));
+    expect(values(alle.slice(1))).toStrictEqual(alle.slice(0, 1));
   });
 
   /* The held value survives the exhausted season as well, its own colour being by definition one of
      the assigned ones -- so an editor reopening such a row still reads what it holds. */
   it("keeps the field's own colour even where every colour is assigned", () => {
-    assert.deepEqual(values(alle, "rot"), ["rot"]);
+    expect(values(alle, "rot")).toStrictEqual(["rot"]);
   });
 });
 
@@ -893,12 +875,12 @@ describe("whether the list and the editor offer a club's retirement", () => {
 
   /* `REQ-RETIRE-001` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
   it("withholds it while a running or a planned season holds the club, whichever season is selected", () => {
-    assert.equal(inSaisons("2025", "2026"), false);
-    assert.equal(inSaisons("2025", "2027"), false);
+    expect(inSaisons("2025", "2026")).toBe(false);
+    expect(inSaisons("2025", "2027")).toBe(false);
   });
 
   it("offers it to a club whose seasons are all past, and to one in none", () => {
-    assert.equal(inSaisons("2025"), true);
-    assert.equal(inSaisons(), true);
+    expect(inSaisons("2025")).toBe(true);
+    expect(inSaisons()).toBe(true);
   });
 });

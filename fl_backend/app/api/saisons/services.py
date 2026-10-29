@@ -98,7 +98,7 @@ def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
 def find_rules_refusal(
     *,
     saison_status: str,
-    # `None` on a create, whose whole rules object is the step (`docs/backend/spec.md :: I44`).
+    # `None` on a create, whose whole rules object is the step.
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
@@ -127,7 +127,7 @@ def find_rules_refusal(
 
     # Early for the reason the first freeze is: where a number cannot change at all, naming what it
     # may not drop past sends an admin to the wrong repair. Compared by value, so a resubmission
-    # passes (`docs/backend/spec.md :: I44`).
+    # passes.
 
     # ABSOLUTE, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
@@ -162,7 +162,7 @@ def find_rules_refusal(
                     + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures)
                 )
             else:
-                # Nothing returns a season to `future` (`docs/backend/spec.md :: I18`), so this is
+                # Nothing returns a season to `future`, so this is
                 # the one branch that can call the numbers settled and be right about it.
                 repair = (
                     f"nothing will move {' and '.join(redrawn)} for the rest of this season: a draw or an undraw of the "
@@ -175,8 +175,8 @@ def find_rules_refusal(
                 message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {repair}",
             )
 
-    # Compared by value, so a dates-only edit resubmitting the stored order passes
-    # (`docs/backend/spec.md :: I44`). After `REQ-RULES-011`, whose fields this one does not touch,
+    # Compared by value, so a dates-only edit resubmitting the stored order passes.
+    # After `REQ-RULES-011`, whose fields this one does not touch,
     # so neither refusal can misdirect about the other's.
     if stored is not None and played_knockout_fixtures > 0 and getattr(stored, SEEDING_RULES_FIELD) != getattr(proposed, SEEDING_RULES_FIELD):
         noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
@@ -192,8 +192,7 @@ def find_rules_refusal(
     # bracket's answer is a property of their product.
     excess = proposed.qualifiers_per_group - proposed.teams_per_group
     # The EXCESS, against the stored one: `rules` is required on the patch, so a dates-only edit
-    # resubmits a stored violation unchanged, and shrinking an excess repairs it
-    # (`docs/backend/spec.md :: I44`).
+    # resubmits a stored violation unchanged, and shrinking an excess repairs it.
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_ABOVE_GROUP,
@@ -203,7 +202,7 @@ def find_rules_refusal(
         )
 
     # The EXCESS again, so a stored violation resubmitted unchanged passes and shrinking it repairs
-    # the season (`docs/backend/spec.md :: I44`).
+    # the season.
     draw_excess = proposed.draw_points - proposed.win_points
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
         return WriteRefusal(
@@ -216,8 +215,7 @@ def find_rules_refusal(
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
     stored_qualifiers = None if stored is None else stored.number_of_groups * stored.qualifiers_per_group
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality
-    # alone lets the dates-only edit through, `rules` being required on the patch
-    # (`docs/backend/spec.md :: I44`).
+    # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return WriteRefusal(
             error_code=RULES_BRACKET_IMPOSSIBLE,
@@ -232,7 +230,7 @@ def find_rules_refusal(
     stored_fixtures = None if stored is None else total_season_fixtures(stored)
     # The EXCESS, as `REQ-RULES-007` and `REQ-RULES-008` beside it: `rules` is required on the patch,
     # so a dates-only edit resubmits a stored count unchanged and any step that shrinks one repairs
-    # the season (`docs/backend/spec.md :: I44`).
+    # the season.
     if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
         return WriteRefusal(
             error_code=RULES_FIXTURES_OVER_ONE_READ,
@@ -244,7 +242,7 @@ def find_rules_refusal(
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
     # `app/api/spiele/services.py :: _outcome_of` advancing nobody. Only the step that pairs the two
-    # is refused (`docs/backend/spec.md :: I44`).
+    # is refused.
     if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
         return WriteRefusal(
             error_code=RULES_FORFEIT_DRAWS_A_KNOCKOUT,
@@ -285,8 +283,7 @@ def find_rules_refusal(
         )
 
     # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
-    # already under the wiring, and refusing that would leave the season unpatchable
-    # (`docs/backend/spec.md :: I44`).
+    # already under the wiring, and refusing that would leave the season unpatchable.
     if proposed.qualifiers_per_group < highest_wired_platz and proposed.qualifiers_per_group < stored.qualifiers_per_group:
         return WriteRefusal(
             error_code=RULES_QUALIFIERS_BELOW_WIRING,
@@ -299,7 +296,7 @@ def find_rules_refusal(
     for phase, attached in sorted((attached_by_phase or {}).items()):
         expected = expected_matches(proposed, phase)
         # Only where the step NARROWS the phase: a count nothing changed is not this edit's doing,
-        # and refusing it would leave the season unpatchable (`docs/backend/spec.md :: I44`).
+        # and refusing it would leave the season unpatchable.
         if attached > expected and expected < expected_matches(stored, phase):
             return WriteRefusal(
                 error_code=RULES_MATCHDAY_OVER_ITS_PHASE,
@@ -443,9 +440,6 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     # group fixture the draw wrote, and would shut the window on every drawn season.
     as_drawn = (not is_bracket, is_bracket)
 
-    # Spelled slot by slot rather than looped: a key composed at run time reaches
-    # `tests/core/test_write_shapes.py :: _read_paths` as a path no projection can answer for, so the
-    # sweep refuses it rather than passing over a field it never saw fetched.
     team1 = ((spiel.get("team1") or {}).get("team_id") is not None, spiel.get("team1_quelle") is not None)
     team2 = ((spiel.get("team2") or {}).get("team_id") is not None, spiel.get("team2_quelle") is not None)
 
@@ -558,7 +552,7 @@ SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
 
 
 # The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
-# (`docs/backend/spec.md :: I18`) -- which is what makes a shape frozen outside it frozen for good.
+# -- which is what makes a shape frozen outside it frozen for good.
 PLANNING_STATUS: FLSaisonStatus = "future"
 
 

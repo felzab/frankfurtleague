@@ -20,7 +20,7 @@ type TeamParams = Promise<{ team_id: string; saison_id: string }>;
 /**
  * Not async, for the reason `fl_frontend/src/app/bereich/admin/layout.tsx` states, and `params` is never
  * awaited here: the address is unknown to the build, so each part reading it waits in its own boundary
- * beside the session's (`docs/frontend/spec.md :: I735`).
+ * beside the session's.
  */
 export default function TeamLayout({ children, params }: { children: React.ReactNode; params: TeamParams }) {
   return (
@@ -58,11 +58,11 @@ export default function TeamLayout({ children, params }: { children: React.React
 
 /**
  * The seats the person holds at the address, which every part of this layout below reads first; `null` for a
- * refused session, which each part answers with its fallback, the page turning it away (`docs/frontend/spec.md :: I834`).
+ * refused session, which each part answers with its fallback, the page turning it away.
  */
 async function seatsHere(params: TeamParams) {
   // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
-  // ahead of this runs at build time (`docs/frontend/spec.md :: I448`).
+  // ahead of this runs at build time.
   await connection();
   const { team_id, saison_id } = await params;
   // The hold's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).

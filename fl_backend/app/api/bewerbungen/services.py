@@ -82,7 +82,7 @@ def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str,
     """Why this application resolves to no single club to enter, or `None`.
 
     While it is `eingereicht`, EXACTLY one of the two carries a value -- a rule the write path holds
-    because types and enums cannot state it (`docs/backend/spec.md :: I16`).
+    because types and enums cannot state it.
     """
 
     if (team_id is None) == (schule is None):
@@ -141,8 +141,8 @@ def parse_new_club(*, club_document: Mapping[str, Any]) -> dict[str, Any]:
 def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal | None:
     """Why the school's details make no club, or `None`.
 
-    Through the payload itself, never a copy: the validator only types them
-    (`docs/backend/spec.md :: I16`), so a scheme-less `website_url` reaches storage, and `FLTeam`
+    Through the payload itself, never a copy: the validator only types them,
+    so a scheme-less `website_url` reaches storage, and `FLTeam`
     500s every club read.
     """
 
@@ -153,7 +153,7 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
     except ValidationError as unusable_school:
         first = unusable_school.errors()[0]
         # The field PATH and the reason, never a submitted value -- this block holds a real school's
-        # address (`docs/logging/spec.md :: L9`). `compose_new_club` keys the document by the payload's
+        # address. `compose_new_club` keys the document by the payload's
         # own field names, so the path is one of those and nothing typed.
         field = ".".join(str(part) for part in first["loc"]) or "schule"
 
@@ -302,7 +302,7 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     return None
 
 
-# --- The SUBMISSION KEY (`docs/backend/spec.md :: I346`), which the registration's
+# --- The SUBMISSION KEY, which the registration's
 # submission takes from here as it takes `mint_token`.
 
 
@@ -347,7 +347,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
 def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
     """The state a replay hands fresh links in, as its update's filter; `None` where a seat holds no live entry.
 
-    No seat answered, reminded or on record as reached by a mail (`docs/backend/spec.md :: I347`).
+    No seat answered, reminded or on record as reached by a mail.
     """
 
     block = bewerbung_raw.get("bestaetigungen")
@@ -415,8 +415,7 @@ def compose_einwilligung(*, text_version: str, today: str, eingetragen_von: FLKo
     }
 
 
-# Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen
-# (`docs/backend/spec.md :: I180`).
+# Every seat, so a fourth one is a `KeyError` at the confirmation rather than a silent sixteen.
 SEAT_MIN_AGE_YEARS: Mapping[str, int] = {
     "trainer": BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     "ansprechperson": VERTRETUNG_MIN_AGE_YEARS,
@@ -444,7 +443,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
         seat: {
             **{field: value for field, value in kontakte[seat].items() if field != "einwilligung"},
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
-            # entered, and the confirmation fills it (`docs/backend/spec.md :: I141`).
+            # entered, and the confirmation fills it.
             "geburtsdatum": None,
             "einwilligung": compose_einwilligung(
                 text_version=kontakte[seat]["einwilligung"]["text_version"], today=today, eingetragen_von="bewerbung"
@@ -502,8 +501,7 @@ def compose_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str
 
 
 # A reminder's fresh hash and the first mail's, both live: a reader still looking at the first
-# message is not punished by the chase, and only an administrator's re-send voids
-# (`docs/backend/spec.md :: I152`).
+# message is not punished by the chase, and only an administrator's re-send voids.
 TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
 
 
@@ -528,8 +526,8 @@ KONTAKT_WAHL_FIELDS: Final = ("einwilligung.umfang", "einwilligung.medien", "ein
 
 
 # An INCLUSION, and never the exclusion above inverted: these two answer a closed handful, so the
-# rest of the document is what a base-tier read must not hold
-# (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which `seat_holding` compares.
+# rest of the document is what a base-tier read must not hold.
+# Both hashes, which `seat_holding` compares.
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
@@ -714,7 +712,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
 
 
 def _zustand(*, kontakte: Any, bestaetigungen: Any, seat: str, over: bool, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
-    """The one ranking both records' links are shown in: the ban first (`docs/backend/spec.md :: I515`), then a stamp."""
+    """The one ranking both records' links are shown in: the ban first, then a stamp."""
 
     if gesperrt:
         return "gesperrt"
@@ -794,7 +792,7 @@ def saison_link_is_over(*, frist: Any, today: str) -> bool:
 def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
     """Whether a season row's seat still asks its person to confirm it: not once its season ended or its team left it.
 
-    Such a seat grants no panel (`docs/backend/spec.md :: I375`), and a confirmation collects a birthdate for nothing.
+    Such a seat grants no panel, and a confirmation collects a birthdate for nothing.
     """
 
     return saison_status != "past" and austritt is None
@@ -822,8 +820,7 @@ KONTAKT_LINK_ABGELAUFEN = "REQ-KONTAKT-004"
 def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
     """Why a season row's link takes no answer past its own deadline, or `None`.
 
-    410, never the application's 409: no write moves this deadline, a re-send minting another token
-    (`docs/backend/spec.md` §1.4).
+    410, never the application's 409: no write moves this deadline, a re-send minting another token.
     """
 
     if not saison_link_is_over(frist=frist, today=today):
@@ -843,7 +840,7 @@ def find_saison_vorbei_einwilligung_refusal(*, saison_status: Any, austritt: Any
     """Why a season row's link takes no consent once its season has ended or its team left it, or `None`.
 
     410: no write reopens a past season, and a Widerspruch is still taken, the person removing
-    themselves (`docs/backend/spec.md` §1.4).
+    themselves.
     """
 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
@@ -932,7 +929,7 @@ def seat_adressen(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
     """The stored address of each of these seats that still holds one.
 
     One helper for the consent and the view, so the page shows the ban for exactly the addresses a
-    press would be refused on (`docs/backend/spec.md :: I515`).
+    press would be refused on.
     """
 
     slots = [kontakte.get(seat) for seat in seats] if isinstance(kontakte, Mapping) else []
@@ -968,7 +965,7 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    # One inbox is one stored address, each the fold every payload stores (`docs/backend/spec.md :: I332`).
+    # One inbox is one stored address, each the fold every payload stores.
     held = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
@@ -987,7 +984,7 @@ def compose_confirmation_update(
 ) -> Mapping[str, Any]:
     """The ONE update a confirmation is, on every seat the person holds.
 
-    `docs/backend/spec.md :: I141` rests on the date and the stamp landing together, which is why
+    The date and the stamp land together, which is why
     this is one update and never two.
     """
 
@@ -1065,7 +1062,7 @@ def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> K
 
 
 def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
-    """The one page a link answering seats of these pages opens, which its answer is judged against (`docs/backend/spec.md :: I605`).
+    """The one page a link answering seats of these pages opens, which its answer is judged against.
 
     The applicant's only where every seat's is: one press is one person's answer to one page.
     """
@@ -1155,8 +1152,8 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     """`REQ-BEWERBUNG-019`: an administrator's correction or reseat names an address the ban list holds.
 
-    409 where the public form's is 403: an administrator's write naming it is about the entry it writes
-    (`docs/backend/spec.md :: 1.4`), as the referee editor's `REQ-SCHIEDSRICHTER-007` is.
+    409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
+    as the referee editor's `REQ-SCHIEDSRICHTER-007` is.
     """
 
     if not gesperrt:
@@ -1303,7 +1300,7 @@ def compose_kontakt_seat_update(
     # Born afresh: nothing of the person who stepped out travels to the one seated.
     einwilligung = compose_einwilligung(text_version=text_version, today=today, eingetragen_von="liga")
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
-    # and the confirmation fills it (`docs/backend/spec.md :: I141`).
+    # and the confirmation fills it.
     slot = {**person, "geburtsdatum": None, "einwilligung": einwilligung}
 
     # The WHOLE slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
@@ -1416,7 +1413,7 @@ def next_saison_id(saison_id: str) -> str:
 def one_month_after(*, day: str) -> str:
     """The same day of the next month, clamped to that month's end.
 
-    The bound is one calendar month, and thirty days is not that (`docs/backend/spec.md :: I153`).
+    The bound is one calendar month, and thirty days is not that.
     """
 
     start = date.fromisoformat(day)
@@ -1495,7 +1492,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
 
 
 def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
-    """The Trainer rides the link of the seat it mirrors (`docs/backend/spec.md :: I157`).
+    """The Trainer rides the link of the seat it mirrors.
 
     `paired_seat` answers both from either press, so a second link asks one reader twice; it keeps
     its own only where that seat is not reminded here.
@@ -1515,7 +1512,7 @@ def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[
 def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
     """The reminder's ONE `$set`: the stamp and the fresh hash per seat, the first hash kept beside it.
 
-    `verschickt_am` and the deadline stay: a reminder is not a re-send (`docs/backend/spec.md :: I152`).
+    `verschickt_am` and the deadline stay: a reminder is not a re-send.
     """
 
     written: dict[str, Any] = {}
@@ -1577,7 +1574,7 @@ def compose_ankuendigung_update(*, today: str) -> Mapping[str, Any]:
 
 
 # One read's ceiling, and one past it tells a full page from a truncated one
-# (`docs/backend/spec.md :: I295`, which the registration sweep keeps the same way).
+# (which the registration sweep keeps the same way).
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
 
@@ -1645,7 +1642,7 @@ def season_has_ended(*, saison_status: Any) -> bool:
 def season_after_has_ended(*, later_saison_status: Any) -> bool:
     """The accepted clock and the contact block share one test: any season after the one applied for has ended.
 
-    The router asks it only while the season applied for is not `active`, the rule's other half (`docs/backend/spec.md :: I154`).
+    The router asks it only while the season applied for is not `active`, the rule's other half.
     """
 
     return season_has_ended(saison_status=later_saison_status)
@@ -1831,7 +1828,7 @@ def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
 
 
 def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
-    """A stored application with its decision as every read serves it (`docs/backend/spec.md :: I452`)."""
+    """A stored application with its decision as every read serves it."""
 
     if row.get("entscheidung") is None:
         return dict(row)

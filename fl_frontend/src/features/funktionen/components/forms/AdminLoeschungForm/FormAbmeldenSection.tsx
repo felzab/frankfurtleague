@@ -24,7 +24,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 /**
- * Ends every session of one address, barring nothing and mailing nobody (`docs/frontend/spec.md :: I687`). Two
+ * Ends every session of one address, barring nothing and mailing nobody. Two
  * presses, as the account page's own sign-out of every other device: it ends sessions on devices nobody here sees.
  */
 export function FormAbmeldenSection() {

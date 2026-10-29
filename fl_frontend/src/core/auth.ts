@@ -57,8 +57,7 @@ import type { AnmeldungRecords } from "./signInGate";
 import type { SubjectSession } from "./subject";
 import type { Verwaltung } from "./verwaltung";
 
-// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit
-// (`docs/frontend/spec.md :: I311`).
+// A ceiling nothing else supplies: one session that passed the assertion can enrol without limit.
 export const PASSKEY_LIMIT = 5;
 
 const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
@@ -131,13 +130,13 @@ const ENROLMENT_PATHS: ReadonlySet<string> = new Set(["/passkey/generate-registe
 const ENROLMENT_FIELDS_REFUSED: readonly string[] = ["name"];
 
 // The plugin answers each of these with the session row it minted, `token` -- the cookie's own
-// value -- among its fields (`docs/frontend/spec.md :: I198`).
+// value -- among its fields.
 const CEREMONY_VERIFY_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_PATH, PASSKEY_ASSERTION_PATH]);
 
 /** What every finished ceremony answers instead: the plugin's own shape for a call that carries no record back. */
 const CEREMONY_DONE = { status: true };
 
-/** What made a session, stamped on its row and read by every guard (`docs/frontend/spec.md :: I260`). */
+/** What made a session, stamped on its row and read by every guard. */
 export const PASSKEY_FACTOR = "passkey";
 
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
@@ -152,8 +151,7 @@ const REPLACED_SESSION_FIELD = "replacedSession";
 const SESSIONS_ENDED_FIELD = "sessionsEndedAt";
 
 // Every endpoint that mints a session, with the factor it proves. A path missing here mints nothing,
-// so one a release adds fails closed rather than handing out a session no guard has classified
-// (`docs/frontend/spec.md :: I398`).
+// so one a release adds fails closed rather than handing out a session no guard has classified.
 const SESSION_FACTOR_BY_PATH: ReadonlyMap<string, AuthFactor> = new Map([
   [PASSKEY_ASSERTION_PATH, PASSKEY_FACTOR],
   [PASSKEY_REGISTRATION_PATH, PASSKEY_FACTOR],
@@ -193,8 +191,7 @@ type StepUpCaller = {
 
 /**
  * Whether a session was signed in -- or confirmed, which mints a new one -- recently enough to change
- * passkeys and sign-ins: by either factor for a person, by the passkey for an administrator
- * (`docs/frontend/spec.md :: I261`).
+ * passkeys and sign-ins: by either factor for a person, by the passkey for an administrator.
  */
 export function isFreshlySignedIn(served: StepUpCaller): boolean {
   if (!isWithinStepUpWindow(served.session.createdAt)) return false;
@@ -241,7 +238,7 @@ async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
 
 /**
  * The grant an enrolment is judged by. A barred address enrols nothing, whatever it holds: its session
- * is one a ban's ending missed or a mint raced, and a passkey would outlive both (`docs/frontend/spec.md :: I406`).
+ * is one a ban's ending missed or a mint raced, and a passkey would outlive both.
  */
 function enrolmentGrant(anmeldung: AnmeldungRecords): boolean {
   if (anmeldung.gesperrt) throw APIError.fromStatus("NOT_FOUND");
@@ -294,8 +291,7 @@ async function verwaltungOrNull(email: string): Promise<Verwaltung | null> {
 
 /**
  * Every condition an enrolment meets, on both arms. The plugin gates its two registration endpoints
- * on `freshAge` and on nothing else, which is the wider window every other change takes
- * (`docs/frontend/spec.md :: I261`, `:: I411`).
+ * on `freshAge` and on nothing else, which is the wider window every other change takes.
  */
 async function refuseEnrolment(
   adapter: DBTransactionAdapter,
@@ -351,7 +347,7 @@ class RemovalOutsideTransaction extends Error {
 /**
  * The write every removal of an administrator's passkeys makes inside its transaction: where the count
  * alone admits two removals, the database refuses the second's write and the adapter re-runs it on the
- * first's commit (`docs/frontend/spec.md :: I341`).
+ * first's commit.
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
@@ -384,7 +380,7 @@ const PASSKEY_CHALLENGE_COOKIE = "better-auth-passkey";
 
 /**
  * A signed-in page's challenge names its account, and the plugin checks the credential, never whose:
- * another account's passkey would sign that account in and end the page's session (`docs/frontend/spec.md :: I428`).
+ * another account's passkey would sign that account in and end the page's session.
  */
 async function refuseAnotherAccountsPasskey(ctx: GenericEndpointContext): Promise<void> {
   const token = await ctx.getSignedCookie(ctx.context.createAuthCookie(PASSKEY_CHALLENGE_COOKIE).name, ctx.context.secret);
@@ -438,7 +434,7 @@ function mintedBefore(row: { id: string; updatedAt: Date | string }, minted: { i
 
 /**
  * Ends the sessions minted earlier to replace the same cookie: two step-ups from one browser at once
- * each mint one, and only one `Set-Cookie` survives in the browser (`docs/frontend/spec.md :: I485`).
+ * each mint one, and only one `Set-Cookie` survives in the browser.
  */
 async function endEarlierSiblings(
   context: Pick<AuthContext, "adapter">,
@@ -468,7 +464,7 @@ async function endEarlierSiblings(
 
 /**
  * Ends the session the request's cookie named once a sign-in has minted its successor: a step-up
- * would otherwise leave the session it replaced alive beside the new one (`docs/frontend/spec.md :: I399`).
+ * would otherwise leave the session it replaced alive beside the new one.
  */
 async function endReplacedSession(
   ctx: GenericEndpointContext,
@@ -516,7 +512,7 @@ type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
 
 /**
  * Keyed under the library's own secret, never hashed plain: an address is guessable, so an unkeyed
- * digest is the address (`docs/frontend/spec.md :: I445`). Folded, so two spellings share one bound.
+ * digest is the address. Folded, so two spellings share one bound.
  */
 async function boundIdentifier(prefix: string, email: string, secret: string): Promise<string> {
   return `${prefix}${await makeSignature(asSignInIdentifier(email), secret)}`;
@@ -550,7 +546,7 @@ async function withinBound(context: BoundContext, identifier: string, limit: num
 
 /**
  * Whether every address together has already been mailed the hour's total: a read alone, writing nothing,
- * so two sends racing for the hour's last mail both pass it (`docs/frontend/spec.md` §4).
+ * so two sends racing for the hour's last mail both pass it.
  */
 async function mailTotalReached(context: BoundContext): Promise<boolean> {
   const mailed = await context.adapter.count({
@@ -589,8 +585,8 @@ async function settleCodeAttempt(context: BoundContext, own: string | undefined,
 }
 
 /**
- * Ten failures in a row lock an address's code, and a sign-in by any factor ends the row
- * (`docs/frontend/spec.md :: I441`): a passkey is the way the lock's own sentence points to.
+ * Ten failures in a row lock an address's code, and a sign-in by any factor ends the row:
+ * a passkey is the way the lock's own sentence points to.
  */
 async function clearCodeFailures(context: BoundContext, userId: string): Promise<void> {
   const account = await context.internalAdapter.findUserById(userId);
@@ -634,7 +630,7 @@ function asksForDeletionLink(body: unknown): boolean {
 
 /**
  * Whether a deletion link would mail past its address's hour or every address's: counted on the code's own
- * rows, so one bound holds every mail sent at the person's own request (`docs/frontend/spec.md :: I713`).
+ * rows, so one bound holds every mail sent at the person's own request.
  */
 async function deletionLinkCapped(context: BoundContext, email: string): Promise<boolean> {
   const capped = (bound: "address" | "total"): true => {
@@ -726,14 +722,14 @@ const DISABLED_PATHS: readonly string[] = [
 
 /**
  * A failed send leaves the change standing: a passkey row rolled back for an unreachable mailbox is
- * a lockout the reader never asked for (`docs/frontend/spec.md :: I314`).
+ * a lockout the reader never asked for.
  */
 async function notify(message: PasskeyEmail, email: string): Promise<void> {
   try {
     await sendMail({ to: email, ...message });
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line (`docs/frontend/spec.md :: I542`).
+    // mailer's own line.
     const ausfall = versandAusfallOf(failed);
     if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
@@ -747,7 +743,7 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
 
 /**
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. Composed
- * on the serving origin, never `brand.ts :: SITE_URL` (I186).
+ * on the serving origin, never `brand.ts :: SITE_URL`.
  */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
   await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }), email);
@@ -766,7 +762,7 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
   // The adapter's line for an abort after a failed commit that failed too, which leaves the transaction
-  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`, `docs/frontend/spec.md :: I537`).
+  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`).
   ["Failed to abort a MongoDB transaction", "auth.transaction_left_open"],
 ];
 
@@ -789,10 +785,10 @@ const sessionOptions = {
     // itself as passkey-verified, or names another passkey's sessions, through `POST /update-session`.
     authFactor: { type: "string", required: false, input: false },
     // The `credentialID` of the passkey that made the session, so removing that passkey ends its
-    // sessions and no other (`docs/frontend/spec.md :: I400`).
+    // sessions and no other.
     passkeyCredentialId: { type: "string", required: false, input: false },
     // Marked by the refresh alone (`input: false`, as above): a session clearing its own mark would undo
-    // the administrator's idle window (`docs/frontend/spec.md :: I658`).
+    // the administrator's idle window.
     adminLapsed: { type: "boolean", required: false, input: false },
     // Never returned: no guard reads it, and nothing but another sign-in's stamp is compared with it.
     [REPLACED_SESSION_FIELD]: { type: "string", required: false, input: false, returned: false },
@@ -815,16 +811,16 @@ const userOptions = {
 } satisfies BetterAuthOptions["user"];
 
 /**
- * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET
- * (`docs/frontend/spec.md :: I674`). The library swallows a throw from here, logging it.
+ * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET.
+ * The library swallows a throw from here, logging it.
  */
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
   try {
-    // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`).
+    // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
     await sendMail({ to: user.email, ...buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token }) });
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line (`docs/frontend/spec.md :: I542`).
+    // mailer's own line.
     const ausfall = versandAusfallOf(failed);
     if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
@@ -852,7 +848,7 @@ const ownErasure = new AsyncLocalStorage<() => Promise<unknown>>();
 
 /**
  * Runs after the library has checked the token against the signed-in user and before it deletes anything:
- * an account never goes while the league's records of its address stand (`docs/frontend/spec.md :: I675`).
+ * an account never goes while the league's records of its address stand.
  */
 async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
   const erase = ownErasure.getStore();
@@ -872,7 +868,7 @@ async function eraseBeforeTheAccount(user: { id: string; email: string }): Promi
 }
 
 /**
- * Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie name: the
+ * Host-bound over https. Through the prefix and never a cookie name: the
  * library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a `__Secure-__Host-` cookie
  * is bound to no host.
  */
@@ -881,7 +877,7 @@ const cookieNaming = (origin: URL): { useSecureCookies?: false; cookiePrefix?: s
 
 /**
  * The session cookie the request carries, read as the library names it and never validated: the proxy's
- * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I243`).
+ * optimistic check, which reads no store and slides nothing.
  */
 export function sessionCookieOf(requestHeaders: Headers): string | null {
   // The library reads a `__Secure-` spelling of the name ahead of the name, which a sibling subdomain can plant where it
@@ -895,12 +891,11 @@ export function sessionCookieOf(requestHeaders: Headers): string | null {
 }
 
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
-// holding no environment, where neither the URL nor the client can be built
-// (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
+// holding no environment, where neither the URL nor the client can be built.
+// `origin` gives both halves of the WebAuthn binding.
 const authOptions = (origin: URL, client: MongoClient) =>
   ({
-    // The `Db` off the one client this process opens, never a second connection
-    // (`docs/frontend/spec.md :: I120`).
+    // The `Db` off the one client this process opens, never a second connection.
     database: mongodbAdapter(client.db(MONGO_DB_NAME), { client }),
 
     // Passed rather than left to the environment: the library reads no bare `AUTH_URL`, and this
@@ -912,7 +907,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
     user: userOptions,
 
     // Left to its default, the library would store the caller's address on every session row; the switch
-    // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
+    // below stores none, and nothing here would read one, the limiter that would being off.
 
     advanced: {
       // The session and its user in one `$lookup` rather than a second query: every guard reads the
@@ -920,6 +915,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       database: { joins: true },
       // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
       ipAddress: { disableIpTracking: true },
+      // The library turns its origin check, and the CSRF checks riding on it, off wherever `NODE_ENV` is
+      // `test` or `TEST` is set, so the check is pinned on whatever the environment says.
+      disableOriginCheck: false,
       ...cookieNaming(origin),
     },
 
@@ -931,8 +929,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       verification: {
         create: {
           // A wrong guess writes its code back stamped now, and the plugin takes the newest stamp for the
-          // live code, so a send racing the guess would lose to it: stamped with its issue time instead
-          // (`docs/frontend/spec.md :: I486`).
+          // live code, so a send racing the guess would lose to it: stamped with its issue time instead.
           before: async (row, ctx) => {
             if (!row.identifier.startsWith(CODE_ROW_PREFIX)) return;
             const issued = new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000;
@@ -953,8 +950,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             if (!ctx || factor === undefined) throw new SessionFromUnlistedPath();
 
             // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
-            // and never at one method's own callback, which the next method would walk past
-            // (`docs/frontend/spec.md :: I403`).
+            // and never at one method's own callback, which the next method would walk past.
             const admittedAsOf = await refuseUnadmitted(ctx, session.userId);
 
             const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
@@ -970,8 +966,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
               data: {
                 ...session,
                 // As of the gate read, never its insert: a ban committing between the two ends the
-                // account's sessions before this row exists, and dated past it the row outlives the lift
-                // (`docs/frontend/spec.md :: I528`).
+                // account's sessions before this row exists, and dated past it the row outlives the lift.
                 createdAt: admittedAsOf,
                 updatedAt: stamped,
                 expiresAt: new Date(stamped.getTime() + lifetime),
@@ -995,7 +990,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         update: {
           // The refresh moves `updatedAt` to now, erasing the idle gap every later read judges: the row as
           // read before this write is judged instead, so a session the administrator's window refused stays
-          // refused (`docs/frontend/spec.md :: I658`).
+          // refused.
           before: async (data, ctx) => {
             // Only a write moving `updatedAt` erases the gap; any other leaves the stamp to judge by.
             if (data.updatedAt === undefined) return;
@@ -1008,7 +1003,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       },
     },
 
-    // Off everywhere: the edge meters these paths (`docs/ops/spec.md :: I4`), and the library's own
+    // Off everywhere: the edge meters these paths, and the library's own
     // rules key on a network address it does not store and reach no in-process call; `withinBound`
     // stands in for them.
     rateLimit: { enabled: false },
@@ -1016,7 +1011,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
     disabledPaths: [...DISABLED_PATHS],
 
     // Shaped rather than left to the library's default, which prints whole error objects and a
-    // rejected `callbackURL` or `origin` VALUE, both of them submitted (`docs/logging/spec.md :: L9`).
+    // rejected `callbackURL` or `origin` VALUE, both of them submitted.
     logger: {
       // Below this the library has only static boot notes, and a line this handler may not quote is
       // a line with nothing in it.
@@ -1100,7 +1095,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
 
         // Above the in-process return, so both arms carry it: the registration's transaction opens later,
-        // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I482`).
+        // and a backend round trip inside it would hold it open.
         const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
         // Taken before the read is sent: the session a set-up mints is dated by it.
         const sentAt = new Date();
@@ -1192,7 +1187,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // it the first correct code dies, and the gate below is the only barrier.
 
       // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
-      // for a member and a stranger and the gate decides only the mail (`docs/frontend/spec.md :: I443`).
+      // for a member and a stranger and the gate decides only the mail.
       emailOTP({
         otpLength: SIGN_IN_CODE_LENGTH,
         expiresIn: CODE_VALIDITY_SECONDS,
@@ -1225,7 +1220,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           }
 
           // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-          // not production must not mail production links (`docs/frontend/spec.md :: I186`).
+          // not production must not mail production links.
           const message = buildCodeEmail(otp, frontend_config.AUTH_URL);
 
           try {
@@ -1235,7 +1230,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             await sendMail({ to: email, ...message, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
           } catch (failed) {
             // Filed by a deployment that mails nothing, or kept from an address barred since the gate
-            // above read it, each recorded by the mailer's own line (`docs/frontend/spec.md :: I542`).
+            // above read it, each recorded by the mailer's own line.
             const ausfall = versandAusfallOf(failed);
             if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
@@ -1276,7 +1271,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
             // The transaction the plugin opens around a set-up that signs in, where one is open, so the
             // count below reads the snapshot the row is written in. Two enrolments at once may both
-            // stand (`docs/frontend/spec.md` §4).
+            // stand.
             const adapter = await getCurrentAdapter(ctx.context.adapter);
 
             // Judged again here, the last point before the row is written, and reached by an `auth.api`
@@ -1301,7 +1296,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
       // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
       // `readLibrarySession` would be its one reader, and `projected` below already builds that reader's
-      // copy over the library's own read (`docs/frontend/spec.md :: I198`).
+      // copy over the library's own read.
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),
@@ -1312,12 +1307,11 @@ const build = () => betterAuth(authOptions(new URL(frontend_config.AUTH_URL), si
 let built: ReturnType<typeof build> | undefined;
 
 // Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret
-// undefined (`docs/frontend/spec.md :: I45`), and constructing the library starts a check that rejects there with nobody
+// undefined, and constructing the library starts a check that rejects there with nobody
 // awaiting it.
 /**
  * The library's instance, whose options and context both carry the session key: the library's own route
- * handler imports it, and every other module calls one of the narrow functions below
- * (`docs/frontend/spec.md :: I545`).
+ * handler imports it, and every other module calls one of the narrow functions below.
  */
 export const auth = new Proxy({} as ReturnType<typeof build>, {
   get: (_, key) => Reflect.get((built ??= build()), key),
@@ -1352,13 +1346,13 @@ export type LiveSessionRow = {
 
 /**
  * Every row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
- * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
+ * missing from the list a holder searches for a device they do not know.
  */
 const EVERY_ROW = Number.MAX_SAFE_INTEGER;
 
 /**
  * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
- * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I420`).
+ * whole, `token` included, and that value is the session cookie.
  */
 export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> {
   const { adapter } = await auth.$context;
@@ -1375,7 +1369,7 @@ export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> 
 
 /**
  * Deletes the holder's session row `id`, by the holder's own user id too, so an id belonging to another
- * person ends nothing (`docs/frontend/spec.md :: I421`); answers how many rows went.
+ * person ends nothing; answers how many rows went.
  */
 export async function endSessionOf(userId: string, id: string): Promise<number> {
   const { adapter } = await auth.$context;
@@ -1391,7 +1385,7 @@ export async function endSessionOf(userId: string, id: string): Promise<number> 
 /**
  * The holder's passkeys, through the store's adapter by the user id a guard served. Never through
  * `auth.api.listPasskeys`, whose own session read slides the row from a render, which cannot write the
- * cookie (`docs/frontend/spec.md :: I496`).
+ * cookie.
  */
 export async function passkeysOf(userId: string): Promise<Passkey[]> {
   const { adapter } = await auth.$context;
@@ -1404,7 +1398,7 @@ type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
- * from two rows would otherwise each see a second row and leave none (`docs/frontend/spec.md :: I312`).
+ * from two rows would otherwise each see a second row and leave none.
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
 export async function removePasskey(holder: { readonly id: string; readonly verwaltung: boolean }, id: string): Promise<PasskeyRemoval> {
@@ -1440,7 +1434,7 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
     held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
   ): Promise<PasskeyRemoval> {
     // By the holder's id as well, so another account's identifier is absent rather than taken; by no
-    // window, since enrolments at once can leave more rows than the cap (`docs/frontend/spec.md` §4).
+    // window, since enrolments at once can leave more rows than the cap.
     const removed = await held.findOne<{ credentialID: string }>({
       model: "passkey",
       where: [
@@ -1457,7 +1451,7 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });
     // In the delete's transaction, so a refusal above signs nobody out; by the credential the session
-    // recorded, so the devices other passkeys or a code signed in stay (`docs/frontend/spec.md :: I313`).
+    // recorded, so the devices other passkeys or a code signed in stay.
     await held.deleteMany({
       model: "session",
       where: [
@@ -1484,7 +1478,7 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   // ban and the grant come in this one lookup, which the person guard of a render shares.
   const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
 
-  // On every request, as the person guard's: a session its ban's ending missed is no session here (`:: I406`).
+  // On every request, as the person guard's: a session its ban's ending missed is no session here.
   if (subjekt.gesperrt) return null;
 
   const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
@@ -1498,7 +1492,7 @@ type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
 /**
  * What every guard below is handed, built fresh off the library's read and never that read whole: the row
- * carries its own `token`, which is the value of the `httpOnly` cookie (`docs/frontend/spec.md :: I198`).
+ * carries its own `token`, which is the value of the `httpOnly` cookie.
  */
 type ServedSession = {
   user: { id: string; email: string; sessionsEndedAt?: Date | null };
@@ -1522,7 +1516,7 @@ function projected({ user, session }: LibraryRead): ServedSession {
 
 /**
  * The session the request's cookie names, or `null` where it names none. A store that does not answer
- * throws rather than reading as signed out (`docs/frontend/spec.md :: I519`).
+ * throws rather than reading as signed out.
  */
 async function readLibrarySession(requestHeaders: Headers, slide: boolean): Promise<ServedSession | null> {
   try {
@@ -1538,7 +1532,7 @@ async function readLibrarySession(requestHeaders: Headers, slide: boolean): Prom
 
 /**
  * The session every guard serves. It never slides the session: a page render cannot write the
- * cookie, so a refresh here would carry the row past the cookie the browser holds (`docs/frontend/spec.md :: I496`).
+ * cookie, so a refresh here would carry the row past the cookie the browser holds.
  */
 export async function readServedSession(requestHeaders: Headers): Promise<ServedSession | null> {
   return servedSessionOf(await readLibrarySession(requestHeaders, false));
@@ -1551,7 +1545,7 @@ export const readRequestSession = cache(async (): Promise<ServedSession | null> 
 
 /**
  * The session the code route's second tab counts as signed in: every guard's read, and none where the
- * sign-in gate refuses the address, a ban its ending missed included (`docs/frontend/spec.md :: I313`, `:: I406`).
+ * sign-in gate refuses the address, a ban its ending missed included.
  */
 export async function readAdmittedSession(requestHeaders: Headers): Promise<ServedSession | null> {
   const served = await readServedSession(requestHeaders);
@@ -1562,8 +1556,7 @@ export async function readAdmittedSession(requestHeaders: Headers): Promise<Serv
 
 /**
  * The proxy's read: the proxy runs ahead of the render and can still write a cookie, so the library's
- * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
- * (`docs/frontend/spec.md :: I495`).
+ * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer.
  */
 export async function slideSession(requestHeaders: Headers): Promise<void> {
   await readLibrarySession(requestHeaders, true);
@@ -1571,7 +1564,7 @@ export async function slideSession(requestHeaders: Headers): Promise<void> {
 
 /**
  * Whether the account's sessions were ended at or after this one was made, whatever deleted or kept its
- * row (`docs/frontend/spec.md :: I528`).
+ * row.
  */
 export function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
   // Through `Reflect`, as `asStepUpCaller` reads a stamp: the library types a ceremony's read to its own base shape.
@@ -1588,7 +1581,7 @@ export function endedByItsAccount({ user, session }: { user: object; session: ob
 /**
  * `null` where the account's sessions were ended after this one was made, or where a passkey no row
  * holds made it: a sign-in racing that passkey's removal inserts its session after the removal's
- * sign-out ran (`docs/frontend/spec.md :: I313`).
+ * sign-out ran.
  */
 async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
   if (served === null || endedByItsAccount(served)) return null;
@@ -1661,8 +1654,7 @@ export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_s
 export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
 // React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
-// would hand one request's session to another: the backend still judges every call's actor
-// (`docs/backend/spec.md :: I383`).
+// would hand one request's session to another: the backend still judges every call's actor.
 const readAdminRequest = cache(
   oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
     const served = await readRequestSession();
@@ -1692,8 +1684,7 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
   if ("refused" in judged) return judged;
 
   // On every call, outside the memo: a render's first read may precede every scope, and a later
-  // scope answered from the memo would name nobody. The ordering is load-bearing
-  // (`docs/frontend/spec.md` §1.3).
+  // scope answered from the memo would name nobody. The ordering is load-bearing.
   setRequestActor(judged.actor);
 
   return { session: judged.session };
@@ -1701,7 +1692,7 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
 
 /**
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
- * **Check the return value** (`docs/frontend/spec.md` I8).
+ * **Check the return value**.
  */
 export async function getAdminSession(): Promise<JudgedSession | null> {
   const judged = await judgeAdminRequest();
@@ -1729,7 +1720,7 @@ type Landing = { readonly destination: SignInDestination; readonly served: Serve
 
 /**
  * Every guard that refuses a session sends it to `/signin`, so this is where one no lane will serve
- * again is ended, whatever missed ending it before (`docs/frontend/spec.md :: I518`).
+ * again is ended, whatever missed ending it before.
  */
 async function landingOf(requestHeaders: Headers): Promise<Landing> {
   const read = await readLibrarySession(requestHeaders, false);
@@ -1741,12 +1732,12 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   if (served === null || !isWithinPersonLifetime(read.session)) return ended(read);
 
   // An unread lookup is the backend down: `/bereich` answers it with the person area's outage panel, its
-  // own lookup failing, where `/signin` would mail no code and say nothing (`docs/frontend/spec.md :: I121`).
+  // own lookup failing, where `/signin` would mail no code and say nothing.
   const subjekt = await subjektOrNull(served.user.email);
   if (subjekt === null) return { destination: "/bereich", served: served };
 
   // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred session,
-  // and one left standing serves again on the ban's lift with no sign-in (`docs/frontend/spec.md :: I406`).
+  // and one left standing serves again on the ban's lift with no sign-in.
   if (subjekt.gesperrt) return ended(read);
 
   return { destination: await destinationOf(served, subjekt), served: served };
@@ -1811,7 +1802,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   if (!served) return null;
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
-  // enrolment being refused (`docs/frontend/spec.md :: I406`).
+  // enrolment being refused.
   const subjekt = await subjektOrNull(served.user.email);
   if (subjekt === null || subjekt.gesperrt) return null;
 
@@ -1825,8 +1816,8 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 
 /**
  * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
- * barred one is the account sweep's to judge (`docs/frontend/spec.md :: I699`), a signed-out one waits for its next
- * sign-in (`:: I687`).
+ * barred one is the account sweep's to judge, a signed-out one waits for its next
+ * sign-in.
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // No grant is asked about here: a ban ends every session whatever the address holds, and the administrator's
@@ -1836,14 +1827,14 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
   const { adapter } = await auth.$context;
 
   // The stamp ends them, and before any row is deleted: a deletion failing below leaves rows no guard
-  // serves, a lift of the ban included (`docs/frontend/spec.md :: I528`). Equality on the stored
+  // serves, a lift of the ban included. Equality on the stored
   // address, which every sign-in stores folded.
   const account = await adapter.update<{ id: string }>({
     model: "user",
     where: [{ field: "email", value: folded }],
     update: { [SESSIONS_ENDED_FIELD]: new Date() },
   });
-  // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes (`:: I517`).
+  // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes.
   if (account === null) return false;
 
   await deleteEndedSessions(adapter, account.id);
@@ -1979,7 +1970,7 @@ export async function deleteOwnAccount(
 /**
  * Every sign-in-store row of the account `identifier` names, in one transaction, and the address's pending
  * rows; answers whether an account was there. Its callers first establish the league holds nothing of the
- * address, erased or unreferenced (`docs/frontend/spec.md :: I675`).
+ * address, erased or unreferenced.
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
   // Set once the callback has returned, for `removePasskey`'s reason: a throw after it came from the commit.

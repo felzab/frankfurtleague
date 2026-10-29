@@ -1,8 +1,7 @@
 """
 API · every read of the matchdays that another slice judges by
 
-Here rather than in `services.py`, which decides from its arguments and names no handle at all
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+Here rather than in `services.py`, which decides from its arguments and names no handle at all.
 """
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -20,7 +19,7 @@ async def nachnominierung_laeuft_in(
     # snapshot in silence, so the omission has to be a TypeError at the call.
     session: AsyncClientSession | None,
 ) -> bool:
-    """Whether an entry into this season's squads on `today` is a Nachnominierung (`docs/backend/spec.md :: I334`).
+    """Whether an entry into this season's squads on `today` is a Nachnominierung.
 
     A season holding no matchday 1 answers `False`, as an undated one does: nothing has begun.
     """

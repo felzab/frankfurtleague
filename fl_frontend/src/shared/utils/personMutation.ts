@@ -85,7 +85,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     } catch (error) {
       // A grant holder's write the backend's own window refused, one the page's check admitted at the
       // window's edge: answered as the admin spine answers it, so the page's next press asks for the
-      // passkey (`docs/frontend/spec.md :: I493`).
+      // passkey.
       if (!(error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009")) throw error;
 
       logActionFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error);

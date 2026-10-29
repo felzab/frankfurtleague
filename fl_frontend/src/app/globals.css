@@ -1,6 +1,7 @@
+/* Session 8: HeroUI's stylesheet imports go, each component's with the last page using it, and its base
+   sheets, theme, utilities and variants with the last of them. */
 /* HeroUI, component by component: its own entry pulls in everything and Tailwind
-   does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`;
-   adding one is `docs/frontend/spec.md` §1.11. */
+   does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`. */
 
 /* Two entries back no direct import: `spinner` is `Button`'s loading state, and `empty-state` is
    `ListBox`'s `renderEmptyState`. `disclosure` serves both `Accordion`'s heading and `Disclosure` itself. */
@@ -97,9 +98,11 @@
 @import "@heroui/styles/utilities";
 @import "@heroui/styles/variants";
 
-/* Exactly one season scheme, and last: an `@import` may follow only `@charset`, a `@layer`
+/* Exactly one season scheme, after HeroUI's run: an `@import` may follow only `@charset`, a `@layer`
    statement and another `@import`, and HeroUI's run above takes no entry that is not HeroUI's. */
 @import "./schemes/2027.css";
+@import "./tokens.css";
+@import "./focus.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -111,6 +114,7 @@
     font-synthesis: none;
   }
 
+  /* Session 8: goes with the old pages; the kit's focus is `focus.css`'s, which outranks it. */
   /* The focus indicator for everything HeroUI does not style itself, matching the
      width, offset and colour its own `focus-ring` resolves to. It CAN double up on
      a HeroUI control; the unlayered `.button` rule below stops that. */
@@ -127,23 +131,23 @@
   --font-heading: var(--font-anton), ui-sans-serif, system-ui;
   --font-primary: var(--font-raleway), ui-sans-serif, system-ui;
   --font-sans: var(--font-raleway);
-  /* Inter stays loaded for numerals alone: Raleway carries no tabular figures. */
+  /* Inter stays loaded for numerals alone: Raleway carries no tabular figures. The
+     `font-numeric` utility sets the feature beside the family, so it lines digits up in columns by itself;
+     it replaces the page's `"lnum"` there, which Inter's figures, lining by default, do not need. */
   --font-numeric: var(--font-inter), ui-sans-serif, system-ui;
+  --font-numeric--font-feature-settings: "tnum";
   /* Lining figures site-wide: Tailwind resolves this onto `html` through
      --default-font-feature-settings. Never `"lnum", "tnum"` — Raleway has no `tnum`, so the
      declaration would compile, pass every check and deliver half of what it says. */
   --font-sans--font-feature-settings: "lnum";
 
-  /* Anton's one letterfit at every size: it is drawn to set nearly solid, and the site's negative
-     values were chosen for Inter's looser capitals. */
-  --tracking-display: 0.02em;
-
+  /* Session 8: the old pages' colour names, from here to the phase colours, go with the old pages; the
+     kit reads `tokens.css`'s. */
   --color-background: var(--bg-base);
   --color-surface: var(--bg-surface);
   --color-muted: var(--bg-muted);
   --color-foreground: var(--fg-base);
   --color-foreground-muted: var(--fg-muted);
-  --color-border: var(--border-base);
   /* A FIELD's border, never a box's: what alone identifies a control answers WCAG 1.4.11's 3:1. */
   --color-control: var(--border-control);
   /* A control's hover is one of these tokens, never an alpha at a call site. */
@@ -154,23 +158,15 @@
   --color-picked-hover: var(--bg-picked-hover);
 
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
-  --color-brand: var(--accent-brand);
-  --color-brand-solid: var(--accent-brand-solid);
-  --color-brand-solid-hover: var(--accent-brand-solid-hover);
   --color-brand-solid-foreground: var(--fg-on-brand);
   --color-brand-solid-accent: var(--accent-on-brand);
   /* Spelled `warning`, not `warn`: this shadows HeroUI's own --color-warning rather than competing. */
   --color-warning: var(--accent-warn);
-  --color-danger: var(--accent-danger);
-  --color-success: var(--accent-success);
-  --color-info: var(--accent-info);
   --color-warning-strong: var(--accent-warn-strong);
   --color-danger-strong: var(--accent-danger-strong);
   --color-success-strong: var(--accent-success-strong);
   --color-info-strong: var(--accent-info-strong);
   --color-warning-solid: var(--accent-warn-solid);
-  --color-danger-solid: var(--accent-danger-solid);
-  --color-danger-solid-hover: var(--accent-danger-solid-hover);
   --color-success-solid: var(--accent-success-solid);
   --color-info-solid: var(--accent-info-solid);
   --color-warning-solid-foreground: var(--fg-on-warn);
@@ -183,6 +179,8 @@
   --color-phase-halbfinale: var(--accent-phase-halbfinale);
   --color-phase-finale: var(--accent-phase-finale);
 
+  /* Session 8: the fluid type scale goes with the old pages, with its utilities below and the
+     `fluid-base` on the root layout's body. */
   /* Fluid sizes, declared OUTSIDE Tailwind's `--text-*` namespace so they emit no
      utility: a `text-*` class tailwind-merge cannot classify falls into the COLOUR
      group and drops the real colour beside it, inside HeroUI. */
@@ -279,6 +277,7 @@ html:has([data-app-shell]) {
   scrollbar-gutter: auto;
 }
 
+/* Session 8: these utilities go with the old pages, with the fluid sizes they read. */
 /* THE app's type scale, and the only way to spell it: `fluid-sm`, never
    `text-fluid-sm`. Written out per step rather than as one functional
    `@utility fluid-*`, which would emit nothing for a typo and style it silently. */
@@ -410,6 +409,7 @@ input:focus:placeholder-shown::placeholder {
   mask-image: linear-gradient(to right, #000 85%, transparent);
 }
 
+/* Session 8: this override of HeroUI's search field goes with that component, by this session at the latest. */
 /* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER. HeroUI only
    fades its clear control out, leaving 48px of a 122px chrome budget in flow.
    `display` is what reclaims it; `visibility` would leave the gap standing. */
@@ -421,15 +421,20 @@ input:focus:placeholder-shown::placeholder {
 
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
    control's font-size, never `maximum-scale` in the viewport tag, which would
-   disable pinch zoom for everyone. */
-@media (hover: none) and (pointer: coarse) {
-  input,
-  select,
-  textarea {
-    font-size: max(16px, 1em);
+   disable pinch zoom for everyone. In the base layer, so a control's own size utility, the kit's
+   16 px on a touch screen among them, outranks it. */
+@layer base {
+  @media (hover: none) and (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: max(16px, 1em);
+    }
   }
 }
 
+/* Session 8: HeroUI's overrides from here to the code slot's go, each with the HeroUI component it
+   overrides, by this session at the latest. */
 /* THREE CATEGORIES lose the ring that fires on focus no keyboard user asked for, each control
    saying "focused" another way. Unlayered, so nothing in a layer can put that ring back. */
 /* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
@@ -458,7 +463,7 @@ input:focus:placeholder-shown::placeholder {
   /* Declared here rather than left to a fallback, so a field never inherits a refused ancestor's. */
   --field-focus-accent: var(--accent-brand);
 
-  /* THE HOVER moves the border and never the fill (`docs/frontend/spec.md` §1.17). Before the focus
+  /* THE HOVER moves the border and never the fill. Before the focus
      arm, whose `aria-expanded` arms weigh the same and must win; the variable carries it into the
      resets below, which out-weigh both. */
   /* Every exclusion IN `:where()`, a refused one included: one weighed `:not()` here outranks those
@@ -511,7 +516,7 @@ input:focus:placeholder-shown::placeholder {
   }
 
   /* A REFUSED field wears the danger border at rest, and focused the same 3px ring in danger, so
-     focus reads by weight and refusal by hue (`scripts/checks/docs_gate/scheme.py :: "a refused field's focus ring"`). */
+     focus reads by weight and refusal by hue. */
   /* A picker's refusal is marked on its ROOT alone, never on the trigger this block styles. */
   &[data-invalid="true"],
   :is([data-slot="select"], [data-slot="autocomplete"])[data-invalid="true"] & {
@@ -615,9 +620,8 @@ input:focus:placeholder-shown::placeholder {
   opacity: 0.5;
 }
 
-/* A frozen field and a closed picker are both tab stops that reach no focus border, refused or not
-   (`docs/frontend/spec.md :: I173`). react-aria's attribute, not `:focus-visible`, so this outline
-   answers a key press, not a click. */
+/* A frozen field and a closed picker are both tab stops that reach no focus border, refused or not.
+   react-aria's attribute, not `:focus-visible`, so this outline answers a key press, not a click. */
 /* A CLICK on a frozen group stays quiet for a second reason: HeroUI's `[data-focus-within]`
    border and fill match it and lose, out-layered by the `utilities` classes
    `formFieldStyles.ts :: FIELD_GROUP_CLASSES` puts on the group. */
@@ -697,7 +701,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 
 /* The keyboard's own mark on a collection option: inset, so a list clipping its overflow keeps it
    whole, and on react-aria's keyboard attribute, so a menu row hovered by the mouse takes the fill
-   alone (`docs/frontend/spec.md :: I230`). */
+   alone. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focus-visible="true"] {
   outline: 2px solid var(--focus);
@@ -786,6 +790,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     animation: none !important;
   }
 
+  /* Session 8: the spinner's and the skeleton's rules go with HeroUI's `Spinner` and `Skeleton`, by this
+     session at the latest. */
   /* HeroUI stops its OWN spinner here and this app does not: `appToast.pending`
      raises a toast with `timeout: 0`, so its spinner is the only thing saying the
      request is still running. The value is the vendor's token. */
@@ -823,6 +829,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 }
 
 @layer components {
+  /* Session 8: the skeleton's and the tables' overrides go with HeroUI's `Skeleton` and `Table`, by this
+     session at the latest. */
   /* HeroUI's own sweep runs 2-3 lightness points from the `--bg-muted` these blocks
      are painted, so it animates and cannot be seen. Same layer as HeroUI's rule and
      declared after it, so source order settles it without `!`. */
@@ -850,9 +858,9 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     background-color: transparent;
   }
 
+  /* Redesign: the toast's rules go with the last importer of `shared/utils/appToast`, with `AppToaster`. */
   /* THE TOAST, deliberately small: `AppToaster` supplies the children render
-     function, so everything with an element to hang a class on is ordinary TSX.
-     `fl_frontend/src/app/toastStack.test.ts` holds these rules against the installed `toast.css`. */
+     function, so everything with an element to hang a class on is ordinary TSX. */
   /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */
@@ -960,6 +968,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 }
 
+/* Session 8: the calendar's overrides go with HeroUI's `Calendar`, by this session at the latest. */
 /* App-side overrides for the calendar, whose class names are `@heroui/styles`' own, last so each
    beats the vendored rule it names at equal specificity. */
 @layer components {

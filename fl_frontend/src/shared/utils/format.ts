@@ -14,7 +14,7 @@ export const PLACEHOLDER = {
   ergebnis: "-:-",
   /**
    * A stored field held empty where nothing is still to come: a venue or a referee nobody assigned, a played
-   * fixture's date. The labelled form: a site with no label beside it names the field (`docs/frontend/spec.md` §1.12).
+   * fixture's date. The labelled form: a site with no label beside it names the field.
    */
   entity: "Nicht hinterlegt",
   /** A fixture side with no occupant and no provenance label. A bracket slot that knows where its team comes from shows that. */
@@ -24,7 +24,7 @@ export const PLACEHOLDER = {
 /** What a stored field held empty reads where a label stands beside it, on every page: the fixtures' word too. */
 export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
 
-/** The same where no label stands beside the value, so the words name the field (`docs/frontend/spec.md` §1.12). */
+/** The same where no label stands beside the value, so the words name the field. */
 export const nichtHinterlegt = (feld: string): string => `${feld} nicht hinterlegt`;
 
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -63,7 +63,7 @@ export function formatAddressFull(address: FLAddress): string {
 }
 
 /** Takes a string rather than a domain object: the call sites feed genuinely different queries, and only the shell is shared. */
-export function buildMapsSearchUrl(query: string): string {
+export function buildMapsSearchUrl(query: string): `https://${string}` {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 

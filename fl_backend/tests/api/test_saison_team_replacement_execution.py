@@ -403,7 +403,7 @@ class TestAllFourLayersMoveTogether:
         assert (spiele[1]["team1"]["name"], spiele[1]["team1"]["shorthand"]) == ("Incoming", "IN")
 
     def test_the_row_and_the_fixtures_spell_the_club_the_same_way(self, mongo_replica_set_url: str):
-        """One read feeds both layers, so the two cannot part company (`docs/backend/spec.md :: I11`)."""
+        """One read feeds both layers, so the two cannot part company."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
@@ -565,7 +565,7 @@ class TestTheOutgoingClubsSquadIsRetired:
         assert squad[5]["inactive_since"] is None
 
     def test_the_count_reports_what_the_write_touched(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I13`. Kills a count assumed rather than taken from the write, which the rows themselves then contradict."""
+        """Kills a count assumed rather than taken from the write, which the rows themselves then contradict."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)

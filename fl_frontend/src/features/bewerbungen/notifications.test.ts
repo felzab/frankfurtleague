@@ -1,11 +1,8 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, describe, expect, it, vi } from "vitest";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
-
-import type { MailOutcome } from "@/core/mailDouble.ts";
+import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
 
@@ -53,7 +50,8 @@ const LOGGING_DOUBLE = {
   },
 };
 
-registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "features/bewerbungen/mutations.ts": MUTATIONS_DOUBLE } });
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/features/bewerbungen/mutations.ts", () => MUTATIONS_DOUBLE);
 
 const {
   collectBewerbungEingangEmpfaenger,
@@ -121,16 +119,15 @@ describe("how one seat is named to somebody who is not sitting in it", () => {
      way, so a wording answered here differently from `rollenText` would put one seat under two
      names in messages a single reader gets. */
   it("gives every seat the long form the joined phrase gives it", () => {
-    assert.deepEqual((["ansprechperson", "stellvertretung", "trainer"] as const).map(rolleText), [
+    expect((["ansprechperson", "stellvertretung", "trainer"] as const).map(rolleText)).toStrictEqual([
       "Ansprechperson",
       "Stellvertretung",
       "Trainerin oder Trainer",
     ]);
-    assert.deepEqual(
+    expect(
       collectBewerbungEmpfaenger(seats("t@schule.de", null, null)).map(({ rollenText }) => rollenText),
-      [rolleText("trainer")],
       "a fan-out names a lone seat differently from the helper every message reads",
-    );
+    ).toStrictEqual([rolleText("trainer")]);
   });
 });
 
@@ -140,17 +137,14 @@ describe("who a decision is sent to", () => {
     reset();
     const outcome = await sendBewerbungMail({ operation: "test", recipients: [empfaenger("a@schule.de")], buildMail: buildMail });
 
-    assert.deepEqual(
-      sent.map((mail) => mail.to),
-      ["a@schule.de"],
-    );
-    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
+    expect(sent.map((mail) => mail.to)).toStrictEqual(["a@schule.de"]);
+    expect(outcome).toStrictEqual({ delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
   });
 
   /* `trainer_ist_zugleich` stores ONE person in two slots, so the same address stands twice in
      a perfectly ordinary application. */
   it("mails a person holding two seats once, naming both seats", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@schule.de", "trainer@schule.de", "vertretung@schule.de")), [
+    expect(collectBewerbungEmpfaenger(seats("trainer@schule.de", "trainer@schule.de", "vertretung@schule.de"))).toStrictEqual([
       { address: "trainer@schule.de", rollen: ["ansprechperson", "trainer"], rollenText: "Ansprechperson und Trainerin oder Trainer" },
       { address: "vertretung@schule.de", rollen: ["stellvertretung"], rollenText: "Stellvertretung" },
     ]);
@@ -159,7 +153,7 @@ describe("who a decision is sent to", () => {
   /* The seat is what the message tells its reader they were given, so a fan-out that lost it would
      send three people one text about somebody else's place in the season. */
   it("names each of the three the seat they hold", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("t@schule.de", "a@schule.de", "s@schule.de")), [
+    expect(collectBewerbungEmpfaenger(seats("t@schule.de", "a@schule.de", "s@schule.de"))).toStrictEqual([
       { address: "a@schule.de", rollen: ["ansprechperson"], rollenText: "Ansprechperson" },
       { address: "s@schule.de", rollen: ["stellvertretung"], rollenText: "Stellvertretung" },
       { address: "t@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
@@ -168,23 +162,23 @@ describe("who a decision is sent to", () => {
 
   /* A seat can be empty: an erasure clears the slot naming one person and leaves the two beside them. */
   it("passes over an empty seat and an unrecorded address", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats(null, "  ", "vertretung@schule.de")), [
+    expect(collectBewerbungEmpfaenger(seats(null, "  ", "vertretung@schule.de"))).toStrictEqual([
       { address: "vertretung@schule.de", rollen: ["stellvertretung"], rollenText: "Stellvertretung" },
     ]);
-    assert.deepEqual(collectBewerbungEmpfaenger(seats(null, null, null)), []);
+    expect(collectBewerbungEmpfaenger(seats(null, null, null))).toStrictEqual([]);
   });
 
   /* The public route hands the seats as typed: the message goes to the fold the API stored, which is
      the address its delivery events are matched back to. */
   it("mails the fold the API stores, whatever was typed", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), [
+    expect(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null))).toStrictEqual([
       { address: "trainer@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
   /* Two seats typed in two cases are one stored address, which would otherwise receive the decision twice. */
   it("mails one mailbox typed in two cases once", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@Schule.de", "trainer@schule.de", null)), [
+    expect(collectBewerbungEmpfaenger(seats("Trainer@Schule.de", "trainer@schule.de", null))).toStrictEqual([
       { address: "trainer@schule.de", rollen: ["ansprechperson", "trainer"], rollenText: "Ansprechperson und Trainerin oder Trainer" },
     ]);
   });
@@ -199,10 +193,11 @@ describe("who a decision is sent to", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(
-      sent.map((mail) => mail.text),
-      ["Zusage für Ansprechperson", "Zusage für Stellvertretung", "Zusage für Trainerin oder Trainer"],
-    );
+    expect(sent.map((mail) => mail.text)).toStrictEqual([
+      "Zusage für Ansprechperson",
+      "Zusage für Stellvertretung",
+      "Zusage für Trainerin oder Trainer",
+    ]);
   });
 });
 
@@ -210,7 +205,7 @@ describe("who the workflow's messages to the submitter are sent to", () => {
   /* No seat records who submitted, and the Ansprechperson is the submitter by convention, so every
      message the workflow addresses to them takes this fan-out rather than the decisions' own. */
   it("reaches the Ansprechperson and nobody else", () => {
-    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
+    expect(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", "kontakt@schule.de", "vertretung@schule.de"))).toStrictEqual([
       { address: "kontakt@schule.de", rollen: ["ansprechperson"], rollenText: "Ansprechperson" },
     ]);
   });
@@ -218,14 +213,14 @@ describe("who the workflow's messages to the submitter are sent to", () => {
   /* `trainer_ist_zugleich` puts one person in two seats. Deduplication is by ADDRESS, so that person
      gets the one message their mailbox is owed, naming both seats rather than one of them. */
   it("names both seats where the Ansprechperson is also the Trainer", () => {
-    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("kontakt@schule.de", "kontakt@schule.de", "vertretung@schule.de")), [
+    expect(collectBewerbungEingangEmpfaenger(seats("kontakt@schule.de", "kontakt@schule.de", "vertretung@schule.de"))).toStrictEqual([
       { address: "kontakt@schule.de", rollen: ["ansprechperson", "trainer"], rollenText: "Ansprechperson und Trainerin oder Trainer" },
     ]);
   });
 
   it("goes nowhere where that seat carries no address", () => {
-    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", null, "vertretung@schule.de")), []);
-    assert.deepEqual(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", " ", "vertretung@schule.de")), []);
+    expect(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", null, "vertretung@schule.de"))).toStrictEqual([]);
+    expect(collectBewerbungEingangEmpfaenger(seats("trainer@schule.de", " ", "vertretung@schule.de"))).toStrictEqual([]);
   });
 });
 
@@ -239,7 +234,7 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("mira@schule.de", "Mira"),
     };
 
-    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: "L-S", trainer: "L-T" }), [
+    expect(seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: "L-S", trainer: "L-T" })).toStrictEqual([
       {
         address: "info@schule.de",
         rollen: ["ansprechperson", "trainer"],
@@ -262,7 +257,7 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("mira@schule.de", "Mira"),
     };
 
-    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-A", stellvertretung: "L-S" }), [
+    expect(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-A", stellvertretung: "L-S" })).toStrictEqual([
       {
         address: "erika@schule.de",
         rollen: ["ansprechperson", "trainer"],
@@ -282,7 +277,7 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("mira@schule.de", "Mira"),
       trainer_ist_zugleich: "stellvertretung" as const,
     };
-    // The local stack's own origin, as every minter now hands the helper (`docs/frontend/spec.md :: I186`).
+    // The local stack's own origin, as every minter now hands the helper.
     const origin = "http://localhost:3000";
     const ownLink2 = kontaktBestaetigungsLink(origin, "erste");
     const gespiegelter = kontaktBestaetigungsLink(origin, "zweite");
@@ -290,7 +285,7 @@ describe("which mailbox is sent which link", () => {
     const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: ownLink2, trainer: gespiegelter });
     const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");
 
-    assert.deepEqual(gepaart?.seats, [{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: ownLink2 }]);
+    expect(gepaart?.seats).toStrictEqual([{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: ownLink2 }]);
 
     const mail = buildBewerbungBestaetigungEmail({
       saisonId: "2627",
@@ -306,9 +301,9 @@ describe("which mailbox is sent which link", () => {
         [...half.matchAll(/https?:\/\/[^"'<\s]+/g)].map((treffer) => treffer[0]).filter((url) => url.includes("bestaetigung")),
       );
 
-      assert.deepEqual([...adressen], [ownLink2], "the message offers a second link for the seat the first one already answers");
-      assert.match(half, /Stellvertretung/, "the message no longer names the seat the person was entered under");
-      assert.match(half, /Trainerin oder Trainer/, "the message no longer names the seat the Trainer claim mirrors");
+      expect([...adressen], "the message offers a second link for the seat the first one already answers").toStrictEqual([ownLink2]);
+      expect(half, "the message no longer names the seat the person was entered under").toMatch(/Stellvertretung/);
+      expect(half, "the message no longer names the seat the Trainer claim mirrors").toMatch(/Trainerin oder Trainer/);
     }
   });
 
@@ -321,7 +316,7 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: null,
     };
 
-    assert.deepEqual(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-T" }), [
+    expect(seatsByMailbox(kontakte, { ansprechperson: "L-A", trainer: "L-T" })).toStrictEqual([
       {
         address: "erika@schule.de",
         rollen: ["ansprechperson", "trainer"],
@@ -342,7 +337,7 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("erika@schule.de", "Mira"),
     };
 
-    assert.deepEqual(seatsByMailbox(kontakte, { stellvertretung: "L-S" }), [
+    expect(seatsByMailbox(kontakte, { stellvertretung: "L-S" })).toStrictEqual([
       // Both seats of that mailbox, although one got no link: the message's fate is the address's,
       // and the seat whose link was withheld shares it.
       {
@@ -351,7 +346,7 @@ describe("which mailbox is sent which link", () => {
         seats: [{ vorname: "Mira", rolleText: "Stellvertretung", link: "L-S" }],
       },
     ]);
-    assert.deepEqual(seatsByMailbox(kontakte, {}), []);
+    expect(seatsByMailbox(kontakte, {})).toStrictEqual([]);
   });
 
   /* The dedupe is `collectSeats`'s, unchanged: one fold is one mailbox. A grouping of its own would
@@ -368,8 +363,8 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: null,
     };
 
-    assert.equal(seatsByMailbox(geteilt, { ansprechperson: "L-A", trainer: "L-T" }).length, 1);
-    assert.equal(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length, 2);
+    expect(seatsByMailbox(geteilt, { ansprechperson: "L-A", trainer: "L-T" }).length).toBe(1);
+    expect(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length).toBe(2);
   });
 
   /* The seats come back in `KONTAKT_ROLLEN`'s order, which is the order `joinUnd` builds a German
@@ -381,10 +376,9 @@ describe("which mailbox is sent which link", () => {
       stellvertretung: benannt("info@schule.de", "Mira"),
     };
 
-    assert.deepEqual(
+    expect(
       seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: "L-S", trainer: "L-T" })[0]?.seats.map((seat) => seat.rolleText),
-      ["Ansprechperson", "Stellvertretung", "Trainerin oder Trainer"],
-    );
+    ).toStrictEqual(["Ansprechperson", "Stellvertretung", "Trainerin oder Trainer"]);
   });
 });
 
@@ -401,12 +395,9 @@ describe("a fan-out that cannot reach everyone", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(
-      sent.map((mail) => mail.to),
-      ["erste@schule.de", "zweite@schule.de", "dritte@schule.de"],
-    );
-    assert.deepEqual(outcome.delivered, ["erste@schule.de", "dritte@schule.de"]);
-    assert.deepEqual(outcome.unreachable, ["zweite@schule.de"]);
+    expect(sent.map((mail) => mail.to)).toStrictEqual(["erste@schule.de", "zweite@schule.de", "dritte@schule.de"]);
+    expect(outcome.delivered).toStrictEqual(["erste@schule.de", "dritte@schule.de"]);
+    expect(outcome.unreachable).toStrictEqual(["zweite@schule.de"]);
   });
 
   /* The provider may have accepted a send whose connection broke: reported unreachable, the decision's
@@ -425,8 +416,8 @@ describe("a fan-out that cannot reach everyone", () => {
       return [settled, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], [], ["zweite@schule.de"]]);
-    assert.equal(markedUnknown, true, "the request was not told a send may have landed");
+    expect([outcome.delivered, outcome.unreachable, outcome.ungewiss]).toStrictEqual([["erste@schule.de"], [], ["zweite@schule.de"]]);
+    expect(markedUnknown, "the request was not told a send may have landed").toBe(true);
   });
 
   /* Refused before it left, the request's deadline spent: nothing can be in the inbox, so it is not
@@ -445,8 +436,8 @@ describe("a fan-out that cannot reach everyone", () => {
       return [settled, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], ["zweite@schule.de"], []]);
-    assert.equal(markedUnknown, false, "a send that never left marked the request unclear");
+    expect([outcome.delivered, outcome.unreachable, outcome.ungewiss]).toStrictEqual([["erste@schule.de"], ["zweite@schule.de"], []]);
+    expect(markedUnknown, "a send that never left marked the request unclear").toBe(false);
   });
 
   it("reports every address when the provider refuses them all", async () => {
@@ -460,12 +451,12 @@ describe("a fan-out that cannot reach everyone", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(outcome.delivered, []);
-    assert.deepEqual(outcome.unreachable, ["erste@schule.de", "zweite@schule.de"]);
+    expect(outcome.delivered).toStrictEqual([]);
+    expect(outcome.unreachable).toStrictEqual(["erste@schule.de", "zweite@schule.de"]);
   });
 
   /* The address reaches the administrator, in the action's message, and never the log
-     (`docs/logging/spec.md :: L9`) — the one place it would outlive the request. */
+     — the one place it would outlive the request. */
   it("logs the failure without the address on the line", async () => {
     reset();
     outcomes.set("zweite@schule.de", "refused");
@@ -476,14 +467,14 @@ describe("a fan-out that cannot reach everyone", () => {
       buildMail: buildMail,
     });
 
-    assert.equal(logged.length, 1, "one refusal produced something other than one log line");
-    assert.equal(logged[0]?.message, "bewerbung.mail_failed");
-    assert.equal(logged[0]?.meta.operation, "annehmenBewerbungAction");
+    expect(logged.length, "one refusal produced something other than one log line").toBe(1);
+    expect(logged[0]?.message).toBe("bewerbung.mail_failed");
+    expect(logged[0]?.meta.operation).toBe("annehmenBewerbungAction");
     // Serialised whole, so an address reaching any field — the error argument included — fails here.
     assert.ok(!JSON.stringify(logged[0]).includes("zweite@schule.de"), "the recipient travels on the log line");
   });
 
-  /* Every frontend failure line carries one (`docs/logging/spec.md`), and this one is not
+  /* Every frontend failure line carries one, and this one is not
      `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same trace id. */
   it("carries its own error code and the error's name, and no error object", async () => {
     reset();
@@ -491,12 +482,12 @@ describe("a fan-out that cannot reach everyone", () => {
 
     await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [empfaenger("erste@schule.de")], buildMail: buildMail });
 
-    assert.equal(logged[0]?.meta.error_code, "FE-MAIL-002");
-    assert.equal(logged[0]?.meta.name, "MailSendError", "the line no longer names the error class");
-    assert.equal(logged[0]?.error, undefined, "the error object reaches the stream, and its message and stack with it");
+    expect(logged[0]?.meta.error_code).toBe("FE-MAIL-002");
+    expect(logged[0]?.meta.name, "the line no longer names the error class").toBe("MailSendError");
+    expect(logged[0]?.error, "the error object reaches the stream, and its message and stack with it").toBe(undefined);
   });
 
-  /* The mailer's own line records a filed message (`docs/logging/error-codes.md`, `FE-MAIL-004`), and
+  /* The mailer's own line records a filed message (`FE-MAIL-004`), and
      a second, failing one per address would read every local decision as a failed send. */
   it("lists a withheld send apart and logs no failure for it", async () => {
     reset();
@@ -508,20 +499,18 @@ describe("a fan-out that cannot reach everyone", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual([outcome.unreachable, outcome.withheld], [["erste@schule.de"], ["erste@schule.de"]]);
-    assert.deepEqual(logged, []);
+    expect([outcome.unreachable, outcome.withheld]).toStrictEqual([["erste@schule.de"], ["erste@schule.de"]]);
+    expect(logged).toStrictEqual([]);
   });
 });
 
 describe("what the administrator is told", () => {
   it("names nobody where every message arrived", () => {
-    assert.equal(
+    expect(
       describeBewerbungMail("Zusage", { delivered: ["a@schule.de", "b@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
-      "Die Zusage ging an 2 Kontaktpersonen.",
-    );
+    ).toBe("Die Zusage ging an 2 Kontaktpersonen.");
     // Its own arm: German counts nothing and one with words rather than with a figure.
-    assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
+    expect(describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 })).toBe(
       "Die Absage ging an eine Kontaktperson.",
     );
   });
@@ -535,15 +524,16 @@ describe("what the administrator is told", () => {
       gesperrt: 0,
     });
 
-    assert.match(report, /b@schule\.de/);
-    assert.match(report, /c@schule\.de/);
-    assert.match(report, /Melde Dich selbst bei ihnen/, "the report names nobody's remedy");
+    expect(report).toMatch(/b@schule\.de/);
+    expect(report).toMatch(/c@schule\.de/);
+    expect(report, "the report names nobody's remedy").toMatch(/Melde Dich selbst bei ihnen/);
   });
 
   /* A refused send and one broken off unanswered are two facts: the second may have arrived, and neither drops the other. */
   it("names an address in doubt apart from one it could not reach", () => {
-    assert.equal(
+    expect(
       describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], ungewiss: ["b@schule.de"], gesperrt: 0 }),
+    ).toBe(
       "Die Zusage konnte an niemanden verschickt werden. Nicht erreicht wurden: a@schule.de. " +
         "Ob die Zusage bei b@schule.de ankam, ist unklar. Melde Dich selbst bei ihnen.",
     );
@@ -552,8 +542,7 @@ describe("what the administrator is told", () => {
   /* Pinned whole, not by a fragment: the noun is a German one and the sentence supplies its own
      article, so lower-casing it renders „ging die absage“ where a fragment match sees nothing. */
   it("says so where the application named no address at all", () => {
-    assert.equal(
-      describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 }),
+    expect(describeBewerbungMail("Absage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 })).toBe(
       "Die Bewerbung nennt keine E-Mail-Adresse, deshalb ging die Absage an niemanden raus.",
     );
   });
@@ -569,38 +558,35 @@ describe("what the administrator is told", () => {
       gesperrt: 0,
     });
 
-    assert.match(nothing, /an niemanden verschickt/);
-    assert.notEqual(nothing, partial);
+    expect(nothing).toMatch(/an niemanden verschickt/);
+    expect(nothing).not.toBe(partial);
   });
 
   /* Outside production every send is withheld: a report naming those addresses to chase by hand
      would grade every local decision as a failure. */
   /* Pinned whole: the empty application's sentence would send the reader looking for an address the
-     application does hold, and a count is all the report may carry (`docs/frontend/spec.md :: I542`). */
+     application does hold, and a count is all the report may carry. */
   it("says the ban list kept the decision from every address, naming none", () => {
-    assert.equal(
-      describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 2 }),
+    expect(describeBewerbungMail("Zusage", { delivered: [], unreachable: [], withheld: [], ungewiss: [], gesperrt: 2 })).toBe(
       "Die Zusage ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht.",
     );
   });
 
   it("counts a barred address beside the ones that were sent, rather than as one to chase", () => {
-    assert.equal(
-      describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 }),
+    expect(describeBewerbungMail("Absage", { delivered: ["a@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 })).toBe(
       "Die Absage ging an eine Kontaktperson. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.",
     );
   });
 
   it("reports a fan-out this deployment withheld in the deployment's words, naming nobody to chase", () => {
-    assert.equal(
+    expect(
       describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: ["a@schule.de"], ungewiss: [], gesperrt: 0 }),
-      ZURUECKGEHALTEN,
-    );
+    ).toBe(ZURUECKGEHALTEN);
   });
 });
 
 /**
- * Composing is inside the settling too (`docs/frontend/spec.md :: I70`): the public receipt
+ * Composing is inside the settling too: the public receipt
  * `fl_frontend/src/app/api/bewerbung/route.ts` awaits this with no `catch`, so a rejected fan-out
  * would show an applicant a failure for a stored application.
  */
@@ -622,7 +608,13 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     /* The reader whose message could not be composed is unreachable, and the other one is still
        delivered: one broken compose must not cost the others their notification. */
-    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], withheld: [], ungewiss: [], gesperrt: 0 });
+    expect(outcome).toStrictEqual({
+      delivered: ["zweite@schule.de"],
+      unreachable: ["erste@schule.de"],
+      withheld: [],
+      ungewiss: [],
+      gesperrt: 0,
+    });
   });
 
   it("reports the failure on the same line a refused send uses", async () => {
@@ -634,9 +626,9 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
     });
 
     const failedLines = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
-    assert.equal(failedLines.length, 1);
-    assert.equal(failedLines[0]?.meta.error_code, "FE-MAIL-002");
-    /* The address stays off the stream, as it does for a refused send (`docs/logging/spec.md :: L9`). */
+    expect(failedLines.length).toBe(1);
+    expect(failedLines[0]?.meta.error_code).toBe("FE-MAIL-002");
+    /* The address stays off the stream, as it does for a refused send. */
     assert.ok(!JSON.stringify(failedLines[0]).includes("erste@schule.de"));
   });
 });
@@ -645,7 +637,7 @@ describe("a recipient the ban list holds", () => {
   const AUFTRAG = { bewerbungId: `${"b".repeat(23)}1`, anlass: "eingang" as const };
 
   /* Counted and in no list: an address in `unreachable` is one the administrator is told to write to
-     by hand, which would name a barred person to them (`docs/frontend/spec.md :: I542`). */
+     by hand, which would name a barred person to them. */
   it("is counted, named in no list, and costs the others nothing", async () => {
     reset();
     outcomes.set("gesperrt@schule.de", "barred");
@@ -656,7 +648,7 @@ describe("a recipient the ban list holds", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(outcome, { delivered: ["erste@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
+    expect(outcome).toStrictEqual({ delivered: ["erste@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 1 });
   });
 
   /* No failure line, the gate's own being the record, and no delivery state, which would store on
@@ -672,8 +664,8 @@ describe("a recipient the ban list holds", () => {
       buildMail: buildMail,
     });
 
-    assert.deepEqual(logged, []);
-    assert.deepEqual(gemeldet, []);
+    expect(logged).toStrictEqual([]);
+    expect(gemeldet).toStrictEqual([]);
   });
 });
 
@@ -691,7 +683,7 @@ describe("what an accepted send records about itself", () => {
     reset();
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(gemeldet, [
+    expect(gemeldet).toStrictEqual([
       {
         bewerbung_id: AUFTRAG.bewerbungId,
         rollen: ["ansprechperson", "trainer"],
@@ -699,14 +691,14 @@ describe("what an accepted send records about itself", () => {
         am: gemeldet[0]?.["am"],
       },
     ]);
-    assert.match(String(gemeldet[0]?.["am"]), /^\d{4}-\d{2}-\d{2}T/);
+    expect(String(gemeldet[0]?.["am"])).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it("carries the tags the provider echoes back on every event about that message", async () => {
     reset();
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(sent[0]?.tags, { bewerbung_id: AUFTRAG.bewerbungId, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
+    expect(sent[0]?.tags).toStrictEqual({ bewerbung_id: AUFTRAG.bewerbungId, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
   });
 
   /* A key over a body that can change is refused rather than collapsed, so the day is passed only
@@ -714,7 +706,7 @@ describe("what an accepted send records about itself", () => {
   it("passes an idempotency key only where the caller named a day for it", async () => {
     reset();
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
-    assert.equal(sent[0]?.idempotencyKey, undefined);
+    expect(sent[0]?.idempotencyKey).toBe(undefined);
 
     reset();
     await sendBewerbungMail({
@@ -723,8 +715,7 @@ describe("what an accepted send records about itself", () => {
       recipients: [gepaart],
       buildMail: buildMail,
     });
-    assert.match(
-      sent[0]?.idempotencyKey ?? "",
+    expect(sent[0]?.idempotencyKey ?? "").toMatch(
       new RegExp(`^loeschung_${AUFTRAG.bewerbungId}_ansprechperson-trainer_2026-09-08_[0-9a-f]{64}$`),
     );
   });
@@ -735,8 +726,8 @@ describe("what an accepted send records about itself", () => {
     reset();
     await sendBewerbungMail({ operation: "annehmenBewerbungAction", recipients: [empfaenger("erika@schule.de")], buildMail: buildMail });
 
-    assert.deepEqual(gemeldet, []);
-    assert.equal(sent[0]?.tags, undefined);
+    expect(gemeldet).toStrictEqual([]);
+    expect(sent[0]?.tags).toBe(undefined);
   });
 
   it("records nothing for a message the provider refused", async () => {
@@ -745,7 +736,7 @@ describe("what an accepted send records about itself", () => {
 
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(gemeldet, []);
+    expect(gemeldet).toStrictEqual([]);
   });
 
   /* An accepted answer carrying no id joins nothing, and a state written against no message would
@@ -756,8 +747,8 @@ describe("what an accepted send records about itself", () => {
 
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(gemeldet, []);
-    assert.equal(sent.length, 1, "the message itself was withheld");
+    expect(gemeldet).toStrictEqual([]);
+    expect(sent.length, "the message itself was withheld").toBe(1);
   });
 
   /* The message HAS gone. A caller told otherwise would report a send that happened as one that did
@@ -768,9 +759,9 @@ describe("what an accepted send records about itself", () => {
 
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
+    expect(outcome).toStrictEqual({ delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
-    assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
+    expect(unreportedLine?.meta.error_code).toBe("FE-MAIL-003");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
   });
 });
@@ -783,16 +774,15 @@ describe("the key one application message is sent under", () => {
   it("mints one idempotency key per message per day", () => {
     const today = zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de");
 
-    assert.equal(zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"), today);
-    assert.notEqual(zustellungIdempotenzSchluessel(delivery, "2026-09-09", "erste@schule.de"), today);
+    expect(zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de")).toBe(today);
+    expect(zustellungIdempotenzSchluessel(delivery, "2026-09-09", "erste@schule.de")).not.toBe(today);
     assert.ok(today.length <= 256, "the provider refuses a key over 256 characters");
   });
 
   /* The provider refuses a key reused over another payload, and the recipient is in the payload: an
      address corrected inside the window would otherwise go out under the old address's key. */
   it("mints a different key for the same seats at another mailbox", () => {
-    assert.notEqual(
-      zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"),
+    expect(zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de")).not.toBe(
       zustellungIdempotenzSchluessel(delivery, "2026-09-08", "neue@schule.de"),
     );
   });

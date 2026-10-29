@@ -131,7 +131,7 @@ export function useServerFieldErrors(failureTitle?: string) {
   const formRef = useRef<HTMLFormElement>(null);
 
   // The caller's own word for a failed save, defaulted HERE rather than in the signature: a title
-  // resolved at the raise is one `docs/frontend/spec.md :: I42`'s register can read.
+  // resolved at the raise is one the register can read.
   const raiseOwnTitle = useCallback<RaiseFailure>((shown) => appToast.failure(failureTitle ?? DEFAULT_FAILURE_TITLE, shown), [failureTitle]);
 
   /**
@@ -144,7 +144,7 @@ export function useServerFieldErrors(failureTitle?: string) {
 
   /**
    * A failed press and its announcement, owned here so no call site raises a second toast beside the
-   * one this hook raises for a map nothing renders (`docs/frontend/spec.md :: I344`).
+   * one this hook raises for a map nothing renders.
    */
   const answerFailure = useCallback(
     (failure: ActionFailure, { raise = raiseOwnTitle, evenWhenShown = false }: FailureAnnouncement = {}) => {

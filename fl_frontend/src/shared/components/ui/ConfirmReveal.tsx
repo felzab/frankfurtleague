@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
+
 import { PANEL_REVEAL_CLASSES } from "./motion";
 
 import type { ReactNode } from "react";

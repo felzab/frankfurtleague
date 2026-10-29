@@ -4,26 +4,9 @@ paths:
   - "fl_backend/**/.*"
 ---
 
-# Ratified decisions — the backend surface
+# Traps — the backend surface
 
-`.claude/CLAUDE.md` §7's never-clauses whose only violator is a session inside `fl_backend/`, on
-§7's terms.
-
-- **models** — Give `saison_id` a Pydantic field default
-- **db** — Swallow a failed validator or index; widen one past types and enums
-- **db** — Generate the `$jsonSchema` validators from the models
-- **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
-- **placings** — Recurse the tiebreak chain; seed a placing the group can still change
-- **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
-- **domain** — Generate `app/core/domain.py`
-- **db** — Spell a collection name as a literal; enumerate the field names too
-- **routing** — Answer 422 for a malformed path id, or 404 for a query one
-- **spiele** — Merge the cancellation count into the scoring lookup
-- **tests** — Mark a test `db` for a decision the default tier reaches
-
-## Traps
-
-`.claude/CLAUDE.md` §6's, on §6's terms: each fails silently.
+Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
 - Mark every db-touching test `@pytest.mark.db`; one whose database command comes from a process it
   starts fails nothing when unmarked, `fl_backend/tests/tier.py` watching this process alone.

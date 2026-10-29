@@ -29,10 +29,10 @@ const LOESCHUNG_PATH = "/loeschung";
 
 /**
  * The one place the deletion link is spelled, from the token alone and never the library's own `url`,
- * which deletes on a GET (`docs/frontend/spec.md :: I674`). `token` is the name
+ * which deletes on a GET. `token` is the name
  * `nginx/shared/http.conf :: $credential_free_uri` redacts.
  */
-export function loeschungsLink(origin: string, token: string): string {
+function loeschungsLink(origin: string, token: string): string {
   return `${origin}${LOESCHUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 

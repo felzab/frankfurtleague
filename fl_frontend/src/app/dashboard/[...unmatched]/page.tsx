@@ -9,9 +9,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = NOT_FOUND_METADATA;
 
 // Reached only where every other dashboard route has already refused the address, so a mistyped one
-// answers under the dashboard shell rather than under the visitor's (`docs/frontend/spec.md :: I232`).
+// answers under the dashboard shell rather than under the visitor's.
 export default function DashboardUnmatchedRoute() {
-  // Matching the address is what costs it the 404 status, wherever this call sits
-  // (`docs/frontend/spec.md :: I242`).
+  // Matching the address is what costs it the 404 status, wherever this call sits.
   notFound();
 }

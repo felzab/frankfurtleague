@@ -1,14 +1,12 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
-import type { MailOutcome } from "@/core/mailDouble.ts";
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import type { MailOutcome } from "@/test-support/mailDouble.ts";
 
 /** One line the pass wrote, as the logger was handed it. */
 type Line = { level: string; event: string; fields: unknown };
@@ -22,7 +20,8 @@ const record =
 const LOGGING_DOUBLE = { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } };
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } };
 
-registerDoubles({ modules: { "core/logging.ts": LOGGING_DOUBLE, "core/config.ts": CONFIG_DOUBLE } });
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 
 const OUTBOX_A = "6890a1b2c3d4e5f6071a0001";
 const OUTBOX_B = "6890a1b2c3d4e5f6071a0002";
@@ -110,13 +109,12 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      mail.sent.map(({ to, subject }) => [to, subject]),
-      [["inhaber@schule.de", "Eine Adressänderung wartet auf Deine Genehmigung"]],
-    );
-    assert.doesNotMatch(`${mail.sent[0]?.text}${mail.sent[0]?.html}`, /lena@schule\.de/, "the notice names who started the change");
+    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
+      ["inhaber@schule.de", "Eine Adressänderung wartet auf Deine Genehmigung"],
+    ]);
+    expect(`${mail.sent[0]?.text}${mail.sent[0]?.html}`, "the notice names who started the change").not.toMatch(/lena@schule\.de/);
     assert.ok(mail.sent[0]?.text.includes("http://localhost:3000/bereich/admin/administratoren"), "the notice leads elsewhere");
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   it("stamps an address change's notice that nobody could approve any more, mailing nobody", async () => {
@@ -124,8 +122,8 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent, []);
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(mail.sent).toStrictEqual([]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* Mail, then stamp: stamping first would mark as told a change nobody was told of. */
@@ -134,10 +132,10 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort(), "a holder named twice was mailed twice");
+    expect(mail.sent.map((sent) => sent.to).sort(), "a holder named twice was mailed twice").toStrictEqual([...HOLDERS].sort());
     // The tag the delivery report reads, or a holder the notice missed would be recorded nowhere.
     assert.ok(mail.sent.every((sent) => sent.tags?.["berechtigung"] === "hinweis"));
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* A removed address is in no grant, so it is on no holder list: it is mailed off its own change. */
@@ -146,7 +144,7 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), ["alt@schule.de", ...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual(["alt@schule.de", ...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("alt@schule.de hat keinen Zugang zur Verwaltung mehr.")));
   });
 
@@ -165,12 +163,12 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual([...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung.")));
     assert.ok(mail.sent.every((sent) => sent.text.includes("direkt in der Datenbank")));
     // Told in full: a send attempted to the withheld address fails, and leaves the row for every later pass.
-    assert.deepEqual(lines, []);
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(lines).toStrictEqual([]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   it("mails the holders alone for a revoke of a barred address, and names it to nobody", async () => {
@@ -178,9 +176,9 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual([...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat keinen Zugang zur Verwaltung mehr.")));
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* The erasure's own notice, as a person erasing themselves leaves it: the address and its maker both
@@ -198,7 +196,7 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual([...HOLDERS].sort());
     for (const sent of mail.sent) {
       assert.ok(
         sent.text.includes("Eine nicht genannte Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und hat keinen Zugang mehr."),
@@ -207,7 +205,7 @@ describe("one pass over the claimed changes", () => {
       assert.ok(!sent.text.includes("gesperrt"), "an erased person is told as barred");
       assert.ok(!sent.text.includes(ERASED_ACTOR_MARKER), "the marker reached the notice");
     }
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* The takeover a holder of the database's credentials would make: one grant's address edited from A
@@ -232,15 +230,12 @@ describe("one pass over the claimed changes", () => {
       assert.ok(verlust?.includes(VERLUST), `${an} was not told who lost access`);
       assert.ok(zugang?.includes(ZUGANG), `${an} was not told who gained it`);
     }
-    assert.deepEqual(
-      texte("opfer@schule.de").map((text) => text.includes(VERLUST)),
-      [true],
-    );
+    expect(texte("opfer@schule.de").map((text) => text.includes(VERLUST))).toStrictEqual([true]);
     assert.ok(
       mail.sent.every((sent) => !sent.text.includes("Inhaber")),
       "a repoint was told as a change of tier",
     );
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A, OUTBOX_B] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A, OUTBOX_B] }]);
   });
 
   it("tells an `owner` grant made in the database as the owner's", async () => {
@@ -268,7 +263,7 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual([...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaberin oder Inhaber der Verwaltung.")));
   });
 
@@ -286,7 +281,7 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    expect(mail.sent.map((sent) => sent.to).sort()).toStrictEqual([...HOLDERS].sort());
     for (const { text } of mail.sent) {
       assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang."));
       assert.ok(text.includes("Geändert von inhaber@schule.de"));
@@ -316,8 +311,8 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
     const second = mail.sent.map((sent) => sent.idempotencyKey);
 
-    assert.equal(new Set(first).size, first.length, "two recipients share one key");
-    assert.deepEqual(second, first, "the same row mailed again carries other keys");
+    expect(new Set(first).size, "two recipients share one key").toBe(first.length);
+    expect(second, "the same row mailed again carries other keys").toStrictEqual(first);
     assert.ok(
       first.every((key) => key?.startsWith(`berechtigung_${OUTBOX_A}_`)),
       "a key is not the row's",
@@ -325,33 +320,29 @@ describe("one pass over the claimed changes", () => {
   });
 
   /* A request goes to whoever could approve it: neither every holder, its requester among them, nor the address it is
-     for, which holds no grant (`docs/backend/spec.md :: I856`). */
+     for, which holds no grant. */
   it("mails a request to its own recipients alone, and stamps it", async () => {
     claim = claimOf([aenderung({ art: "beantragt", an: ["inhaber@schule.de"] })]);
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      mail.sent.map((sent) => sent.to),
-      ["inhaber@schule.de"],
-    );
+    expect(mail.sent.map((sent) => sent.to)).toStrictEqual(["inhaber@schule.de"]);
     assert.ok(mail.sent[0]?.text.includes("Für neu@schule.de ist ein Zugang zur Verwaltung beantragt."));
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* A request's end goes to its requester alone, whom the claim names in `an`, under the request's own subject, and
-     names nobody who acted (`docs/backend/spec.md :: I867`). */
+     names nobody who acted. */
   it("mails a request's end to its requester alone, naming the address asked about, and stamps it", async () => {
     claim = claimOf([aenderung({ art: "antrag_abgelehnt", geaendert_von: "anna@schule.de", an: ["anna@schule.de"] })]);
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      mail.sent.map(({ to, subject }) => [to, subject]),
-      [["anna@schule.de", "Antrag auf Zugang zur Verwaltung der Frankfurt League"]],
-    );
+    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
+      ["anna@schule.de", "Antrag auf Zugang zur Verwaltung der Frankfurt League"],
+    ]);
     assert.ok(mail.sent[0]?.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de wurde abgelehnt."));
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   it("words an address change's end of a promotion, a withheld address by its state", async () => {
@@ -375,8 +366,8 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent, []);
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(mail.sent).toStrictEqual([]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 });
 
@@ -393,7 +384,7 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
     assert.ok(
       lines.some(
         (line) =>
@@ -411,17 +402,14 @@ describe("what a pass leaves for the next", () => {
     const lost: MailOutcome = "lost";
     mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
     await runBerechtigungenAbgleich();
-    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
+    expect(stamps(), "a row with a send that may yet land was stamped").toStrictEqual([]);
 
     mail.sent.length = 0;
     mail.answerWith(() => "accepted");
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      mail.sent.map((sent) => sent.to),
-      ["vorstand@schule.de"],
-    );
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(mail.sent.map((sent) => sent.to)).toStrictEqual(["vorstand@schule.de"]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* An erasure committing between two passes withholds the row's address: keyed on the row alone, the later pass's
@@ -450,17 +438,13 @@ describe("what a pass leaves for the next", () => {
     mail.answerWith(wieDerAnbieter(() => "accepted"));
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      mail.sent.map((sent) => sent.to),
-      ["vorstand@schule.de"],
-    );
+    expect(mail.sent.map((sent) => sent.to)).toStrictEqual(["vorstand@schule.de"]);
     assert.ok(mail.sent[0]?.text.includes("Eine nicht genannte Adresse"), "the later pass mailed the body as the first pass read it");
-    assert.deepEqual(
+    expect(
       lines.filter((line) => line.event === "berechtigung.notice_failed"),
-      [],
       "the provider refused the later pass's send",
-    );
-    assert.deepEqual(stamps().at(-1), { beanspruchung: "claim-1", ids: [ROW] }, "the row the recipient was told of stays unstamped");
+    ).toStrictEqual([]);
+    expect(stamps().at(-1), "the row the recipient was told of stays unstamped").toStrictEqual({ beanspruchung: "claim-1", ids: [ROW] });
   });
 
   /* The backend counts a row's claims, so no count of this process's own gives a row up: one that did
@@ -472,8 +456,8 @@ describe("what a pass leaves for the next", () => {
 
     for (let pass = 1; pass <= 30; pass += 1) await runBerechtigungenAbgleich();
 
-    assert.deepEqual(stamps(), [], "the pass gave a row up the backend still hands out");
-    assert.equal(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, 1, "a recipient told once was mailed again");
+    expect(stamps(), "the pass gave a row up the backend still hands out").toStrictEqual([]);
+    expect(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, "a recipient told once was mailed again").toBe(1);
   });
 
   /* A row no pass can finish is claimed every lease for ever: once the claim gives it up it is stamped out
@@ -484,18 +468,17 @@ describe("what a pass leaves for the next", () => {
     const lost: MailOutcome = "lost";
     mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
     await runBerechtigungenAbgleich();
-    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
+    expect(stamps(), "a row with a send that may yet land was stamped").toStrictEqual([]);
 
     mail.sent.length = 0;
     claim = claimOf([aenderung({ id: AUFGEGEBEN, aufgegeben: true })]);
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent, [], "a given-up row was mailed");
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
-    assert.deepEqual(
-      lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields]),
-      [["ERROR", { error_code: "FE-MAIL-011", art: "erteilt", nicht_erreicht: 1 }]],
-    );
+    expect(mail.sent, "a given-up row was mailed").toStrictEqual([]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
+    expect(lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields])).toStrictEqual([
+      ["ERROR", { error_code: "FE-MAIL-011", art: "erteilt", nicht_erreicht: 1 }],
+    ]);
   });
 
   /* A stack that mails nothing counts the change as told, or it would claim the same rows forever; the
@@ -506,11 +489,10 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
-    assert.deepEqual(
-      lines.map((line) => [line.level, line.event, line.fields]),
-      [["ERROR", "berechtigung.notice_failed", { error_code: "FE-MAIL-009", name: "MailRecipientError" }]],
-    );
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(lines.map((line) => [line.level, line.event, line.fields])).toStrictEqual([
+      ["ERROR", "berechtigung.notice_failed", { error_code: "FE-MAIL-009", name: "MailRecipientError" }],
+    ]);
   });
 
   /* A barred address is as told as the league may make it: held for it, the change would be claimed
@@ -521,8 +503,8 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
-    assert.deepEqual(lines, []);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(lines).toStrictEqual([]);
   });
 
   /* A refusal of the key, the domain, the sender or the request refuses every send alike, and the
@@ -533,15 +515,15 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(stamps(), []);
+    expect(stamps()).toStrictEqual([]);
     assert.ok(lines.length > 0 && lines.every((line) => line.level === "ERROR" && line.event === "berechtigung.notice_failed"));
   });
 
   it("stamps nothing and mails nothing where the claim holds no change", async () => {
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(mail.sent, []);
-    assert.deepEqual(stamps(), []);
+    expect(mail.sent).toStrictEqual([]);
+    expect(stamps()).toStrictEqual([]);
   });
 
   /* Nothing awaits a pass, so a throw would surface as an unhandled rejection with no line to read. */
@@ -550,10 +532,9 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
-      [["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }]],
-    );
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
+      ["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }],
+    ]);
   });
 
   /* A refusal of the whole claim and a crash read alike by their name alone: the status and code tell them apart,
@@ -572,15 +553,12 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
       [
-        [
-          "berechtigung.abgleich_failed",
-          { error_code: "FE-SWEEP-002", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
-        ],
+        "berechtigung.abgleich_failed",
+        { error_code: "FE-SWEEP-002", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
       ],
-    );
+    ]);
   });
 
   /* The rows stay held until the lease lapses and are mailed again under the same keys: the pass says so
@@ -592,10 +570,9 @@ describe("what a pass leaves for the next", () => {
     await runBerechtigungenAbgleich();
 
     assert.ok(mail.sent.length > 0, "nothing was mailed, so no stamp was asked for");
-    assert.deepEqual(
-      lines.map((line) => [line.event, line.fields]),
-      [["berechtigung.stempel_failed", { error_code: "FE-SWEEP-002", name: "TypeError" }]],
-    );
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
+      ["berechtigung.stempel_failed", { error_code: "FE-SWEEP-002", name: "TypeError" }],
+    ]);
   });
 
   /* Once for a count that stands, not every five minutes while nobody repairs the row; again once it rises. */
@@ -605,13 +582,10 @@ describe("what a pass leaves for the next", () => {
       await runBerechtigungenAbgleich();
     }
 
-    assert.deepEqual(
-      lines.map((line) => [line.level, line.event, line.fields]),
-      [
-        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }],
-        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 3 }],
-      ],
-    );
+    expect(lines.map((line) => [line.level, line.event, line.fields])).toStrictEqual([
+      ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }],
+      ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 3 }],
+    ]);
   });
 });
 
@@ -629,12 +603,12 @@ describe("two passes asked for at once", () => {
     const third = runBerechtigungenAbgleich();
     await second;
     await third;
-    assert.equal(claims(), 1, "a second pass claimed beside the first");
+    expect(claims(), "a second pass claimed beside the first").toBe(1);
 
     holdClaim = null;
     release();
     await first;
 
-    assert.equal(claims(), 2, "the asks made while the first ran were dropped, or each ran a pass of its own");
+    expect(claims(), "the asks made while the first ran were dropped, or each ran a pass of its own").toBe(2);
   });
 });

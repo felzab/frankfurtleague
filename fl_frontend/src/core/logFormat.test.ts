@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 import { MongoServerError } from "mongodb";
+import { assert, describe, expect, it } from "vitest";
 
 import { formatLogLine } from "./logFormat.ts";
 
@@ -18,13 +16,17 @@ function plain(line: string): string {
   return line.replaceAll(/\x1b\[[0-9;]*m/g, "");
 }
 
+// Looked for whole, never as any "@": a stack frame's path carries one wherever the package store
+// spells a version, as pnpm's `.pnpm/<name>@<version>/` does.
+const ADDRESS = "vorstand@example.org";
+
 /** A duplicate-key refusal as the server words it: the address it met twice is in the message and in `keyValue`. */
 function duplicateAddress(): MongoServerError {
   return new MongoServerError({
-    message: 'E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "vorstand@example.org" }',
+    message: `E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "${ADDRESS}" }`,
     code: 11000,
     codeName: "DuplicateKey",
-    keyValue: { email: "vorstand@example.org" },
+    keyValue: { email: ADDRESS },
   });
 }
 
@@ -34,12 +36,12 @@ describe("formatLogLine json", () => {
 
     const document = JSON.parse(line);
     assert.ok(!line.includes("\n"));
-    assert.equal(document.level, "INFO");
-    assert.equal(document.service, "fl_frontend");
-    assert.equal(document.trace_id, TRACE);
-    assert.equal(document.span_id, SPAN);
-    assert.equal(document.message, "hello");
-    assert.match(document.timestamp, TIMESTAMP_SHAPE);
+    expect(document.level).toBe("INFO");
+    expect(document.service).toBe("fl_frontend");
+    expect(document.trace_id).toBe(TRACE);
+    expect(document.span_id).toBe(SPAN);
+    expect(document.message).toBe("hello");
+    expect(document.timestamp).toMatch(TIMESTAMP_SHAPE);
   });
 
   /* The order is the contract, not an accident of the literal: a reader scanning a container log
@@ -54,7 +56,7 @@ describe("formatLogLine json", () => {
       error: new Error("boom"),
     });
 
-    assert.deepEqual(Object.keys(JSON.parse(line)), [
+    expect(Object.keys(JSON.parse(line))).toStrictEqual([
       "timestamp",
       "level",
       "service",
@@ -71,58 +73,58 @@ describe("formatLogLine json", () => {
   it("carries the SYSTEM sentinel on both ids outside any request", () => {
     const document = JSON.parse(formatLogLine("json", "INFO", "boot"));
 
-    assert.equal(document.trace_id, "SYSTEM");
-    assert.equal(document.span_id, "SYSTEM");
+    expect(document.trace_id).toBe("SYSTEM");
+    expect(document.span_id).toBe("SYSTEM");
   });
 
   it("uses the backend's level vocabulary, WARNING not WARN", () => {
     const document = JSON.parse(formatLogLine("json", "WARNING", "careful"));
 
-    assert.equal(document.level, "WARNING");
+    expect(document.level).toBe("WARNING");
   });
 
   it("carries DEBUG and CRITICAL, the two levels no threshold admits", () => {
-    assert.equal(JSON.parse(formatLogLine("json", "DEBUG", "fill")).level, "DEBUG");
-    assert.equal(JSON.parse(formatLogLine("json", "CRITICAL", "gate")).level, "CRITICAL");
+    expect(JSON.parse(formatLogLine("json", "DEBUG", "fill")).level).toBe("DEBUG");
+    expect(JSON.parse(formatLogLine("json", "CRITICAL", "gate")).level).toBe("CRITICAL");
   });
 
   it("serialises an Error as the shared three-key object", () => {
     const line = formatLogLine("json", "ERROR", "crash", { error: new Error("boom") });
 
     const document = JSON.parse(line);
-    assert.equal(document.error.name, "Error");
-    assert.equal(document.error.message, "boom");
-    assert.equal(typeof document.error.stack, "string");
+    expect(document.error.name).toBe("Error");
+    expect(document.error.message).toBe("boom");
+    expect(typeof document.error.stack).toBe("string");
   });
 
   // Every spine that attaches what it caught reaches this writer, a store error included.
   it("writes a store error as its class and the server's code, and nothing the server quoted", () => {
     const document = JSON.parse(formatLogLine("json", "ERROR", "crash", { error: duplicateAddress() }));
 
-    assert.equal(document.error.name, "MongoServerError");
-    assert.equal(document.error.message, "code 11000 (DuplicateKey)");
-    assert.match(document.error.stack, /^MongoServerError: code 11000 \(DuplicateKey\)\n {4}at /);
-    assert.ok(!JSON.stringify(document).includes("@"), "the line quoted the address the refusal named");
+    expect(document.error.name).toBe("MongoServerError");
+    expect(document.error.message).toBe("code 11000 (DuplicateKey)");
+    expect(document.error.stack).toMatch(/^MongoServerError: code 11000 \(DuplicateKey\)\n {4}at /);
+    expect(JSON.stringify(document), "the line quoted the address the refusal named").not.toContain(ADDRESS);
   });
 
   it("passes structured extras through as fields", () => {
     const document = JSON.parse(formatLogLine("json", "ERROR", "x", { error_code: "FE-RSC-001", digest: "123", route: "/dashboard" }));
 
-    assert.equal(document.error_code, "FE-RSC-001");
-    assert.equal(document.digest, "123");
-    assert.equal(document.route, "/dashboard");
+    expect(document.error_code).toBe("FE-RSC-001");
+    expect(document.digest).toBe("123");
+    expect(document.route).toBe("/dashboard");
   });
 });
 
 describe("formatLogLine console", () => {
   it("opens with the shape both surfaces share, at every level", () => {
     for (const level of ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] as const) {
-      assert.match(plain(formatLogLine("console", level, "hello")), CONSOLE_OPENING);
+      expect(plain(formatLogLine("console", level, "hello"))).toMatch(CONSOLE_OPENING);
     }
   });
 
   it("names the service as the origin where no module and line are given", () => {
-    assert.match(plain(formatLogLine("console", "INFO", "hello")), /^INFO {1,5}\S+ \S+ fl_frontend - hello /);
+    expect(plain(formatLogLine("console", "INFO", "hello"))).toMatch(/^INFO {1,5}\S+ \S+ fl_frontend - hello /);
   });
 
   it("names module and line as the origin where both are given", () => {
@@ -192,8 +194,8 @@ describe("formatLogLine console", () => {
   it("colours the level word and nothing after it", () => {
     const line = formatLogLine("console", "ERROR", "failed");
 
-    assert.match(line, /^\x1b\[\d+mERROR\x1b\[0m {3} /);
-    assert.equal(line.slice(line.indexOf("\x1b[0m") + 4).includes("\x1b["), false);
+    expect(line).toMatch(/^\x1b\[\d+mERROR\x1b\[0m {3} /);
+    expect(line.slice(line.indexOf("\x1b[0m") + 4).includes("\x1b[")).toBe(false);
   });
 
   /* The whole block is shifted rather than each line set to four spaces: a stack frame's own
@@ -201,10 +203,10 @@ describe("formatLogLine console", () => {
   it("puts an error's stack on the following lines, indented four spaces", () => {
     const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: new Error("boom") })).split("\n");
 
-    assert.match(rendered[0] ?? "", CONSOLE_OPENING);
-    assert.match(rendered[1] ?? "", /^ {4}Error: boom$/);
+    expect(rendered[0] ?? "").toMatch(CONSOLE_OPENING);
+    expect(rendered[1] ?? "").toMatch(/^ {4}Error: boom$/);
     assert.ok(rendered.length > 2);
-    for (const stackLine of rendered.slice(2)) assert.match(stackLine, /^ {8}at /);
+    for (const stackLine of rendered.slice(2)) expect(stackLine).toMatch(/^ {8}at /);
   });
 
   // An error carrying no stack is the shape a rejected value takes when it crosses a boundary,
@@ -215,20 +217,20 @@ describe("formatLogLine console", () => {
 
     const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: stackless })).split("\n");
 
-    assert.deepEqual(rendered.slice(1), ["    Error: boom"]);
+    expect(rendered.slice(1)).toStrictEqual(["    Error: boom"]);
   });
 
   it("renders a store error's frames under its class and code, and nothing the server quoted", () => {
     const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: duplicateAddress() })).split("\n");
 
-    assert.equal(rendered[1], "    MongoServerError: code 11000 (DuplicateKey)");
+    expect(rendered[1]).toBe("    MongoServerError: code 11000 (DuplicateKey)");
     assert.ok(rendered.length > 2, "the frames went with the message");
-    assert.ok(!rendered.join("\n").includes("@"), "the line quoted the address the refusal named");
+    expect(rendered.join("\n"), "the line quoted the address the refusal named").not.toContain(ADDRESS);
   });
 
   it("keeps the error off the key=value tail", () => {
     const line = plain(formatLogLine("console", "ERROR", "crash", { error: new Error("boom") }));
 
-    assert.equal(line.split("\n")[0]?.includes("error="), false);
+    expect(line.split("\n")[0]?.includes("error=")).toBe(false);
   });
 });

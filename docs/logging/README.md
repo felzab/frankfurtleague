@@ -1,12 +1,10 @@
 # Logging
 
-**Folder purpose:** how a request is followed across nginx, the frontend and the backend — what a
-log line is on each surface, what an error code means, and how to get from a symptom to the right
-lines.
+**Folder purpose:** how a request is followed across nginx, the frontend and the backend, and what a
+log line is on each surface.
 
 ## Folder overview
 
-| Read                               | For                                                                                          |
-| ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| [`spec.md`](spec.md)               | The trace id, the stream contract, the invariants, and a symptom's remedy                    |
-| [`error-codes.md`](error-codes.md) | Every `error_code` either service emits but a domain rule's, and which reach a response body |
+| Read                         | For                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| [`overview.md`](overview.md) | The three streams, the trace that joins them, and where each log is kept |

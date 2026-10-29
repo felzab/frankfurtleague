@@ -5,21 +5,22 @@ version: 2
 # The governing constraint is noise, not coverage: ungrouped weekly updates across the ecosystems
 # below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
 # would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
-# pull request, because those are the ones that need a changelog read. `github-actions` is weekly,
-# and is the only ecosystem here that is — the reason is written at that ecosystem below.
+# pull request, because those are the ones that need a changelog read. `github-actions`, `docker`
+# and `docker-compose` are weekly, being the three no security update reaches; the reason is written
+# at `github-actions` and `docker` below.
 #
 # Invariants:
-# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule
-#   (`docs/_git/spec.md`, Repository settings); `github-actions`, `docker` and `docker-compose` get
-#   none.
+# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule;
+#   `github-actions`, `docker` and `docker-compose` get none.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`
 #   (`docs/ops/spec.md` §1.1). A security update is exempt from it.
-# - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
+# - Each ecosystem sets a commit prefix, so messages keep `docs/writing.md`'s shape.
 # - No ecosystem below reads an image a script or a test names in a string, so these are kept by
-#   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
+#   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, lychee in
+#   `scripts/gate/verify.sh`, mongo in
 #   `scripts/ops/local.sh`, `fl_backend/tests/conftest.py :: MONGO_IMAGE` and
-#   `fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet`.
+#   `fl_frontend/src/test-support/expiredTransactions.ts :: startJudgedReplicaSet`.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
@@ -58,8 +59,7 @@ updates:
 
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
-  # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it
-  # (`docs/ops/spec.md :: I512`).
+  # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -98,6 +98,19 @@ updates:
       # `fl_backend/app/shared/schemas/custom.py` imports pydantic_core.
       - dependency-name: pydantic-core
 
+  # --- Gate tooling (pip) ---------------------------------------------------------------------
+
+  # zizmor alone: `scripts/gate/verify.sh :: run_zizmor` runs the release this requirements file
+  # pins, so a bump here is what the ops scope runs next, locally and in CI alike.
+  - package-ecosystem: pip
+    directory: /scripts/gate/zizmor
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 1
+    commit-message:
+      prefix: "Repo"
+
   # --- Base images ----------------------------------------------------------------------------
 
   # Both Dockerfiles pin their base image, and the backend's `FROM ghcr.io/astral-sh/uv ... AS uv`
@@ -109,8 +122,7 @@ updates:
   # two together; the compose ecosystem below does the same for every image either stack names.
 
   # It moves the `FROM` line alone, so its pull request for a new Node or uv, or a Python outside
-  # `fl_backend/.python-version`'s series, stays red until the pin moves on the same branch
-  # (`docs/ops/spec.md :: I511`, `:: I657`, `:: I513`).
+  # `fl_backend/.python-version`'s series, stays red until the pin moves on the same branch.
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
   # schedule and its cooldown: weekly, so eight days at worst (`docs/ops/spec.md` §4).
@@ -167,8 +179,8 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # This repository's own published images. `publish.yml` moves those tags, and a bot
-      # proposing to bump either would be proposing a deploy.
+      # This repository's own images, which `.github/workflows/verify.yml`'s publish job pushes. A
+      # bot proposing to bump either would be proposing a deploy.
 
       # Written WITHOUT the `ghcr.io/` the compose files spell, and that is not a typo: a
       # dependency's name in this ecosystem is the image path alone, because the registry is parsed

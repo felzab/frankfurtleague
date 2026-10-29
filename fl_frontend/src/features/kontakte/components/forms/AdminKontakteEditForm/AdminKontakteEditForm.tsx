@@ -165,14 +165,13 @@ export function AdminKontakteEditForm({
   useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
-    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
-    // (`docs/frontend/spec.md :: I255`). The dialog holds the gate's snapshot, which a revalidation cannot move.
+    // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block.
+    // The dialog holds the gate's snapshot, which a revalidation cannot move.
     guardSubmit({ kontakte: buildPayload() }, writeAfterBlock, { banners, confirm: setConfirmingBanners });
   };
 
   const writeAfterBlock = () => {
-    // A save seating, removing or replacing a person mints or voids a link, a step-up write
-    // (`docs/frontend/spec.md :: I432`).
+    // A save seating, removing or replacing a person mints or voids a link, a step-up write.
     stepUp.confirmThen(kontakteMayMoveLinks(storedKontakte, buildPayload().kontakte), () =>
       startSaving(async () => {
         // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
@@ -200,7 +199,7 @@ export function AdminKontakteEditForm({
           // The same value seen as the endpoint's own payload, so what the toast replays is held to the
           // shape the undo action parses.
           const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-          // Judged here and not left to the undo action: backend I36 (`docs/backend/spec.md`) admits a
+          // Judged here and not left to the undo action: the backend admits a
           // malformed address on read, that row is no legal write, and the shared spine can only
           // answer such a body with a reload nothing would change.
           const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);

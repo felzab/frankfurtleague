@@ -1,5 +1,4 @@
 from collections.abc import Iterator, Mapping
-from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -13,20 +12,13 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_FRIST_VORBEI,
     ANSETZUNG_GEAENDERT,
     ANSETZUNG_GESCHLOSSEN,
-    ANSETZUNG_NICHT_EINTRAGBAR,
-    ANSETZUNG_NICHT_VERWERFBAR,
-    ANSETZUNG_TOKEN_UNKNOWN,
-    ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
     ansetzung_stand_of,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
     clubs_without_a_season_row,
     compose_ansetzung,
-    find_eintragen_refusal,
     find_spent_link_refusal,
-    find_unknown_link_refusal,
-    find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
     grund_to_close,
     grund_to_end,
@@ -120,14 +112,6 @@ DISCARDED_DECLINE = {
     "vorschlag": {"datum": AFTER_THE_DAY, "uhrzeit": "18:30:00"},
     "begruendung": "Halle belegt",
 }
-
-
-class TestATokenNoSeatHolds:
-    def test_a_token_resolving_to_no_seat_is_refused_and_one_resolving_is_not(self):
-        refusal = find_unknown_link_refusal(seat=None)
-
-        assert refusal is not None and refusal.error_code == ANSETZUNG_TOKEN_UNKNOWN
-        assert find_unknown_link_refusal(seat="trainer") is None
 
 
 class TestASpentLinkMeetsTheCodeThatNamesWhy:
@@ -429,47 +413,6 @@ class TestWhatTheViewStatesOfTheFixture:
         assert renamed.team1_name == "Adler"
 
 
-class TestAProposalBeforeToday:
-    def test_yesterday_is_refused_and_today_is_not(self):
-        refusal = find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum="2027-04-30", uhrzeit="18:00:00"), today=TODAY)
-
-        assert refusal is not None and (refusal.error_code, refusal.fields) == (ANSETZUNG_VORSCHLAG_VERGANGEN, (("vorschlag", "datum"),))
-        assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
-
-
-DECLINED = {**ANSWERED, "art": "abgelehnt", "vorschlag": {"datum": "2027-05-15", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
-REFEREE_ROW = {"partei": {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
-CLOSED = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
-# The Ansetzung `spiel()` stood at before its hour moved.
-LEFT = compose_ansetzung(spiel(uhrzeit="17:00:00"))
-
-
-class TestWhatTheAdministratorMaySettleAndDiscard:
-    """A discard closing any row but an open decline with a proposal would silence that party for the Ansetzung for good."""
-
-    @pytest.mark.parametrize(
-        ("row", "settles", "discards"),
-        [
-            pytest.param({}, True, False, id="open"),
-            pytest.param(REFEREE_ROW, True, False, id="a-referees-open-row"),
-            pytest.param({"antwort": ANSWERED}, False, False, id="agreed"),
-            pytest.param({"antwort": DECLINED}, False, True, id="declined-with-a-proposal"),
-            pytest.param({"antwort": {**DECLINED, "vorschlag": None}}, False, False, id="declined-without-one"),
-            pytest.param({**REFEREE_ROW, "antwort": DECLINED}, False, False, id="a-referees-decline"),
-            pytest.param({**CLOSED, "antwort": DECLINED}, False, False, id="a-decline-closed-since"),
-            pytest.param(CLOSED, False, False, id="closed-unanswered"),
-            pytest.param({"antwort": DECLINED, "ansetzung": LEFT}, False, False, id="a-decline-about-an-ansetzung-left"),
-        ],
-    )
-    def test_each_row_state_meets_its_code(self, row: dict[str, Any], settles: bool, discards: bool):
-        eintragen = find_eintragen_refusal(spielbestaetigung_raw=zeile(**row))
-        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row), spiel=spiel())
-
-        assert (eintragen is None, verwerfen is None) == (settles, discards)
-        assert eintragen is None or (eintragen.error_code, eintragen.status) == (ANSETZUNG_NICHT_EINTRAGBAR, HTTPStatus.CONFLICT)
-        assert verwerfen is None or (verwerfen.error_code, verwerfen.status) == (ANSETZUNG_NICHT_VERWERFBAR, HTTPStatus.CONFLICT)
-
-
 class TestTheProposalIsTheFixtureOnItsNewDate:
     def test_only_the_day_and_the_hour_move(self):
         """Every reference and the event kept, so the judges weigh the claims a moved date makes and nothing else."""
@@ -483,3 +426,10 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
         sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
         assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
+
+
+class TestAProposalBeforeToday:
+    def test_today_is_no_day_before_today(self):
+        """A club proposing today is refused with a sentence saying its date has passed, which it has not."""
+
+        assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None

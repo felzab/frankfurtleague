@@ -83,7 +83,7 @@ export const formatSpielDisplay = (
  * table counting the fixture as the draw it finished as. The mark is
  * `fl_frontend/src/features/spiele/components/ui/ImElfmeterschiessen.tsx`'s, which speaks it in full.
  */
-export const formatElfmeterschiessen = (elfmeterschiessen: FLSpiel["elfmeterschiessen"]): string | null =>
+const formatElfmeterschiessen = (elfmeterschiessen: FLSpiel["elfmeterschiessen"]): string | null =>
   elfmeterschiessen === null ? null : `${elfmeterschiessen.team1}:${elfmeterschiessen.team2}`;
 
 /**
@@ -290,9 +290,8 @@ const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload |
  * readings of. Every field is listed rather than spread: one missing here is one the editor keeps
  * showing from its seed.
  */
-export const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
-  // No `ergebnis`: the backend derives it from the goals and refuses to accept one
-  // (`docs/backend/spec.md` I3).
+const toPatchPayload = (spiel: FLSpielAdmin): FLPatchSpielDataPayload => ({
+  // No `ergebnis`: the backend derives it from the goals and refuses to accept one.
   spiel_id: spiel.id,
   sonderereignis: spiel.sonderereignis,
   team1: toPayloadSide(spiel.team1),
@@ -487,7 +486,7 @@ const herkunftLabel = (quelle: FLSpielQuelle): string => {
  * number. Only states no further result can fix reach here. Beside a card, use
  * `describeBracketFaultOnCard`.
  */
-export const formatBracketFault = (fault: FLBracketFault): string => {
+const formatBracketFault = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
       return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch so weit reicht diese Gruppe nicht`;
@@ -574,7 +573,7 @@ const bookedRowAtStart = (fault: FLBracketFaultBooking | FLBracketFaultClash): s
  * The same faults for a note beside the fixture: plainer German, naming only what the card does not
  * already show, since it leads with the match number `formatBracketFault` has to spell out.
  */
-export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
+const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
       return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}. So viele Plätze hat diese Gruppe nicht.`;

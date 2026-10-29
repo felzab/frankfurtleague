@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { leserichtungHref, leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "./leserichtung.ts";
 
@@ -29,44 +28,43 @@ function asRoute(href: string): Record<string, string> {
 describe("parseLeserichtung", () => {
   it("keeps the newest end unless the URL asks for the other one", () => {
     for (const params of [{}, { order: "" }, { order: "ASC" }, { order: ["asc"] }, { order: "unsinn" }]) {
-      assert.equal(parseLeserichtung(params), "desc");
+      expect(parseLeserichtung(params)).toBe("desc");
     }
-    assert.equal(parseLeserichtung({ order: "asc" }), "asc");
+    expect(parseLeserichtung({ order: "asc" })).toBe("asc");
   });
 });
 
 describe("umgekehrt", () => {
   it("answers the other end from either one", () => {
-    assert.equal(umgekehrt("desc"), "asc");
-    assert.equal(umgekehrt("asc"), "desc");
+    expect(umgekehrt("desc")).toBe("asc");
+    expect(umgekehrt("asc")).toBe("desc");
   });
 });
 
 describe("leserichtungHref", () => {
   it("writes the oldest end as a parameter of its own", () => {
-    assert.equal(leserichtungHref(new URLSearchParams(), "asc"), "?order=asc");
+    expect(leserichtungHref(new URLSearchParams(), "asc")).toBe("?order=asc");
   });
 
   /* The default end is the ABSENCE of the parameter, so a pasted link carries only what somebody
      chose; a builder writing `order=desc` for it would pass every other case in this file. */
   it("leaves no order behind at all on the way back to the newest end", () => {
-    assert.equal(leserichtungHref(new URLSearchParams("order=asc"), "desc"), "?");
-    assert.equal(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "desc"), "?saison_id=2026");
+    expect(leserichtungHref(new URLSearchParams("order=asc"), "desc")).toBe("?");
+    expect(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "desc")).toBe("?saison_id=2026");
   });
 
   it("rebuilds the parameter rather than appending beside the one already there", () => {
-    assert.equal(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "asc"), "?saison_id=2026&order=asc");
+    expect(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "asc")).toBe("?saison_id=2026&order=asc");
   });
 
   /* A bookmark can still hold a search query, and a reversal built from it would write the typed name
-     into a fresh history entry (`docs/frontend/spec.md :: I680`). */
+     into a fresh history entry. */
   it("leaves an old search query behind", () => {
-    assert.equal(leserichtungHref(new URLSearchParams("q=Lena&status=a"), "asc"), "?status=a&order=asc");
+    expect(leserichtungHref(new URLSearchParams("q=Lena&status=a"), "asc")).toBe("?status=a&order=asc");
   });
 
   it("carries every other parameter across, repeated keys included", () => {
-    assert.equal(
-      leserichtungHref(new URLSearchParams("saison_id=2025&status=a&status=b"), "asc"),
+    expect(leserichtungHref(new URLSearchParams("saison_id=2025&status=a&status=b"), "asc")).toBe(
       "?saison_id=2025&status=a&status=b&order=asc",
     );
   });
@@ -80,9 +78,9 @@ describe("leserichtungHref", () => {
 
       for (const [key, value] of Object.entries(params)) {
         if (key === "order") continue;
-        assert.deepEqual(reversed.getAll(key), Array.isArray(value) ? value : [value], `\`${key}\` was dropped by the reversal`);
+        expect(reversed.getAll(key), `\`${key}\` was dropped by the reversal`).toStrictEqual(Array.isArray(value) ? value : [value]);
       }
-      assert.equal(reversed.get("order"), richtung === "desc" ? "asc" : null);
+      expect(reversed.get("order")).toBe(richtung === "desc" ? "asc" : null);
     }
   });
 
@@ -93,8 +91,8 @@ describe("leserichtungHref", () => {
       const start = parseLeserichtung(params);
       const einmal = leserichtungHref(asSearch(params), umgekehrt(start));
 
-      assert.equal(parseLeserichtung(asRoute(einmal)), umgekehrt(start));
-      assert.equal(parseLeserichtung(asRoute(leserichtungHref(new URLSearchParams(einmal.slice(1)), start))), start);
+      expect(parseLeserichtung(asRoute(einmal))).toBe(umgekehrt(start));
+      expect(parseLeserichtung(asRoute(leserichtungHref(new URLSearchParams(einmal.slice(1)), start)))).toBe(start);
     }
   });
 });
@@ -109,11 +107,11 @@ describe("leserichtungHrefFromRoute", () => {
     const live = asSearch({ saisonbezug: "andere_saison", status: ["eingereicht", "abgelehnt"], order: "asc" });
 
     for (const ziel of ["asc", "desc"] as const) {
-      assert.equal(leserichtungHrefFromRoute(ROUTE, ziel), leserichtungHref(live, ziel));
+      expect(leserichtungHrefFromRoute(ROUTE, ziel)).toBe(leserichtungHref(live, ziel));
     }
   });
 
   it("drops an absent key rather than writing it out as a value", () => {
-    assert.equal(leserichtungHrefFromRoute({ trace_id: undefined }, "asc"), "?order=asc");
+    expect(leserichtungHrefFromRoute({ trace_id: undefined }, "asc")).toBe("?order=asc");
   });
 });

@@ -6,11 +6,9 @@ export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
- * confirmation, so the address on file can still stop it. Exported for the mirror test, which reads its
- * `export const` line.
- * @internal
+ * confirmation, so the address on file can still stop it.
  */
-export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days an ended change's record, holding no address,
@@ -20,11 +18,9 @@ export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a write waits for a second administrator's approval
- * before it lapses, which the notice states for a moved grant and a grant request. Exported for the mirror test, as the
- * waiting time is.
- * @internal
+ * before it lapses, which the notice states for a moved grant and a grant request.
  */
-export const GENEHMIGUNG_TAGE = 7;
+const GENEHMIGUNG_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
@@ -43,14 +39,3 @@ export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];
  * address (`REQ-PURGE-003`), or a grant holder's without an owner's power (`REQ-PURGE-005`).
  */
 export const ADRESSWECHSEL_EINSEHBAR_VERWEHRT = ["eigene", "verwaltung"] as const;
-
-// The zone named rather than taken from the server's clock: the image runs UTC, and a deadline a
-// reader checks against their own evening is stated in the zone they live in.
-const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long", timeStyle: "short" });
-
-/** An instant of a change as every page and mail states it, to the minute: a link open 24 hours lapses mid-day. */
-export function adresswechselZeitpunkt(instant: string | Date): string {
-  const datum = typeof instant === "string" ? new Date(instant) : instant;
-  // `Intl.format` throws on an unreadable instant, which would take a whole page or mail with it.
-  return Number.isNaN(datum.getTime()) ? String(instant) : ZEITPUNKT.format(datum);
-}

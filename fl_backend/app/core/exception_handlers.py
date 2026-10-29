@@ -128,7 +128,7 @@ def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
     """Where each refusal sits and pydantic's machine-readable `type` for it, so a form can mark the field.
 
     Never `msg`, English no visitor reads, and never `input`: the wire carries no value the log
-    itself withholds (`docs/logging/spec.md :: L4`, `:: L9`).
+    itself withholds.
     """
 
     return [_refused_field(error) for error in errors]
@@ -144,7 +144,7 @@ def _refused_field(error: Any) -> dict[str, Any]:
 def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
     """Where each error sits, what kind it is and what it says -- never `input`, the value submitted for it.
 
-    `docs/logging/spec.md :: L9`. A person's erasure clears every collection and reaches no log
+    A person's erasure clears every collection and reaches no log
     sink, so a value written here outlives them.
     """
 
@@ -165,7 +165,7 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
 
 
 # The server's own spelling in `errmsg`; `keyValue` sits right beside it, which is why the whole
-# sentence must never travel (`docs/logging/spec.md :: L9`).
+# sentence must never travel.
 _INDEX_NAME = re.compile(r"index: (\S+) dup key")
 
 
@@ -218,15 +218,14 @@ def refused_codes(response: Mapping[str, Any]) -> set[str]:
 
 
 # A Response Object and never a status-keyed dict: two such dicts unpacked into one `responses` keep
-# the second 409 alone, so a second reason joins this code in one `refusal_response`
-# (`docs/backend/spec.md :: I358`).
+# the second 409 alone, so a second reason joins this code in one `refusal_response`.
 DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE_KEY})
-# Declared as the duplicate key is, and for its reason (`docs/backend/spec.md :: I369`).
+# Declared as the duplicate key is, and for its reason.
 DOCUMENT_NOT_FOUND_RESPONSE: Final = refusal_response(HTTPStatus.NOT_FOUND, {DOCUMENT_NOT_FOUND})
 
 
 def stores_nothing() -> None:
-    """Declared by an operation storing nothing whatever its method, so the published document marks it (`docs/backend/spec.md :: I327`).
+    """Declared by an operation storing nothing whatever its method, so the published document marks it.
 
     The declaration decides no answer here: a deadline's is judged on the writes the request sent.
     """
@@ -247,8 +246,7 @@ def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[
 
 async def db_exception_handler(request: Request, exc: PyMongoError):
     # Judged on what the request SENT, never on its method: a write route the deadline cut in its
-    # actor check has written nothing, and a write outside a transaction carries no label
-    # (`docs/backend/spec.md :: I321`).
+    # actor check has written nothing, and a write outside a transaction carries no label.
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and a_write_may_stand())
     error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
     what = "Database deadline passed" if exc.timeout else "Database crash"

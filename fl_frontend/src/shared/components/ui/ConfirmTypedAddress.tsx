@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { useEffect, useRef, useState } from "react";
 
 import { Input } from "@heroui/react/input";
@@ -33,7 +34,7 @@ const isTheAddress = (typed: string, address: string): boolean => {
 /**
  * The two-press control whose armed press stays closed until `address` is typed into `ConfirmTypedAddress`, which
  * the caller places inside its `ConfirmReveal`. Arming, the double-press window, the step-up and the press refused
- * in flight stay `useTwoPressConfirm`'s (`docs/frontend/spec.md :: I37`).
+ * in flight stay `useTwoPressConfirm`'s.
  */
 export function useTypedAddressConfirm(address: string, { stepUp = false }: { stepUp?: StepUpDemand } = {}) {
   const [value, setValue] = useState("");
@@ -54,7 +55,7 @@ export function useTypedAddressConfirm(address: string, { stepUp = false }: { st
 
   const field: TypedAddressField = { address, value, onChange: setValue };
 
-  // On the press, never a sentence beside it that each keystroke would mount or unmount (`docs/frontend/spec.md` §1.14).
+  // On the press, never a sentence beside it that each keystroke would mount or unmount.
   const reason = twoPress.isConfirming && !matches ? "Gib zuerst die Adresse ein." : null;
 
   return { confirm, field, reason };

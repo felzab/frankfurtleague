@@ -38,8 +38,7 @@ export function mapAlreadyEnteredRefusal(error: unknown): string | null {
  */
 const ENTRY_REASONS = {
   // `REQ-ENTER-001` to `-003` open with the sentence
-  // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too;
-  // `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
+  // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too.
   "REQ-ENTER-001": "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
   "REQ-ENTER-002": "Diese Gruppe gibt es in dieser Saison nicht",
   "REQ-ENTER-003": "Diese Gruppe ist schon voll",
@@ -73,7 +72,7 @@ export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?:
     return { error: buildRefusal({ reason: ENTRY_REASONS["REQ-ENTER-001"], repair: "Nimm das Team in eine geplante Saison auf" }) };
   }
   // Both land under the `gruppe` picker, which is itself the way out, so neither carries a repair
-  // sentence (`docs/frontend/spec.md` §1.12).
+  // sentence.
   if (error.serverErrorCode === "REQ-ENTER-002") {
     return { fieldErrors: { gruppe: `${ENTRY_REASONS["REQ-ENTER-002"]}.` } };
   }

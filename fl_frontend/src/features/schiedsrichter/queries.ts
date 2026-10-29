@@ -58,7 +58,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
  * A token the backend will not parse matches no record, so the page calls the link void rather than
  * offering a reload that cannot succeed.
  */
-export function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
+function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
   if (!isRefusal(error)) return null;
 
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
@@ -116,7 +116,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-SCHIEDSRICHTER-008":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
-    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
       return { error: FASSUNG_NEU_OEFFNEN };
@@ -167,7 +167,7 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
  * The signed-in referee's own records, refused `REQ-FUNKTION-001` where the backend holds no confirmed
  * referee row for the address the page's own check passed.
  */
-// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
   runPersonRead(() =>
     apiClient<FLSchiedsrichterSelbstResponse>("/schiedsrichter/selbst", FLSchiedsrichterSelbstResponseSchema, { authType: "admin" }),

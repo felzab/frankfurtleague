@@ -1,22 +1,21 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import type * as AdminRead from "@/shared/utils/adminRead.ts";
 
-/** The module under test, whose `react` import the server build must answer. */
-const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
-
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
+// administrator's, and only how often it reaches the backend is judged. Doubled where `queries.ts`
+// imports it, so nothing on the path loads the sign-in store.
+vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof AdminRead>()),
+  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
+}));
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ acknowledged: 1, spieltag: {} }));
 
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
+serveServerReact();
 
 const { getAdminSpieltagById } = await import("./queries.ts");
 
@@ -32,7 +31,7 @@ describe("the matchday editor's read across a render pass", () => {
 
     await Promise.all([getAdminSpieltagById("s1"), getAdminSpieltagById("s1"), getAdminSpieltagById("s2")]);
 
-    assert.deepEqual(endpointsSince(before).sort(), ["/spieltage/s1/admin", "/spieltage/s2/admin"]);
+    expect(endpointsSince(before).sort()).toStrictEqual(["/spieltage/s1/admin", "/spieltage/s2/admin"]);
   });
 
   /* 0 would be the cross-request leak `"use cache"` opens on an admin-tier read. */
@@ -45,6 +44,6 @@ describe("the matchday editor's read across a render pass", () => {
     await getAdminSpieltagById("s1");
     await getAdminSpieltagById("s1");
 
-    assert.deepEqual(endpointsSince(before), ["/spieltage/s1/admin"]);
+    expect(endpointsSince(before)).toStrictEqual(["/spieltage/s1/admin"]);
   });
 });

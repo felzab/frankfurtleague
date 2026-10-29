@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
+
 /**
  * The strip both halves of the rail reserve for a scrollbar: only the nav scrolls, and a strip it reserves alone
  * leaves the footer's rows ending a scrollbar's width past the links above.

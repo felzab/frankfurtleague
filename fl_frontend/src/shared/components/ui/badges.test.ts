@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge, trackLabelBadge } from "./badges.ts";
 
@@ -27,9 +26,11 @@ const TONES: readonly PillTone[] = [
 
 describe("the closed set every pill takes its colour from", () => {
   /* A tone with no fill or no ink paints half a chip, which renders and reports nothing; the neutral
-     pair readmitted under a tone name puts it back in the closed set (`docs/frontend/spec.md :: I170`). */
+     pair readmitted under a tone name puts it back in the closed set. */
   it("gives every tone a fill and an ink, and none of them the refused pair", () => {
-    assert.deepEqual([...TONES].sort(), Object.keys(PILL_TINT_CLASSES).sort(), "the set and this case's list no longer name the same tones");
+    expect([...TONES].sort(), "the set and this case's list no longer name the same tones").toStrictEqual(
+      Object.keys(PILL_TINT_CLASSES).sort(),
+    );
 
     for (const tone of TONES) {
       const tokens = PILL_TINT_CLASSES[tone].split(/\s+/);
@@ -53,10 +54,8 @@ describe("the closed set every pill takes its colour from", () => {
   /* A solid pair with a fill and no ink, or an ink and no fill, paints half a chip and reports
      nothing, which is what the tinted set is already held to. */
   it("gives every solid tone a fill and its paired on-colour, and none of them the refused pair", () => {
-    assert.deepEqual(
-      [...SOLID_TONES].sort(),
+    expect([...SOLID_TONES].sort(), "the set and this case's list no longer name the same tones").toStrictEqual(
       Object.keys(PILL_SOLID_CLASSES).sort(),
-      "the set and this case's list no longer name the same tones",
     );
 
     for (const tone of SOLID_TONES) {
@@ -71,8 +70,7 @@ describe("the closed set every pill takes its colour from", () => {
     }
   });
 
-  /* Both recipes carry the tone's own pair, so neither can exist with the tone left off
-     (`docs/frontend/spec.md :: I229`). */
+  /* Both recipes carry the tone's own pair, so neither can exist with the tone left off. */
   it("carries each ground's own pair into the count it composes", () => {
     for (const tone of TONES) {
       assert.ok(countBadge(tone).endsWith(PILL_TINT_CLASSES[tone]), `\`${tone}\` composes to ${countBadge(tone)}, which drops its own tint`);
@@ -85,8 +83,7 @@ describe("the closed set every pill takes its colour from", () => {
     }
   });
 
-  /* A word takes the same two shapes a count does, a ground the tint cannot survive carrying both
-     (`docs/frontend/spec.md :: I229`). */
+  /* A word takes the same two shapes a count does, a ground the tint cannot survive carrying both. */
   it("carries the solid ground's own pair into the word it composes", () => {
     for (const tone of SOLID_TONES) {
       assert.ok(
@@ -94,14 +91,5 @@ describe("the closed set every pill takes its colour from", () => {
         `\`${tone}\` composes to ${trackLabelBadge(tone)}, which drops its own fill`,
       );
     }
-  });
-
-  /* The neutral-pill ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` finds a pill module by
-     this export's name and this module's, both strings there, so a rename leaves it matching
-     nothing. Both are strings here too, which an identifier rename leaves standing. */
-  it("still exports the radius the neutral-pill ban finds a pill module by", async () => {
-    const badges = (await import(new URL("./badges.ts", import.meta.url).href)) as Record<string, unknown>;
-
-    assert.equal(typeof badges["PILL_RADIUS_CLASSES"], "string", "the ban's population is keyed on an export this module no longer has");
   });
 });

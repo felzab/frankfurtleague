@@ -55,8 +55,7 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
               <Card.Content className="py-4 text-center">
                 <p className="mb-1 fluid-xxs font-bold tracking-wider text-foreground-muted uppercase">{stat.label}</p>
                 {/* „15 / 10 / 12“ broken at a slash reads as two figures; the steps above never force a break. */}
-                <p
-                  className={`font-numeric font-extrabold whitespace-nowrap text-foreground tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
+                <p className={`font-numeric font-extrabold whitespace-nowrap text-foreground ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
                   {stat.value}
                 </p>
               </Card.Content>

@@ -10,40 +10,9 @@ paths:
   - "scripts/**/.*"
 ---
 
-# Ratified decisions — the seams between surfaces
+# Traps — the seams between surfaces
 
-`.claude/CLAUDE.md` §7's never-clauses that a session on either side can break, on §7's terms.
-
-- **db** — Add a second direct `MongoClient`
-- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a published ceiling
-- **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
-- **cache** — Add a second invalidation endpoint beside `fl_frontend/src/app/api/revalidate/route.ts`, a tag past its base-tag allowlist, or an edge location forwarding it; fault sub-24h staleness
-- **csp** — Disable `react/no-danger`; add a second enforcing CSP
-- **logging** — Let nginx honour a client's traceparent; log outside the envelope
-- **bracket** — Store the bracket's German label; flag an override beside `quelle`
-- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving its role
-- **table** — Move the league table's default scope off `gruppenphase`
-- **saisons** — Offer in the form wiring the write path refuses
-- **spiele** — Treat `mietpreis` / `payment` as stale copies of the defaults; denormalise season-scoped state into `spiele`
-- **spiele** — Put the shoot-out in `ergebnis`; store its winner; let the table read it
-- **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry run's report
-- **spiele** — Add a POST or a DELETE to `/spiele`
-- **spiele** — Make `ausstehend` a partition, or `computeSpielStatus` a filter
-- **saisons** — Make `inactive_since` a boolean; revive a retired row by creating it
-- **saisons** — Add an austritt boolean beside the record
-- **saisons** — Write `status` outside the activate endpoint; DELETE a season row; drop the rollover guard
-- **spieltage** — Refuse a manual pick as unqualified; field a team twice in a Spieltag
-- **spieltage** — Derive a `Spieltag`'s position rather than reading it; write one outside the draw; store or serve its German label
-- **spieltage** — Add a reorder endpoint for `spieltage`; move the rollover off its page; re-sort its list
-- **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`
-- **swap** — Split the group swap into two writes; relax the move lock to serve it
-- **swap** — Reach the swap's disqualification refusal backwards; refuse a club standing on its own fixture
-- **tests** — Justify a source-text assertion by the runner's inability to render, in its own words or by citing a file that carries that excuse; assert over source text what a render can show
-- **sweeps** — Take a test file's fixtures as the production text a sweep asserts over; decide the test files for one suffix where the walk takes two
-
-## Traps
-
-`.claude/CLAUDE.md` §6's, on §6's terms: it fails silently.
+Each fails silently. The ratified decisions for the seams are in `docs/decisions.md`.
 
 - A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
   and its code; a mapper in the feature slice words it for the save, and where the replayed
@@ -51,6 +20,6 @@ paths:
   reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
   code either path leaves unmapped falls through, at any status, to the shared fallback in
   `fl_frontend/src/shared/utils/actionError.ts`, which names no reason, and on a save sends the admin
-  to a retry the same rule refuses again. Each slice's test asks its mapper about every refusal code
-  `fl_backend/openapi.json` publishes on that endpoint (`fl_frontend/src/shared/testing/publishedRefusals.ts`),
-  and `fl_frontend/src/app/refusalCoverage.test.ts` fails for a published code its table's mapper leaves unworded.
+  to a retry the same rule refuses again. A slice's test asks its mapper about every refusal code
+  `fl_backend/openapi.json` publishes on that endpoint, through
+  `fl_frontend/src/test-support/publishedRefusals.ts`.

@@ -1,25 +1,19 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
+import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
+import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
-import { assertRedactedAtTheEdge } from "@/core/edgeRedaction.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import { einladungsLink } from "./einladungLink.ts";
 
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-registerDoubles({
-  modules: {
-    "core/config.ts": { frontend_config: { AUTH_URL: ORIGIN } },
-  },
-});
+vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN } }));
 
 /* The real actions, their mutations and the fan-out they hand each message to, called: the request they
    run in, the backend client, the reads and the mailer are the doubles. */
@@ -74,13 +68,13 @@ function mailedTexts(): string[] {
 
 describe("the invite link the mail carries", () => {
   it("puts the token on the origin it was handed, under the registration page's path", () => {
-    assert.equal(einladungsLink(ORIGIN, "beispiel-eins"), `${ORIGIN}/registrierung?token=beispiel-eins`);
+    expect(einladungsLink(ORIGIN, "beispiel-eins")).toBe(`${ORIGIN}/registrierung?token=beispiel-eins`);
   });
 
   /* A token is a credential the backend compares byte for byte, and an unencoded `&` or `#` in one
      would end the parameter early and hand the page a token nothing matches. */
   it("percent-encodes the token, so nothing inside it can end the parameter", () => {
-    assert.equal(einladungsLink(ORIGIN, "a b&c=d?e/f#g"), `${ORIGIN}/registrierung?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
+    expect(einladungsLink(ORIGIN, "a b&c=d?e/f#g")).toBe(`${ORIGIN}/registrierung?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
   });
 
   it("names a parameter the edge's own redaction map replaces", () => {
@@ -89,7 +83,7 @@ describe("the invite link the mail carries", () => {
 });
 
 /* A link built on the published origin sends a reader of the local stack into production, and the
-   two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
+   two origins are separate settings. */
 describe("the origin each press mints its invite link on", () => {
   it("is the configured one on the link the mint hands the panel", async () => {
     answerTheWrite(() =>
@@ -106,7 +100,7 @@ describe("the origin each press mints its invite link on", () => {
 
     const result = await postEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID });
 
-    assert.equal(result.success ? result.link : result.error, `${ORIGIN}/registrierung?token=token-mint`);
+    expect(result.success ? result.link : result.error).toBe(`${ORIGIN}/registrierung?token=token-mint`);
   });
 
   it("is the configured one in the message the single press mails", async () => {
@@ -114,7 +108,7 @@ describe("the origin each press mints its invite link on", () => {
 
     const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
 
-    assert.equal(result.success, true, "the press mailed nothing, so the origin below is judged on nothing");
+    expect(result.success, "the press mailed nothing, so the origin below is judged on nothing").toBe(true);
     assert.ok(
       mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-mail`)),
       "the mailed link is minted on an origin this run was not configured with",
@@ -145,7 +139,7 @@ describe("the origin each press mints its invite link on", () => {
 
     const result = await postEinladungVersandAction({ id: SAISON_ID, erneut: false });
 
-    assert.equal(result.success, true, "the press mailed nothing, so the origin below is judged on nothing");
+    expect(result.success, "the press mailed nothing, so the origin below is judged on nothing").toBe(true);
     assert.ok(
       mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-versand`)),
       "the mailed link is minted on an origin this run was not configured with",
@@ -163,7 +157,7 @@ describe("the single press's write", () => {
 
     const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
 
-    assert.equal(result.success, true, "the press mailed nothing, so its write is judged on nothing");
-    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "a press whose writes were its message left the panel standing");
+    expect(result.success, "the press mailed nothing, so its write is judged on nothing").toBe(true);
+    expect(cacheCalls, "a press whose writes were its message left the panel standing").toStrictEqual([{ name: "refresh", args: [] }]);
   });
 });

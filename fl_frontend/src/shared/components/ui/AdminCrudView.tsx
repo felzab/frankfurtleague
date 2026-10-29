@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
 import { useCallback, useMemo, useState } from "react";
 
 import { useFacetSelection } from "../../hooks/useFacetSelection";

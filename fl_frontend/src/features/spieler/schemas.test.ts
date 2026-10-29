@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants.ts";
 
@@ -36,12 +35,12 @@ describe("a consent record whose evidence is filled, as a read serves it", () =>
   // Equal rather than merely parsed: an object schema drops a key it does not declare, which would
   // lose the grant a withdrawal names and still parse.
   it("keeps a granted choice's act and a withdrawn choice's act with the grant it ended", () => {
-    assert.deepEqual(FLEinwilligungSchema.parse(SERVED_EINWILLIGUNG), SERVED_EINWILLIGUNG);
+    expect(FLEinwilligungSchema.parse(SERVED_EINWILLIGUNG)).toStrictEqual(SERVED_EINWILLIGUNG);
   });
 
   it("keeps the instants a read serves as the press's precondition, and sends them back unchanged", () => {
-    assert.deepEqual(FLEinwilligungStandSchema.parse(SERVED_STAND), SERVED_STAND);
-    assert.deepEqual(FLEinwilligungStandPayloadSchema.parse(SERVED_STAND), SERVED_STAND);
+    expect(FLEinwilligungStandSchema.parse(SERVED_STAND)).toStrictEqual(SERVED_STAND);
+    expect(FLEinwilligungStandPayloadSchema.parse(SERVED_STAND)).toStrictEqual(SERVED_STAND);
   });
 });
 
@@ -53,13 +52,13 @@ describe("the floor a read of a player states", () => {
   const echo = { acknowledged: 1, spieler_id: "0".repeat(24), vorname: "Anna", nachname: "Mustermann", inactive_since: null };
 
   it("takes the two null names the gate serves for a withheld person", () => {
-    assert.equal(FLSpielerPublicSchema.safeParse(publik).success, true);
-    assert.equal(FLSpielerPublicSchema.safeParse({ ...publik, vorname: null, nachname: null }).success, true);
+    expect(FLSpielerPublicSchema.safeParse(publik).success).toBe(true);
+    expect(FLSpielerPublicSchema.safeParse({ ...publik, vorname: null, nachname: null }).success).toBe(true);
   });
 
   it("takes an empty first name on the admin echo, whose model states no floor", () => {
-    assert.equal(FLSpielerAdminSingleResponseSchema.safeParse(echo).success, true);
-    assert.equal(FLSpielerAdminSingleResponseSchema.safeParse({ ...echo, vorname: "" }).success, true);
+    expect(FLSpielerAdminSingleResponseSchema.safeParse(echo).success).toBe(true);
+    expect(FLSpielerAdminSingleResponseSchema.safeParse({ ...echo, vorname: "" }).success).toBe(true);
   });
 });
 
@@ -69,7 +68,7 @@ describe("the squad row a visitor's page receives", () => {
   it("drops a record id the answer carries", () => {
     const served = FLSpielerPublicSchema.parse({ id: "0".repeat(24), vorname: null, nachname: null, nummer: "7", position: "Tor" });
 
-    assert.equal("id" in served, false);
+    expect("id" in served).toBe(false);
   });
 });
 
@@ -82,15 +81,12 @@ describe("the ceiling a person edit holds each name to", () => {
     it(`refuses a ${part} one past the registration's ceiling, in that ceiling's words`, () => {
       const parsed = FLPatchSpielerPayloadSchema.safeParse({ ...names, [part]: "A".repeat(KONTAKT_NAME_MAX_LENGTH + 1) });
 
-      assert.equal(parsed.success, false);
-      assert.deepEqual(
-        parsed.error?.issues.map(({ path, message }) => [path.join("."), message]),
-        [[part, KONTAKT_NAME_ZU_LANG]],
-      );
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues.map(({ path, message }) => [path.join("."), message])).toStrictEqual([[part, KONTAKT_NAME_ZU_LANG]]);
     });
 
     it(`takes a ${part} at the ceiling`, () => {
-      assert.equal(FLPatchSpielerPayloadSchema.safeParse({ ...names, [part]: "A".repeat(KONTAKT_NAME_MAX_LENGTH) }).success, true);
+      expect(FLPatchSpielerPayloadSchema.safeParse({ ...names, [part]: "A".repeat(KONTAKT_NAME_MAX_LENGTH) }).success).toBe(true);
     });
   }
 });

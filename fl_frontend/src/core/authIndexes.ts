@@ -20,7 +20,7 @@ type AuthIndex = {
 
 /**
  * One index per query the library and this application send, derived from the flows
- * `fl_frontend/src/core/authIndexes.db.test.ts` drives with table scans refused (`docs/frontend/spec.md :: I499`).
+ * `fl_frontend/src/core/authIndexes.db.test.ts` drives with table scans refused.
  * The library declares none of them at table level, so its adapter builds none.
  */
 const AUTH_INDEXES: readonly AuthIndex[] = [
@@ -54,7 +54,7 @@ let rebuildArmed = false;
 /**
  * One collection's builds in order and the collections side by side: MongoDB documents nothing about
  * two builds racing on one collection. Never rejects, so the boot's unawaited call leaves no rejection
- * unhandled (`docs/frontend/spec.md :: I498`).
+ * unhandled.
  */
 export function buildAuthIndexes(): Promise<void> {
   running = running.then(buildOnce);
@@ -81,7 +81,7 @@ async function buildOnce(): Promise<void> {
 }
 
 /**
- * The client reconnects on its own once the store answers (`docs/frontend/spec.md :: I364`), and the
+ * The client reconnects on its own once the store answers, and the
  * build runs again on the first topology holding a writable server, rather than waiting for the next boot.
  */
 function rebuildOnRecovery(): void {

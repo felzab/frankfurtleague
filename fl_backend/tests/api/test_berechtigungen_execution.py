@@ -180,7 +180,7 @@ async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
         writes_sent_var.reset(sent_token)
 
 
-# Who approves a grant each administrator asks for, as four eyes require (`docs/backend/spec.md :: I848`): the first
+# Who approves a grant each administrator asks for, as four eyes require: the first
 # colleague holding a grant since before the request.
 APPROVER = {ANNA: BERND, BERND: ANNA, OWNER: BERND}
 
@@ -419,7 +419,7 @@ class TestWhatAGrantStoresAndQueues:
         }
 
     def test_a_grant_and_a_revoke_made_here_each_queue_their_notice_as_they_happened(self, mongo_replica_set_url: str):
-        """Revoked before any pass ran, the grant is announced all the same, its outbox row written with it (`docs/backend/spec.md :: I451`)."""
+        """Revoked before any pass ran, the grant is announced all the same, its outbox row written with it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
             await told(database, client)
@@ -451,7 +451,7 @@ class TestWhatAGrantStoresAndQueues:
 
 
 class TestTheOutboxMovesWithItsChange:
-    """`docs/backend/spec.md :: I451`: a notice written outside its change's transaction survives the change's abort."""
+    """A notice written outside its change's transaction survives the change's abort."""
 
     @pytest.mark.parametrize("grants", [pytest.param([OWNER_ONLY], id="made alone"), pytest.param(None, id="made by its approval")])
     def test_a_grant_that_aborts_after_its_notice_leaves_neither(self, mongo_replica_set_url: str, grants: list[Any] | None):
@@ -587,7 +587,7 @@ class TestTheListServesLiveGrantsAlone:
         ]
 
     def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
-        """The actor field takes the same withholding as the address, flagged as the address is (`docs/backend/spec.md :: I452`)."""
+        """The actor field takes the same withholding as the address, flagged as the address is."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None, bool]]:
             await grant(database, client, als=BERND)
@@ -622,7 +622,7 @@ class TestASecondGrantOfOneAddress:
         assert on_a_league(mongo_replica_set_url, lambda database, client: refusal_of(grant(database, client, OWNER))) == BERECHTIGUNG_VORHANDEN
 
     def test_a_dead_spelling_of_the_address_blocks_nothing(self, mongo_replica_set_url: str):
-        """The unfolded row admits nobody, so the grant is made beside it rather than refused over it (`docs/backend/spec.md :: I453`)."""
+        """The unfolded row admits nobody, so the grant is made beside it rather than refused over it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await grant(database, client)
@@ -827,7 +827,7 @@ class TestAnOwnerChangesATier:
 
 
 class TestTheLastOwner:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I479`)."""
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner."""
 
     def test_the_only_owner_neither_steps_down_nor_is_demoted(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
@@ -1057,7 +1057,7 @@ class TestTheAnchorClosesEachRace:
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
     def test_two_claims_of_one_notice_count_it_once(self, mongo_replica_set_url: str):
-        """A claim retried after it met a rival's lands nothing, so the row's count moved once (`docs/backend/spec.md :: I480`)."""
+        """A claim retried after it met a rival's lands nothing, so the row's count moved once."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, int, list[int]]:
             await told(database, client)
@@ -1194,7 +1194,7 @@ class TestTheClaim:
     def test_the_bookkeeping_leaves_the_log_no_address(self, mongo_replica_set_url: str):
         """Granted and revoked here, removed in the database, then claimed and stamped: the bookkeeping's log rows name ids alone.
 
-        Each removal of it is reached: the revoke's and the claim's of an announced row, and the stamp's (`docs/backend/spec.md :: I465`).
+        Each removal of it is reached: the revoke's and the claim's of an announced row, and the stamp's.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
@@ -1227,7 +1227,7 @@ class TestTheClaim:
         assert on_a_league(mongo_replica_set_url, body) == {"system"}
 
     def test_a_barred_address_the_paste_granted_is_answered_nowhere(self, mongo_replica_set_url: str):
-        """The one route to a granted, barred address, since each write refuses the other (`docs/backend/spec.md :: I452`)."""
+        """The one route to a granted, barred address, since each write refuses the other."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[str | None, bool]], list[str]]:
             await told(database, client)
@@ -1294,7 +1294,7 @@ class TestTheClaim:
         assert NEU not in answer.model_dump_json()
 
     def test_a_ban_withholds_the_address_past_one_page_of_queued_notices(self, mongo_replica_set_url: str):
-        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I462`)."""
+        """More notices name the address than one read returns, and none keeps it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
             await told(database, client)
@@ -1428,10 +1428,7 @@ class TestTheClaim:
         assert later == []
 
     def test_an_erased_holders_notices_are_answered_as_erased_and_never_as_barred(self, mongo_replica_set_url: str):
-        """Her grant's end withheld under `geloescht`, the grant she made by the marker: no flag says barred.
-
-        The served contract is `docs/backend/spec.md :: I661`.
-        """
+        """Her grant's end withheld under `geloescht`, the grant she made by the marker: no flag says barred."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], str]:
             await told(database, client)
@@ -1496,7 +1493,7 @@ LATER = NOW + timedelta(hours=2)
 class TestWhatTheComparisonStampsOnAGrant:
     """`gefunden_am`: when a grant the comparison found took effect.
 
-    A paste's `erteilt_am` cannot say, being whatever was typed (`docs/backend/spec.md :: I525`).
+    A paste's `erteilt_am` cannot say, being whatever was typed.
     """
 
     def test_every_grant_a_pass_finds_is_stamped_with_its_clock_and_a_grant_made_here_with_nothing(self, mongo_replica_set_url: str):
@@ -1551,7 +1548,7 @@ class TestWhatTheComparisonStampsOnAGrant:
     def test_a_promotion_is_stamped_by_the_tier_change_that_made_it_or_the_pass_that_found_it_and_an_owner_row_found_new_is_not(
         self, mongo_replica_set_url: str
     ):
-        """`ernannt_am`: an owner found new is dated by its `gefunden_am` alone (`docs/backend/spec.md :: I534`)."""
+        """`ernannt_am`: an owner found new is dated by its `gefunden_am` alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
             await told(database, client)
@@ -1567,7 +1564,7 @@ class TestWhatTheComparisonStampsOnAGrant:
 
 
 class TestWhatMarksARowSeen:
-    """`gesehen_am`: once a row's record is gone, what tells an edit since from a paste (`docs/backend/spec.md :: I529`)."""
+    """`gesehen_am`: once a row's record is gone, what tells an edit since from a paste."""
 
     def test_every_row_a_pass_reads_is_marked_once_a_dead_one_included(self, mongo_replica_set_url: str):
         """The dead row is no grant and queues nothing, and is the row a later fold in place makes live."""
@@ -1707,7 +1704,7 @@ class TestTheMountedRouteReadsTheGrants:
     def test_a_session_signed_in_before_a_grant_made_here_administers_nothing(
         self, mongo_replica_set_url: str, granted_s_ago: int, status: int, error_code: str | None
     ):
-        """A passkey session a minute old, and the grant the application made either side of it (`docs/backend/spec.md :: I526`)."""
+        """A passkey session a minute old, and the grant the application made either side of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
             await grant(database, client, now=since(granted_s_ago))
@@ -1892,7 +1889,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert beansprucht_bis.endswith("Z")
 
     def test_a_barred_grant_holder_is_no_administrator(self, mongo_replica_set_url: str):
-        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I463`)."""
+        """A barred holder holds no floor, so it acts on nothing either."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
@@ -1917,7 +1914,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == 200
 
     def test_the_lookup_admits_a_live_row_and_no_dead_one_of_the_same_equality(self, mongo_replica_set_url: str):
-        """A folded row the address rule refuses equals its own header and still admits nobody (`docs/backend/spec.md :: I453`)."""
+        """A folded row the address rule refuses equals its own header and still admits nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[datetime | None]:
             grant_since = get_grant_lookup(

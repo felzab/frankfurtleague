@@ -1,21 +1,18 @@
-"""SCRIPTS · every image this repository does not build is named by tag and digest (`docs/ops/spec.md` §1.1).
+"""SCRIPTS · every image this repository does not build is pinned by tag and digest, and every tool CI and the images share is one version.
 
-A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
+`docs/ops/spec.md` §1.1. A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
 else reads the pin form: a reference losing its digest in a hand edit, or a service added without
-one, builds and deploys as before, from an image no pull request reviewed.
+one, builds and deploys as before, from an image no pull request reviewed. Dependabot moves each
+file's pin on its own, so a bump of one ships a version no test ran on.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
-import subprocess
-import sys
-import textwrap
 from pathlib import Path
 from typing import Final
-
-from test_check_gate_budget import job_bodies
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 DOCKERFILES: Final = (REPO_ROOT / "fl_frontend" / "Dockerfile", REPO_ROOT / "fl_backend" / "Dockerfile")
@@ -31,7 +28,7 @@ COPY_FROM_RE: Final = re.compile(r"^[ \t]*COPY(?:[ \t]+--\S+)*?[ \t]+--from=(\S+
 RUN_MOUNT_RE: Final = re.compile(r"^[ \t]*RUN((?:[ \t]+--\S+)+)", re.MULTILINE | re.IGNORECASE)
 # A name, a tag, and the registry's digest for it: the tag for the bot to compare, the digest for the pull.
 PINNED_RE: Final = re.compile(r"^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$")
-# This repository's own images, which `publish.yml` re-tags and `deploy.sh` pulls by `:latest`.
+# This repository's own images, which the compose files name by `:latest` for `deploy.sh` to pull.
 OWN_IMAGE_RE: Final = re.compile(r"^ghcr\.io/felzab/frankfurtleague-(?:frontend|backend):latest$")
 # The local stack's override clearing an image the production file names.
 CLEARED: Final = "!reset null"
@@ -245,25 +242,6 @@ def test_the_scripts_run_mongo_only_where_the_dump_s_image_is_read() -> None:
     assert {path for path, _ in images} == {"scripts/ops/local.sh"}, f"scripts name mongo at {images}"
 
 
-# The db job's pull step reads the pin itself and sits behind `continue-on-error`, so a pin moved
-# out of its reader's shape leaves it printing an annotation and pulling nothing, with the job green.
-PULL_STEP: Final = "      - name: Pull the mongod image the db tier starts\n"
-
-
-def test_the_db_job_s_pull_step_reads_the_backend_tier_s_pin() -> None:
-    """The step's own script, lifted out of the workflow and run over the real conftest."""
-    body = job_bodies((REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8"))["db"]
-    assert body.count(PULL_STEP) == 1, "the db job holds no single pull step by this name"
-    step = body.split(PULL_STEP, 1)[1]
-    script = textwrap.dedent(step.split("python3 -c '", 1)[1].split("' fl_backend/tests/conftest.py", 1)[0])
-    conftest = REPO_ROOT / "fl_backend" / "tests" / "conftest.py"
-    done = subprocess.run([sys.executable, "-c", script, str(conftest)], capture_output=True, text=True, check=False)
-    _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
-
-    assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == pin, f"the pull step read {done.stdout.strip()!r}, where the conftest pins {pin}"
-
-
 # The builder's whole-context COPY leaves out what `deps` installed from, whose check fails a patch
 # newer than the install. The failure needs a cache-hit `deps` layer, which only CI meets.
 FRONTEND_DOCKERFILE: Final = REPO_ROOT / "fl_frontend" / "Dockerfile"
@@ -289,3 +267,59 @@ def test_the_builder_leaves_out_every_path_the_deps_stage_installed_from() -> No
     excluded = {token.removeprefix(EXCLUDE) for token in context[0] if token.startswith(EXCLUDE)}
 
     assert excluded == installed, f"deps installs from {sorted(installed)}; the builder excludes {sorted(excluded)}"
+
+
+# --- one version of each tool across CI and the images ---------------------------------------------
+
+BACKEND_TOOLCHAIN: Final = REPO_ROOT / ".github" / "actions" / "backend-toolchain" / "action.yml"
+FRONTEND_MANIFEST: Final = REPO_ROOT / "fl_frontend" / "package.json"
+FRONTEND_LOCKFILE: Final = REPO_ROOT / "fl_frontend" / "pnpm-lock.yaml"
+PYTHON_VERSION_FILE: Final = REPO_ROOT / "fl_backend" / ".python-version"
+
+
+def _from_tags(dockerfile: Path, image: str) -> list[str]:
+    """Every tag a FROM line gives `image` in one Dockerfile, the digest and any variant aside."""
+    return [
+        found.split("@", 1)[0].split(":", 1)[1].split("-", 1)[0]
+        for found, _ in FROM_RE.findall(dockerfile.read_text(encoding="utf-8"))
+        if found.startswith(f"{image}:")
+    ]
+
+
+def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
+    """The setup-uv step's `version` and the image's uv stage: fl_backend's `required-version` is a range both must sit inside."""
+    pinned = re.findall(r'^\s+version: "([^"]+)"$', BACKEND_TOOLCHAIN.read_text(encoding="utf-8"), re.MULTILINE)
+    tags = _from_tags(DOCKERFILES[1], "ghcr.io/astral-sh/uv")
+    assert len(pinned) == 1 and tags, f"read setup-uv {pinned} and the image's uv {tags}, where the case reads one of each"
+    assert set(tags) == set(pinned), f"CI installs uv {pinned[0]} and fl_backend/Dockerfile copies in {tags}"
+
+
+def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_release() -> None:
+    """The image's Node is the release pnpm installs for the checkout and CI: `devEngines` names one exact release, the lockfile records it."""
+    runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
+    # `pnpm/setup` installs from the manifest alone, so a range there resolves afresh on every CI run.
+    exact = re.fullmatch(r"\d+\.\d+\.\d+", runtime["version"])
+    resolved = set(re.findall(r"^  node@runtime:(\S+?):?$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
+    tags = _from_tags(DOCKERFILES[0], "node")
+    assert runtime["name"] == "node" and exact and resolved and tags, (
+        f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}, where the case reads one exact release of each"
+    )
+    assert set(tags) == {runtime["version"]} == resolved, (
+        f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
+    )
+
+
+def test_the_frontend_image_installs_the_pnpm_the_manifest_names() -> None:
+    """A lockfile written by one pnpm and installed in the image by another."""
+    manager = json.loads(FRONTEND_MANIFEST.read_bytes())["packageManager"].removeprefix("pnpm@").split("+", 1)[0]
+    args = re.findall(r"^ARG PNPM_VERSION=(\S+)$", DOCKERFILES[0].read_text(encoding="utf-8"), re.MULTILINE)
+    assert args == [manager], f"package.json names pnpm {manager} and fl_frontend/Dockerfile installs {args}"
+
+
+def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
+    """Every CI job's interpreter comes from the file, production's from the image's tag."""
+    series = PYTHON_VERSION_FILE.read_text(encoding="utf-8").strip()
+    tags = _from_tags(DOCKERFILES[1], "python")
+    assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), (
+        f"{series} in fl_backend/.python-version, {tags} in the image"
+    )

@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import Clock from "@gravity-ui/icons/Clock";
 
-import { adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { formatZeitpunkt } from "@/core/format";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { ANTRAG_WAS, BEANTRAGT_LABEL, GESTELLT_AM_LABEL, GESTELLT_VON_LABEL, OFFEN_BIS_LABEL } from "@/features/berechtigungen/constants";
@@ -25,7 +25,7 @@ function Fakt({ label, children, numeric = false }: { label: string; children: R
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className={FACT_LABEL_CLASSES}>{label}</span>
-      <p className={`fluid-sm font-medium break-words text-foreground ${numeric ? "font-numeric tabular-nums" : ""}`}>{children}</p>
+      <p className={`fluid-sm font-medium break-words text-foreground ${numeric ? "font-numeric" : ""}`}>{children}</p>
     </div>
   );
 }
@@ -36,7 +36,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
 }: {
   antraege: readonly FLBerechtigungAntragZeile[];
 }) {
-  // No empty section on every visit: once the last is decided, the page's own heading takes the focus (`docs/frontend/spec.md :: I536`).
+  // No empty section on every visit: once the last is decided, the page's own heading takes the focus.
   if (antraege.length === 0) return null;
 
   return (
@@ -51,7 +51,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
       </h2>
       <ul className="flex w-full flex-col gap-3">
         {antraege.map((antrag) => {
-          const gestelltAm = adresswechselZeitpunkt(antrag.angefragt_am);
+          const gestelltAm = formatZeitpunkt(antrag.angefragt_am);
           // What each control's name tells the row apart by: the address, or the request's moment where it is withheld.
           const zeile = antrag.adresse ?? `Antrag vom ${gestelltAm}`;
           return (
@@ -82,7 +82,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
                 <Fakt
                   label={OFFEN_BIS_LABEL}
                   numeric>
-                  {adresswechselZeitpunkt(antrag.bis)}
+                  {formatZeitpunkt(antrag.bis)}
                 </Fakt>
                 <Fakt label={GESTELLT_VON_LABEL}>
                   <VonOderGesperrt

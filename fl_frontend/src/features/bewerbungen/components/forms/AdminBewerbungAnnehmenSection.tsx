@@ -230,8 +230,7 @@ export function AdminBewerbungAnnehmenSection({
 
             <div className="flex w-full flex-col gap-y-2">
               <ConfirmActionRow confirm={twoPress}>
-                {/* On the control, never a sentence beside it that a pick would unmount
-                    (`docs/frontend/spec.md` §1.14). */}
+                {/* On the control, never a sentence beside it that a pick would unmount. */}
                 <ConfirmPressButton
                   confirm={twoPress}
                   reason={grund}
@@ -249,7 +248,7 @@ export function AdminBewerbungAnnehmenSection({
               </ConfirmActionRow>
 
               {/* A plain sentence, not an inline hint needing a control to point at it: the wrapper covers
-                  the control (`docs/frontend/spec.md` §1.14). It stands beside the press because the
+                  the control. It stands beside the press because the
                   page's own read raises it, and no pick here does. */}
               {hindernis !== null && <p className="muted-hint">{hindernis}</p>}
             </div>

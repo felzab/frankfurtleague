@@ -1,8 +1,8 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOut } from "@/features/auth/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
+import { signOut } from "@/shared/utils/signOut";
 
 import { ADMIN_SHELL_FALLBACK, ADMIN_SHELL_UNLISTED_SECTIONS, ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
 
@@ -26,7 +26,6 @@ export function AdminShell({
   return (
     <AppShell
       structure={ADMIN_SIDEMENU_STRUCTURE}
-      // eslint-disable-next-line local/admin-link -- the sidemenu's link prefix; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds
       linkPrefix="/bereich/admin"
       keepsSaisonQuery
       iconDictionary={ADMIN_SIDEMENU_ICONS}

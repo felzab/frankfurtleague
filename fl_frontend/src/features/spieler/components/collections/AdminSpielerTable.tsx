@@ -94,12 +94,11 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       {/* An absence and not an exit: a person with no squad row this season takes the label tone,
           where „ausgetragen“ beside it grades a row that was in the Kader and came out. */}
       {spieler.selected === null && <span className={labelBadge("info")}>Nicht im Kader</span>}
-      {/* The widest pill the identity column seats, with no slack at the narrowest table width
-          (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`): a word added here lands on
+      {/* The widest pill the identity column seats, with no slack at the narrowest table width: a word added here lands on
           the Position cell. */}
       {spieler.selected?.inactive_since != null && (
         <span className={labelBadge("warning")}>
-          Ausgetragen&nbsp;<span className="font-numeric tabular-nums">{formatSpielDatum(spieler.selected.inactive_since)}</span>
+          Ausgetragen&nbsp;<span className="font-numeric">{formatSpielDatum(spieler.selected.inactive_since)}</span>
         </span>
       )}
       {spieler.inactive_since === null && spieler.selected !== null && spieler.selected.inactive_since === null && (
@@ -179,7 +178,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     <span
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
-      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
+      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
@@ -189,7 +188,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
   /**
    * The club's NAME is the way to its editor, keyed on the id: a squad row can name a club the season
-   * does not hold, and a link never carries a search query (`docs/frontend/spec.md :: I680`).
+   * does not hold, and a link never carries a search query.
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
@@ -255,8 +254,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         className="hidden w-full md:block"
         {...focusSection("spieler-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
-          {/* Never scrolled at a width this table renders at
-              (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform
+          {/* Never scrolled at a width this table renders at. It stays for a platform
               scrollbar wider than the step allows for and for text zoom, where a clipped column would
               hide a cell a bar reaches. */}
           <Table.ScrollContainer>
@@ -277,8 +275,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                     „Position / Stufe“ heading is wider than the two of them together. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-28`}>Position</Table.Column>
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-20`}>Stufe</Table.Column>
-                {/* Three controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-                holds the arithmetic, and it is the count a new action changes. */}
+                {/* Three controls — it is the count a new action changes. */}
                 <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-48 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 

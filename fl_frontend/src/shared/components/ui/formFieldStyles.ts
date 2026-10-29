@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/fieldStyles` replaces it.
+
 /**
  * The one form-label appearance: `fluid-xs` over a `fluid-sm` input, so the value stays dominant.
  * The sign-in form's uppercase-tracked label is that page's own style rather than this constant.
@@ -45,7 +47,7 @@ export const FIELD_COUNT_INPUT_CLASSES = "w-full fluid-sm";
 const INDICATOR_CLEARANCE_CLASSES = "pe-9";
 
 /**
- * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here** (I61 in `docs/frontend/spec.md`), and both
+ * For `Autocomplete.Trigger` and `Select.Trigger`. **No `gap-x-*` here**, and both
  * structures are vendored — re-read `autocomplete.js` and `select.js` on an upgrade.
  */
 export const FIELD_TRIGGER_CLASSES = `${FIELD_INPUT_CLASSES} ${INDICATOR_CLEARANCE_CLASSES}`;
@@ -70,7 +72,7 @@ export const TAB_TRACK_CLASSES = "rounded-xl border border-border bg-muted";
  * `rounded-lg` matches `TAB_ITEM_CLASSES`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`.
  *
  * **The ring says which tab is selected**: the fill does not flip and its track does, measuring
- * 1.24:1 in the dark theme (`scripts/checks/docs_gate/scheme.py :: PAIRS`).
+ * 1.24:1 in the dark theme.
  */
 export const TAB_INDICATOR_CLASSES = "rounded-lg bg-brand-solid shadow-sm ring-1 ring-brand";
 

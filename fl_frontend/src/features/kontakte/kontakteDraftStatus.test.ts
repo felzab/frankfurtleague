@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import { eingetragenVonLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { deriveKontakteDraftStatus, kontaktSeatPaths } from "./kontakteDraftStatus";
 
@@ -38,16 +37,15 @@ describe("deriveKontakteDraftStatus", () => {
     const stored = block();
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.fields.length, 7);
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    assert.equal(
-      status.byPath.get("kontakte.trainer.einwilligung")?.draftText,
+    expect(status.isDirty).toBe(false);
+    expect(status.fields.length).toBe(7);
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe("Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
+    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
       `${eingetragenVonLabel("bewerbung")}, Fassung 2025-08 (ab 01.09.2025)`,
     );
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
-    assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, trainerZugleichLabel(null));
+    expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText).toBe(trainerZugleichLabel(null));
   });
 
   /* The rows are unconditional: keyed on `kontakte` itself, every row reporting the loss would be
@@ -55,8 +53,8 @@ describe("deriveKontakteDraftStatus", () => {
   it("reports the block gone as a change on every row that held something", () => {
     const status = deriveKontakteDraftStatus({ stored: block(), draft: EMPTY, fieldErrors: {} });
 
-    assert.equal(status.isDirty, true);
-    assert.deepEqual(status.changed.map((field) => field.path).sort(), [
+    expect(status.isDirty).toBe(true);
+    expect(status.changed.map((field) => field.path).sort()).toStrictEqual([
       "kontakte.ansprechperson",
       "kontakte.ansprechperson.einwilligung",
       "kontakte.stellvertretung",
@@ -66,8 +64,8 @@ describe("deriveKontakteDraftStatus", () => {
       "kontakte.trainer_ist_zugleich",
     ]);
     // `draftText: null` is what makes the change list render each of these as a removal.
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
-    assert.equal(status.byPath.get("kontakte.trainer")?.storedText?.startsWith("Erika Mustermann"), true);
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(null);
+    expect(status.byPath.get("kontakte.trainer")?.storedText?.startsWith("Erika Mustermann")).toBe(true);
   });
 
   /* Why a row is never keyed on the seat it reports: keyed on the person, both rows reporting the
@@ -77,28 +75,28 @@ describe("deriveKontakteDraftStatus", () => {
     const status = deriveKontakteDraftStatus({ stored: block(), draft: block({ trainer: null }), fieldErrors: {} });
 
     // Dirty on the seat alone is what makes the emptying saveable without a second edit beside it.
-    assert.equal(status.isDirty, true);
-    assert.deepEqual(status.changed.map((field) => field.path).sort(), ["kontakte.trainer", "kontakte.trainer.einwilligung"]);
+    expect(status.isDirty).toBe(true);
+    expect(status.changed.map((field) => field.path).sort()).toStrictEqual(["kontakte.trainer", "kontakte.trainer.einwilligung"]);
     // The row survives its own value going, and `draftText: null` is what renders it as a removal.
-    assert.equal(status.fields.length, 7);
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
-    assert.equal(status.byPath.get("kontakte.ansprechperson")?.isChanged, false);
+    expect(status.fields.length).toBe(7);
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(null);
+    expect(status.byPath.get("kontakte.ansprechperson")?.isChanged).toBe(false);
   });
 
   it("keeps a row for a seat that was already empty, reading it as nothing", () => {
     const stored = block({ trainer: null });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    assert.equal(status.fields.length, 7);
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
+    expect(status.fields.length).toBe(7);
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(null);
   });
 
   it("keeps every row while the club records nobody at all, so entering somebody is a change", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: EMPTY, fieldErrors: {} });
 
-    assert.equal(status.isDirty, false);
-    assert.equal(status.fields.length, 7);
-    assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, null);
+    expect(status.isDirty).toBe(false);
+    expect(status.fields.length).toBe(7);
+    expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText).toBe(null);
   });
 
   /* The editor opens a block of empty seats as no block at all, and a claim is all the two can still
@@ -112,14 +110,13 @@ describe("deriveKontakteDraftStatus", () => {
     ] as const) {
       const status = deriveKontakteDraftStatus({ stored, draft, fieldErrors: {} });
 
-      assert.equal(status.isDirty, false, "nobody on file in one shape reads as a change from the other");
-      assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.storedText, null);
+      expect(status.isDirty, "nobody on file in one shape reads as a change from the other").toBe(false);
+      expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.storedText).toBe(null);
     }
     // The control: the same claim over somebody is still read, so the silence above is not the row going dark.
-    assert.equal(
+    expect(
       deriveKontakteDraftStatus({ stored: block({ trainer_ist_zugleich: "ansprechperson" }), draft: block(), fieldErrors: {} }).isDirty,
-      true,
-    );
+    ).toBe(true);
   });
 
   it("finds a contact error under the seat that holds the field", () => {
@@ -129,19 +126,15 @@ describe("deriveKontakteDraftStatus", () => {
       fieldErrors: { "kontakte.trainer.email": "Bitte gib eine gültige E-Mail-Adresse ein." },
     });
 
-    assert.equal(status.byPath.get("kontakte.trainer")?.error, "Bitte gib eine gültige E-Mail-Adresse ein.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["kontakte.trainer"],
-    );
+    expect(status.byPath.get("kontakte.trainer")?.error).toBe("Bitte gib eine gültige E-Mail-Adresse ein.");
+    expect(status.invalid.map((field) => field.path)).toStrictEqual(["kontakte.trainer"]);
   });
 
   it("names who seated the person where the record says", () => {
     const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, eingetragen_von: "bewerbung" } }) });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
-    assert.equal(
-      status.byPath.get("kontakte.trainer.einwilligung")?.draftText,
+    expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
       "Mit der Bewerbung eingetragen, Fassung 2025-08 (ab 01.09.2025)",
     );
   });
@@ -159,10 +152,10 @@ describe("deriveKontakteDraftStatus", () => {
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
-    assert.equal(row?.error, "Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
+    expect(row?.error).toBe("Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
     // Both fallbacks render rather than hiding: they are the mid-edit states the schema rejects on
     // save, and the change list is where the admin sees what is still missing.
-    assert.equal(row?.draftText, "Fassung nicht hinterlegt (Datum nicht hinterlegt)");
+    expect(row?.draftText).toBe("Fassung nicht hinterlegt (Datum nicht hinterlegt)");
   });
 
   /* A seat holds a person once anybody is recorded in it, and a name is one of the fields that
@@ -172,11 +165,10 @@ describe("deriveKontakteDraftStatus", () => {
     const nameless = person({ vorname: "", nachname: "" });
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: nameless }), fieldErrors: {} });
 
-    assert.equal(
-      status.byPath.get("kontakte.trainer")?.draftText,
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(
       "Name nicht hinterlegt, erika@beispiel.de, 069 1234567, geboren am 01.01.1990",
     );
-    assert.equal(status.byPath.get("kontakte.trainer")?.isChanged, true);
+    expect(status.byPath.get("kontakte.trainer")?.isChanged).toBe(true);
   });
 
   /* The date is the person's to enter when they confirm: until then the line says whose step it is,
@@ -189,7 +181,7 @@ describe("deriveKontakteDraftStatus", () => {
       const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, bestaetigt_am: bestaetigtAm } });
       const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
 
-      assert.equal(status.byPath.get("kontakte.trainer")?.draftText, `Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);
+      expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(`Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);
     });
   }
 
@@ -198,24 +190,21 @@ describe("deriveKontakteDraftStatus", () => {
   it("keeps `null` for the seat nobody is recorded in", () => {
     const status = deriveKontakteDraftStatus({ stored: block(), draft: block({ trainer: null }), fieldErrors: {} });
 
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, null);
+    expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(null);
   });
 
   it("groups each seat's two rows under the seat, and the claim on its own", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block(), fieldErrors: {} });
 
-    assert.deepEqual(
-      status.fields.map((field) => [field.group, field.label]),
-      [
-        ["Ansprechperson", "Person"],
-        ["Ansprechperson", "Kenntnisnahme"],
-        ["Stellvertretung", "Person"],
-        ["Stellvertretung", "Kenntnisnahme"],
-        ["Trainer", "Person"],
-        ["Trainer", "Kenntnisnahme"],
-        ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
-      ],
-    );
+    expect(status.fields.map((field) => [field.group, field.label])).toStrictEqual([
+      ["Ansprechperson", "Person"],
+      ["Ansprechperson", "Kenntnisnahme"],
+      ["Stellvertretung", "Person"],
+      ["Stellvertretung", "Kenntnisnahme"],
+      ["Trainer", "Person"],
+      ["Trainer", "Kenntnisnahme"],
+      ["Kontakte", TRAINER_ZUGLEICH_FRAGE],
+    ]);
   });
 
   /* The rail and the editor's panels both map `KONTAKT_ROLLEN`; a rail keeping its own sequence
@@ -224,11 +213,7 @@ describe("deriveKontakteDraftStatus", () => {
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block(), fieldErrors: {} });
     const seatsOf = [...new Set(status.fields.map((field) => field.group))].filter((gruppe) => gruppe !== "Kontakte");
 
-    assert.deepEqual(
-      seatsOf,
-      KONTAKT_ROLLEN.map(({ label }) => label),
-      "the rail reads the seats in an order the panels do not",
-    );
+    expect(seatsOf, "the rail reads the seats in an order the panels do not").toStrictEqual(KONTAKT_ROLLEN.map(({ label }) => label));
   });
 });
 
@@ -260,14 +245,14 @@ describe("kontaktSeatPaths", () => {
      — a message pointing at a box that is no longer rendered. */
   it("covers every path the seat's rows report under, and no other", () => {
     for (const { value: rolle } of KONTAKT_ROLLEN) {
-      assert.deepEqual([...kontaktSeatPaths(rolle)].sort(), judgedPaths(rolle).sort(), `the list and the rows disagree about ${rolle}`);
+      expect([...kontaktSeatPaths(rolle)].sort(), `the list and the rows disagree about ${rolle}`).toStrictEqual(judgedPaths(rolle).sort());
     }
   });
 
   /* The floor under the case above: a filter matching nothing would make both sides empty and the
      comparison would hold over a helper that clears nothing at all. */
   it("names the confirmation's own paths beside the person's", () => {
-    assert.deepEqual([...kontaktSeatPaths("trainer")].sort(), [
+    expect([...kontaktSeatPaths("trainer")].sort()).toStrictEqual([
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
       "kontakte.trainer.einwilligung.datum",

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/useEditor` replaces it.
 import { createContext, useContext } from "react";
 
 import { fieldStatus } from "@/shared/utils/draftStatus";

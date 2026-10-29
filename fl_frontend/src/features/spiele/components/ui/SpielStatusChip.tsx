@@ -24,7 +24,7 @@ const STATUS_TINT: Record<SpielChipStatus, PillTone> = {
   vergangen: "success",
   heute: "info",
   ausstehend: "warning",
-  // The tone of `ausstehend`, the one state it replaces: no tone is neutral (`docs/frontend/spec.md :: I170`).
+  // The tone of `ausstehend`, the one state it replaces: no tone is neutral.
   vorlaeufig: "warning",
   // An undated fixture is a state to leave, as a season with no Spielplan is, and not a kind of
   // fixture: the season cannot be played until somebody dates it.
@@ -79,8 +79,7 @@ const STATUS_LABELS: Record<SpielChipStatus, string> = { ...SPIEL_STATUS_LABELS,
  * and wherever the Ansetzung shown is not the stored one the verdict is about.
  */
 export function SpielStatusChip({ spielStatus, ansetzungBestaetigt }: { spielStatus: FLSpielStatus; ansetzungBestaetigt: boolean | null }) {
-  // The scheduling state wins from match day on: a row minted last week is still open on the day
-  // (`docs/frontend/spec.md :: I764`).
+  // The scheduling state wins from match day on: a row minted last week is still open on the day.
   const chipStatus: SpielChipStatus = spielStatus === "ausstehend" && ansetzungBestaetigt === false ? "vorlaeufig" : spielStatus;
 
   return (

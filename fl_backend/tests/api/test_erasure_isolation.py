@@ -3,7 +3,7 @@ API · a record written for an address while that address's erasure runs, agains
 
 The erasure reads what an address holds once, in its transaction's snapshot, and a writer committing a record for
 that address after the read writes no document the erasure writes: with nothing written by both, both commit and
-the record outlives the erasure that answered it gone (`docs/backend/spec.md :: I53`). Each case runs one writer to
+the record outlives the erasure that answered it gone. Each case runs one writer to
 its commit inside the erasure, after the erasure's first read, and asks the whole database what holds the address
 once the erasure has answered.
 """
@@ -195,7 +195,7 @@ async def a_grant(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
 
 
 async def a_request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """A grant of the address asked for where colleagues could approve it, so it waits as a request (`docs/backend/spec.md :: I848`)."""
+    """A grant of the address asked for where colleagues could approve it, so it waits as a request."""
 
     await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
 
@@ -418,7 +418,7 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
 
 class TestARecordWrittenInsideTheErasureGoesWithIt:
-    """`docs/backend/spec.md :: I719`: the writer and the erasure both write the address's anchor, so the one committing second runs again."""
+    """The writer and the erasure both write the address's anchor, so the one committing second runs again."""
 
     @pytest.mark.parametrize("writer", list(WRITERS))
     def test_the_erasure_answers_the_record_and_nothing_holds_the_address(self, mongo_replica_set_url: str, writer: str):
@@ -480,7 +480,7 @@ async def a_seat_holder_with_a_registration_to_decide(database: AsyncDatabase) -
 
 
 class TestAPersonsOwnWriteInsideTheirErasureGoesWithIt:
-    """`docs/backend/spec.md :: I719`: the person's judge anchors their address after a write, as the administrator's anchors the grant."""
+    """The person's judge anchors their address after a write, as the administrator's anchors the grant."""
 
     def test_the_decline_keeps_neither_their_address_nor_their_pseudonym(self, mongo_replica_set_url: str):
         """Remove the anchor in `app/core/security.py :: person_judge` and the decision keeps the address in plain, the log the pseudonym."""
@@ -508,7 +508,7 @@ class TestAPersonsOwnWriteInsideTheirErasureGoesWithIt:
 
 
 class TestAnAdministratorsOwnWriteInsideTheirErasureGoesWithIt:
-    """Held by the administrator's judge, which anchors the actor's grant (`docs/backend/spec.md :: I450`) the erasure removes."""
+    """Held by the administrator's judge, which anchors the actor's grant the erasure removes."""
 
     def test_the_log_row_they_wrote_names_them_no_more(self, mongo_replica_set_url: str):
         """Remove the anchor in `app/core/security.py :: admin_judge` and the venue's log row keeps the erased administrator's address."""
@@ -630,7 +630,7 @@ KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
 
 class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
-    """`docs/backend/spec.md :: I732`: nothing anchors a kept seat, the row being what the erasure writes.
+    """Nothing anchors a kept seat, the row being what the erasure writes.
 
     So a write leaving the row unchanged, which writes nothing the erasure writes, files no log row either.
     """

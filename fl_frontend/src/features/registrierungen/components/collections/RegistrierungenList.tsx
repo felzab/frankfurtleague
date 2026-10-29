@@ -65,7 +65,7 @@ export function RegistrierungenList({ registrierungen, adresse }: { registrierun
 }
 
 /**
- * One row's card. Its own component so each card holds its own armed state (`docs/frontend/spec.md :: I37`):
+ * One row's card. Its own component so each card holds its own armed state:
  * one state shared across the list would leave a second card one press from a decision armed on the first.
  */
 function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffeneRegistrierung; adresse: Adresse }) {
@@ -136,7 +136,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
       {...focusRow(registrierung.registrierung_id)}>
       <div className={IDENTITY_ROW_CLASSES}>
         <span
-          className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
+          className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
             registrierung.nummer === null ? "bg-muted/50" : "bg-muted text-foreground"
           }`}>
           {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}

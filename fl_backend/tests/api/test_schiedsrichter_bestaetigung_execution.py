@@ -152,7 +152,7 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            # The ban re-judges its actor's grant inside its transaction.
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document())
             seeded = [referee_document()] if referees is None else referees
@@ -1073,7 +1073,7 @@ class TestALinkToABarredAddress:
 
 
 class TestTheViewOfALinkToABarredAddress:
-    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred referee the form."""
+    """The page reads the ban off the view, so it never offers a barred referee the form."""
 
     def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

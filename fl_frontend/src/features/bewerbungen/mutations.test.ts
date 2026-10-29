@@ -1,9 +1,7 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { doubleApiClient, requestsOf } from "@/test-support/apiClientDouble.ts";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import { doubleApiClient, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-
-import type { SentApiRequest } from "@/shared/testing/apiClientDouble.ts";
+import type { SentApiRequest } from "@/test-support/apiClientDouble.ts";
 
 /* What these cases read is what each mutation asks the client for, never what it answers. */
 const sent = doubleApiClient(() => ({ acknowledged: 1 }));
@@ -31,13 +29,13 @@ describe("how each triage endpoint is addressed", () => {
   it("posts the acceptance to its own endpoint, the id in the path and out of the body", async () => {
     await annehmenBewerbung({ id: ID, gruppe: "A", trikot_farbe: null });
 
-    assert.deepEqual(lastSent(), { endpoint: `/bewerbungen/${ID}/annehmen`, method: "POST", body: { gruppe: "A", trikot_farbe: null } });
+    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/annehmen`, method: "POST", body: { gruppe: "A", trikot_farbe: null } });
   });
 
   it("posts the decline to its own endpoint, the id in the path and out of the body", async () => {
     await ablehnenBewerbung({ id: ID, grund: "Die Liga ist voll." });
 
-    assert.deepEqual(lastSent(), { endpoint: `/bewerbungen/${ID}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } });
+    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } });
   });
 });
 
@@ -45,13 +43,13 @@ describe("how each contact repair is addressed", () => {
   it("posts the re-send with the seat in the path and no body", async () => {
     await erneutSendenEinwilligung({ id: ID, rolle: "trainer" });
 
-    assert.deepEqual(lastSent(), { endpoint: `/bewerbungen/${ID}/einwilligung/trainer/erneut`, method: "POST", body: undefined });
+    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/einwilligung/trainer/erneut`, method: "POST", body: undefined });
   });
 
   it("posts the correction with the seat in the path, and the address and the one the page showed in the body", async () => {
     await korrigierenKontaktEmail({ id: ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: "anna@example.de" });
 
-    assert.deepEqual(lastSent(), {
+    expect(lastSent()).toStrictEqual({
       endpoint: `/bewerbungen/${ID}/kontakte/ansprechperson/email`,
       method: "POST",
       body: { email: "anna.neu@example.de", bisherige_email: "anna@example.de" },
@@ -71,6 +69,6 @@ describe("how each contact repair is addressed", () => {
 
     await besetzenKontaktSitz({ id: ID, rolle: "stellvertretung", ...person });
 
-    assert.deepEqual(lastSent(), { endpoint: `/bewerbungen/${ID}/kontakte/stellvertretung`, method: "POST", body: person });
+    expect(lastSent()).toStrictEqual({ endpoint: `/bewerbungen/${ID}/kontakte/stellvertretung`, method: "POST", body: person });
   });
 });

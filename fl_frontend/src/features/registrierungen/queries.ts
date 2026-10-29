@@ -20,8 +20,7 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  */
 export const getOffeneRegistrierungen = cache(
   async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> => {
-    // Optional as published, though the page always sends one end: `fl_frontend/src/core/apiRequests.test.ts`
-    // refuses a parameter the request requires where the server omits it.
+    // Optional as published, though the page always sends one end.
     const filters: { order?: Leserichtung } = { order: order };
 
     return runPersonRead(() =>

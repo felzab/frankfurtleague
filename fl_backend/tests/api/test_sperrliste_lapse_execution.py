@@ -87,7 +87,7 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            # The ban re-judges its actor's grant inside its transaction.
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seasons:
                 await database[Collection.SAISONS].insert_many(seasons)
@@ -168,7 +168,7 @@ class TestTheSeasonTheBanIsCountedFrom:
         assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
 
     def test_a_league_holding_only_ended_seasons_answers_nothing(self, mongo_replica_set_url: str):
-        """A status set by hand, the rollover promoting in the transaction that demotes (`docs/backend/spec.md :: I18`).
+        """A status set by hand, the rollover promoting in the transaction that demotes.
 
         The newest ended season sorts first, so a helper guessing it answers `ENTERED_UNDER` here.
         """

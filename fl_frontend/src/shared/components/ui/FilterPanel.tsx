@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/Filters` replaces it.
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";
@@ -155,8 +156,7 @@ function FacetCell<TItem>({
               <span className="min-w-0 truncate">{option.label}</span>
               <span className={`${countBadge("brandSolid")} shrink-0`}>{count}</span>
               {/* The second carrier of a picked row: its tint sits under 3:1 on the ground in both themes,
-                  and under the keyboard the hover fill replaces the tint outright
-                  (`docs/frontend/spec.md :: I231`). */}
+                  and under the keyboard the hover fill replaces the tint outright. */}
               <ListBox.ItemIndicator className="text-brand" />
             </ListBox.Item>
           );
@@ -188,15 +188,7 @@ type FilterPanelContent<TItem> = {
  * The scroller and its cells, for a host that brings its own dialog and width — `FilterPanel` is a `Popover.Dialog`, so a host
  * that is already one would nest a second dialog inside the first.
  */
-export function FilterPanelBody<TItem>({
-  facets,
-  shown = facets,
-  items,
-  facetCounts,
-  selection,
-  onSelect,
-  onClear,
-}: FilterPanelContent<TItem>) {
+function FilterPanelBody<TItem>({ facets, shown = facets, items, facetCounts, selection, onSelect, onClear }: FilterPanelContent<TItem>) {
   return (
     <div className="scrollbar-line max-h-[70dvh] overflow-x-hidden overflow-y-auto p-3">
       {/* No `items-start`: the default cross-axis stretch equalises each line's cells, and it is per line. */}

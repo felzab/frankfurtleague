@@ -66,13 +66,12 @@ async def _pull_the_season_a_ban_counts_from(
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
-    # a list already swept (`docs/backend/spec.md :: I273`).
+    # a list already swept.
     massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
     refuse(find_keine_saison_refusal(massgebliche_saison_id=massgebliche_saison_id))
 
     # The rollover demotes this season, and its sweep cannot see a row inserted after its snapshot:
-    # without this write both commit, and a bound the sweep never judged stands past its season
-    # (`docs/backend/spec.md :: I274`).
+    # without this write both commit, and a bound the sweep never judged stands past its season.
     await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": massgebliche_saison_id},
@@ -154,7 +153,7 @@ async def post_sperrliste_eintrag(
         """Ask the grants, read the season, ask the list, then write. Each takes this transaction's session, so a retry re-runs all four."""
 
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
-        # same rows, so one of the two retries and meets the other's refusal (`docs/backend/spec.md :: I53`).
+        # same rows, so one of the two retries and meets the other's refusal.
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         refuse(
             find_verwaltung_refusal(
@@ -170,7 +169,7 @@ async def post_sperrliste_eintrag(
         refuse(find_sperrliste_refusal(gesperrt=gesperrt))
 
         # Through the reveal's own selections, so the names refused are those the ban form listed, and in this
-        # transaction, as the erasure judges its request (`docs/backend/spec.md :: I726`).
+        # transaction, as the erasure judges its request.
         identifier = sign_in_identifier(str(sperrliste_data.email))
         subject = await resolve_subject(
             identifier,
@@ -207,7 +206,7 @@ async def post_sperrliste_eintrag(
         }
 
         # Every notice still queued loses the address in this transaction, so neither the outbox nor a
-        # later stamp's log image holds it in plain (`docs/backend/spec.md :: I462`).
+        # later stamp's log image holds it in plain.
         await withhold_in_the_outbox(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             adresse=identifier,
@@ -218,8 +217,7 @@ async def post_sperrliste_eintrag(
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         return await post_one_to_db(collection=sperrliste_collection, document=document, session=session), gesperrt_bis_saison_id
 
-    # Whatever field the anchor's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the anchor's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)
@@ -251,7 +249,7 @@ async def delete_sperrliste_eintrag(
 
     **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
     administrator who entered it, and no address of the person it barred — for the twelve months
-    `docs/backend/spec.md :: I119` gives every log row. The lifted ban is therefore readable
+    the rule gives every log row. The lifted ban is therefore readable
     at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
     """
 

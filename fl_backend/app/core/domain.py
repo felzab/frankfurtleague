@@ -226,7 +226,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "that may since have been deleted. A row surviving its subject is the point where that subject is a "
             "fixture or a season. Where it is a PERSON the surviving row is instead the leak, which is why every "
             "write destroying a person's values reaches in here and redacts them in place rather than dropping "
-            "the row -- the enumeration of those writes is `docs/backend/spec.md :: I42`'s, not this note's."
+            "the row -- the enumeration of those writes is the rule's, not this note's."
         ),
     ),
     Aggregate(
@@ -239,15 +239,15 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "which stays true however either person is recorded afterwards -- so it is in no boundary with `spieler`, "
             "with an application, or with whatever a later sign-up writes, and it carries no reference to any of them. "
             "That independence is what lets the row outlive the erasure of the person it bars and of the administrator "
-            "it names (`docs/backend/spec.md :: I268`), where a member of either person's own boundary would have to go "
+            "it names, where a member of either person's own boundary would have to go "
             "with them. What bounds it instead is the league's own calendar: `gesperrt_bis_saison_id` names the last "
-            "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
-            "the row rather than deleting it, so the bound is outlived by no log image either "
-            "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
+            "season the ban covers, and the activation that runs past it ERASES "
+            "the row rather than deleting it, so the bound is outlived by no log image either. "
+            "Anonymous it is not: `erstellt_von` is that "
             "administrator's address in plain and `grund` is free text, refused a name the address's records hold as "
-            "stored (`docs/backend/spec.md :: I726`) and so naming the person barred only spelled otherwise or where no "
+            "stored and so naming the person barred only spelled otherwise or where no "
             "record names them, both served -- "
-            "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
+            "`erstellt_von` withheld where the ban list holds that administrator too -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
     ),
@@ -290,18 +290,17 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
-            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant, "
+            "both committing. The announced record and the outbox join it because a grant, "
             "a revoke or a tier change made here moves all three in one transaction: the change, the record accounting for it, and the "
-            "notice announcing it, so the comparison finds only what the database was edited to (`docs/backend/spec.md :: "
-            "I451`). A row names an address rather than a person record, as a ban does, so it is in no boundary with "
+            "notice announcing it, so the comparison finds only what the database was edited to. "
+            "A row names an address rather than a person record, as a ban does, so it is in no boundary with "
             "`spieler`, a seat or a referee. The ban list is held apart by refusal in both directions rather than by "
             "membership, each write reading the other collection inside its own transaction. A grant is always "
             "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
             "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
             "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
             "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
-            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
-            "(`docs/backend/spec.md :: I848`)."
+            "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit."
         ),
     ),
     Aggregate(
@@ -315,7 +314,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "attempt none more. Its key names the "
             "day, so a new day is a new row rather than a reset, and the TTL index removes it once that day has ended. It "
             "names the person by the action log's pseudonym and never an address, so the person's erasure removes every "
-            "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
+            "count of theirs, whatever its day, in its own transaction."
         ),
     ),
     Aggregate(
@@ -325,8 +324,8 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "One folded address's conflict point. Held true against nothing: it states no fact about the league and no "
             "read serves it, and its one purpose is to sit in the write set of every transaction writing that address "
-            "into a record and of that address's erasure, so the two conflict rather than both committing "
-            "(`docs/backend/spec.md :: I719`). It names the address by a keyed hash and never in plain, and the TTL "
+            "into a record and of that address's erasure, so the two conflict rather than both committing. "
+            "It names the address by a keyed hash and never in plain, and the TTL "
             "index removes it after its last write; its removal is itself a write a transaction still open meets as a "
             "conflict, so no anchor is ever kept for safety."
         ),
@@ -456,7 +455,7 @@ REFERENCES: tuple[Reference, ...] = (
             "A matchday is removed by a confirmed replace (`REQ-SPIELPLAN-005`), which draws both afresh, or by an undraw "
             "(`REQ-SPIELPLAN-006`), which draws neither. Each removes the season's fixtures in the same transaction, so the "
             "reference cannot dangle -- not because nothing is ever removed, but because neither collection is removed "
-            "without the other (`docs/backend/spec.md :: I46`)."
+            "without the other."
         ),
     ),
     Reference(
@@ -1117,7 +1116,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
         "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
         "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
-        "evidence (`docs/backend/spec.md :: I613`)",
+        "evidence",
         "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(
@@ -1682,7 +1681,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw stating no shape, off stored rules whose groups and qualifiers make no bracket",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-RULES-015",
@@ -1691,7 +1690,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw stating no shape, off stored rules qualifying more teams from a group than it holds",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-RULES-016",
@@ -1700,7 +1699,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw off stored points that make drawing worth more than winning",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-RULES-017",
@@ -1709,7 +1708,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw whose knockout round the stored forfeit award leaves with nobody to advance",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-RULES-018",
@@ -1718,7 +1717,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw stating no shape, off stored rules implying more fixtures than one season-scoped read holds",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-DATE-009",
@@ -1727,7 +1726,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a draw whose rules imply more matchdays than the season's stored span offers",
         implemented_by="app.api.saisons.services.as_the_draw_answers",
-        tested_by="tests/api/test_spielplan_refusal.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
+        tested_by="tests/api/test_spielplan.py::TestTheDrawAnswersStoredValuesUnderItsTwins",
     ),
     Rule(
         code="REQ-ACTIVATE-001",
@@ -1736,7 +1735,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="the outgoing season's fixtures must all be played or cancelled before it is closed",
         implemented_by="app.api.saisons.services.find_activation_refusal",
-        tested_by="tests/api/test_activation_refusal.py::TestTheOutgoingSeasonMustBeFinished",
+        tested_by="tests/api/test_activation_execution.py::TestARefusedRolloverWritesNothing",
     ),
     Rule(
         code="REQ-ACTIVATE-002",
@@ -1745,7 +1744,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a season already `past` is never made active again",
         implemented_by="app.api.saisons.services.find_activation_refusal",
-        tested_by="tests/api/test_activation_refusal.py::TestAFinishedSeasonIsNeverPromotedBack",
+        tested_by="tests/api/test_activation_execution.py::TestTheRolloverRefusesAFinishedTarget",
     ),
     Rule(
         code="REQ-ACTIVATE-003",
@@ -1754,7 +1753,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a season holding no fixtures is never made active",
         implemented_by="app.api.saisons.services.find_activation_refusal",
-        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithNothingDrawn",
+        tested_by="tests/api/test_activation_isolation.py::TestAnUndrawLandingMidRolloverIsJudgedAgain",
     ),
     Rule(
         code="REQ-ACTIVATE-004",
@@ -1763,7 +1762,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="every matchday of the season carries a date before it is made active",
         implemented_by="app.api.saisons.services.find_activation_refusal",
-        tested_by="tests/api/test_activation_refusal.py::TestASeasonWithAnUndatedMatchday",
+        tested_by="tests/api/test_activation_execution.py::TestTheRolloverRefusesAnUndatedMatchday",
     ),
     Rule(
         code="REQ-ENTER-001",
@@ -1819,7 +1818,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a season already holding fixtures is not drawn again, whoever wrote them",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestASeasonAlreadyDrawn",
+        tested_by="tests/api/test_spielplan_execution.py::TestASecondDrawIsRefusedByTheWatermarkItLeft",
     ),
     Rule(
         code="REQ-SPIELPLAN-002",
@@ -1828,7 +1827,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a season already holding matchdays is not drawn, the draw writing the whole list at once",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestASeasonHoldingMatchdays",
+        tested_by="tests/api/test_spielplan.py::TestASeasonHoldingMatchdays",
     ),
     Rule(
         code="REQ-SPIELPLAN-003",
@@ -1837,7 +1836,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a Spielplan is never drawn into a season already past",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestAFinishedSeason",
+        tested_by="tests/api/test_spielplan.py::TestAFinishedSeason",
     ),
     Rule(
         code="REQ-SPIELPLAN-004",
@@ -1846,7 +1845,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a season with an offered group off `teams_per_group`, or a club outside the offered groups, is not drawn",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestWhetherEveryOfferedGroupHoldsItsSize",
+        tested_by="tests/api/test_spielplan.py::TestWhetherEveryOfferedGroupHoldsItsSize",
     ),
     Rule(
         code="REQ-SPIELPLAN-005",
@@ -1855,7 +1854,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a confirmed replace reaches no season but a `future` one that holds nothing already played",
         implemented_by="app.api.saisons.services.find_spielplan_refusal",
-        tested_by="tests/api/test_spielplan_refusal.py::TestAReplaceRunsOnlyInsideItsWindow",
+        tested_by="tests/api/test_spielplan_execution.py::TestTheReplaceWindowIsReachedThroughTheRoute",
     ),
     Rule(
         code="REQ-SPIELPLAN-006",
@@ -1864,7 +1863,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="an undraw reaches no season but a `future` one that holds nothing recorded against a fixture",
         implemented_by="app.api.saisons.services.find_undraw_refusal",
-        tested_by="tests/api/test_undraw_refusal.py::TestAnUndrawRunsOnlyInsideItsWindow",
+        tested_by="tests/api/test_undraw_execution.py::TestTheWindowIsReachedThroughTheRoute",
     ),
     Rule(
         code="REQ-SPIELPLAN-007",
@@ -1873,7 +1872,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a replace or an undraw reaches no season holding a submitted match report",
         implemented_by="app.api.saisons.services.find_berichte_refusal",
-        tested_by="tests/api/test_undraw_refusal.py::TestASubmittedReportKeepsTheSpielplan",
+        tested_by="tests/api/test_undraw_execution.py::TestASubmittedReportKeepsTheSpielplan",
     ),
     Rule(
         code="REQ-SWAP-001",
@@ -1882,7 +1881,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="a swap names two clubs of this season standing in different groups, or it is not a swap",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestWhatCountsAsASwap",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-SWAP-007",
@@ -1900,7 +1899,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no group swap once a knockout fixture has been played, abandoned, forfeited, given a goal count or a stored shoot-out",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheKnockoutClosesTheWindow",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-SWAP-003",
@@ -1909,7 +1908,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no group swap in a `past` season, whose table is derived from these groups and is the record of what happened",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestAFinishedSeasonIsFrozen",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-SWAP-004",
@@ -1919,7 +1918,7 @@ RULES: tuple[Rule, ...] = (
         summary="no group swap once either club's gruppenphase fixture has been played, abandoned, forfeited, given a goal count "
         "or a stored shoot-out",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestTheRoundRobinClosesTheWindow",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-SWAP-005",
@@ -1928,7 +1927,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no group swap that would BREAK a Spieltag, leaving a club in two of its matches; one already broken is left alone",
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestASpieltagNeverHoldsAClubTwice",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-SWAP-006",
@@ -1940,7 +1939,7 @@ RULES: tuple[Rule, ...] = (
             "unless that fixture awards nothing"
         ),
         implemented_by="app.api.teams.services.find_gruppe_swap_refusal",
-        tested_by="tests/api/test_gruppe_swap_refusal.py::TestASwapNeverFieldsADisqualifiedClub",
+        tested_by="tests/api/test_gruppe_swap_execution.py::TestTheRefusalsReadTheRealDocuments",
     ),
     Rule(
         code="REQ-REPLACE-001",
@@ -1949,7 +1948,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no replacement in a `past` season, whose fixtures and the table derived from them are the record of who played",
         implemented_by="app.api.teams.services.find_replacement_refusal",
-        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestWhichSeasonsAreOpenToAReplacement",
+        tested_by="tests/api/test_saison_team_replacement_execution.py::TestTheSeasonGateOnTheRoute",
     ),
     Rule(
         code="REQ-REPLACE-002",
@@ -1959,7 +1958,7 @@ RULES: tuple[Rule, ...] = (
         summary="no replacement once the outgoing club's fixture has been played, abandoned, forfeited, given a goal count "
         "or a stored shoot-out",
         implemented_by="app.api.teams.services.find_replacement_refusal",
-        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheOutgoingClubMustHavePlayedNothing",
+        tested_by="tests/api/test_saison_team_replacement_execution.py::TestAClubThatHasPlayedIsNotReplaced",
     ),
     Rule(
         code="REQ-REPLACE-003",
@@ -1968,7 +1967,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no replacement by a club already holding a row in the season",
         implemented_by="app.api.teams.services.find_replacement_refusal",
-        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestTheIncomingClubMustBeNewToTheSeason",
+        tested_by="tests/api/test_saison_team_replacement_execution.py::TestWhoMayArrive",
     ),
     Rule(
         code="REQ-REPLACE-004",
@@ -1977,7 +1976,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Saison",
         summary="no club replaces itself",
         implemented_by="app.api.teams.services.find_replacement_pair_refusal",
-        tested_by="tests/api/test_saison_team_replacement_refusal.py::TestOneClubOnBothEnds",
+        tested_by="tests/api/test_saison_team_replacement_execution.py::TestWhoMayArrive",
     ),
     Rule(
         code="REQ-KONTAKT-001",
@@ -2259,7 +2258,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a retired referee is sent no confirmation link, there being no role left to collect a consent for",
         implemented_by="app.api.schiedsrichter.services.find_retired_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestARetiredRefereeTakesNoFreshLink",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheReSend",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
@@ -2268,7 +2267,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a referee's link opens no entry -- unknown, replaced by a later mint, or deleted with the referee",
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestACorrectedAddressReMintsAndRetiresTheOldLink",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
@@ -2277,7 +2276,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a link whose deadline has passed records no consent",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheConfirmation",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-004",
@@ -2286,7 +2285,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="an entry whose person has already answered takes no second answer and is sent no further link",
         implemented_by="app.api.schiedsrichter.services.find_already_confirmed_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnEntryAlreadyConfirmed",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheReSend",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-005",
@@ -2295,7 +2294,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a birthdate putting the person outside the age span this consent asks records nothing",
         implemented_by="app.api.schiedsrichter.services.find_alter_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheAgeThisConsentAsks",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheConfirmation",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-006",
@@ -2304,7 +2303,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a referee carrying no usable email address is sent no link, and no send is stamped on their entry",
         implemented_by="app.api.schiedsrichter.services.find_missing_address_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestARefereeWithNoAddress",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheReSend",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-007",
@@ -2316,7 +2315,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="no confirmation link is minted for an address the ban list still holds",
         implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheCreateIsTheInvitation",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-008",
@@ -2325,7 +2324,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Schiedsrichter",
         summary="a consent to publishing photographs, video and interviews is taken only from a referee of the media age",
         implemented_by="app.api.schiedsrichter.services.find_medien_refusal",
-        tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheMediaAge",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestTheMediaAge",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-009",
@@ -2394,7 +2393,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="an application already decided is neither accepted nor declined a second time, and gets no new confirmation link",
         implemented_by="app.api.bewerbungen.services.find_triage_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestADecisionIsTakenOnce",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestADecisionIsNotTakenTwice",
     ),
     Rule(
         code="REQ-BEWERBUNG-002",
@@ -2403,7 +2402,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="acceptance needs exactly one of an existing club and a new school to enter",
         implemented_by="app.api.bewerbungen.services.find_acceptance_subject_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestWhatAcceptanceWouldEnter",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestAnApplicationResolvingToNoOneClub",
     ),
     Rule(
         code="REQ-BEWERBUNG-003",
@@ -2412,7 +2411,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a new school whose own details make no valid club is not accepted",
         implemented_by="app.api.bewerbungen.services.find_new_club_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestWhetherTheSchoolMakesAClub",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestASchoolNoClubCanBeCreatedFrom",
     ),
     Rule(
         code="REQ-BEWERBUNG-004",
@@ -2421,7 +2420,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="an application is submitted only while the season's application window is open, and never once the season has ended",
         implemented_by="app.api.bewerbungen.services.find_window_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWindowDecidesWhetherAnApplicationMayArrive",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheRefusalsTheWritePathAnswers",
     ),
     Rule(
         code="REQ-BEWERBUNG-005",
@@ -2430,7 +2429,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a submission needs exactly one of an existing club and a new school to say who is applying",
         implemented_by="app.api.bewerbungen.services.find_submission_subject_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestWhoIsApplying",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheRefusalsTheWritePathAnswers",
     ),
     Rule(
         code="REQ-BEWERBUNG-006",
@@ -2439,7 +2438,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a club the public list does not offer is not one an application may be submitted as",
         implemented_by="app.api.bewerbungen.services.find_picked_club_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestWhetherThePickedClubMayApply",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheRefusalsTheWritePathAnswers",
     ),
     Rule(
         code="REQ-BEWERBUNG-007",
@@ -2448,7 +2447,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a club already playing the season does not apply to play it",
         implemented_by="app.api.bewerbungen.services.find_already_entered_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestAClubAlreadyInTheSeason",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheRefusalsTheWritePathAnswers",
     ),
     Rule(
         code="REQ-BEWERBUNG-008",
@@ -2457,7 +2456,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a new school does not propose a Kürzel a club already holds",
         implemented_by="app.api.bewerbungen.services.find_shorthand_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheProposedKuerzel",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheRefusalsTheWritePathAnswers",
     ),
     Rule(
         code="REQ-BEWERBUNG-009",
@@ -2469,7 +2468,7 @@ RULES: tuple[Rule, ...] = (
             "deleted with its application or cleared with the row's contacts"
         ),
         implemented_by="app.api.bewerbungen.services.find_unknown_token_refusal",
-        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestATokenNoSeatHolds",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestWhatALinkOpens",
     ),
     Rule(
         code="REQ-BEWERBUNG-010",
@@ -2478,7 +2477,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a seat is not answered once the application has been decided",
         implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
-        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkOnADecidedApplication",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-BEWERBUNG-017",
@@ -2487,7 +2486,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a seat is not answered while the application's confirmation deadline has passed, which a re-send restarts",
         implemented_by="app.api.bewerbungen.services.find_expired_token_refusal",
-        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-BEWERBUNG-011",
@@ -2503,7 +2502,7 @@ RULES: tuple[Rule, ...] = (
             "and another person only where its own stepped out"
         ),
         implemented_by="app.api.bewerbungen.services.find_already_answered_refusal",
-        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestASeatAlreadyAnswered",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-BEWERBUNG-012",
@@ -2512,7 +2511,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a contact person confirms with a date of birth inside the span the seats they hold ask for, judged before anything is written",
         implemented_by="app.api.bewerbungen.services.find_alter_refusal",
-        tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-BEWERBUNG-013",
@@ -2521,7 +2520,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="an application is accepted only once every seat carries its person's own stamp",
         implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestAcceptanceWaitsForEverySeat",
     ),
     Rule(
         code="REQ-BEWERBUNG-014",
@@ -2530,7 +2529,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="a contact address an administrator writes is not one another contact person on the same application is already reached at",
         implemented_by="app.api.bewerbungen.services.find_kontakt_email_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestCorrectingOneContactAddress",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestCorrectingOneContactAddress",
     ),
     Rule(
         code="REQ-BEWERBUNG-015",
@@ -2578,7 +2577,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Bewerbung",
         summary="an address correction lands only on a seat still holding the address the correcting page showed",
         implemented_by="app.api.bewerbungen.services.find_sitz_inhaber_refusal",
-        tested_by="tests/api/test_bewerbung_triage_refusal.py::TestACorrectionComposedAgainstTheSeatsHolder",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestSeatingAnotherPersonInAnEmptiedSeat",
     ),
     Rule(
         code="REQ-PURGE-003",
@@ -2665,7 +2664,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Sperrliste",
         summary="no ban is entered while no season is running, the five seasons it lapses after having nothing to count from",
         implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
-        tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueWithNoSeasonRunning",
+        tested_by="tests/api/test_sperrliste_lapse_execution.py::TestALeagueWithNoSeasonRunning",
     ),
     Rule(
         code="REQ-SPERRLISTE-003",
@@ -2794,7 +2793,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Einladung",
         summary="a link is minted only for a team the season already holds a junction row for",
         implemented_by="app.api.einladungen.services.find_team_in_saison_refusal",
-        tested_by="tests/api/test_einladung_refusal.py::TestATeamTheSeasonDoesNotHold",
+        tested_by="tests/api/test_einladung_execution.py::TestWhatAMintRefuses",
     ),
     Rule(
         code="REQ-EINLADUNG-002",
@@ -2803,7 +2802,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Einladung",
         summary="a season that has ended mints no link, its registration window being over for good",
         implemented_by="app.api.einladungen.services.find_saison_vorbei_refusal",
-        tested_by="tests/api/test_einladung_refusal.py::TestASeasonThatHasEnded",
+        tested_by="tests/api/test_einladung_execution.py::TestWhatAMintRefuses",
     ),
     Rule(
         code="REQ-EINLADUNG-003",
@@ -2812,7 +2811,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Einladung",
         summary="a registration link opens nothing unless it is live: unknown and revoked answer alike, neither told from the other",
         implemented_by="app.api.einladungen.services.find_unknown_einladung_refusal",
-        tested_by="tests/api/test_einladung_refusal.py::TestALinkThatOpensNothing",
+        tested_by="tests/api/test_einladung_execution.py::TestReissuingALink",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-001",
@@ -2821,7 +2820,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a registration is taken only while the season's registration window is running, and never once the season has ended",
         implemented_by="app.api.registrierungen.services.find_fenster_refusal",
-        tested_by="tests/api/test_registrierung_submission_refusal.py::TestTheWindowMustBeRunning",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestWhatASubmissionIsRefused",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-002",
@@ -2830,7 +2829,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a registration is taken only for a team the season already holds a junction row for",
         implemented_by="app.api.registrierungen.services.find_team_junction_refusal",
-        tested_by="tests/api/test_registrierung_submission_refusal.py::TestTheTeamMustPlayTheSeason",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestWhatASubmissionIsRefused",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-003",
@@ -2839,7 +2838,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a registration names a Stufe the season's `erlaubte_stufen` offers, or none at all",
         implemented_by="app.api.registrierungen.services.find_stufe_refusal",
-        tested_by="tests/api/test_registrierung_submission_refusal.py::TestTheStufeMustBeOneTheSeasonOffers",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestWhatASubmissionIsRefused",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-004",
@@ -2848,7 +2847,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a confirmation link that opens no registration is refused, unknown and replaced alike",
         implemented_by="app.api.registrierungen.services.find_unknown_token_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestATokenNoRegistrationHolds",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestWhatALinkOpens",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-005",
@@ -2857,7 +2856,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a confirmation past its deadline, or on a registration already decided, is refused",
         implemented_by="app.api.registrierungen.services.find_expired_token_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestALinkWhoseTimeIsOver",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-006",
@@ -2866,7 +2865,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a registration whose consent record carries its stamp takes no second confirmation",
         implemented_by="app.api.registrierungen.services.find_already_confirmed_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestARegistrationAlreadyConfirmed",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestTheLinkIsSpentByTheStamp",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-007",
@@ -2875,7 +2874,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a birthdate putting the pupil outside the age span this consent asks is refused before anything is written",
         implemented_by="app.api.registrierungen.services.find_alter_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheAgeAtConfirmation",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestWhatAConfirmationWrites",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-008",
@@ -2884,7 +2883,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a registration is refused where the team's squad already stands at the season's `max_kadergroesse`",
         implemented_by="app.api.registrierungen.services.find_kader_refusal",
-        tested_by="tests/api/test_registrierung_submission_refusal.py::TestTheSquadMustHaveRoom",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestWhatASubmissionIsRefused",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-009",
@@ -2893,7 +2892,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="an address the ban list holds registers nobody",
         implemented_by="app.api.registrierungen.services.find_gesperrt_refusal",
-        tested_by="tests/api/test_registrierung_submission_refusal.py::TestABannedAddress",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-010",
@@ -2902,7 +2901,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="a consent to publishing photographs, video and interviews is taken only from a pupil of the media age",
         implemented_by="app.api.registrierungen.services.find_medien_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheMediaAge",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestTheMediaAge",
     ),
     Rule(
         code="REQ-REGISTRIERUNG-011",
@@ -2932,7 +2931,7 @@ RULES: tuple[Rule, ...] = (
             "returning pupil's, which takes the stored person's date"
         ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestTheChoicesThePageAsks",
     ),
     Rule(
         code="REQ-EINWILLIGUNG-001",
@@ -3034,7 +3033,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Registrierung",
         summary="the returning pupil's page confirms nobody whose stored person holds no birthdate for it to take",
         implemented_by="app.api.registrierungen.services.find_ohne_geburtsdatum_refusal",
-        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheBirthdateAPageTakesAsGiven",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestWhatAConfirmationWrites",
     ),
     Rule(
         code="REQ-EINWILLIGUNG-002",
@@ -3085,7 +3084,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbestaetigung",
         summary="a token no seat of any confirmation row holds opens nothing, whether a guess or a link voided when its seat changed hands",
         implemented_by="app.api.spielbestaetigungen.services.find_unknown_link_refusal",
-        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestATokenNoSeatHolds",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestWhatALinkOpens",
     ),
     Rule(
         code="REQ-ANSETZUNG-011",
@@ -3166,7 +3165,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbestaetigung",
         summary="a declining club's proposed date is today or later",
         implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
-        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestAProposalOfAPastDayIsRefusedThroughTheRoute",
     ),
     Rule(
         code="REQ-ANSETZUNG-013",
@@ -3175,7 +3174,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbestaetigung",
         summary="an administrator answers for a party only on a row neither answered nor closed, so a seat's answer and theirs are one",
         implemented_by="app.api.spielbestaetigungen.services.find_eintragen_refusal",
-        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheAdministratorsZusage",
     ),
     Rule(
         code="REQ-ANSETZUNG-014",
@@ -3184,7 +3183,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbestaetigung",
         summary="a discard closes only a club's open decline that proposes another date, about the fixture's current Ansetzung",
         implemented_by="app.api.spielbestaetigungen.services.find_verwerfen_refusal",
-        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheDiscard",
     ),
     Rule(
         code="REQ-BERICHT-001",
@@ -3202,7 +3201,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbericht",
         summary="a referee reads and writes the report of a fixture booked to one of their own records alone",
         implemented_by="app.api.spielberichte.services.find_nicht_geleitet_refusal",
-        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyTheBookedRefereeReports",
+        tested_by="tests/api/test_spielbericht_execution.py::TestTheReads",
     ),
     Rule(
         code="REQ-BERICHT-003",
@@ -3211,7 +3210,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbericht",
         summary="a pupil a report newly names on a side is in that side's live squad of the fixture's season",
         implemented_by="app.api.spielberichte.services.find_nicht_im_kader_refusal",
-        tested_by="tests/api/test_spielbericht_shapes.py::TestANewlyNamedPupilIsInTheSquad",
+        tested_by="tests/api/test_spielbericht_execution.py::TestAPupilErasedMidWriteConflictsWithTheAnchor",
     ),
     Rule(
         code="REQ-BERICHT-004",
@@ -3425,7 +3424,7 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spielbericht",
         summary="a referee writes a fixture's report while its season runs, and only reads it once the season has ended",
         implemented_by="app.api.spielberichte.services.find_saison_beendet_refusal",
-        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRefereeWritesWhileTheSeasonRuns",
+        tested_by="tests/api/test_spielbericht_execution.py::TestEachRefusalWritesNothing",
     ),
     Rule(
         code="REQ-BERICHT-008",
@@ -3457,7 +3456,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "A refusal would land on the season's rules patch, and the seasons it would land on are the ones whose "
             "stored rows no current write path produces -- latching those shut against every later edit, their dates "
-            "included (`docs/backend/spec.md :: I44`), rather than catching a mistake. Nothing opens the gap afresh: "
+            "included, rather than catching a mistake. Nothing opens the gap afresh: "
             "the draw writes every phase at exactly its implied count, and `REQ-RULES-011` holds the three numbers "
             "that count follows from to the fixtures drawn from them, in either direction, from the season's first "
             "fixture onward. The matchday's own write never reads the count at all: `anzahl_spiele` is derived for "
@@ -3507,9 +3506,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "fixture's result puts it back among those still to be played without any request naming it, and refusing "
             "that would refuse the correction upstream -- or any save of the season, the resolution running whole -- over a "
             "booking nobody touched, where a result a rewrite destroys is reported rather than refused. The row stays "
-            "booked and is reported as a derived fault (`docs/backend/spec.md :: I257`), because only a person chooses "
+            "booked and is reported as a derived fault, because only a person chooses "
             "between reactivating it and booking another, and a save keeping it books nothing new. The ghost a referee's "
-            "erasure leaves is a retired row like any other and is reported the same way (`docs/backend/spec.md :: I259`)."
+            "erasure leaves is a retired row like any other and is reported the same way."
         ),
         near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
         proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
@@ -3523,8 +3522,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "may since hold, and refusing the rewrite would refuse the correction upstream over a clash it never chose. "
             "Which of the two moves is a competition call, so every claim is reported as a derived fault, and a save of "
             "either fixture keeping its slot -- a note, a result -- commits, where refusing it would hold the legitimately "
-            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused "
-            "(`docs/backend/spec.md :: I257`)."
+            "booked fixture hostage to a clash it did not make; only a claim a save newly makes is refused."
         ),
         near=("REQ-CLASH-001",),
         proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
@@ -3542,12 +3540,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, and no sweep "
             "selects on `inactive_since`. The application clocks in `app/api/bewerbungen/sweep_router.py` select on a "
-            "season and a deadline and remove applications rather than retired rows (`docs/backend/spec.md :: I150`). "
+            "season and a deadline and remove applications rather than retired rows. "
             "The season-after deletion, ruled 2026-10-15, selects pupils on the seasons' statuses and counts a retired "
-            "squad row as keeping its pupil, so retiring a row never brings that deletion nearer "
-            "(`docs/backend/spec.md :: I690`). Beside it, an erasure on a request, the person's own or an "
+            "squad row as keeping its pupil, so retiring a row never brings that deletion nearer. "
+            "Beside it, an erasure on a request, the person's own or an "
             "administrator's answering one, removes a row, selecting a subject by its address, never by an age, and "
-            "asking no retirement first. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records "
+            "asking no retirement first. `inactive_since` stays a date: it records "
             "WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "

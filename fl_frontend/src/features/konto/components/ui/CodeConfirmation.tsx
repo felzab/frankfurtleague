@@ -22,7 +22,7 @@ const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
 
 /**
  * A send whose answer never arrived: a second is safe whether a code left or not, a new one replacing
- * it, and the reload comes first (`docs/frontend/spec.md` §1.12). The title says what is unknown, a
+ * it, and the reload comes first. The title says what is unknown, a
  * send saving nothing.
  */
 const CODE_ERNEUT_OHNE_ANTWORT =
@@ -34,7 +34,7 @@ const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
 /**
  * A person's other way to a fresh sign-in, and their only one while they hold no passkey: a code mailed
- * to their own address, counted only where it signed the page's holder in (`docs/frontend/spec.md :: I428`).
+ * to their own address, counted only where it signed the page's holder in.
  */
 export function CodeConfirmation({
   address,

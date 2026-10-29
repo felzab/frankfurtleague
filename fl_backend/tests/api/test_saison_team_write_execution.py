@@ -113,8 +113,8 @@ async def call_patch(
 ) -> Any:
     """`gruppe` defaults to `ADLER`'s own group, so the default call moves nobody.
 
-    Every key the payload takes is sent on every call: it replaces them wholesale and defaults none
-    (`docs/backend/spec.md :: I31`). No `kontakte` is among them.
+    Every key the payload takes is sent on every call: it replaces them wholesale and defaults none.
+    No `kontakte` is among them.
     """
 
     return await patch_saison_team(
@@ -340,7 +340,7 @@ class TestTheContactBlockThisPatchDoesNotOwn:
         assert response.kontakte.trainer is not None and response.kontakte.trainer.email == KONTAKTPERSON["email"]
 
     def test_a_contact_value_the_write_side_refuses_does_not_block_the_row(self, mongo_replica_set_url: str):
-        """Why no `kontakte` here: a contact is shapeless on read, bounded on write (`docs/backend/spec.md :: I36`).
+        """Why no `kontakte` here: a contact is shapeless on read, bounded on write.
 
         A round-tripped block would 422 every save this page can make, on `kontakte.*` paths it
         renders no field for.

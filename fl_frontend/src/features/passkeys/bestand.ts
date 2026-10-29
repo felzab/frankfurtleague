@@ -16,7 +16,7 @@ export type PasskeyBestand = { readonly karten: readonly PasskeyKarte[]; readonl
 
 /**
  * Projected rather than handed over: the row carries the public key and the credential id, and the
- * card draws neither (`docs/frontend/spec.md :: I315`).
+ * card draws neither.
  */
 export function passkeyBestandOf(held: readonly PasskeyRow[], served: KontoSession): PasskeyBestand {
   const karten = held
@@ -33,7 +33,7 @@ export function passkeyBestandOf(held: readonly PasskeyRow[], served: KontoSessi
     .sort((a, b) => a.eingerichtetAm.localeCompare(b.eingerichtetAm));
 
   // The cap is judged again at the enrolment itself; this is what closes the control so the reader
-  // meets a sentence rather than a refused browser prompt (`docs/frontend/spec.md :: I311`).
+  // meets a sentence rather than a refused browser prompt.
   return { karten: karten, kannHinzufuegen: held.length < PASSKEY_LIMIT };
 }
 

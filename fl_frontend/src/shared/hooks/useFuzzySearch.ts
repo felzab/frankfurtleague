@@ -20,7 +20,7 @@ const FUSE_DEFAULTS = {
 const COMPLETE_DATE = /^\d{2}\.\d{2}\.\d{4}$/;
 
 /** A query parted into the dates it names and whatever else it asks for. */
-export function splitDateQuery(query: string): { dates: string[]; rest: string } {
+function splitDateQuery(query: string): { dates: string[]; rest: string } {
   const tokens = query.split(/\s+/).filter((token) => token !== "");
 
   return {
@@ -31,7 +31,7 @@ export function splitDateQuery(query: string): { dates: string[]; rest: string }
 
 /**
  * A dotted path to a stored value, or Fuse's own key shape for a value the row's card derives: a card
- * printing a label in place of what is stored is searched by that label (`docs/frontend/spec.md :: I681`).
+ * printing a label in place of what is stored is searched by that label.
  */
 export type SearchKey<T> = string | { readonly name: string; readonly getFn: (item: T) => string };
 
@@ -49,7 +49,7 @@ function valuesAt<T>(item: T, key: SearchKey<T>): string[] {
 }
 
 /** Whether an item carries each date on some searched key, written exactly as the query spells it. */
-export function carriesEveryDate<T>(item: T, keys: readonly SearchKey<T>[], dates: readonly string[]): boolean {
+function carriesEveryDate<T>(item: T, keys: readonly SearchKey<T>[], dates: readonly string[]): boolean {
   return dates.every((date) => keys.some((key) => valuesAt(item, key).includes(date)));
 }
 

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/EditorPage` replaces it.
+
 import { EditPageHeader } from "@/shared/components/ui/EditPageHeader";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 

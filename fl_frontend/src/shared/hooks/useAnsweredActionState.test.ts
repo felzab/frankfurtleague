@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { EDGE_REFUSAL_BODY, ZU_VIELE_VERSUCHE } from "@/shared/utils/actionError.ts";
 
@@ -11,10 +10,9 @@ const SENT: ActionResult = { success: true, message: "unterwegs" };
 
 describe("an action's state through the edge's own refusal", () => {
   it("is the action's own answer where it answered", async () => {
-    assert.deepEqual(
+    expect(
       await answeringEdgeRefusal(async (_state: ActionResult | undefined): Promise<ActionResult> => SENT)(undefined, undefined),
-      SENT,
-    );
+    ).toStrictEqual(SENT);
   });
 
   /* As Next's action client raises it: the 429's body is the rejection's message. */
@@ -23,7 +21,7 @@ describe("an action's state through the edge's own refusal", () => {
       throw new Error(EDGE_REFUSAL_BODY);
     });
 
-    assert.deepEqual(await answered(undefined, undefined), { success: false, error: ZU_VIELE_VERSUCHE });
+    expect(await answered(undefined, undefined)).toStrictEqual({ success: false, error: ZU_VIELE_VERSUCHE });
   });
 
   /* Any other rejection is the boundary's, which a caller placed for it: a send the edge did not refuse may have left. */
@@ -37,7 +35,7 @@ describe("an action's state through the edge's own refusal", () => {
         throw rejection;
       });
 
-      await assert.rejects(answered(undefined, undefined), (thrown) => thrown === rejection, String(rejection));
+      await expect(answered(undefined, undefined), String(rejection)).rejects.toSatisfy((thrown) => thrown === rejection);
     }
   });
 });

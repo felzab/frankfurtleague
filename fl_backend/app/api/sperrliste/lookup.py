@@ -4,8 +4,7 @@ API · the ban list as one request asks it
 One dependency holds the list's collection, the key its rows are hashed under and the collection the
 season a ban is judged against is read from, so no handler wires the three by hand. Every question
 below reads the running season itself unless handed one: the queries under them read no bound for
-`None`, which holds every ban standing. Functions rather than methods, so the transaction sweeps
-follow a session handed to one (`fl_backend/tests/core/app_source.py :: session_handoffs`).
+`None`, which holds every ban standing.
 """
 
 from collections.abc import Iterable
@@ -113,7 +112,7 @@ def get_ban_list(
     saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
-    """The request's ban list, keyed as every row of it is (`docs/backend/spec.md :: I463`)."""
+    """The request's ban list, keyed as every row of it is."""
 
     return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=config.sperrliste_schluessel)
 

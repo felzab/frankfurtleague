@@ -9,7 +9,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 
 /**
  * „Alle anderen abmelden“, two presses because it ends every device but this one at once. Its own
- * component so its armed state is its own (`docs/frontend/spec.md :: I66`), beside the cards' rows.
+ * component so its armed state is its own, beside the cards' rows.
  */
 export function AndereAbmelden({ onEnd }: { onEnd: () => Promise<void> }) {
   const twoPress = useTwoPressConfirm();

@@ -2,8 +2,8 @@
 API · a write stepped up on some calls alone asks the step-up window on exactly those calls
 
 Each of these handlers decides whether this call destroys what nothing restores, or mints or voids a
-link to an address, and refuses `REQ-AUTH-009` there from a sign-in older than the step-up window
-(`docs/backend/spec.md :: I524`). Served over HTTP against the shipped validators, so each refusal is
+link to an address, and refuses `REQ-AUTH-009` there from a sign-in older than the step-up window.
+Served over HTTP against the shipped validators, so each refusal is
 shown to leave the stored state as it was, and each call of the other kind to pass the same sign-in.
 """
 
@@ -337,7 +337,7 @@ async def a_grant_holder(database: AsyncDatabase) -> None:
 
 
 class TestAGrantHoldersOwnErasure:
-    """A person's erasure asks the revoke's passkey window on the calls taking a live grant (`docs/backend/spec.md :: I489`)."""
+    """A person's erasure asks the revoke's passkey window on the calls taking a live grant."""
 
     URL = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
 
@@ -376,7 +376,7 @@ class TestAGrantHoldersOwnErasure:
 
 
 class TestAGrantHoldersOwnAddressChange:
-    """A start of a change handing a grant over asks the passkey the erasure asks (`docs/backend/spec.md :: I790`)."""
+    """A start of a change handing a grant over asks the passkey the erasure asks."""
 
     URL = f"/api/v{API_VERSION}/konto/adresswechsel"
 
@@ -414,7 +414,7 @@ AWAITING_CHANGE_ID = ObjectId("6890a1b2c3d4e5f607950021")
 
 
 class TestAGrantHoldersApprovalOfAnAdministratorsChange:
-    """The address on file's approval lets the link go that hands the grant over (`docs/backend/spec.md :: I790`)."""
+    """The address on file's approval lets the link go that hands the grant over."""
 
     URL = f"/api/v{API_VERSION}/konto/adresswechsel/freigabe"
 
@@ -449,7 +449,7 @@ def an_erasure_of(email: str) -> dict[str, str]:
 
 
 class TestAnErasureOnRequestEndingAGrant:
-    """An administrator's erasure asks the revoke's window on the calls taking a live grant (`docs/backend/spec.md :: I489`)."""
+    """An administrator's erasure asks the revoke's window on the calls taking a live grant."""
 
     URL = f"/api/v{API_VERSION}/identitaet/erasure"
 

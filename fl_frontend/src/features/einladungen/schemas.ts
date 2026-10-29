@@ -50,7 +50,7 @@ export type FLEinladungVersand = z.infer<typeof FLEinladungVersandSchema>;
 /**
  * Mirrors `FLEinladungZeile` — the live invite as an administrator is shown it. **No `token_hash`**:
  * the credential is written as a hash the store never yields, so no read model carries one and
- * neither may this (`docs/backend/spec.md :: I144`'s twin).
+ * neither may this.
  */
 export const FLEinladungZeileSchema = z.object({
   // The row a delivery report is filed against (`ziel_id`), which is why a read model carries it at
@@ -145,7 +145,7 @@ export const FLEinladungEmpfaengerSchema = z.object({
   rolle: FLKontaktRolleSchema,
   vorname: z.string(),
   // Shapeless, as every stored mailbox is on a read: a value refused here would fail the whole list
-  // rather than the one seat holding it (`docs/backend/spec.md :: I36`).
+  // rather than the one seat holding it.
   email: z.string(),
 });
 export type FLEinladungEmpfaenger = z.infer<typeof FLEinladungEmpfaengerSchema>;

@@ -51,6 +51,7 @@ from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
+from app.core.transactions import StalledPage
 from app.main import create_app
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
@@ -343,7 +344,7 @@ class TestTheReminderClock:
     def test_it_stamps_mints_and_answers_one_message_per_mailbox(self, mongo_replica_set_url: str):
         """One message for the double-seated person with two fresh links.
 
-        The first hashes are kept and the deadline untouched (`docs/backend/spec.md :: I152`).
+        The first hashes are kept and the deadline untouched.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -357,7 +358,7 @@ class TestTheReminderClock:
         reminders = [entry for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
         # ONE link for the double-seated person, naming both seats: a second one would ask one reader
         # twice over a decision `paired_seat` settles from either press, and mint a token nobody is
-        # sent (`docs/backend/spec.md :: I157`).
+        # sent.
         assert [(entry.email, [seat.rollen for seat in entry.seats]) for entry in reminders] == [
             ("wraxlington@example.com", [["trainer", "ansprechperson"]]),
             ("bramblewick@example.com", [["stellvertretung"]]),
@@ -771,6 +772,25 @@ class TestABarredMailboxIsNotChased:
 
         assert on_a_league(mongo_replica_set_url, body) == {REMIND_OID}
 
+    def test_a_page_and_one_more_of_barred_applications_refuses_the_pass(self, mongo_replica_set_url: str):
+        """Every barred row stays due, so a full page of them would be read again on every pass and nobody past it ever chased."""
+
+        barred = {**{seat: person("Quorral") for seat in KONTAKT_ROLLEN}, "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> type[BaseException]:
+            await database[Collection.BEWERBUNGEN].delete_many({})
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), kontakte=barred) for position in range(SWEEP_PAGE + 1)]
+            )
+            await database[Collection.SPERRLISTE].insert_one(ban_document("quorral@example.com", bis=STANDING))
+            with pytest.raises(StalledPage) as stalled:
+                await sweep(database, client)
+
+            return stalled.type
+
+        # Raised rather than answered: a pass answering an empty share would read as one with nobody left to chase.
+        assert on_a_league(mongo_replica_set_url, body) is StalledPage
+
     def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
         """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
 
@@ -795,7 +815,7 @@ class TestABarredMailboxIsNotChased:
 
 
 # The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read
-# as `app/shared/einwilligung.py :: is_confirmed` reads it (`docs/backend/spec.md :: I387`).
+# as `app/shared/einwilligung.py :: is_confirmed` reads it.
 STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.bestaetigt_am"
 STAMP_STATES = [
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
@@ -1040,7 +1060,7 @@ class TestTheSeasonAndOneClock:
         ],
     )
     def test_any_later_season_that_has_ended_ends_both(self, mongo_replica_set_url: str, between: str | None):
-        """The year after stands `between`, and the one after has ended, when `docs/backend/spec.md :: I715` drops this season's pupils.
+        """The year after stands `between`, and the one after has ended, when the rule drops this season's pupils.
 
         Read off the year after, the first two hold both clocks for ever, and the third past its pupils.
         """
@@ -1056,7 +1076,7 @@ class TestTheSeasonAndOneClock:
     def test_the_running_season_keeps_both_whatever_later_season_has_ended(self, mongo_replica_set_url: str):
         """A lower season activated once a later one had run: it needs its contact persons while it runs.
 
-        `docs/backend/spec.md :: I715` keeps its pupils for as long, and these two clocks match it.
+        The rule keeps its pupils for as long, and these two clocks match it.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1146,7 +1166,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
         clocks_read: Callable[[Mapping[str, Any]], bool],
         expected: tuple[int, int, bool, bool],
     ):
-        """`docs/backend/spec.md :: I154`: remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
+        """Remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
 
         Planned below a season that has ended, so the call's own read finds both clocks due.
         """
@@ -1293,7 +1313,7 @@ def reminded(answer: Any) -> set[ObjectId]:
 
 
 class TestOneRowHoldsBackNoOther:
-    """`docs/backend/spec.md :: I720`, one case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
+    """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
     def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1561,7 +1581,7 @@ class TestTheSystemTierOverTheWire:
 
 class TestTheSeasonList:
     def test_every_season_is_listed_oldest_first_whatever_its_status(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I47` keeps a `future` season off the base tier, and that is the season the clocks run over."""
+        """The rule keeps a `future` season off the base tier, and that is the season the clocks run over."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             return await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
@@ -1789,7 +1809,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
     def test_a_reminder_the_code_refuses_costs_only_the_write_it_skips(
         self, mongo_replica_set_url: str, refused: Callable[[dict[str, Any]], dict[str, Any]]
     ):
-        """Taken apart instead, the share spends a failed attempt and its halves on the row (`docs/backend/spec.md :: I728`)."""
+        """Taken apart instead, the share spends a failed attempt and its halves on the row."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(rows: list[dict[str, Any]]) -> int:

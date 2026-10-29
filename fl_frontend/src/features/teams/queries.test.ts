@@ -1,18 +1,16 @@
-import assert from "node:assert/strict";
-import path from "node:path";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { describe, expect, it, vi } from "vitest";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import type * as AdminRead from "@/shared/utils/adminRead.ts";
 
-/** The two membership modules under test, whose `react` imports the server build must answer. */
-const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
-
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
+// administrator's, and only how often it reaches the backend is judged. Doubled where `queries.ts`
+// imports it, so nothing on the path loads the sign-in store.
+vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof AdminRead>()),
+  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
+}));
 
 // Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, at a base URL no test run holds.
@@ -22,7 +20,7 @@ const reads = doubleApiClient(() => ({ teams: [], spieler: [] }));
 const TEAMS_ENDPOINT = "/teams/memberships";
 const SPIELER_ENDPOINT = "/spieler/memberships";
 
-serveServerReactTo((parentURL) => FEATURE_URLS.some((url) => parentURL.startsWith(url)));
+serveServerReact();
 
 const { getTeamMemberships } = await import("./queries.ts");
 const { getSpielerMemberships } = await import("../spieler/queries.ts");
@@ -41,7 +39,7 @@ describe("the admin membership lists across a render pass", () => {
     await getTeamMemberships();
     await getTeamMemberships();
 
-    assert.equal(countOf(TEAMS_ENDPOINT) - before, 1, "the admin club list went to the backend twice in one render pass");
+    expect(countOf(TEAMS_ENDPOINT) - before, "the admin club list went to the backend twice in one render pass").toBe(1);
   });
 
   it("is fetched once per list when both `/bereich/admin/spieler` boundaries read the pair", async () => {
@@ -53,8 +51,8 @@ describe("the admin membership lists across a render pass", () => {
     await Promise.all([getTeamMemberships(), getSpielerMemberships()]);
     await Promise.all([getSpielerMemberships(), getTeamMemberships()]);
 
-    assert.equal(countOf(TEAMS_ENDPOINT) - beforeTeams, 1, "the admin club list went to the backend twice in one render pass");
-    assert.equal(countOf(SPIELER_ENDPOINT) - beforeSpieler, 1, "the admin player list went to the backend twice in one render pass");
+    expect(countOf(TEAMS_ENDPOINT) - beforeTeams, "the admin club list went to the backend twice in one render pass").toBe(1);
+    expect(countOf(SPIELER_ENDPOINT) - beforeSpieler, "the admin player list went to the backend twice in one render pass").toBe(1);
   });
 
   it("is fetched again in the next pass, so no request is served another's copy", async () => {
@@ -76,8 +74,8 @@ describe("the admin membership lists across a render pass", () => {
       ["player", countOf(SPIELER_ENDPOINT) - beforeSpieler],
     ];
     for (const [list, count] of fetched) {
-      assert.notEqual(count, 0, `a new request was served the previous request's admin ${list} list`);
-      assert.equal(count, 1, `the admin ${list} list went to the backend twice in one render pass`);
+      expect(count, `a new request was served the previous request's admin ${list} list`).not.toBe(0);
+      expect(count, `the admin ${list} list went to the backend twice in one render pass`).toBe(1);
     }
   });
 });

@@ -36,7 +36,7 @@ export class RolledBackError extends Error {
 
 /**
  * An admin-tier call made with no actor recorded, refused before it is sent as the backend would refuse
- * it on arrival (`docs/backend/spec.md :: I41`). A programming error: the call opened outside
+ * it on arrival. A programming error: the call opened outside
  * `runAdminRead` and outside an admin action's guard.
  */
 export class UnattributedAdminCallError extends Error {
@@ -138,7 +138,7 @@ export class APIBadStatusError extends Error {
  * The protocol's code families: a credential, a request the API cannot take, a route it does not serve, a person's
  * day ceiling. None is a rule refusing what was asked, and each family grows codes the backend adds to it.
  */
-export const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
+const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
 
 const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
 
@@ -210,7 +210,7 @@ export class ContractBreakError extends Error {
 /**
  * Whether an error says the backend answered against what this frontend was built for, never that
  * a read failed. Told apart only outside a `"use cache"` scope, whose throws lose their class in every
- * build (`docs/frontend/spec.md` §1.2).
+ * build.
  */
 export function isContractBreak(error: unknown): boolean {
   return error instanceof ContractBreakError || error instanceof APIMalformedDataError;

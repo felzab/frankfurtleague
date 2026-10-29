@@ -18,7 +18,6 @@ function funktionHref(funktion: Funktion): string {
     case "schiedsrichter":
       return "/bereich/schiedsrichter";
     case "administration":
-      // eslint-disable-next-line local/admin-link -- a Funktion's own address; no season is in scope where a person lands
       return "/bereich/admin";
   }
 }
@@ -72,8 +71,7 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
 
   return orte.map(({ ziel, titel, detail }) => {
     const [erste] = ziel.funktionen;
-    // One team in two seasons is two places under one title, which a screen reader would name alike
-    // (`docs/frontend/spec.md :: I469`).
+    // One team in two seasons is two places under one title, which a screen reader would name alike.
     const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
     const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
 
@@ -83,7 +81,7 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
 
 /**
  * The landing is listed whatever is held: for a person whose one place is a team or the
- * administration, „Übersicht“ is the account page's way back (`docs/frontend/spec.md :: I467`).
+ * administration, „Übersicht“ is the account page's way back.
  */
 export function personEintraegeOf(funktionen: readonly Funktion[]): ReadonlySet<PersonEintrag> {
   const eintraege = new Set<PersonEintrag>(["landing"]);

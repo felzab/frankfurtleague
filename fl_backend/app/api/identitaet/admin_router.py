@@ -206,7 +206,7 @@ async def get_erasure_ansicht_auf_anfrage(
         is not None
     }
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
-    # here, a typed address would answer whether it is that change's new one (`docs/backend/spec.md :: I871`).
+    # here, a typed address would answer whether it is that change's new one.
     naming = [row for row in others_naming(subject.adresswechsel, identifier) if verwehrt.get(str(row["adresse"])) != "verwaltung"]
     ansicht = compose_erasure_ansicht_auf_anfrage(
         identifier,
@@ -223,7 +223,7 @@ async def get_erasure_ansicht_auf_anfrage(
         team_rows=team_rows,
         unplayed_rows=unplayed_rows,
     )
-    # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+    # A live row is its own fold, so equality is the fold's judgement.
     own = next((grant for grant in lebendige(grants) if grant["adresse"] == identifier), None)
 
     return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
@@ -305,12 +305,12 @@ async def erase_auf_anfrage(
                 identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
             )
         )
-        # Ending a live grant asks what a revoke asks (`docs/backend/spec.md :: I489`). A live row is its own fold,
-        # so equality is the fold's judgement (`:: I453`).
+        # Ending a live grant asks what a revoke asks. A live row is its own fold,
+        # so equality is the fold's judgement.
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
             refuse_unconfirmed()
 
-        # Ahead of the erasure's first write, its anchor, and in its snapshot: a retry judges the names afresh (`docs/backend/spec.md :: I721`).
+        # Ahead of the erasure's first write, its anchor, and in its snapshot: a retry judges the names afresh.
         subject = await resolve_subject(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -329,7 +329,7 @@ async def erase_auf_anfrage(
             pupil_rows=subject.spieler,
             registrierung_rows=subject.registrierungen,
         )
-        # Ending a grant holder's change is a discard, which only an owner makes (`docs/backend/spec.md :: I871`).
+        # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
             find_fremder_adresswechsel_refusal(
                 adressen=[str(row["adresse"]) for row in others_naming(subject.adresswechsel, identifier)],

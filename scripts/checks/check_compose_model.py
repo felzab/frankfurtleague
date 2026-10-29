@@ -35,7 +35,7 @@ from checker_kernel import (
 )
 
 # Pinned rather than read off either file: a service joining production is a decision about what
-# the server runs, and the one this pin exists for is a database (`docs/ops/spec.md :: I174`).
+# the server runs, and the one this pin exists for is a database.
 PRODUCTION_SERVICES: Final = frozenset({"frontend", "backend", "nginx", "cloudflared"})
 
 EDGE_SERVICE: Final = "nginx"
@@ -52,7 +52,7 @@ DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 CONNECTOR_SERVICE: Final = "cloudflared"
 
 # Every service's networks, exactly: the connector shares one with nginx alone, and the application
-# pair and the local database share the other with nginx (`docs/ops/spec.md :: I471`).
+# pair and the local database share the other with nginx.
 EDGE_NETWORK: Final = "frankfurtleague-net"
 APP_NETWORK: Final = "frankfurtleague-app"
 SERVICE_NETWORKS: Final = {
@@ -72,10 +72,10 @@ LOCAL_DATABASE_SERVICE: Final = "mongo"
 
 _FRONTEND: Final = frozenset({"frontend"})
 _BACKEND: Final = frozenset({"backend"})
-# The three internal keys: one file each, read by both services (`docs/ops/spec.md :: I11`).
+# The three internal keys: one file each, read by both services.
 _BOTH: Final = frozenset({"frontend", "backend"})
 _EITHER_STACK: Final = {
-    # A holder of it mints any actor the backend trusts (I472).
+    # A holder of it mints any actor the backend trusts.
     "fl_actor_signing_key": _FRONTEND,
     "auth_secret": _FRONTEND,
     "sperrliste_schluessel": _BACKEND,
@@ -85,7 +85,7 @@ _EITHER_STACK: Final = {
 }
 
 # Every secret each stack declares, as (its holders, the checkout file it is read from): a holder that
-# does not read it is one more place it leaks from, and a reader lacking it refuses its boot (I508).
+# does not read it is one more place it leaks from, and a reader lacking it refuses its boot.
 SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
     "production": {
         **{secret: (holders, f"{SECRETS_PATH}/{secret}") for secret, holders in _EITHER_STACK.items()},
@@ -101,14 +101,14 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
 }
 
 # Every file each stack hands a service as an inline config at `RUN_SECRETS`, by its holders: the local
-# stack's logins, which name its own database and no credential, so no machine keeps production's (I508).
+# stack's logins, which name its own database and no credential, so no machine keeps production's.
 CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
     "production": {},
     "local": {"frontend_mongodb_uri": _FRONTEND, "backend_mongodb_uri": _BACKEND},
 }
 
 # The environment names those files replace: one in a service's `environment:` is a second copy of a
-# credential beside its file (I509). `scripts/lib/_lib.sh :: MOVED_ENV_NAMES` spells this set again
+# credential beside its file. `scripts/lib/_lib.sh :: MOVED_ENV_NAMES` spells this set again
 # for the environment files' own check.
 MOVED_ENV_NAMES: Final = frozenset(
     {
@@ -146,7 +146,7 @@ def host_network(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 def production(model: dict[str, Any], name: str) -> list[Finding]:
-    """Nothing published, and exactly `PRODUCTION_SERVICES`, so a database joining is a finding (`docs/ops/spec.md :: I1`, `:: I174`)."""
+    """Nothing published, and exactly `PRODUCTION_SERVICES`, so a database joining is a finding."""
     declared = services(model, name)
     findings = host_network(model, name)
     if set(declared) != PRODUCTION_SERVICES:
@@ -154,11 +154,11 @@ def production(model: dict[str, Any], name: str) -> list[Finding]:
             Finding(
                 "fail",
                 f"{name} declares {sorted(declared)}, not {sorted(PRODUCTION_SERVICES)}\n"
-                f"{CONTINUATION}production runs no database (I174); a new service is a change to PRODUCTION_SERVICES",
+                f"{CONTINUATION}production runs no database; a new service is a change to PRODUCTION_SERVICES",
             )
         )
     findings += [
-        Finding("fail", f"{name}: {service} publishes {definition['ports']!r}\n{CONTINUATION}production publishes nothing (I1)")
+        Finding("fail", f"{name}: {service} publishes {definition['ports']!r}\n{CONTINUATION}production publishes nothing")
         for service, definition in sorted(declared.items())
         if definition.get("ports")
     ]
@@ -178,14 +178,14 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
         expected = SERVICE_NETWORKS.get(service)
         if expected is None:
             findings.append(
-                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS (I471)")
+                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS")
             )
         elif frozenset(joined) != expected:
             findings.append(
                 Finding(
                     "fail",
                     f"{name}: {service} joins {sorted(joined)}, not {sorted(expected)}\n"
-                    f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx (I471)",
+                    f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx",
                 )
             )
     return findings
@@ -206,7 +206,7 @@ def _capabilities(listed: list[Any] | None) -> frozenset[str]:
 def privileges(model: dict[str, Any], name: str) -> list[Finding]:
     """Every service drops every capability, takes `no-new-privileges`, and adds back only `CAPABILITIES_ADDED`'s.
 
-    One left in place is one no start was shown to need, and NET_RAW reads the bridge a token crosses (I507).
+    One left in place is one no start was shown to need, and NET_RAW reads the bridge a token crosses.
     """
     findings: list[Finding] = []
     for service, definition in sorted(services(model, name).items()):
@@ -214,13 +214,11 @@ def privileges(model: dict[str, Any], name: str) -> list[Finding]:
         added = _capabilities(definition.get("cap_add"))
         allowed = CAPABILITIES_ADDED.get(service, frozenset())
         if dropped != {"ALL"}:
-            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL (I507)"))
+            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL"))
         if added != allowed:
-            findings.append(
-                Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'} (I507)")
-            )
+            findings.append(Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'}"))
         if not NO_NEW_PRIVILEGES & set(definition.get("security_opt") or []):
-            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges (I507)"))
+            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges"))
     return findings
 
 
@@ -233,7 +231,7 @@ def _declared_file(declared: object, project: Path) -> str:
 def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
     """No bind mount and no config reaches into `SECRETS_PATH`, nor mounts one holding it.
 
-    A secret is the one route a file there takes, so each reaches only the service naming it (I472, I508).
+    A secret is the one route a file there takes, so each reaches only the service naming it.
     """
     directory = project / SECRETS_PATH
     findings: list[Finding] = []
@@ -247,25 +245,25 @@ def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[F
                     Finding(
                         "fail",
                         f"{name}: {service} bind-mounts {source} at {volume.get('target')}, which reaches {directory.name}/\n"
-                        f"{CONTINUATION}a file there reaches a service as a Compose secret naming it, and no other way (I472)",
+                        f"{CONTINUATION}a file there reaches a service as a Compose secret naming it, and no other way",
                     )
                 )
     for config, declared in sorted((model.get("configs") or {}).items()):
         if (project / _declared_file(declared, project)).is_relative_to(directory):
-            findings.append(Finding("fail", f"{name}: the config {config} is read from {directory.name}/, where only secrets are (I472)"))
+            findings.append(Finding("fail", f"{name}: the config {config} is read from {directory.name}/, where only secrets are"))
     return findings
 
 
 def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) -> list[Finding]:
     """Exactly `SECRET_HOLDERS[stack]`: each declared, read from its file, and held by its services alone at `/run/secrets/<name>`.
 
-    A second name reading one file is that credential under an alias, so an undeclared name is a finding too (I472, I508).
+    A second name reading one file is that credential under an alias, so an undeclared name is a finding too.
     """
     expected = SECRET_HOLDERS[stack]
     declared = model.get("secrets") or {}
     findings: list[Finding] = []
     for secret in sorted(set(declared) - set(expected)):
-        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret (I508)"))
+        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret"))
     held: dict[str, list[str]] = {secret: [] for secret in expected}
     for service, definition in sorted(services(model, name).items()):
         for entry in definition.get("secrets") or []:
@@ -277,16 +275,16 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
             mounted = target if target.startswith("/") else f"{RUN_SECRETS}/{target}"
             if mounted != f"{RUN_SECRETS}/{source}":
-                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source} (I508)"))
+                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source}"))
     for secret, (holders, source_file) in sorted(expected.items()):
         if secret not in declared:
-            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it (I508)"))
+            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it"))
             continue
         read = _declared_file(declared[secret], project)
         if read != source_file:
-            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file} (I508)"))
+            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file}"))
         if sorted(held[secret]) != sorted(holders):
-            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)} (I508)"))
+            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)}"))
     return findings
 
 
@@ -308,7 +306,7 @@ def _not_the_local_database(content: object, services_declared: dict[str, Any]) 
 def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding]:
     """Exactly `CONFIG_HOLDERS[stack]` mounted at `RUN_SECRETS`, each by its services alone and naming this stack's database.
 
-    A service reads any file there as a credential, so a config nothing lists there is one no secret table checks (I508).
+    A service reads any file there as a credential, so a config nothing lists there is one no secret table checks.
     """
     expected = CONFIG_HOLDERS[stack]
     declared = model.get("configs") or {}
@@ -326,9 +324,7 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
             if directory != RUN_SECRETS:
                 continue
             if file not in held:
-                findings.append(
-                    Finding("fail", f"{name}: {service} mounts the config {source} at {target}, a file CONFIG_HOLDERS lacks (I508)")
-                )
+                findings.append(Finding("fail", f"{name}: {service} mounts the config {source} at {target}, a file CONFIG_HOLDERS lacks"))
                 continue
             held[file].append(service)
             if (wrong := _not_the_local_database((declared.get(source) or {}).get("content"), services_declared)) is not None:
@@ -336,12 +332,12 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
                     Finding(
                         "fail",
                         f"{name}: the config {source}, which {service} reads at {target}, {wrong}\n"
-                        f"{CONTINUATION}a login there aims the stack at a database other than its own (I508)",
+                        f"{CONTINUATION}a login there aims the stack at a database other than its own",
                     )
                 )
     for file, holders in sorted(expected.items()):
         if sorted(held[file]) != sorted(holders):
-            findings.append(Finding("fail", f"{name}: {held[file] or 'nothing'} reads a config as {file}, not {sorted(holders)} (I508)"))
+            findings.append(Finding("fail", f"{name}: {held[file] or 'nothing'} reads a config as {file}, not {sorted(holders)}"))
     return findings
 
 
@@ -388,7 +384,7 @@ def _mounted_files(definition: dict[str, Any]) -> frozenset[str]:
 
 
 def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The frontend is handed every file its schema requires on this stack and none it never reads (I430).
+    """The frontend is handed every file its schema requires on this stack and none it never reads.
 
     Production is handed every file the schema reads; any other stack needs none it demands of production alone.
     """
@@ -401,11 +397,11 @@ def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[f
             Finding(
                 "fail",
                 f"{name}: the frontend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
-                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so (I430)",
+                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so",
             )
         )
     if extra := sorted(mounted - reads):
-        findings.append(Finding("fail", f"{name}: compose hands the frontend {extra}, which its schema never reads (I430)"))
+        findings.append(Finding("fail", f"{name}: compose hands the frontend {extra}, which its schema never reads"))
     return findings
 
 
@@ -642,7 +638,7 @@ def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
 
 
 def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The backend is handed every file its secret half requires and none it never reads, on either stack (I430)."""
+    """The backend is handed every file its secret half requires and none it never reads, on either stack."""
     reads, required = schema
     mounted = _mounted_files(services(model, name).get(BACKEND_SERVICE) or {})
     findings: list[Finding] = []
@@ -651,16 +647,16 @@ def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str]
             Finding(
                 "fail",
                 f"{name}: the backend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
-                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so (I430)",
+                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so",
             )
         )
     if extra := sorted(mounted - reads):
-        findings.append(Finding("fail", f"{name}: compose hands the backend {extra}, which its schema never reads (I430)"))
+        findings.append(Finding("fail", f"{name}: compose hands the backend {extra}, which its schema never reads"))
     return findings
 
 
 def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
-    """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I509).
+    """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case.
 
     The backend folds case, so a lower-cased copy is the same credential again.
     """
@@ -675,18 +671,20 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
                     Finding(
                         "fail",
                         f"{name}: {service} is handed {variable} in its environment\n"
-                        f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets (I509)",
+                        f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets",
                     )
                 )
     return findings
 
 
 def local(model: dict[str, Any], name: str) -> list[Finding]:
-    """Only the edge publishes to every interface; the rest bind a loopback address (`docs/ops/spec.md :: I1`)."""
+    """Every published port binds a loopback address, the edge's included.
+
+    The local stack serves a copy of production's data, so a port on any other interface serves it to
+    the developer's whole network.
+    """
     findings = host_network(model, name)
     for service, definition in sorted(services(model, name).items()):
-        if service == EDGE_SERVICE:
-            continue
         for port in definition.get("ports") or []:
             if not isinstance(port, dict):
                 raise ValueError(f"{name}: {service} has a port Compose did not expand, so this is not its rendered model")
@@ -696,7 +694,7 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
                     Finding(
                         "fail",
                         f"{name}: {service} publishes {port.get('published')}->{port.get('target')} on {where}\n"
-                        f"{CONTINUATION}only {EDGE_SERVICE} is reachable off this host; the rest bind 127.0.0.1 (I1)",
+                        f"{CONTINUATION}nothing of the local stack is reachable off this host; bind 127.0.0.1",
                     )
                 )
     return findings
@@ -705,7 +703,7 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
 def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path) -> tuple[list[tuple[str, str]], list[Finding]]:
     """The edge's `nginx/` mounts as (checkout path, container path), and a finding for each file mount.
 
-    A file mount keeps the inode a pull replaces, so a reload re-reads the old file (I355).
+    A file mount keeps the inode a pull replaces, so a reload re-reads the old file.
     """
     edge = services(model, name).get(EDGE_SERVICE)
     if not isinstance(edge, dict):
@@ -730,7 +728,7 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
                 Finding(
                     "fail",
                     f"{name}: {EDGE_SERVICE} mounts {relative} at {volume.get('target')}, which is not a directory\n"
-                    f"{CONTINUATION}a file mount keeps the file a pull replaced, and a reload re-reads it (I355)",
+                    f"{CONTINUATION}a file mount keeps the file a pull replaced, and a reload re-reads it",
                 )
             )
     if not pairs:
@@ -756,7 +754,7 @@ def compared(pairs: list[tuple[str, str]], compared_pairs: list[tuple[str, str]]
         Finding(
             "fail",
             f"{name}: {EDGE_SERVICE} mounts {sorted(pairs)}, and scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS compares {sorted(compared_pairs)}\n"
-            f"{CONTINUATION}the two move together (I355)",
+            f"{CONTINUATION}the two move together",
         )
     ]
 
@@ -899,7 +897,7 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
             Finding(
                 "fail",
                 f"{name} trusts {trusted or 'nothing'} with set_real_ip_from, and the connector is {address}\n"
-                f"{CONTINUATION}the edge takes a visitor's address from the connector alone (I18)",
+                f"{CONTINUATION}the edge takes a visitor's address from the connector alone",
             )
         )
     if arms != [(f"{address}/32", "1")]:
@@ -907,7 +905,7 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
             Finding(
                 "fail",
                 f"{name} marks {arms or 'nothing'} as the realip fallback, and the connector is {address}/32\n"
-                f"{CONTINUATION}the marker and set_real_ip_from name one address (I18)",
+                f"{CONTINUATION}the marker and set_real_ip_from name one address",
             )
         )
     for directive, expected in REALIP_SETTINGS.items():
@@ -917,13 +915,13 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
                 Finding(
                     "fail",
                     f"{name} declares {directive} {values or 'nowhere'}, not once as {expected}\n"
-                    f"{CONTINUATION}a second one, in a server or a location, replaces the shared one there (I18)",
+                    f"{CONTINUATION}a second one, in a server or a location, replaces the shared one there",
                 )
             )
     return findings
 
 
-# Each application service's environment file, relative to the checkout (`docs/ops/spec.md :: I429`).
+# Each application service's environment file, relative to the checkout.
 ENV_FILES: Final = {"frontend": "fl_frontend/.env", "backend": "fl_backend/.env"}
 # The prefix of the name each of the gate's stand-in environment files carries, a name of its own
 # valued with its path.
@@ -951,7 +949,7 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
                 Finding(
                     "fail",
                     f"{name}: {service} reads the environment files {read}, not {expected} alone\n"
-                    f"{CONTINUATION}the deploy judges the package's file as the whole of what the container is handed (I429)",
+                    f"{CONTINUATION}the deploy judges the package's file as the whole of what the container is handed",
                 )
             )
     return findings
@@ -995,7 +993,7 @@ def main() -> int:
         return EXIT_REFUSED
     code = report_findings(findings)
     if not findings:
-        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
+        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally every port binds loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")

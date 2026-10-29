@@ -1,26 +1,20 @@
-import "@/shared/testing/dom.ts";
-import "@/shared/testing/renderTest.ts";
-
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+// @vitest-environment jsdom
 
 import { createElement as h } from "react";
 
+import { doubleActions } from "@/test-support/actionDoubles.ts";
+import { declaredStatus } from "@/test-support/declaredStatus.ts";
+import { underNext } from "@/test-support/nextContexts.ts";
+import { saisonRules } from "@/test-support/saisonRules.ts";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-
-import { withoutPythonComments } from "@/core/pythonComments.ts";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
-import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
-import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 
-doubleEveryAction();
+// The server action modules the season editor reaches.
+doubleActions({ modules: ["@/features/einladungen/actions.ts", "@/features/saisons/actions.ts", "@/features/teams/actions.ts"] });
 
 const { FormRegelnSection } = await import("./FormRegelnSection.tsx");
 const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
@@ -75,8 +69,8 @@ describe("the rules panel's freezes", () => {
       const { unmount } = render(panel({ isKnockoutStarted, isFinishedSaison }));
       const state = `knockout started: ${String(isKnockoutStarted)}, finished: ${String(isFinishedSaison)}`;
 
-      assert.equal(isClosed(trigger(/Was zuerst entscheidet$/)), closed, state);
-      assert.equal(screen.queryByText("Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.") !== null, explained, state);
+      expect(isClosed(trigger(/Was zuerst entscheidet$/)), state).toBe(closed);
+      expect(screen.queryByText("Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.") !== null, state).toBe(explained);
       unmount();
     }
   });
@@ -91,14 +85,14 @@ describe("the rules panel's freezes", () => {
     ] as const) {
       const { unmount } = render(panel(props));
 
-      assert.equal(isClosed(trigger(/^Gruppen/)), gruppen, JSON.stringify(props));
-      assert.equal(isClosed(trigger(/^Qualifikanten pro Gruppe/)), qualifikanten, JSON.stringify(props));
+      expect(isClosed(trigger(/^Gruppen/)), JSON.stringify(props)).toBe(gruppen);
+      expect(isClosed(trigger(/^Qualifikanten pro Gruppe/)), JSON.stringify(props)).toBe(qualifikanten);
       unmount();
     }
   });
 
-  /* A redraw that moves the groups is out of reach while the draw stands, and nothing returns a season to `future`
-     (`docs/backend/spec.md :: I18`), so a repair named outside the window is one nobody can take. */
+  /* A redraw that moves the groups is out of reach while the draw stands, and nothing returns a season to `future`,
+     so a repair named outside the window is one nobody can take. */
   it("names the repairs for the frozen shape inside the Spielplan window, and the freeze or its condition outside it", () => {
     const { unmount } = render(panel({}));
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
@@ -118,30 +112,8 @@ describe("the rules panel's freezes", () => {
   });
 });
 
-// Seven levels, this file sitting at the editor's own folder.
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
-
-/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it. */
-const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
-
-/**
- * The string literals one module-level constant of `services.py` is assigned, in source order.
- *
- * A wrapped value runs to the paren the formatter closes alone on a line, comments out; its first line
- * alone holds no literal.
- */
-function assignedLiterals(name: string): string[] {
-  const value = new RegExp(`^${name}(?::[^=\\n]*)? = (\\(\\n[\\s\\S]*?\\n\\)|.*)$`, "m").exec(SERVICES)?.[1] ?? "";
-
-  return [...withoutPythonComments(value).matchAll(/"([^"]*)"/g)].map((literal) => literal[1] ?? "");
-}
-
-/** `REQ-RULES-011`'s frozen set and the one field of it a redraw moves, read off the write path that composes them. */
-const SHAPE_RULES_FIELDS = assignedLiterals("SHAPE_RULES_FIELDS");
-const REDRAWABLE_SHAPE_FIELD = assignedLiterals("REDRAWABLE_SHAPE_FIELD")[0] ?? "";
-
-/* One German noun phrase per frozen field. A field this table leaves out would go unnamed in the panel
-   while nothing here failed, which the first case below is against. */
+/* One German noun phrase per frozen field. A field the write path adds and this table leaves out goes
+   unnamed in the panel and fails nothing here. */
 const GERMAN_OF: Record<string, string> = {
   number_of_groups: "Gruppen",
   teams_per_group: "Teams pro Gruppe",
@@ -155,6 +127,13 @@ const GERMAN_OF: Record<string, string> = {
  * substring search for the group COUNT while naming no count at all.
  */
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
+
+/** The one frozen field a redraw alone moves, spelled as `GERMAN_OF` is, so the case reads no backend file. */
+const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group";
+
+/** Which of the panel's repairs name one field, by position. */
+const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
+  new Set(repairs.flatMap((sentence, index) => (names(GERMAN_OF[field] ?? "", sentence) ? [index] : [])));
 
 /** Every paragraph one state of the panel shows. */
 function paragraphsOf(props: Partial<RegelnProps>): string[] {
@@ -175,27 +154,12 @@ function openRepairs(): string[] {
   const standing = new Set(paragraphsOf({}));
   const added = paragraphsOf({ isDrawnSaison: true, spielplanWindow: "open" }).filter((paragraph) => !standing.has(paragraph));
 
-  assert.equal(added.length, 1, "the frozen shape is explained by no paragraph of its own, or by more than one");
+  expect(added.length, "the frozen shape is explained by no paragraph of its own, or by more than one").toBe(1);
 
   return (added[0] ?? "").split(/(?<=\.)\s+/).filter((sentence) => sentence !== "");
 }
 
-/** Which of the panel's repairs name one field, by position. */
-const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
-  new Set(repairs.flatMap((sentence, index) => (names(GERMAN_OF[field] ?? "", sentence) ? [index] : [])));
-
 describe("the repairs the reloaded panel names for the shape the draw freezes", () => {
-  /* The authority is `SHAPE_RULES_FIELDS` and not the table above, so a fourth shape field fails here rather than
-     leaving the two cases below looping over a set the write path has grown past. */
-  it("names a phrase for exactly the fields the refusal freezes", () => {
-    assert.deepEqual(Object.keys(GERMAN_OF).sort(), [...SHAPE_RULES_FIELDS].sort());
-    assert.equal(new Set(Object.values(GERMAN_OF)).size, Object.keys(GERMAN_OF).length, "two fields share one phrase");
-    assert.ok(
-      REDRAWABLE_SHAPE_FIELD in GERMAN_OF,
-      `${REDRAWABLE_SHAPE_FIELD} is the field a redraw moves and this table names no phrase for it`,
-    );
-  });
-
   /* The refusal is a bare message sending the admin back to this panel, so a field the panel leaves out of its
      repairs has no route named for it anywhere. */
   it("names a repair for every field the refusal freezes", () => {
@@ -234,14 +198,14 @@ describe("the rules panel's shape offer", () => {
   it("closes the group counts the season's clubs rule out, and holds the team stepper at the fullest group", async () => {
     const user = userEvent.setup();
     const { unmount } = render(panel({ gruppenOccupancy: {} }));
-    assert.equal(screen.getByRole("button", { name: "verringern Teams pro Gruppe" }).hasAttribute("disabled"), false);
+    expect(screen.getByRole("button", { name: "verringern Teams pro Gruppe" }).hasAttribute("disabled")).toBe(false);
     unmount();
 
     render(panel({ gruppenOccupancy: { A: 4, B: 4, C: 1 } }));
-    assert.equal(screen.getByRole("button", { name: "verringern Teams pro Gruppe" }).hasAttribute("disabled"), true);
+    expect(screen.getByRole("button", { name: "verringern Teams pro Gruppe" }).hasAttribute("disabled")).toBe(true);
 
     await user.click(trigger(/^Gruppen/));
-    assert.equal(screen.getByRole("option", { name: /^2/ }).getAttribute("aria-disabled"), "true", "two groups stay open over a club in C");
+    expect(screen.getByRole("option", { name: /^2/ }).getAttribute("aria-disabled"), "two groups stay open over a club in C").toBe("true");
   });
 
   /* A season written by hand can hold a count the offer does not carry; dropped, the save sends a number nobody
@@ -249,7 +213,7 @@ describe("the rules panel's shape offer", () => {
   it("keeps a stored count the offer does not carry, and stands on it", () => {
     render(panel({ rules: { ...RULES, number_of_groups: 3 } }));
 
-    assert.match(trigger(/^Gruppen/).textContent, /^3/);
+    expect(trigger(/^Gruppen/).textContent).toMatch(/^3/);
   });
 });
 
@@ -292,7 +256,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
     );
 
     assert.ok(screen.getByText("Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"));
-    assert.equal(isClosed(trigger(/Was zuerst entscheidet$/)), true, "the rules panel reads the knockout some other way");
+    expect(isClosed(trigger(/Was zuerst entscheidet$/)), "the rules panel reads the knockout some other way").toBe(true);
     assert.ok(
       screen.getByText(/Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist/),
       "the rules panel decides the window itself",

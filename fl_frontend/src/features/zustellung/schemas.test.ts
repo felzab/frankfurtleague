@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { FLBewerbungZustellungEreignisPayloadSchema } from "@/features/bewerbungen/schemas";
 
@@ -44,22 +43,19 @@ describe("the provider's own token, as both mirrors screen it", () => {
     it(`${name} refuses a break forging a header line`, () => {
       const forged = schema.safeParse(bodyFor(keys, "MailboxFull\nBcc: someone@example.com"));
 
-      assert.equal(forged.success, false);
-      assert.deepEqual(
-        forged.error?.issues.map((issue) => issue.path.join(".")),
-        ["grund"],
-      );
+      expect(forged.success).toBe(false);
+      expect(forged.error?.issues.map((issue) => issue.path.join("."))).toStrictEqual(["grund"]);
     });
 
     it(`${name} takes the provider's own token, and a null`, () => {
-      assert.equal(schema.safeParse(bodyFor(keys, "NoEmail")).success, true);
-      assert.equal(schema.safeParse(bodyFor(keys, null)).success, true);
+      expect(schema.safeParse(bodyFor(keys, "NoEmail")).success).toBe(true);
+      expect(schema.safeParse(bodyFor(keys, null)).success).toBe(true);
     });
 
     /* The endpoint takes an empty reason: a bounce carrying no token is still a fact about the
        mailbox, and a floor here would drop the whole state with the missing word. */
     it(`${name} takes an empty token`, () => {
-      assert.equal(schema.safeParse(bodyFor(keys, "")).success, true);
+      expect(schema.safeParse(bodyFor(keys, "")).success).toBe(true);
     });
   }
 });
@@ -77,22 +73,16 @@ describe("the seats a delivery write names", () => {
     it(`${name} takes a season row's seats and refuses a season row naming none`, () => {
       const body = (rollen: string[]) => ({ ziel: "kontakt", ziel_id: ZIEL_ID, rollen: rollen, am: EVENT_AT, ...rest });
 
-      assert.equal(schema.safeParse(body(["ansprechperson", "trainer"])).success, true);
-      assert.deepEqual(
-        schema.safeParse(body([])).error?.issues.map((issue) => issue.path.join(".")),
-        ["rollen"],
-      );
+      expect(schema.safeParse(body(["ansprechperson", "trainer"])).success).toBe(true);
+      expect(schema.safeParse(body([])).error?.issues.map((issue) => issue.path.join("."))).toStrictEqual(["rollen"]);
     });
 
     it(`${name} refuses a seat on a kind with one carrier, and a body naming no seats at all`, () => {
       const body = { ziel: "schiedsrichter", ziel_id: ZIEL_ID, am: EVENT_AT, ...rest };
 
-      assert.equal(schema.safeParse({ ...body, rollen: [] }).success, true);
-      assert.deepEqual(
-        schema.safeParse({ ...body, rollen: ["trainer"] }).error?.issues.map((issue) => issue.path.join(".")),
-        ["rollen"],
-      );
-      assert.equal(schema.safeParse(body).success, false, "the required key was left out and the body still parsed");
+      expect(schema.safeParse({ ...body, rollen: [] }).success).toBe(true);
+      expect(schema.safeParse({ ...body, rollen: ["trainer"] }).error?.issues.map((issue) => issue.path.join("."))).toStrictEqual(["rollen"]);
+      expect(schema.safeParse(body).success, "the required key was left out and the body still parsed").toBe(false);
     });
   }
 });

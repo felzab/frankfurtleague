@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "./adresswechsel";
+import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
 import { ADRESSWECHSEL_STOPPEN, NICHT_MEINE_ADRESSE } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import {
@@ -20,6 +20,7 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
+import { formatZeitpunkt } from "./format";
 import { KONTO_HREF } from "./kontoHref";
 import { ADMINISTRATOREN_TITEL } from "./seitenNamen";
 
@@ -29,14 +30,13 @@ import type { Aktion } from "./emailShell";
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
 
-// eslint-disable-next-line local/admin-link -- a mailed link names no season; the page lists every grant whatever the season
 const ADMINISTRATOREN_PFAD = "/bereich/admin/administratoren";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
  * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
  */
-export function adresswechselLink(origin: string, token: string): string {
+function adresswechselLink(origin: string, token: string): string {
   return `${origin}${ADRESSWECHSEL_PFAD}?token=${encodeURIComponent(token)}`;
 }
 
@@ -56,7 +56,7 @@ const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Se
 
 /** What the link to the new address is built from. */
 export interface AdresswechselLinkData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
@@ -72,7 +72,7 @@ export interface AdresswechselLinkData {
 export function buildAdresswechselEmail({ origin, token, weg, gueltigBis }: AdresswechselLinkData): AdresswechselEmail {
   const site = mailOrigin(origin);
   const url = adresswechselLink(site, token);
-  const bis = adresswechselZeitpunkt(gueltigBis);
+  const bis = formatZeitpunkt(gueltigBis);
 
   // The person typed it on the person's own start; the administration on either of its two.
   const eintrag =
@@ -124,7 +124,7 @@ const HINWEIS_BETREFF = `Deine E-Mail-Adresse bei der ${BRAND_NAME} soll sich ä
 
 /** What the notice to the address on file is built from. */
 export interface AdresswechselHinweisData {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
   origin: string;
   /** The raw stop token, a bearer credential like the link's. */
   stoppToken: string;
@@ -151,7 +151,7 @@ export function buildAdresswechselHinweisEmail({ origin, stoppToken, weg, guelti
         : `die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil diese Adresse nicht mehr erreichbar sein soll. Bestätigt die neue Adresse ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach.`;
   // The approval is the account page's alone, so `freigabe` names the deadline that page keeps.
   const freigabe = (zeit: string): string => `Freigeben kannst Du sie bis ${zeit}, nachdem Du Dich mit dieser Adresse angemeldet hast.`;
-  const bis = adresswechselZeitpunkt(gueltigBis);
+  const bis = formatZeitpunkt(gueltigBis);
   const stoppSatz = "Hast Du das nicht veranlasst? Dann stoppe die Änderung über diesen Link. Er gilt, bis die Änderung wirksam wird.";
   const fragen = (kontakt: string): string => `Fragen jederzeit an ${kontakt}.`;
 
@@ -215,7 +215,7 @@ export function buildAdresswechselWirksamEmail({
 }): AdresswechselEmail {
   const site = mailOrigin(origin);
   const name = einzeilig(vorname);
-  const seit = adresswechselZeitpunkt(zeitpunkt);
+  const seit = formatZeitpunkt(zeitpunkt);
 
   // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
   const gilt = (zeit: string): string =>

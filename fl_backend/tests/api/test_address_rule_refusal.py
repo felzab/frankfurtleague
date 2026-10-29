@@ -30,7 +30,7 @@ HALF_WIDTH_VOICED_MARK = chr(0xFF9E)
 UMLAUT_LOCAL_PART = "jürgen@schule.de"
 
 # Every address here is one `EmailStr` accepts, so each refusal below is the address rule's own rather
-# than the library's, and its local part is not ASCII (`docs/backend/spec.md :: I332`).
+# than the library's, and its local part is not ASCII.
 BEYOND_ASCII = [
     pytest.param(UMLAUT_LOCAL_PART, id="an umlaut"),
     pytest.param(f"{chr(0xFF41)}nna@schule.de", id="a full-width letter"),
@@ -93,7 +93,7 @@ def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -
 
 
 class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
-    """`docs/backend/spec.md :: I329`: a 422 at the box, never a 500 at the ban list's keying.
+    """A 422 at the box, never a 500 at the ban list's keying.
 
     The two routes keying a STORED address are held by `app/api/schiedsrichter/services.py :: find_missing_address_refusal` instead.
     """

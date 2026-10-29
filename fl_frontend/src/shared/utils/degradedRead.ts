@@ -33,7 +33,7 @@ function logReadFailure(message: string, error: unknown): void {
     error instanceof APIMalformedDataError ||
     error instanceof ApiUnsentError;
   // A `"use cache"` fill's throw arrives as a plain `Error` carrying Next's digest, which joins this line to the line
-  // a production build writes of the original (`docs/frontend/spec.md` §1.2).
+  // a production build writes of the original.
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
     error_code: typed ? error.code : "FE-RSC-001",
@@ -46,7 +46,7 @@ function logReadFailure(message: string, error: unknown): void {
 // Attached inside `runWithIncomingTrace`'s scope at its call site: outside it, an untyped failure's line names no request.
 /**
  * A page's degraded read's rejection handler: a failed read settles to the page's `null`, and a contract break reaches
- * the error boundary, which logs it (`docs/frontend/spec.md :: I650`).
+ * the error boundary, which logs it.
  */
 export function nullUnlessContractBreak(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.

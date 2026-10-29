@@ -6,9 +6,19 @@ import { useRouter } from "next/navigation";
 
 import { ThemeProvider } from "next-themes";
 
+// Session 8: both come from `react-aria-components` once HeroUI goes; the kit's menu links follow this
+// `RouterProvider`.
 import { I18nProvider, RouterProvider } from "@heroui/react/rac";
 
 import { AppToaster } from "./AppToaster";
+
+// React Aria's documented typing of a link's `routerOptions`: Next's own navigation options, and
+// `replace` for a step the browser's Back should skip, such as a season switch.
+declare module "react-aria-components" {
+  interface RouterConfig {
+    routerOptions: { replace?: boolean; scroll?: boolean };
+  }
+}
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -19,17 +29,21 @@ export function RootProviders({ children }: AppProvidersProps) {
   return (
     // Without it react-aria's `href` props fall back to native <a> navigation, a full page reload
     // on every menu link.
-    <RouterProvider navigate={(href) => router.push(href)}>
-      {/* Here because the document declares its language here (`docs/frontend/spec.md :: I41`):
+    <RouterProvider
+      navigate={(href, { replace = false, ...options } = {}) => (replace ? router.replace(href, options) : router.push(href, options))}>
+      {/* Here because the document declares its language here:
           unpinned, react-aria formats "en-US" under SSR and the browser's locale after hydration,
           so a date field asks mm/dd/yyyy and reorders its segments mid-session. */}
       <I18nProvider locale="de-DE">
         {/* Without `disableTransitionOnChange` every `transition-colors` element eases its own colour
             when `data-theme` moves, and the flip is watchable. */}
+        {/* `system` spelled out although it is today's default: next-themes has changed that default
+            before, and the site follows the visitor's system. */}
         <ThemeProvider
           enableSystem={true}
-          defaultTheme="dark"
+          defaultTheme="system"
           disableTransitionOnChange>
+          {/* Redesign: goes with the last importer of `shared/utils/appToast`. */}
           <AppToaster />
           {children}
         </ThemeProvider>

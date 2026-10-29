@@ -1,14 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
-
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-
-/** The saison modules under test, whose `react` imports are the ones the server build must answer. */
-const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { describe, expect, it, vi } from "vitest";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
@@ -17,11 +10,7 @@ const { setSession } = doubleActionRequest();
 /** Every cache declaration a read made, which the request's own double answers by recording nothing. */
 const declared: string[] = [];
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerDoubles({
-  specifiers: {
-    "next/cache": { cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") },
-  },
-});
+vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") }));
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
@@ -30,7 +19,7 @@ const reads = doubleApiClient(({ endpoint }) =>
   endpoint.endsWith("/loeschung/vorschau") ? { acknowledged: 1, abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
 );
 
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
+serveServerReact();
 
 const { getAdminSaisons, getLoeschungVorschau } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
@@ -49,8 +38,8 @@ describe("the admin season list across a render pass", () => {
     const resolved = await resolveSaisonId(Promise.resolve({ saison_id: "2526" }), "admin");
     await getAdminSaisons();
 
-    assert.equal(resolved, "2526");
-    assert.equal(adminReads() - before, 1, "the admin season list went to the backend twice in one render pass");
+    expect(resolved).toBe("2526");
+    expect(adminReads() - before, "the admin season list went to the backend twice in one render pass").toBe(1);
   });
 
   it("is fetched again in the next pass, so no request is served another's copy", async () => {
@@ -67,8 +56,8 @@ describe("the admin season list across a render pass", () => {
     // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`
     // would open on this read, and 2 is no memoization at all.
     const fetched = adminReads() - before;
-    assert.notEqual(fetched, 0, "a new request was served the previous request's admin list");
-    assert.equal(fetched, 1, "the admin season list went to the backend twice in one render pass");
+    expect(fetched, "a new request was served the previous request's admin list").not.toBe(0);
+    expect(fetched, "the admin season list went to the backend twice in one render pass").toBe(1);
   });
 });
 
@@ -83,24 +72,21 @@ describe("the deletion count the season page reads", () => {
     beginRenderPass();
     await getLoeschungVorschau("2627");
 
-    assert.deepEqual(
-      reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType]),
-      [
-        ["/saisons/2627/loeschung/vorschau", "admin"],
-        ["/saisons/2627/loeschung/vorschau", "admin"],
-      ],
-    );
-    assert.deepEqual(declared, [], "the administrator's count is declared into a cache every caller shares");
+    expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
+      ["/saisons/2627/loeschung/vorschau", "admin"],
+      ["/saisons/2627/loeschung/vorschau", "admin"],
+    ]);
+    expect(declared, "the administrator's count is declared into a cache every caller shares").toStrictEqual([]);
   });
 
-  /* The admin tier's guard, which the page's layout does not give a page's own read (`docs/frontend/spec.md :: I122`). */
+  /* The admin tier's guard, which the page's layout does not give a page's own read. */
   it("sends nothing for a session holding no administrator", async () => {
     setSession(null);
     const before = reads.length;
 
     beginRenderPass();
-    await assert.rejects(getLoeschungVorschau("2627"));
+    await expect(getLoeschungVorschau("2627")).rejects.toThrow();
 
-    assert.equal(reads.length, before, "the count was read for a session the guard turns away");
+    expect(reads.length, "the count was read for a session the guard turns away").toBe(before);
   });
 });

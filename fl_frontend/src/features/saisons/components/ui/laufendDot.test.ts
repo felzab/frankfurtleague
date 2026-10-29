@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { laufendDot } from "./laufendDot.ts";
 
@@ -11,7 +10,6 @@ import type { LaufendDotStep } from "./laufendDot.ts";
  */
 const STEPS: readonly LaufendDotStep[] = ["xxs", "xs"];
 
-// The `dot` ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` spells the same pair: the grade changes in both.
 /* Matched as whole tokens: `bg-brand/20` is the page loader's halo and `bg-brand-solid` is a fill,
    and a substring reader grades both as this dot. */
 const GRADE = ["bg-brand", "animate-ping"];
@@ -39,6 +37,6 @@ describe("the mark a running season wears on both surfaces", () => {
   /* Two sizes for two type steps, so an ornament never outweighs the word beside it; one size for
      both would be a parameter nothing reads. */
   it("gives the two steps different sizes", () => {
-    assert.notEqual(laufendDot("xxs"), laufendDot("xs"), "both steps compose the same dot");
+    expect(laufendDot("xxs"), "both steps compose the same dot").not.toBe(laufendDot("xs"));
   });
 });

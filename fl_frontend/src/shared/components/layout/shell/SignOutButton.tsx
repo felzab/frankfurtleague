@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/FrameNav` replaces it.
 import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
 
 import { useSignOut } from "@/shared/hooks/useSignOut";

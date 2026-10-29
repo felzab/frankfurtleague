@@ -1,40 +1,30 @@
-import "@/shared/testing/dom.ts";
-import "@/shared/testing/renderTest.ts";
-
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+// @vitest-environment jsdom
 
 import { act, createElement as h } from "react";
 
+import { doubleActions, doubleToasts } from "@/test-support/actionDoubles.ts";
+import { closedControl } from "@/test-support/closedControl.ts";
+import { laufendeNeubesetzung } from "@/test-support/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { underNext } from "@/test-support/nextContexts.ts";
+import { pressTwice } from "@/test-support/twoPress.ts";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import { assert, describe, expect, it } from "vitest";
 
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
-import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { closedControl } from "@/shared/testing/closedControl.ts";
-import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
-import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
 
-const { calls } = doubleEveryAction();
+// The one server action module the page reaches.
+const { calls } = doubleActions({ modules: ["@/features/bewerbungen/actions.ts"] });
 const { raised } = doubleToasts();
 
 const { AdminBewerbungView } = await import("./AdminBewerbungView.tsx");
 // After the doubles: the guard raises its warning through the toast module they replace.
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..");
-
-/** The module the redaction lives in, and the triage router, whose calls say whether a decision redacts. */
-const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
-const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
 
 const TEAM_NAME = "SG Alpha";
 
@@ -110,7 +100,7 @@ describe("the Zusage where the write would be refused", () => {
       const { unmount } = renderPage(bewerbung, teamName);
       const hindernis = zusageHindernis(bestaetigungsStand(bewerbung), teamName) ?? "";
 
-      assert.notEqual(hindernis, "", `${wo} refuses nothing, so this case judges an open control`);
+      expect(hindernis, `${wo} refuses nothing, so this case judges an open control`).not.toBe("");
       assert.ok(offers("Zusage"), `the page withdraws the acceptance over ${wo}`);
       closedControl("Bewerbung annehmen", hindernis);
       unmount();
@@ -126,20 +116,15 @@ describe("the Zusage where the write would be refused", () => {
 
     // First: a page that rendered nothing holds neither panel either.
     assert.ok(screen.getByRole("heading", { name: TEAM_NAME }), "the decided application's page did not render");
-    assert.equal(offers("Zusage"), false, "a decided application is offered an acceptance");
-    assert.equal(offers("Absage"), false, "a decided application is offered a decline");
+    expect(offers("Zusage"), "a decided application is offered an acceptance").toBe(false);
+    expect(offers("Absage"), "a decided application is offered a decline").toBe(false);
   });
 });
 
 describe("which irreversibility the triage claims", () => {
-  /* `docs/frontend/spec.md` §1.3 splits the two sentences on one mechanical test: the second belongs to a
-     write whose transaction empties the log rows it filed. Neither decision redacts, so the pre-image
-     survives both and the FIRST sentence is theirs. */
+  /* The second sentence belongs to a write whose transaction empties the log rows it filed, and neither decision
+     does: the action log outlives both, so the first sentence is theirs. */
   it("takes the sentence for a write the action log outlives", async () => {
-    // Read where the redaction is written: whether a decision redacts is a call the backend router makes.
-    assert.match(RECORDING, /def build_redaction_update/, "the redaction this test turns on is gone");
-    assert.ok(!ADMIN_ROUTER.includes("build_redaction_update"), "the triage redacts, so the sentence below is the wrong one");
-
     const user = userEvent.setup();
     const { container } = renderPage(OFFEN);
 
@@ -185,10 +170,9 @@ describe("the Zusage beside a typed Absage", () => {
     await pressAccept(container);
 
     assert.ok(armed() === null, "the acceptance armed over a typed reason");
-    assert.deepEqual(
-      raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["warning", "Erst speichern", DRAFT_DISCARDED]],
-    );
+    expect(raised.map((toast) => [toast.variant, toast.title, toast.description])).toStrictEqual([
+      ["warning", "Erst speichern", DRAFT_DISCARDED],
+    ]);
   });
 });
 
@@ -275,11 +259,10 @@ describe("a press on the application page beside another panel's typing", () => 
       if (move.armed === undefined) await user.click(screen.getByRole("button", { name: move.press }));
       else await pressTwice(user, { resting: move.press, armed: move.armed });
       await settled();
-      assert.deepEqual(
+      expect(
         calls.map((call) => call.action),
-        [move.write],
         "the press over an otherwise clean page did not write, so the refusal below judges nothing",
-      );
+      ).toStrictEqual([move.write]);
       clean.unmount();
 
       renderPage(MIT_OFFENEN_SITZEN);
@@ -290,11 +273,10 @@ describe("a press on the application page beside another panel's typing", () => 
       await user.click(screen.getByRole("button", { name: move.press }));
       await settled();
 
-      assert.deepEqual(calls, [], "the press wrote over another panel's typing");
-      assert.deepEqual(
-        raised.map((toast) => [toast.variant, toast.title, toast.description]),
-        [["warning", "Erst speichern", DRAFT_DISCARDED]],
-      );
+      expect(calls, "the press wrote over another panel's typing").toStrictEqual([]);
+      expect(raised.map((toast) => [toast.variant, toast.title, toast.description])).toStrictEqual([
+        ["warning", "Erst speichern", DRAFT_DISCARDED],
+      ]);
     });
   }
 });

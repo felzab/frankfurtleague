@@ -340,7 +340,7 @@ async def post_berechtigung(
                 now=now,
                 session=session,
             )
-            # The address entering a record, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+            # The address entering a record, which an erasure of it running now never read.
             await anchor_the_addresses(
                 [adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
             )
@@ -358,7 +358,7 @@ async def post_berechtigung(
             now=now,
             session=session,
         )
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        # The address entering here, which an erasure of it running now never read.
         await anchor_the_addresses([adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         return created_id, False
@@ -379,10 +379,7 @@ async def _queue_the_request(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Keyed by the request's id and read for its recipients when a pass claims it, so one decided by then asks nobody.
-
-    `docs/backend/spec.md :: I856`.
-    """
+    """Keyed by the request's id and read for its recipients when a pass claims it, so one decided by then asks nobody."""
 
     await post_one_to_db(
         collection=berechtigungen_postausgang_collection,
@@ -412,7 +409,7 @@ async def _genehmiger_exist(
 ) -> bool:
     """Whether anybody but `ausgenommen` could approve an act on a grant of `verwaltung` asked now.
 
-    Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts (`docs/backend/spec.md :: I848`).
+    Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts.
     """
 
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
@@ -552,7 +549,7 @@ async def patch_berechtigung(
         if grant["verwaltung"] == verwaltung:
             return False
 
-        # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts (`docs/backend/spec.md :: I438`).
+        # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts.
         await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
         barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
@@ -629,7 +626,7 @@ async def _move_the_tier_in_session(
 
     berechtigung_id = grant["_id"]
     announced = [record for record in records if record["_id"] == berechtigung_id]
-    # A database edit to this row nobody was told of goes out first, as the revoke's does (`docs/backend/spec.md :: I451`).
+    # A database edit to this row nobody was told of goes out first, as the revoke's does.
     pending = compare(grants=[grant], announced=announced)
     for changed_id, art, jetzt, vorher in pending:
         await post_one_to_db(
@@ -644,14 +641,14 @@ async def _move_the_tier_in_session(
         collection=berechtigungen_collection,
         db_filter={"_id": berechtigung_id},
         # Stamped and seen as the pass stamps and sees a grant it finds, since the announced row moved
-        # below leaves the pass nothing of this grant to find (`docs/backend/spec.md :: I525`, `:: I529`).
+        # below leaves the pass nothing of this grant to find.
         update={
             "$set": {
                 "verwaltung": verwaltung,
                 **({"gefunden_am": now} if gefunden(pending) else {}),
                 **({"gesehen_am": now} if grant.get("gesehen_am") is None else {}),
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
-                # administering and hold none of it (`docs/backend/spec.md :: I534`).
+                # administering and hold none of it.
                 **({"ernannt_am": now} if verwaltung == OWNER else {}),
             }
         },
@@ -674,7 +671,7 @@ async def _move_the_tier_in_session(
         ),
         session=session,
     )
-    # The announced row is bookkeeping, so replaced with no image (`docs/backend/spec.md :: I465`).
+    # The announced row is bookkeeping, so replaced with no image.
     await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
     await post_one_to_db(
         collection=berechtigungen_angekuendigt_collection,
@@ -728,7 +725,7 @@ async def post_antrag_genehmigung(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection, antrag_id=antrag_id, now=now, session=session
         )
         adresse = str(antrag["adresse"])
-        # Written, so a revoke or a demotion of the approver or the requester committing beside it conflicts (`docs/backend/spec.md :: I438`).
+        # Written, so a revoke or a demotion of the approver or the requester committing beside it conflicts.
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)] + [adresse], session=session)
@@ -856,7 +853,7 @@ async def delete_antrag(
             antrag_id=antrag_id,
             session=session,
         )
-        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I867`).
+        # A decider's refusal is news to its requester; their own withdrawal is not.
         if not zurueckgezogen:
             await queue_the_ending_in_session(
                 [antrag],

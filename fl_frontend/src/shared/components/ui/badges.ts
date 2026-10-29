@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Chip` replaces it.
+
 /**
  * The radius the recipes below carry, and the one every `Chip` in this app sets in place of HeroUI's. On a `Chip` it
  * overrides `rounded-2xl` from `.chip`, and a utility beats the component layer, so no `!` is needed.
@@ -8,11 +10,11 @@ export const PILL_RADIUS_CLASSES = "rounded-md";
  * A number in a pill; `min-w-6` so single digits are not ovals. Colour stays the caller's, but the brand pair is
  * `bg-brand-solid` with its own foreground, never an alpha on `brand`, which flips per theme.
  */
-export const COUNT_BADGE_CLASSES = `inline-flex min-w-6 items-center justify-center font-numeric fluid-xxs ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-extrabold tabular-nums`;
+export const COUNT_BADGE_CLASSES = `inline-flex min-w-6 items-center justify-center font-numeric fluid-xxs ${PILL_RADIUS_CLASSES} px-1.5 py-0.5 font-extrabold`;
 
 /**
  * Every tone a pill may wear, and no member of it is neutral: a grey chip reads as a control that has
- * been switched off (`docs/frontend/spec.md :: I170`).
+ * been switched off.
  */
 export type PillTone =
   | "success"
@@ -28,7 +30,7 @@ export type PillTone =
   | "finale";
 
 /**
- * Every pair below is measured on `surface` (`scripts/checks/docs_gate/scheme.py :: PAIRS`), so a
+ * Every pair below is measured on `surface`, so a
  * pill sits on `surface` or `background` alone: on any other fill its light ink composites under
  * the floor, and `PILL_SOLID_CLASSES` goes there instead.
  */
@@ -57,8 +59,7 @@ export type FeedbackTone = Extract<PillTone, "success" | "warning" | "danger" | 
 
 /**
  * For a ground a tint cannot survive — a tab strip's `muted`, and any fill painted under a pill:
- * the tone's fill under its paired on-colour, a pair no ground moves
- * (`docs/frontend/spec.md :: I229`).
+ * the tone's fill under its paired on-colour, a pair no ground moves.
  */
 export const PILL_SOLID_CLASSES: Record<FeedbackTone, string> = {
   success: "bg-success-solid text-success-solid-foreground",

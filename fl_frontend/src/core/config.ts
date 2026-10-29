@@ -3,19 +3,14 @@ import "server-only";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
 import { BootRefusal } from "./bootRefusal";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
-// Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
-// transitive dependency, and pnpm puts none of those on this module's resolution path.
-type ValidationIssues = Parameters<NonNullable<Parameters<typeof createEnv>[0]["onValidationError"]>>[0];
-
 // The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
-// without the space, which `secrets.compare_digest` there reads (`docs/ops/spec.md :: I11`).
-export const INTERNAL_API_KEY = z
+// without the space, which `secrets.compare_digest` there reads.
+const INTERNAL_API_KEY = z
   .string()
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "printable ASCII only, with no space");
@@ -78,7 +73,7 @@ function readSecretFiles(directory: string): { values: Partial<Record<SecretKey,
     try {
       // `trim()`, and the backend Python's `strip()`: the two part at U+FEFF, U+001C-U+001F and
       // U+0085, and a shared key's alphabet refuses each on the side keeping it, so the services
-      // never hold two keys in silence (`docs/frontend/spec.md :: I504`).
+      // never hold two keys in silence.
       values[key] = UTF8.decode(readFileSync(path)).trim();
     } catch (error) {
       if (failureName(error) !== "ENOENT") unreadable.push(`${path} (${failureName(error)})`);
@@ -115,7 +110,7 @@ export function refuseInvalidEnvironment(names: readonly string[]): never {
   // By the file's name, the one an operator goes and fixes.
   const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
 
-  // The class the backend's boot refusals take, and its sentences (`docs/logging/error-codes.md` §3).
+  // The class the backend's boot refusals take, and its sentences.
   refuse([
     ...(variables.length > 0
       ? [{ sentence: "Invalid environment variables", error_code: "FE-BOOT-001", field: "variables", names: variables } as const]
@@ -130,20 +125,10 @@ function refuseUnreadableSecretFiles(unreadable: readonly string[]): never {
   refuse([{ sentence: "Unreadable secret files", error_code: "FE-BOOT-004", field: "files", names: unreadable }]);
 }
 
-type IssuePathSegment = NonNullable<ValidationIssues[number]["path"]>[number];
-
-// A Standard Schema segment is a key OR a `{ key }` wrapper around one, and `String` on the wrapper
-// renders `[object Object]` — a boot refusal naming no variable anybody can go and fix.
-function variableName(segment: IssuePathSegment | undefined): string {
-  if (segment === undefined) return "<unknown>";
-
-  return String(typeof segment === "object" ? segment.key : segment);
-}
-
-// Names only: the default handler prints the whole issue array, one schema change away from
-// echoing a rejected value into a container log (`docs/ops/spec.md :: I179`).
-export function failingVariableNames(issues: ValidationIssues): string[] {
-  return [...new Set(issues.map((issue) => variableName(issue.path?.[0])))].sort();
+// Names only: an issue's message, or its `input` under `reportInput`, can quote a rejected value,
+// which a container log must never hold. An empty path refuses the whole object.
+function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[] {
+  return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 
 // The deployments this repository defines -- `docker-compose.yml` and `docker-compose.local.yml`.
@@ -175,7 +160,7 @@ const environment = {
 
   // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
   // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
-  // call (`docs/ops/spec.md :: I13`). Caught at boot: that shape reads as healthy.
+  // call. Caught at boot: that shape reads as healthy.
   API_URL: z.url().refine((raw) => {
     const authUrl = process.env.AUTH_URL;
     return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
@@ -184,7 +169,7 @@ const environment = {
 
   // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
   // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
-  // or neither (`docs/frontend/spec.md` §1.7).
+  // or neither.
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
@@ -262,7 +247,7 @@ const fromFiles = {
   MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
 
   // The library's own floor, which it only warns below, so a short value signs every admin session
-  // behind a deploy nothing turned red (`docs/frontend/spec.md :: I317`).
+  // behind a deploy nothing turned red.
   AUTH_SECRET: z.string().min(32),
   // Optional here and demanded below under `production` alone: what keeps a send off another
   // deployment is `APP_ENV`, never this being absent, a development machine possibly holding a real
@@ -285,7 +270,22 @@ const fromFiles = {
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
-const client = {};
+// A rule reading two variables at once, which a per-variable schema cannot express. Each issue carries a
+// `path`, so the refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
+const schema = z.object({ ...environment, ...fromFiles }).superRefine((values, ctx) => {
+  if (values.APP_ENV !== "production") return;
+
+  for (const name of PRODUCTION_ONLY_REQUIRED) {
+    if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
+  }
+
+  // A test key passes every visitor, so production on one would run with no bot check at all.
+  for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
+    if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
+      ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
+    }
+  }
+});
 
 const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 
@@ -294,72 +294,27 @@ const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
 if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
 
+/** Skipped, the input itself, unvalidated and undefaulted: the image's builder and the test runner hold none of these values. */
+function validate(input: Record<string, string | undefined>): z.output<typeof schema> {
+  if (skipValidation) return input as unknown as z.output<typeof schema>;
+
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) refuseInvalidEnvironment(failingVariableNames(parsed.error.issues));
+
+  return parsed.data;
+}
+
 // One validation over the settings and the secrets together: the production demand reads `APP_ENV`
 // beside the files, and a boot refusing both kinds prints both lines before it throws.
-const validated = createEnv({
-  server: { ...environment, ...fromFiles },
-  client,
-
-  skipValidation,
-
-  onValidationError: (issues) => refuseInvalidEnvironment(failingVariableNames(issues)),
-
-  // The package's own hook for a rule reading two variables at once, which a per-variable schema
-  // cannot express; its issues reach `onValidationError` like any other.
-  createFinalSchema: (shape) =>
-    z.object(shape).superRefine((values, ctx) => {
-      if (values.APP_ENV !== "production") return;
-
-      for (const name of PRODUCTION_ONLY_REQUIRED) {
-        // Carries a `path`, so the refusal names the file to go and write: `failingVariableNames`
-        // reduces an issue without one to `<unknown>`.
-        if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
-      }
-
-      // A test key passes every visitor, so production on one would run with no bot check at all.
-      for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
-        if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
-          ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
-        }
-      }
-    }),
-
-  runtimeEnv: {
-    APP_ENV: process.env.APP_ENV,
-    API_URL: process.env.API_URL,
-    API_VERSION: process.env.API_VERSION,
-
-    AUTH_URL: process.env.AUTH_URL,
-
-    ACTOR_SIGNING_KEY_FILE: process.env.ACTOR_SIGNING_KEY_FILE,
-
-    LOG_FORMAT: process.env.LOG_FORMAT,
-    LOG_LEVEL: process.env.LOG_LEVEL,
-    BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
-    KONTO_SWEEP: process.env.KONTO_SWEEP,
-    LOESCHUNG_SWEEP: process.env.LOESCHUNG_SWEEP,
-    SPIEL_SWEEP: process.env.SPIEL_SWEEP,
-    SPIELBERICHT_EINGABE: process.env.SPIELBERICHT_EINGABE,
-    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
-
-    // Off the files alone: a variable of the same name, standing in for a missing file, would hand
-    // a credential `docker inspect` prints to a boot that should refuse.
-    MONGODB_URI: secrets.values.MONGODB_URI,
-    AUTH_SECRET: secrets.values.AUTH_SECRET,
-    AUTH_RESEND_KEY: secrets.values.AUTH_RESEND_KEY,
-    RESEND_WEBHOOK_SECRET: secrets.values.RESEND_WEBHOOK_SECRET,
-    INTERNAL_API_KEY_BASE: secrets.values.INTERNAL_API_KEY_BASE,
-    INTERNAL_API_KEY_SYSTEM: secrets.values.INTERNAL_API_KEY_SYSTEM,
-    INTERNAL_API_KEY_ADMIN: secrets.values.INTERNAL_API_KEY_ADMIN,
-    TURNSTILE_SECRET_KEY: secrets.values.TURNSTILE_SECRET_KEY,
-  },
+const validated = validate({
+  ...Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name]])),
+  // Off the files alone: a variable of the same name, standing in for a missing file, would hand
+  // a credential `docker inspect` prints to a boot that should refuse.
+  ...secrets.values,
 });
 
 type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
 
-// Off the validated object less the secrets rather than off `environment`'s keys: under a skipped
-// validation that object is `runtimeEnv` itself, which `fl_frontend/scripts/check-environment-names.test.mjs`
-// holds the emitted names to.
 /**
  * The settings, and no secret: any server module may import this, so each secret is handed out by its
  * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owner alone import.
@@ -374,6 +329,12 @@ export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
 export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
+
+/** The port Next's standalone server listens on, which the container's healthcheck reaches it on too. */
+export const serverPort = (): number => Number.parseInt(process.env.PORT ?? "", 10) || 3000;
+
+/** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
+export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
 
 /**
  * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
@@ -391,7 +352,7 @@ const required = (declarations: Record<string, z.ZodType>): string[] =>
 
 /**
  * The same preflight refuses a file that omits one of these. A name the file never declares reaches
- * `createEnv` as `undefined`, so the container is recreated and then refuses to boot behind an edge
+ * the schema as `undefined`, so the container is recreated and then refuses to boot behind an edge
  * already answering 502.
  */
 export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();

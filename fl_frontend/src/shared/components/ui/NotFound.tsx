@@ -1,11 +1,12 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react/button";
 
-import { goBackOrPush } from "@/shared/hooks/useEditorExit";
+import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { DISPLAY_HEADING_CLASSES } from "./displayType";
 import { ctaButton } from "./formButtons";

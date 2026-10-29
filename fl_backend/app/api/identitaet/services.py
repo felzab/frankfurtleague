@@ -1,9 +1,8 @@
 """
 API · the subject read's judgements, apart from the handles they are asked of
 
-Here rather than in `crud.py`, which opens collections: a services module is what
-`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments` sweeps,
-so a judgement left beside a handle is one nothing stops from growing a read of its own.
+Here rather than in `crud.py`, which opens collections: a services module decides from its
+arguments, so a judgement left beside a handle is one that can grow a read of its own.
 """
 
 import re
@@ -34,7 +33,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.folding import composed_name, is_stored_identifier, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
-# Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
+# Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -43,7 +42,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": rows_seating(identifier)},
         # `name` rides along free, this read opening the row anyway, and it is the row's own rather
-        # than the club's (`docs/backend/spec.md :: I13`).
+        # than the club's.
         {
             "$project": {
                 "saison_id": 1,
@@ -419,13 +418,13 @@ def eigene_eintraege(
 
 
 def lebt(row: Mapping[str, Any]) -> bool:
-    """A pupil or referee row not retired: only such a row grants its Funktion (`docs/backend/spec.md :: I376`)."""
+    """A pupil or referee row not retired: only such a row grants its Funktion."""
 
     return row.get("inactive_since") is None
 
 
 def nicht_ausgetreten(row: Mapping[str, Any]) -> bool:
-    """A season row its team has not withdrawn from: only such a row's seats grant (`docs/backend/spec.md :: I376`).
+    """A season row its team has not withdrawn from: only such a row's seats grant.
 
     The record's presence is the test, as every rule keyed on a club having left reads it.
     """
@@ -434,7 +433,7 @@ def nicht_ausgetreten(row: Mapping[str, Any]) -> bool:
 
 
 def awaits_confirmation(confirmations: Iterable[bool]) -> bool:
-    """Whether a mailbox holds records that could grant a panel and has confirmed none of them (`docs/backend/spec.md :: I374`)."""
+    """Whether a mailbox holds records that could grant a panel and has confirmed none of them."""
 
     judged = list(confirmations)
 
@@ -442,7 +441,7 @@ def awaits_confirmation(confirmations: Iterable[bool]) -> bool:
 
 
 def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
-    """Whether a seat on a season of this status admits its holder to the team's panel (`docs/backend/spec.md :: I375`).
+    """Whether a seat on a season of this status admits its holder to the team's panel.
 
     A `future` season's seat grants too: a team's people act for it before its season starts.
     """
@@ -465,7 +464,7 @@ def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id
 
 
 # The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `erteilbar` is that same predicate (`docs/backend/spec.md :: I597`).
+# read's `erteilbar` is that same predicate.
 
 
 def may_grant_on_spieler(subjekt: FLSubjekt, spieler_id: ObjectId) -> bool:
@@ -494,7 +493,7 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
 
 
 # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
-# a database paste could hand the administration on (`docs/backend/spec.md :: I436`).
+# a database paste could hand the administration on.
 LETZTER_INHABER_ERASURE = "REQ-PURGE-004"
 
 
@@ -638,7 +637,7 @@ def adresswechsel_einsehbar_verwehrt(
 ) -> FLAdresswechselEinsehbarVerwehrt | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
-    Their judgements, never their finders: a read reaching a finder publishes that code (`tests/core/test_rule_publication.py`).
+    Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
     """
 
     if ist_eigene_adresse(identifier=identifier, akteur=akteur):
@@ -652,10 +651,10 @@ def adresswechsel_einsehbar_verwehrt(
 
 
 # 422 on the box, as the address the payload's own validator refuses there: the value typed is what is
-# refused, and the administrator rephrases it (`docs/backend/spec.md :: I721`).
+# refused, and the administrator rephrases it.
 NAME_IM_ANLASS = "REQ-PURGE-006"
 
-# The ban's reason, by the same matcher and on its own box (`docs/backend/spec.md :: I726`). Here rather than beside the
+# The ban's reason, by the same matcher and on its own box. Here rather than beside the
 # ban's other codes: `app/api/sperrliste/services.py` is imported by a module this one imports.
 NAME_IM_GRUND = "REQ-SPERRLISTE-004"
 
@@ -796,8 +795,8 @@ def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefu
     )
 
 
-# --- The REFERENCES: wider than the own records and than the sign-in gate alike
-# (`docs/backend/spec.md :: I698`). Each selection is the one its record's own reads take
+# --- The REFERENCES: wider than the own records and than the sign-in gate alike.
+# Each selection is the one its record's own reads take
 # for one address, asked for a batch.
 
 # The address alone, never the confirmation: an unconfirmed seat on the running season is one the
@@ -850,13 +849,13 @@ def referenced_addresses(
     grant_rows: Iterable[Mapping[str, Any]],
     carry_rows: Iterable[Mapping[str, Any]],
 ) -> frozenset[str]:
-    """Every address, on the sign-in fold, that one of these records names (`docs/backend/spec.md :: I698`)."""
+    """Every address, on the sign-in fold, that one of these records names."""
 
     stored = (
         *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
         *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_ROLLEN),
         # The row's own address and never a pending change's: that admits no sign-in until confirmed, and
-        # the address it replaces stays here till then (`docs/backend/spec.md :: I560`).
+        # the address it replaces stays here till then.
         *map(referee_address, referee_rows),
         *map(pupil_address, pupil_rows),
         # The one kind narrowed to its pupil's confirmation, as the gate narrows it, each row judged on its
@@ -876,9 +875,9 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
-# Refused rather than answered: a league always holds a live `owner` (`docs/backend/spec.md :: I479`),
+# Refused rather than answered: a league always holds a live `owner`,
 # so grants holding none were read from an empty or foreign database, which would answer every address
-# unreferenced (`docs/backend/spec.md :: I712`).
+# unreferenced.
 KEIN_INHABER = "REQ-REFERENZEN-001"
 
 
@@ -895,7 +894,7 @@ def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteR
     )
 
 
-# --- The SEASON-AFTER RULE (`docs/backend/spec.md :: I690`), keyed on the stored statuses and never
+# --- The SEASON-AFTER RULE, keyed on the stored statuses and never
 # on a next season's id, which a skipped year leaves naming no season at all.
 
 
@@ -910,7 +909,7 @@ def abgeschlossene_saison_id(statuses: Mapping[str, FLSaisonStatus]) -> str | No
 
 
 def behaltene_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str] | None:
-    """The seasons a squad row keeps its pupil in (`docs/backend/spec.md :: I715`), or `None` while no season is `past`.
+    """The seasons a squad row keeps its pupil in, or `None` while no season is `past`.
 
     By id, as a planned season below the one just ended may never run: activation refuses no lower id.
     """
@@ -941,7 +940,7 @@ def build_offene_registrierungen_pipeline() -> list[Mapping[str, Any]]:
 
 
 def offene_adressen(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
-    """The pending registrations' addresses, each the fold a pupil's `email` holds (`docs/backend/spec.md :: I332`)."""
+    """The pending registrations' addresses, each the fold a pupil's `email` holds."""
 
     return frozenset(row["email"] for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str))
 

@@ -31,7 +31,7 @@ EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH: Final = 64
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
 # A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every
-# removed fixture whole in ONE row (I48), and this bound is what keeps that row under BSON's
+# removed fixture whole in ONE row, and this bound is what keeps that row under BSON's
 # document ceiling by construction rather than by luck.
 SPIEL_NOTIZ_MAX_LENGTH: Final = 4096
 
@@ -39,13 +39,12 @@ SPIEL_NOTIZ_MAX_LENGTH: Final = 4096
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_GRUND_MAX_LENGTH: Final = 1000
 
-# The ceiling refuses a mistyped century rather than a real age (`docs/backend/spec.md :: I180`).
+# The ceiling refuses a mistyped century rather than a real age.
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
-# asks contractual capacity rather than the age a person consents for themselves at
-# (`docs/backend/spec.md :: I180`).
+# asks contractual capacity rather than the age a person consents for themselves at.
 VERTRETUNG_MIN_AGE_YEARS: Final = 18
 
 # How long an application's three people have to confirm their own seats before it is deleted; a
@@ -157,11 +156,9 @@ ADRESSWECHSEL_NACHLAUF_TAGE: Final = 30
 # dated inside it is due the day it is asked.
 SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7
 # Also the longest a confirmation link answers, as long as `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE` and
-# `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: `docs/logging/spec.md` accepts a
-# link's token in the edge's error log because it answers nothing past such a deadline.
+# `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: the edge's error log accepts a
+# link's token because it answers nothing past such a deadline.
 SPIEL_ANFRAGE_VORLAUF_TAGE: Final = 14
-# Two integers rather than a list: a tuple is no `int`, so neither register of
-# `fl_backend/tests/shared/test_frontend_mirrors.py` would see it.
 SPIEL_ERINNERUNG_TAGE_ERSTE: Final = 3
 SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
 
@@ -196,7 +193,7 @@ REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
 
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `medien`, and nobody below it is recognisable in a published
-# photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
+# photograph or video, or interviewed.
 MEDIEN_MIN_AGE_YEARS: Final = 18
 
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):
@@ -221,7 +218,7 @@ STEP_UP_WINDOW_HOURS: Final = 2
 # (`docs/ops/runbooks.md :: 19-the-databases-storage-alert`). A redesigned log keeps that bound.
 
 # A signed-in person's counted writes per German day, by kind of person, each about three to five
-# times its kind's busiest legitimate day (`docs/backend/spec.md :: I614`). A pupil's is the first
+# times its kind's busiest legitimate day. A pupil's is the first
 # visit: two choices, each granted and corrected, 4 grants.
 DROSSELUNG_SPIELER_PRO_TAG: Final = 20
 # A referee's is a season's match work done in one sitting, about 31 writes, beside four consent grants.

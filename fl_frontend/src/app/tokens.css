@@ -1,0 +1,220 @@
+/* Every colour is a light and a dark value on one name, switched by the `data-theme` attribute
+   next-themes sets on the root, and `@theme inline` hands a utility the variable rather than a
+   value, so `bg-bg` follows the theme. */
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-muted: #e5e5e5;
+    --fg: #0a0a0a;
+    --fg-muted: #525252;
+    --border: #d4d4d4;
+    --border-control: #8e8e8e;
+    --brand: #216c2d;
+    --brand-solid: #033f11;
+    --brand-solid-hover: #1b5123;
+    --on-brand: #ffffff;
+    --brand-accent: #8fc752;
+    --success: #006a3e;
+    --info: #1853c6;
+    --warn: #865400;
+    --danger: #b71920;
+    --danger-solid: #b71920;
+    --danger-solid-hover: #d22e30;
+
+    --menu-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);
+    --dialog-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04), 0 24px 32px -8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* The brand and the destructive fills, their text and the accent on them keep their light values. */
+  [data-theme="dark"] {
+    --bg: #030303;
+    --bg-surface: #121212;
+    --bg-muted: #262626;
+    --fg: #ffffff;
+    --fg-muted: #a3a3a3;
+    --border: #333333;
+    --border-control: #616161;
+    --brand: #8dbf6c;
+    --success: #57c886;
+    --info: #7ea7f3;
+    --warn: #ecae30;
+    --danger: #e96c64;
+
+    --menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  /* The two frames' measures, on the root rather than on a frame, since React Aria draws the toast region,
+     which they place, in the body: the phone's band; the desktop rail's head, which the title strip shares;
+     the signed-in rail foot, which an editor's bar matches, so the two top hairlines are one line (its 1-px
+     edge, its 8-px and 12-px padding and the 48-px account row); the rail's width standing open and
+     collapsed to its glyphs, 24 px of inset at each side of one; and the classic frame's header. */
+  :root {
+    --rail-band: 3.5rem;
+    --rail-strip: 3rem;
+    --rail-foot: calc(1px + 0.5rem + 0.75rem + 3rem);
+    --rail-width: 16rem;
+    --rail-width-collapsed: 4.5rem;
+    --classic-header: 3.5rem;
+
+    @variant lg {
+      --classic-header: 4rem;
+    }
+  }
+
+  /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
+     is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
+     default `ease` applies. */
+  @media (prefers-reduced-motion: no-preference) {
+    :root {
+      --motion-state: 100ms;
+      --motion-in: 200ms;
+      --motion-out: 150ms;
+    }
+  }
+}
+
+/* The sheet's keyframes, defined where motion is welcome alone: under `reduce` the name resolves to nothing,
+   so the sheet's scrim stands without fading. */
+@media (prefers-reduced-motion: no-preference) {
+  /* A sheet's scrim and blur, driven by the sheet's position as it slides in or is swiped away. */
+  @keyframes kit-sheet-backdrop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* A row that scrolls sideways fades the edge with more to read, driven by the scroll position: at the
+   start only the end fades, at the end only the start. Outside the gate above: the fade is a mask the
+   scroll position sets, not movement that plays, and a reader who asked for less motion still needs the
+   cue that the row holds more to the side. */
+@keyframes kit-scroll-fade {
+  from {
+    --kit-fade-start: 0px;
+    --kit-fade-end: 32px;
+  }
+  10%,
+  90% {
+    --kit-fade-start: 24px;
+    --kit-fade-end: 32px;
+  }
+  to {
+    --kit-fade-start: 24px;
+    --kit-fade-end: 0px;
+  }
+}
+
+/* A skeleton's shimmer, a sweep across the box. Outside the gate above: it is a loading indicator, and a
+   loading indicator that stops under reduced motion reads as stuck. */
+@keyframes kit-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Registered so the two fade widths interpolate rather than jump. Zero where no scroll drives them: a
+   row that fits, or a browser without scroll-driven animations, shows no fade. */
+@property --kit-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --kit-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-muted: var(--bg-muted);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-border: var(--border);
+  --color-border-control: var(--border-control);
+  --color-brand: var(--brand);
+  --color-brand-solid: var(--brand-solid);
+  --color-brand-solid-hover: var(--brand-solid-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-accent: var(--brand-accent);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+
+  --shadow-menu: var(--menu-shadow);
+  --shadow-dialog: var(--dialog-shadow);
+}
+
+/* No namespace is reset to `initial` while HeroUI's stylesheets `@apply` Tailwind's default scale, so
+   the steps below are the only ones the kit may use, and the defaults stay for those stylesheets.
+   Session 8: once those stylesheets go, each namespace below is reset to `initial`. */
+@theme {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+
+  /* 4-px steps, and below 16 px Tailwind's own half-steps between them: 2, 6, 10 and 14 px. */
+  --spacing-0\.5: 0.125rem;
+  --spacing-1: 0.25rem;
+  --spacing-1\.5: 0.375rem;
+  --spacing-2: 0.5rem;
+  --spacing-2\.5: 0.625rem;
+  --spacing-3: 0.75rem;
+  --spacing-3\.5: 0.875rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /* Anton's letterfit for a title at every size: it is drawn to set nearly solid, and the site's negative
+     values were chosen for Inter's looser capitals. */
+  --tracking-display: 0.02em;
+  /* Capitals set a little apart: the small headings set in capitals, a table's columns and the footer's
+     groups, and the wordmark, which stands as the league's mark rather than as a title. */
+  --tracking-caps: 0.04em;
+
+  /* The kit's widths, each named for what it holds, so a width is declared once and every box of its kind
+     reads it through `max-w-*` or `w-*`. A page column's width is its content's, the frame's gutter standing
+     outside it, so one name is one content width in either frame; a box's width is the box's own, its
+     padding inside it. */
+  --container-popover: 20rem; /* the help text behind a section's ⓘ */
+  --container-signin: 22rem; /* the sign-in's column */
+  --container-question: 25rem; /* a dialog asking one question */
+  --container-card: 28rem; /* a status card, and the classic column holding one */
+  --container-dialog: 35rem; /* a dialog holding a form */
+  --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
+  --container-classic: 61rem; /* the classic frame's header and footer */
+  --container-content: 80rem; /* a rail page's content */
+  --container-measure: 64ch; /* a line of running text on a legal or consent page */
+  --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
+}
+
+/* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a
+   variable: the kit's script asks the same question as `lg:` (`useDesktop.ts`). */
+@theme static {
+  --breakpoint-lg: 64rem;
+}

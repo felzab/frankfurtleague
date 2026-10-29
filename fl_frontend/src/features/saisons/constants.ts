@@ -121,8 +121,7 @@ export function tiebreakLadder(value: FLSaisonTiebreakOrder): readonly TiebreakR
 }
 
 /**
- * Mirroring the backend's `SAISON_ID_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`), which
- * `fl_backend/tests/shared/test_frontend_mirrors.py` pairs it with. `saisons._id` is the string
+ * Mirroring the backend's `SAISON_ID_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`). `saisons._id` is the string
  * every `saison_id` references, so a width only one tier moved breaks every row pointing at it.
  */
 export const SAISON_ID_LENGTH = 4;
@@ -175,11 +174,3 @@ export const SPIELTAGE_UNDATED = "Die Saison kann erst aktiviert werden, wenn je
  */
 export const RESCORING_RULES_FIELDS = ["win_points", "draw_points"] as const;
 export const PLACING_RULES_FIELDS = ["tiebreak_order"] as const;
-
-/**
- * The rest of that tuple, and warned about nowhere: `REQ-RULES-011` shuts this field the moment the
- * season holds fixtures, so nothing has been played when it moves. Declared for the sweep, which
- * partitions the tuple across the three lists.
- * @internal
- */
-export const PREDRAW_RULES_FIELDS = ["qualifiers_per_group"] as const;

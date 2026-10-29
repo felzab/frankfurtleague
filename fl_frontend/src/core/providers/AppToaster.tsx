@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with the last importer of `shared/utils/appToast`, whose toasts it draws.
 import { useSyncExternalStore } from "react";
 
 import { tv } from "tailwind-variants";

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ClassicFrame` replaces it.
 import Bars from "@gravity-ui/icons/Bars";
 
 import { Dropdown } from "@heroui/react/dropdown";

@@ -27,7 +27,7 @@ from tests.core.app_source import APP_ROOT, parsed
 
 TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
 
-# The one console line shape both surfaces implement (`docs/logging/spec.md` §1.4), read after the
+# The one console line shape both surfaces implement, read after the
 # level word's colour is stripped. The frontend suite holds the same expression.
 CONSOLE_SHAPE = re.compile(r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL) {1,5}\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \S+ - ")
 ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
@@ -71,7 +71,7 @@ class TestJSONFormatter:
         assert TIMESTAMP_SHAPE.fullmatch(document["timestamp"]), document["timestamp"]
 
     def test_the_field_order_is_the_envelope_s(self):
-        """The ORDER, not only the set: the frontend suite asserts the same list, which is what makes one parser read both (L2)."""
+        """The ORDER, not only the set: the frontend suite asserts the same list, which is what makes one parser read both."""
         document = json.loads(JSONFormatter().format(make_record(trace_id=TRACE, span_id=SPAN)))
 
         assert list(document) == ["timestamp", "level", "service", "trace_id", "span_id", "message", "module", "line"]

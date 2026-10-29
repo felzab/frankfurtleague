@@ -1,8 +1,3 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
-import { MongoServerError } from "mongodb";
-
 import {
   configDouble,
   GATE_BACKEND_CONFIG,
@@ -11,7 +6,9 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
   sessionByCode,
-} from "@/core/authDoubles.ts";
+} from "@/test-support/authDoubles.ts";
+import { MongoServerError } from "mongodb";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { memoryAdapter, MemoryDB } from "better-auth/adapters/memory";
 
@@ -58,7 +55,7 @@ const mail = registerAuthDoubles({
 });
 seatEveryAddress();
 
-// Imported here rather than at the top: a static import resolves before the hooks above are registered.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { adresswechselWirksam, mailAdresswechsel, mailAdresswechselNichtWirksam } = await import("./notifications.ts");
 const { auth } = await import("@/core/auth.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope.ts");
@@ -93,15 +90,14 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 
       await adresswechselWirksam({ operation: "test", mitteilung: mitteilung(weg) });
 
-      assert.equal(kontoAn(BISHER), undefined, "the account stayed at the replaced address");
-      assert.equal(kontoAn(NEU)?.id, konto?.id, "the new address holds another account than the one carried");
+      expect(kontoAn(BISHER), "the account stayed at the replaced address").toBe(undefined);
+      expect(kontoAn(NEU)?.id, "the new address holds another account than the one carried").toBe(konto?.id);
       assert.ok(kontoAn(NEU)?.sessionsEndedAt instanceof Date, "the carried account's sessions were never ended");
       assert.ok(!store.session.some(({ id }) => id === row.id), "a session of the replaced address outlives the carry");
-      assert.equal(store.passkey[0]?.userId, konto?.id, "the passkey left the account it was set up on");
-      assert.deepEqual(
-        mail.sent.map(({ to, subject }) => [to, subject]),
-        [[BISHER, "Deine E-Mail-Adresse bei der Frankfurt League wurde geändert"]],
-      );
+      expect(store.passkey[0]?.userId, "the passkey left the account it was set up on").toBe(konto?.id);
+      expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
+        [BISHER, "Deine E-Mail-Adresse bei der Frankfurt League wurde geändert"],
+      ]);
     });
   }
 
@@ -112,15 +108,12 @@ describe("a change taking effect, as its caller's server finishes it", () => {
     await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") });
 
     assert.ok(kontoAn(BISHER) !== undefined, "the replaced address's account moved with a change it never asked for");
-    assert.equal(kontoAn(NEU), undefined);
+    expect(kontoAn(NEU)).toBe(undefined);
     assert.ok(
       store.session.some(({ id }) => id === row.id),
       "the replaced address's own session was ended",
     );
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      [BISHER],
-    );
+    expect(mail.sent.map(({ to }) => to)).toStrictEqual([BISHER]);
   });
 
   /* The new address signs in to the account it holds; the old one waits for the account sweep, logged under its own code. */
@@ -131,17 +124,13 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 
     await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto") });
 
-    assert.deepEqual([kontoAn(BISHER)?.id, kontoAn(NEU)?.id], [alt, neu]);
-    assert.deepEqual(
+    expect([kontoAn(BISHER)?.id, kontoAn(NEU)?.id]).toStrictEqual([alt, neu]);
+    expect(
       logged
         .filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen")
         .map(({ level, meta }) => [level, meta?.error_code, meta?.grund]),
-      [["warn", "FE-AUTH-013", "belegt"]],
-    );
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      [BISHER],
-    );
+    ).toStrictEqual([["warn", "FE-AUTH-013", "belegt"]]);
+    expect(mail.sent.map(({ to }) => to)).toStrictEqual([BISHER]);
   });
 
   /* The outbox keeps the row: the next claim moves the account first, and only then tells the old address it moved. */
@@ -151,32 +140,25 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 
     const erledigt = await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto") });
 
-    assert.equal(erledigt, false);
-    assert.deepEqual(mail.sent, []);
-    assert.deepEqual(
+    expect(erledigt).toBe(false);
+    expect(mail.sent).toStrictEqual([]);
+    expect(
       logged.filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen").map(({ level, meta }) => [level, meta?.error_code]),
-      [["error", "FE-AUTH-013"]],
-    );
+    ).toStrictEqual([["error", "FE-AUTH-013"]]);
   });
 
   it("answers a sent notice as done with, and a send that never left as not", async () => {
-    assert.equal(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") }), true);
+    expect(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") })).toBe(true);
     mail.answerWith(() => "unsent");
-    assert.equal(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") }), false);
+    expect(await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("wartezeit") })).toBe(false);
   });
 
   it("carries nothing where the replaced address never had an account, and logs nothing", async () => {
     await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto") });
 
-    assert.deepEqual(store.user, []);
-    assert.deepEqual(
-      logged.filter(({ event }) => event.startsWith("adresswechsel.")),
-      [],
-    );
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      [BISHER],
-    );
+    expect(store.user).toStrictEqual([]);
+    expect(logged.filter(({ event }) => event.startsWith("adresswechsel."))).toStrictEqual([]);
+    expect(mail.sent.map(({ to }) => to)).toStrictEqual([BISHER]);
   });
 });
 
@@ -187,17 +169,17 @@ describe("the notice of a due change the pass refused", () => {
     mail.answerWith(() => "barred");
     const gesperrt = await mailAdresswechselNichtWirksam({ operation: "test", email: NEU });
 
-    assert.deepEqual(mail.sent.map(({ to, subject }) => [to, subject]).slice(0, 1), [
+    expect(mail.sent.map(({ to, subject }) => [to, subject]).slice(0, 1)).toStrictEqual([
       [NEU, "Deine E-Mail-Adresse bei der Frankfurt League wurde nicht geändert"],
     ]);
     // Both done with: a barred address is never mailed, however often the outbox claims its row.
-    assert.deepEqual([gesendet, gesperrt], [true, true]);
+    expect([gesendet, gesperrt]).toStrictEqual([true, true]);
   });
 
   it("answers a failed send as not done with, so the outbox keeps the row", async () => {
     mail.answerWith(() => "unsent");
 
-    assert.equal(await mailAdresswechselNichtWirksam({ operation: "test", email: NEU }), false);
+    expect(await mailAdresswechselNichtWirksam({ operation: "test", email: NEU })).toBe(false);
   });
 });
 
@@ -217,17 +199,14 @@ describe("a change's two messages", () => {
   it("files the link's delivery under the change's own id, and sends the notice untagged", async () => {
     await mailAdresswechsel({ operation: "test", mint: MINT, anlass: "empfang" });
 
-    assert.deepEqual(mail.sent.find(({ to }) => to === NEU)?.tags, { ziel: "adresswechsel", ziel_id: MINT.id, anlass: "empfang" });
-    assert.equal(mail.sent.find(({ to }) => to === BISHER)?.tags, undefined);
+    expect(mail.sent.find(({ to }) => to === NEU)?.tags).toStrictEqual({ ziel: "adresswechsel", ziel_id: MINT.id, anlass: "empfang" });
+    expect(mail.sent.find(({ to }) => to === BISHER)?.tags).toBe(undefined);
   });
 
   it("mails the address on file nothing on a re-send, whose stop link is already there", async () => {
     await mailAdresswechsel({ operation: "test", mint: { ...MINT, stopp_token: null }, anlass: "erneut" });
 
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      [NEU],
-    );
+    expect(mail.sent.map(({ to }) => to)).toStrictEqual([NEU]);
   });
 });
 
@@ -250,7 +229,7 @@ describe("the notice a change sends the address in force", () => {
     });
 
   /* It may have landed, and it is a courtesy beside a saved write: its own answer says so, and the request's outcome
-     stays the write's and the link's (`docs/frontend/spec.md :: I372`). */
+     stays the write's and the link's. */
   it("ends as unclear where its send broke off unanswered, leaving the request's outcome unmarked", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "lost" : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
 
@@ -259,8 +238,8 @@ describe("the notice a change sends the address in force", () => {
       return [ended, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual(versand, { weg: "konto", link: "gesendet", hinweis: "ungewiss" });
-    assert.equal(markedUnknown, false, "a notice that may have landed answered the whole request as of unknown outcome");
+    expect(versand).toStrictEqual({ weg: "konto", link: "gesendet", hinweis: "ungewiss" });
+    expect(markedUnknown, "a notice that may have landed answered the whole request as of unknown outcome").toBe(false);
   });
 
   for (const [outcome, hinweis] of [
@@ -270,7 +249,7 @@ describe("the notice a change sends the address in force", () => {
     it(`ends as ${hinweis} where the mailer answered ${outcome}`, async () => {
       mail.answerWith(({ to }) => (to === BISHER ? outcome : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
 
-      assert.equal((await sendeWechsel()).hinweis, hinweis);
+      expect((await sendeWechsel()).hinweis).toBe(hinweis);
     });
   }
 });

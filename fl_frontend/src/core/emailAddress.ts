@@ -16,7 +16,7 @@ export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
 /**
  * RFC 5322 3.2.3's atext and nothing above ASCII, as the HTML standard's `type=email` address takes
- * it: the API stores only what every mail system carries (`docs/backend/spec.md :: I332`).
+ * it: the API stores only what every mail system carries.
  */
 const EMAIL_ATOM = "[a-zA-Z0-9_!#$%&'*+\\-/=?^`{|}~]+";
 
@@ -29,7 +29,7 @@ const EMAIL_LOCAL_PART_REGEX = new RegExp(`^${EMAIL_ATOM}(?:\\.${EMAIL_ATOM})*$`
 
 /**
  * Read before `new URL`, which reads a slash or colon as path or port, answering a host nobody typed.
- * Exclusions, not united allowances (I226): a union needs the `v` flag, which the browserslist refuses at
+ * Exclusions, not united allowances: a union needs the `v` flag, which the browserslist refuses at
  * `safari >= 16.4`.
  */
 const EMAIL_HOST_CHARS_REGEX = /^[^\p{Z}\p{C}!"#$%&'()*+,/:;<=>?@[\]\\^_`{|}~]+$/u;
@@ -42,8 +42,7 @@ const EMAIL_HOST_TLD_REGEX = /[a-zA-Z]$/;
 
 /**
  * IANA's special-use names as the API's `email_validator` lists them (`SPECIAL_USE_DOMAIN_NAMES`), each
- * refused with every name under it. The library moves without us;
- * `fl_backend/tests/shared/test_frontend_mirrors.py` holds this copy to the installed one.
+ * refused with every name under it. The library moves without us.
  */
 export const SPECIAL_USE_DOMAINS = ["arpa", "invalid", "local", "localhost", "onion", "test"] as const;
 
@@ -74,7 +73,7 @@ const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM}
 
 /**
  * Read before the ban list is asked: a provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
- * keying refuses the spelling and answers it unbarred (`docs/frontend/spec.md :: I541`).
+ * keying refuses the spelling and answers it unbarred.
  */
 export function isOneBareMailbox(value: string): boolean {
   return ONE_BARE_MAILBOX_REGEX.test(value);
@@ -147,8 +146,7 @@ export function hasAsciiLocalPart(value: string): boolean {
 
 /**
  * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` checks a
- * code's address with `z.email()`, and only the table in
- * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` holds the two together.
+ * code's address with `z.email()`.
  */
 const SIGN_IN_LIBRARY_EMAIL = z.email();
 
@@ -169,7 +167,7 @@ function foldedDomain(domain: string): string {
 }
 
 /**
- * The form every record stores an address in and every lookup asks with (`docs/backend/spec.md :: I333`). The sign-in
+ * The form every record stores an address in and every lookup asks with. The sign-in
  * library lower-cases both but trims neither: better-auth 1.7.10 as installed, read 2026-10-20, moves without us.
  */
 export function asSignInIdentifier(value: string): string {

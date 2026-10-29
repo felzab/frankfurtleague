@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { assert, describe, expect, it } from "vitest";
+
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "./draftStatus.ts";
 import { FLSpielAdminSchema } from "./schemas.ts";
 
@@ -84,21 +83,18 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     const stored = makeStored();
     const status = derive(stored, draftOf(stored));
 
-    assert.equal(status.isDirty, false);
-    assert.deepEqual(status.changed, []);
+    expect(status.isDirty).toBe(false);
+    expect(status.changed).toStrictEqual([]);
   });
 
   it("reports a changed date with both its readings, formatted as the site formats them", () => {
     const stored = makeStored();
     const status = derive(stored, draftOf(stored, { datum: "2026-08-19" }));
 
-    assert.equal(status.isDirty, true);
-    assert.deepEqual(
-      status.changed.map((field) => field.path),
-      ["datum"],
-    );
-    assert.equal(status.byPath.get("datum")?.storedText, "12.08.2026");
-    assert.equal(status.byPath.get("datum")?.draftText, "19.08.2026");
+    expect(status.isDirty).toBe(true);
+    expect(status.changed.map((field) => field.path)).toStrictEqual(["datum"]);
+    expect(status.byPath.get("datum")?.storedText).toBe("12.08.2026");
+    expect(status.byPath.get("datum")?.draftText).toBe("19.08.2026");
   });
 
   // A venue is a whole embedded object, so identity comparison would call every render a change.
@@ -106,7 +102,7 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     const stored = makeStored();
     const sameVenueNewObject = { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 };
 
-    assert.equal(derive(stored, draftOf(stored, { ort: sameVenueNewObject })).isDirty, false);
+    expect(derive(stored, draftOf(stored, { ort: sameVenueNewObject })).isDirty).toBe(false);
   });
 
   it("reports a venue swap and an emptied venue differently", () => {
@@ -117,18 +113,18 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     );
     const emptied = derive(stored, draftOf(stored, { ort: null }));
 
-    assert.equal(swapped.byPath.get("ort.spielort_id")?.draftText, "Riedwiese");
-    assert.equal(emptied.byPath.get("ort.spielort_id")?.draftText, null);
-    assert.equal(emptied.byPath.get("ort.spielort_id")?.storedText, "Sportpark Nord");
+    expect(swapped.byPath.get("ort.spielort_id")?.draftText).toBe("Riedwiese");
+    expect(emptied.byPath.get("ort.spielort_id")?.draftText).toBe(null);
+    expect(emptied.byPath.get("ort.spielort_id")?.storedText).toBe("Sportpark Nord");
   });
 
   // Two structurally equal sources must not read as a change; the objects are rebuilt on every pick.
   it("compares a bracket source by its contents", () => {
     const stored = makeStored({ saison_phase: "halbfinale", team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } });
 
-    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } })).isDirty, false);
-    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" } })).isDirty, true);
-    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } })).isDirty, true);
+    expect(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } })).isDirty).toBe(false);
+    expect(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" } })).isDirty).toBe(true);
+    expect(derive(stored, draftOf(stored, { team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } })).isDirty).toBe(true);
   });
 
   it("gives every Sonderereignis its own word, the ordinary fixture included", () => {
@@ -141,22 +137,22 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
       ["abgebrochen", "Abgebrochen"],
       ["annulliert", "Annulliert"],
     ] as const) {
-      assert.equal(derive(going, draftOf(going, { sonderereignis })).byPath.get("sonderereignis")?.draftText, label);
+      expect(derive(going, draftOf(going, { sonderereignis })).byPath.get("sonderereignis")?.draftText).toBe(label);
     }
 
     // "Regulär", never `null`: a null draft value renders as an emptied field in the danger grade,
     // and putting a fixture back on is not an emptying.
     const called = makeStored({ sonderereignis: "ausgefallen" });
-    assert.equal(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.draftText, "Regulär");
-    assert.equal(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.storedText, "Ausgefallen");
+    expect(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.draftText).toBe("Regulär");
+    expect(derive(called, draftOf(called, { sonderereignis: null })).byPath.get("sonderereignis")?.storedText).toBe("Ausgefallen");
   });
 
   // Swapping one member for another is an edit, and the boolean this replaced could not express it.
   it("reports a change from one Sonderereignis to another", () => {
     const called = makeStored({ sonderereignis: "ausgefallen" });
 
-    assert.equal(derive(called, draftOf(called, { sonderereignis: "annulliert" })).isDirty, true);
-    assert.equal(derive(called, draftOf(called, { sonderereignis: "ausgefallen" })).isDirty, false);
+    expect(derive(called, draftOf(called, { sonderereignis: "annulliert" })).isDirty).toBe(true);
+    expect(derive(called, draftOf(called, { sonderereignis: "ausgefallen" })).isDirty).toBe(false);
   });
 
   // An emptied goal box records `null`, the stored fixture's own spelling of no goals.
@@ -164,8 +160,8 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     const stored = makeStored({ team1: side(TEAM_1, "Team A", "TA", null), ergebnis: null });
     const status = derive(stored, draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", null) }));
 
-    assert.equal(status.byPath.get("team1.tore")?.draftText, null);
-    assert.equal(status.byPath.get("team1.tore")?.isChanged, false);
+    expect(status.byPath.get("team1.tore")?.draftText).toBe(null);
+    expect(status.byPath.get("team1.tore")?.isChanged).toBe(false);
   });
 });
 
@@ -173,17 +169,14 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
   it("marks nothing when no category applies, however empty the fixture is", () => {
     const stored = makeStored({ datum: null, uhrzeit: null, ort: null, schiedsrichter: null });
 
-    assert.deepEqual(derive(stored, draftOf(stored)).expected, []);
+    expect(derive(stored, draftOf(stored)).expected).toStrictEqual([]);
   });
 
   it("marks an empty field its category names", () => {
     const stored = makeStored({ datum: null });
     const status = derive(stored, draftOf(stored), ["datum_missing"]);
 
-    assert.deepEqual(
-      status.expected.map((field) => field.path),
-      ["datum"],
-    );
+    expect(status.expected.map((field) => field.path)).toStrictEqual(["datum"]);
   });
 
   // The category set is frozen from the stored fixture while emptiness is live, which is what
@@ -192,8 +185,8 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     const stored = makeStored({ datum: null });
     const status = derive(stored, draftOf(stored, { datum: "2026-08-19" }), ["datum_missing"]);
 
-    assert.deepEqual(status.expected, []);
-    assert.equal(status.byPath.get("datum")?.isChanged, true);
+    expect(status.expected).toStrictEqual([]);
+    expect(status.byPath.get("datum")?.isChanged).toBe(true);
   });
 
   it("marks both goal fields for one missing result", () => {
@@ -204,10 +197,7 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     });
     const status = derive(stored, draftOf(stored), ["ergebnis_pending"]);
 
-    assert.deepEqual(
-      status.expected.map((field) => field.path),
-      ["team1.tore", "team2.tore"],
-    );
+    expect(status.expected.map((field) => field.path)).toStrictEqual(["team1.tore", "team2.tore"]);
   });
 
   // A side WITH a source and no team yet is correct; only "no team AND no source" is open.
@@ -220,11 +210,8 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
       ergebnis: null,
     });
 
-    assert.deepEqual(
-      derive(unwired, draftOf(unwired), ["besetzung_missing"]).expected.map((field) => field.path),
-      ["team1_quelle"],
-    );
-    assert.deepEqual(derive(wired, draftOf(wired), ["besetzung_missing"]).expected, []);
+    expect(derive(unwired, draftOf(unwired), ["besetzung_missing"]).expected.map((field) => field.path)).toStrictEqual(["team1_quelle"]);
+    expect(derive(wired, draftOf(wired), ["besetzung_missing"]).expected).toStrictEqual([]);
   });
 
   // A hand-picked side has a team and no source: marking it would demand wiring for a slot the
@@ -232,7 +219,7 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
   it("leaves a manually filled side alone", () => {
     const manual = makeStored({ saison_phase: "halbfinale", team1_quelle: null, ergebnis: null });
 
-    assert.deepEqual(derive(manual, draftOf(manual), ["besetzung_missing"]).expected, []);
+    expect(derive(manual, draftOf(manual), ["besetzung_missing"]).expected).toStrictEqual([]);
   });
 
   /* The four scheduling fields are one grade. Nothing else pins which side a category falls on, so a
@@ -241,20 +228,17 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
     const bare = makeStored({ datum: null, uhrzeit: null, ort: null, schiedsrichter: null });
     const scheduling = derive(bare, draftOf(bare), ["datum_missing", "uhrzeit_missing", "ort_missing", "schiedsrichter_missing"]);
 
-    assert.deepEqual(
-      scheduling.expected.map((field) => [field.path, field.expectedSeverity]),
-      [
-        ["datum", "scheduling"],
-        ["uhrzeit", "scheduling"],
-        ["ort.spielort_id", "scheduling"],
-        ["schiedsrichter.schiedsrichter_id", "scheduling"],
-      ],
-    );
+    expect(scheduling.expected.map((field) => [field.path, field.expectedSeverity])).toStrictEqual([
+      ["datum", "scheduling"],
+      ["uhrzeit", "scheduling"],
+      ["ort.spielort_id", "scheduling"],
+      ["schiedsrichter.schiedsrichter_id", "scheduling"],
+    ]);
 
     const unscoreable = makeStored({ saison_phase: "halbfinale", team1: null, team1_quelle: null, team2: null, ergebnis: null });
     const scoring = derive(unscoreable, draftOf(unscoreable), ["besetzung_missing", "ergebnis_pending"]);
 
-    assert.deepEqual(new Set(scoring.expected.map((field) => field.expectedSeverity)), new Set(["scoring"]));
+    expect(new Set(scoring.expected.map((field) => field.expectedSeverity))).toStrictEqual(new Set(["scoring"]));
   });
 });
 
@@ -263,11 +247,8 @@ describe("deriveSpielDraftStatus · rejected fields", () => {
     const stored = makeStored();
     const status = derive(stored, draftOf(stored), [], { "ort.mietpreis": "Bitte gib einen Mietpreis ein." });
 
-    assert.equal(status.byPath.get("ort.mietpreis")?.error, "Bitte gib einen Mietpreis ein.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["ort.mietpreis"],
-    );
+    expect(status.byPath.get("ort.mietpreis")?.error).toBe("Bitte gib einen Mietpreis ein.");
+    expect(status.invalid.map((field) => field.path)).toStrictEqual(["ort.mietpreis"]);
   });
 
   // A source reports failures under the variant's key, never `teamN_quelle`, so a descriptor
@@ -276,13 +257,13 @@ describe("deriveSpielDraftStatus · rejected fields", () => {
     const stored = makeStored({ saison_phase: "halbfinale", team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
     const status = derive(stored, draftOf(stored), [], { "team1_quelle.platz": "Bitte wähle einen Platz aus." });
 
-    assert.equal(status.byPath.get("team1_quelle")?.error, "Bitte wähle einen Platz aus.");
+    expect(status.byPath.get("team1_quelle")?.error).toBe("Bitte wähle einen Platz aus.");
   });
 
   it("reports no error when the map is empty", () => {
     const stored = makeStored();
 
-    assert.deepEqual(derive(stored, draftOf(stored)).invalid, []);
+    expect(derive(stored, draftOf(stored)).invalid).toStrictEqual([]);
   });
 });
 
@@ -318,7 +299,7 @@ describe("deriveSpielDraftStatus · the table itself", () => {
     const stored = makeStored();
     const status = derive(stored, draftOf(stored));
 
-    assert.equal(status.byPath.size, status.fields.length);
+    expect(status.byPath.size).toBe(status.fields.length);
   });
 });
 
@@ -327,39 +308,39 @@ describe("admitsShootOut · the fixture a shoot-out belongs to", () => {
   const other = (tore: number | null) => side(TEAM_2, "Team B", "TB", tore);
 
   it("holds for a knockout fixture whose goals finished level", () => {
-    assert.equal(admitsShootOut("achtelfinale", level(2), other(2), null), true);
+    expect(admitsShootOut("achtelfinale", level(2), other(2), null)).toBe(true);
   });
 
   // Each is a route out of the shape the editor's own handlers do NOT cover.
   it("does not hold once a goal edit unlevels the fixture", () => {
-    assert.equal(admitsShootOut("achtelfinale", level(3), other(2), null), false);
+    expect(admitsShootOut("achtelfinale", level(3), other(2), null)).toBe(false);
   });
 
   it("does not hold once a side is cleared", () => {
-    assert.equal(admitsShootOut("achtelfinale", null, other(2), null), false);
+    expect(admitsShootOut("achtelfinale", null, other(2), null)).toBe(false);
   });
 
   it("does not hold while a count is empty", () => {
-    assert.equal(admitsShootOut("achtelfinale", level(null), other(2), null), false);
+    expect(admitsShootOut("achtelfinale", level(null), other(2), null)).toBe(false);
   });
 
   // A group-phase draw is a final result worth a point to each side, whatever the goals are.
   it("never holds in the group phase", () => {
-    assert.equal(admitsShootOut("gruppenphase", level(2), other(2), null), false);
+    expect(admitsShootOut("gruppenphase", level(2), other(2), null)).toBe(false);
   });
 
   // The typed goals are NOT the result under a no-show: the server composes it from the season's
   // `forfeit_ergebnis`, which a grandfathered season may regulate as a draw.
   it("never holds beside a Nichtantreten, however level the typed goals are", () => {
     for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
-      assert.equal(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), false, sonderereignis);
+      expect(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), sonderereignis).toBe(false);
     }
   });
 
   // The three that leave the goals alone: the result is the typed one, so the fixture keeps its tie.
   it("still holds under an event the server scores from the typed goals", () => {
     for (const sonderereignis of ["ausgefallen", "abgebrochen", "annulliert"] as const) {
-      assert.equal(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), true, sonderereignis);
+      expect(admitsShootOut("achtelfinale", level(2), other(2), sonderereignis), sonderereignis).toBe(true);
     }
   });
 });
@@ -377,20 +358,20 @@ describe("applyDraftToSpiel · an orphaned shoot-out", () => {
   it("keeps the record while the draft is still a level knockout", () => {
     const stored = knockout();
 
-    assert.deepEqual(applyDraftToSpiel(stored, draftOf(stored)).elfmeterschiessen, { team1: 5, team2: 4 });
+    expect(applyDraftToSpiel(stored, draftOf(stored)).elfmeterschiessen).toStrictEqual({ team1: 5, team2: 4 });
   });
 
   it("drops the record the moment the draft stops being one", () => {
     const stored = knockout();
     const unlevelled = draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", 3) });
 
-    assert.equal(applyDraftToSpiel(stored, unlevelled).elfmeterschiessen, null);
+    expect(applyDraftToSpiel(stored, unlevelled).elfmeterschiessen).toBe(null);
   });
 
   it("drops a half-entered record rather than sending one count", () => {
     const stored = knockout();
 
-    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { elfmeterschiessen: { team1: 5, team2: null } })).elfmeterschiessen, null);
+    expect(applyDraftToSpiel(stored, draftOf(stored, { elfmeterschiessen: { team1: 5, team2: null } })).elfmeterschiessen).toBe(null);
   });
 
   // The award is composed from the season's rules and may itself be level, so the write path
@@ -399,7 +380,7 @@ describe("applyDraftToSpiel · an orphaned shoot-out", () => {
     const stored = knockout();
 
     for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
-      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).elfmeterschiessen, null, sonderereignis);
+      expect(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).elfmeterschiessen, sonderereignis).toBe(null);
     }
   });
 });
@@ -414,7 +395,7 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
     const stored = makeStored();
 
     for (const sonderereignis of ["nichtantreten_team1", "nichtantreten_team2"] as const) {
-      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, null, sonderereignis);
+      expect(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, sonderereignis).toBe(null);
     }
   });
 
@@ -424,13 +405,13 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
     const stored = makeStored();
 
     for (const sonderereignis of ["ausgefallen", "annulliert"] as const) {
-      assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, "3:1", sonderereignis);
+      expect(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis })).ergebnis, sonderereignis).toBe("3:1");
     }
   });
 
   it("leaves an abandoned fixture's result exactly as entered", () => {
     const stored = makeStored();
 
-    assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "abgebrochen" })).ergebnis, "3:1");
+    expect(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "abgebrochen" })).ergebnis).toBe("3:1");
   });
 });

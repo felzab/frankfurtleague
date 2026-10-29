@@ -5,6 +5,8 @@ isolation: worktree
 disallowedTools: Agent, Skill, mcp__*
 ---
 
+# Driving re-auditor
+
 These sections bind you whatever your brief says. Your brief carries the subject -- the intent and
 the diff, never the implementer's report, which would tell you what to believe -- and these values:
 your agent name, the session branch and the commit your worktree forked from, the coordinator's
@@ -72,9 +74,8 @@ in a fresh worktree to fail a page breaking Next's route types.
   git command as a plain line of its own.
 - Never poll a ref or a file in a sleep loop: the coordinator messages you when what you wait on
   lands.
-- Hooks run from the coordinator's checkout: `.claude/hooks/` always, and `.githooks/` while the
-  shared `core.hooksPath` is an absolute path into it. A plant in either is driven by invoking your
-  worktree's copy directly.
+- Hooks run from the coordinator's checkout, `.claude/hooks/` whatever your directory: a plant in one
+  is driven by invoking your worktree's copy directly.
 - The machine is not per worktree: never run `./scripts/ops/local.sh`; the database tier starts its
   own containers for each run and refuses none beside another agent's, so a failure you suspect a
   concurrent run caused is reported as that, never retried in a loop.

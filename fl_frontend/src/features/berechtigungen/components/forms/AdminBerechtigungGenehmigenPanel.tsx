@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
-import { adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { formatZeitpunkt } from "@/core/format";
 import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
 import { GENEHMIGUNG_VERWEHRT } from "@/features/adresswechsel/refusals";
 import { nachVonOderGesperrt, vonOderGesperrt } from "@/features/berechtigungen/constants";
@@ -20,7 +20,7 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLBerechtigungAdresswechsel } from "@/features/berechtigungen/schemas";
 
-export const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
+const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
 
 /**
  * Who started the change and how, which is what a pretext hides: the starter is absent where the row withholds them
@@ -81,8 +81,7 @@ export function AdminBerechtigungGenehmigenPanel({
     <div className="flex w-full flex-col gap-3">
       <p className="fluid-sm text-pretty text-foreground">
         Neue Adresse für diesen Zugang: {neueAdresse(adresswechsel)}.{" "}
-        {adresswechsel.bestaetigt ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis{" "}
-        {adresswechselZeitpunkt(adresswechsel.bis)}.
+        {adresswechsel.bestaetigt ? "Sie ist bestätigt." : "Sie ist noch nicht bestätigt."} Genehmigen bis {formatZeitpunkt(adresswechsel.bis)}.
       </p>
       <p className="fluid-sm text-pretty text-foreground">{begonnen(adresswechsel)}</p>
 

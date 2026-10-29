@@ -64,14 +64,6 @@ dev = [
     # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
     # plugin still collects.
     "pytest-xdist>=3.8.0",
-    # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
-    # comes through the lockfile like every other checker.
-    "zizmor>=1.31.1",
-    # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
-    # decides which blocks and spans a page shows as code, rather than patterns kept by hand.
-    # Run by the docs and scripts scopes: the `docs` and `scripts` jobs of
-    # `.github/workflows/verify.yml`.
-    "markdown-it-py>=4.2.0",
     # Holds `dependencies` to what `app/` imports: an import reaching a package only through
     # another's requirements, or a package there nothing imports, fails the backend scope. This group
     # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
@@ -85,7 +77,7 @@ DEP002 = ["tzdata", "uvicorn"]
 [tool.uv]
 # The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
 # outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema (`docs/ops/spec.md :: I657`).
+# the lockfile's schema.
 required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
@@ -109,9 +101,9 @@ select = [
     # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
     # they opened.
     "UP",  # pyupgrade
-    # Docstring FORMATTING only (docs/_standard/standard.md, INC-7). Deliberately NOT the D1xx
-    # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
-    # the standard asks for prose where there is a reason to record, not coverage for its own sake.
+    # Docstring FORMATTING only. Deliberately NOT the D1xx missing-docstring family: requiring a
+    # docstring on every symbol manufactures boilerplate, and prose belongs where there is a reason
+    # to record, not coverage for its own sake.
     "D200",  # one-line docstring should fit on one line
     "D205",  # blank line required between summary line and description
     "D209",  # multi-line docstring closing quotes on their own line
@@ -121,15 +113,24 @@ select = [
     # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
     "RUF100",  # unused noqa directive
     "TID251",  # banned-api, the list below
+    # A root-logger call's record is no child of ours, so `app/core/logging.py ::
+    # ForwardedFailureFilter` codes it as a library's failure, hiding a missing code.
+    "LOG015",  # root-logger-call
+    # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
+    # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
+    "PLE2502",  # bidirectional-unicode
+    "PLE2510",  # invalid-character-backspace
+    "PLE2512",  # invalid-character-sub
+    "PLE2513",  # invalid-character-esc
+    "PLE2514",  # invalid-character-nul
+    "PLE2515",  # invalid-character-zero-width-space
 ]
 ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
-# design: every entry in the banned list guards the backend alone. The orchestration tools are the
-# same scope's python.
+# design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
-"../.claude/skills/orchestration/tools/**" = ["TID251"]
 
 # A handler reading the environment's settings answers with those whatever the app was built with,
 # and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
@@ -137,51 +138,8 @@ ignore = ["B008"]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-# The readers `get_config` is built from, each the same hazard under another name.
-"app.core.config.read_environment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-# The environment read raw, or through a settings source of a module's own, without even
-# `read_environment`'s validation. Each package is banned whole: ruff matches the path an import
-# spells, so a member's entry misses the submodule defining it.
 "os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.environb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 "os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.getenvb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"pydantic_settings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"dotenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-# The platform mapping `os.environ` is copied from, a path expansion reading it, and the two other
-# settings readers installed beside the backend: Starlette's, and pydantic's legacy namespace.
-"posix.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"nt.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"starlette.config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"pydantic.v1".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.path.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"posixpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"ntpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-# Ruff matches the path an import spells rather than the function it binds, so the same function
-# imported from the module building the app would pass the entry above.
-"app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
-# A transport built beside the helper is a copy of it, and drifts from it. The one other permitted
-# construction serves apps carrying routes of their own, which the helper never exposes.
-"httpx2.ASGITransport".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
-# The module that transport is defined in, which the entry above never matches: ruff reads the path an
-# import spells, and an entry for a module bans every module under it.
-"httpx2._transports".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
-# `logging`'s root writers and the root logger itself: a root record is no child of ours, so
-# `app/core/logging.py :: ForwardedFailureFilter` codes it as a library's failure, hiding a missing
-# code. Ruff flags the attribute and the import alike.
-"logging.critical".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.debug".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.error".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.exception".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.fatal".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.info".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.log".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.warn".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.warning".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
-"logging.root".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
 
 [tool.ruff.format]
 quote-style = "double"
@@ -198,7 +156,7 @@ indent-style = "space"
 # and this suite is fast enough that verbosity costs nothing.
 #
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
-# (`docs/backend/spec.md :: 1.6`).
+
 addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
 testpaths = ["tests"]
 pythonpath = ["."]
@@ -208,8 +166,7 @@ markers = [
     "db: needs a real mongod via testcontainers. Deselected by default; run with `pytest -m db`.",
 ]
 # pytest's default is `skip`, so a parametrize list whose discovery found nothing passes as one
-# silent skip and takes its whole guarantee with it
-# (`scripts/checks/check_test_estate.py :: check_empty_parametrize`).
+# silent skip and takes its whole guarantee with it.
 empty_parameter_set_mark = "fail_at_collect"
 
 [tool.pyright]

@@ -2,11 +2,14 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
+import { ThemeColor } from "@/kit/ThemeColor";
+
 import { SITE_URL } from "@/core/brand";
+import { COPY } from "@/core/copy";
 import { RootProviders } from "@/core/providers/RootProviders";
 import { openGraphFor } from "@/shared/utils/metadata";
 
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 
 const anton = Anton({
   weight: "400",
@@ -16,11 +19,10 @@ const anton = Anton({
 });
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the
-// tree spells to the browser to fake, with nothing reporting it. The italic is loaded rather
-// than faked: `fl_frontend/src/app/globals.css` turns font synthesis off.
+// tree spells to the browser to fake, with nothing reporting it. No italic either: with font
+// synthesis off (`fl_frontend/src/app/globals.css`), an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
   variable: "--font-raleway",
 });
@@ -43,7 +45,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: "%s | Frankfurt League",
+    template: `%s | ${COPY.marke.name}`,
     default: "Frankfurt League | Die Oberstufenliga",
   },
   description:
@@ -58,31 +60,20 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * Not the brand fill the manifest opens an installed app on: this bar is on every screen at once,
- * and the brand budget is salience (`docs/frontend/spec.md :: I164`). A splash is the one screen
- * that can afford the fill.
- */
-export const viewport: Viewport = {
-  // `--bg-surface` rather than `--bg-base`: the bar under the chrome is `bg-surface` on both
-  // shells, and a `--bg-base` chrome sits 1.09:1 off it, so the navbar reads as a stripe rather
-  // than as the top of the page.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#121212" },
-  ],
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="de"
       suppressHydrationWarning
       className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
-      {/* No containing-block trigger on either root (`docs/frontend/spec.md :: I29`): one would make
+      {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
+      {/* Session 8: `fluid-base`, which makes every unsized inherited text fluid, goes with the old pages. */}
       <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
-        <RootProviders>{children}</RootProviders>
+        <RootProviders>
+          <ThemeColor />
+          {children}
+        </RootProviders>
       </body>
     </html>
   );

@@ -7,7 +7,7 @@ if (destination === undefined) {
   process.exit(2);
 }
 
-// Set before the schema loads, which a static import would not allow: `createEnv` validates while
+// Set before the schema loads, which a static import would not allow: `config.ts` validates while
 // it is imported, and this reads the declared names on a machine holding no value for any of them.
 process.env.SKIP_ENV_VALIDATION = "true";
 

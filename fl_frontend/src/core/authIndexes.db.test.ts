@@ -1,8 +1,3 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
-import { MongoClient, ObjectId } from "mongodb";
-
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -10,12 +5,14 @@ import {
   GATE_BACKEND_CONFIG,
   lastMailedCode,
   ORIGIN,
+  overriding,
   registerAuthDoubles,
   signInByCode,
-} from "./authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
-import { overridingModule } from "./exportingModule.ts";
-import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
+} from "@/test-support/authDoubles.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
+import { MongoClient, ObjectId } from "mongodb";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { CommandFailedEvent, CommandStartedEvent } from "mongodb";
 
@@ -25,9 +22,9 @@ const { mongod, closing } = await startJudgedReplicaSet();
 /** The client `fl_frontend/src/core/db.ts` builds, once the module has built it. */
 let storeClient: MongoClient | undefined;
 
-// The query suffix takes the real module past the load hook's match on a path's end: the client
-// under test is the one `fl_frontend/src/core/db.ts` builds.
-const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
+// The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
+// under test is the one it builds.
+const PRODUCTION_DB = "@/core/db.ts";
 
 /** The server's code for a query it refused to plan while table scans are disabled. */
 const NO_QUERY_EXECUTION_PLANS = 291;
@@ -36,7 +33,7 @@ const NO_QUERY_EXECUTION_PLANS = 291;
 const scans: string[] = [];
 const started = new Map<number, CommandStartedEvent>();
 
-const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
+const DB_DOUBLE = overriding(PRODUCTION_DB, {
   signInStore: (real) => {
     const client = (real.signInStore as () => MongoClient)();
     // Set before the first operation opens a connection, which is when the pool reads it; the option is
@@ -81,7 +78,7 @@ const { sent } = registerAuthDoubles({
   },
 });
 
-// Imported after the hooks above are registered: a static import resolves before they exist.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth, endSessionsOfAddress, getKontoSession, readServedSession, removePasskey } = await import("./auth.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
@@ -121,7 +118,7 @@ async function withoutTableScans<T>(body: () => Promise<T>): Promise<T> {
   try {
     return await refusingTableScans(body);
   } finally {
-    assert.deepEqual(scans, [], "a query found no index to plan on");
+    expect(scans, "a query found no index to plan on").toStrictEqual([]);
   }
 }
 
@@ -149,7 +146,7 @@ async function overHttp(path: string, { method = "GET", cookie, body }: { method
 /** A passkey enrolled through both halves of the ceremony, answered as the verify half answers. */
 async function enrol(cookie: string, rawId: Buffer): Promise<Response> {
   const offered = await overHttp("/passkey/generate-register-options", { cookie });
-  assert.equal(offered.status, 200, await offered.clone().text());
+  expect(offered.status, await offered.clone().text()).toBe(200);
   const { challenge } = (await offered.json()) as { challenge: string };
 
   return overHttp("/passkey/verify-registration", {
@@ -162,7 +159,7 @@ async function enrol(cookie: string, rawId: Buffer): Promise<Response> {
 /** A passkey sign-in over the credential `enrol` stored first. */
 async function assertPasskey(cookie: string): Promise<Response> {
   const offered = await overHttp("/passkey/generate-authenticate-options", { cookie });
-  assert.equal(offered.status, 200, await offered.clone().text());
+  expect(offered.status, await offered.clone().text()).toBe(200);
   const { challenge } = (await offered.json()) as { challenge: string };
 
   return overHttp("/passkey/verify-authentication", {
@@ -174,21 +171,20 @@ async function assertPasskey(cookie: string): Promise<Response> {
 
 const asRequest = (cookie: string) => new Headers({ ...ORIGIN, cookie });
 
-describe("every query the sign-in store serves, with table scans refused (`docs/frontend/spec.md :: I499`)", () => {
+describe("every query the sign-in store serves, with table scans refused", () => {
   /* The index list is derived from what this drives: a query no declared index serves fails here,
      whether or not the flow that sent it survives the failure. */
   it("plans each one on an index, from a code's send to a ban ending every session", async () => {
     await buildAuthIndexes();
-    assert.deepEqual(errors, [], "an index was left unbuilt, so the flows below ran without it");
+    expect(errors, "an index was left unbuilt, so the flows below ran without it").toStrictEqual([]);
 
     // The control: without it a parameter the server ignored would pass everything below.
     await refusingTableScans(() =>
-      assert.rejects(
-        store().collection("session").find({ authFactor: "code" }).toArray(),
+      expect(store().collection("session").find({ authFactor: "code" }).toArray()).rejects.toSatisfy(
         (failed: { code?: unknown }) => failed.code === NO_QUERY_EXECUTION_PLANS,
       ),
     );
-    assert.equal(scans.length, 1, "the monitor missed the refused scan, so an empty record below proves nothing");
+    expect(scans.length, "the monitor missed the refused scan, so an empty record below proves nothing").toBe(1);
     scans.length = 0;
 
     const headers = new Headers(ORIGIN);
@@ -198,10 +194,9 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     const code = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(code !== null, "the send mailed nothing, so no code sign-in is driven");
     await withoutTableScans(() =>
-      assert.rejects(
+      expect(
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: code === "000000" ? "111111" : "000000" }, headers }),
-        (failed: { body?: { code?: unknown } }) => failed.body?.code === "INVALID_OTP",
-      ),
+      ).rejects.toSatisfy((failed: { body?: { code?: unknown } }) => failed.body?.code === "INVALID_OTP"),
     );
     const first = cookieHeader(
       await withoutTableScans(() => auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: code }, headers, returnHeaders: true })),
@@ -212,9 +207,9 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
 
     // The administrator's first passkey, by the mailed code, and a sign-in by it.
     const enrolled = await withoutTableScans(() => enrol(byCode, CREDENTIAL_RAW_ID));
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
     const asserted = await withoutTableScans(() => assertPasskey(byCode));
-    assert.equal(asserted.status, 200, await asserted.clone().text());
+    expect(asserted.status, await asserted.clone().text()).toBe(200);
     const byPasskey = cookieHeader(asserted);
     requestHeaders = asRequest(byPasskey);
 
@@ -228,19 +223,19 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     const sicherheit = await withoutTableScans(() => readSicherheit(served));
     const [andere] = sicherheit.anmeldungen.filter(({ diesesGeraet }) => !diesesGeraet);
     assert.ok(andere, "the account page listed no other sign-in");
-    assert.deepEqual(await withoutTableScans(() => endAnmeldungAction(andere.id)), { success: true });
-    assert.deepEqual(await withoutTableScans(() => endAndereAnmeldungenAction()), { success: true });
+    expect(await withoutTableScans(() => endAnmeldungAction(andere.id))).toStrictEqual({ success: true });
+    expect(await withoutTableScans(() => endAndereAnmeldungenAction())).toStrictEqual({ success: true });
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));
-    assert.equal(second.status, 200, await second.clone().text());
+    expect(second.status, await second.clone().text()).toBe(200);
     const held = await withoutTableScans(() => auth.api.listPasskeys({ headers: asRequest(byPasskey) }));
     const removable = held.find(({ credentialID }) => credentialID !== CREDENTIAL_RAW_ID.toString("base64url"));
     assert.ok(removable && held.length === 2, "the second passkey was not listed beside the first");
     await withoutTableScans(() =>
       auth.api.updatePasskey({ body: { id: removable.id, name: "Zweitschlüssel" }, headers: asRequest(byPasskey) }),
     );
-    assert.equal(await withoutTableScans(() => removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, removable.id)), "removed");
+    expect(await withoutTableScans(() => removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, removable.id))).toBe("removed");
 
     // The hourly refresh, which the library judges by how far the expiry has run down: the row is aged
     // two hours, so the read writes it again.
@@ -259,19 +254,19 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     await withoutTableScans(() => auth.api.signOut({ headers: asRequest(byPasskey) }));
     await withoutTableScans(() => endSessionsOfAddress(ADMIN_EMAIL));
 
-    assert.equal(await store().collection("session").countDocuments(), 0, "the ban left a session standing, so its query was not driven");
+    expect(await store().collection("session").countDocuments(), "the ban left a session standing, so its query was not driven").toBe(0);
   });
 });
 
-describe("the index build against a real store (`docs/frontend/spec.md :: I498`)", () => {
+describe("the index build against a real store", () => {
   it("changes nothing when run again", async () => {
     await buildAuthIndexes();
     const built = await heldIndexes();
 
     await buildAuthIndexes();
 
-    assert.deepEqual(errors, []);
-    assert.deepEqual(await heldIndexes(), built);
+    expect(errors).toStrictEqual([]);
+    expect(await heldIndexes()).toStrictEqual(built);
   });
 
   // Production's hand-made indexes are the case: one standing under another name refuses its build.
@@ -283,15 +278,14 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
 
     await buildAuthIndexes();
 
-    assert.equal(errors.length, 1, JSON.stringify(errors));
-    assert.deepEqual(errors[0], {
+    expect(errors.length, JSON.stringify(errors)).toBe(1);
+    expect(errors[0]).toStrictEqual({
       event: "auth.index_unbuilt",
       fields: { error_code: "FE-AUTH-011", index: "session_token_uidx", name: "MongoServerError", code: 85, codeName: "IndexOptionsConflict" },
     });
     const names = (held: Record<string, Record<string, unknown>[]>) =>
       Object.entries(held).flatMap(([collection, indexes]) => indexes.map(({ name }) => `${collection}.${String(name)}`));
-    assert.deepEqual(
-      names(await heldIndexes()).sort(),
+    expect(names(await heldIndexes()).sort()).toStrictEqual(
       [...names(reference).filter((name) => name !== "session.session_token_uidx"), "session.made_by_hand"].sort(),
     );
   });
@@ -305,7 +299,7 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
 
     await buildAuthIndexes();
 
-    assert.deepEqual(errors, []);
+    expect(errors).toStrictEqual([]);
   });
 
   it("logs the address index two accounts at one address refuse, never quoting the address", async () => {
@@ -316,10 +310,9 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
 
     await buildAuthIndexes();
 
-    assert.deepEqual(
-      errors.map(({ fields }) => fields),
-      [{ error_code: "FE-AUTH-011", index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" }],
-    );
+    expect(errors.map(({ fields }) => fields)).toStrictEqual([
+      { error_code: "FE-AUTH-011", index: "user_email_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
+    ]);
     assert.ok(!JSON.stringify(errors).includes("@"), "the line quoted the address the refusal named");
   });
 
@@ -331,10 +324,8 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
     const { tables } = await auth.$context;
 
     const served = Object.values(tables).filter(({ modelName }) => (COLLECTIONS as readonly string[]).includes(modelName));
-    assert.deepEqual(
-      served.map(({ modelName }) => modelName).sort(),
+    expect(served.map(({ modelName }) => modelName).sort(), "a collection the store holds has no table here").toStrictEqual(
       [...COLLECTIONS].sort(),
-      "a collection the store holds has no table here",
     );
 
     for (const { modelName, fields } of served) {
@@ -366,7 +357,7 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
     for (const collection of ["session", "verification"] as const) {
       const rows = store().collection(collection);
       assert.ok((await rows.countDocuments()) > 0, `nothing was written to ${collection}, so nothing is compared`);
-      assert.equal(await rows.countDocuments({ expiresAt: { $not: { $type: "date" } } }), 0, `${collection} holds an expiry no index deletes`);
+      expect(await rows.countDocuments({ expiresAt: { $not: { $type: "date" } } }), `${collection} holds an expiry no index deletes`).toBe(0);
     }
   });
 });

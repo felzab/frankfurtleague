@@ -72,7 +72,7 @@ export type SpielberichtDraft = {
 const kaderOptionOf = (spieler: FLSpielberichtSpieler): KaderOption => ({ id: spieler.spieler_id, label: spielerLabel(spieler) });
 
 /** The stored block as the form's draft; entry keys count from zero, the form's own counter continuing past them. */
-export function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft {
+function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft {
   if (stored === null) {
     return {
       team1Tore: null,
@@ -217,7 +217,7 @@ const OFFEN = "offen";
 
 /**
  * A whole list is one row: an entry has no path surviving the one before it being removed. Parted by a slash, never a
- * semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas, and its pupil a middle dot.
+ * semicolon: an entry holds commas, and its pupil a middle dot.
  */
 const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" / "));
 

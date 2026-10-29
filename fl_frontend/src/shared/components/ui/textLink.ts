@@ -1,12 +1,14 @@
+// Redesign: goes with its last importer; `kit/Link` replaces it.
+
 import { tv } from "tailwind-variants";
 
 /**
  * The hover grade flips: `brand-solid` is one value in both themes, so hovering to it in the dark
- * theme sank a link into its own card at 1.53:1 (`docs/frontend/spec.md` §1.17).
+ * theme sank a link into its own card at 1.53:1.
  */
 const BRAND_GRADE_CLASSES = "text-brand hover:text-brand-solid dark:hover:text-brand-solid-accent";
 
-/** The one treatment a link inside text wears (`docs/frontend/spec.md :: I43`), and the whole of it (`:: I78`). */
+/** The one treatment a link inside text wears, and the whole of it. */
 export const textLink = tv({
   base: "underline underline-offset-2 transition-colors",
   variants: {
@@ -21,6 +23,6 @@ export const textLink = tv({
 
 /**
  * A toggle, or a row's own way in. A link inside text takes `textLink` however standalone it looks:
- * its base underlines for every caller because colour alone is not a link (`docs/frontend/spec.md :: I43`).
+ * its base underlines for every caller because colour alone is not a link.
  */
 export const BRAND_INK_OUTSIDE_PROSE_CLASSES = `${BRAND_GRADE_CLASSES} transition-colors`;

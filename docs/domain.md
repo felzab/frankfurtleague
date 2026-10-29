@@ -87,12 +87,12 @@ afterwards. Membership would claim an invariant holding a row and its fixture tr
 none on purpose: the answer writes no fixture, no fixture write reaches a row, and the sweep closes a row a move
 overtook up to an hour later. What a reader may rely on is a comparison rather than a membership -- the answer
 compares the row's `ansetzung.stand` against the fixture's at the press -- and the one rule the collection holds
-alone, one open row per party per Ansetzung (`docs/backend/spec.md :: I745`).
+alone, one open row per party per Ansetzung.
 
 **A boundary is what must be true together; what must not outlive a person is a different question**, and it
 is that one which reaches into the log. A row keeps an image of the document a write replaced, so a person's
 own details sit in the log too, and a write destroying them redacts the rows holding them in the same
-transaction (`docs/backend/spec.md :: I42`). `aktionen.document_id` is a copied id that **nothing
+transaction. `aktionen.document_id` is a copied id that **nothing
 maintains**: the document it names may since have been edited, retired or removed outright, with no row here
 brought up to date.
 
@@ -103,12 +103,11 @@ brought up to date.
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
 - **Applications** — a school applies while the season's own window is open and the season has not ended
-  (`REQ-BEWERBUNG-004`, `docs/backend/spec.md :: I337`). Accepting
+  (`REQ-BEWERBUNG-004`). Accepting
   one creates the club where it is new and writes its junction row, held to the same entry rules a direct
   entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
-  and open exactly when its flag is on, the day falls inside its span and the season has not ended
-  (`docs/backend/spec.md :: I336`). It is judged apart from the
+  and open exactly when its flag is on, the day falls inside its span and the season has not ended. It is judged apart from the
   application window above and from the season's own dates, so the two may run in any order or not at all.
 - **Entry** — a club takes a place in a group only while the season is `future` (`REQ-ENTER-001`), only in a
   group the season runs (`REQ-ENTER-002`), and only while that group has room (`REQ-ENTER-003`).
@@ -134,10 +133,8 @@ retired row loses is NEW work — a retired club is entered into no season (`REQ
 venue or referee is assigned to no fixture that does not already hold it, nor kept on one a save makes unplayed
 again (`REQ-BOOKING-001`). Both judge the reference being made — and reopening a fixture makes its references
 again — rather than one merely stored, which is what lets a venue retire while played or called-off fixtures
-still name it. A bracket resolution, or a side emptied for a Spieltag clash (`docs/backend/spec.md` §1.3,
-step 3a), reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported
-(`docs/backend/spec.md :: I257`), the ghost every erased referee's fixtures point at being one such
-retired row (`docs/backend/spec.md :: I259`). The `REQ-RETIRE-*` rows of `domain.py :: RULES` are every
+still name it. A bracket resolution, or a side emptied for a Spieltag clash, reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported, the ghost every erased referee's fixtures point at being one such
+retired row. The `REQ-RETIRE-*` rows of `domain.py :: RULES` are every
 refusal a retirement meets.
 
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
@@ -182,7 +179,7 @@ Two freezes sit outside that one:
 
 **Every one of these judges the step and not the state it arrives in**, which is what keeps a season
 repairable: a date-only edit resubmits the whole `rules` object and passes whatever the stored values already
-say (`docs/backend/spec.md :: I44`). The dates themselves sit outside `rules` and stay editable even on a
+say. The dates themselves sit outside `rules` and stay editable even on a
 finished season, correcting a mistyped one changing nothing anybody competed for.
 
 ---
@@ -264,15 +261,14 @@ entry, because a stale form and a direct request each reach it, and on a public 
 anyone's.
 
 Every refusal reaches a client as a **code** rather than as a message, the English text beside it going only
-to the log; `fl_backend/openapi.json` publishes each rule an operation refuses on at the status it
-answers, and [`logging/error-codes.md`](logging/error-codes.md) lists every other code with the status
-it answers.
+to the log; `fl_backend/openapi.json` publishes each code an operation refuses with at the status it
+answers.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
 it, both judging a document and never a caller: the guard on the router decides who may make a read at all,
 and the response model decides what that read serves. Which tier is served which field is
-[`backend/spec.md`](backend/spec.md)'s `READ-*` rules — a base-tier fixture read is served neither money
+therefore the response models' to decide — a base-tier fixture read is served neither money
 figure, though the document holds both.
 
 ---
@@ -303,26 +299,20 @@ mistake — a season being set up passes through several of these on its way to 
 is reported, the report is a page and never a stored flag**, so nothing about these states is queryable and
 no later feature can quietly come to depend on one.
 
-A reason a reader nods at is not evidence, so each entry is checked in full: the refusal codes it claims to
+A reason a reader nods at is not evidence, so each entry is checked: the refusal codes it claims to
 sit near must exist, a state sitting near none surprising nobody; the class of
 `fl_backend/tests/core/test_unenforced.py` it pairs with must execute the state, exactly and in **both**
-directions, so an entry nothing runs fails and a test class no entry claims fails with it; the surface it
-names is resolved against the frontend tree, so an entry cannot go on claiming a person can see a state after
-the page showing it has gone; and every anchor the reason argues from — a rule code, an invariant, a route, a
-repository path, an index — is resolved as well, so a reason arguing from something renamed away fails rather
-than reading as the evidence it is not. A bare name is resolved weakly on purpose, against every word either
-source tree spells outside the declaration itself, so one still written anywhere else in either tree passes
-whatever it names there.
+directions, so an entry nothing runs fails and a test class no entry claims fails with it.
+`fl_backend/tests/core/test_domain.py` holds those claims. The surface an entry names and the addresses its
+reason argues from are not checked, so a page or a rule renamed away leaves the reason reading as evidence it
+no longer is.
 
-**Most of what a model change owes is caught at the gate**: the documentation gate imports the declaration and
-resolves every address it names — each anchor a reason argues from, each entry's surface and each rule's route
-(`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`) — and `test_domain.py` holds the claims it
-makes rather than the addresses. Two obligations are not caught, because no check can see a row nobody wrote:
+Two obligations are not caught, because no check can see a row nobody wrote:
 
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks
   inward from a validator, so an id field nobody declared is invisible. A match report's scorer and card
-  ids declare none, an accepted gap (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
+  ids declare none, an accepted gap: a pupil's erasure leaves their id in the report.
 - **A field that is not plainly editable** owes a `FieldPolicy`. The one place this closes mechanically is
   `inactive_since`, which every collection whose validator declares it must account for; where the
   editability is a judgement, nothing can do the same.
@@ -335,6 +325,5 @@ reads these tables they stop being a declaration and become an engine a write ca
 
 ## See also
 
-- **[`backend/spec.md`](backend/spec.md)** — the endpoint inventory and the backend's own invariants
+- **[`backend/overview.md`](backend/overview.md)** — the backend's slices, routers and guards
 - **[`glossary.md`](glossary.md)** — the German vocabulary, which is not optional
-- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits outside the domain rules, and the response body and log line that carry it

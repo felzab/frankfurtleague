@@ -27,8 +27,7 @@ export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
 export const SPIEL_ANFRAGE_VORLAUF_TAGE = 14;
 
 /**
- * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in, held to
- * that number by `fl_backend/tests/shared/test_frontend_mirrors.py`.
+ * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in.
  */
 export const CLASH_BUFFER_TEXT = "vier Stunden";
 

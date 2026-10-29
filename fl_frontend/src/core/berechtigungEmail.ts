@@ -15,18 +15,15 @@ import {
   textFooter,
 } from "./emailShell";
 import { ERASED_ACTOR_MARKER } from "./erasedActor";
+import { formatZeitpunkt } from "./format";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 export type BerechtigungEmail = { subject: string; html: string; text: string };
-
-/** The zone a reader checks the stamp against, never the image's UTC. */
-const ZEITZONE = "Europe/Berlin";
 
 const BETREFF = `Änderung beim Zugang zur Verwaltung der ${BRAND_NAME}`;
 const UEBERSCHRIFT = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
 
-// eslint-disable-next-line local/admin-link -- a mailed link names no season; the page lists every grant whatever the season
 const ZIEL_PFAD = "/bereich/admin/administratoren";
 
 /** A change made outside the application names nobody, and says where it was made instead. */
@@ -92,10 +89,6 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 /** The acting administrator where they have been erased since. */
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
-function zeitText(instant: string): string {
-  return new Date(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
-}
-
 /** The change's sentence, the address marked up by `wer` so the two parts each take their own form. */
 function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => string): string {
   const { adresse } = aenderung;
@@ -137,10 +130,10 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
   if (urheber === null) return OHNE_VERWALTUNG;
 
   const von = urheberName(urheber.von, wer);
-  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
+  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(formatZeitpunkt(urheber.am))}.`;
 }
 
-/** How a request ended, told to its requester alone (`docs/backend/spec.md :: I867`). */
+/** How a request ended, told to its requester alone. */
 export type AntragEnde = {
   readonly art: "antrag_abgelehnt" | "antrag_beendet";
   // The address the request was for, or why it is withheld.
@@ -193,13 +186,13 @@ export function buildAntragEndeEmail(endeRoh: AntragEnde, rawOrigin: string): Be
 
 /**
  * **The body depends on the change alone**, never on when it is sent or to whom: a repeat under one key
- * must compose the same message for the provider to collapse it (`docs/frontend/spec.md :: I457`).
+ * must compose the same message for the provider to collapse it.
  */
 export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRoh: Urheber, rawOrigin: string): BerechtigungEmail {
   const origin = mailOrigin(rawOrigin);
   const ziel = `${origin}${ZIEL_PFAD}`;
-  // Folded once, before either part prints them: this notice has no column of facts to fold them on the way
-  // (`docs/frontend/spec.md :: I89`), and an `owner` grant reaches it from the database, past every check the API makes.
+  // Folded once, before either part prints them: this notice has no column of facts to fold them on the way,
+  // and an `owner` grant reaches it from the database, past every check the API makes.
   const { adresse } = aenderungRoh;
   const aenderung: Zugangsaenderung = { ...aenderungRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
   const urheber: Urheber = urheberRoh === null || urheberRoh.von === null ? urheberRoh : { ...urheberRoh, von: einzeilig(urheberRoh.von) };

@@ -57,7 +57,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   const subjekt = await lookUpSubjekt(email);
 
   // On every request rather than only at the ban: a session minted racing the ban, or one its ending
-  // missed, is no session here (`docs/frontend/spec.md :: I406`).
+  // missed, is no session here.
   if (subjekt.gesperrt) return null;
 
   // Minted here rather than at the write: a person's route refuses a request carrying no signed
@@ -72,14 +72,14 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
 /**
  * `null` where no readable session stands, or its subject is barred; every backend failure throws,
  * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
- * this wraps that throw (`docs/logging/spec.md :: L6`).
+ * this wraps that throw.
  */
 export async function getSubjectSession(): Promise<SubjectSession | null> {
   const judged = await judgeSubjectSession();
   if (judged === null) return null;
 
   // On every call, outside the memo, for `getAdminSession`'s reason. Both guards on one request is a
-  // programming error, so the second actor throws (`docs/frontend/spec.md :: I272`).
+  // programming error, so the second actor throws.
   setRequestActor(judged.actor);
 
   return judged.subject;

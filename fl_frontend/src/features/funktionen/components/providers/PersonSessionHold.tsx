@@ -5,7 +5,7 @@ import { getSubjectSession } from "@/core/subject";
 // A person's lane only, never above `/bereich/admin`: an administrator's render reads `getAdminSession` alone.
 /**
  * Holds the page slot until the session is read, and never redirects: a redirect thrown in the frame unmounts it
- * whole, so the page's own `requireSubjectSession` turns a lapsed session away (`docs/frontend/spec.md :: I834`).
+ * whole, so the page's own `requireSubjectSession` turns a lapsed session away.
  */
 export async function PersonSessionHold({ children }: { children: React.ReactNode }) {
   // For this read alone: the builder stage reaches no sign-in store, and each part of the frame

@@ -291,7 +291,7 @@ export function FormTeamPicker({
       </FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
-            `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30 and I61). */}
+            `.autocomplete__value` carries on every sibling trigger. */}
         <span className="min-w-0 flex-1 truncate fluid-sm">{teamPayload === null ? <Leer>{PLACEHOLDER.slot}</Leer> : teamPayload.name}</span>
         {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
             so the clear button does not move when a team has left the season. */}

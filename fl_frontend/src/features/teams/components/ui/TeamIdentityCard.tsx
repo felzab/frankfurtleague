@@ -17,8 +17,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
 
   return (
     <div className={`${card()} flex w-full flex-col gap-y-3 p-4 sm:p-6`}>
-      {/* Boxed so the name and its detail line take their own rung rather than the card's row rung
-          (`docs/frontend/spec.md` §1.20). */}
+      {/* Boxed so the name and its detail line take their own rung rather than the card's row rung. */}
       <div className="flex flex-col gap-y-0.5">
         <h2 className="fluid-xl font-extrabold tracking-tight text-foreground">{teamData.name}</h2>
 

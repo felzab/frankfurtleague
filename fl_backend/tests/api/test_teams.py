@@ -67,7 +67,7 @@ def test_rejects_an_empty_required_name(team, field):
 @pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamPayload])
 @pytest.mark.parametrize("field", ["name", "full_name"])
 def test_a_club_name_carrying_a_line_break_inside_is_refused(team, assert_rejects, field, payload, refused):
-    """The class the application's names refuse (`docs/frontend/spec.md :: I87`), so the editor cannot store what the form refuses."""
+    """The class the application's names refuse, so the editor cannot store what the form refuses."""
 
     club = {key: value for key, value in team().items() if key in payload.model_fields}
 
@@ -270,7 +270,7 @@ class TestTheJunctionPatchPayload:
         assert [entry["loc"][-1] for entry in failure.value.errors()] == ["kontakte"]
 
     def test_a_club_whose_stored_contacts_the_write_side_refuses_can_still_be_saved(self):
-        """Why no `kontakte` on this payload: the bound is on the write side alone (`docs/backend/spec.md :: I36`).
+        """Why no `kontakte` on this payload: the bound is on the write side alone.
 
         A round-tripped block would fail every save with errors on `kontakte.*` paths the club editor
         renders no field for, leaving no box to correct.
@@ -309,7 +309,7 @@ class TestTheContactsPatchPayload:
 
 
 class TestAContactRecordReadsBackHoweverItWasStored:
-    """`docs/backend/spec.md :: I36`, on the model where breaking it locks itself in.
+    """On the model where breaking it locks itself in.
 
     The validator types these as bare strings, so an import can store a value no payload would take
     -- and `GET /teams/memberships` is the only route to repairing the row.
@@ -321,8 +321,8 @@ class TestAContactRecordReadsBackHoweverItWasStored:
 
     ACCEPTED = {"nachname": "Koerner", "email": "a.koerner@example.de", "telefon": "+49 170 1234567"}
 
-    # The consent's source and the birthdate are the server's and on no payload
-    # (`docs/backend/spec.md :: I141`, `:: I142`), so a body carrying either would fail on that key
+    # The consent's source and the birthdate are the server's and on no payload,
+    # so a body carrying either would fail on that key
     # rather than on the one each case below is about.
     SENT = {"vorname": "Anke", "einwilligung": {"umfang": "kontaktdaten", "text_version": "v1", "datum": "2026-01-15"}, **REFUSED}
 

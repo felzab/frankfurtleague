@@ -16,7 +16,7 @@ import { PasskeyNamePayloadSchema } from "./schemas";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 
 /* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each
-   calling in process, are the whole of the surface (`docs/frontend/spec.md :: I198`). */
+   calling in process, are the whole of the surface. */
 
 /**
  * What protects an administrator's last ROW; a person may remove theirs and signs in by code again.
@@ -44,8 +44,8 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     // Named here because the sign-in store is written past the API client, which records its own writes: unrecorded,
     // the spine answers a success unrefreshed and a throw after the commit as a plain failure.
     recordWriteSent();
-    // Before the removal, whose commit may end that session unanswered: the spine then renders no page again
-    // (`docs/frontend/spec.md :: I831`), and the page leaves by a document load.
+    // Before the removal, whose commit may end that session unanswered: the spine then renders no page again,
+    // and the page leaves by a document load.
     if (diesesGeraet) recordOwnSessionEnding();
 
     const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
@@ -54,7 +54,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     if (removal === "absent") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
     // The removal has committed: a deadline cut of its notice leaves the answer the removal's, never unknown, which would
-    // also leave a device the removal signed out on its dead page (`docs/frontend/spec.md :: I372`).
+    // also leave a device the removal signed out on its dead page.
     await runAnsweringOwnCut(() => notifyPasskeyRemoved(served.user.email));
 
     return { success: true, message: "Passkey gelöscht", diesesGeraet: diesesGeraet };
@@ -85,8 +85,7 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
 
 /**
  * Read after the enrolment guard's 404, which answers the cap, a stale sign-in and a held authenticator
- * alike: the step-up refusal, by the enrolment's own window, names the second, the count the first
- * (`docs/frontend/spec.md :: I427`).
+ * alike: the step-up refusal, by the enrolment's own window, names the second, the count the first.
  */
 export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
   return runKontoMutation("readPasskeyStandAction", async (served) => {

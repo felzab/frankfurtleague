@@ -1,12 +1,13 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { useParams } from "next/navigation";
 
 export type AddressParams = Readonly<Record<string, string | string[] | undefined>>;
 
 /**
  * A function of the address where each team and season is an area root of its own: the shell's frame
- * paints before any segment is known (`docs/frontend/spec.md :: I735`).
+ * paints before any segment is known.
  */
 export type LinkPrefix = string | ((params: AddressParams) => string);
 

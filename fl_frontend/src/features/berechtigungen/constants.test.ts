@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { publishedOperations } from "@/test-support/openapiDocument.ts";
+import { publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
-import { publishedOperations } from "@/core/openapiDocument.ts";
 import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/adresswechsel/refusals.ts";
 import {
   GELOESCHTE_PERSON,
@@ -17,28 +17,27 @@ import {
 } from "@/features/berechtigungen/constants.ts";
 import { mapEntziehenRefusal, mapStufeRefusal } from "@/features/berechtigungen/refusals.ts";
 import { mapAbmeldungRefusal, mapErasureRefusal } from "@/features/funktionen/refusals.ts";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 describe("the actor an admin card names", () => {
   it("names an administrator by their address", () => {
-    assert.equal(vonOderGesperrt("vorstand@schule.de", false), "vorstand@schule.de");
+    expect(vonOderGesperrt("vorstand@schule.de", false)).toBe("vorstand@schule.de");
   });
 
   it("names a withheld administrator by their state", () => {
-    assert.equal(vonOderGesperrt(null, true), GESPERRTE_ADRESSE);
+    expect(vonOderGesperrt(null, true)).toBe(GESPERRTE_ADRESSE);
   });
 
   // The backend never sends one half of the pair without the other; a card meeting it names no address
   // the flag says is barred, and never leaves the line empty.
   it("reads either half of the withheld pair alone as withheld", () => {
-    assert.equal(vonOderGesperrt("vorstand@schule.de", true), GESPERRTE_ADRESSE);
-    assert.equal(vonOderGesperrt(null, false), GESPERRTE_ADRESSE);
+    expect(vonOderGesperrt("vorstand@schule.de", true)).toBe(GESPERRTE_ADRESSE);
+    expect(vonOderGesperrt(null, false)).toBe(GESPERRTE_ADRESSE);
   });
 
   // The marker names nobody, so printed as it is served it would read as an address; and the person is
   // erased rather than barred.
   it("names an erased administrator by that state, never the marker and never as barred", () => {
-    assert.equal(vonOderGesperrt(ERASED_ACTOR_MARKER, false), GELOESCHTE_PERSON);
+    expect(vonOderGesperrt(ERASED_ACTOR_MARKER, false)).toBe(GELOESCHTE_PERSON);
   });
 });
 
@@ -76,22 +75,19 @@ describe("the words the grants page names the owner tier in", () => {
 
     // The floor: a sweep reaching no word naming the tier passes over nothing.
     assert.ok(worte.filter((wort) => wort.includes("Inhaber")).length >= 10, "too few words name the tier to judge");
-    assert.deepEqual(
-      worte.filter((wort) => !inBeidenFormen(wort)),
-      [],
-    );
+    expect(worte.filter((wort) => !inBeidenFormen(wort))).toStrictEqual([]);
   });
 
   it("reads a masculine form alone as one, and each pair the page writes as both", () => {
-    assert.equal(inBeidenFormen("Den Zugang entziehen kann nur der Inhaber."), false);
-    assert.equal(inBeidenFormen("Inhaberin oder Inhaber wirst Du, wenn Dich ein anderer Inhaber ernennt."), false);
+    expect(inBeidenFormen("Den Zugang entziehen kann nur der Inhaber.")).toBe(false);
+    expect(inBeidenFormen("Inhaberin oder Inhaber wirst Du, wenn Dich ein anderer Inhaber ernennt.")).toBe(false);
     for (const paar of [
       "Inhaberin oder Inhaber",
       "Inhaberinnen und Inhaber",
       "zur Inhaberin oder zum Inhaber",
       "einer Inhaberin oder einem Inhaber",
     ]) {
-      assert.equal(inBeidenFormen(paar), true, paar);
+      expect(inBeidenFormen(paar), paar).toBe(true);
     }
   });
 });
@@ -128,7 +124,7 @@ describe("a refusal of an owner's power", () => {
       answers.filter(({ code }) => OWNERS_POWER.has(code)).map(({ code }) => ({ operation, code })),
     );
 
-    assert.deepEqual([...new Set(published.map(({ operation }) => operation))].sort(), Object.keys(WORDED_BY).sort());
+    expect([...new Set(published.map(({ operation }) => operation))].sort()).toStrictEqual(Object.keys(WORDED_BY).sort());
     for (const { operation, code } of published) {
       const satz = WORDED_BY[operation]?.(refusedOn(operation, code))?.error ?? "";
       assert.ok(satz.endsWith(`. ${NACH_ERNENNUNG_NEU_ANMELDEN}`), `${operation} answers ${code} as „${satz}“`);

@@ -7,21 +7,47 @@ loop the client binds to. No lifespan: it would open a client of its own and app
 Invariants:
 - An app a caller hands in leaves as it came: no `db_client`, and the overrides it held, so the
   next case serving through it meets none of this one's.
+- A request to an operation declaring `stores_nothing` sends no write, or the call raises: the
+  frontend reads the declaration as a read, which it tells a person is safe to repeat.
 """
 
 from collections.abc import AsyncIterator, Iterable
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI
-from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
+from fastapi import FastAPI, Request
+from httpx2 import ASGITransport, AsyncClient, Response
 from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
+from app.core.crud import WritesSent, writes_sent_var
 from app.core.dependencies import get_germany_now
+from app.core.exception_handlers import stores_nothing
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 from tests.grants import admit
+
+
+class StoresNothingHeld:
+    """Each request to a `stores_nothing` operation, with the app's own record of whether it sent a write."""
+
+    def __init__(self) -> None:
+        self.served: list[tuple[str, WritesSent | None]] = []
+
+    async def declared(self, request: Request) -> None:
+        """In the declaration's place, inside the request, where the record the middleware bound for it is the one read."""
+
+        self.served.append((f"{request.method} {request.url.path}", writes_sent_var.get()))
+
+    async def refuse_a_write(self, _: Response) -> None:
+        """At every answer, every such request so far: the record is marked as a write is sent, and stays marked.
+
+        Judged here rather than in the app, which would answer an assertion as a 500 the case may not read.
+        """
+
+        # An unbound record is a request nothing could judge, so it fails as a write would.
+        written = [operation for operation, record in self.served if record is None or record.sent]
+        assert not written, f"an operation declaring `stores_nothing` sent a write, or bound no record of one: {written}"
 
 
 @asynccontextmanager
@@ -60,11 +86,17 @@ async def app_client(
             admit(served, admitting)
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
+        held = StoresNothingHeld()
+        served.dependency_overrides[stores_nothing] = held.declared
         client = AsyncMongoClient(url)
         undo.push_async_callback(client.close)
         served.state.db_client = client
         undo.callback(delattr, served.state, "db_client")
 
         yield await undo.enter_async_context(
-            AsyncClient(transport=ASGITransport(app=served, raise_app_exceptions=False), base_url=TEST_BASE_URL)
+            AsyncClient(
+                transport=ASGITransport(app=served, raise_app_exceptions=False),
+                base_url=TEST_BASE_URL,
+                event_hooks={"response": [held.refuse_a_write]},
+            )
         )

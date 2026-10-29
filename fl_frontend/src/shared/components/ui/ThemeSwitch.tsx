@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/FrameNav` replaces it.
 import Moon from "@gravity-ui/icons/Moon";
 import Sun from "@gravity-ui/icons/Sun";
 import { useTheme } from "next-themes";

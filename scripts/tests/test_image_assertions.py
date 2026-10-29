@@ -1,11 +1,10 @@
 """SCRIPTS · the image checks a successful build does not make, and how each answer is graded.
 
 A `docker build` reports success over an image missing `instrumentation.js`, over one that runs as
-root, and over a context its dockerignore stopped covering, so the three probes are the only things
-that read any of it: in the images scope, and in the publish workflow before it pushes. Each answers
-three ways, and the third -- an image that would not run at all -- is a refusal rather than a
-finding (`docs/ops/spec.md` §1.6). Every case drives the gate's own `--images` scope, or the
-workflow's own step text, behind a stand-in `docker`, so no daemon and no build.
+root, and over a context its dockerignore stopped covering, so the three probes in the images scope
+are the only things that read any of it. Each answers three ways, and the third -- an image that
+would not run at all -- is no finding about the image. Every case drives the gate's own `--images`
+scope behind a stand-in `docker`, so no daemon and no build.
 """
 
 from __future__ import annotations
@@ -17,13 +16,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, run_shell, step_script, write_shell
+from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
-PUBLISH: Final = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
 CASE_VAR: Final = "FL_IMAGE_CASE"
@@ -32,39 +30,20 @@ ONLY_VAR: Final = "FL_IMAGE_ONLY"
 # The `-c` argument -- what the container was asked to run -- tells the probes apart.
 
 # A case answers for every image, or for the one `FL_IMAGE_ONLY` names alone, so a check handed the
-# wrong list meets a clean image; each package's inspect answers layers of its own.
+# wrong list meets a clean image.
 STUB: Final = """#!/usr/bin/env bash
 set -u
-package_of() { case "$1" in *frontend*) printf frontend ;; *backend*) printf backend ;; *) printf other ;; esac; }
 case_for() { # $1 the image asked about
   if [[ -z "${FL_IMAGE_ONLY:-}" || "$1" == *"${FL_IMAGE_ONLY}"* ]]; then printf '%s' "${FL_IMAGE_CASE:-clean}"; else printf clean; fi
 }
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
-  build|tag) exit 0 ;;
-  image)
-    if [[ "${2:-}" == "inspect" ]]; then printf 'sha256:%s\\nuser=app\\n' "$(package_of "${!#}")"; fi
-    exit 0 ;;
-  # The build loads the image and the cache export is a run of its own; each fails on its own case.
-  buildx)
-    if [[ "${2:-}" == "imagetools" ]]; then
-      case "$(case_for "${!#}")" in
-        pushed_other) printf 'sha256:rebuilt\\nuser=app\\n' ;;
-        *) printf 'sha256:%s\\nuser=app\\n' "$(package_of "${!#}")" ;;
-      esac
-      exit 0
-    fi
-    # One run doing both would answer one status for the two, so it is no build this stub serves.
-    if [[ "$*" == *--load* && "$*" == *--cache-to* ]]; then
-      printf '%s\\n' "stub: one buildx run both loads and exports"
-      exit 1
-    fi
-    case "$* ${FL_IMAGE_CASE:-clean}" in
-      *--load*cache_build_failed) printf '%s\\n' "ERROR: failed to build: failed to solve"; exit 1 ;;
-      *type=cacheonly*cache_export_failed) printf '%s\\n' "ERROR: error writing layer blob: not_found"; exit 1 ;;
-      *type=cacheonly*cache_export_crashed) exit 125 ;;
+  build)
+    case "${FL_IMAGE_CASE:-clean}" in
+      build_failed) printf '%s\\n' "ERROR: failed to solve"; exit 1 ;;
     esac
     exit 0 ;;
+  image) exit 0 ;;
 esac
 if [[ "${1:-}" != "run" ]]; then exit 0; fi
 cmd=""
@@ -108,21 +87,17 @@ class Case:
     name: str
     code: int
     says: str
-    # The sentence this ending must NOT carry: a refusal wearing a finding's words is the defect
-    # these cases exist to hold shut.
+    # The sentence this ending must NOT carry: an image that would not run wearing a finding's words
+    # sends the reader to a file that is fine.
     never: str | None = None
-    # Through the Actions cache, as `VERIFY_IMAGES_CACHE=gha` asks in CI.
-    cached: bool = False
-    # Whether that cache's credential is set, as the job's re-export step sets it.
-    credentialed: bool = True
-    # Each check a unit of the step pool, the path a CI run takes; serial, it runs in place.
-    pooled: bool = False
     # The one package whose image carries the case, the other's answering clean.
     only: str | None = None
+    # Built by the workflow, as CI's images job hands the scope its two images.
+    built: bool = False
 
     @property
     def label(self) -> str:
-        return self.name if self.only is None else f"{self.name}, {self.only} alone"
+        return " ".join(part for part in (self.name, self.only and f"{self.only} alone", self.built and "prebuilt") if part)
 
 
 CASES: Final[tuple[Case, ...]] = (
@@ -133,21 +108,19 @@ CASES: Final[tuple[Case, ...]] = (
     Case("user_root", 1, "An image runs as root", only="backend"),
     Case("context_breach", 1, "dockerignore exists to exclude", only="frontend"),
     Case("context_breach", 1, "dockerignore exists to exclude", only="backend"),
-    Case("cache_clean", 0, "Green", cached=True),
-    Case("cache_uncredentialed", 2, "ACTIONS_RUNTIME_TOKEN is not set", "finding(s) in this run", cached=True, credentialed=False),
-    Case("cache_build_failed", 1, "The frontend image failed to build", "layer cache", cached=True),
-    Case("cache_export_failed", 2, "exporting its layer cache", "failed to build.", cached=True, pooled=True),
-    Case("cache_export_crashed", 125, "exit status 125", "cache service", cached=True),
+    Case("build_failed", 1, "failed to build"),
     Case("clean", 0, "Green"),
+    Case("clean", 0, "Green", built=True),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
-    Case("instrumentation_unreadable", 2, "Refused after", "instrumentation.js is MISSING"),
-    Case("instrumentation_interrupted", 130, "Interrupted after", "Refused after"),
+    Case("instrumentation_missing", 1, "instrumentation.js is MISSING", built=True),
+    Case("instrumentation_unreadable", 3, "Crashed after", "instrumentation.js is MISSING"),
+    Case("instrumentation_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("user_root", 1, "An image runs as root"),
-    Case("user_unreadable", 2, "Refused after", "An image runs as root"),
-    Case("user_interrupted", 130, "Interrupted after", "Refused after"),
+    Case("user_unreadable", 3, "Crashed after", "An image runs as root"),
+    Case("user_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("context_breach", 1, "dockerignore exists to exclude"),
-    Case("context_unreadable", 2, "Refused after", "dockerignore exists to exclude"),
-    Case("context_interrupted", 130, "Interrupted after", "Refused after"),
+    Case("context_unreadable", 3, "Crashed after", "dockerignore exists to exclude"),
+    Case("context_interrupted", 130, "Interrupted after", "Crashed after"),
 )
 
 
@@ -162,20 +135,17 @@ def _stubbed(scratch: str, environment: dict[str, str]) -> dict[str, str]:
 def _run(case: Case) -> tuple[int, str]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     environment = base_env()
-    # Past `base_env`: `VERIFY_TAG` and its cache name another run's images, and a runner's own
-    # credential would stand in for the one a case leaves unset.
-    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_CACHE", "ACTIONS_RUNTIME_TOKEN", ONLY_VAR):
+    # Past `base_env`: an inherited tag or prebuilt flag would name another run's images.
+    for inherited in ("VERIFY_TAG", "VERIFY_IMAGES_BUILT", ONLY_VAR):
         environment.pop(inherited, None)
     environment[CASE_VAR] = case.name
     if case.only is not None:
         environment[ONLY_VAR] = case.only
-    if case.cached:
-        environment["VERIFY_IMAGES_CACHE"] = "gha"
-    if case.cached and case.credentialed:
-        # A stand-in: the gate asks only that the variable is set before it builds.
-        environment["ACTIONS_RUNTIME_TOKEN"] = "stand-in"
+    if case.built:
+        environment["VERIFY_TAG"] = "prebuilt"
+        environment["VERIFY_IMAGES_BUILT"] = "1"
     with tempfile.TemporaryDirectory() as scratch:
-        done = run_shell(BASH, VERIFY, "--images", *(() if case.pooled else ("--serial",)), env=_stubbed(scratch, environment))
+        done = run_shell(BASH, VERIFY, "--images", env=_stubbed(scratch, environment))
     return done.returncode, done.stdout + done.stderr
 
 
@@ -185,14 +155,13 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() ->
     for case in CASES:
         code, output = _run(case)
         if code != case.code:
-            wrong.append(f"{case.label}: exited {code}, and the contract gives it {case.code}")
+            wrong.append(f"{case.label}: exited {code}, and the contract gives it {case.code}\n{output}")
         if case.says not in output:
             wrong.append(f"{case.label}: nothing it printed says {case.says!r}")
         if case.never is not None and case.never in output:
             wrong.append(f"{case.label}: it said {case.never!r}, which names a breach nothing observed")
-        # A pool that could not start falls back to the serial path, and the case would prove that one twice.
-        if case.pooled and "no python at the checkers' floor" in output:
-            wrong.append(f"{case.label}: no pool started, so the pooled path went unexercised")
+        if case.built and "docker build" in output:
+            wrong.append(f"{case.label}: it built the images the workflow had built")
     assert not wrong, "\n".join(wrong)
 
 
@@ -243,66 +212,3 @@ def test_the_step_searches_for_every_shape_its_dockerignore_promises_to_exclude(
             f"{package}: its dockerignore excludes {sorted(excluded - searched)} that the step does not "
             f"search for, and the step searches for {sorted(searched - excluded)} that it does not exclude"
         )
-
-
-# --- the publish workflow's two steps, run as the runner runs them -------------------------------------
-
-CHECK_STEP: Final = "Check both images before either is pushed"
-SAME_STEP: Final = "Refuse a pushed image other than the one checked"
-JOB_ENV_RE: Final = re.compile(r"^      ((?:FRONTEND|BACKEND)_(?:IMAGE|CHECKED)): (\S+)$", re.MULTILINE)
-
-
-@dataclass(frozen=True)
-class StepCase:
-    step: str
-    name: str
-    code: int
-    says: str
-    # As `Case.only`.
-    only: str | None = None
-
-
-STEP_CASES: Final[tuple[StepCase, ...]] = (
-    # As the gate's own per-image cases, and the comparison per pushed image besides.
-    StepCase(CHECK_STEP, "instrumentation_missing", 1, "has no .next/server/instrumentation.js", only="frontend"),
-    StepCase(CHECK_STEP, "user_root", 1, "runs as uid 0", only="frontend"),
-    StepCase(CHECK_STEP, "user_root", 1, "runs as uid 0", only="backend"),
-    StepCase(CHECK_STEP, "context_breach", 1, "/app/planted", only="frontend"),
-    StepCase(CHECK_STEP, "context_breach", 1, "/app/planted", only="backend"),
-    StepCase(SAME_STEP, "pushed_other", 1, "::error title=Publish::", only="frontend"),
-    StepCase(SAME_STEP, "pushed_other", 1, "::error title=Publish::", only="backend"),
-    StepCase(CHECK_STEP, "clean", 0, ""),
-    StepCase(CHECK_STEP, "instrumentation_missing", 1, "has no .next/server/instrumentation.js"),
-    StepCase(CHECK_STEP, "instrumentation_unreadable", 3, "would not run (exit 125)"),
-    StepCase(CHECK_STEP, "user_root", 1, "runs as uid 0"),
-    StepCase(CHECK_STEP, "user_unreadable", 3, "its runtime user was never read"),
-    # The last of the three, so a step stopping early fails here first.
-    StepCase(CHECK_STEP, "context_breach", 1, "/app/planted"),
-    StepCase(CHECK_STEP, "context_unreadable", 3, "its context was never read"),
-    StepCase(SAME_STEP, "clean", 0, ""),
-    StepCase(SAME_STEP, "pushed_other", 1, "::error title=Publish::"),
-)
-
-
-def test_the_publish_workflow_checks_and_compares_the_images_it_pushes() -> None:
-    """A publish pushing past a failed assertion, or moving `:latest` onto a rebuild, turns nothing else red."""
-    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    workflow = PUBLISH.read_text(encoding="utf-8")
-    job_env = dict(JOB_ENV_RE.findall(workflow))
-    assert set(job_env) == {"FRONTEND_IMAGE", "BACKEND_IMAGE", "FRONTEND_CHECKED", "BACKEND_CHECKED"}, job_env
-    wrong: list[str] = []
-    for case in STEP_CASES:
-        environment = {**base_env(), **job_env, CASE_VAR: case.name, "FRONTEND_DIGEST": "sha256:f", "BACKEND_DIGEST": "sha256:b"}
-        environment.pop(ONLY_VAR, None)
-        if case.only is not None:
-            environment[ONLY_VAR] = case.only
-        with tempfile.TemporaryDirectory() as scratch:
-            script = write_shell(Path(scratch) / "step.sh", step_script(PUBLISH, case.step))
-            # The repository root, where the runner's checkout leaves a step.
-            done = run_shell(BASH, script, env=_stubbed(scratch, environment), cwd=REPO_ROOT)
-        output = done.stdout + done.stderr
-        if done.returncode != case.code:
-            wrong.append(f"{case.step} / {case.name} / {case.only or 'both'}: exited {done.returncode}, owed {case.code}\n{output}")
-        if case.says not in output:
-            wrong.append(f"{case.step} / {case.name} / {case.only or 'both'}: nothing it printed says {case.says!r}")
-    assert not wrong, "\n".join(wrong)

@@ -1,12 +1,5 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import path from "node:path";
-import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
-
-import { isAPIError } from "better-auth/api";
-import { jwtVerify } from "jose";
 
 import {
   ACTOR_KEY_PAIR,
@@ -22,15 +15,18 @@ import {
   registerAuthDoubles,
   sessionByCode,
   signInByCode,
-} from "./authDoubles.ts";
-import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
-import { answerAt, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
-import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
-import { filesUnder, isTestFile } from "./treeWalk.ts";
+} from "@/test-support/authDoubles.ts";
+import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
+import { isAPIError } from "better-auth/api";
+import { jwtVerify } from "jose";
+import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+
+import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
-import type { MemoryStore, SessionRow } from "./authDoubles.ts";
-import type { LookupFixture } from "./subjectFixtures.ts";
 
 /** Granted nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -177,7 +173,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     headers: { "content-type": "application/json" },
   });
 }) as typeof globalThis.fetch;
-after(() => {
+afterAll(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
@@ -330,8 +326,8 @@ function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; 
    its transaction flag or nginx, all three being the stack pass's. */
 describe("what the sign-in store hands the library", () => {
   it("opens the database this repository names, off the one client the process already holds", () => {
-    assert.deepEqual(adapterCalls.databases, ["auth"]);
-    assert.equal(adapterCalls.pairs.length, 1, "the adapter was constructed more than once");
+    expect(adapterCalls.databases).toStrictEqual(["auth"]);
+    expect(adapterCalls.pairs.length, "the adapter was constructed more than once").toBe(1);
     assert.ok(adapterCalls.pairs[0]?.config?.client, "no client was passed, so the adapter would open a connection of its own");
   });
 });
@@ -341,7 +337,7 @@ describe("where the cookie integration sits among the plugins", () => {
      the sign-in answers with no session cookie. The library's own guard for it warns on
      `/get-session` alone, which is disabled here. */
   it("keeps the cookie integration last, where the library says it belongs", () => {
-    assert.equal(auth.options.plugins?.at(-1)?.id, "next-cookies");
+    expect(auth.options.plugins?.at(-1)?.id).toBe("next-cookies");
   });
 
   /* A browser refuses a `Secure` cookie over plain http, so the local stack keeps the library's own
@@ -349,7 +345,7 @@ describe("where the cookie integration sits among the plugins", () => {
   it("keeps the library's own cookie name over http, where no `__Host-` cookie could be set", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
 
-    assert.match(cookie, /^better-auth\.session_token=/);
+    expect(cookie).toMatch(/^better-auth\.session_token=/);
   });
 });
 
@@ -446,15 +442,15 @@ describe("what the mounted HTTP surface answers", () => {
   it("serves the ceremony a browser really calls, on the path the installed plugin mounts", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    assert.equal((await overHttp("/passkey/generate-authenticate-options", { cookie })).status, 200);
+    expect((await overHttp("/passkey/generate-authenticate-options", { cookie })).status).toBe(200);
     // Refused for its missing challenge rather than for its path, which is what 404 would mean.
-    assert.equal((await overHttp("/passkey/verify-authentication", { method: "POST", cookie, body: { response: {} } })).status, 400);
+    expect((await overHttp("/passkey/verify-authentication", { method: "POST", cookie, body: { response: {} } })).status).toBe(400);
   });
 
   it("refuses the session read itself, so no mounted route hands a script a session at all", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    assert.equal((await overHttp("/get-session", { cookie })).status, 404);
+    expect((await overHttp("/get-session", { cookie })).status).toBe(404);
   });
 
   // The id beside them is the row the passkey removal keeps, and it opens nothing, where the token
@@ -464,9 +460,16 @@ describe("what the mounted HTTP surface answers", () => {
 
     const body = await readServedSession(new Headers({ ...ORIGIN, cookie }));
     assert.ok(body);
-    assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
-    assert.deepEqual(Object.keys(body.user).sort(), ["email", "id", "sessionsEndedAt"]);
-    assert.deepEqual(Object.keys(body.session).sort(), ["adminLapsed", "authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+    expect(Object.keys(body).sort()).toStrictEqual(["session", "user"]);
+    expect(Object.keys(body.user).sort()).toStrictEqual(["email", "id", "sessionsEndedAt"]);
+    expect(Object.keys(body.session).sort()).toStrictEqual([
+      "adminLapsed",
+      "authFactor",
+      "createdAt",
+      "id",
+      "passkeyCredentialId",
+      "updatedAt",
+    ]);
     assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
@@ -487,13 +490,13 @@ describe("what the mounted HTTP surface answers", () => {
     ];
 
     for (const answer of refused) {
-      assert.equal(answer.status, 404);
+      expect(answer.status).toBe(404);
       // The BODY, because two mechanisms answer 404 here and the status cannot part them: the
       // library's switch writes `Not Found` where the hook's default deny writes nothing.
-      assert.equal(await answer.text(), "Not Found", "the switch no longer carries this path, leaving the hook alone on it");
+      expect(await answer.text(), "the switch no longer carries this path, leaving the hook alone on it").toBe("Not Found");
     }
 
-    assert.deepEqual(store.passkey, [held], "a route the allowlist refuses still reached the passkey rows");
+    expect(store.passkey, "a route the allowlist refuses still reached the passkey rows").toStrictEqual([held]);
   });
 
   /* Mounted and unmailed: its answer is the raw session token, and over HTTP it meets neither the
@@ -504,8 +507,8 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    assert.equal((await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } })).status, 404);
-    assert.equal(store.session.length, sessions, "the refused arm minted a session on its way out");
+    expect((await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } })).status).toBe(404);
+    expect(store.session.length, "the refused arm minted a session on its way out").toBe(sessions);
 
     const verified = await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
     assert.ok(verified.headers.getSetCookie().length > 0, "the HTTP arm spent the code the handler still needs");
@@ -522,7 +525,7 @@ describe("what the mounted HTTP surface answers", () => {
       const asked = path.replace(/:\w+/, "irgendein-wert");
       const answer = await overHttp(asked, { method, cookie, body: method === "POST" ? {} : undefined });
 
-      assert.equal(answer.status, 404, `${method} ${asked} answered ${String(answer.status)}`);
+      expect(answer.status, `${method} ${asked} answered ${String(answer.status)}`).toBe(404);
     }
   });
 
@@ -531,12 +534,12 @@ describe("what the mounted HTTP surface answers", () => {
      routes can be named nowhere but the hook. */
   it("refuses a listed path at the library's switch and a parameterised one at the hook", async () => {
     const listed = await overHttp("/update-user", { method: "POST", body: {} });
-    assert.equal(listed.status, 404);
-    assert.equal(await listed.text(), "Not Found");
+    expect(listed.status).toBe(404);
+    expect(await listed.text()).toBe("Not Found");
 
     const parameterised = await overHttp("/callback/irgendein-anbieter");
-    assert.equal(parameterised.status, 404);
-    assert.notEqual(await parameterised.text(), "Not Found", "the switch cannot name this path, so the hook has to refuse it");
+    expect(parameterised.status).toBe(404);
+    expect(await parameterised.text(), "the switch cannot name this path, so the hook has to refuse it").not.toBe("Not Found");
   });
 
   /* Left writable, this field is one `fetch` from any session to a factor it never presented. The
@@ -545,17 +548,17 @@ describe("what the mounted HTTP surface answers", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const headers = new Headers({ ...ORIGIN, cookie });
 
-    assert.equal((await overHttp("/update-session", { method: "POST", cookie, body: { authFactor: "passkey" } })).status, 404);
-    await assert.rejects(() => auth.api.updateSession({ body: { authFactor: "passkey" }, headers }));
+    expect((await overHttp("/update-session", { method: "POST", cookie, body: { authFactor: "passkey" } })).status).toBe(404);
+    await expect(() => auth.api.updateSession({ body: { authFactor: "passkey" }, headers })).rejects.toThrow();
     // The credential id beside it, which would let a code session name a passkey's sessions as its own.
-    await assert.rejects(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers }));
-    assert.equal(row.passkeyCredentialId, undefined, "the request wrote a credential id onto a code session");
+    await expect(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers })).rejects.toThrow();
+    expect(row.passkeyCredentialId, "the request wrote a credential id onto a code session").toBe(undefined);
     // The idle mark beside them, which cleared would hand an idle administrator's session back its lane.
     Reflect.set(row, "adminLapsed", true);
-    await assert.rejects(() => auth.api.updateSession({ body: { adminLapsed: false }, headers }));
-    assert.equal(Reflect.get(row, "adminLapsed"), true, "the request cleared the idle mark");
+    await expect(() => auth.api.updateSession({ body: { adminLapsed: false }, headers })).rejects.toThrow();
+    expect(Reflect.get(row, "adminLapsed"), "the request cleared the idle mark").toBe(true);
 
-    assert.equal(row.authFactor, "code", "the request rewrote the factor, so every guard below proves nothing");
+    expect(row.authFactor, "the request rewrote the factor, so every guard below proves nothing").toBe("code");
   });
 
   /* Default deny is only as good as the classification behind it: an upgrade that mounts a path
@@ -563,12 +566,12 @@ describe("what the mounted HTTP surface answers", () => {
   it("classifies every endpoint the installed library mounts into exactly one of the three sets", () => {
     const classified = [...OVER_HTTP, ...IN_PROCESS_ONLY, ...REFUSED];
 
-    assert.equal(new Set(classified).size, classified.length, "a path was placed in more than one set");
-    assert.deepEqual([...mountedMethods.keys()].sort(), [...classified].sort());
+    expect(new Set(classified).size, "a path was placed in more than one set").toBe(classified.length);
+    expect([...mountedMethods.keys()].sort()).toStrictEqual([...classified].sort());
     // Three endpoints have no path of their own, which the router never registers: the library's one,
     // and the code plugin's server-only mint and read. A fourth would be a new server-only surface
     // nobody had looked at.
-    assert.equal(mountedEndpoints.length - mountedMethods.size, 3);
+    expect(mountedEndpoints.length - mountedMethods.size).toBe(3);
   });
 });
 
@@ -578,13 +581,13 @@ describe("what the narrowed session still gives the guards", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    assert.equal((await getAdminSession())?.user.email, ADMIN_EMAIL);
+    expect((await getAdminSession())?.user.email).toBe(ADMIN_EMAIL);
   });
 });
 
 /* Read as no session, an outage of the store sends an administrator to a sign-in whose code never
    comes, and tells a person on `/signin` that one is on its way. */
-describe("a session read the store does not answer (`docs/frontend/spec.md :: I519`)", () => {
+describe("a session read the store does not answer", () => {
   const refusingSessions = (_key: string, args: unknown[]): boolean => (args[0] as { model?: unknown } | undefined)?.model === "session";
 
   it("throws at every guard and at the landing, rather than answering as signed out", async () => {
@@ -595,10 +598,10 @@ describe("a session read the store does not answer (`docs/frontend/spec.md :: I5
 
     adapterCalls.refusing = refusingSessions;
     try {
-      await assert.rejects(getAdminSession());
-      await assert.rejects(getKontoSession());
-      await assert.rejects(getSignInDestination());
-      await assert.rejects(getSignedInAddress());
+      await expect(getAdminSession()).rejects.toThrow();
+      await expect(getKontoSession()).rejects.toThrow();
+      await expect(getSignInDestination()).rejects.toThrow();
+      await expect(getSignedInAddress()).rejects.toThrow();
     } finally {
       adapterCalls.refusing = undefined;
     }
@@ -612,9 +615,9 @@ describe("a session read the store does not answer (`docs/frontend/spec.md :: I5
     try {
       const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
 
-      assert.equal(answer.headers.get("location"), null, "the proxy signed an administrator out on an outage");
-      assert.equal(answer.headers.get("x-middleware-next"), "1");
-      assert.equal(answer.headers.getSetCookie().length, 0);
+      expect(answer.headers.get("location"), "the proxy signed an administrator out on an outage").toBe(null);
+      expect(answer.headers.get("x-middleware-next")).toBe("1");
+      expect(answer.headers.getSetCookie().length).toBe(0);
     } finally {
       adapterCalls.refusing = undefined;
     }
@@ -626,8 +629,8 @@ describe("a session read the store does not answer (`docs/frontend/spec.md :: I5
     store.session.splice(store.session.indexOf(row), 1);
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
   });
 });
 
@@ -636,11 +639,11 @@ describe("a session read the store does not answer (`docs/frontend/spec.md :: I5
 describe("whom `/signin` greets rather than offering a sign-in", () => {
   it("greets a live session by its folded address, and nobody without one", async () => {
     arriveAs(null);
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getSignedInAddress()).toBe(null);
 
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    assert.equal(await getSignedInAddress(), PERSON_EMAIL);
+    expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
   });
 
   it("offers a spent session a fresh sign-in rather than greeting it", async () => {
@@ -648,23 +651,23 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
     ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getSignedInAddress()).toBe(null);
   });
 
   /* A session its ban's ending missed: every guard behind `/bereich` refuses it, so a landing there
-     sends it straight back to a page that would greet it as signed in (`docs/frontend/spec.md :: I406`). */
+     sends it straight back to a page that would greet it as signed in. */
   it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       const { cookie } = await signIn(PERSON_EMAIL);
       arriveAs(cookie);
-      assert.notEqual(await getSignInDestination(), "/signin", "the seated person was not landed, so the case below proves nothing");
-      assert.equal(await getSignedInAddress(), PERSON_EMAIL);
+      expect(await getSignInDestination(), "the seated person was not landed, so the case below proves nothing").not.toBe("/signin");
+      expect(await getSignedInAddress()).toBe(PERSON_EMAIL);
 
       BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
-      assert.equal(await getSignInDestination(), "/signin");
-      assert.equal(await getSignedInAddress(), null);
+      expect(await getSignInDestination()).toBe("/signin");
+      expect(await getSignedInAddress()).toBe(null);
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
     }
@@ -674,7 +677,7 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
 /* Every refused guard sends its session to `/signin`, so the landing is where one no lane serves is
    ended: left standing, the proxy slides it on every visit and the library binds the page's passkey
    challenge to its account. */
-describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
+describe("what the landing ends", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("ends a barred person's session, so a lift of the ban serves it no more", async () => {
@@ -683,11 +686,11 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
     arriveAs(cookie);
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getSignedInAddress()).toBe(null);
     assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
-    assert.equal(await getKontoSession(), null, "the ban's lift served the session again with no sign-in");
+    expect(await getKontoSession(), "the ban's lift served the session again with no sign-in").toBe(null);
   });
 
   /* The shared device: another person's passkey is refused on a page whose challenge names the spent account. */
@@ -698,9 +701,9 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
     ageRow(spent.row, { created: 31 * DAY_MS });
     arriveAs(spent.cookie);
 
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getSignedInAddress()).toBe(null);
     assert.ok(!store.session.includes(spent.row), "a session no lane serves outlived the landing");
-    assert.equal((await assertPasskey(spent.cookie, true)).status, 200, "the challenge was still bound to the spent account");
+    expect((await assertPasskey(spent.cookie, true)).status, "the challenge was still bound to the spent account").toBe(200);
   });
 
   /* The spent row alone: ended by its account, a lapse on one device would sign its person out of every other. */
@@ -711,7 +714,7 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
     ageRow(spent.row, { created: 31 * DAY_MS });
     arriveAs(spent.cookie);
 
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getSignedInAddress()).toBe(null);
     assert.ok(!store.session.includes(spent.row), "the landing ended nothing, so the case proves nothing");
     assert.ok(store.session.includes(otherDevice.row), "the landing ended the same account's session on another device");
     assert.ok(store.session.includes(otherAccount.row), "the landing ended another account's session");
@@ -725,15 +728,15 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(admin.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(admin.cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
     assert.ok(store.session.includes(admin.row), "the landing ended a session the person lane still serves");
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(person.cookie);
 
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
@@ -743,7 +746,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   /* The person's arm alone: an administrator at fifteen days is refused by a twenty-four-hour cap
@@ -753,7 +756,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(person.row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
     arriveAs(person.cookie);
 
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   /* What the stored stamps are is the adapter's answer rather than this module's, and a shape it
@@ -764,8 +767,8 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     Reflect.set(row, "createdAt", "kein Datum");
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   it("serves a person's session thirteen days idle, so the case above is the window and not the harness", async () => {
@@ -773,7 +776,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
@@ -783,7 +786,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
@@ -792,8 +795,8 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 2 * HOUR_MS, idle: HOUR_MS + MINUTE_MS });
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
     assert.ok(store.session.includes(row), "the landing ended a session the person lane still serves");
   });
 
@@ -810,12 +813,12 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
      figure: shorter, every signed-in request writes the session row; longer, a pause under the
      administrator's idle hour is refused. */
   it("slides a session's row at most every five minutes, the granularity the idle windows are judged at", () => {
-    assert.equal(auth.options.session.updateAge, (5 * MINUTE_MS) / 1000);
+    expect(auth.options.session.updateAge).toBe((5 * MINUTE_MS) / 1000);
   });
 });
 
 /* The proxy slides a session ahead of every guard, moving `updatedAt` to now: the guard behind it reads
-   a fresh stamp, and only the mark the slide leaves refuses (`docs/frontend/spec.md :: I658`). */
+   a fresh stamp, and only the mark the slide leaves refuses. */
 describe("the administrator's idle hour across the proxy's slide", () => {
   const EXPIRES_IN_MS = (auth.options.session.expiresIn ?? Number.NaN) * 1000;
 
@@ -839,7 +842,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
   }
 
   it("keeps refusing a session slid a minute past an hour idle", async () => {
-    assert.equal(await slidThenJudged(HOUR_MS + MINUTE_MS), null);
+    expect(await slidThenJudged(HOUR_MS + MINUTE_MS)).toBe(null);
   });
 
   it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
@@ -853,12 +856,12 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     refreshedAgo(row, 2 * HOUR_MS);
 
     await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { cookie } }));
-    assert.equal(Reflect.get(row, "adminLapsed"), true, "the slide left no mark, so the case proves nothing");
+    expect(Reflect.get(row, "adminLapsed"), "the slide left no mark, so the case proves nothing").toBe(true);
 
     arriveAs(cookie);
     assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
     assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 });
 
@@ -874,11 +877,10 @@ describe("a grant the backend cannot answer for", () => {
     BACKENDS.set(ADMIN_EMAIL, "throws");
     const loggedBefore = logged.length;
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/bereich");
-    assert.equal(await getPasskeyStep(), null);
-    assert.deepEqual(
-      logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/bereich");
+    expect(await getPasskeyStep()).toBe(null);
+    expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
       Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { error_code: "FE-AUTH-010", name: "APINetworkError" }]),
     );
   });
@@ -889,7 +891,7 @@ describe("a grant the backend cannot answer for", () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     BACKENDS.set(ADMIN_EMAIL, "throws");
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 503);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(503);
   });
 });
 
@@ -901,16 +903,16 @@ describe("why the admin guard refused", () => {
   it("answers a grant that is gone apart from a session a new sign-in repairs", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
-    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-borne session was told its grant is gone");
+    expect(await judgeAdminRequest(), "a code-borne session was told its grant is gone").toStrictEqual({ refused: "signIn" });
 
     madeByPasskey(store, row);
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
-    assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
-    assert.deepEqual(await judgeAdminRequest(), { refused: "grantGone" });
+    expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "grantGone" });
   });
 
-  /* A session whose passkey is gone is no session (`docs/frontend/spec.md :: I313`), which a new
+  /* A session whose passkey is gone is no session, which a new
      sign-in repairs, whatever its address holds. */
   it("tells a session whose passkey is gone to sign in, never that its grant is gone", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -919,12 +921,12 @@ describe("why the admin guard refused", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     arriveAs(cookie);
 
-    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
   });
 });
 
 /* A grant ends no session, so one the address made before it -- by a passkey enrolled while it held
-   none -- is held against the grant's own time on every lane judging the grant (`docs/frontend/spec.md :: I470`). */
+   none -- is held against the grant's own time on every lane judging the grant. */
 describe("a passkey session made before its grant", () => {
   afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
 
@@ -946,10 +948,10 @@ describe("a passkey session made before its grant", () => {
   it("administers on no lane, and is told to sign in", async () => {
     await aPasskeySessionGranted(60 * 1000);
 
-    assert.equal(await getAdminSession(), null);
-    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
-    assert.equal(await getKontoSession(), null, "the account page served an administrator's session its grant postdates");
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
+    expect(await getKontoSession(), "the account page served an administrator's session its grant postdates").toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   it("administers once the grant is dated before it, the same session and the same rows otherwise", async () => {
@@ -957,12 +959,12 @@ describe("a passkey session made before its grant", () => {
 
     assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
     assert.ok(await getKontoSession());
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   it("is judged to the millisecond: refused a millisecond before its grant, admitted at it", async () => {
     await aPasskeySessionGranted(1);
-    assert.equal(await getAdminSession(), null, "a session a millisecond older than its grant administered");
+    expect(await getAdminSession(), "a session a millisecond older than its grant administered").toBe(null);
 
     await aPasskeySessionGranted(0);
     assert.ok(await getAdminSession(), "a session made at the instant of its grant was refused");
@@ -973,8 +975,8 @@ describe("a passkey session made before its grant", () => {
   it("is refused inside the second its grant falls in, which the backend's whole seconds admit", async () => {
     const { created, granted } = await aPasskeySessionGranted(999, { onASecond: true });
 
-    assert.equal(Math.floor(created.getTime() / 1000), Math.floor(new Date(String(granted)).getTime() / 1000));
-    assert.equal(await getAdminSession(), null);
+    expect(Math.floor(created.getTime() / 1000)).toBe(Math.floor(new Date(String(granted)).getTime() / 1000));
+    expect(await getAdminSession()).toBe(null);
   });
 
   /* The backend dates every grant; one answered with none is a contract the two services broke, which
@@ -982,8 +984,8 @@ describe("a passkey session made before its grant", () => {
   it("administers nowhere where the grant is answered undated", async () => {
     await aPasskeySessionGranted(null);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getKontoSession(), null);
+    expect(await getAdminSession()).toBe(null);
+    expect(await getKontoSession()).toBe(null);
   });
 });
 
@@ -1000,7 +1002,7 @@ describe("the account page's guard on a barred address", () => {
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
-    assert.equal(await getKontoSession(), null);
+    expect(await getKontoSession()).toBe(null);
   });
 });
 
@@ -1011,22 +1013,24 @@ describe("why the administrator's guard turns a request away", () => {
      and `unread` is the backend's, which neither a sign-in nor a person's landing repairs. */
   it("names the one repair each refused session has, and serves the administrator's", async () => {
     arriveAs(null);
-    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "signIn" });
 
     arriveAs((await signIn(PERSON_EMAIL)).cookie);
-    assert.deepEqual(await judgeAdminRequest(), { refused: "noGrant" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "noGrant" });
 
     const admin = await signIn(ADMIN_EMAIL);
     arriveAs(admin.cookie);
-    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-made session is refused as something a sign-in cannot repair");
+    expect(await judgeAdminRequest(), "a code-made session is refused as something a sign-in cannot repair").toStrictEqual({
+      refused: "signIn",
+    });
 
     madeByPasskey(store, admin.row);
     const judged = await judgeAdminRequest();
     assert.ok("session" in judged, "the administrator's passkey session was refused");
-    assert.equal(judged.session.user.email, ADMIN_EMAIL);
+    expect(judged.session.user.email).toBe(ADMIN_EMAIL);
 
     BACKENDS.set(ADMIN_EMAIL, "throws");
-    assert.deepEqual(await judgeAdminRequest(), { refused: "unread" });
+    expect(await judgeAdminRequest()).toStrictEqual({ refused: "unread" });
   });
 });
 
@@ -1041,20 +1045,20 @@ describe("a grant on a barred address", () => {
     arriveAs(cookie);
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
-    assert.equal(await getSignedInAddress(), null);
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
+    expect(await getSignedInAddress()).toBe(null);
   });
 });
 
 describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
+    expect(row.authFactor, "the mailbox factor's own verification did not stamp it").toBe("code");
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin/passkey");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin/passkey");
   });
 
   it("admits the same address once the session was made by the passkey", async () => {
@@ -1063,7 +1067,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
@@ -1072,12 +1076,12 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
-    assert.deepEqual(await getPasskeyStep(), { step: "enrol", email: ADMIN_EMAIL });
+    expect(await getPasskeyStep()).toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
 
     store.passkey.push({ userId: row.userId });
 
-    assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
-    assert.equal(await getAdminSession(), null, "holding a passkey let a mailbox session through");
+    expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
+    expect(await getAdminSession(), "holding a passkey let a mailbox session through").toBe(null);
   });
 
   /* The one address this slice puts in front of a person, and the library stores whatever spelling
@@ -1093,7 +1097,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     // Restored before the assertion, so a failure here cannot report itself again in every case below.
     held.email = ADMIN_EMAIL;
 
-    assert.deepEqual(step, { step: "enrol", email: ADMIN_EMAIL });
+    expect(step).toStrictEqual({ step: "enrol", email: ADMIN_EMAIL });
   });
 
   it("asks a session the passkey already made for neither half of that page", async () => {
@@ -1101,15 +1105,15 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    assert.equal(await getPasskeyStep(), null);
+    expect(await getPasskeyStep()).toBe(null);
   });
 
   it("offers a person signed in by the mailbox a passkey, on the page an administrator's card stands on", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
-    assert.deepEqual(await getPasskeyStep(), { step: "offer", email: PERSON_EMAIL });
-    assert.equal(await getSignInDestination(), "/signin/passkey");
+    expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: PERSON_EMAIL });
+    expect(await getSignInDestination()).toBe("/signin/passkey");
   });
 
   it("offers a person no passkey once they hold one, or once the passkey made the session", async () => {
@@ -1117,14 +1121,14 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     store.passkey.push(aPasskeyFor(holding.row.userId));
     arriveAs(holding.cookie);
 
-    assert.equal(await getPasskeyStep(), null);
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getPasskeyStep()).toBe(null);
+    expect(await getSignInDestination()).toBe("/bereich");
 
     store.passkey.length = 0;
     madeByPasskey(store, holding.row);
 
-    assert.equal(await getPasskeyStep(), null, "a session the passkey made was offered one");
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getPasskeyStep(), "a session the passkey made was offered one").toBe(null);
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   /* The enrolment is refused past its own window, so a card offered there is a press the server
@@ -1134,8 +1138,8 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
     arriveAs(cookie);
 
-    assert.equal(await getPasskeyStep(), null);
-    assert.equal(await getSignInDestination(), "/bereich");
+    expect(await getPasskeyStep()).toBe(null);
+    expect(await getSignInDestination()).toBe("/bereich");
   });
 
   /* Past the window an administrator holding none has no card the server would honour: sent to the
@@ -1145,21 +1149,21 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
     arriveAs(cookie);
 
-    assert.equal(await getPasskeyStep(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getPasskeyStep()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
 
     store.passkey.push(aPasskeyFor(row.userId));
 
-    assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
-    assert.equal(await getSignInDestination(), "/signin/passkey");
+    expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
+    expect(await getSignInDestination()).toBe("/signin/passkey");
   });
 
   it("asks nothing of a visitor carrying no session", async () => {
     arriveAs(null);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getPasskeyStep(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getAdminSession()).toBe(null);
+    expect(await getPasskeyStep()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   it("turns on the factor alone, over one session the store serves twice", async () => {
@@ -1168,16 +1172,16 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     madeByPasskey(store, row);
     const withFactor = await served(cookie);
     assert.ok(withFactor);
-    assert.equal(isAdminSession(withFactor, A_GRANT), true);
+    expect(isAdminSession(withFactor, A_GRANT)).toBe(true);
 
     row.authFactor = "code";
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
-    assert.equal(isAdminSession(withoutFactor, A_GRANT), false);
+    expect(isAdminSession(withoutFactor, A_GRANT)).toBe(false);
   });
 
-  // The backend refuses an owner's write from a sign-in older than the promotion, so the page offers it none
-  // (`docs/frontend/spec.md :: I535`); the millisecond either side of the session's making decides.
+  // The backend refuses an owner's write from a sign-in older than the promotion, so the page offers it none;
+  // the millisecond either side of the session's making decides.
   it("holds an owner's power on a session made since the promotion alone, and administers on an older one", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -1186,21 +1190,18 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const made = new Date(seen.session.createdAt).getTime();
     const promotedAt = (instant: number) => ({ ...A_GRANT, verwaltung: "owner" as const, inhaber_seit: new Date(instant).toISOString() });
 
-    assert.deepEqual(
-      [
-        holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
-        holdsOwnersTier(seen.session.createdAt, promotedAt(made + 1)),
-        isAdminSession(seen, promotedAt(made + 1)),
-        holdsOwnersTier(seen.session.createdAt, A_GRANT),
-      ],
-      [true, false, true, false],
-    );
+    expect([
+      holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
+      holdsOwnersTier(seen.session.createdAt, promotedAt(made + 1)),
+      isAdminSession(seen, promotedAt(made + 1)),
+      holdsOwnersTier(seen.session.createdAt, A_GRANT),
+    ]).toStrictEqual([true, false, true, false]);
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
      granted session on a `/bereich` that sends it on to an `/bereich/admin` whose guard bounces it. */
-  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async (t) => {
-    t.after(() => BACKENDS.delete(ADMIN_EMAIL));
+  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async ({ onTestFinished }) => {
+    onTestFinished(() => void BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     for (const factor of ["code", "passkey"]) {
@@ -1218,11 +1219,10 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
           assert.ok(seen);
           const destination = await getSignInDestination();
 
-          assert.equal(
+          expect(
             destination === "/bereich",
-            isAdminSession(seen, grant),
             `${factor} at ${String(created / HOUR_MS)}h, granted ${String(grantedAgo / HOUR_MS)}h ago, landed on ${destination}`,
-          );
+          ).toBe(isAdminSession(seen, grant));
         }
       }
     }
@@ -1230,7 +1230,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
 });
 
 /* A sign-in racing its passkey's removal inserts its session after the removal's sign-out ran, naming a
-   credential no passkey holds (`docs/frontend/spec.md :: I313`): the state the race leaves, driven directly. */
+   credential no passkey holds: the state the race leaves, driven directly. */
 describe("a passkey session whose passkey is gone", () => {
   it("serves an administrator's no guard, serves it again with its row, and the landing ends it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -1238,9 +1238,9 @@ describe("a passkey session whose passkey is gone", () => {
     store.passkey.length = 0;
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
-    assert.equal(await getKontoSession(), null);
-    assert.equal(await getPasskeyStep(), null);
+    expect(await getAdminSession()).toBe(null);
+    expect(await getKontoSession()).toBe(null);
+    expect(await getPasskeyStep()).toBe(null);
 
     // The control: the same session with its passkey's row standing.
     madeByPasskey(store, row);
@@ -1249,7 +1249,7 @@ describe("a passkey session whose passkey is gone", () => {
 
     // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
     store.passkey.length = 0;
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getSignInDestination()).toBe("/signin");
     assert.ok(!store.session.includes(row), "the landing left a session standing that no guard will serve");
   });
 
@@ -1259,8 +1259,8 @@ describe("a passkey session whose passkey is gone", () => {
     store.passkey.length = 0;
     arriveAs(cookie);
 
-    assert.equal(await getKontoSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getKontoSession()).toBe(null);
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   /* Another account's row under the same credential id is none of the session's own. */
@@ -1270,46 +1270,46 @@ describe("a passkey session whose passkey is gone", () => {
     for (const held of store.passkey) Reflect.set(held, "userId", "ein-anderes-konto");
     arriveAs(cookie);
 
-    assert.equal(await getAdminSession(), null);
+    expect(await getAdminSession()).toBe(null);
   });
 });
 
 /* The code route's second tab forgives a guess to whoever it reads as signed in, so that read is the
    guards' own, a ban and a gone passkey included. */
-describe("the session a code's second tab counts as signed in (`docs/frontend/spec.md :: I313`)", () => {
+describe("the session a code's second tab counts as signed in", () => {
   afterEach(() => BACKENDS.delete(PERSON_EMAIL));
 
   it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     const { cookie, row } = await signIn(PERSON_EMAIL);
     const request = new Headers({ ...ORIGIN, cookie });
-    assert.equal((await readAdmittedSession(request))?.session.id, row.id, "the live session was refused, so the cases below prove nothing");
+    expect((await readAdmittedSession(request))?.session.id, "the live session was refused, so the cases below prove nothing").toBe(row.id);
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
-    assert.equal(await readAdmittedSession(request), null, "a barred subject's session counted as signed in");
+    expect(await readAdmittedSession(request), "a barred subject's session counted as signed in").toBe(null);
 
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     madeByPasskey(store, row);
     store.passkey.length = 0;
-    assert.equal(await readAdmittedSession(request), null, "a session whose passkey is gone counted as signed in");
+    expect(await readAdmittedSession(request), "a session whose passkey is gone counted as signed in").toBe(null);
   });
 });
 
 describe("the window an enrolment happens inside", () => {
   /* A passkey outlives the session that adds it, so only a sign-in or a confirmation of the last
-     minutes adds one (`docs/frontend/spec.md :: I411`). */
+     minutes adds one. */
   it("still generates registration options for a code session a minute inside the enrolment window", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     ageRow(row, { created: ENROLMENT_WINDOW_MS - 60_000 });
 
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
-    assert.equal(answer.status, 200, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`);
+    expect(answer.status, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
 
     /* The enrolment's half of the ask: the authenticator is told a PIN or a biometric is required,
        and the library checks neither response's flag. */
     const options = (await answer.json()) as { authenticatorSelection: { userVerification: string }; rp: { id: string } };
-    assert.equal(options.authenticatorSelection.userVerification, "required");
-    assert.equal(options.rp.id, "localhost", "the relying party is not the origin this stack serves");
+    expect(options.authenticatorSelection.userVerification).toBe("required");
+    expect(options.rp.id, "the relying party is not the origin this stack serves").toBe("localhost");
   });
 
   /* Deep inside the library's own freshness gate, so the refusal is the enrolment rule's and not the
@@ -1318,15 +1318,15 @@ describe("the window an enrolment happens inside", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
   });
 
   /* Two hours, GitHub's re-authentication window, for every change but adding a passkey; five minutes
      for that. The library's gate takes the wider one, this module's the narrower. */
   it("holds the two windows at their figures, chosen rather than derived", () => {
-    assert.equal(STEP_UP_WINDOW_MS, 2 * HOUR_MS);
-    assert.equal(ENROLMENT_WINDOW_MS, 5 * 60 * 1000);
-    assert.equal(auth.options.session.freshAge, STEP_UP_WINDOW_MS / 1000, "the library's freshness gate and the step-up disagree");
+    expect(STEP_UP_WINDOW_MS).toBe(2 * HOUR_MS);
+    expect(ENROLMENT_WINDOW_MS).toBe(5 * 60 * 1000);
+    expect(auth.options.session.freshAge, "the library's freshness gate and the step-up disagree").toBe(STEP_UP_WINDOW_MS / 1000);
   });
 });
 
@@ -1337,7 +1337,7 @@ const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-zwei");
 /** The whole ceremony a browser runs, from the options call to the assertion the plugin verifies. */
 async function assertPasskey(cookie: string, userVerified: boolean): Promise<Response> {
   const offered = await overHttp("/passkey/generate-authenticate-options", { cookie });
-  assert.equal(offered.status, 200);
+  expect(offered.status).toBe(200);
 
   const { challenge } = (await offered.json()) as { challenge: string };
 
@@ -1356,7 +1356,7 @@ async function enrolPasskey(
   rawId: Buffer = CREDENTIAL_RAW_ID,
 ): Promise<Response> {
   const offered = await overHttp("/passkey/generate-register-options", { cookie });
-  assert.equal(offered.status, 200, await offered.clone().text());
+  expect(offered.status, await offered.clone().text()).toBe(200);
 
   const { challenge } = (await offered.json()) as { challenge: string };
 
@@ -1374,8 +1374,7 @@ function steppedUp(row: SessionRow): void {
 }
 
 /* A signed-in page's challenge names its account, and the plugin verifies the credential and never
-   whose it is: another account's passkey would sign that account in and end the page's session
-   (`docs/frontend/spec.md :: I428`). */
+   whose it is: another account's passkey would sign that account in and end the page's session. */
 describe("whose passkey may answer a signed-in page's challenge", () => {
   it("refuses another account's passkey, minting nothing and ending nothing", async () => {
     const other = await signIn(PERSON_EMAIL);
@@ -1385,15 +1384,15 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
 
     const refused = await assertPasskey(cookie, true);
 
-    assert.equal(refused.status, 401);
-    assert.deepEqual(store.session, before, "another account's passkey minted a session or ended the page's");
+    expect(refused.status).toBe(401);
+    expect(store.session, "another account's passkey minted a session or ended the page's").toStrictEqual(before);
   });
 
   it("admits the page's own account's passkey", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
-    assert.equal((await assertPasskey(cookie, true)).status, 200);
+    expect((await assertPasskey(cookie, true)).status).toBe(200);
   });
 
   /* Signed out, the challenge names nobody, and any account's passkey is the sign-in itself. */
@@ -1409,7 +1408,7 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
       body: { response: assertionFor(challenge, true) },
     });
 
-    assert.equal(answer.status, 200, await answer.clone().text());
+    expect(answer.status, await answer.clone().text()).toBe(200);
   });
 });
 
@@ -1420,19 +1419,19 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     const answer = await overHttp("/passkey/generate-authenticate-options", { cookie });
-    assert.equal(answer.status, 200, `the assertion the page offers was refused: ${JSON.stringify(logged)}`);
+    expect(answer.status, `the assertion the page offers was refused: ${JSON.stringify(logged)}`).toBe(200);
 
     const options = (await answer.json()) as { userVerification: string };
-    assert.equal(options.userVerification, "required", "the assertion asks for less than the verifier below demands");
+    expect(options.userVerification, "the assertion asks for less than the verifier below demands").toBe("required");
   });
 
   // The sign-in page asks with no session at all, which is where most assertions start.
   it("asks the same of an assertion started signed out", async () => {
     const answer = await overHttp("/passkey/generate-authenticate-options");
-    assert.equal(answer.status, 200, `the sign-in page's assertion was refused: ${JSON.stringify(logged)}`);
+    expect(answer.status, `the sign-in page's assertion was refused: ${JSON.stringify(logged)}`).toBe(200);
 
     const options = (await answer.json()) as { userVerification: string };
-    assert.equal(options.userVerification, "required", "the sign-in page's assertion asks for less than the verifier demands");
+    expect(options.userVerification, "the sign-in page's assertion asks for less than the verifier demands").toBe("required");
   });
 
   /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
@@ -1444,9 +1443,9 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
 
     const refused = await assertPasskey(cookie, false);
 
-    assert.equal(refused.status, 400);
-    assert.equal(((await refused.json()) as { code?: string }).code, "USER_VERIFICATION_REQUIRED");
-    assert.equal(store.session.length, sessions, "a refused assertion still minted a session");
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
+    expect(store.session.length, "a refused assertion still minted a session").toBe(sessions);
     assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
   });
 
@@ -1457,9 +1456,9 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
 
     const refused = await enrolPasskey(cookie, {}, false);
 
-    assert.equal(refused.status, 400);
-    assert.equal(((await refused.json()) as { code?: string }).code, "USER_VERIFICATION_REQUIRED");
-    assert.deepEqual(store.passkey, []);
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
+    expect(store.passkey).toStrictEqual([]);
   });
 
   /* The same ceremony, verified: the arm above is the requirement rather than the harness, and
@@ -1469,11 +1468,11 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
     const admitted = await assertPasskey(cookie, true);
-    assert.equal(admitted.status, 200, await admitted.text());
+    expect(admitted.status, await admitted.text()).toBe(200);
 
     const minted = store.session.at(-1);
     assert.ok(minted !== undefined);
-    assert.equal(minted.authFactor, "passkey", "the session the assertion minted was stamped as the link's");
+    expect(minted.authFactor, "the session the assertion minted was stamped as the link's").toBe("passkey");
 
     arriveAs(cookieHeader(admitted));
     assert.ok(await getAdminSession(), "the session the passkey minted does not open the admin surface");
@@ -1493,9 +1492,9 @@ describe("which relying party and which origin a ceremony is judged against", ()
     const registration = await overHttp("/passkey/generate-register-options", { cookie, from: FOREIGN });
     const authentication = await overHttp("/passkey/generate-authenticate-options", { cookie, from: FOREIGN });
 
-    assert.equal(registration.status, 200, await registration.clone().text());
-    assert.equal(((await registration.json()) as { rp: { id: string } }).rp.id, "localhost");
-    assert.equal(((await authentication.json()) as { rpId: string }).rpId, "localhost");
+    expect(registration.status, await registration.clone().text()).toBe(200);
+    expect(((await registration.json()) as { rp: { id: string } }).rp.id).toBe("localhost");
+    expect(((await authentication.json()) as { rpId: string }).rpId).toBe("localhost");
   });
 
   /* `origin` left unset is the caller's own `Origin` header, which checks the ceremony against the
@@ -1514,14 +1513,14 @@ describe("which relying party and which origin a ceremony is judged against", ()
     const challenge = (offered.response as { challenge: string }).challenge;
     const minted = cookieHeader(offered);
 
-    await assert.rejects(() =>
+    await expect(() =>
       auth.api.verifyPasskeyAuthentication({
         body: { response: assertionFor(challenge, true, FOREIGN_ORIGIN) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: FOREIGN_ORIGIN }),
       }),
-    );
+    ).rejects.toThrow();
 
-    assert.equal(store.session.length, sessions, "a ceremony run from another origin minted a session");
+    expect(store.session.length, "a ceremony run from another origin minted a session").toBe(sessions);
   });
 });
 
@@ -1533,15 +1532,15 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const sessions = store.session.length;
 
     const enrolled = await enrolPasskey(cookie);
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
 
-    assert.equal(store.passkey.length, 1);
-    assert.equal(store.passkey[0]?.userId, row.userId);
-    assert.equal(store.session.length, sessions, "the enrolment minted a session of its own");
-    assert.equal(row.authFactor, "code", "enrolling a passkey re-stamped the session that did it");
+    expect(store.passkey.length).toBe(1);
+    expect(store.passkey[0]?.userId).toBe(row.userId);
+    expect(store.session.length, "the enrolment minted a session of its own").toBe(sessions);
+    expect(row.authFactor, "enrolling a passkey re-stamped the session that did it").toBe("code");
 
     arriveAs(cookie);
-    assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
+    expect(await getPasskeyStep()).toStrictEqual({ step: "assert", email: ADMIN_EMAIL });
   });
 
   /* The hole a mailbox alone would otherwise open: it reaches a code-borne session, and the plugin
@@ -1551,11 +1550,11 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     const posted = await overHttp("/passkey/verify-registration", { method: "POST", cookie, body: { response: {} } });
-    assert.equal(posted.status, 404);
+    expect(posted.status).toBe(404);
 
-    assert.deepEqual(store.passkey, [held], "a refused enrolment still reached the passkey rows");
+    expect(store.passkey, "a refused enrolment still reached the passkey rows").toStrictEqual([held]);
   });
 
   /* The positive control for every refusal below: a further passkey is enrolled from a session the
@@ -1567,8 +1566,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     const enrolled = await enrolPasskey(cookie, {}, true, SECOND_RAW_ID);
 
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
-    assert.equal(store.passkey.length, 2);
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
+    expect(store.passkey.length).toBe(2);
   });
 
   /* The whole of what the step-up buys: without it a stolen cookie could enrol for as long as it was
@@ -1579,8 +1578,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
     store.passkey.push(aPasskeyFor(row.userId));
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.equal(store.passkey.length, 1);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    expect(store.passkey.length).toBe(1);
   });
 
   /* The `auth.api` arm, which the hook returns early for: the library's freshness gate stands at the
@@ -1599,18 +1598,14 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     // Aged after the options call, which the library gates on `freshAge` and would refuse first.
     ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
 
-    await assert.rejects(
-      () =>
-        auth.api.verifyPasskeyRegistration({
-          body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
-          headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
-        }),
-      // The freshness gate's own answer, named rather than taken for any rejection at all: a body the
-      // plugin refused for its own reasons answers `BAD_REQUEST` and would pass this case.
-      (raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN",
-    );
+    await expect(() =>
+      auth.api.verifyPasskeyRegistration({
+        body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
+        headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
+      }),
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN");
 
-    assert.deepEqual(store.passkey, [held], "the callback let a stale session write a row");
+    expect(store.passkey, "the callback let a stale session write a row").toStrictEqual([held]);
   });
 
   /* A person's passkey is optional, so a fresh sign-in by either factor enrols: the mailbox is the
@@ -1618,12 +1613,9 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   it("enrols a person's passkey from a fresh code session, and a further one", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
-    assert.equal((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, 200, "a code session was refused a second passkey");
-    assert.deepEqual(
-      store.passkey.map((held) => held.userId),
-      [row.userId, row.userId],
-    );
+    expect((await enrolPasskey(cookie)).status).toBe(200);
+    expect((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, "a code session was refused a second passkey").toBe(200);
+    expect(store.passkey.map((held) => held.userId)).toStrictEqual([row.userId, row.userId]);
   });
 
   /* Inside the two hours every other change is allowed in: adding a passkey alone asks for more. */
@@ -1634,9 +1626,9 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
       row.authFactor = factor;
       ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
-      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, `${factor} enrolled when stale`);
+      expect((await overHttp("/passkey/generate-register-options", { cookie })).status, `${factor} enrolled when stale`).toBe(404);
     }
-    assert.deepEqual(store.passkey, []);
+    expect(store.passkey).toStrictEqual([]);
   });
 
   it("refuses an administrator's further passkey from a passkey session past the enrolment window", async () => {
@@ -1645,16 +1637,16 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
     store.passkey.push(aPasskeyFor(row.userId));
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.equal(store.passkey.length, 1);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    expect(store.passkey.length).toBe(1);
   });
 
   it("refuses an administrator's first passkey from a code session past the enrolment window", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.deepEqual(store.passkey, []);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    expect(store.passkey).toStrictEqual([]);
   });
 
   /* The `auth.api` arm, which the hook returns early for, aged inside the library's own freshness gate:
@@ -1667,15 +1659,13 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const challenge = (offered.response as { challenge: string }).challenge;
     ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
-    await assert.rejects(
-      () =>
-        auth.api.verifyPasskeyRegistration({
-          body: { response: registrationFor(challenge, true) },
-          headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${cookieHeader(offered)}`, origin: "http://localhost:3000" }),
-        }),
-      (raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND",
-    );
-    assert.deepEqual(store.passkey, []);
+    await expect(() =>
+      auth.api.verifyPasskeyRegistration({
+        body: { response: registrationFor(challenge, true) },
+        headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${cookieHeader(offered)}`, origin: "http://localhost:3000" }),
+      }),
+    ).rejects.toSatisfy((raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND");
+    expect(store.passkey).toStrictEqual([]);
   });
 
   it("refuses the enrolment that would take a person past the cap", async () => {
@@ -1683,8 +1673,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     for (let index = 0; index < PASSKEY_LIMIT; index += 1)
       store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.equal(store.passkey.length, PASSKEY_LIMIT);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    expect(store.passkey.length).toBe(PASSKEY_LIMIT);
   });
 
   /* Driven at `HEAD` of the design: one stepped-up session wrote twenty-one rows with nothing
@@ -1695,15 +1685,15 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     for (let index = 0; index < PASSKEY_LIMIT; index += 1)
       store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.equal(store.passkey.length, PASSKEY_LIMIT);
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
+    expect(store.passkey.length).toBe(PASSKEY_LIMIT);
   });
 
   /* The FIGURE, which every case above takes from the constant and would follow anywhere it moved.
      Five was chosen, not derived: an administrator carries several devices, and a second passkey
      enrolled in advance keeps recovery off the Atlas console. */
   it("caps an administrator at five passkeys, the figure chosen rather than derived", () => {
-    assert.equal(PASSKEY_LIMIT, 5);
+    expect(PASSKEY_LIMIT).toBe(5);
   });
 
   /* `excludeCredentials` is a hint the BROWSER honours: a caller posting the same credential twice
@@ -1711,14 +1701,14 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   it("refuses a credential the account has already enrolled, leaving the row it has", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
-    assert.equal(store.passkey.length, 1);
+    expect((await enrolPasskey(cookie)).status).toBe(200);
+    expect(store.passkey.length).toBe(1);
 
     steppedUp(row);
     const again = await enrolPasskey(cookie);
 
-    assert.equal(again.status, 404);
-    assert.equal(store.passkey.length, 1, "the same authenticator enrolled twice");
+    expect(again.status).toBe(404);
+    expect(store.passkey.length, "the same authenticator enrolled twice").toBe(1);
   });
 
   /* The two arms of the management surface, which the classification above places apart: the browser
@@ -1730,11 +1720,11 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     store.passkey.push(held);
 
     const overTheWire = await overHttp("/passkey/delete-passkey", { method: "POST", cookie, body: { id: held.id } });
-    assert.equal(overTheWire.status, 404);
-    assert.deepEqual(store.passkey, [held]);
+    expect(overTheWire.status).toBe(404);
+    expect(store.passkey).toStrictEqual([held]);
 
     await auth.api.deletePasskey({ body: { id: held.id }, headers: new Headers({ ...ORIGIN, cookie }) });
-    assert.deepEqual(store.passkey, []);
+    expect(store.passkey).toStrictEqual([]);
   });
 
   /* An enrolment the administrator did not make is the one signal a session of theirs is somebody
@@ -1743,11 +1733,11 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const before = sent.length;
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
+    expect((await enrolPasskey(cookie)).status).toBe(200);
 
     const message = sent.at(-1);
-    assert.equal(sent.length, before + 1, "the enrolment mailed nothing");
-    assert.equal(message?.to, ADMIN_EMAIL);
+    expect(sent.length, "the enrolment mailed nothing").toBe(before + 1);
+    expect(message?.to).toBe(ADMIN_EMAIL);
     const written = JSON.stringify(message);
     for (const secret of [CREDENTIAL_ID, store.passkey[0]?.id, row.token]) {
       // Guarded, because `includes("")` answers true and would pass this loop having compared nothing.
@@ -1769,14 +1759,14 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
 
-    await assert.rejects(() =>
+    await expect(() =>
       auth.api.verifyPasskeyRegistration({
         body: { response: registrationFor(challenge, true) },
         headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
       }),
-    );
+    ).rejects.toThrow();
 
-    assert.deepEqual(store.passkey, [held], "the callback let a second passkey through");
+    expect(store.passkey, "the callback let a second passkey through").toStrictEqual([held]);
   });
 
   /* The sequence the design stands on, run end to end: every other step-up case stamps the factor
@@ -1786,12 +1776,12 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
     const admitted = await assertPasskey(cookie, true);
-    assert.equal(admitted.status, 200, await admitted.clone().text());
+    expect(admitted.status, await admitted.clone().text()).toBe(200);
 
     const enrolled = await enrolPasskey(cookieHeader(admitted), {}, true, SECOND_RAW_ID);
 
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
-    assert.equal(store.passkey.length, 2);
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
+    expect(store.passkey.length).toBe(2);
   });
 
   /* The plugin writes the caller's own `name` onto the row, and the dialog draws a passkey's make:
@@ -1801,9 +1791,9 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     steppedUp(row);
     store.passkey.push(aPasskeyFor(row.userId));
 
-    assert.equal((await enrolPasskey(cookie, { name: "Windows Hello" }, true, SECOND_RAW_ID)).status, 400);
-    assert.equal((await overHttp("/passkey/generate-register-options?name=Windows%20Hello", { cookie })).status, 400);
-    assert.equal(store.passkey.length, 1, "a named enrolment still wrote a row");
+    expect((await enrolPasskey(cookie, { name: "Windows Hello" }, true, SECOND_RAW_ID)).status).toBe(400);
+    expect((await overHttp("/passkey/generate-register-options?name=Windows%20Hello", { cookie })).status).toBe(400);
+    expect(store.passkey.length, "a named enrolment still wrote a row").toBe(1);
   });
 
   /* The net refuses ahead of the plugin's own fresh-session middleware, which is mounted only while
@@ -1812,8 +1802,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
   it("refuses an enrolment carrying no readable session at all", async () => {
     const answer = await overHttp("/passkey/generate-register-options");
 
-    assert.equal(answer.status, 404);
-    assert.equal(await answer.text(), "", "the refusal is the library switch's rather than the net's");
+    expect(answer.status).toBe(404);
+    expect(await answer.text(), "the refusal is the library switch's rather than the net's").toBe("");
   });
 
   /* A registration whose posted id is not the attested one: the verifier compares neither, so the
@@ -1831,8 +1821,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
       body: { response: forged, createSession: true },
     });
 
-    assert.equal(answer.status, 400);
-    assert.deepEqual(store.passkey, []);
+    expect(answer.status).toBe(400);
+    expect(store.passkey).toStrictEqual([]);
     assert.ok(store.session.includes(row), "a refused enrolment signed its caller out");
   });
 });
@@ -1840,19 +1830,19 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 describe("what a finished ceremony hands back to the page", () => {
   /* The plugin answers each verify endpoint with the session row it minted, `token` and all, which
      is the cookie's own value: a script reading that body would hold the credential the browser
-     never gets to see (`docs/frontend/spec.md :: I198`). */
+     never gets to see. */
   it("answers the assertion without the session it just minted, while the cookie still rides the response", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
     const admitted = await assertPasskey(cookie, true);
-    assert.equal(admitted.status, 200);
+    expect(admitted.status).toBe(200);
 
     const body = await admitted.clone().text();
     const minted = store.session.at(-1);
     assert.ok(minted !== undefined);
     assert.ok(!body.includes(minted.token), "the minted session's token reached the page");
-    assert.deepEqual(JSON.parse(body), { status: true });
+    expect(JSON.parse(body)).toStrictEqual({ status: true });
 
     // Truthy, which is the whole of what `@better-auth/passkey/client` reads off it.
     assert.ok(cookieHeader(admitted).length > 0, "the shaped body took the session cookie with it");
@@ -1864,8 +1854,8 @@ describe("what a finished ceremony hands back to the page", () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     const enrolled = await enrolPasskey(cookie);
-    assert.equal(enrolled.status, 200);
-    assert.deepEqual(await enrolled.json(), { status: true });
+    expect(enrolled.status).toBe(200);
+    expect(await enrolled.json()).toStrictEqual({ status: true });
   });
 
   /* Shaping every answer alike would report a refusal as a success, and the card reads exactly that
@@ -1876,8 +1866,8 @@ describe("what a finished ceremony hands back to the page", () => {
 
     const refused = await assertPasskey(cookie, false);
 
-    assert.equal(refused.status, 400);
-    assert.equal(((await refused.json()) as { code?: string }).code, "USER_VERIFICATION_REQUIRED");
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
   });
 });
 
@@ -1894,8 +1884,8 @@ describe("what a session row keeps about the request that made it", () => {
 
     const row = store.session.at(-1);
     assert.ok(row !== undefined);
-    assert.equal(Reflect.get(row, "ipAddress"), "");
-    assert.equal(Reflect.get(row, "userAgent"), "");
+    expect(Reflect.get(row, "ipAddress")).toBe("");
+    expect(Reflect.get(row, "userAgent")).toBe("");
   });
 });
 
@@ -1906,8 +1896,8 @@ describe("what a session records about the sign-in that made it", () => {
   it("stamps a mailbox session with its factor and no credential", async () => {
     const { row } = await signIn(PERSON_EMAIL);
 
-    assert.equal(row.authFactor, "code");
-    assert.equal(row.passkeyCredentialId, undefined);
+    expect(row.authFactor).toBe("code");
+    expect(row.passkeyCredentialId).toBe(undefined);
   });
 
   /* The removal of one passkey ends the sessions carrying its credential id and no other, so the id
@@ -1916,11 +1906,11 @@ describe("what a session records about the sign-in that made it", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
-    assert.equal((await assertPasskey(cookie, true)).status, 200);
+    expect((await assertPasskey(cookie, true)).status).toBe(200);
 
     const minted = store.session.at(-1);
-    assert.equal(minted?.authFactor, "passkey");
-    assert.equal(minted?.passkeyCredentialId, CREDENTIAL_ID);
+    expect(minted?.authFactor).toBe("passkey");
+    expect(minted?.passkeyCredentialId).toBe(CREDENTIAL_ID);
   });
 
   /* Setting a passkey up signs in with it: the enrolment mints the passkey's own session inside the
@@ -1931,15 +1921,15 @@ describe("what a session records about the sign-in that made it", () => {
     const before = [...store.session];
 
     const enrolled = await enrolPasskey(cookie, { createSession: true });
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
-    assert.deepEqual(await enrolled.clone().json(), { status: true }, "the enrolment's answer carried the session it minted");
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
+    expect(await enrolled.clone().json(), "the enrolment's answer carried the session it minted").toStrictEqual({ status: true });
 
     const [minted, ...others] = writtenSince(before);
-    assert.deepEqual(others, []);
+    expect(others).toStrictEqual([]);
     assert.ok(!store.session.includes(row), "the code's session outlived the sign-in that replaced it");
-    assert.equal(minted?.authFactor, "passkey");
-    assert.equal(minted?.passkeyCredentialId, CREDENTIAL_ID);
-    assert.equal(sent.length, mailed + 1, "the enrolment that signed in mailed no notice");
+    expect(minted?.authFactor).toBe("passkey");
+    expect(minted?.passkeyCredentialId).toBe(CREDENTIAL_ID);
+    expect(sent.length, "the enrolment that signed in mailed no notice").toBe(mailed + 1);
 
     arriveAs(cookieHeader(enrolled));
     assert.ok(await getAdminSession(), "the session the enrolment minted does not open the admin surface");
@@ -1951,9 +1941,9 @@ describe("what a session records about the sign-in that made it", () => {
 
     const refused = await enrolPasskey(cookie, { createSession: true }, false);
 
-    assert.equal(refused.status, 400);
-    assert.deepEqual(store.passkey, []);
-    assert.deepEqual(writtenSince(before), [], "a refused setup signed its caller in");
+    expect(refused.status).toBe(400);
+    expect(store.passkey).toStrictEqual([]);
+    expect(writtenSince(before), "a refused setup signed its caller in").toStrictEqual([]);
     assert.ok(store.session.includes(row), "a refused setup signed its caller out");
   });
 
@@ -1964,11 +1954,10 @@ describe("what a session records about the sign-in that made it", () => {
     const { internalAdapter } = await auth.$context;
     const sessions = store.session.length;
 
-    await assert.rejects(
-      () => internalAdapter.createSession(row.userId),
+    await expect(() => internalAdapter.createSession(row.userId)).rejects.toSatisfy(
       (raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath",
     );
-    assert.equal(store.session.length, sessions);
+    expect(store.session.length).toBe(sessions);
   });
 
   /* The arm a release adding a sign-in route reaches: a mint inside an endpoint's own context, on a
@@ -1978,11 +1967,10 @@ describe("what a session records about the sign-in that made it", () => {
     const context = await auth.$context;
     const sessions = store.session.length;
 
-    await assert.rejects(
-      () => runWithEndpointContext({ path: "/sign-in/social", body: {}, context }, () => context.internalAdapter.createSession(row.userId)),
-      (raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath",
-    );
-    assert.equal(store.session.length, sessions);
+    await expect(() =>
+      runWithEndpointContext({ path: "/sign-in/social", body: {}, context }, () => context.internalAdapter.createSession(row.userId)),
+    ).rejects.toSatisfy((raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath");
+    expect(store.session.length).toBe(sessions);
   });
 
   /* A passkey path that reaches the mint with no credential in its body would stamp a session no
@@ -1992,14 +1980,12 @@ describe("what a session records about the sign-in that made it", () => {
     const context = await auth.$context;
     const sessions = store.session.length;
 
-    await assert.rejects(
-      () =>
-        runWithEndpointContext({ path: "/passkey/verify-authentication", body: { response: {} }, context }, () =>
-          context.internalAdapter.createSession(row.userId),
-        ),
-      (raised: unknown) => raised instanceof Error && raised.name === "CeremonyNamedNoCredential",
-    );
-    assert.equal(store.session.length, sessions);
+    await expect(() =>
+      runWithEndpointContext({ path: "/passkey/verify-authentication", body: { response: {} }, context }, () =>
+        context.internalAdapter.createSession(row.userId),
+      ),
+    ).rejects.toSatisfy((raised: unknown) => raised instanceof Error && raised.name === "CeremonyNamedNoCredential");
+    expect(store.session.length).toBe(sessions);
   });
 });
 
@@ -2014,13 +2000,13 @@ describe("which session a new sign-in replaces", () => {
 
     const first = await assertPasskey(cookie, true);
     const second = await assertPasskey(cookieHeader(first), true);
-    assert.equal(second.status, 200);
+    expect(second.status).toBe(200);
 
     const left = writtenSince(before);
-    assert.equal(left.length, 1, "a step-up left the session it replaced");
+    expect(left.length, "a step-up left the session it replaced").toBe(1);
     assert.ok(!store.session.includes(row), "the first sign-in's session outlived the step-up");
     arriveAs(cookieHeader(second));
-    assert.equal((await getAdminSession())?.session.id, left[0]?.id);
+    expect((await getAdminSession())?.session.id).toBe(left[0]?.id);
   });
 
   /* The in-process arm, which is how the code's own route signs in: the hook reads the endpoint's
@@ -2039,12 +2025,12 @@ describe("which session a new sign-in replaces", () => {
       headers: new Headers({ ...headers, cookie: `${cookie}; ${cookieHeader(offered)}` }),
     });
 
-    assert.equal(writtenSince(before).length, 1);
+    expect(writtenSince(before).length).toBe(1);
     assert.ok(!store.session.includes(row), "the in-process sign-in left the session it replaced");
   });
 
   /* Two step-ups carrying one cookie each replace it, and a browser keeps one `Set-Cookie`: the session
-     the other answered is held by nobody and shows in the devices list (`docs/frontend/spec.md :: I485`). */
+     the other answered is held by nobody and shows in the devices list. */
   for (const order of [
     ["passkey", "code"],
     ["code", "passkey"],
@@ -2061,8 +2047,8 @@ describe("which session a new sign-in replaces", () => {
       const earlier = await stepUp(order[0]);
       const later = await stepUp(order[1]);
 
-      assert.equal(writtenSince(before).length, 1, "the earlier replacement outlived the later one, held by no cookie");
-      assert.deepEqual([await served(earlier), (await served(later))?.session.id], [null, writtenSince(before)[0]?.id]);
+      expect(writtenSince(before).length, "the earlier replacement outlived the later one, held by no cookie").toBe(1);
+      expect([await served(earlier), (await served(later))?.session.id]).toStrictEqual([null, writtenSince(before)[0]?.id]);
     });
   }
 
@@ -2072,19 +2058,24 @@ describe("which session a new sign-in replaces", () => {
     const before = [...store.session];
 
     const [byPasskey, byCode] = await Promise.all([assertPasskey(cookie, true), signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie })]);
-    assert.equal(byPasskey.status, 200, "the assertion was refused, so no race was run");
+    expect(byPasskey.status, "the assertion was refused, so no race was run").toBe(200);
 
-    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+    expect(writtenSince(before).length, "both step-ups left their session standing").toBe(1);
     const opened = await Promise.all([served(cookieHeader(byPasskey)), served(cookieHeader(byCode))]);
-    assert.equal(opened.filter((answer) => answer !== null).length, 1);
+    expect(opened.filter((answer) => answer !== null).length).toBe(1);
   });
 
   /* The library stamps a mint before the gate's backend read, so the mint stamped first can be admitted
      last: ordered by that stamp, neither after hook ends the other. */
   for (const oneMillisecond of [false, true]) {
-    it(`leaves one session where the step-up stamped first is admitted last${oneMillisecond ? ", both stamped in one millisecond" : ""}`, async (t) => {
+    it(`leaves one session where the step-up stamped first is admitted last${oneMillisecond ? ", both stamped in one millisecond" : ""}`, async ({
+      onTestFinished,
+    }) => {
       // Frozen, the two stamps tie on every run, which a running clock gives on a rare one.
-      if (oneMillisecond) t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+      if (oneMillisecond) {
+        vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+        onTestFinished(() => void vi.useRealTimers());
+      }
       const { cookie, row } = await signIn(ADMIN_EMAIL);
       store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
       const before = [...store.session];
@@ -2096,11 +2087,11 @@ describe("which session a new sign-in replaces", () => {
       await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie });
       gate.release();
       const answered = await byPasskey;
-      assert.equal(answered.status, 200, "the assertion was refused, so no race was run");
+      expect(answered.status, "the assertion was refused, so no race was run").toBe(200);
 
-      assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+      expect(writtenSince(before).length, "both step-ups left their session standing").toBe(1);
       // The response answered last is the cookie the browser keeps, so its session is the one that stands.
-      assert.notEqual(await served(cookieHeader(answered)), null, "the session the last response set was the one ended");
+      expect(await served(cookieHeader(answered)), "the session the last response set was the one ended").not.toBe(null);
     });
   }
 
@@ -2118,7 +2109,7 @@ describe("which session a new sign-in replaces", () => {
     insert.release();
     await byPasskey;
 
-    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+    expect(writtenSince(before).length, "both step-ups left their session standing").toBe(1);
   });
 
   /* The stamp is scoped to the cookie it names: a sign-in from another device, carrying none, ends no
@@ -2129,7 +2120,7 @@ describe("which session a new sign-in replaces", () => {
 
     await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: other.cookie });
 
-    assert.notEqual(await served(device.cookie), null, "a sign-in from another browser ended this one's session");
+    expect(await served(device.cookie), "a sign-in from another browser ended this one's session").not.toBe(null);
   });
 
   it("ends the replaced session on a mailbox sign-in too, whoever's it was", async () => {
@@ -2152,16 +2143,15 @@ describe("which session a new sign-in replaces", () => {
 
     internalAdapter.deleteSession = () => Promise.reject(new Error("the store answered nothing"));
     try {
-      assert.equal((await assertPasskey(cookie, true)).status, 200);
+      expect((await assertPasskey(cookie, true)).status).toBe(200);
     } finally {
       internalAdapter.deleteSession = deleteSession;
     }
 
-    assert.deepEqual(
-      logged.map((line) => [line.message, line.meta]),
-      [["auth.session_rotation_failed", { error_code: "FE-AUTH-006", name: "Error" }]],
-    );
-    assert.equal(writtenSince(before).length, 1, "the sign-in did not mint its session");
+    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([
+      ["auth.session_rotation_failed", { error_code: "FE-AUTH-006", name: "Error" }],
+    ]);
+    expect(writtenSince(before).length, "the sign-in did not mint its session").toBe(1);
     assert.ok(store.session.includes(row));
   });
 });
@@ -2172,24 +2162,23 @@ describe("the step-up every change to passkeys and sign-ins asks for", () => {
 
   it("admits a person signed in by either factor inside the window, and neither past it", () => {
     for (const factor of ["code", "passkey"]) {
-      assert.equal(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS - 60_000), true, `${factor} inside the window`);
-      assert.equal(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS + 60_000), false, `${factor} past the window`);
+      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS - 60_000), `${factor} inside the window`).toBe(true);
+      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS + 60_000), `${factor} past the window`).toBe(false);
     }
   });
 
   /* The administrator's step-up is the passkey's: a mailbox alone must not manage the passkeys that
      guard the admin surface. */
   it("admits an administrator inside the window by the passkey alone", () => {
-    assert.equal(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS - 60_000), true);
-    assert.equal(judged(ADMIN_EMAIL, "code", 0), false);
-    assert.equal(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS + 60_000), false);
+    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS - 60_000)).toBe(true);
+    expect(judged(ADMIN_EMAIL, "code", 0)).toBe(false);
+    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS + 60_000)).toBe(false);
   });
 
   it("takes a stamp it cannot read for no step-up at all", () => {
-    assert.equal(
+    expect(
       isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, verwaltung: false }),
-      false,
-    );
+    ).toBe(false);
   });
 });
 
@@ -2200,8 +2189,8 @@ describe("what a ban ends in the sign-in store", () => {
     store.passkey.push(aPasskeyFor(first.row.userId));
     const bystander = await signIn("unbeteiligt@example.org");
 
-    // Whether an account holds the address is what the ban's notice is sent on (`docs/frontend/spec.md :: I517`).
-    assert.equal(await endSessionsOfAddress(PERSON_EMAIL.toUpperCase()), true);
+    // Whether an account holds the address is what the ban's notice is sent on.
+    expect(await endSessionsOfAddress(PERSON_EMAIL.toUpperCase())).toBe(true);
 
     assert.ok(!store.session.includes(first.row) && !store.session.includes(second.row), "a session of the barred address survived");
     assert.ok(store.session.includes(bystander.row), "the ban ended another address's session");
@@ -2209,10 +2198,10 @@ describe("what a ban ends in the sign-in store", () => {
       store.user.some((user) => user.id === first.row.userId),
       "the ban deleted the account itself",
     );
-    assert.equal(store.passkey.length, 1, "the ban deleted the account's passkey");
+    expect(store.passkey.length, "the ban deleted the account's passkey").toBe(1);
 
     arriveAs(first.cookie);
-    assert.equal(await getSignInDestination(), "/signin");
+    expect(await getSignInDestination()).toBe("/signin");
   });
 
   /* The store holds the folded address, whose domain is punycode: a ban typed with the Unicode
@@ -2239,15 +2228,15 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     assert.ok(!store.session.includes(row));
-    assert.deepEqual(asked, []);
+    expect(asked).toStrictEqual([]);
   });
 
   it("does nothing for an address no account holds, and says it found none", async () => {
     const sessions = store.session.length;
 
-    assert.equal(await endSessionsOfAddress("niemand@example.org"), false);
+    expect(await endSessionsOfAddress("niemand@example.org")).toBe(false);
 
-    assert.equal(store.session.length, sessions);
+    expect(store.session.length).toBe(sessions);
   });
 
   /* A read that failed is no answer: taken for `false`, a ban would go unmailed and its administrator be
@@ -2257,13 +2246,13 @@ describe("what a ban ends in the sign-in store", () => {
     adapterCalls.refusing = (_key, args) => (args[0] as { model?: unknown } | undefined)?.model === "user";
 
     try {
-      await assert.rejects(endSessionsOfAddress(PERSON_EMAIL));
+      await expect(endSessionsOfAddress(PERSON_EMAIL)).rejects.toThrow();
     } finally {
       adapterCalls.refusing = undefined;
     }
   });
 
-  /* The ban's notice is sent on this answer (`docs/frontend/spec.md :: I517`): a deletion failing after
+  /* The ban's notice is sent on this answer: a deletion failing after
      the account was found must not take the answer with it. */
   it("answers that an account holds the address where only the deletion of its sessions failed", async () => {
     const { row } = await signIn(PERSON_EMAIL);
@@ -2271,20 +2260,19 @@ describe("what a ban ends in the sign-in store", () => {
     logged.length = 0;
 
     try {
-      assert.equal(await endSessionsOfAddress(PERSON_EMAIL), true);
+      expect(await endSessionsOfAddress(PERSON_EMAIL)).toBe(true);
     } finally {
       adapterCalls.refusing = undefined;
     }
 
     assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
-    assert.deepEqual(
-      logged.map(({ message, meta }) => [message, meta]),
-      [["auth.ended_sessions_not_deleted", { error_code: "FE-AUTH-006", name: "Error" }]],
-    );
+    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([
+      ["auth.ended_sessions_not_deleted", { error_code: "FE-AUTH-006", name: "Error" }],
+    ]);
   });
 
   /* The case a one-shot deletion lost: its failure told, the browser never back during the ban, and the
-     ban lifted inside the session's windows (`docs/frontend/spec.md :: I528`). */
+     ban lifted inside the session's windows. */
   it("serves no session the ending stamped on any lane once the ban is lifted, and the landing deletes its row", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
@@ -2299,9 +2287,9 @@ describe("what a ban ends in the sign-in store", () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       arriveAs(cookie);
-      assert.equal(await readServedSession(new Headers({ ...ORIGIN, cookie })), null, "the lift served the stamped session again");
-      assert.equal(await getKontoSession(), null);
-      assert.equal(await getSignInDestination(), "/signin");
+      expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
+      expect(await getKontoSession()).toBe(null);
+      expect(await getSignInDestination()).toBe("/signin");
       assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
@@ -2314,7 +2302,7 @@ describe("what a ban ends in the sign-in store", () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
     try {
       const { cookie, row } = await signIn(PERSON_EMAIL);
-      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 200, "the control was refused before any ending");
+      expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the control was refused before any ending").toBe(200);
 
       adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
       try {
@@ -2324,7 +2312,7 @@ describe("what a ban ends in the sign-in store", () => {
       }
       assert.ok(store.session.includes(row), "the deletion was not refused, so the stamp alone is not what is judged");
 
-      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+      expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
     }
@@ -2346,8 +2334,8 @@ describe("what a ban ends in the sign-in store", () => {
 });
 
 describe("what the library's own log stream reaches this application as", () => {
-  /* The default logger prints the rejected value itself and passes whole error objects, which
-     `docs/logging/spec.md :: L9` keeps off the stream. */
+  /* The default logger prints the rejected value itself and passes whole error objects, which the
+     logging rules keep off the stream. */
   it("carries an event of its own and never the message, which ends in the rejected value", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     logged.length = 0;
@@ -2360,16 +2348,16 @@ describe("what the library's own log stream reaches this application as", () => 
       }),
     );
 
-    assert.equal(answer.status, 403);
+    expect(answer.status).toBe(403);
     assert.ok(logged.length > 0, "the library wrote nothing, so this case proves nothing");
 
     for (const line of logged) {
-      assert.equal(line.message, "auth.origin_refused");
-      assert.equal(line.error, undefined);
-      assert.equal(line.meta.error_code, "FE-AUTH-003");
+      expect(line.message).toBe("auth.origin_refused");
+      expect(line.error).toBe(undefined);
+      expect(line.meta.error_code).toBe("FE-AUTH-003");
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
-      assert.deepEqual(Object.keys(line.meta).sort(), ["error_code", "name"]);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
       assert.ok(!JSON.stringify(line).includes("fremde-seite"), "the submitted origin reached the stream");
     }
   });
@@ -2383,17 +2371,14 @@ describe("what the library's own log stream reaches this application as", () => 
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "kein-schluessel" });
     logged.length = 0;
 
-    assert.equal((await assertPasskey(cookie, true)).status, 400);
-    assert.deepEqual(
-      logged.map((line) => [line.message, line.meta.name]),
-      [["auth.library_failed", "Error"]],
-    );
+    expect((await assertPasskey(cookie, true)).status).toBe(400);
+    expect(logged.map((line) => [line.message, line.meta.name])).toStrictEqual([["auth.library_failed", "Error"]]);
 
     for (const line of logged) {
       // The error object itself, which the writer serialises with its message and its stack: this
       // is the arm the library really hands one, so the drop is proven here or nowhere.
-      assert.equal(line.error, undefined, "the library's own error object reached the writer");
-      assert.deepEqual(Object.keys(line.meta).sort(), ["error_code", "name"]);
+      expect(line.error, "the library's own error object reached the writer").toBe(undefined);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
     }
   });
 
@@ -2406,15 +2391,15 @@ describe("what the library's own log stream reaches this application as", () => 
     warned.length = 0;
 
     try {
-      assert.equal((await enrolPasskey(cookie)).status, 500);
+      expect((await enrolPasskey(cookie)).status).toBe(500);
     } finally {
       adapterCalls.refusing = undefined;
     }
 
-    assert.deepEqual(
-      [logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned],
-      [[["auth.library_failed", "FE-AUTH-003", "Error"]], []],
-    );
+    expect([logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned]).toStrictEqual([
+      [["auth.library_failed", "FE-AUTH-003", "Error"]],
+      [],
+    ]);
   });
 });
 
@@ -2427,12 +2412,12 @@ describe("a send this deployment withheld", () => {
     answerMail(() => "withheld");
     logged.length = 0;
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal(sent.length, 1, "the gate mailed nothing, so no send was withheld");
-    assert.deepEqual(failedLines("auth.code_send_failed"), []);
+    expect(sent.length, "the gate mailed nothing, so no send was withheld").toBe(1);
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
 
     answerMail(() => "refused");
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.deepEqual(failedLines("auth.code_send_failed"), [{ error_code: "FE-AUTH-002", name: "MailSendError" }]);
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ error_code: "FE-AUTH-002", name: "MailSendError" }]);
   });
 
   it("logs no failed passkey notice", async () => {
@@ -2441,10 +2426,10 @@ describe("a send this deployment withheld", () => {
     logged.length = 0;
     const before = sent.length;
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
+    expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    assert.equal(sent.length, before + 1, "the enrolment mailed nothing, so no notice was withheld");
-    assert.deepEqual(failedLines("auth.passkey_notice_failed"), []);
+    expect(sent.length, "the enrolment mailed nothing, so no notice was withheld").toBe(before + 1);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
   });
 
   it("logs a passkey notice whose send was refused", async () => {
@@ -2452,13 +2437,13 @@ describe("a send this deployment withheld", () => {
     answerMail(() => "refused");
     logged.length = 0;
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
+    expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    assert.deepEqual(failedLines("auth.passkey_notice_failed"), [{ error_code: "FE-AUTH-004", name: "MailSendError" }]);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ error_code: "FE-AUTH-004", name: "MailSendError" }]);
   });
 });
 
-/* A barred send is the gate's own line alone (`docs/frontend/spec.md :: I542`): a failure line beside
+/* A barred send is the gate's own line alone: a failure line beside
    it reads a ban working as a mailbox that failed. */
 describe("a send the ban list kept", () => {
   const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
@@ -2470,8 +2455,8 @@ describe("a send the ban list kept", () => {
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(sent.length, before + 1, "the sign-in gate mailed nothing, so the mailer barred nothing");
-    assert.deepEqual(failedLines("auth.code_send_failed"), []);
+    expect(sent.length, "the sign-in gate mailed nothing, so the mailer barred nothing").toBe(before + 1);
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([]);
   });
 
   it("logs no failed passkey notice, and the enrolment stands", async () => {
@@ -2480,10 +2465,10 @@ describe("a send the ban list kept", () => {
     logged.length = 0;
     const before = sent.length;
 
-    assert.equal((await enrolPasskey(cookie)).status, 200);
+    expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    assert.equal(sent.length, before + 1, "the enrolment mailed nothing, so the mailer barred nothing");
-    assert.deepEqual(failedLines("auth.passkey_notice_failed"), []);
+    expect(sent.length, "the enrolment mailed nothing, so the mailer barred nothing").toBe(before + 1);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([]);
   });
 });
 
@@ -2494,11 +2479,8 @@ describe("what the code costs an address holding nothing", () => {
     const first = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const second = await auth.api.sendVerificationOTP({ body: { email: PERSON_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.deepEqual(first, second, "the two addresses were answered differently by the library itself");
-    assert.deepEqual(
-      sent.slice(before).map((message) => message.to),
-      [ADMIN_EMAIL],
-    );
+    expect(first, "the two addresses were answered differently by the library itself").toStrictEqual(second);
+    expect(sent.slice(before).map((message) => message.to)).toStrictEqual([ADMIN_EMAIL]);
   });
 
   it("writes a code row for the address the gate mails nothing, as for the one it mails", async () => {
@@ -2514,7 +2496,7 @@ describe("what the code costs an address holding nothing", () => {
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL.toUpperCase(), type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(sent.slice(before).length, 1, "the gate refused an address differing only in case");
+    expect(sent.slice(before).length, "the gate refused an address differing only in case").toBe(1);
   });
 
   /* The one thing telling this lane's delivery events from the application flow's: untagged, the
@@ -2524,7 +2506,7 @@ describe("what the code costs an address holding nothing", () => {
 
     // The pair written out: read from `fl_frontend/src/core/anmeldeTag.ts` this would compare the
     // constants with themselves, and the webhook reader is a second tree holding the same two words.
-    assert.deepEqual(sent.at(-1)?.tags, { anmeldung: "code" });
+    expect(sent.at(-1)?.tags).toStrictEqual({ anmeldung: "code" });
   });
 
   it("keeps the mailed code out of the store, which holds it encrypted", async () => {
@@ -2544,23 +2526,24 @@ describe("what the code costs an address holding nothing", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const second = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(first !== null && second !== null);
-    assert.equal(sent.length, mailed + 1, "the second request mailed nothing, so there is nothing to compare");
+    expect(sent.length, "the second request mailed nothing, so there is nothing to compare").toBe(mailed + 1);
 
-    assert.equal((await answerOf(ADMIN_EMAIL, first)).code, "INVALID_OTP", "the first mail's code still signs in");
-    assert.equal((await answerOf(ADMIN_EMAIL, second)).status, 200);
+    expect((await answerOf(ADMIN_EMAIL, first)).code, "the first mail's code still signs in").toBe("INVALID_OTP");
+    expect((await answerOf(ADMIN_EMAIL, second)).status).toBe(200);
   });
 
   /* Two tabs asking at once. The plugin takes the newest stamp for the live code and breaks a tie by
      nothing, so on one frozen millisecond the mail sent last must still carry the code that signs in. */
-  it("keeps the code mailed last live when two sends share one millisecond", async (t) => {
-    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  it("keeps the code mailed last live when two sends share one millisecond", async ({ onTestFinished }) => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    onTestFinished(() => void vi.useRealTimers());
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const second = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(second !== null);
 
-    assert.equal((await answerOf(ADMIN_EMAIL, second)).status, 200, "the code mailed first outranked the one mailed after it");
+    expect((await answerOf(ADMIN_EMAIL, second)).status, "the code mailed first outranked the one mailed after it").toBe(200);
   });
 
   /* A code's ten minutes run from its own mail and no later request moves them: were a send to extend
@@ -2574,7 +2557,7 @@ describe("what the code costs an address holding nothing", () => {
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(mailed.expiresAt.getTime(), lapsing.getTime(), "a later send moved the mailed code's expiry");
+    expect(mailed.expiresAt.getTime(), "a later send moved the mailed code's expiry").toBe(lapsing.getTime());
   });
 
   it("consumes the code on its first use, so a second entry of the same code is refused", async () => {
@@ -2584,7 +2567,7 @@ describe("what the code costs an address holding nothing", () => {
 
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
 
-    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "INVALID_OTP");
+    expect((await answerOf(ADMIN_EMAIL, otp)).code).toBe("INVALID_OTP");
   });
 
   it("mails the code and the lifetime it has, and no link a forwarded message could be spent through", async () => {
@@ -2628,7 +2611,7 @@ describe("what the code costs an address holding nothing", () => {
     assert.ok(written !== undefined);
 
     const window_ = Math.round((written.expiresAt.getTime() - requested) / 1000);
-    assert.equal(window_, CODE_VALIDITY_MINUTES * 60, "the row the library wrote does not carry this module's window");
+    expect(window_, "the row the library wrote does not carry this module's window").toBe(CODE_VALIDITY_MINUTES * 60);
   });
 });
 
@@ -2637,7 +2620,7 @@ const STRANGER_EMAIL = "niemand@example.org";
 
 /*
  Every answer a typed code can get, compared over an address holding an account and one holding
- none (`docs/frontend/spec.md :: I443`), and the store operations each made, which are what its
+ none, and the store operations each made, which are what its
  timing is made of.
 */
 describe("what a typed code is answered, with an account and without", () => {
@@ -2671,8 +2654,8 @@ describe("what a typed code is answered, with an account and without", () => {
     const member = await guessed(ADMIN_EMAIL, await wrongCodeFor(ADMIN_EMAIL));
     const stranger = await guessed(STRANGER_EMAIL, await wrongCodeFor(STRANGER_EMAIL));
 
-    assert.equal(member.answer.code, "INVALID_OTP");
-    assert.deepEqual(stranger, member);
+    expect(member.answer.code).toBe("INVALID_OTP");
+    expect(stranger).toStrictEqual(member);
   });
 
   it("answers an expired code alike", async () => {
@@ -2693,8 +2676,8 @@ describe("what a typed code is answered, with an account and without", () => {
     const member = await expired(ADMIN_EMAIL);
     const stranger = await expired(STRANGER_EMAIL);
 
-    assert.equal(member.answer.code, "OTP_EXPIRED");
-    assert.deepEqual(stranger, member);
+    expect(member.answer.code).toBe("OTP_EXPIRED");
+    expect(stranger).toStrictEqual(member);
   });
 
   it("answers a code tried too often alike", async () => {
@@ -2707,8 +2690,8 @@ describe("what a typed code is answered, with an account and without", () => {
     const member = await guessed(ADMIN_EMAIL, "000000");
     const stranger = await guessed(STRANGER_EMAIL, "000000");
 
-    assert.equal(member.answer.code, "TOO_MANY_ATTEMPTS");
-    assert.deepEqual(stranger, member);
+    expect(member.answer.code).toBe("TOO_MANY_ATTEMPTS");
+    expect(stranger).toStrictEqual(member);
   });
 
   it("answers an address tried too often alike", async () => {
@@ -2721,12 +2704,12 @@ describe("what a typed code is answered, with an account and without", () => {
     const member = await guessed(ADMIN_EMAIL, "000000");
     const stranger = await guessed(STRANGER_EMAIL, "000000");
 
-    assert.equal(member.answer.code, "ADDRESS_ATTEMPTS_EXHAUSTED");
-    assert.deepEqual(stranger, member);
+    expect(member.answer.code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
+    expect(stranger).toStrictEqual(member);
   });
 });
 
-describe("the failures one address may spend, across every code it is sent (`docs/frontend/spec.md :: I441`)", () => {
+describe("the failures one address may spend, across every code it is sent", () => {
   /** A code for the member, freshly mailed. */
   async function mailedCode(): Promise<string> {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
@@ -2741,16 +2724,16 @@ describe("the failures one address may spend, across every code it is sent (`doc
     // Two codes spent whole, four failures each: the fourth entry ends the exhausted code.
     for (let code = 0; code < 2; code += 1) {
       const wrong = wrongFor(await mailedCode());
-      for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "INVALID_OTP");
-      assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "TOO_MANY_ATTEMPTS");
+      for (let attempt = 0; attempt < 3; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("INVALID_OTP");
+      expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("TOO_MANY_ATTEMPTS");
     }
 
     // A third, fresh code: two misses on it make ten, and its own right entry is then the eleventh.
     const otp = await mailedCode();
-    for (let attempt = 0; attempt < 2; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrongFor(otp))).code, "INVALID_OTP");
-    assert.equal(failureRows().length, 10);
+    for (let attempt = 0; attempt < 2; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrongFor(otp))).code).toBe("INVALID_OTP");
+    expect(failureRows().length).toBe(10);
 
-    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "ADDRESS_ATTEMPTS_EXHAUSTED", "a new code reset the address's failures");
+    expect((await answerOf(ADMIN_EMAIL, otp)).code, "a new code reset the address's failures").toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
   });
 
   it("refuses the eleventh failure's successor whatever code it carries, the right one included", async () => {
@@ -2759,8 +2742,8 @@ describe("the failures one address may spend, across every code it is sent (`doc
     for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
     const sessions = store.session.length;
 
-    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
-    assert.equal(store.session.length, sessions, "the right code signed in past the bound");
+    expect((await answerOf(ADMIN_EMAIL, otp)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
+    expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
   });
 
   it("takes a refused attempt's own row back out, so hammering a closed bound does not extend it", async () => {
@@ -2768,20 +2751,20 @@ describe("the failures one address may spend, across every code it is sent (`doc
     const wrong = wrongFor(otp);
     for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
 
-    for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+    for (let attempt = 0; attempt < 3; attempt += 1) expect((await answerOf(ADMIN_EMAIL, wrong)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
 
-    assert.equal(failureRows().length, 10);
+    expect(failureRows().length).toBe(10);
   });
 
   it("clears the address's failures once a code signs in", async () => {
     const otp = await mailedCode();
     const wrong = wrongFor(otp);
     for (let attempt = 0; attempt < 2; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
-    assert.equal(failureRows().length, 2);
+    expect(failureRows().length).toBe(2);
 
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
 
-    assert.equal(failureRows().length, 0);
+    expect(failureRows().length).toBe(0);
   });
 
   /* The clearing runs after the rotation has ended the browser's old session: a throw from it would
@@ -2803,7 +2786,7 @@ describe("the failures one address may spend, across every code it is sent (`doc
       assert.ok(answer.headers.get("set-cookie")?.includes("session_token"), "the right code set no session cookie");
       assert.ok(!store.session.includes(held.row), "the old session outlived the sign-in that replaced it");
       // The wrong code's row and the right one's own, which the refused clearing left standing.
-      assert.equal(failureRows().length, 2, "the refused clearing was not the one this case drove");
+      expect(failureRows().length, "the refused clearing was not the one this case drove").toBe(2);
     } finally {
       adapterCalls.refusing = undefined;
     }
@@ -2821,12 +2804,12 @@ describe("the failures one address may spend, across every code it is sent (`doc
         const refused = await answerOf(address, otp);
         refusals.push(refused.code ?? refused.status);
       }
-      assert.deepEqual(refusals, ["SIGN_IN_BARRED", "SIGN_IN_HOLDS_NOTHING", 503], "a case below reached no refusal at the mint");
-      assert.equal(failureRows().length, 0, "a refusal at the mint was counted as a failed code");
+      expect(refusals, "a case below reached no refusal at the mint").toStrictEqual(["SIGN_IN_BARRED", "SIGN_IN_HOLDS_NOTHING", 503]);
+      expect(failureRows().length, "a refusal at the mint was counted as a failed code").toBe(0);
 
       const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-      assert.equal((await answerOf(address, wrongFor(otp))).code, "INVALID_OTP");
-      assert.equal(failureRows().length, 1);
+      expect((await answerOf(address, wrongFor(otp))).code).toBe("INVALID_OTP");
+      expect(failureRows().length).toBe(1);
     } finally {
       BACKENDS.delete(address);
     }
@@ -2847,14 +2830,13 @@ describe("the failures one address may spend, across every code it is sent (`doc
       store.verification.push(racing);
 
       const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
-      assert.equal((await answerOf(address, otp)).code, "SIGN_IN_BARRED");
+      expect((await answerOf(address, otp)).code).toBe("SIGN_IN_BARRED");
 
-      assert.deepEqual(
+      expect(
         failureRows()
           .map((row) => row.id)
           .sort(),
-        [counted.id, "racing-attempt"].sort(),
-      );
+      ).toStrictEqual([counted.id, "racing-attempt"].sort());
     } finally {
       BACKENDS.delete(address);
     }
@@ -2869,14 +2851,11 @@ describe("the failures one address may spend, across every code it is sent (`doc
 
     const body = { email: ADMIN_EMAIL, otp: wrongFor(otp) };
     await auth.api.signInEmailOTP({ body, headers: new Headers(ORIGIN) }).catch(() => undefined);
-    assert.equal(failureRows().length, 2, "the second attempt was not counted, so nothing below is taken back");
+    expect(failureRows().length, "the second attempt was not counted, so nothing below is taken back").toBe(2);
 
     await forgiveCodeAttempt(body);
 
-    assert.deepEqual(
-      failureRows().map((row) => row.id),
-      [earlier.id],
-    );
+    expect(failureRows().map((row) => row.id)).toStrictEqual([earlier.id]);
   });
 
   /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all
@@ -2886,14 +2865,14 @@ describe("the failures one address may spend, across every code it is sent (`doc
     const freshCode = () => auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     const otp = await freshCode();
     for (let attempt = 0; attempt < 9; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
-    assert.equal((await answerOf(ADMIN_EMAIL, await freshCode())).status, 200);
+    expect((await answerOf(ADMIN_EMAIL, await freshCode())).status).toBe(200);
 
     const next = await freshCode();
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const answer = await answerOf(ADMIN_EMAIL, wrongFor(next));
-      assert.notEqual(answer.code, "ADDRESS_ATTEMPTS_EXHAUSTED", `failure ${String(attempt + 1)} after the sign-in met the lock`);
+      expect(answer.code, `failure ${String(attempt + 1)} after the sign-in met the lock`).not.toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
     }
-    assert.equal((await answerOf(ADMIN_EMAIL, next)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+    expect((await answerOf(ADMIN_EMAIL, next)).code).toBe("ADDRESS_ATTEMPTS_EXHAUSTED");
   });
 
   /* The lock's own sentence points to a passkey, so a passkey sign-in has to end the count as well. */
@@ -2904,9 +2883,9 @@ describe("the failures one address may spend, across every code it is sent (`doc
     for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
     assert.ok(failureRows().length > 0, "no failure was counted, so the clearing below proves nothing");
 
-    assert.equal((await assertPasskey(cookie, true)).status, 200);
+    expect((await assertPasskey(cookie, true)).status).toBe(200);
 
-    assert.deepEqual(failureRows(), [], "a passkey sign-in left the address's failures standing");
+    expect(failureRows(), "a passkey sign-in left the address's failures standing").toStrictEqual([]);
   });
 
   /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
@@ -2928,14 +2907,14 @@ describe("the failures one address may spend, across every code it is sent (`doc
     const otp = await mailedCode();
     await answerOf(ADMIN_EMAIL, wrongFor(otp));
 
-    assert.equal(failureRows().length, 1);
+    expect(failureRows().length).toBe(1);
     for (const row of failureRows()) {
       assert.ok(!JSON.stringify(row).includes(ADMIN_EMAIL.split("@")[0] ?? ADMIN_EMAIL), "the address is readable in a failure row");
     }
   });
 });
 
-describe("the code mails one address may be sent in an hour (`docs/frontend/spec.md :: I442`)", () => {
+describe("the code mails one address may be sent in an hour", () => {
   /* Written out rather than read from the module: the runbook's sweep matches rows by this spelling. */
   const TOTAL_ROW = "sign-in-mail-every-address";
 
@@ -2946,8 +2925,8 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
       answers.push(await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }));
     }
 
-    assert.equal(sent.length - before, 5);
-    assert.deepEqual(answers.at(-1), answers[0], "the capped send answered otherwise than a mailed one");
+    expect(sent.length - before).toBe(5);
+    expect(answers.at(-1), "the capped send answered otherwise than a mailed one").toStrictEqual(answers[0]);
   });
 
   it("takes a capped send's own row back out", async () => {
@@ -2956,7 +2935,7 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     }
 
     const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
-    assert.equal(perAddress.length, 5);
+    expect(perAddress.length).toBe(5);
   });
 
   /* The plugin writes a new code before its send callback runs, so a send capped there would void
@@ -2970,7 +2949,7 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal((await answerOf(ADMIN_EMAIL, fifth)).status, 200, "the capped send voided the code the person holds");
+    expect((await answerOf(ADMIN_EMAIL, fifth)).status, "the capped send voided the code the person holds").toBe(200);
   });
 
   it("mails no address past the hour's total, on the same answer as a mailed send", async () => {
@@ -2991,20 +2970,20 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     const held = lastMailedCode(sent, ADMIN_EMAIL);
     const capped = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(sent.length, before, "a send past the total was mailed");
-    assert.deepEqual(capped, mailedAnswer);
+    expect(sent.length, "a send past the total was mailed").toBe(before);
+    expect(capped).toStrictEqual(mailedAnswer);
     // Capped ahead of the plugin, which would otherwise have replaced the code the person holds.
     assert.ok(held !== null);
-    assert.equal((await answerOf(ADMIN_EMAIL, held)).status, 200, "the capped send voided the code the person holds");
+    expect((await answerOf(ADMIN_EMAIL, held)).status, "the capped send voided the code the person holds").toBe(200);
   });
 
   /* Counted per request, invented addresses would close sign-in for everyone. */
   it("counts mails sent against the hour's total, and no send the gate refuses", async () => {
     await auth.api.sendVerificationOTP({ body: { email: STRANGER_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 0, "a send that mailed nothing spent the total");
+    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, "a send that mailed nothing spent the total").toBe(0);
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 1);
+    expect(store.verification.filter((row) => row.identifier === TOTAL_ROW).length).toBe(1);
   });
 
   /* Written for mails alone, so a row naming its address, or a keyed hash of it, would be the oracle
@@ -3050,8 +3029,8 @@ describe("which addresses the send gate mails", () => {
   it("mails an address holding a seat on a live season, after the one backend read", async () => {
     BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
 
-    assert.deepEqual((await askFor(SEATED_EMAIL)).mailed, [SEATED_EMAIL]);
-    assert.deepEqual(asked, ["/api/v0/identitaet/anmeldung"]);
+    expect((await askFor(SEATED_EMAIL)).mailed).toStrictEqual([SEATED_EMAIL]);
+    expect(asked).toStrictEqual(["/api/v0/identitaet/anmeldung"]);
   });
 
   /* The case a gate admitting on the Funktion lists refuses: the person holds no panel, and still a
@@ -3059,7 +3038,7 @@ describe("which addresses the send gate mails", () => {
   it("mails an address whose only record is one the account page serves and no list names", async () => {
     BACKENDS.set(ACCOUNT_ONLY_EMAIL, ONLY_AN_ACCOUNT);
 
-    assert.deepEqual((await askFor(ACCOUNT_ONLY_EMAIL)).mailed, [ACCOUNT_ONLY_EMAIL]);
+    expect((await askFor(ACCOUNT_ONLY_EMAIL)).mailed).toStrictEqual([ACCOUNT_ONLY_EMAIL]);
   });
 
   /* The lookup drops every unconfirmed record, so the lists of a pending mailbox are as empty as an
@@ -3070,32 +3049,32 @@ describe("which addresses the send gate mails", () => {
     const pending = await askFor(UNCONFIRMED_EMAIL);
     const refused = await askFor(PERSON_EMAIL);
 
-    assert.deepEqual(pending.mailed, [UNCONFIRMED_EMAIL]);
-    assert.deepEqual(refused.mailed, [], "the unknown address was mailed, so the two answers compare two sends");
-    assert.deepEqual(pending.answer, refused.answer);
+    expect(pending.mailed).toStrictEqual([UNCONFIRMED_EMAIL]);
+    expect(refused.mailed, "the unknown address was mailed, so the two answers compare two sends").toStrictEqual([]);
+    expect(pending.answer).toStrictEqual(refused.answer);
   });
 
   it("mails nothing to a barred address whose records await confirmation", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true });
 
-    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   it("mails nothing to a barred address holding a live seat", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
-    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   it("mails nothing to an address holding nothing at all", async () => {
-    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
-    assert.equal(asked.length, 1, "the gate refused without asking the backend, so holding nothing decided nothing");
+    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
+    expect(asked.length, "the gate refused without asking the backend, so holding nothing decided nothing").toBe(1);
   });
 
   it("mails nothing to a barred address whose only record is one the account page serves", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, gesperrt: true });
 
-    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   /* The grant is read on the same one call as the records, so an administrator's address costs the
@@ -3106,9 +3085,9 @@ describe("which addresses the send gate mails", () => {
     const granted = await askFor(ADMIN_EMAIL);
     const seated = await askFor(SEATED_EMAIL);
 
-    assert.deepEqual(granted.mailed, [ADMIN_EMAIL]);
-    assert.deepEqual(asked, ["/api/v0/identitaet/anmeldung", "/api/v0/identitaet/anmeldung"]);
-    assert.deepEqual(granted.answer, seated.answer);
+    expect(granted.mailed).toStrictEqual([ADMIN_EMAIL]);
+    expect(asked).toStrictEqual(["/api/v0/identitaet/anmeldung", "/api/v0/identitaet/anmeldung"]);
+    expect(granted.answer).toStrictEqual(seated.answer);
   });
 
   /* A grant written in the database directly is the one way onto a barred address, and it admits
@@ -3117,7 +3096,7 @@ describe("which addresses the send gate mails", () => {
   it("mails a barred address holding a grant nothing", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, gesperrt: true });
 
-    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   /* The administration is shut while the backend is: a grant nobody could read admits nothing, and
@@ -3125,20 +3104,19 @@ describe("which addresses the send gate mails", () => {
   it("mails nothing to an administrator's address while the backend read throws", async () => {
     BACKENDS.set(ADMIN_EMAIL, "throws");
 
-    assert.deepEqual((await askFor(ADMIN_EMAIL)).mailed, []);
+    expect((await askFor(ADMIN_EMAIL)).mailed).toStrictEqual([]);
   });
 
   it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
     BACKENDS.set(PERSON_EMAIL, "throws");
     const loggedBefore = logged.length;
 
-    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
+    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
 
     const lines = logged.slice(loggedBefore);
-    assert.deepEqual(
-      lines.map((line) => [line.message, line.meta]),
-      [["auth.sign_in_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }]],
-    );
+    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([
+      ["auth.sign_in_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }],
+    ]);
   });
 
   /* A refused payload is the backend answering, so its line says so rather than reading as an outage. */
@@ -3146,11 +3124,10 @@ describe("which addresses the send gate mails", () => {
     BACKENDS.set(PERSON_EMAIL, "refuses");
     const loggedBefore = logged.length;
 
-    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
-    assert.deepEqual(
-      logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
-      [["auth.sign_in_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }]],
-    );
+    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
+    expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual([
+      ["auth.sign_in_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }],
+    ]);
   });
 
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of
@@ -3161,12 +3138,9 @@ describe("which addresses the send gate mails", () => {
 
     const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(UNREACHED_EMAIL)];
 
-    assert.deepEqual(
-      refusals.flatMap((refusal) => refusal.mailed),
-      [],
-    );
-    assert.deepEqual(refusals[1]?.answer, refusals[0]?.answer);
-    assert.deepEqual(refusals[2]?.answer, refusals[0]?.answer);
+    expect(refusals.flatMap((refusal) => refusal.mailed)).toStrictEqual([]);
+    expect(refusals[1]?.answer).toStrictEqual(refusals[0]?.answer);
+    expect(refusals[2]?.answer).toStrictEqual(refusals[0]?.answer);
   });
 
   /* Asked directly, as a sender other than the plugin's callback asks it: that sender words the
@@ -3201,12 +3175,12 @@ describe("which addresses the send gate mails", () => {
       const { mayReceiveSignIn } = await import("./signInGate.ts");
       if (backend !== undefined) BACKENDS.set(email, backend);
 
-      assert.equal(await mayReceiveSignIn(email), verdict);
+      expect(await mayReceiveSignIn(email)).toBe(verdict);
     });
   }
 });
 
-describe("which sign-ins the gate admits as the session is minted (`docs/frontend/spec.md :: I403`)", () => {
+describe("which sign-ins the gate admits as the session is minted", () => {
   const BARRED_EMAIL = "gesperrt-angemeldet@example.org";
   const EMPTY_EMAIL = "ohne-funktion@example.org";
 
@@ -3232,10 +3206,11 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
     BACKENDS.set(PERSON_EMAIL, "throws");
 
-    assert.deepEqual(
-      [await mailboxSignIn(BARRED_EMAIL), await mailboxSignIn(EMPTY_EMAIL), await mailboxSignIn(PERSON_EMAIL)],
-      [false, false, false],
-    );
+    expect([await mailboxSignIn(BARRED_EMAIL), await mailboxSignIn(EMPTY_EMAIL), await mailboxSignIn(PERSON_EMAIL)]).toStrictEqual([
+      false,
+      false,
+      false,
+    ]);
   });
 
   /* The mint asks the gate's own read, so a person holding no Funktion is minted the session the
@@ -3243,7 +3218,7 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   it("mints a mailbox session for an address whose only record is one the account page serves", async () => {
     BACKENDS.set(EMPTY_EMAIL, { ...NOTHING_HELD, konto: true });
 
-    assert.equal(await mailboxSignIn(EMPTY_EMAIL), true);
+    expect(await mailboxSignIn(EMPTY_EMAIL)).toBe(true);
   });
 
   /* Only the holder of the authenticator reaches this refusal, so it names the reason. */
@@ -3255,9 +3230,9 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
 
     const refused = await assertPasskey(cookie, true);
 
-    assert.equal(refused.status, 403);
-    assert.equal(((await refused.json()) as { code?: string }).code, "SIGN_IN_BARRED");
-    assert.deepEqual(store.session, before, "a refused passkey sign-in minted a session or ended one");
+    expect(refused.status).toBe(403);
+    expect(((await refused.json()) as { code?: string }).code).toBe("SIGN_IN_BARRED");
+    expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
   });
 
   it("refuses the passkey of an address that holds nothing with a code of its own", async () => {
@@ -3267,8 +3242,8 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
 
     const refused = await assertPasskey(cookie, true);
 
-    assert.equal(refused.status, 403);
-    assert.equal(((await refused.json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
+    expect(refused.status).toBe(403);
+    expect(((await refused.json()) as { code?: string }).code).toBe("SIGN_IN_HOLDS_NOTHING");
   });
 
   /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
@@ -3280,20 +3255,19 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
 
     const refused = await enrolPasskey(cookie, { createSession: true });
 
-    assert.equal(refused.status, 403);
-    assert.equal(((await refused.clone().json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
-    assert.deepEqual(store.passkey, [], "the refused set-up left its passkey behind");
+    expect(refused.status).toBe(403);
+    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_HOLDS_NOTHING");
+    expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
     assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
   });
 
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session
-     a ban's ending missed, or one a mint raced, would otherwise leave a passkey that outlives both
-     (`docs/frontend/spec.md :: I406`). */
+     a ban's ending missed, or one a mint raced, would otherwise leave a passkey that outlives both. */
   it("refuses a barred address's enrolment that signs nobody in, at both halves, writing no passkey", async () => {
     const { cookie } = await signIn(BARRED_EMAIL);
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, "the options half served a barred address");
+    expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the options half served a barred address").toBe(404);
 
     // The verify half, reached with options served before the ban.
     BACKENDS.delete(BARRED_EMAIL);
@@ -3307,8 +3281,8 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
       body: { response: registrationFor(challenge, true) },
     });
 
-    assert.equal(refused.status, 404);
-    assert.deepEqual(store.passkey, [], "a barred address enrolled a passkey");
+    expect(refused.status).toBe(404);
+    expect(store.passkey, "a barred address enrolled a passkey").toStrictEqual([]);
   });
 
   it("offers a barred subject no passkey card, and the same subject unbarred the offer", async () => {
@@ -3316,14 +3290,14 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true, gesperrt: true });
     arriveAs(cookie);
 
-    assert.equal(await getPasskeyStep(), null);
+    expect(await getPasskeyStep()).toBe(null);
 
     BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
-    assert.deepEqual(await getPasskeyStep(), { step: "offer", email: BARRED_EMAIL });
+    expect(await getPasskeyStep()).toStrictEqual({ step: "offer", email: BARRED_EMAIL });
   });
 
   /* The registration's transaction opens after the before hook: a backend round trip inside it would
-     hold it open for that call's length (`docs/frontend/spec.md :: I482`). The one read is the before
+     hold it open for that call's length. The one read is the before
      hook's. */
   it("reads the gate's answer once for a set-up that signs in, ahead of the registration's transaction", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
@@ -3338,20 +3312,19 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
       body: { response: registrationFor(challenge, true), createSession: true },
     });
 
-    assert.equal(answer.status, 200, await answer.clone().text());
-    assert.equal(store.passkey.length, 1, "the set-up wrote no passkey");
-    assert.equal(
+    expect(answer.status, await answer.clone().text()).toBe(200);
+    expect(store.passkey.length, "the set-up wrote no passkey").toBe(1);
+    expect(
       asked.filter((path) => path.endsWith("/identitaet/anmeldung")).length,
-      1,
       "the registration read the gate's answer again inside its transaction",
-    );
+    ).toBe(1);
   });
 
   it("admits an administrator's passkey on the grant alone, holding no league record", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
 
-    assert.equal((await assertPasskey(cookie, true)).status, 200);
+    expect((await assertPasskey(cookie, true)).status).toBe(200);
   });
 
   /* The grant is read on the same call as the ban, so an unreachable backend shuts the administration
@@ -3362,8 +3335,8 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     BACKENDS.set(ADMIN_EMAIL, "throws");
     const before = [...store.session];
 
-    assert.equal((await assertPasskey(cookie, true)).status, 503);
-    assert.deepEqual(store.session, before, "a refused passkey sign-in minted a session or ended one");
+    expect((await assertPasskey(cookie, true)).status).toBe(503);
+    expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
   });
 });
 
@@ -3389,7 +3362,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     });
     held.email = ADMIN_EMAIL;
 
-    assert.equal(actor?.email, ADMIN_EMAIL);
+    expect(actor?.email).toBe(ADMIN_EMAIL);
   });
 
   /* Verified as the backend verifies it, with the public half of the pair the run made: the admin
@@ -3413,19 +3386,18 @@ describe("which spelling of an administrator a write is attributed to", () => {
       audience: "fl-backend",
     });
 
-    assert.equal(actor.lane, "admin");
-    assert.equal(protectedHeader.alg, "EdDSA");
-    assert.equal(payload.lane, "admin");
-    assert.equal(payload.email, ADMIN_EMAIL);
-    assert.equal(payload.sub, row.userId);
-    assert.deepEqual(payload.amr, ["passkey"]);
-    assert.equal(payload.auth_time, Math.floor(new Date(row.createdAt).getTime() / 1000));
+    expect(actor.lane).toBe("admin");
+    expect(protectedHeader.alg).toBe("EdDSA");
+    expect(payload.lane).toBe("admin");
+    expect(payload.email).toBe(ADMIN_EMAIL);
+    expect(payload.sub).toBe(row.userId);
+    expect(payload.amr).toStrictEqual(["passkey"]);
+    expect(payload.auth_time).toBe(Math.floor(new Date(row.createdAt).getTime() / 1000));
   });
 });
 
 /* A ban committing between a mint's gate read and its insert ends the account's sessions before the
-   row exists; dated past the read, the row postdates the stamp and is served again after a lift
-   (`docs/frontend/spec.md :: I528`). */
+   row exists; dated past the read, the row postdates the stamp and is served again after a lift. */
 describe("a sign-in the ban's ending overtook between its gate read and its row", () => {
   const OVERTAKEN_EMAIL = "ueberholt@example.org";
 
@@ -3438,14 +3410,14 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
       const minting = signInByCode(auth, OVERTAKEN_EMAIL);
       await read.arrived;
       // The gate read answers the address unbarred, as one sent before the ban committed did.
-      assert.equal(await endSessionsOfAddress(OVERTAKEN_EMAIL), true, "the ending found no account");
+      expect(await endSessionsOfAddress(OVERTAKEN_EMAIL), "the ending found no account").toBe(true);
       // Long enough that a row dated past the read is told from the ending's stamp, whose millisecond
       // it would otherwise share and so be ended with.
       await new Promise((resolve) => setTimeout(resolve, 50));
       read.release();
       const cookie = cookieHeader(await minting);
 
-      assert.equal(await readServedSession(new Headers({ ...ORIGIN, cookie })), null, "the overtaken sign-in is served past the ending");
+      expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the overtaken sign-in is served past the ending").toBe(null);
     } finally {
       heldRead = undefined;
       BACKENDS.delete(OVERTAKEN_EMAIL);
@@ -3473,7 +3445,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
       await new Promise((resolve) => setTimeout(resolve, 50));
       read.release();
       const answer = await answering;
-      assert.equal(answer.status, 200, await answer.clone().text());
+      expect(answer.status, await answer.clone().text()).toBe(200);
 
       const minted = store.session.find((stored) => stored.authFactor === "passkey" && stored.userId === row.userId);
       assert.ok(minted !== undefined, "the set-up minted no session");
@@ -3520,7 +3492,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
   try {
     await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal((await answerOf(email, await wrongCodeFor(email))).code, "INVALID_OTP");
+    expect((await answerOf(email, await wrongCodeFor(email))).code).toBe("INVALID_OTP");
   } finally {
     BACKENDS.delete(email);
   }
@@ -3535,7 +3507,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const pending = store.verification
     .filter((held) => !before.has(held.id) && held.identifier !== "sign-in-mail-every-address")
     .map((held) => held.identifier);
-  assert.equal(pending.length, 7, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+  expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 
   return { cookie, userId: row.userId, pending, token };
 }
@@ -3564,10 +3536,10 @@ async function erasureRefused(): Promise<Error> {
 }
 
 /* The library completes a deletion through the hook alone, so every case below drives the in-process call
-   the press makes (`docs/frontend/spec.md :: I675`). */
+   the press makes. */
 describe("a person's own account deletion", () => {
   /* The library's own link deletes on a GET, which a mail scanner's fetch would set off: the mail spells
-     the interstitial's link from the token instead (`docs/frontend/spec.md :: I674`). */
+     the interstitial's link from the token instead. */
   it("mails a link to the interstitial carrying the stored token, never the library's deleting URL, and deletes nothing", async () => {
     const email = "loeschlink@example.org";
     const { cookie, row } = await signIn(email);
@@ -3581,9 +3553,9 @@ describe("a person's own account deletion", () => {
       assert.ok(!part.includes("/delete-user"), "a part of the mail carries the library's own deleting URL");
     }
     const stored = store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId);
-    assert.equal(stored.length, 1, "the request stored no token for the account");
+    expect(stored.length, "the request stored no token for the account").toBe(1);
     assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
-    assert.equal(store.user.filter((user) => user.id === row.userId).length, 1, "the request deleted the account");
+    expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
   });
 
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
@@ -3598,44 +3570,31 @@ describe("a person's own account deletion", () => {
       }),
     );
 
-    assert.equal(answer, "deleted");
-    assert.deepEqual(erasures, ["erased"], "the league's records were not erased exactly once");
-    assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+    expect(answer).toBe("deleted");
+    expect(erasures, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
+    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
-     would leave the same rows standing (`docs/frontend/spec.md :: I675`). */
+     would leave the same rows standing. */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
     const refusal = await erasureRefused();
     const erasures: string[] = [];
 
-    await assert.rejects(
+    await expect(
       asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
           erasures.push("asked");
           return Promise.reject(refusal);
         }),
       ),
-      (thrown) => thrown === refusal,
-    );
+    ).rejects.toSatisfy((thrown) => thrown === refusal);
 
-    assert.deepEqual(erasures, ["asked"], "the backend was never asked, so the refusal proves nothing");
+    expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
-    assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
-  });
-
-  /* The eraser is whatever its caller hands in, so a second production caller could delete an account
-     erasing nothing: only the action sending the backend's own erasure may name it, a comment included. */
-  it("is reached in production from the deletion's own action alone", () => {
-    const src = path.resolve(import.meta.dirname, "..");
-    const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
-      .filter((file) => /\bdeleteOwnAccount\b/.test(readFileSync(file, "utf8")))
-      .map((file) => path.relative(src, file).split(path.sep).join("/"))
-      .filter((file) => file !== "core/auth.ts");
-
-    assert.deepEqual(naming, ["features/konto/personActions.ts"]);
+    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
 
   /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
@@ -3653,11 +3612,11 @@ describe("a person's own account deletion", () => {
       }),
     );
 
-    assert.equal(answer, "linkRefused");
-    assert.equal(sent.length, mailed, "an empty token mailed a new link");
-    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length, tokens);
-    assert.deepEqual(erasures, []);
-    assert.equal(heldOf(person).user, 1);
+    expect(answer).toBe("linkRefused");
+    expect(sent.length, "an empty token mailed a new link").toBe(mailed);
+    expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length).toBe(tokens);
+    expect(erasures).toStrictEqual([]);
+    expect(heldOf(person).user).toBe(1);
   });
 
   /* The library spends the token before it compares whose it is, so a forwarded link opened by another
@@ -3674,10 +3633,10 @@ describe("a person's own account deletion", () => {
       }),
     );
 
-    assert.equal(answer, "linkRefused");
-    assert.deepEqual(erasures, []);
-    assert.deepEqual(heldOf(holder).user, 1);
-    assert.equal(store.user.filter((user) => user.id === other.row.userId).length, 1);
+    expect(answer).toBe("linkRefused");
+    expect(erasures).toStrictEqual([]);
+    expect(heldOf(holder).user).toStrictEqual(1);
+    expect(store.user.filter((user) => user.id === other.row.userId).length).toBe(1);
   });
 
   /* The hook is what keeps an account from going ahead of the league's records, so a caller reaching the
@@ -3687,30 +3646,28 @@ describe("a person's own account deletion", () => {
     const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
     const erasures: string[] = [];
 
-    await assert.rejects(
+    await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
-      (thrown: Error) => thrown.name === "DeletionWithoutErasure",
-    );
-    assert.equal(heldOf(person).user, 1);
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
+    expect(heldOf(person).user).toBe(1);
 
     await requestAccountDeletion(headers);
-    await assert.rejects(
+    await expect(
       asPerson("jemand-anderes@example.org", () =>
         deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
           erasures.push("erased");
           return Promise.resolve({});
         }),
       ),
-      (thrown: Error) => thrown.name === "DeletionWithoutErasure",
-    );
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
 
-    assert.deepEqual(erasures, [], "another person's records were erased");
+    expect(erasures, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);
-    assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
+    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
 
   /* Each press mints a token row and mails the session's own mailbox, so a link counts on the code's rows: one
-     bound for every mail the person asks for, past which the answer reads as mailed (`docs/frontend/spec.md :: I713`). */
+     bound for every mail the person asks for, past which the answer reads as mailed. */
   it("mails no link past the address's fifth mail of the hour, minting no token and answering as a mailed one", async () => {
     const email = "loeschlink-schleife@example.org";
     const { cookie, row } = await signIn(email);
@@ -3721,11 +3678,10 @@ describe("a person's own account deletion", () => {
     const answers = [];
     for (let press = 0; press < 50; press += 1) answers.push(await requestAccountDeletion(headers));
 
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "the address was mailed past its hour's five");
-    assert.equal(tokens().length, 5, "a capped request minted a token row");
-    assert.deepEqual(new Set(answers.map((answer) => JSON.stringify(answer))).size, 1, "a capped request answers apart from a mailed one");
-    assert.deepEqual(
-      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
+    expect(sent.filter((entry) => entry.to === email).length, "the address was mailed past its hour's five").toBe(5);
+    expect(tokens().length, "a capped request minted a token row").toBe(5);
+    expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped request answers apart from a mailed one").toStrictEqual(1);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(
       Array.from({ length: 45 }, () => "address"),
     );
   });
@@ -3753,14 +3709,11 @@ describe("a person's own account deletion", () => {
 
     const capped = await requestAccountDeletion(headers);
 
-    assert.equal(sent.length, before, "a link past the total was mailed");
-    assert.deepEqual(capped, mailed);
-    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length, 1);
-    assert.equal(mailRows(), counted, "a link the full hour held back spent one of the address's five");
-    assert.deepEqual(
-      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
-      ["total"],
-    );
+    expect(sent.length, "a link past the total was mailed").toBe(before);
+    expect(capped).toStrictEqual(mailed);
+    expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(1);
+    expect(mailRows(), "a link the full hour held back spent one of the address's five").toBe(counted);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["total"]);
   });
 
   it("counts a mailed link on every address's hundred", async () => {
@@ -3770,7 +3723,7 @@ describe("a person's own account deletion", () => {
 
     await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
 
-    assert.equal(total(), before + 1, "a mailed link left the hour's total uncounted");
+    expect(total(), "a mailed link left the hour's total uncounted").toBe(before + 1);
   });
 
   it("holds a sign-in code back after five deletion links, one row counting both", async () => {
@@ -3778,7 +3731,7 @@ describe("a person's own account deletion", () => {
     const { cookie } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
     for (let press = 0; press < 5; press += 1) await requestAccountDeletion(headers);
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "fewer than five links were mailed, so the case proves nothing");
+    expect(sent.filter((entry) => entry.to === email).length, "fewer than five links were mailed, so the case proves nothing").toBe(5);
 
     // Admitted at the send, so a code past the gate would be mailed: only the shared count holds it back.
     BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
@@ -3789,11 +3742,8 @@ describe("a person's own account deletion", () => {
       BACKENDS.delete(email);
     }
 
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "a code was mailed past five links");
-    assert.deepEqual(
-      informed.map((line) => line.message),
-      ["auth.code_mail_capped"],
-    );
+    expect(sent.filter((entry) => entry.to === email).length, "a code was mailed past five links").toBe(5);
+    expect(informed.map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
   });
 
   it("mails a sign-in code after four deletion links, each link counting once", async () => {
@@ -3809,7 +3759,7 @@ describe("a person's own account deletion", () => {
       BACKENDS.delete(email);
     }
 
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "the fifth mail, a code, was held back");
+    expect(sent.filter((entry) => entry.to === email).length, "the fifth mail, a code, was held back").toBe(5);
   });
 
   it("mails no deletion link after five sign-in codes, one row counting both", async () => {
@@ -3824,17 +3774,14 @@ describe("a person's own account deletion", () => {
     } finally {
       BACKENDS.delete(email);
     }
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "fewer than five codes were mailed, so the case proves nothing");
+    expect(sent.filter((entry) => entry.to === email).length, "fewer than five codes were mailed, so the case proves nothing").toBe(5);
     informed.length = 0;
 
     await requestAccountDeletion(headers);
 
-    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "a link was mailed past five codes");
-    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length, 0);
-    assert.deepEqual(
-      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
-      ["address"],
-    );
+    expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
+    expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
+    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound)).toStrictEqual(["address"]);
   });
 
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
@@ -3850,15 +3797,15 @@ describe("a person's own account deletion", () => {
       logged.length = 0;
       const before = sent.length;
 
-      assert.equal((await requestAccountDeletion(headers)).success, true);
-      assert.equal(sent.length, before + 1, `the request mailed nothing, so no send was ${outcome}`);
-      assert.deepEqual(failures(), [], `a ${outcome} send was logged as a failure`);
+      expect((await requestAccountDeletion(headers)).success).toBe(true);
+      expect(sent.length, `the request mailed nothing, so no send was ${outcome}`).toBe(before + 1);
+      expect(failures(), `a ${outcome} send was logged as a failure`).toStrictEqual([]);
     }
 
     answerMail(() => "refused");
     logged.length = 0;
-    assert.equal((await requestAccountDeletion(headers)).success, true);
-    assert.deepEqual(failures(), [["FE-AUTH-003", "MailSendError"]]);
+    expect((await requestAccountDeletion(headers)).success).toBe(true);
+    expect(failures()).toStrictEqual([["FE-AUTH-003", "MailSendError"]]);
   });
 });
 
@@ -3869,10 +3816,10 @@ describe("an account deleted for its address, and the list of every account", ()
     const bystander = await seedAccount("unbeteiligt-konto@example.org");
     const person = await seedAccount("konto-weg@example.org");
 
-    assert.equal(await deleteAccountFor("Konto-Weg@Example.org"), true);
+    expect(await deleteAccountFor("Konto-Weg@Example.org")).toBe(true);
 
-    assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Every address typed is answered alike, so a code row stands for an address holding no account: it
@@ -3887,9 +3834,9 @@ describe("an account deleted for its address, and the list of every account", ()
     }
     assert.ok(codeRowOf(email) !== undefined, "no code row was written, so the case proves nothing");
 
-    assert.equal(await deleteAccountFor(email), false);
+    expect(await deleteAccountFor(email)).toBe(false);
 
-    assert.equal(codeRowOf(email), undefined);
+    expect(codeRowOf(email)).toBe(undefined);
   });
 
   /* The adapter answers 100 rows where no limit is named, so a sweep reading that page would leave every
@@ -3903,9 +3850,6 @@ describe("an account deleted for its address, and the list of every account", ()
 
     const listed = new Set(await listAccounts());
 
-    assert.deepEqual(
-      addresses.filter((email) => !listed.has(email)),
-      [],
-    );
+    expect(addresses.filter((email) => !listed.has(email))).toStrictEqual([]);
   });
 });

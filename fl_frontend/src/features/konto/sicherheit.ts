@@ -35,10 +35,10 @@ function anmeldungenOf(rows: readonly LiveSessionRow[], held: readonly PasskeyRo
   return (
     rows
       // The person lifetime for an administrator's address too: the person area admits their session
-      // that long and only the administration for less, so the widest guard decides (`docs/frontend/spec.md :: I425`).
+      // that long and only the administration for less, so the widest guard decides.
       .filter((row) => isWithinPersonLifetime(row))
       // A row the account's last ending stamped, whose deletion failed: no lane serves it again, so
-      // listed it reads as somebody else's device (`docs/frontend/spec.md :: I528`).
+      // listed it reads as somebody else's device.
       .filter((row) => !endedByItsAccount({ user: served.user, session: row }))
       .flatMap((row): Anmeldung[] => {
         const faktor = faktorOf(row, held);

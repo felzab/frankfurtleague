@@ -2,19 +2,10 @@ import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
- * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py` and paired with it by
- * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Bound here too because the
+ * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the
  * endpoint's `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
-
-/**
- * Retyped from `fl_backend/app/shared/schemas/bounds.py` for the privacy notice, `SPERRE_DAUER_HINWEIS`
- * and the ban list's sidemenu note, which state the ban's length in a word. The notice's render test
- * holds all three words to this number.
- * @internal
- */
-export const SPERRE_DAUER_SAISONS = 5;
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SPERRLISTE_CRUD_COPY = {
@@ -50,11 +41,11 @@ export const SPERRE_ERFOLG = "Adresse gesperrt";
 
 /**
  * A ban that stands with its sign-out or its notice short of the dialog's hint, at the warning variant alone: the title
- * moves with the grade (`docs/frontend/spec.md :: I42`).
+ * moves with the grade.
  */
 export const SPERRE_MIT_FOLGEN = "Mit Folgen gesperrt";
 
-/** The ban dialog's one press, read and armed by its first press and sent by its second (`docs/frontend/spec.md :: I724`). */
+/** The ban dialog's one press, read and armed by its first press and sent by its second. */
 export const SPERRE_PRESS = {
   resting: "Adresse sperren",
   // No „endgültig“, which the list's own lift makes false, as `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` omits it.
@@ -136,7 +127,7 @@ export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
 
 /**
  * Under the box holding the barred address, which is itself the way to another address: only the
- * way out it cannot offer, the ban lifted on its list (`docs/frontend/spec.md` §1.12's field register).
+ * way out it cannot offer, the ban lifted on its list.
  */
 export const SPERRLISTE_ADRESSE_GESPERRT_FELD = buildRefusal({
   reason: ADRESSE_AUF_DER_SPERRLISTE,

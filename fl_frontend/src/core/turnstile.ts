@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { turnstileSecretKey } from "./config";
+import { COPY } from "./copy";
 import { logger } from "./logging";
 import { boundCall } from "./requestScope";
 import { MENSCH_BESTAETIGEN } from "./turnstileToken";
@@ -21,7 +22,7 @@ const TOKEN_MAX_LENGTH = 2048;
 
 /**
  * Cloudflare refusing our own secret or request shape, which no visitor can repair. Refused, so a wrong
- * key shows at the first submission instead of switching the check off unseen (`docs/frontend/spec.md :: I623`).
+ * key shows at the first submission instead of switching the check off unseen.
  */
 const OURS = new Set(["missing-input-secret", "invalid-input-secret", "bad-request"]);
 
@@ -32,7 +33,7 @@ const THEIRS = "internal-error";
 const SiteverifyAnswerSchema = z.object({ success: z.boolean(), "error-codes": z.array(z.string()).default([]) });
 
 /** The refusal a check of ours Cloudflare would not take answers: nothing the visitor does repairs it. */
-export const PRUEFUNG_GESTOERT = "Die Prüfung, ob Du ein Mensch bist, ist gerade gestört. Versuche es später erneut.";
+export const PRUEFUNG_GESTOERT = COPY.shared.pruefung.gestoert;
 
 /**
  * One answer of Cloudflare's: its status and error codes, an empty list where it passed the token; the status

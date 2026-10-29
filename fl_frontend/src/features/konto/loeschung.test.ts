@@ -1,8 +1,5 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
-  asDataUrl,
   configDouble,
   GATE_BACKEND_CONFIG,
   insertOrderedAdapter,
@@ -11,12 +8,12 @@ import {
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "@/core/authDoubles.ts";
-import { answerAt, NO_RECORDS, SITZ } from "@/core/subjectFixtures.ts";
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+} from "@/test-support/authDoubles.ts";
+import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { SessionRow } from "@/core/authDoubles.ts";
-import type { LookupFixture } from "@/core/subjectFixtures.ts";
+import type { SessionRow } from "@/test-support/authDoubles.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -38,7 +35,7 @@ const mail = registerAuthDoubles({
   },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
-    "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
+    "next/cache": NEXT_CACHE_DOUBLE,
     "@better-auth/mongo-adapter": ADAPTER_DOUBLE,
   },
 });
@@ -92,7 +89,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   return Promise.resolve(Response.json(answerAt(path, { acknowledged: 1, ...fixture })));
 }) as typeof globalThis.fetch;
 
-// Imported here rather than at the top: a static import resolves before the hooks above are registered.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { fordereKontoLoeschungAnAction } = await import("./actions.ts");
 const { loescheKontoAction } = await import("./personActions.ts");
 const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
@@ -100,7 +97,7 @@ const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
 const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
 const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
-const { assertEachAnswered } = await import("@/shared/testing/publishedRefusals.ts");
+const { assertEachAnswered } = await import("@/test-support/publishedRefusals.ts");
 const { auth } = await import("@/core/auth.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -131,7 +128,7 @@ async function mitLink(email: string): Promise<{ row: SessionRow; token: string 
   arriveAs(cookie);
 
   const angefordert = await fordereKontoLoeschungAnAction();
-  assert.equal(angefordert.success, true, `the account page's press answered ${JSON.stringify(angefordert)}`);
+  expect(angefordert.success, `the account page's press answered ${JSON.stringify(angefordert)}`).toBe(true);
   const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the mail carries no link to the interstitial");
 
@@ -150,17 +147,13 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(answer.success, true, JSON.stringify(answer));
-    assert.deepEqual(
+    expect(answer.success, JSON.stringify(answer)).toBe(true);
+    expect(
       erasures.map(({ method, actor }) => [method, actor !== null]),
-      [["POST", true]],
       "the erasure was not sent once, as a write naming its person",
-    );
-    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
-    assert.deepEqual(
-      cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args),
-      ["spieler", "spiele"],
-    );
+    ).toStrictEqual([["POST", true]]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
+    expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual(["spieler", "spiele"]);
   });
 
   /* Asked and refused: a case passing where the hook never ran would leave the same rows standing. */
@@ -171,17 +164,16 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.match(answer.success ? "" : answer.error, /Diese E-Mail-Adresse ist gesperrt/);
+    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(answer.success ? "" : answer.error).toMatch(/Diese E-Mail-Adresse ist gesperrt/);
     assert.ok(
       !answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`),
       "the refusal asks for no new link, though the press spent this one",
     );
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
 
-  /* `fl_frontend/src/app/refusalCoverage.test.ts` hands this proof to the slice: each published refusal, at its
-     own status and another, reaches the action's own mapper, and every press spends a link, so each act mints
+  /* Each published refusal of the erasure, at its own status and another, reaches the action's own mapper, and every press spends a link, so each act mints
      its own. */
   it("answers each published refusal of the erasure through its own mapper, adding the new link the spent one needs", async () => {
     let erasureRefused: Promise<void> = Promise.resolve();
@@ -219,9 +211,9 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(erasures.length, 1, "the backend was never asked, so the answer proves nothing");
+    expect(erasures.length, "the backend was never asked, so the answer proves nothing").toBe(1);
     assert.ok(!answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`), JSON.stringify(answer));
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
 
   /* The library reads a barred person's leftover session, or one its account's sessions were ended before, as
@@ -246,9 +238,9 @@ describe("a person's own account deletion, from the account page's press to the 
       const { row, token } = await mitLink(email);
       judged();
 
-      assert.deepEqual(await loescheKontoAction(token), { success: false, error: ANMELDUNG_ABGELAUFEN });
-      assert.deepEqual(erasures, []);
-      assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+      expect(await loescheKontoAction(token)).toStrictEqual({ success: false, error: ANMELDUNG_ABGELAUFEN });
+      expect(erasures).toStrictEqual([]);
+      expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     });
   }
 
@@ -264,7 +256,7 @@ describe("a person's own account deletion, from the account page's press to the 
     const durchPasskey = await sessionByCode(auth, store, email);
     madeByPasskey(store, durchPasskey.row);
     arriveAs(durchPasskey.cookie);
-    assert.equal((await fordereKontoLoeschungAnAction()).success, true, "the grant holder's passkey session mailed no link");
+    expect((await fordereKontoLoeschungAnAction()).success, "the grant holder's passkey session mailed no link").toBe(true);
     const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
     assert.ok(found?.[1] !== undefined, "the mail carries no link to the interstitial");
 
@@ -272,7 +264,7 @@ describe("a person's own account deletion, from the account page's press to the 
   }
 
   /* A grant goes with the account, so a grant holder is held to a revoke's own window, a passkey confirmation
-     of the last five minutes, judged before the library spends the link (`docs/frontend/spec.md :: I707`). */
+     of the last five minutes, judged before the library spends the link. */
   for (const [label, email, pressedFrom, proceeds] of [
     ["the mailbox alone", "verwaltung-code@example.org", "code", false],
     ["a passkey ten minutes ago", "verwaltung-spaet@example.org", 10, false],
@@ -287,18 +279,18 @@ describe("a person's own account deletion, from the account page's press to the 
       const answer = await loescheKontoAction(token);
 
       if (proceeds) {
-        assert.equal(answer.success, true, JSON.stringify(answer));
-        assert.equal(erasures.length, 1);
-        assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
+        expect(answer.success, JSON.stringify(answer)).toBe(true);
+        expect(erasures.length).toBe(1);
+        expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
         return;
       }
-      assert.deepEqual(answer, stepUpRequired(), "the press was not answered with the page's passkey prompt");
+      expect(answer, "the press was not answered with the page's passkey prompt").toStrictEqual(stepUpRequired());
       assert.ok(
         cacheCalls.some(({ name }) => name === "refresh"),
-        "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I433`)",
+        "the page's figures were not read again, so its next press would send unasked",
       );
-      assert.deepEqual(erasures, []);
-      assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+      expect(erasures).toStrictEqual([]);
+      expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
       assert.ok(
         store.verification.some((held) => held.identifier === `delete-account-${token}`),
         "the refused press spent the link, which the grant holder can no longer open",
@@ -312,28 +304,28 @@ describe("a person's own account deletion, from the account page's press to the 
     const email = "verwaltung-bestaetigt@example.org";
     const { row, token } = await verwaltendMitLink(email);
     row.createdAt = new Date(Date.now() - 10 * 60 * 1000);
-    assert.deepEqual(await loescheKontoAction(token), stepUpRequired());
+    expect(await loescheKontoAction(token)).toStrictEqual(stepUpRequired());
 
     const bestaetigt = await sessionByCode(auth, store, email);
     madeByPasskey(store, bestaetigt.row);
     arriveAs(bestaetigt.cookie);
     const answer = await loescheKontoAction(token);
 
-    assert.equal(answer.success, true, JSON.stringify(answer));
-    assert.equal(erasures.length, 1);
-    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
+    expect(answer.success, JSON.stringify(answer)).toBe(true);
+    expect(erasures.length).toBe(1);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
   /* The backend refuses the league's last owner, whose erasure would leave the administration owned by nobody. */
-  /* Refused before the library spends the link (`docs/frontend/spec.md :: I708`): the same link completes once
+  /* Refused before the library spends the link: the same link completes once
      another owner is made, which a refusal after the spend could not offer. */
   it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
     const { row, token } = await verwaltendMitLink("letzte-inhaberin@example.org");
     letzterInhaber = true;
 
-    assert.deepEqual(await loescheKontoAction(token), { success: false, error: LETZTE_INHABERIN });
-    assert.deepEqual(erasures, [], "the erasure was asked for although the preview read the last owner");
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(await loescheKontoAction(token)).toStrictEqual({ success: false, error: LETZTE_INHABERIN });
+    expect(erasures, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(
       store.verification.some((held) => held.identifier === `delete-account-${token}`),
       "the refused press spent the link, which the owner can no longer open",
@@ -342,8 +334,8 @@ describe("a person's own account deletion, from the account page's press to the 
     letzterInhaber = false;
     const answer = await loescheKontoAction(token);
 
-    assert.equal(answer.success, true, JSON.stringify(answer));
-    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
+    expect(answer.success, JSON.stringify(answer)).toBe(true);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
   /* Two owners pressing at once both read another owner, and the backend refuses the second after its link
@@ -354,9 +346,9 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.equal(answer.success ? "" : answer.error, `${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}`);
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(answer.success ? "" : answer.error).toBe(`${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}`);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(
       !store.verification.some((held) => held.identifier === `delete-account-${token}`),
       "the link still stands, so the sentence asking for a new one is wrong",
@@ -372,13 +364,13 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.deepEqual(answer, { ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
+    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(answer).toStrictEqual({ ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
     assert.ok(
       cacheCalls.some(({ name }) => name === "refresh"),
-      "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I493`)",
+      "the page's figures were not read again, so its next press would send unasked",
     );
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
 
   it("reads no preview for a grant holder who owns nothing, who can be nobody's last owner", async () => {
@@ -387,9 +379,9 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction(token);
 
-    assert.equal(answer.success, true, JSON.stringify(answer));
-    assert.equal(ansichtReads, 0);
-    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
+    expect(answer.success, JSON.stringify(answer)).toBe(true);
+    expect(ansichtReads).toBe(0);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
   it("refuses a link the library refuses, in words naming the fresh one, erasing nothing", async () => {
@@ -397,14 +389,14 @@ describe("a person's own account deletion, from the account page's press to the 
 
     const answer = await loescheKontoAction("kein-gemailter-link");
 
-    assert.match(answer.success ? "" : answer.error, /Fordere auf Deiner Kontoseite einen neuen an\./);
+    expect(answer.success ? "" : answer.error).toMatch(/Fordere auf Deiner Kontoseite einen neuen an\./);
     assert.ok(!answer.success && !answer.error.includes(LINK_VERBRAUCHT), "the link's own refusal says twice that a new one is needed");
-    assert.deepEqual(erasures, []);
-    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    expect(erasures).toStrictEqual([]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
 
   /* Every press mints a token row and mails a link, so the press counts on the address's own mail bound: past
-     its fifth, it answers as sent and mints and mails nothing (`docs/frontend/spec.md :: I713`). */
+     its fifth, it answers as sent and mints and mails nothing. */
   it("answers every press past the address's fifth link as sent, minting no token row and mailing nothing", async () => {
     const email = "loeschlink-schleife@example.org";
     const { cookie, row } = await sessionByCode(auth, store, email);
@@ -417,23 +409,21 @@ describe("a person's own account deletion, from the account page's press to the 
       answers.every((answer) => answer.success),
       "a press past the bound answered apart from a sent one",
     );
-    assert.equal(new Set(answers.map((answer) => JSON.stringify(answer))).size, 1, "a capped press answers apart from a mailed one");
-    assert.equal(mail.sent.filter((sent) => sent.to === email).length, 5, "the address was mailed past its hour's five");
-    assert.equal(
+    expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped press answers apart from a mailed one").toBe(1);
+    expect(mail.sent.filter((sent) => sent.to === email).length, "the address was mailed past its hour's five").toBe(5);
+    expect(
       store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length,
-      5,
       "a capped press minted a token row",
-    );
+    ).toBe(5);
   });
 
-  /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one
-     (`docs/frontend/spec.md :: I676`). */
+  /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one. */
   it("mails the link from a session signed in past the step-up window", async () => {
     const { cookie, row } = await sessionByCode(auth, store, "spaeter@example.org");
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
     arriveAs(cookie);
 
-    assert.equal((await fordereKontoLoeschungAnAction()).success, true);
+    expect((await fordereKontoLoeschungAnAction()).success).toBe(true);
     assert.ok(
       mail.sent.some((sent) => sent.to === "spaeter@example.org"),
       "no link was mailed",
@@ -447,13 +437,15 @@ describe("a person's own account deletion, from the account page's press to the 
     const { row } = await verwaltendMitLink(email);
 
     const frisch = await readGrantHolderStepUp();
-    assert.equal(frisch?.stepUp.holderId, row.userId);
-    assert.equal(frisch.hasPasskey, true);
+    assert(frisch !== null, "the grant holder's page read no step-up at all");
+    expect(frisch.stepUp.holderId).toBe(row.userId);
+    expect(frisch.hasPasskey).toBe(true);
     assert.ok(frisch.stepUp.enrolmentUntil !== null, "a passkey session of this moment read as past the window");
 
     arriveAs((await sessionByCode(auth, store, email)).cookie);
     const perPost = await readGrantHolderStepUp();
-    assert.equal(perPost?.stepUp.holderId, row.userId, "the prompt would check its assertion against another account");
-    assert.equal(perPost.stepUp.enrolmentUntil, null, "a session the mailbox made read as inside the passkey window");
+    assert(perPost !== null, "the grant holder's page read no step-up at all");
+    expect(perPost.stepUp.holderId, "the prompt would check its assertion against another account").toBe(row.userId);
+    expect(perPost.stepUp.enrolmentUntil, "a session the mailbox made read as inside the passkey window").toBe(null);
   });
 });

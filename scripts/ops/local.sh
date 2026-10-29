@@ -14,8 +14,15 @@
 #   ./scripts/ops/local.sh --seed        ALSO fill the local database from production, reusing the copy
 #                                    in .local-db where there is one
 #   ./scripts/ops/local.sh --refresh-db  as --seed, but take a new copy from production first
+#   ./scripts/ops/local.sh --seed-made-up
+#                                    ALSO replace the local database's records with the made-up
+#                                    league in scripts/ops/seed/seed.js; the sign-in store stays
+#   ./scripts/ops/local.sh --e2e         start the end-to-end stack instead (docker-compose.e2e.yml):
+#                                    its own volume, keys and made-up league, new on every start;
+#                                    refused while another stack holds port 3000 or 27017
 #   ./scripts/ops/local.sh --logs        start, then follow the frontend log
-#   ./scripts/ops/local.sh --down        stop the stack; with --fresh, also delete the volumes
+#   ./scripts/ops/local.sh --down        stop the stack; with --fresh, also delete the volumes; with
+#                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --verbose     stream each command's own output instead of capturing it
 #   ./scripts/ops/local.sh --help
 
@@ -29,7 +36,7 @@ export COMPOSE_PATH_SEPARATOR=";"
 export COMPOSE_FILE="docker-compose.yml;docker-compose.local.yml"
 
 # Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
-FRESH=0; FOLLOW=0; DOWN=0; SEED=0; REFRESH_DB=0
+FRESH=0; FOLLOW=0; DOWN=0; SEED=0; REFRESH_DB=0; MADE_UP=0; E2E=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
   case "$arg" in
@@ -40,6 +47,8 @@ for arg in "$@"; do
     # A new copy is only ever taken in order to restore it, so this is --seed plus a refusal to
     # reuse what is already on disk.
     --refresh-db) SEED=1; REFRESH_DB=1 ;;
+    --seed-made-up) MADE_UP=1 ;;
+    --e2e)   E2E=1 ;;
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
     # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on the
@@ -57,9 +66,30 @@ fi
 
 # Stopped for --down --logs' reason: the restore would run against a database this same invocation
 # is taking down.
-if (( DOWN )) && (( SEED )); then
+if (( DOWN )) && (( SEED || MADE_UP )); then
   refuse "--down stops the stack, so there is no database left to fill.
-Run --seed on a start instead."
+Run --seed or --seed-made-up on a start instead."
+fi
+
+# Two fills of one database: whichever ran second would leave the other's records half replaced.
+if (( SEED )) && (( MADE_UP )); then
+  refuse "--seed fills the database with production's copy and --seed-made-up with the made-up league.
+Run one or the other."
+fi
+
+# The end-to-end stack starts empty and takes the made-up league on every start, and production's
+# copy never enters it: each of these flags would do nothing there or do what it must not.
+if (( E2E )) && (( FRESH || SEED || MADE_UP )); then
+  refuse "--e2e starts from an empty database and loads the made-up league on every start, and never
+takes production's copy, so it combines with none of --fresh, --seed, --refresh-db and --seed-made-up.
+Run --e2e alone, or with --down, --logs or --verbose."
+fi
+
+STOP_COMMAND="./scripts/ops/local.sh --down"
+if (( E2E )); then
+  # Merged over the local stack's two, as that one merges over production's (docker-compose.e2e.yml).
+  COMPOSE_FILE="${COMPOSE_FILE};docker-compose.e2e.yml"
+  STOP_COMMAND="./scripts/ops/local.sh --e2e --down"
 fi
 
 # Gitignored: a copy of the production database, and this repository is public.
@@ -233,16 +263,131 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
   ok "restored — ${seen} collection(s), and the local stack is reading its own data"
 }
 
+# Everything the end-to-end stack holds on the host: its keys, the start's one setting, its mail
+# sink and its access log, each at the path docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
+E2E_DIR="${REPO_ROOT}/.tmp-e2e"
+
+# The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
+# The actor key pair is generated apart, below.
+E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+
+# Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
+# local one, and a key it held for longer than one run would be a key to keep. Each command is
+# `docs/ops/runbooks.md` §16's own, and nothing prints a value.
+write_e2e_keys() {
+  local -
+  set +x
+  local name="" public=""
+  (umask 077 && mkdir -p "${E2E_DIR}/secrets") || die "${E2E_DIR}/secrets could not be made; mkdir's own account is above."
+  for name in "${E2E_KEYS[@]}"; do
+    (umask 077 && openssl rand -hex 32 | tr -d '\r\n' > "${E2E_DIR}/secrets/${name}") \
+      || die "the end-to-end stack's ${name} could not be generated; openssl's own account is above."
+  done
+  # Git Bash's openssl ends each line with a carriage return, which the frontend's key reader refuses.
+  (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "${E2E_DIR}/secrets/fl_actor_signing_key") \
+    || die "the end-to-end stack's actor signing key could not be generated; openssl's own account is above."
+  # The raw 32-byte public key is the DER form's tail, unpadded base64url being what the backend reads.
+  public="$(openssl pkey -in "${E2E_DIR}/secrets/fl_actor_signing_key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" \
+    || die "the actor signing key's public half could not be read; openssl's own account is above."
+  printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > "${E2E_DIR}/backend.env" \
+    || die "${E2E_DIR}/backend.env could not be written."
+}
+
+# Both stacks publish nginx on 3000 and the database on 27017, so a container of another stack
+# holding either port makes `up` fail half-started. Asked of the engine, by port rather than by
+# project name: the local stack's name is its checkout's directory, so every worktree's differs.
+refuse_another_stack_on_the_ports() {
+  local own="" listed="" id="" name="" project="" ports="" rc=0
+  local -a held=()
+  own="$(docker compose ps -q 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    refuse "compose could not be asked which containers are this stack's own (exit ${rc}), so whether
+another stack holds port 3000 or 27017 is not what this run established. NOTHING has been started."
+  fi
+  # `|`, which no id, container name, project name or port list holds.
+  listed="$(docker ps --no-trunc --format '{{.ID}}|{{.Names}}|{{.Label "com.docker.compose.project"}}|{{.Ports}}')" || rc=$?
+  if (( rc )); then
+    refuse "the engine could not be asked which containers publish a port (exit ${rc}). NOTHING has been started."
+  fi
+  while IFS='|' read -r id name project ports; do
+    [[ "$ports" == *":3000->"* || "$ports" == *":27017->"* ]] || continue
+    # A whole line, so one id never matches as part of another.
+    if [[ $'\n'"${own}"$'\n' == *$'\n'"${id}"$'\n'* ]]; then continue; fi
+    held+=("${name}, compose project '${project:-none}'")
+  done <<<"$listed"
+  (( ${#held[@]} )) || return 0
+  refuse "another stack holds port 3000 or 27017, which this one publishes too:
+$(printf '  %s\n' "${held[@]}")
+Stop it first: the local stack with ./scripts/ops/local.sh --down, the end-to-end stack with
+./scripts/ops/local.sh --e2e --down. NOTHING has been started."
+}
+
+# Read by mongosh inside the database container, where `127.0.0.1:27017` is that container's own
+# server and nothing else's (`scripts/ops/seed/seed.js`).
+SEED_FILE="scripts/ops/seed/seed.js"
+SEED_TARGET="/tmp/made-up-seed.js"
+
+load_made_up_seed() {
+  local base="" rc=0
+  # The backend's own answer, the database it reads: `fl_backend/.env` names it for the local stack
+  # and docker-compose.e2e.yml for the end-to-end one. Single quotes, so the container expands it.
+  base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')" || rc=$?
+  if (( rc )); then
+    die "the backend could not be asked which database it reads (exit ${rc}), so nothing was seeded.
+compose's own account is above."
+  fi
+  # The backend's own pattern for the name (`fl_backend/app/core/config.py :: db_base_name`).
+  if [[ ! "$base" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    die "the backend reads a database name that is not one, so nothing was seeded."
+  fi
+  # Through stdin and into the container's own /tmp, written as the container's user: a bind mount
+  # would differ between the two stacks.
+  MSYS_NO_PATHCONV=1 docker compose exec -T mongo sh -c "cat > ${SEED_TARGET}" < "$SEED_FILE" \
+    || die "the seed could not be handed to the database container; compose's own account is above."
+  quietly run_made_up_seed "$base" \
+    || die "the made-up seed did not load; mongosh's own account is above. A refused insert names
+the validator's field: correct scripts/ops/seed/seed.js."
+  ok "seeded '${base}' with the made-up league"
+}
+
+# Its own function for `restore_dump`'s reason: MSYS rewrites the `/tmp` path.
+run_made_up_seed() {
+  MSYS_NO_PATHCONV=1 docker compose exec -T mongo \
+    mongosh --quiet "mongodb://127.0.0.1:27017/${1}?directConnection=true" --file "$SEED_TARGET"
+}
+
+# The backend's own audit over what the seed wrote: every validator, every unique index, the
+# relations no validator holds and every value a whole-list read refuses. It writes nothing.
+judge_made_up_seed() {
+  local rc=0
+  quietly docker compose exec -T backend python -m app.core.constraints --check || rc=$?
+  case "$rc" in
+    0) ok "every rule the backend holds its data to passes" ;;
+    1) die "the made-up seed breaks a rule the backend holds its data to, and the report above names it:
+correct scripts/ops/seed/seed.js. The frontend and nginx have not been started." ;;
+    *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
+The frontend and nginx have not been started." ;;
+  esac
+}
+
 require_platform windows
 require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
+if (( E2E )); then require_file "docker-compose.e2e.yml"; fi
 refuse_compose_dotenv
 
 if (( DOWN )); then
   section "down"
+  if (( E2E )); then
+    step "Stopping the end-to-end stack and removing its volume"
+    # Always the volume too: every start begins from an empty one, so nothing in it is kept.
+    quietly docker compose down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
+    # Its keys and its withheld mail, whose codes are live credentials, go with it.
+    rm -rf "${E2E_DIR:?}"
+    ok "stopped — its database, its keys and its withheld mail are gone"
   # --fresh combines: stop AND delete the volumes, instead of being silently ignored.
-  if (( FRESH )); then
+  elif (( FRESH )); then
     step "Stopping the local stack and removing volumes"
     quietly docker compose down -v --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
     # The copy, the edge's access log and the mail sink go with the volume: all four are records of
@@ -264,18 +409,34 @@ fi
 
 section "preflight"
 
-step "Files the containers read"
-require_file "fl_frontend/.env" "The frontend container reads it via env_file. Write this machine's own with the variables
-docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file under secrets/."
-require_file "fl_backend/.env"  "The backend container reads it via env_file."
-# The only reader of these files here before the containers hold their lines: neither image's name
-# check runs on this stack.
-judge_env_files "fl_frontend/.env" "fl_backend/.env"
-require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
-for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
-  require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
-done
-ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
+# The end-to-end stack reads neither package's file nor this machine's keys: docker-compose.e2e.yml
+# writes its settings and a start generates its keys, below.
+if (( ! E2E )); then
+  step "Files the containers read"
+  require_file "fl_frontend/.env" "The frontend container reads it via env_file. Write this machine's own; it holds no credential, each being a file under secrets/."
+  require_file "fl_backend/.env"  "The backend container reads it via env_file."
+  # The only reader of these files here before the containers hold their lines: neither image's name
+  # check runs on this stack.
+  judge_env_files "fl_frontend/.env" "fl_backend/.env"
+  require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
+  for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
+    require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
+  done
+  ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
+fi
+
+if (( E2E )); then
+  # First, so every file docker-compose.e2e.yml names exists before compose is asked anything, and
+  # every start runs on keys of its own. Written over a stack still running, whose next step is its
+  # teardown below.
+  step "This run's own keys"
+  write_e2e_keys
+  ok "generated under .tmp-e2e — none printed, none copied from secrets/"
+fi
+
+step "Ports 3000 and 27017"
+refuse_another_stack_on_the_ports
+ok "no other stack holds either"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never
@@ -298,6 +459,17 @@ if (( FRESH )); then
   ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed fills it again"
 fi
 
+if (( E2E )); then
+  step "An empty end-to-end stack"
+  # Every start from nothing, so no journey reads what an earlier run left: its database and its
+  # sign-in store, its mail going below and its keys being new already.
+  quietly docker compose down -v --remove-orphans || die "the end-to-end stack could not be torn down — the output above is compose's own."
+  # Made here for the mail sink's reason below: a bind source the engine creates is root-owned.
+  mkdir -p "${E2E_DIR}/nginx-log" || die "${E2E_DIR}/nginx-log could not be made; mkdir's own account is above."
+  ok "torn down"
+fi
+
+# Either stack's: compose's model names the sink each one mounts.
 step "Where the frontend writes the mail it does not send"
 empty_mail_sink
 
@@ -313,9 +485,13 @@ step "Each service's settings and secret files, as its own boot builds them"
 check_frontend_boot_config "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
-step "The actor token's key pair"
-# After the frontend's boot, which has refused a key it cannot read where its environment points it.
-check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
+# Not for the end-to-end stack, whose pair this run generated from one key a step ago, and whose
+# public half lives in .tmp-e2e/backend.env where `check_actor_key` reads fl_backend/.env.
+if (( ! E2E )); then
+  step "The actor token's key pair"
+  # After the frontend's boot, which has refused a key it cannot read where its environment points it.
+  check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
+fi
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.
@@ -331,6 +507,28 @@ if (( SEED )); then
   ok "database up"
 
   restore_copy
+fi
+
+# After the backend's boot, which gives every collection its validator and its indexes, so each
+# insert is judged as it lands; before the frontend's, so no page renders, and no cache keeps, a
+# read of a database still filling (`docs/ops/spec.md` §1.5).
+if (( E2E || MADE_UP )); then
+  section "database"
+
+  step "The database and the backend, before anything renders a page"
+  quietly docker compose up -d --force-recreate --remove-orphans mongo backend \
+    || die "the database and the backend could not be started — compose's own output is above."
+  wait_healthy "" mongo 150 \
+    || die "the database did not elect itself primary, so there is nothing to seed."
+  wait_healthy "" backend 150 \
+    || die "the backend did not boot, so no validator stands to judge the seed."
+  ok "database and backend up"
+
+  step "The made-up league"
+  load_made_up_seed
+
+  step "The backend's own check of what the seed wrote"
+  judge_made_up_seed
 fi
 
 section "start"
@@ -375,11 +573,19 @@ if (( HEALTHY )); then
 
   end_section
   CLOSING=("Open:               http://localhost:3000")
-  # Offered only where it was not just done, so the table never names the step this run performed.
-  (( SEED )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed")
-  CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
-            "Logs:               COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend" \
-            "Stop:               ./scripts/ops/local.sh --down")
+  if (( E2E )); then
+    # Once: a run keeps the records it creates, which the next run would meet as already there.
+    CLOSING+=("Run the journeys:   (cd fl_frontend && pnpm run e2e), once per start of this stack" \
+              "Sign in as:         admin.desktop@example.com, its code in .tmp-e2e/mail" \
+              "Logs:               COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend" \
+              "Stop:               ${STOP_COMMAND}")
+  else
+    # Offered only where it was not just done, so the table never names the step this run performed.
+    (( SEED || MADE_UP )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed, or --seed-made-up")
+    CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
+              "Logs:               COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f frontend" \
+              "Stop:               ./scripts/ops/local.sh --down")
+  fi
   detail "${CLOSING[@]}"
 else
   fail "The stack came up unhealthy."
@@ -390,7 +596,7 @@ else
          "A line opening 'backend_mongodb_uri:' is the backend's other refusal, and its continuation says" \
          "which: the value yielded no server, the server refused to authenticate it, or nothing" \
          "answered. Neither refusal prints a value, so the file it names is what to read." \
-         "Stop what is left:  ./scripts/ops/local.sh --down"
+         "Stop what is left:  ${STOP_COMMAND}"
   finish
 fi
 
@@ -409,4 +615,5 @@ Follow it again with:  COMPOSE_FILE='${COMPOSE_FILE}' docker compose logs -f fro
   fi
 fi
 
+if (( E2E )); then finish "The end-to-end stack is up at http://localhost:3000."; fi
 finish "The local stack is up at http://localhost:3000."

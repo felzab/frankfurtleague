@@ -84,7 +84,7 @@ export type MailAccepted = { id: string | null };
 export class MailWithheldError extends Error {
   constructor() {
     // No recipient and no body in the message: this reaches `settleFanOut`, which logs an error's
-    // `name` (`docs/logging/spec.md :: L9`).
+    // `name`.
     super("This deployment does not send mail.");
 
     this.name = "MailWithheldError";
@@ -93,7 +93,7 @@ export class MailWithheldError extends Error {
 
 /**
  * Never merged with `MailWithheldError`: a withheld message is this deployment's to explain, a barred
- * one the address's, which no caller names (`docs/frontend/spec.md :: I542`).
+ * one the address's, which no caller names.
  */
 export class MailBarredError extends Error {
   constructor() {
@@ -120,7 +120,7 @@ export class MailRecipientError extends Error {
  * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
  * may have gone.
  */
-export class MailUnsentError extends Error {
+class MailUnsentError extends Error {
   constructor() {
     super("Nothing reached the provider, so the message was not sent.");
 
@@ -244,7 +244,7 @@ function recipientOf(to: string): string {
   return converted;
 }
 
-/** Every message the league sends but the ban's own notice, each asked of the ban list first (`docs/frontend/spec.md :: I541`). */
+/** Every message the league sends but the ban's own notice, each asked of the ban list first. */
 export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
   const to = recipientOf(mail.to);
 
@@ -289,7 +289,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
       frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags, absender }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
-    // stayed behind and where to read it, and `docs/logging/spec.md :: L9` keeps the person off the line.
+    // stayed behind and where to read it, and the logging rule keeps the person off the line.
     logger.error("mail.withheld", undefined, {
       error_code: "FE-MAIL-004",
       app_env: frontend_config.APP_ENV,
@@ -317,7 +317,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
 
   // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
   // a status and the provider's code reach no stream otherwise. The recipient never travels on
-  // either line (`docs/logging/spec.md :: L9`).
+  // either line.
   const logNetwork = (failure: APINetworkError) => {
     logger.error("mail.send_failed", undefined, {
       error_code: failure.code,
@@ -399,7 +399,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
   };
 
   try {
-    // Refused unsent once the request's deadline is spent (`docs/frontend/spec.md :: I366`).
+    // Refused unsent once the request's deadline is spent.
     if (bound.signal.aborted) {
       // `FE-NET-001`, the code a send that never reached the provider logs under.
       logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });

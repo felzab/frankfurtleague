@@ -36,13 +36,13 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
 
   if (antwort.ansprechperson_email === null) {
     // The seat this would have addressed is the seat that just emptied itself. Neither the address
-    // nor the token reaches the line (`docs/logging/spec.md :: L9`).
+    // nor the token reaches the line.
     logger.info("bewerbung.einwilligung_ohne_ansprechperson", { operation: "postEinwilligung", ergebnis: antwort.ergebnis });
     return;
   }
 
   // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-  // production must not mail production links (`docs/frontend/spec.md :: I186`).
+  // production must not mail production links.
   const origin = frontend_config.AUTH_URL;
 
   await sendBewerbungMail({
@@ -68,7 +68,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
   });
 }
 
-// A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
+// A route handler and not a server action.
 /**
  * POST alone, and no GET: a mail scanner fetches every link in a message, and the same-origin guard
  * cannot tell a scanner's GET from a reader's, so a link that wrote on GET would confirm for the

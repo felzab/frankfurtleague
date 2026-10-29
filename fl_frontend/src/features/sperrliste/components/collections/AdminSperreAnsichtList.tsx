@@ -140,15 +140,12 @@ const EINTRAEGE: Eintraege = {
     })),
 };
 
-// A declaration and never a generic arrow: `scripts/checks/docs_gate/copy_rules.py :: copy_spans` reads `= <Art` as
-// an element left open, and leaves every string in this file unchecked.
-
 /** One kind's records, its builder and its records correlated through the kind they share. */
 function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: SperreAnsicht, saisonHref: SaisonHref): Eintrag[] {
   return EINTRAEGE[art](ansicht[art], saisonHref);
 }
 
-/** What the address holds, in the ban's armed reveal ahead of the ban (`docs/frontend/spec.md :: I688`, `:: I724`). */
+/** What the address holds, in the ban's armed reveal ahead of the ban. */
 export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
   const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));

@@ -17,7 +17,7 @@ export const DOUBLE_PRESS_MS = 500;
 export interface TwoPressConfirm {
   isConfirming: boolean;
   isPending: boolean;
-  /** Armed, and the armed press runs the passkey prompt before it sends (`docs/frontend/spec.md :: I431`). */
+  /** Armed, and the armed press runs the passkey prompt before it sends. */
   asksPasskey: boolean;
   /** The prompt the armed press opened is open, and nothing has been sent. */
   isPrompting: boolean;

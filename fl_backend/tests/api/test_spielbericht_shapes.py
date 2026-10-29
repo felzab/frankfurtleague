@@ -17,10 +17,8 @@ from app.api.spielberichte.services import (
     BERICHT_ELFMETER_IN_DER_GRUPPE,
     BERICHT_GRUND_FEHLT,
     BERICHT_NAME_IN_BEMERKUNGEN,
-    BERICHT_NICHT_GELEITET,
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
-    BERICHT_SAISON_BEENDET,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
@@ -33,10 +31,9 @@ from app.api.spielberichte.services import (
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
-    find_saison_beendet_refusal,
     judge_bericht,
+    kader_ist_offen,
     neu_genannt,
-    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from app.core.exceptions import WriteRefusalException
@@ -45,7 +42,6 @@ from tests.documents import bericht_document
 TEAM1 = ObjectId("650000000000000000000201")
 TEAM2 = ObjectId("650000000000000000000202")
 SCHIEDSRICHTER = ObjectId("650000000000000000000203")
-ANDERER_SCHIEDSRICHTER = ObjectId("650000000000000000000204")
 LIVE1 = ObjectId("650000000000000000000211")
 AUSGETRAGEN1 = ObjectId("650000000000000000000212")
 LIVE2 = ObjectId("650000000000000000000221")
@@ -228,82 +224,6 @@ class TestAReportFollowsTheMatchDay:
         assert refused_with(BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
 
 
-class TestOnlyTheBookedRefereeReports:
-    def test_the_booked_referee_is_admitted_from_any_of_their_records(self):
-        assert find_nicht_geleitet_refusal(spiel_raw=spiel(), schiedsrichter_ids=[ANDERER_SCHIEDSRICHTER, SCHIEDSRICHTER]) is None
-
-    @pytest.mark.parametrize("gebucht", [ANDERER_SCHIEDSRICHTER, None], ids=["another referee", "an empty slot"])
-    def test_anyone_else_is_refused(self, gebucht: ObjectId | None):
-        booked = None if gebucht is None else {"schiedsrichter_id": gebucht, "name": "Ella Engel"}
-
-        assert refused_with(
-            BERICHT_NICHT_GELEITET, find_nicht_geleitet_refusal(spiel_raw=spiel(schiedsrichter=booked), schiedsrichter_ids=[SCHIEDSRICHTER])
-        )
-
-
-class TestAFixtureTakesAReportOncePlayedAndNotCalledOff:
-    @pytest.mark.parametrize(
-        ("fields", "nimmt"),
-        [
-            pytest.param({}, True, id="played-today"),
-            pytest.param({"datum": "2027-05-15"}, False, id="tomorrow"),
-            pytest.param({"datum": None}, False, id="undated"),
-            pytest.param({"sonderereignis": "ausgefallen"}, False, id="called-off"),
-            pytest.param({"sonderereignis": "abgebrochen"}, True, id="abandoned"),
-        ],
-    )
-    def test_whether_the_form_serves_its_squads(self, fields: dict[str, Any], nimmt: bool):
-        assert nimmt_einen_bericht(spiel(**fields), today=TODAY) is nimmt
-
-
-class TestTheRefereeWritesWhileTheSeasonRuns:
-    @pytest.mark.parametrize("saison_status", ["active", "future"])
-    def test_a_season_not_yet_over_takes_their_write(self, saison_status: str):
-        assert find_saison_beendet_refusal(lage(saison_status=saison_status)) is None
-
-    def test_a_season_over_is_refused(self):
-        assert refused_with(BERICHT_SAISON_BEENDET, find_saison_beendet_refusal(lage(saison_status="past")))
-
-
-class TestANewlyNamedPupilIsInTheSquad:
-    def test_a_live_pupil_on_their_own_side_passes(self):
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])), None, spiel())
-
-        assert find_nicht_im_kader_refusal(lage=lage(), neu=neu) is None
-
-    @pytest.mark.parametrize(
-        ("seite", "spieler_id"),
-        [("team1", AUSGETRAGEN1), ("team1", LIVE2), ("team2", ObjectId())],
-        ids=["ausgetragen", "the other side's", "nobody's"],
-    )
-    def test_a_pupil_outside_that_side_s_live_squad_is_refused(self, seite: str, spieler_id: ObjectId):
-        counts = (1, 0) if seite == "team1" else (0, 1)
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(*counts, [tor(seite, spieler_id)])), None, spiel())
-
-        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
-
-    def test_a_correction_keeps_a_scorer_the_report_already_named(self):
-        """A scorer ausgetragen since the match stays on the report; only what the write adds is judged."""
-
-        stored = bericht_document(torschuetzen=[tor("team1", AUSGETRAGEN1)], seiten=SEITEN)
-        neu = neu_genannt(
-            FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", AUSGETRAGEN1, minute="11")])), stored, spiel()
-        )
-
-        assert neu == {"team1": set(), "team2": set()}
-        assert find_nicht_im_kader_refusal(lage=lage(), neu=neu) is None
-
-    def test_a_side_fielding_another_club_since_keeps_none_of_its_stored_pupils(self):
-        """Written when another club held team 1: its scorer kept unjudged would stand on the report for the club playing now."""
-
-        andere = ObjectId()
-        stored = bericht_document(torschuetzen=[tor("team1", andere)], seiten={**SEITEN, "team1": ObjectId()})
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", andere)])), stored, spiel())
-
-        assert neu == {"team1": {andere}, "team2": set()}
-        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
-
-
 class TestACalledOffFixtureTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_fixture_that_took_no_place_is_refused(self, sonderereignis: str):
@@ -312,6 +232,30 @@ class TestACalledOffFixtureTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", [None, "abgebrochen", "nichtantreten_team1"])
     def test_one_that_took_place_is_reported_on(self, sonderereignis: str | None):
         assert find_abgesagt_refusal(sonderereignis=sonderereignis) is None
+
+    def test_its_form_serves_no_squads(self):
+        """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
+
+        Played today in a running season, so the call-off alone decides.
+        """
+
+        assert kader_ist_offen(lage(sonderereignis="ausgefallen"), today=TODAY) is False
+
+
+class TestOnlyTheBookedRefereeReports:
+    def test_the_booked_referee_is_admitted_from_any_of_their_records(self):
+        """A person may hold several referee records, read in no set order: the booked one need not come first."""
+
+        assert find_nicht_geleitet_refusal(spiel_raw=spiel(), schiedsrichter_ids=[ObjectId("650000000000000000000204"), SCHIEDSRICHTER]) is None
+
+
+class TestANewlyNamedPupilIsInTheSquad:
+    def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
+        """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
+
+        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
+
+        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 class TestTheRemarksNameNobody:

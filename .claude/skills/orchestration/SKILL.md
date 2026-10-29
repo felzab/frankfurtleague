@@ -10,7 +10,7 @@ and every claim that reaches a permanent artefact. Where this skill and `.claude
 disagree, CLAUDE.md wins and this skill is fixed; where a programme plan's handoff instructions
 differ from this skill's, this skill wins.
 
-Terms: a **slice** is one piece of work with its own audit cycle; a **wave** is the agents
+Terms: a **slice** is one piece of work one writer owns; a **wave** is the agents
 dispatched against one plan, landed and pushed together; a **seam** is a boundary between slices or
 commits, where a defect can sit in no single diff.
 
@@ -65,10 +65,13 @@ independent. Stop once the bar is met.
 
 - Cut agents by file, never by task: list every file each slice writes. A file two slices write is a
   hub, shared by named regions where they stay apart and owned by one agent otherwise; every other
-  file is a leaf and goes out at once.
+  file is a leaf.
+- One writing lane at a time. A second writer goes out only on files disjoint from the first's,
+  building on a contract already landed; readers run in parallel, and each later round goes to a
+  fresh agent.
 - Name the couplings that are not file edges — a script parsing another, a rule and its check, a
   message, exit code or flag one file emits and another asserts. Coupled files share a wave and a
-  re-auditor.
+  lens reader.
 - The ownership map is the landing plan: write its ordering constraints into the register's landing
   order. A contract two agents build against lands before the second forks. One session, one
   branch, one pull request.
@@ -92,9 +95,9 @@ independent. Stop once the bar is met.
    or tool-hours — never typing. With none, do the work yourself.
 4. Pick the type: `implementer` writes; `driving-reauditor` plants or runs suites; `cold-auditor`
    judges by reading; `researcher` answers from committed state or the web; `general-purpose` only
-   for a question that reads no repository. Pass no `model`: `CLAUDE_CODE_SUBAGENT_MODEL` in the
-   tracked `.claude/settings.json` pins it. A definition added mid-session is dispatchable from the
-   next turn.
+   for a question that reads no repository. Pass a `model` only where the register's `Model:` line
+   names one for this kind of agent; otherwise `CLAUDE_CODE_SUBAGENT_MODEL` in the owner's user
+   settings pins it. A definition added mid-session is dispatchable from the next turn.
 5. Write the brief from [brief-template.md](brief-template.md), its BAR line filled from the bar
    above (the definitions carry none of it), sized by what losing its whole output would cost, as
    that file's sizing list sets out. No time budget, no length cap, no stop-at-N.
@@ -127,7 +130,7 @@ independent. Stop once the bar is met.
 - You are the fleet's one serial resource: bank every report, a fixer's included, with
   `ledger.py bank --from`, which saves it and closes the agent's live row, and a one-line verdict.
   Route or close every row in that command (`--route`, `--close`), at its class: to a live fixer, a
-  check, or an owner's queue where unsure — never to an unasked roadmap entry. A row owed to a fixer
+  check, or an owner's queue where unsure — never to an unasked issue. A row owed to a fixer
   not yet briefed stays OPEN, named by its exit 4, until that fixer's `Rows:` line routes it.
 - Verify every count, file list and exit code in a report against the agent's branch
   (`git log --stat <session branch>..<branch>`, `git show <branch>:<path>`). Check a finding about a
@@ -148,8 +151,7 @@ independent. Stop once the bar is met.
 
 ## Landing and CI
 
-- Land a finished branch in the turn its report is judged, with `land.py`, and dispatch its audit in
-  the same action. Before the merge, read `git diff --stat --summary HEAD...<branch>`, the diff and
+- Land a finished branch in the turn its report is judged, with `land.py`. Before the merge, read `git diff --stat --summary HEAD...<branch>`, the diff and
   each commit body against it. A false body goes back to its own agent, the only one that can
   reword it. A stray file or a landing `land.py` stops goes to the agent, or to a fresh one where
   step 1 says so, which merges the session branch into its own; its exit 8 is the session branch's
@@ -174,20 +176,16 @@ independent. Stop once the bar is met.
 
 ## The cycle
 
-- research → implement → audit → fix → re-audit → fix → end. It ends on a fix, never an audit.
-- Decide each slice's cycle before any finding exists: a slice whose wrong result would be silent
-  gets the full cycle; one whose failure is loud gets one audit and one fix, its fix walked by the
-  next driving re-auditor.
-- Allocate audits to seams, not slices: one cold auditor per seam, over a captured diff written to
-  the scratch path, sent as soon as its files stop moving. Cut by identifier where one thing's meaning
-  spans seams.
-- One driving re-auditor takes every fix landed since the last, planting in its own worktree; split
-  the bundle only where what the fixes could break is disjoint. Files that cannot be judged apart go
-  to one agent. The re-auditor wrote none of the fixes.
+- Once the session's files stop moving, one lens round reads the whole change: security, data and
+  concurrency, contract, and tests, each lens a fresh reader over a captured diff written to the
+  scratch path. One fix round follows, and the cycle ends on it, never on an audit.
+- Fresh readers re-read only for a lens that read silently failing behaviour and found something
+  serious there, or more than a couple of things; a driving re-auditor that wrote none of the fixes
+  plants against them. Decide which lenses are silent before any finding exists.
 - A document is audited once, cold, and you read its fix.
-- A slice changing what a person sees is judged by the owner over the local stack before its fix
-  rounds close, served as [start.md](start.md) step 6 says. A look ruling is a class and binds every
-  surface in flight, and the owner's word on what the owner has looked at outranks any list of it.
+- A change to what a person sees is reviewed by the owner once, on its area's board. A look ruling
+  is a class and binds every surface in flight, and the owner's word on what the owner has looked at
+  outranks any list of it.
 
 ## The owner
 
@@ -207,4 +205,3 @@ independent. Stop once the bar is met.
 | ending the session                         | [ending.md](ending.md), [handoff-template.md](handoff-template.md)                   |
 | planning a programme                       | [programme.md](programme.md)                                                         |
 | writing the register, a brief              | [register-template.md](register-template.md), [brief-template.md](brief-template.md) |
-| changing this skill                        | [evaluations.md](evaluations.md)                                                     |

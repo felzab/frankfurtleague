@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import { useState } from "react";
 
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
@@ -69,7 +70,7 @@ export function ConfirmSaveModal({
       }>
       <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">
         {/* The count and the banners it counts keep a rung of their own, so the column above them is
-            free to give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
+            free to give the band the distance a block in a column takes. */}
         <div className="flex w-full flex-col gap-y-4">
           <p className="fluid-sm leading-relaxed text-pretty text-foreground-muted">
             <span className="rounded-md bg-danger/15 px-1.5 py-0.5 font-bold whitespace-nowrap text-danger-strong">
@@ -93,7 +94,7 @@ export function ConfirmSaveModal({
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
         <div className={MODAL_FOOTER_STACK_CLASSES}>
           {/* Held, never closed: the press that started the save left the keyboard's focus here, and a
-              disabled button drops it to the page (`docs/frontend/spec.md` §1.14). */}
+              disabled button drops it to the page. */}
           <Button
             type="button"
             variant="primary"

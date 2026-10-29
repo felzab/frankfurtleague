@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Button` replaces it.
+
 import { tv } from "tailwind-variants";
 
 // A transition list says `scale`, never `transform`: v4 emits `scale-*` as the standalone `scale`
@@ -95,7 +97,7 @@ export const confirmButton = (isConfirming: boolean): string =>
   `${formButton({ intent: isConfirming ? "destructive" : "submit", stacks: true })} flex items-center gap-x-2`;
 
 // The distance above the band is the host column's gap, never a margin here: a margin in a shared
-// constant composes with whatever gap each host declares (`docs/frontend/spec.md :: I240`).
+// constant composes with whatever gap each host declares.
 /**
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.
  * **A call site must not add `w-full`**: with no `twMerge` in the path, `.w-full` is emitted last and silently wins.

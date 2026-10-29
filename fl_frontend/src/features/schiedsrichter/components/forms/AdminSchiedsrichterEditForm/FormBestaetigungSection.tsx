@@ -42,7 +42,7 @@ import type { FLEinwilligung } from "@/features/spieler/schemas";
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
  * own: a confirmed referee's editor can show both re-sends, each for another link.
  */
-export const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
+const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";

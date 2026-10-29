@@ -1,13 +1,12 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { spielbestaetigungFields } from "@/test-support/fixtures.ts";
+import { publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
-import { publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
-import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -26,22 +25,22 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
     for (const code of publishedRefusals(ANSICHT_OPERATION)) {
-      assert.equal(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), "ungueltig", code);
+      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe("ungueltig");
     }
-    assert.equal(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", 409)), "ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", 409))).toBe("ungueltig");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
      address bar: the state inviting a reload would open the dead link anyway. */
   it("calls a token the backend will not parse void rather than offering a reload", () => {
-    assert.equal(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-001")), "ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-001"))).toBe("ungueltig");
   });
 
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
      a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the page's own state", () => {
-    assert.equal(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500)), null);
-    assert.equal(mapAnsetzungAnsichtRefusal(new Error("socket hang up")), null);
+    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500))).toBe(null);
+    expect(mapAnsetzungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
   /* None judged the token: a misconfigured base key refuses every link alike, an unserved route is met
@@ -49,13 +48,13 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      call every live link void. */
   it("leaves the protocol's refusals to the page's own state, never the dead-link panel", () => {
     for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"]) {
-      assert.equal(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), null, code);
+      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe(null);
     }
     for (const [code, status] of [
       ["REQ-ROUTE-001", 404],
       ["REQ-ROUTE-002", 405],
     ] as const) {
-      assert.equal(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), null, code);
+      expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), code).toBe(null);
     }
   });
 });
@@ -65,14 +64,17 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
      reader's reload would land on the dead link, so only the mail's link reopens the form. */
   it("sends the club back to the mail's link", () => {
     for (const code of ["REQ-VAL-001", "REQ-VAL-002"]) {
-      assert.deepEqual(mapAnsetzungRefusal(refusedOn(ANTWORT_OPERATION, code)), { error: ANTWORT_NEU_OEFFNEN }, code);
+      expect(mapAnsetzungRefusal(refusedOn(ANTWORT_OPERATION, code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
     }
   });
 
   it("marks the box a refusal names, keyed as the input is named, with the mail's link beside it", () => {
     const refused = refusedPayload([bodyField(["vorschlag", "datum"], "date_from_datetime_parsing")], "/spielbestaetigungen");
 
-    assert.deepEqual(mapAnsetzungRefusal(refused), { fieldErrors: { "vorschlag.datum": FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
+    expect(mapAnsetzungRefusal(refused)).toStrictEqual({
+      fieldErrors: { "vorschlag.datum": FELD_ABGELEHNT },
+      unplacedError: ANTWORT_NEU_OEFFNEN,
+    });
   });
 });
 
@@ -101,20 +103,20 @@ describe("laufUeberfaellig", () => {
   };
 
   it("warns where a pass was due for the fixture and none ran, or none since the day before yesterday", () => {
-    assert.equal(laufUeberfaellig(FAELLIG), true);
-    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-18" }), true);
+    expect(laufUeberfaellig(FAELLIG)).toBe(true);
+    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-18" })).toBe(true);
   });
 
   // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
   it("reads today's stamp and yesterday's as plain", () => {
-    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: TODAY }), false);
-    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" }), false);
+    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: TODAY })).toBe(false);
+    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" })).toBe(false);
   });
 
   // The pass's last asking day is three weeks out; the shared table holds `wirdAngefragt` to the pass row by row.
   it("warns for a fixture as far out as the pass asks, and for none past it", () => {
-    assert.equal(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-10" } }), true);
-    assert.equal(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-11" } }), false);
+    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-10" } })).toBe(true);
+    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-11" } })).toBe(false);
   });
 
   // What a line guarded on the stamp alone gets wrong, and most of the fixtures the site holds.
@@ -129,7 +131,7 @@ describe("laufUeberfaellig", () => {
       { ...FAELLIG, spiel: { ...GEFRAGT, sonderereignis: "ausgefallen" as const } },
       { ...FAELLIG, austritte: new Map([[GEFRAGT.team2?.team_id ?? "", "2026-10-22"]]) },
     ]) {
-      assert.equal(laufUeberfaellig(nie), false, JSON.stringify({ ...nie, austritte: [...nie.austritte] }));
+      expect(laufUeberfaellig(nie), JSON.stringify({ ...nie, austritte: [...nie.austritte] })).toBe(false);
     }
   });
 });
@@ -202,7 +204,7 @@ describe("grundZumEnde", () => {
       );
       const austritte = new Map(anders.austritt_tage === undefined ? [] : [[SEITEN[1], tagNach(anders.austritt_tage)]]);
 
-      assert.equal(grundZumEnde(row, spiel, { austritte, today: HEUTE }), grund);
+      expect(grundZumEnde(row, spiel, { austritte, today: HEUTE })).toBe(grund);
     });
   }
 });

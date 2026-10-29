@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer.
+
 /**
  * The display voice, without a step of its own: `fluid-4xl` on the hero and `fluid-3xl` on a page
  * `<h1>` are one voice at two sizes. `font-normal` makes the weight the face's rather than the

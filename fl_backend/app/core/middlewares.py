@@ -20,12 +20,11 @@ ZERO_TRACE_ID = "0" * 32
 ZERO_SPAN_ID = "0" * 16
 
 # Under `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` by what the page's clock counts and
-# this one cannot: the hop in, the queue before this runs, the answer's way back
-# (`docs/backend/spec.md :: I320`).
+# this one cannot: the hop in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
 # Where the request's deadline falls, which pymongo holds and publishes no getter for: every abort
-# the request sends past it shares one grace after this instant (`docs/backend/spec.md :: I539`).
+# the request sends past it shares one grace after this instant.
 request_deadline_var: ContextVar[float | None] = ContextVar("request_deadline", default=None)
 
 
@@ -58,7 +57,7 @@ class TraceContextMiddleware:
 
         request = Request(scope)
         # The incoming span is read for validity and discarded: this hop's lines carry its OWN span,
-        # the trace id being what joins them to the edge's and the frontend's (L12).
+        # the trace id being what joins them to the edge's and the frontend's.
         trace_id = resolve_trace_id(request.headers.get("traceparent"))
         span_id = mint_span_id()
 
@@ -124,7 +123,7 @@ class TraceContextMiddleware:
 class TracedApp(FastAPI):
     """`add_middleware` places a layer inside `ServerErrorMiddleware`, which runs the catch-all handler once that layer returned.
 
-    The handler's line and body would then read ids already reset (`docs/logging/spec.md :: L4`).
+    The handler's line and body would then read ids already reset.
     """
 
     def build_middleware_stack(self) -> ASGIApp:

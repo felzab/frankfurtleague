@@ -184,14 +184,14 @@ export function AdminBracketWiringView({
                   </Table.Header>
 
                   {/* No `renderEmptyState`: a Server Component may not pass a render prop to a Client
-                      Component (frontend spec I13), and the branch above covers the case. */}
+                      Component, and the branch above covers the case. */}
                   <Table.Body>
                     {[...round.spiele]
                       .sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)
                       .map((spiel) => (
                         <Table.Row key={spiel.id}>
                           {/* `spiel_nr`, because that is the number a `spiel` source cites. */}
-                          <Table.Cell className="py-4 pl-3 font-numeric fluid-sm font-bold whitespace-nowrap tabular-nums lg:pl-4">
+                          <Table.Cell className="py-4 pl-3 font-numeric fluid-sm font-bold whitespace-nowrap lg:pl-4">
                             {spiel.spiel_nr}
                           </Table.Cell>
 

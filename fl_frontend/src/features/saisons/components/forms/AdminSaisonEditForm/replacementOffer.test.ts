@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { side as sharedSide, spielFields } from "@/shared/testing/fixtures.ts";
+import { side as sharedSide, spielFields } from "@/test-support/fixtures.ts";
+import { describe, expect, it } from "vitest";
 
 import { FLSpielSchema } from "../../../../spiele/schemas.ts";
 import { buildReplacementContext, describePlatz, describeUebernommeneSpiele } from "./replacementOffer.ts";
@@ -19,8 +17,8 @@ const BLANK: FLSpiel = FLSpielSchema.parse(spielFields({ id: "0".repeat(24), spi
 /**
  * The shared side, named per case and narrowed to this schema's own `austritt_type` union.
  *
- * `fl_frontend/src/shared/testing/fixtures.ts` types that field as a plain string, a module under
- * `shared` being unable to import a feature slice's schema (`docs/frontend/spec.md :: I9`).
+ * `fl_frontend/src/test-support/fixtures.ts` types that field as a plain string, a module under
+ * `shared` being unable to import a feature slice's schema.
  */
 const side = (teamId: string, name: string, austrittType: FLAustritt["type"] | null = null): FLSpiel["team1"] => ({
   ...sharedSide(teamId, { name, shorthand: name.slice(0, 2).toUpperCase() }),
@@ -46,8 +44,8 @@ describe("buildReplacementContext", () => {
   it("counts a played fixture from either half of the season", () => {
     const played = spiel({ team1: side(ALT, "SV Alt"), ergebnis: "3:1" });
 
-    assert.equal(contextOf({ teams: [clubRow(ALT, "SV Alt")], gruppenSpiele: [played] }).rows[0]?.gespielteSpiele, 1);
-    assert.equal(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [played] }).rows[0]?.gespielteSpiele, 1);
+    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], gruppenSpiele: [played] }).rows[0]?.gespielteSpiele).toBe(1);
+    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [played] }).rows[0]?.gespielteSpiele).toBe(1);
   });
 
   /* Mirrors the shoot-out clause of `has_taken_place`: stored beside no result it is a hand-written
@@ -56,7 +54,7 @@ describe("buildReplacementContext", () => {
   it("counts a fixture holding only a shoot-out as played", () => {
     const decided = spiel({ team1: side(ALT, "SV Alt"), elfmeterschiessen: { team1: 5, team2: 4 } });
 
-    assert.equal(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [decided] }).rows[0]?.gespielteSpiele, 1);
+    expect(contextOf({ teams: [clubRow(ALT, "SV Alt")], playoffSpiele: [decided] }).rows[0]?.gespielteSpiele).toBe(1);
   });
 
   /* Two figures over one list, and the panel says both: how many fixtures move, and whether any of
@@ -71,8 +69,8 @@ describe("buildReplacementContext", () => {
       ],
     }).rows;
 
-    assert.equal(rows[0]?.spiele, 3);
-    assert.equal(rows[0]?.gespielteSpiele, 1);
+    expect(rows[0]?.spiele).toBe(3);
+    expect(rows[0]?.gespielteSpiele).toBe(1);
   });
 
   /* The endpoint reports its fan-out per document, so counting a club once per SIDE would promise
@@ -83,8 +81,8 @@ describe("buildReplacementContext", () => {
       gruppenSpiele: [spiel({ team1: side(ALT, "SV Alt"), team2: side(ALT, "SV Alt"), ergebnis: "1:1" })],
     }).rows;
 
-    assert.equal(rows[0]?.spiele, 1);
-    assert.equal(rows[0]?.gespielteSpiele, 1);
+    expect(rows[0]?.spiele).toBe(1);
+    expect(rows[0]?.gespielteSpiele).toBe(1);
   });
 
   /* The case the operation exists for: every club read starts at the `teams` collection, so a
@@ -97,12 +95,12 @@ describe("buildReplacementContext", () => {
 
     const orphaned = rows.find((row) => row.teamId === LEAVING);
 
-    assert.equal(orphaned?.name, "FC Verschwunden");
-    assert.equal(orphaned?.isVerwaist, true);
+    expect(orphaned?.name).toBe("FC Verschwunden");
+    expect(orphaned?.isVerwaist).toBe(true);
     // The group is stored on the row and served by no read this page makes, so the panel shows none.
-    assert.equal(orphaned?.gruppe, null);
-    assert.equal(orphaned?.spiele, 1);
-    assert.equal(rows.find((row) => row.teamId === ALT)?.isVerwaist, false);
+    expect(orphaned?.gruppe).toBe(null);
+    expect(orphaned?.spiele).toBe(1);
+    expect(rows.find((row) => row.teamId === ALT)?.isVerwaist).toBe(false);
   });
 
   /* A season entered but not yet drawn holds no fixture at all, and its rows are exactly the ones a
@@ -110,10 +108,7 @@ describe("buildReplacementContext", () => {
   it("offers a club that holds no fixture yet", () => {
     const rows = contextOf({ teams: [clubRow(ALT, "SV Alt")] }).rows;
 
-    assert.deepEqual(
-      rows.map((row) => [row.teamId, row.spiele, row.gespielteSpiele]),
-      [[ALT, 0, 0]],
-    );
+    expect(rows.map((row) => [row.teamId, row.spiele, row.gespielteSpiele])).toStrictEqual([[ALT, 0, 0]]);
   });
 
   /* Two sources for one fact, because neither reaches both cases: the club read holds the row itself,
@@ -124,9 +119,9 @@ describe("buildReplacementContext", () => {
       gruppenSpiele: [spiel({ team1: side(LEAVING, "FC Verschwunden", "disqualifikation"), team2: side(ARRIVING, "SV Neu") })],
     }).rows;
 
-    assert.equal(rows.find((row) => row.teamId === ALT)?.hasAustritt, true);
-    assert.equal(rows.find((row) => row.teamId === LEAVING)?.hasAustritt, true);
-    assert.equal(rows.find((row) => row.teamId === ARRIVING)?.hasAustritt, false);
+    expect(rows.find((row) => row.teamId === ALT)?.hasAustritt).toBe(true);
+    expect(rows.find((row) => row.teamId === LEAVING)?.hasAustritt).toBe(true);
+    expect(rows.find((row) => row.teamId === ARRIVING)?.hasAustritt).toBe(false);
   });
 
   /* `REQ-REPLACE-003` and `REQ-ENTER-005`, graded before the press. The first arm is also what keeps
@@ -140,14 +135,11 @@ describe("buildReplacementContext", () => {
       ],
     });
 
-    assert.deepEqual(
-      candidates.map((candidate) => [candidate.id, candidate.isInSaison, candidate.isStillgelegt]),
-      [
-        [ALT, true, false],
-        [ARRIVING, false, false],
-        [LEAVING, false, true],
-      ],
-    );
+    expect(candidates.map((candidate) => [candidate.id, candidate.isInSaison, candidate.isStillgelegt])).toStrictEqual([
+      [ALT, true, false],
+      [ARRIVING, false, false],
+      [LEAVING, false, true],
+    ]);
   });
 
   /* The rows with a club come from a read sorted by name and the others are appended after them, so
@@ -158,10 +150,7 @@ describe("buildReplacementContext", () => {
       gruppenSpiele: [spiel({ team1: side(LEAVING, "Alpha SV") })],
     }).rows;
 
-    assert.deepEqual(
-      rows.map((row) => row.name),
-      ["Alpha SV", "Zeta SV"],
-    );
+    expect(rows.map((row) => row.name)).toStrictEqual(["Alpha SV", "Zeta SV"]);
   });
 });
 
@@ -169,17 +158,17 @@ describe("describeUebernommeneSpiele", () => {
   /* Zero is a sentence rather than silence: a season drawn later hands the arriving club every
      fixture that draw produces, so "none yet" is the true answer and not the absence of one. */
   it("answers at zero, at one and above", () => {
-    assert.match(describeUebernommeneSpiele(0), /noch keine/);
-    assert.match(describeUebernommeneSpiele(1), /^Das eine angesetzte Spiel/);
-    assert.match(describeUebernommeneSpiele(4), /^Alle 4 angesetzten Spiele/);
+    expect(describeUebernommeneSpiele(0)).toMatch(/noch keine/);
+    expect(describeUebernommeneSpiele(1)).toMatch(/^Das eine angesetzte Spiel/);
+    expect(describeUebernommeneSpiele(4)).toMatch(/^Alle 4 angesetzten Spiele/);
   });
 
   /* The draw deletes what it replaces and says so; this write deletes nothing, so that register would ask an admin
      to agree to a loss that will not happen. */
   it("promises the fixtures move with the place, in no word of the draw's losses", () => {
-    assert.match(describeUebernommeneSpiele(1), /wechselt mit/);
-    assert.match(describeUebernommeneSpiele(4), /wechseln mit/);
-    for (const spiele of [0, 1, 4]) assert.doesNotMatch(describeUebernommeneSpiele(spiele), /verloren|gelöscht|entfäll|verschoben/);
+    expect(describeUebernommeneSpiele(1)).toMatch(/wechselt mit/);
+    expect(describeUebernommeneSpiele(4)).toMatch(/wechseln mit/);
+    for (const spiele of [0, 1, 4]) expect(describeUebernommeneSpiele(spiele)).not.toMatch(/verloren|gelöscht|entfäll|verschoben/);
   });
 });
 
@@ -187,7 +176,7 @@ describe("describePlatz", () => {
   /* A row with no club document has no group to name, and `Gruppe null` is what an unguarded
      template renders there. */
   it("names the group, and the season where there is none to name", () => {
-    assert.equal(describePlatz("B"), "in Gruppe B");
-    assert.equal(describePlatz(null), "in dieser Saison");
+    expect(describePlatz("B")).toBe("in Gruppe B");
+    expect(describePlatz(null)).toBe("in dieser Saison");
   });
 });

@@ -118,8 +118,7 @@ export function buildTeamBanners({
       severity: "danger",
       raisedBy: "change",
       title: "Der Grund wird veröffentlicht",
-      // The team page and nowhere else: a served fixture side carries the exit TYPE and no reason
-      // (`docs/backend/spec.md :: I32`).
+      // The team page and nowhere else: a served fixture side carries the exit TYPE and no reason.
       body: "Er steht danach auf der öffentlichen Teamseite.",
       inline: "austritt-eintrag",
     });

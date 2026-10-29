@@ -225,7 +225,7 @@ class TestTheResponseModel:
     def test_no_payload_declares_the_marker(self, payload_model):
         """Declared, even defaulted, the create would store a caller's claim about when the entry arrived.
 
-        `docs/backend/spec.md :: I334` makes the marker the create's own derivation.
+        The backend makes the marker the create's own derivation.
         """
         assert "ist_nachnominiert" not in payload_model.model_fields
 

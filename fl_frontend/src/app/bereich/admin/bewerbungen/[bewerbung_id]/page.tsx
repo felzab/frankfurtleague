@@ -53,7 +53,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
     getTeamMemberships(),
     runWithIncomingTrace(() => getMedienFragen(bewerbung.kontakte)),
     // `null` where either registry read failed: the reseat alone needs them, so it closes and the
-    // decision above it stands. Words it cannot key reach the error boundary (`docs/frontend/spec.md :: I649`).
+    // decision above it stands. Words it cannot key reach the error boundary.
     runWithIncomingTrace(() =>
       Promise.all([
         // Per request, as every stamper reads the running label: a deploy moves it.

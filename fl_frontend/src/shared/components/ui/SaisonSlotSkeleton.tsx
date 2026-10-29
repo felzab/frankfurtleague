@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/SeasonButton` replaces it.
+
 import { skeletonBlock } from "./skeleton";
 
 /**

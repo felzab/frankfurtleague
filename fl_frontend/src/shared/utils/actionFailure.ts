@@ -4,8 +4,8 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentErr
 import { logger } from "@/core/logging";
 
 /**
- * Logged by name and code alone: an action's callee may throw with the submitted address in its message or stack
- * (`docs/logging/spec.md :: L9`), and a typed API error's code and trace join this line to the backend's.
+ * Logged by name and code alone: an action's callee may throw with the submitted address in its message or stack,
+ * and a typed API error's code and trace join this line to the backend's.
  */
 export function logActionFailure(message: string, error: unknown): void {
   const typed =

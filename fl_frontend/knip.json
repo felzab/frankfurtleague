@@ -4,19 +4,36 @@
   "prettier": {
     "config": ["../.prettierrc.json"]
   },
-  // Each entry is a reader knip cannot see. An export nothing reads is deleted or un-exported, never
-  // added here.
+  // Built ahead of their first page, each named with the session that first uses it, which deletes
+  // its line here and in `knip.production.json`. A kit file a test already reads is used in this run
+  // and stands in `knip.production.json` alone.
+  "ignoreFiles": [
+    // Session 3.
+    "src/kit/BracketCard.tsx",
+    "src/kit/Skeleton.tsx",
+    "src/kit/StatusPage.tsx",
+    // Session 4.
+    "src/kit/Prose.tsx",
+    "src/kit/KontoBox.tsx",
+    "src/kit/MailedPage.tsx",
+    "src/kit/OneShot.tsx"
+  ],
+  // An export waiting for its first page says so on itself, with the page it waits for: `@awaitsPage` where
+  // no other module reads it, which this run honours, and `@awaitsProduction` where no production module
+  // reads it, which `knip.production.json` honours; an export no module but its own uses carries both.
+  // A tagged export that gains its reader is a tag hint, which fails the run until the tag goes. An export
+  // nothing reads and no page waits for is deleted or un-exported.
+  "tags": ["-awaitsPage"],
+  "treatTagHintsAsErrors": true,
+  // Each entry is a reader knip cannot see.
   "ignoreIssues": {
     // `fl_frontend/src/core/apiContract.test.ts` pairs every `*Schema`, alias included, with a backend
-    // component. `fl_backend/tests/shared/test_frontend_mirrors.py` reads
-    // `fl_frontend/src/features/sperrliste/schemas.ts :: ADRESSE_IM_GRUND_REGEX` and
-    // `fl_frontend/src/features/zustellung/schemas.ts :: ZIELE_JE_SITZ` by their `export const`. An
-    // inferred type stays beside its schema, or the next caller writes it back.
+    // component. An inferred type stays beside its schema, or the next caller writes it back.
     "src/**/schemas.ts": ["exports", "types", "duplicates"],
     // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
     // exported facet array; a URL parameter stays exported beside the rest of its family.
     "src/features/*/facets.ts": ["exports"],
-    // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
+    // `docs/decisions.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
     "src/features/system/queries.ts": ["exports"]
   }
 }

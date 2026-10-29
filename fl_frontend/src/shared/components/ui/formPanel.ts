@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Section` replaces it.
+
 import { tv } from "tailwind-variants";
 
 /**

@@ -1,13 +1,11 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it, mock } from "node:test";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { ACTOR_KEY_FILE } from "@/test-support/authDoubles.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
-import type { SentMail } from "@/core/mailDouble.ts";
+import type { SentMail } from "@/test-support/mailDouble.ts";
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
@@ -119,6 +117,12 @@ const LOGGING_DOUBLE = {
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
 const CONFIG_DOUBLE = {
+  // Each boot runs in-process with no preflight naming a deployment.
+  bootCheck: () => undefined,
+  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
+  refuseInvalidEnvironment: (): never => {
+    throw new Error("the doubled config refuses no environment");
+  },
   frontend_config: {
     LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
@@ -138,14 +142,10 @@ const CONFIG_DOUBLE = {
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
 
-registerDoubles({
-  modules: {
-    "core/logging.ts": LOGGING_DOUBLE,
-    "core/config.ts": CONFIG_DOUBLE,
-    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-    "core/authIndexes.ts": INDEXES_DOUBLE,
-  },
-});
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+// A production boot builds the sign-in store's indexes too, over a client this suite never configures.
+vi.doMock("@/core/authIndexes.ts", () => INDEXES_DOUBLE);
 
 const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
@@ -295,15 +295,15 @@ describe("what register arms", () => {
   async function armAndTick(nodeEnv: string, sweep: string | undefined): Promise<void> {
     const restore = underNodeEnv(nodeEnv);
     sweepSwitch = sweep;
-    mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
 
     try {
       await register();
       await settle();
-      mock.timers.tick(HOUR_MS * 3);
+      vi.advanceTimersByTime(HOUR_MS * 3);
       await settle();
     } finally {
-      mock.timers.reset();
+      vi.useRealTimers();
       restore();
     }
   }
@@ -314,26 +314,26 @@ describe("what register arms", () => {
   it("arms nothing under a development build, whatever the switch says", async () => {
     await armAndTick("development", "on");
 
-    assert.deepEqual(events, []);
+    expect(events).toStrictEqual([]);
   });
 
   it("arms nothing where the switch is off", async () => {
     await armAndTick("production", "off");
 
-    assert.deepEqual(events, []);
+    expect(events).toStrictEqual([]);
   });
 
   it("arms nothing where the value is missing, which is what a skipped validation leaves", async () => {
     await armAndTick("production", undefined);
 
-    assert.deepEqual(events, []);
+    expect(events).toStrictEqual([]);
   });
 
   /* The fourth arm — a server setting nothing at all — is this case and the parse above it together:
      the default reads "on", and "on" under a production build is what arms. */
   it("runs one pass a minute after start and one an hour after arming", async () => {
     const restore = underNodeEnv("production");
-    mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
     // By its season-list read: the halves after the season loop add calls of their own to every pass.
     const passes = (): number => apiCalls().filter((call) => call.method === "GET" && call.endpoint === "/bewerbungen/sweep").length;
 
@@ -342,24 +342,24 @@ describe("what register arms", () => {
       await settle();
       const atOnce = passes();
 
-      mock.timers.tick(MINUTE_MS);
+      vi.advanceTimersByTime(MINUTE_MS);
       await settle();
       const afterTheMinute = passes();
 
-      mock.timers.tick(HOUR_MS - MINUTE_MS - 1000);
+      vi.advanceTimersByTime(HOUR_MS - MINUTE_MS - 1000);
       await settle();
       const beforeTheHour = passes();
 
-      mock.timers.tick(1000);
+      vi.advanceTimersByTime(1000);
       await settle();
       const afterTheHour = passes();
 
-      assert.equal(atOnce, 0, "nothing runs at arming: the backend may not answer yet after a deploy");
-      assert.equal(afterTheMinute, 1, "the first pass runs a minute in, a container recreated daily never reaching the first tick");
-      assert.equal(beforeTheHour, 1, "nothing runs between the first pass and the hour");
-      assert.equal(afterTheHour, 2, "the interval is one hour, measured from arming");
+      expect(atOnce, "nothing runs at arming: the backend may not answer yet after a deploy").toBe(0);
+      expect(afterTheMinute, "the first pass runs a minute in, a container recreated daily never reaching the first tick").toBe(1);
+      expect(beforeTheHour, "nothing runs between the first pass and the hour").toBe(1);
+      expect(afterTheHour, "the interval is one hour, measured from arming").toBe(2);
     } finally {
-      mock.timers.reset();
+      vi.useRealTimers();
       restore();
     }
   });
@@ -371,7 +371,7 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+    expect(seasonPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 
   it("stamps the reminder before it mails it, so a refused address costs one reminder rather than a daily one", async () => {
@@ -393,13 +393,7 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      events.map((event) => event.kind),
-      // The fourth is the accepted send recording itself, after the message: no id exists to record
-      // until the provider has answered. The fifth is the registration pass closing every season, the
-      // last the lapsed addresses' half.
-      ["api", "api", "mail", "api", "api", "api"],
-    );
+    expect(events.map((event) => event.kind)).toStrictEqual(["api", "api", "mail", "api", "api", "api"]);
   });
 
   /* One press answers the pair, so a second link asks one reader twice over one decision. The
@@ -424,8 +418,8 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     const reminder = events.find((event) => event.kind === "mail");
-    assert.equal(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
-    // The CONFIGURED origin and never the published one (`docs/frontend/spec.md :: I186`).
+    expect(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, "the paired mailbox was sent a second link").toBe(1);
+    // The CONFIGURED origin and never the published one.
     assert.ok(
       reminder?.text.includes("http://localhost:3000/bestaetigung/kontakt?token=token-paar"),
       "the reminder's link is minted on an origin this run was not configured with",
@@ -446,17 +440,14 @@ describe("one pass of the sweep", () => {
 
     const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(
+    expect(
       events.map((event) => event.kind),
-      // The record after the delivered notice, and none after the refused one; the registration
-      // pass closes the season, and the lapsed addresses' half the pass.
-      ["api", "api", "mail", "api", "mail", "api", "api", "api", "api"],
       "both notices go out before anything is stamped or erased",
-    );
-    assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
-    assert.deepEqual(JSON.parse(stamp?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
-    assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
+    ).toStrictEqual(["api", "api", "mail", "api", "mail", "api", "api", "api", "api"]);
+    expect(stamp?.endpoint).toBe("/bewerbungen/sweep/2627/angekuendigt");
+    expect(JSON.parse(stamp?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_REACHED] });
+    expect(erasure?.endpoint).toBe("/bewerbungen/sweep/2627/loeschen");
+    expect(JSON.parse(erasure?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_REACHED] });
   });
 
   /* A deployment that mails nothing files the notice, and off production that is as told as anyone
@@ -472,19 +463,17 @@ describe("one pass of the sweep", () => {
 
       await runBewerbungSweep();
 
-      assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never sent, so nothing was filed");
+      expect(events.filter((event) => event.kind === "mail").length, "the notice was never sent, so nothing was filed").toBe(1);
       const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
       const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
-      assert.deepEqual(
-        [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
+      expect([stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}")))).toStrictEqual(
         erased ? [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }] : [null, null],
       );
     });
   }
 
   /* On production too: a barred mailbox is as told as the league may make it, and waiting on a send
-     the ban never lets out would keep the application for as long as the ban stands
-     (`docs/frontend/spec.md :: I538`). */
+     the ban never lets out would keep the application for as long as the ban stands. */
   it("stamps and erases a candidate whose one mailbox the ban list holds, on production", async () => {
     mail.answerWith((sent) => {
       events.push({ kind: "mail", ...sent });
@@ -494,13 +483,13 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    assert.equal(events.filter((event) => event.kind === "mail").length, 1, "the notice was never handed to the mailer");
+    expect(events.filter((event) => event.kind === "mail").length, "the notice was never handed to the mailer").toBe(1);
     const stamp = callTo("/bewerbungen/sweep/2627/angekuendigt");
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(
-      [stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}"))),
-      [{ bewerbung_ids: [ID_REACHED] }, { bewerbung_ids: [ID_REACHED] }],
-    );
+    expect([stamp, erasure].map((call) => (call === undefined ? null : JSON.parse(call.body ?? "{}")))).toStrictEqual([
+      { bewerbung_ids: [ID_REACHED] },
+      { bewerbung_ids: [ID_REACHED] },
+    ]);
   });
 
   /* The pass after an erasure that failed: the candidate is listed again, already announced. Mailing
@@ -514,13 +503,12 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(
+    expect(
       events.map((event) => event.kind),
-      ["api", "api", "api", "api", "api"],
       "an announced candidate was mailed or stamped again",
-    );
-    assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_REACHED] });
+    ).toStrictEqual(["api", "api", "api", "api", "api"]);
+    expect(erasure?.endpoint).toBe("/bewerbungen/sweep/2627/loeschen");
+    expect(JSON.parse(erasure?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_REACHED] });
   });
 
   /* Two ticks over one pass would compose the same notice twice, neither having reached its stamp.
@@ -530,7 +518,7 @@ describe("one pass of the sweep", () => {
 
     await Promise.all([runBewerbungSweep(), runBewerbungSweep()]);
 
-    assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+    expect(seasonPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 
   /* The submitter who is also the Trainer reads „Eingetragen als“ and has to recognise themselves in
@@ -553,12 +541,11 @@ describe("one pass of the sweep", () => {
     await runBewerbungSweep();
 
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
-    assert.deepEqual(
+    expect(
       events.map((event) => event.kind),
-      ["api", "api", "api", "api", "api", "api"],
       "no message is composed for a candidate with no address",
-    );
-    assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NOBODY] });
+    ).toStrictEqual(["api", "api", "api", "api", "api", "api"]);
+    expect(JSON.parse(erasure?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_NOBODY] });
   });
 
   /* Holding an undeliverable application past its erasure window is the backend's alone:
@@ -577,8 +564,8 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    assert.equal(events.filter((event) => event.kind === "mail").length, 2, "a listed candidate was held back on this side");
-    assert.deepEqual(JSON.parse(callTo("/bewerbungen/sweep/2627/loeschen")?.body ?? "{}"), { bewerbung_ids: [ID_REACHED, ID_SILENT] });
+    expect(events.filter((event) => event.kind === "mail").length, "a listed candidate was held back on this side").toBe(2);
+    expect(JSON.parse(callTo("/bewerbungen/sweep/2627/loeschen")?.body ?? "{}")).toStrictEqual({ bewerbung_ids: [ID_REACHED, ID_SILENT] });
   });
 
   /* The one send here whose body cannot change inside the provider's window, and the one that can
@@ -605,10 +592,10 @@ describe("one pass of the sweep", () => {
 
     const [reminder, noticeMail] = events.filter((event) => event.kind === "mail");
 
-    assert.equal(reminder?.idempotencyKey, undefined, "the reminder mints a fresh token, so a reused key would be refused over a changed body");
-    assert.match(String(noticeMail?.idempotencyKey), /^loeschung_/);
-    assert.deepEqual(reminder?.tags, { bewerbung_id: ID_REACHED, rollen: "ansprechperson", anlass: "erinnerung" });
-    assert.deepEqual(noticeMail?.tags, { bewerbung_id: ID_SILENT, rollen: "ansprechperson", anlass: "loeschung" });
+    expect(reminder?.idempotencyKey, "the reminder mints a fresh token, so a reused key would be refused over a changed body").toBe(undefined);
+    expect(String(noticeMail?.idempotencyKey)).toMatch(/^loeschung_/);
+    expect(reminder?.tags).toStrictEqual({ bewerbung_id: ID_REACHED, rollen: "ansprechperson", anlass: "erinnerung" });
+    expect(noticeMail?.tags).toStrictEqual({ bewerbung_id: ID_SILENT, rollen: "ansprechperson", anlass: "loeschung" });
   });
 
   it("carries on to the next season when one throws", async () => {
@@ -646,7 +633,7 @@ describe("one pass of the sweep", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+    expect(seasonPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 });
 
@@ -669,23 +656,20 @@ describe("the line a failed call files", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
-      [
-        {
-          error_code: "FE-SWEEP-001",
-          name: "APIBadStatusError",
-          status: 500,
-          server_error_code: "DB-FAIL-001",
-          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
-          saison_id: undefined,
-        },
-      ],
-    );
+    expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
+      {
+        error_code: "FE-SWEEP-001",
+        name: "APIBadStatusError",
+        status: 500,
+        server_error_code: "DB-FAIL-001",
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        saison_id: undefined,
+      },
+    ]);
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all (`docs/logging/error-codes.md`, `FE-SWEEP-001`). */
+     arrived there at all (`FE-SWEEP-001`). */
   it("names an unanswered call's trace on its failure line", async () => {
     answerWith(() => {
       throw new APINetworkError({
@@ -700,10 +684,9 @@ describe("the line a failed call files", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
-      [{ error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined }],
-    );
+    expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
+      { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined },
+    ]);
   });
 
   it("names a malformed answer's status and trace on its failure line", async () => {
@@ -721,18 +704,15 @@ describe("the line a failed call files", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
-      [
-        {
-          error_code: "FE-SWEEP-001",
-          name: "APIMalformedDataError",
-          status: 200,
-          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
-          saison_id: undefined,
-        },
-      ],
-    );
+    expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
+      {
+        error_code: "FE-SWEEP-001",
+        name: "APIMalformedDataError",
+        status: 200,
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+        saison_id: undefined,
+      },
+    ]);
   });
 });
 
@@ -783,7 +763,7 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(registrierungPasses().map(saisonOf), ["2526", "2627"]);
+    expect(registrierungPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 
   it("runs after the application's own pass, whose call stamps the day", async () => {
@@ -791,10 +771,12 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      apiCalls().map((call) => call.endpoint),
-      ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
-    );
+    expect(apiCalls().map((call) => call.endpoint)).toStrictEqual([
+      "/bewerbungen/sweep",
+      "/bewerbungen/sweep/2627",
+      "/registrierungen/sweep/2627",
+      ADRESSWECHSEL,
+    ]);
   });
 
   it("mails the pupil's reminder with the fresh link and no idempotency key", async () => {
@@ -806,9 +788,9 @@ describe("the registration half of one pass", () => {
     await runBewerbungSweep();
 
     const chase = events.find((event) => event.kind === "mail");
-    assert.equal(chase?.to, "quillhilde@schule.de");
+    expect(chase?.to).toBe("quillhilde@schule.de");
     // The CONFIGURED origin and never the published one: a link built on the latter sends a reader
-    // of this stack into production (`docs/frontend/spec.md :: I186`).
+    // of this stack into production.
     assert.ok(
       chase?.text.includes("http://localhost:3000/bestaetigung/spieler?token=token-frisch"),
       "the message carries the link the pass just minted, on the origin this run is configured with",
@@ -816,36 +798,31 @@ describe("the registration half of one pass", () => {
     // The window the first message named: the sentence says the deadline has not moved, and seven is
     // the mirrored bound rather than a number this file spells.
     assert.ok(chase?.text.includes("7 Tagen"), "the reminder states the window the first message named");
-    assert.equal(chase?.idempotencyKey, undefined, "a fresh token in the body makes a reused key a refusal rather than a collapse");
-    assert.deepEqual(chase?.tags, { ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
+    expect(chase?.idempotencyKey, "a fresh token in the body makes a reused key a refusal rather than a collapse").toBe(undefined);
+    expect(chase?.tags).toStrictEqual({ ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
   });
 
   /* No pre-notice and one note after: the row is erased by the call that answered this list, so the
      message reports rather than asks, and its body cannot change inside the provider's window. */
-  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async (t) => {
+  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async ({ onTestFinished }) => {
     // Noon in Frankfurt, so the day the key carries is one this case names rather than reads off the clock.
-    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2027-06-15T10:00:00Z") });
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2027-06-15T10:00:00Z") });
+    onTestFinished(() => void vi.useRealTimers());
     sweepAnswers({ saisonIds: ["2627"], benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de")] } });
     answeringAnErasedRow();
 
     await runBewerbungSweep();
 
-    assert.deepEqual(
-      events.map((event) => event.kind),
-      // The erasure is behind the second call already, so nothing about the message is reported, and the
-      // lapsed addresses' half ends the pass.
-      ["api", "api", "api", "mail", "api"],
-    );
+    expect(events.map((event) => event.kind)).toStrictEqual(["api", "api", "api", "mail", "api"]);
     const note = events.find((event) => event.kind === "mail");
     // Whole: a key losing the row or the day is shared by two pupils behind one mailbox, or by two days,
     // and the provider refuses the second body under it rather than sending it.
-    assert.equal(note?.idempotencyKey, mailIdempotencyKey(["loeschung", "registrierung", ID_UNDECIDED, "2027-06-15"], "quillhilde@schule.de"));
-    assert.deepEqual(note?.tags, { saisonende: "notiz" });
-    assert.deepEqual(
+    expect(note?.idempotencyKey).toBe(mailIdempotencyKey(["loeschung", "registrierung", ID_UNDECIDED, "2027-06-15"], "quillhilde@schule.de"));
+    expect(note?.tags).toStrictEqual({ saisonende: "notiz" });
+    expect(
       lines.filter(({ level }) => level !== "info"),
-      [],
       "a note sent as it should be wrote a warning or an error",
-    );
+    ).toStrictEqual([]);
   });
 
   /* The mailer's own line names neither the message nor the pass, and a refusal reported against the
@@ -865,20 +842,17 @@ describe("the registration half of one pass", () => {
     await runBewerbungSweep();
 
     // Every note reached the mailer, so the lines below are what its three answers left behind.
-    assert.deepEqual(
-      events.flatMap((event) => (event.kind === "mail" ? [event.to] : [])),
-      ["quillhilde@schule.de", "zurueck@schule.de", "gesperrt@schule.de"],
-    );
-    assert.deepEqual(
-      apiCalls().filter((call) => call.endpoint.startsWith("/zustellung/")),
-      [],
-    );
-    assert.deepEqual(
+    expect(events.flatMap((event) => (event.kind === "mail" ? [event.to] : []))).toStrictEqual([
+      "quillhilde@schule.de",
+      "zurueck@schule.de",
+      "gesperrt@schule.de",
+    ]);
+    expect(apiCalls().filter((call) => call.endpoint.startsWith("/zustellung/"))).toStrictEqual([]);
+    expect(
       lines
         .filter(({ level }) => level !== "info")
         .map(({ level, event, fields }) => [level, event, (fields as { error_code?: string }).error_code]),
-      [["error", "registrierung.saisonende_notiz_failed", "FE-MAIL-002"]],
-    );
+    ).toStrictEqual([["error", "registrierung.saisonende_notiz_failed", "FE-MAIL-002"]]);
   });
 
   /* `docs/ops/runbooks.md` section 9 reads one call for both dates: a fresh one beside a stale one
@@ -916,8 +890,8 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.equal(stamped.bewerbung, "2026-09-21", "the application's pass was abandoned with the registration's");
-    assert.equal(stamped.registrierung, null);
+    expect(stamped.bewerbung, "the application's pass was abandoned with the registration's").toBe("2026-09-21");
+    expect(stamped.registrierung).toBe(null);
   });
 
   /* The half that starved the other: a throw anywhere in the application's clocks skips no
@@ -944,7 +918,7 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(registrierungPasses().map(saisonOf), ["2627"]);
+    expect(registrierungPasses().map(saisonOf)).toStrictEqual(["2627"]);
   });
 
   it("files a failure line naming the half that stopped", async () => {
@@ -984,7 +958,7 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(logs, [
+    expect(logs).toStrictEqual([
       { event: "bewerbung.sweep_failed", saison_id: "2526" },
       { event: "registrierung.sweep_failed", saison_id: "2627" },
     ]);
@@ -1026,7 +1000,7 @@ describe("the registration half of one pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(registrierungPasses().map(saisonOf), ["2526", "2627"]);
+    expect(registrierungPasses().map(saisonOf)).toStrictEqual(["2526", "2627"]);
   });
 });
 
@@ -1083,7 +1057,7 @@ describe("the line each season half files for a pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(seasonLines(), [
+    expect(seasonLines()).toStrictEqual([
       { level: "info", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 0 } },
       { level: "info", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 0 } },
     ]);
@@ -1096,7 +1070,7 @@ describe("the line each season half files for a pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(seasonLines(), [
+    expect(seasonLines()).toStrictEqual([
       { level: "warn", event: "bewerbung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 7 } },
       { level: "warn", event: "registrierung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 8 } },
     ]);
@@ -1109,7 +1083,7 @@ describe("the line each season half files for a pass", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(seasonLines()[0], {
+    expect(seasonLines()[0]).toStrictEqual({
       level: "warn",
       event: "bewerbung.sweep_pass",
       fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 1 },
@@ -1142,10 +1116,12 @@ describe("the half after the season loop", () => {
 
       await runBewerbungSweep();
 
-      assert.deepEqual(
-        apiCalls().map((call) => call.endpoint),
-        ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
-      );
+      expect(apiCalls().map((call) => call.endpoint)).toStrictEqual([
+        "/bewerbungen/sweep",
+        "/bewerbungen/sweep/2627",
+        "/registrierungen/sweep/2627",
+        ADRESSWECHSEL,
+      ]);
     });
   }
 
@@ -1234,18 +1210,15 @@ describe("the half after the season loop", () => {
 
       await runBewerbungSweep();
 
-      assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
-      assert.deepEqual(
-        lines.filter(({ event }) => event.startsWith("adresswechsel.")),
-        [
-          { level: "info", event: "adresswechsel.sweep_pass", fields: { entfernt: 3, wirksam: 0, verworfen: 0 } },
-          {
-            level: "error",
-            event: "adresswechsel.sweep_failed",
-            fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
-          },
-        ],
-      );
+      expect(halfCalls()).toStrictEqual([{}, { nach: ORT_ADRESSE }]);
+      expect(lines.filter(({ event }) => event.startsWith("adresswechsel."))).toStrictEqual([
+        { level: "info", event: "adresswechsel.sweep_pass", fields: { entfernt: 3, wirksam: 0, verworfen: 0 } },
+        {
+          level: "error",
+          event: "adresswechsel.sweep_failed",
+          fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
+        },
+      ]);
     });
   }
 

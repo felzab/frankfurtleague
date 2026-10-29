@@ -11,7 +11,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The venue editor. One per URL and no season in it: a venue belongs to the league, so the
- * sidemenu's selector changes nothing here. It resolves nothing itself (`docs/frontend/spec.md :: I22`).
+ * sidemenu's selector changes nothing here. It resolves nothing itself.
  */
 export default function AdminSpielortEditPage(props: NextPageProps<{ spielort_id: string }>) {
   return (
@@ -33,7 +33,7 @@ async function AdminSpielortEditContent({ params }: { params: NextPageProps<{ sp
   }
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+    // Keyed by the state the draft mirrors.
     <AdminSpielortEditView
       key={JSON.stringify(spielort)}
       spielort={{

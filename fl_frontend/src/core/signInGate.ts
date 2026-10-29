@@ -24,7 +24,7 @@ const PAYLOAD_REFUSED = "REQ-VAL-001";
 export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subjekt"]> => {
   const payload: FLSubjektPayload = { email: email };
   // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-  // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
+  // line, which nothing downstream un-logs.
   const answer = await apiClient("/identitaet/subjekt", FLSubjektResponseSchema, {
     method: "POST",
     readOnly: true,
@@ -50,7 +50,7 @@ export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession
 export type AnmeldungRecords = Omit<FLAnmeldungResponse, "acknowledged">;
 
 // React's `cache` for `lookUpSubjekt`'s reason. Its own read rather than the subject's: only a sign-in
-// pays for the two collections `konto` reads beyond the subject's three (`docs/backend/spec.md :: I565`).
+// pays for the two collections `konto` reads beyond the subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
   const payload: FLSubjektPayload = { email: email };
@@ -81,7 +81,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
   let anmeldung: AnmeldungRecords;
 
   // Behind the sign-in action's response the request scope still bounds the read, so a spent
-  // deadline refuses it unsent and lands below (`docs/frontend/spec.md :: I366`).
+  // deadline refuses it unsent and lands below.
   try {
     anmeldung = await lookUpAnmeldung(email);
   } catch (failed) {

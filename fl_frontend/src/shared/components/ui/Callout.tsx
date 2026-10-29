@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Callout` replaces it.
+
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";

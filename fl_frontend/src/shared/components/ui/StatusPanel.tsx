@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/StatusPage` replaces it.
+
 import { tv } from "tailwind-variants";
 
 import { DISPLAY_HEADING_CLASSES } from "./displayType";

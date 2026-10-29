@@ -239,7 +239,7 @@ def loaded_by_the_link(recorder: ReadsRecorded) -> list[Any]:
     """Every document the TOKEN filter found.
 
     `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
-    and unprojected, its pre-image being the log's (`docs/backend/spec.md :: I39`).
+    and unprojected, its pre-image being the log's.
     """
 
     return [document for db_filter, document in recorder.answered if "$or" in db_filter]
@@ -391,7 +391,7 @@ class TestWhatAnAnonymousReadLoads:
 
 
 class TestWhatAConfirmationWrites:
-    """The one `$set`: `docs/backend/spec.md :: I141`'s pairing lands whole, and the hash stays where it is."""
+    """The one `$set`: the pairing lands whole, and the hash stays where it is."""
 
     def test_the_date_the_stamp_the_source_the_wording_and_the_scope_land_together(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -491,8 +491,6 @@ class TestThePageALinkOpens:
         ],
     )
     def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], fassung: str):
-        """The wiring alone; the unit table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`."""
-
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
 
         assert response.laufende_fassung == fassung
@@ -867,7 +865,10 @@ class TestWhatTheAnswerHandsTheMailer:
 
 
 class TestNoHashReachesAnAdminRead:
-    """The plan's evidence line: the projection keeps the hash off the wire where the model alone would drop it after."""
+    """No hash reaches either admin answer: the case holds the answer alone.
+
+    The response model drops every hash field itself, so a projection loading one into the process still passes here.
+    """
 
     def test_neither_admin_read_serves_a_hash_while_the_document_holds_four(self, mongo_replica_set_url: str):
         # A reminded seat holds the first mail's hash beside the fresh one, and both open the link:
@@ -1120,7 +1121,7 @@ class TestALinkToABarredAddress:
 
 
 class TestTheViewOfALinkToABarredAddress:
-    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred person the form."""
+    """The page reads the ban off the view, so it never offers a barred person the form."""
 
     def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:

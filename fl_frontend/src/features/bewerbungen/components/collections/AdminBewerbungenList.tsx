@@ -68,8 +68,8 @@ function kontaktangabe({ kontakte }: AdminBewerbungRow): Kontaktangabe {
 }
 
 /**
- * **A card per application at every width, never a table** (`docs/frontend/spec.md` §1.19): an
- * identity column's share of `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts :: STEP`
+ * **A card per application at every width, never a table**: an
+ * identity column's share
  * clips the contact address the league writes to. Memoised per `AdminCrudView`'s collection-identity
  * note.
  */
@@ -134,9 +134,9 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   );
 
   const renderEingereicht = (bewerbung: AdminBewerbungRow) => (
-    // `font-numeric tabular-nums` is what makes a fixed-format date a fixed WIDTH under a proportional
+    // `font-numeric` is what makes a fixed-format date a fixed WIDTH under a proportional
     // page face. Never truncate: a clipped year is a different date.
-    <span className="font-numeric fluid-sm text-foreground tabular-nums">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+    <span className="font-numeric fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
   );
 
   // The count and never a fourth `status` value: an application waits on its contacts inside
@@ -205,7 +205,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
           {/* Words rather than a pill: the season is the ordinary case, which the date in the grid
               below already states in the same register. */}
           <span className="fluid-xs text-foreground-muted">
-            Saison <span className="font-numeric tabular-nums">{bewerbung.saison_id}</span>
+            Saison <span className="font-numeric">{bewerbung.saison_id}</span>
           </span>
         </div>
         {bewerbung.schule !== null && <span className={IDENTITY_LINE_CLASSES}>{bewerbung.schule.full_name}</span>}

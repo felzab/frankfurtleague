@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
+import { assert, describe, expect, it, vi } from "vitest";
+
 import "next/dist/server/node-environment-baseline.js";
 
 import {
@@ -17,9 +16,9 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
   sessionByCode,
-} from "./core/authDoubles.ts";
+} from "@/test-support/authDoubles.ts";
 
-import type { SessionRow } from "./core/authDoubles.ts";
+import type { SessionRow } from "@/test-support/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -40,15 +39,12 @@ registerAuthDoubles({
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
     "next/headers": HEADERS_DOUBLE,
-    // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
-    "react-server-dom-webpack/client": import.meta.resolve("next/dist/compiled/react-server-dom-webpack/client.js"),
   },
 });
 
 const store = memoryStore(STORE);
 
-// Imported here rather than at the top: a static import resolves before the hooks above are
-// registered, so neither the doubles nor the `next/server` extension would be in place yet.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth, getAdminSession, getKontoSession, getSignInDestination } = await import("./core/auth.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
@@ -57,7 +53,6 @@ const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
 const { SIGN_IN_LANDING } = await import("./core/signInLanding.ts");
 const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
-const { EDGE_REFUSAL_BODY } = await import("./shared/utils/actionError.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -106,21 +101,21 @@ function redirectedTo(answer: Response): string | null {
 
 describe("where the proxy sends a request for the administrator's subtree carrying no session cookie", () => {
   it("redirects a plain page request", async () => {
-    assert.equal(redirectedTo(await callProxy()), "/signin");
+    expect(redirectedTo(await callProxy())).toBe("/signin");
   });
 
   it("redirects a GET carrying `next-action`, which Next reads as a page render rather than an action", async () => {
-    assert.equal(redirectedTo(await callProxy({ action: true })), "/signin");
+    expect(redirectedTo(await callProxy({ action: true }))).toBe("/signin");
   });
 
   it("redirects every other method carrying `next-action`", async () => {
     for (const method of RENDERING_METHODS) {
-      assert.equal(redirectedTo(await callProxy({ method, action: true })), "/signin", `${method} was let through`);
+      expect(redirectedTo(await callProxy({ method, action: true })), `${method} was let through`).toBe("/signin");
     }
   });
 
   it("redirects a POST carrying no `next-action`", async () => {
-    assert.equal(redirectedTo(await callProxy({ method: "POST" })), "/signin");
+    expect(redirectedTo(await callProxy({ method: "POST" }))).toBe("/signin");
   });
 
   // The case this block exists for: let this one through and Next answers it by rendering the
@@ -128,8 +123,8 @@ describe("where the proxy sends a request for the administrator's subtree carryi
   it("turns a POST carrying `next-action` away to `/signin`, in the action's own redirect rather than a 307", async () => {
     const answer = await callProxy({ method: "POST", action: true });
 
-    assert.equal(redirectedTo(answer), null, "a 307 is replayed by the action's fetch as a POST to the sign-in page");
-    assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace");
+    expect(redirectedTo(answer), "a 307 is replayed by the action's fetch as a POST to the sign-in page").toBe(null);
+    expect(answer.headers.get("x-action-redirect")).toBe("/signin;replace");
   });
 });
 
@@ -137,34 +132,35 @@ describe("where the proxy sends a request for the administrator's subtree carryi
   // The control for the redirects above: a proxy turning every request away would read exactly the
   // same there.
   it("lets an administrator holding a grant through", async () => {
-    assert.equal(redirectedTo(await callProxy({ cookie: admin.cookie })), null);
+    expect(redirectedTo(await callProxy({ cookie: admin.cookie }))).toBe(null);
   });
 
   it("lets that administrator's action POST through, whose answer has to be an RSC payload and not a redirect", async () => {
     const answer = await callProxy({ method: "POST", action: true, cookie: admin.cookie });
 
-    assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), null);
-    assert.equal(answer.status, 200);
+    expect(redirectedTo(answer)).toBe(null);
+    expect(answer.headers.get("x-action-redirect")).toBe(null);
+    expect(answer.status).toBe(200);
   });
 
   /* Optimistic, as Next and the library document a proxy's check: the cookie alone, and no backend read.
      The grant is the admin guard's, which refuses a session holding none on the same request. */
-  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async (t) => {
-    const fetched = t.mock.method(globalThis, "fetch", () => Promise.reject(new TypeError("fetch failed")));
+  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new TypeError("fetch failed")));
+    onTestFinished(() => void fetched.mockRestore());
 
-    assert.equal(redirectedTo(await callProxy({ cookie: removed.cookie })), null);
-    assert.equal(fetched.mock.callCount(), 0, "the proxy asked the backend about a grant");
+    expect(redirectedTo(await callProxy({ cookie: removed.cookie }))).toBe(null);
+    expect(fetched.mock.calls.length, "the proxy asked the backend about a grant").toBe(0);
 
     arriveAs(removed.cookie);
-    assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
+    expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
   });
 
   it("lets that session's action POST through to the action's own guard", async () => {
     const answer = await callProxy({ method: "POST", action: true, cookie: removed.cookie });
 
-    assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), null);
+    expect(redirectedTo(answer)).toBe(null);
+    expect(answer.headers.get("x-action-redirect")).toBe(null);
   });
 
   /* The factor is the guard's, read where the data is: the landing then answers the passkey step, where the
@@ -172,14 +168,13 @@ describe("where the proxy sends a request for the administrator's subtree carryi
   it("lets a code-borne administrator through to the guard, which sends it to the landing's passkey step", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    assert.equal((await callProxy({ cookie })).headers.get("x-middleware-next"), "1", "the proxy judged the session's factor");
+    expect((await callProxy({ cookie })).headers.get("x-middleware-next"), "the proxy judged the session's factor").toBe("1");
 
     arriveAs(cookie);
-    await assert.rejects(
-      requireAdminRequest(),
+    await expect(requireAdminRequest()).rejects.toSatisfy(
       (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
     );
-    assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a code-borne administrator somewhere else");
+    expect(await getSignInDestination(), "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
   });
 });
 
@@ -233,16 +228,16 @@ describe("which addresses the proxy is run on", () => {
       "http://localhost:3000/signin",
       "http://localhost:3000/signin/weiter",
     ]) {
-      assert.equal(matched(url), true, `${url} runs no proxy`);
+      expect(matched(url), `${url} runs no proxy`).toBe(true);
     }
     // The route handlers write their own cookies, and a public page reads no session.
     for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
-      assert.equal(matched(url), false, `${url} runs the proxy`);
+      expect(matched(url), `${url} runs the proxy`).toBe(false);
     }
   });
 
   /* Next strips the prefetch header before the proxy runs, so a prefetch reaching it carrying a session would
-     slide it, a store read for a page nobody asked for (`docs/frontend/spec.md :: I495`). */
+     slide it, a store read for a page nobody asked for. */
   it("skips a prefetch carrying a session cookie everywhere, the administrator's subtree included", async () => {
     const { cookie } = await signIn("leserin@example.org");
     for (const prefetch of PREFETCHES) {
@@ -254,11 +249,10 @@ describe("which addresses the proxy is run on", () => {
         ADMIN_URL,
         "http://localhost:3000/bereich/%61dmin/spiele",
       ]) {
-        assert.equal(
+        expect(
           matched(url, { headers: { ...prefetch, cookie } }),
-          false,
           `${url} runs the proxy on a signed-in prefetch, ${JSON.stringify(prefetch)}`,
-        );
+        ).toBe(false);
       }
     }
   });
@@ -268,13 +262,12 @@ describe("which addresses the proxy is run on", () => {
   it("runs on a prefetch of an area's page carrying no session cookie, and of no sign-in page", () => {
     for (const prefetch of PREFETCHES) {
       for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, ADMIN_URL]) {
-        assert.equal(
+        expect(
           matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }),
-          true,
           `${url} skips a signed-out prefetch, ${JSON.stringify(prefetch)}`,
-        );
+        ).toBe(true);
       }
-      assert.equal(matched("http://localhost:3000/signin", { headers: prefetch }), false);
+      expect(matched("http://localhost:3000/signin", { headers: prefetch })).toBe(false);
     }
   });
 
@@ -296,11 +289,11 @@ describe("which addresses the proxy is run on", () => {
       "http://localhost:3000/bereich/team/%E0%A4%A",
     ]) {
       const judged = redirectedTo(await callProxy({ url })) === "/signin";
-      assert.equal(judged, matched(url, { matcher: areaEntry }), `${url} is judged otherwise than the area's entry matches it`);
+      expect(judged, `${url} is judged otherwise than the area's entry matches it`).toBe(matched(url, { matcher: areaEntry }));
     }
   });
 
-  // The verdicts past the cookie are each guard's, read where the data is (`docs/frontend/spec.md :: I122`).
+  // The verdicts past the cookie are each guard's, read where the data is.
   it("lets every session carrying a cookie through, the administrator's subtree included, a grant held or none", async () => {
     for (const url of [
       "http://localhost:3000/bereich/konto",
@@ -311,7 +304,7 @@ describe("which addresses the proxy is run on", () => {
       for (const cookie of [(await signIn("leserin@example.org")).cookie, removed.cookie]) {
         const answer = await callProxy({ url, cookie });
 
-        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged past the cookie`);
+        expect(answer.headers.get("x-middleware-next"), `${url} was judged past the cookie`).toBe("1");
       }
     }
   });
@@ -319,7 +312,7 @@ describe("which addresses the proxy is run on", () => {
   // The sign-in's own pages are where a visitor holding no session is sent, so they turn nobody away.
   it("lets every sign-in page through with no session", async () => {
     for (const url of ["http://localhost:3000/signin", "http://localhost:3000/signin/weiter"]) {
-      assert.equal((await callProxy({ url })).headers.get("x-middleware-next"), "1", `${url} turned a visitor away`);
+      expect((await callProxy({ url })).headers.get("x-middleware-next"), `${url} turned a visitor away`).toBe("1");
     }
   });
 });
@@ -331,24 +324,27 @@ const PERSON_URLS = [
   TEAM_URL,
 ];
 
-describe("where the proxy sends a request for an area's page (`docs/frontend/spec.md :: I243`, `:: I495`)", () => {
+describe("where the proxy sends a request for an area's page", () => {
   /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
      the page's own guard would turn it away only once the area's frame had streamed. */
-  it("sends a request carrying no session cookie to sign in, reading no store, the administrator's subtree included", async (t) => {
-    const read = t.mock.method(auth.api, "getSession");
+  it("sends a request carrying no session cookie to sign in, reading no store, the administrator's subtree included", async ({
+    onTestFinished,
+  }) => {
+    const read = vi.spyOn(auth.api, "getSession");
+    onTestFinished(() => void read.mockRestore());
     for (const url of [...PERSON_URLS, ADMIN_URL, "http://localhost:3000/bereich/%61dmin/spiele"]) {
-      assert.equal(redirectedTo(await callProxy({ url })), "/signin", `${url} let a visitor holding no session through`);
+      expect(redirectedTo(await callProxy({ url })), `${url} let a visitor holding no session through`).toBe("/signin");
     }
-    assert.equal(read.mock.callCount(), 0, "the cookie check read the store");
+    expect(read.mock.calls.length, "the cookie check read the store").toBe(0);
   });
 
   // An action's POST takes the same turn-away in the header its client reads, never the 307 its `fetch` would
-  // replay (`docs/frontend/spec.md :: I251`).
+  // replay.
   it("turns a signed-out action's POST away in the action's own redirect", async () => {
     for (const url of PERSON_URLS) {
       const answer = await callProxy({ url, method: "POST", action: true });
 
-      assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace", `${url} answered a signed-out action otherwise`);
+      expect(answer.headers.get("x-action-redirect"), `${url} answered a signed-out action otherwise`).toBe("/signin;replace");
     }
   });
 
@@ -367,16 +363,15 @@ describe("where the proxy sends a request for an area's page (`docs/frontend/spe
       for (const url of [...PERSON_URLS, ADMIN_URL]) {
         const answer = await visit(url, cookie, "document");
 
-        assert.equal(answer.headers.get("location"), null, `${url} turned a ${name}'s cookie away on the slide's answer`);
-        assert.equal(setSessionCookie(answer, cookie)?.maxAge, 0, `${url} left a ${name}'s ended cookie standing`);
+        expect(answer.headers.get("location"), `${url} turned a ${name}'s cookie away on the slide's answer`).toBe(null);
+        expect(setSessionCookie(answer, cookie)?.maxAge, `${url} left a ${name}'s ended cookie standing`).toBe(0);
       }
 
-      // A person's guard reads no session, which every person page sends to sign in
-      // (`fl_frontend/src/features/funktionen/guard.test.ts`); the administrator's sends it to the landing.
+      // A person's guard reads no session, which every person page sends to sign in; the administrator's
+      // sends it to the landing.
       arriveAs(cookie);
-      assert.equal(await getSubjectSession(), null, `the person guard served a ${name}'s ended session`);
-      await assert.rejects(
-        requireAdminRequest(),
+      expect(await getSubjectSession(), `the person guard served a ${name}'s ended session`).toBe(null);
+      await expect(requireAdminRequest()).rejects.toSatisfy(
         (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
       );
     }
@@ -387,7 +382,7 @@ describe("where the proxy sends a request for an area's page (`docs/frontend/spe
     const { cookie } = await signIn("leserin@example.org");
 
     for (const url of PERSON_URLS) {
-      assert.equal((await callProxy({ url, cookie })).headers.get("x-middleware-next"), "1", `${url} turned a live session away`);
+      expect((await callProxy({ url, cookie })).headers.get("x-middleware-next"), `${url} turned a live session away`).toBe("1");
     }
   });
 });
@@ -439,7 +434,7 @@ const heldValue = (cookie: string): string => decodeURIComponent(cookie.slice(co
 /** The stamps that say when a row was last used and when it lapses. */
 const stampsOf = (row: SessionRow) => ({ updatedAt: row.updatedAt.getTime(), expiresAt: row.expiresAt.getTime() });
 
-describe("where a session that is only read slides (`docs/frontend/spec.md :: I495`)", () => {
+describe("where a session that is only read slides", () => {
   it("slides a person's row and cookie once past `updateAge`, on a document load and a client navigation alike", async () => {
     for (const load of ["document", "navigation"] as const) {
       const { cookie, row } = await signIn("leserin@example.org");
@@ -450,7 +445,7 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
 
       assert.ok(row.updatedAt.getTime() >= before, `a ${load} left the row's use where it was`);
       assert.ok(row.expiresAt.getTime() >= before + EXPIRES_IN_MS, `a ${load} left the row's expiry where it was`);
-      assert.deepEqual(set, { value: heldValue(cookie), maxAge: EXPIRES_IN_MS / 1000 }, `a ${load} slid the row and not the cookie`);
+      expect(set, `a ${load} slid the row and not the cookie`).toStrictEqual({ value: heldValue(cookie), maxAge: EXPIRES_IN_MS / 1000 });
     }
   });
 
@@ -459,8 +454,8 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
 
     refreshedAgo(row, UPDATE_AGE_MS - MINUTE_MS);
     const early = stampsOf(row);
-    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
-    assert.deepEqual(stampsOf(row), early, "a read inside `updateAge` wrote the row");
+    expect(setSessionCookie(await visit(PERSON_URL, cookie), cookie)).toBe(undefined);
+    expect(stampsOf(row), "a read inside `updateAge` wrote the row").toStrictEqual(early);
 
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
     assert.ok(
@@ -468,8 +463,8 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
       "the read past `updateAge` slid nothing, so the case below proves nothing",
     );
     const slid = stampsOf(row);
-    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
-    assert.deepEqual(stampsOf(row), slid, "the next read wrote the row again");
+    expect(setSessionCookie(await visit(PERSON_URL, cookie), cookie)).toBe(undefined);
+    expect(stampsOf(row), "the next read wrote the row again").toStrictEqual(slid);
   });
 
   // Written there, the row would outlive the cookie the browser holds, which no later read inside `updateAge` repairs.
@@ -481,9 +476,9 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     const due = stampsOf(row);
 
     arriveAs(cookie);
-    assert.equal(await getSignInDestination(), "/bereich", "the render read no live session, so the case proves nothing");
+    expect(await getSignInDestination(), "the render read no live session, so the case proves nothing").toBe("/bereich");
 
-    assert.deepEqual(stampsOf(row), due);
+    expect(stampsOf(row)).toStrictEqual(due);
   });
 
   // The cookie is expired rather than left standing: the library clears it on a read that finds no live row.
@@ -495,27 +490,31 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
 
       const set = setSessionCookie(await visit(PERSON_URL, cookie), cookie);
 
-      assert.equal(
+      expect(
         store.session.some(({ token }) => token === row.token),
-        false,
         `a ${ending} session has a row again`,
-      );
-      assert.equal(set?.maxAge, 0, `a ${ending} session's cookie was left standing or extended`);
+      ).toBe(false);
+      expect(set?.maxAge, `a ${ending} session's cookie was left standing or extended`).toBe(0);
     }
   });
 
   // The slide reads no ban, which is the backend's: what keeps a barred session out is every guard's own read.
-  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async (t) => {
+  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async ({
+    onTestFinished,
+  }) => {
     const { cookie, row } = await signIn("gesperrt@example.org");
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    t.mock.method(globalThis, "fetch", () => Promise.resolve(Response.json({ ...HOLDS_NOTHING, gesperrt: true })));
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => Promise.resolve(Response.json({ ...HOLDS_NOTHING, gesperrt: true })));
+    onTestFinished(() => void fetched.mockRestore());
 
     assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
 
     arriveAs(cookie);
-    assert.equal(await getSignInDestination(), "/signin");
-    assert.equal(await getSubjectSession(), null);
-    assert.equal(await getKontoSession(), null);
+    expect(await getSignInDestination()).toBe("/signin");
+    expect(await getSubjectSession()).toBe(null);
+    expect(await getKontoSession()).toBe(null);
   });
 
   it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
@@ -528,106 +527,8 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     const answer = await visit(ADMIN_URL, cookie);
 
     assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
-    assert.equal(row.createdAt.getTime(), signedIn.getTime(), "the slide moved the stamp both the cap and the step-up are judged from");
+    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the step-up are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
-    assert.equal(await getAdminSession(), null, "a slid session outlived the administrator's cap");
-  });
-});
-
-/** The browser surface Next's action client touches while it loads and while it reads one answer. */
-function browserGlobals(answer: Response): Record<string, unknown> {
-  return {
-    window: globalThis,
-    location: new URL(ADMIN_URL),
-    document: { documentElement: { dataset: {}, removeAttribute: () => {} } },
-    addEventListener: () => {},
-    // The development build of Next's vendored Flight client reads this at module scope.
-    __webpack_require__: { u: () => "" },
-    fetch: async () => answer,
-  };
-}
-
-/**
- * Runs Next's installed action client against one answer and reports where it left the router.
- *
- * A probe of a PRIVATE path, bought for what no assertion over the proxy's own answer shows: that
- * the header is read at all.
- */
-async function dispatchAgainst(answer: Response): Promise<{ canonicalUrl: string; documentNavigation: boolean; rejection: unknown }> {
-  const globals = browserGlobals(answer);
-  const previous = new Map(Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globalThis, globals);
-
-  try {
-    const { serverActionReducer } = await import("next/dist/client/components/router-reducer/reducers/server-action-reducer.js");
-
-    let rejection: unknown = null;
-    const state = {
-      canonicalUrl: new URL(ADMIN_URL).pathname,
-      tree: ["", { children: ["__PAGE__", {}] }, null, null, true],
-      nextUrl: null,
-      previousNextUrl: null,
-      pushRef: { pendingPush: false, mpaNavigation: false, preserveCustomHistoryState: true },
-      renderedSearch: "",
-      focusAndScrollRef: {},
-      cache: null,
-    } as unknown as Parameters<typeof serverActionReducer>[0];
-
-    const next = await serverActionReducer(state, {
-      type: "server-action",
-      actionId: ACTION_ID.padEnd(42, "0"),
-      actionArgs: [],
-      resolve: () => {},
-      reject: (reason: unknown) => {
-        rejection = reason;
-      },
-    });
-
-    return { canonicalUrl: next.canonicalUrl, documentNavigation: next.pushRef.mpaNavigation, rejection };
-  } finally {
-    for (const [key, descriptor] of previous) {
-      if (descriptor === undefined) Reflect.deleteProperty(globalThis, key);
-      else Object.defineProperty(globalThis, key, descriptor);
-    }
-  }
-}
-
-describe("what Next's own action client does with the proxy's answer to a signed-out action", () => {
-  // The header is Next's rather than a documented contract, so this is what fails when an upgrade
-  // stops reading it: the proxy cases above would still pass.
-  it("leaves the editor for `/signin` on the answer the proxy gives", async () => {
-    const outcome = await dispatchAgainst(await callProxy({ method: "POST", action: true }));
-
-    assert.equal(outcome.canonicalUrl, "/signin");
-    assert.equal(outcome.documentNavigation, true);
-    assert.match(String((outcome.rejection as Error | null)?.message), /^NEXT_REDIRECT/, "the awaiting save is not released as a redirect");
-  });
-
-  // Proves the case above can fail: the same client, handed the proxy's page redirect, throws.
-  it("throws on the 307 a page request gets, which is why an action's POST never gets one", async () => {
-    const outcome = await dispatchAgainst(await callProxy({ method: "HEAD", action: true }));
-
-    assert.equal(outcome.documentNavigation, false);
-    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
-  });
-});
-
-describe("what Next's own action client does with the edge's own 429", () => {
-  // The frontend's answer to a press the edge refused rests on this reading
-  // (`fl_frontend/src/shared/utils/actionError.ts :: EDGE_REFUSAL_BODY`): an upgrade dropping it fails here.
-  it("rejects the awaiting action with the body as its message, under exactly `text/plain`", async () => {
-    const outcome = await dispatchAgainst(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } }));
-
-    assert.equal(outcome.documentNavigation, false);
-    assert.equal((outcome.rejection as Error | null)?.message, EDGE_REFUSAL_BODY);
-  });
-
-  // Proves the case above can fail, and why the edge sends no charset: Next compares the type whole.
-  it("reads the same body as its generic failure once a charset rides on the type", async () => {
-    const outcome = await dispatchAgainst(
-      new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain; charset=utf-8" } }),
-    );
-
-    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
+    expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });
 });

@@ -81,7 +81,7 @@ function aSideIsOffTheDraw(spiel: FLSpiel): boolean {
  * `REQ-SPIELPLAN-005`'s own count. Wider than `hasTakenPlace`: every `sonderereignis` closes the
  * replace, and so does anything the draw did not write. A date does not.
  */
-export function holdsARecordedFact(spiel: FLSpiel): boolean {
+function holdsARecordedFact(spiel: FLSpiel): boolean {
   // EVERY `sonderereignis`, the two cancellations included. This asks what has been ENTERED against
   // the fixture rather than what it awards, which is why `hasTakenPlace`'s narrower set is wrong here.
   if (spiel.ergebnis !== null || spiel.sonderereignis !== null) return true;

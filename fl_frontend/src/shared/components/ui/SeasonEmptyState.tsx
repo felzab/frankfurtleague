@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/EmptyState` replaces it.
+
 import { EmptyState } from "./EmptyState";
 
 /**

@@ -12,8 +12,7 @@ type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged" | "nach">;
 export type LoeschungLauf =
   (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "verbleibend"> & { abgebrochen: true; fehler: unknown });
 
-// A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one
-// (`fl_frontend/src/shared/testing/stepUpWrites.ts`).
+// A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
 /**
  * One pass, each call handed the `nach` the call before it answered. Settles rather than throws, so a caller words
  * what the calls before a failure erased.
@@ -44,7 +43,7 @@ export async function loeschungLaufen(lauf: (nach: string | null) => Promise<FLL
       };
 
       // A place not past the one sent would loop for ever, the hourly pass skipping every tick behind it; fixed-length
-      // hex compares in id order (`docs/backend/spec.md :: I717`).
+      // hex compares in id order.
       if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
         throw new ContractBreakError("The deletion answered a place not past the one it was sent.");
       }

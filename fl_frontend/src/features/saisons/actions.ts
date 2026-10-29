@@ -60,7 +60,7 @@ function invalidateSaisonAndTable(): void {
  * season id to invalidate more narrowly by.
  */
 function invalidateRollover(): void {
-  // `spieler`: a squad read naming a club and no season answers for the running one (`docs/backend/spec.md :: I4`).
+  // `spieler`: a squad read naming a club and no season answers for the running one.
   invalidatesOnWrite("saisons", "spiele", "spieltage", "teams", "spieler");
 }
 
@@ -107,7 +107,7 @@ export async function postSaisonAction(
       success: true,
       created_id: postOperation.created_id,
       // The id is the body's rather than the title's: a title names the outcome, and the
-      // description tells one raising from another (`docs/frontend/spec.md :: I42`).
+      // description tells one raising from another.
       message: `Saison ${validated.data.id} wird erst mit der Umstellung zur laufenden Saison.`,
     };
   });
@@ -214,7 +214,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 
 /**
  * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
- * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week (`docs/frontend/spec.md :: I694`).
+ * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week.
  */
 async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
@@ -279,7 +279,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Both layers (`docs/frontend/spec.md` §1.4).
+    // Both layers.
     const saisonId = validated.data.saison_id;
     invalidatesOnWrite("teams", `teams:saison_id:${saisonId}`, "spiele", `spiele:saison_id:${saisonId}`);
     let swapOperation;
@@ -313,7 +313,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 /**
  * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **`replace` deletes
  * the season's matchdays and fixtures and draws fresh ones** (`REQ-SPIELPLAN-005`), and nothing
- * writes them back (`docs/backend/spec.md :: I26`).
+ * writes them back.
  */
 export async function generateSpielplanAction(
   rawPayload: FLGenerateSpielplanPayload,
@@ -326,8 +326,7 @@ export async function generateSpielplanAction(
     }
 
     invalidateSpielplan(validated.data.id);
-    // The replacing draw alone is a step-up write: a first draw the undraw removes whole
-    // (`docs/frontend/spec.md :: I432`).
+    // The replacing draw alone is a step-up write: a first draw the undraw removes whole.
     const unconfirmed = validated.data.replace === true ? refuseUnconfirmed(session) : null;
     if (unconfirmed !== null) return unconfirmed;
 
@@ -366,7 +365,7 @@ export async function generateSpielplanAction(
 
 /**
  * The one path back out of a draw, on `DELETE /saisons/{saison_id}/spielplan`. **Destructive without
- * an inverse** (`docs/backend/spec.md :: I26`): nothing writes the removed rows back, and a fresh
+ * an inverse**: nothing writes the removed rows back, and a fresh
  * draw draws its own.
  */
 export async function undrawSpielplanAction(

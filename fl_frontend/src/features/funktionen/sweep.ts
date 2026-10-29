@@ -34,7 +34,7 @@ type Zaehlung = {
  * Arms the account sweep for the life of this process.
  *
  * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built (`docs/ops/spec.md :: I149`).
+ * is built.
  */
 export function armKontoSweep(): void {
   const erster = setTimeout(() => void runKontoSweep(), SWEEP_START_DELAY_MS);
@@ -50,7 +50,7 @@ export function armKontoSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every sign-in account, deleting those no record references (`docs/frontend/spec.md :: I699`).
+ * One pass over every sign-in account, deleting those no record references.
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -105,7 +105,7 @@ async function sweepAlleKonten(): Promise<void> {
     }
   }
 
-  // Every completed pass, nothing being stored: this line is how "has it run" is answered (`docs/frontend/spec.md :: I700`).
+  // Every completed pass, nothing being stored: this line is how "has it run" is answered.
   // A warning where a failure kept accounts, so a level above INFO still shows a pass that judged none.
   if (zaehlung.fehlgeschlagen === 0) logger.info("konto.sweep_completed", zaehlung);
   else logger.warn("konto.sweep_completed", { error_code: "FE-SWEEP-003", ...zaehlung });

@@ -6,7 +6,7 @@ reported or you recall counts until it is re-established against the tree. Run t
 1 before anything else. The owner pastes it only in the fallback `USAGE.md` gives, with no register
 path.
 
-```
+```text
 Resume this session. Do not continue any work until you have finished this protocol.
 
 1. LOCATE THE REGISTER. Find it; never ask for its path:

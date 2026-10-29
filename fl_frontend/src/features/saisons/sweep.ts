@@ -25,7 +25,7 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
  * Arms the pupils' deletion for the life of this process.
  *
  * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built (`docs/ops/spec.md :: I149`).
+ * is built.
  */
 export function armLoeschungSweep(): void {
   const erster = setTimeout(() => void runLoeschungSweep(), SWEEP_START_DELAY_MS);
@@ -66,7 +66,7 @@ export async function runLoeschungSweep(): Promise<void> {
 async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
   // On every pass, one deleting nobody included: a press's call its deadline cut may delete in the backend after the
-  // press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I705`).
+  // press dropped this tag, and no pass's count shows those pupils.
   await revalidateOverLoopback(["spieler"]);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.

@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { readEinwilligungDocument } from "@/test-support/einwilligungDocument.ts";
+import { assert, describe, expect, it } from "vitest";
 
-import { readEinwilligungDocument } from "./einwilligungDocument.ts";
 import { EINWILLIGUNG_SEITEN } from "./einwilligungSeiten.ts";
 
 describe("the pages the consent client may ask for", () => {
@@ -11,6 +10,6 @@ describe("the pages the consent client may ask for", () => {
     const laufend = Object.keys(readEinwilligungDocument().laufende_fassungen);
 
     assert.ok(laufend.length > 0, "the artifact runs no page, so this compares nothing");
-    assert.deepEqual([...EINWILLIGUNG_SEITEN].sort(), [...laufend].sort());
+    expect([...EINWILLIGUNG_SEITEN].sort()).toStrictEqual([...laufend].sort());
   });
 });

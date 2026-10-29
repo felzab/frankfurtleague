@@ -46,8 +46,7 @@ class FLSperrlisteEintrag(BaseModel):
 class FLSperrlisteZeile(FLSperrlisteEintrag):
     """One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."""
 
-    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors
-    # (`docs/backend/spec.md :: I452`).
+    # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors.
     erstellt_von: CustomNonEmptyString | None
     erstellt_von_gesperrt: bool
 
@@ -58,7 +57,7 @@ class FLPostSperrlistePayload(BaseModel):
     # The one place an address reaches this slice. It is hashed at the endpoint and dropped there,
     # so nothing below this line has a plain address to store, log or echo.
     email: CustomEmail
-    # Stripped on the WRITE side alone (`docs/backend/spec.md :: I36`), and single-line because the
+    # Stripped on the WRITE side alone, and single-line because the
     # admin card renders it beside the author and the day.
     grund: Annotated[
         str,

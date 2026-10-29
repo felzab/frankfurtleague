@@ -1,9 +1,8 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { saisonRules } from "@/test-support/saisonRules.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import { FLPostSaisonPayloadSchema, MAX_QUALIFIERS } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
-import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import {
   drawGroupCountOptions,
@@ -64,7 +63,7 @@ describe("the group count offer", () => {
         // here: the team count bounds the qualifiers and never the groups.
         const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
 
-        assert.equal(row.refusal === null, saves(shape), `${String(groups)} groups qualifying ${String(qualifiers)}`);
+        expect(row.refusal === null, `${String(groups)} groups qualifying ${String(qualifiers)}`).toBe(saves(shape));
       }
     }
   });
@@ -90,11 +89,8 @@ describe("the group count offer", () => {
   it("keeps a stored group count the universe does not carry", () => {
     const rows = groupCountOptions({ groups: 3, qualifiers: 2, occupancy: NOBODY_ENTERED });
 
-    assert.deepEqual(
-      counts(rows),
-      [...GROUP_COUNT_UNIVERSE, 3].sort((first, second) => first - second),
-    );
-    assert.equal(refusalOf(rows, 3), SHAPE_REFUSAL_NOTE.noBracket);
+    expect(counts(rows)).toStrictEqual([...GROUP_COUNT_UNIVERSE, 3].sort((first, second) => first - second));
+    expect(refusalOf(rows, 3)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
   });
 });
 
@@ -107,7 +103,7 @@ describe("the qualifier count offer", () => {
         for (const row of qualifierCountOptions({ groups, qualifiers: 1, teams })) {
           const shape = { number_of_groups: groups, qualifiers_per_group: Number(row.id), teams_per_group: teams };
 
-          assert.equal(row.refusal === null, saves(shape), `${String(groups)} groups of ${String(teams)} qualifying ${row.id}`);
+          expect(row.refusal === null, `${String(groups)} groups of ${String(teams)} qualifying ${row.id}`).toBe(saves(shape));
         }
       }
     }
@@ -116,8 +112,19 @@ describe("the qualifier count offer", () => {
   /* An emptied team stepper has answered nothing, so it may not close a row: a banner about a rule
      nobody has typed yet reads as a fault the admin caused. */
   it("lets an unanswered team count close nothing", () => {
-    assert.equal(refusalOf(qualifierCountOptions({ groups: 2, qualifiers: 1, teams: null }), 8), null);
-    assert.equal(refusalOf(qualifierCountOptions({ groups: 2, qualifiers: 1, teams: 2 }), 8), SHAPE_REFUSAL_NOTE.overQualifies);
+    expect(refusalOf(qualifierCountOptions({ groups: 2, qualifiers: 1, teams: null }), 8)).toBe(null);
+    expect(refusalOf(qualifierCountOptions({ groups: 2, qualifiers: 1, teams: 2 }), 8)).toBe(SHAPE_REFUSAL_NOTE.overQualifies);
+  });
+
+  /* The qualifier counts are powers of two, so the loops above meet no count exactly one past the
+     group's size, which is where a bound off by one opens a row the create refuses: a group of three
+     qualifying four. */
+  it("closes a qualifier count one past the group's size, which a create refuses", () => {
+    const shape = { number_of_groups: 1, qualifiers_per_group: 4, teams_per_group: 3 };
+
+    expect(saves(shape), "the create takes four qualifiers from a group of three, so the row below may stand open").toBe(false);
+    expect(refusalOf(qualifierCountOptions({ groups: 1, qualifiers: 1, teams: 3 }), 4)).toBe(SHAPE_REFUSAL_NOTE.overQualifies);
+    expect(refusalOf(qualifierCountOptions({ groups: 1, qualifiers: 1, teams: 4 }), 4)).toBe(null);
   });
 
   /* The stored-count case on this side. Its note is whichever rule shuts it, which here is the group
@@ -125,11 +132,8 @@ describe("the qualifier count offer", () => {
   it("keeps a stored qualifier count the universe does not carry", () => {
     const rows = qualifierCountOptions({ groups: 2, qualifiers: 3, teams: MAX_TEAMS_PER_GROUP });
 
-    assert.deepEqual(
-      counts(rows),
-      [...SHAPE_COUNT_UNIVERSE, 3].sort((first, second) => first - second),
-    );
-    assert.equal(refusalOf(rows, 3), SHAPE_REFUSAL_NOTE.noBracket);
+    expect(counts(rows)).toStrictEqual([...SHAPE_COUNT_UNIVERSE, 3].sort((first, second) => first - second));
+    expect(refusalOf(rows, 3)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
   });
 });
 
@@ -137,9 +141,8 @@ describe("what a closed row says", () => {
   /* Two notes for `REQ-RULES-001` and not one: a bracket too large comes down and one too small goes
      up, and the note is the whole of what tells a reader which way to move. */
   it("parts a bracket that is too small from one that is too large", () => {
-    assert.equal(refusalOf(groupCountOptions({ groups: 1, qualifiers: 1, occupancy: NOBODY_ENTERED }), 1), SHAPE_REFUSAL_NOTE.noBracket);
-    assert.equal(
-      refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MAX_TEAMS_PER_GROUP }), 2),
+    expect(refusalOf(groupCountOptions({ groups: 1, qualifiers: 1, occupancy: NOBODY_ENTERED }), 1)).toBe(SHAPE_REFUSAL_NOTE.noBracket);
+    expect(refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MAX_TEAMS_PER_GROUP }), 2)).toBe(
       SHAPE_REFUSAL_NOTE.bracketTooLarge,
     );
   });
@@ -147,8 +150,7 @@ describe("what a closed row says", () => {
   /* `REQ-RULES-007` ahead of `REQ-RULES-001`, as `find_rules_refusal` judges them: name the bracket
      here and the reader is sent to a number that is not what shut the row. */
   it("names the group's own size where both rules would close a row", () => {
-    assert.equal(
-      refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MIN_TEAMS_PER_GROUP }), 4),
+    expect(refusalOf(qualifierCountOptions({ groups: MAX_GROUPS, qualifiers: 1, teams: MIN_TEAMS_PER_GROUP }), 4)).toBe(
       SHAPE_REFUSAL_NOTE.overQualifies,
     );
   });
@@ -159,23 +161,23 @@ describe("the team count", () => {
   it("is bounded where the schema bounds it", () => {
     const held = (teams: number) => ({ number_of_groups: 2, qualifiers_per_group: 2, teams_per_group: teams });
 
-    assert.equal(saves(held(MIN_TEAMS_PER_GROUP)), true);
-    assert.equal(saves(held(MIN_TEAMS_PER_GROUP - 1)), false);
-    assert.equal(saves(held(MAX_TEAMS_PER_GROUP)), true);
-    assert.equal(saves(held(MAX_TEAMS_PER_GROUP + 1)), false);
+    expect(saves(held(MIN_TEAMS_PER_GROUP))).toBe(true);
+    expect(saves(held(MIN_TEAMS_PER_GROUP - 1))).toBe(false);
+    expect(saves(held(MAX_TEAMS_PER_GROUP))).toBe(true);
+    expect(saves(held(MAX_TEAMS_PER_GROUP + 1))).toBe(false);
   });
 
   it("takes its floor from the qualifiers, so a group cannot be sent below what it qualifies", () => {
-    assert.equal(teamsPerGroupFloor({ qualifiers: 8, held: MAX_TEAMS_PER_GROUP, occupancy: NOBODY_ENTERED }), 8);
-    assert.equal(teamsPerGroupFloor({ qualifiers: 1, held: MAX_TEAMS_PER_GROUP, occupancy: NOBODY_ENTERED }), MIN_TEAMS_PER_GROUP);
-    assert.equal(teamsPerGroupFloor({ qualifiers: 8, held: null, occupancy: NOBODY_ENTERED }), 8);
+    expect(teamsPerGroupFloor({ qualifiers: 8, held: MAX_TEAMS_PER_GROUP, occupancy: NOBODY_ENTERED })).toBe(8);
+    expect(teamsPerGroupFloor({ qualifiers: 1, held: MAX_TEAMS_PER_GROUP, occupancy: NOBODY_ENTERED })).toBe(MIN_TEAMS_PER_GROUP);
+    expect(teamsPerGroupFloor({ qualifiers: 8, held: null, occupancy: NOBODY_ENTERED })).toBe(8);
   });
 
-  /* A season stored over-qualifying keeps saving its other fields (`docs/backend/spec.md :: I44`), so
+  /* A season stored over-qualifying keeps saving its other fields, so
      the floor is what bends: react-stately's snap would otherwise show a number the payload does not
      carry. */
   it("never puts its floor above the value the draft holds", () => {
-    assert.equal(teamsPerGroupFloor({ qualifiers: 8, held: 4, occupancy: NOBODY_ENTERED }), 4);
+    expect(teamsPerGroupFloor({ qualifiers: 8, held: 4, occupancy: NOBODY_ENTERED })).toBe(4);
   });
 });
 
@@ -185,12 +187,12 @@ describe("what the season's own groups close", () => {
   it("closes a group count that would stop running a group holding clubs", () => {
     const rows = groupCountOptions({ groups: 4, qualifiers: 2, occupancy: { A: 4, B: 4, C: 4, D: 4 } });
 
-    assert.equal(refusalOf(rows, 1), SHAPE_REFUSAL_NOTE.groupsInUse);
-    assert.equal(refusalOf(rows, 2), SHAPE_REFUSAL_NOTE.groupsInUse);
-    assert.equal(refusalOf(rows, 4), null, "the count the clubs are entered in is closed");
+    expect(refusalOf(rows, 1)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
+    expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
+    expect(refusalOf(rows, 4), "the count the clubs are entered in is closed").toBe(null);
     // Raising strands nobody, which is why `find_rules_refusal` reads the direction: a count above
     // the entries offers empty groups the PATCH takes.
-    assert.equal(refusalOf(rows, 8), null, "raising the count is refused as a stranding");
+    expect(refusalOf(rows, 8), "raising the count is refused as a stranding").toBe(null);
   });
 
   /* The other half of the same rule, and the one an offer over the occupied groups alone gets wrong:
@@ -199,7 +201,7 @@ describe("what the season's own groups close", () => {
     const rows = groupCountOptions({ groups: 4, qualifiers: 2, occupancy: { A: 4 } });
 
     for (const count of GROUP_COUNT_UNIVERSE)
-      assert.notEqual(refusalOf(rows, count), SHAPE_REFUSAL_NOTE.groupsInUse, `${String(count)} groups is closed as a stranding`);
+      expect(refusalOf(rows, count), `${String(count)} groups is closed as a stranding`).not.toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
   /* `find_rules_refusal` judges `REQ-RULES-001` before `REQ-RULES-002`, and the note is the whole of
@@ -207,7 +209,7 @@ describe("what the season's own groups close", () => {
   it("names the bracket where both that rule and the occupancy would close a row", () => {
     const rows = groupCountOptions({ groups: 1, qualifiers: MAX_QUALIFIERS, occupancy: { A: 2, B: 2, C: 2 } });
 
-    assert.equal(refusalOf(rows, 2), SHAPE_REFUSAL_NOTE.bracketTooLarge);
+    expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.bracketTooLarge);
   });
 
   /* The stored-shape case for occupancy. Drop the row and the trigger shows a count the list denies;
@@ -215,20 +217,20 @@ describe("what the season's own groups close", () => {
   it("keeps the count the season stands on, at its place and closed", () => {
     const rows = groupCountOptions({ groups: 2, qualifiers: 2, occupancy: { A: 4, B: 4, C: 1 } });
 
-    assert.deepEqual(counts(rows), [...GROUP_COUNT_UNIVERSE]);
-    assert.equal(refusalOf(rows, 2), SHAPE_REFUSAL_NOTE.groupsInUse);
+    expect(counts(rows)).toStrictEqual([...GROUP_COUNT_UNIVERSE]);
+    expect(refusalOf(rows, 2)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
   });
 
   /* `REQ-RULES-003` from the fullest group, which is the figure `find_rules_refusal` weighs a lowered
      count against. */
   it("takes the team count's floor from the fullest group as well", () => {
-    assert.equal(teamsPerGroupFloor({ qualifiers: 2, held: MAX_TEAMS_PER_GROUP, occupancy: { A: 5, B: 9 } }), 9);
+    expect(teamsPerGroupFloor({ qualifiers: 2, held: MAX_TEAMS_PER_GROUP, occupancy: { A: 5, B: 9 } })).toBe(9);
   });
 
   /* The floor bends for the season's own value here too: react-stately's snap would otherwise show a
      number the payload does not carry (`teamsPerGroupFloor`). */
   it("never puts the fullest group's floor above the value the draft holds", () => {
-    assert.equal(teamsPerGroupFloor({ qualifiers: 2, held: 4, occupancy: { A: 9 } }), 4);
+    expect(teamsPerGroupFloor({ qualifiers: 2, held: 4, occupancy: { A: 9 } })).toBe(4);
   });
 });
 
@@ -238,11 +240,11 @@ describe("the draw's own offer", () => {
   it("closes every group count the entries do not fit exactly", () => {
     const rows = drawGroupCountOptions({ groups: 2, qualifiers: 2, teams: 4, occupancy: { A: 4, B: 4 } });
 
-    assert.equal(refusalOf(rows, 2), null, "the shape the entries fit is closed");
-    assert.equal(refusalOf(rows, 1), SHAPE_REFUSAL_NOTE.groupsInUse);
+    expect(refusalOf(rows, 2), "the shape the entries fit is closed").toBe(null);
+    expect(refusalOf(rows, 1)).toBe(SHAPE_REFUSAL_NOTE.groupsInUse);
     // Four groups of four from eight clubs: the two groups the count adds hold nobody, and a group off
     // its size draws a different number of fixtures.
-    assert.equal(refusalOf(rows, 4), SHAPE_REFUSAL_NOTE.gruppenOffSize);
+    expect(refusalOf(rows, 4)).toBe(SHAPE_REFUSAL_NOTE.gruppenOffSize);
   });
 
   /* The order the two endpoints part on: the draw runs `find_spielplan_refusal` first, so occupancy
@@ -251,8 +253,8 @@ describe("the draw's own offer", () => {
     const occupancy = { A: 4, B: 4 };
     const fits = { groups: 2, qualifiers: 2, teams: 4 };
 
-    assert.equal(refusalOf(drawGroupCountOptions({ ...fits, occupancy }), MAX_GROUPS), SHAPE_REFUSAL_NOTE.gruppenOffSize);
-    assert.equal(refusalOf(groupCountOptions({ groups: 2, qualifiers: 2, occupancy }), MAX_GROUPS), SHAPE_REFUSAL_NOTE.bracketTooLarge);
+    expect(refusalOf(drawGroupCountOptions({ ...fits, occupancy }), MAX_GROUPS)).toBe(SHAPE_REFUSAL_NOTE.gruppenOffSize);
+    expect(refusalOf(groupCountOptions({ groups: 2, qualifiers: 2, occupancy }), MAX_GROUPS)).toBe(SHAPE_REFUSAL_NOTE.bracketTooLarge);
   });
 
   /* The draw runs `find_rules_refusal` too, on its `stored=None` reading, so a shape the entries fit
@@ -265,7 +267,7 @@ describe("the draw's own offer", () => {
       const shape = { number_of_groups: groups, qualifiers_per_group: 2, teams_per_group: MIN_TEAMS_PER_GROUP };
       const refusal = refusalOf(drawGroupCountOptions({ groups, qualifiers: 2, teams: MIN_TEAMS_PER_GROUP, occupancy }), groups);
 
-      assert.equal(refusal === null, saves(shape), `${String(groups)} groups of ${String(MIN_TEAMS_PER_GROUP)}`);
+      expect(refusal === null, `${String(groups)} groups of ${String(MIN_TEAMS_PER_GROUP)}`).toBe(saves(shape));
     }
   });
 });
@@ -295,7 +297,7 @@ describe("the draw's refusal over the groups the season's clubs stand in", () =>
       }
     }
 
-    assert.deepEqual(open, [...DRAWABLE]);
+    expect(open).toStrictEqual([...DRAWABLE]);
   });
 
   /* `find_spielplan_refusal`'s own edges, each on one side of the line: EXACTLY the count in every
@@ -304,23 +306,23 @@ describe("the draw's refusal over the groups the season's clubs stand in", () =>
   it("judges each group against the count exactly, and names the size ahead of a stranded club", () => {
     const twoGroupsOfFour = (occupancy: SaisonGruppenOccupancy) => drawGruppenRefusal({ groups: 2, teams: 4, occupancy });
 
-    assert.equal(twoGroupsOfFour({ A: 4, B: 4 }), null);
-    assert.equal(twoGroupsOfFour({ A: 4 }), "gruppenOffSize", "an empty offered group is drawn as if it fitted");
-    assert.equal(twoGroupsOfFour({ A: 4, B: 3 }), "gruppenOffSize", "a group one short of the count is drawn");
-    assert.equal(twoGroupsOfFour({ A: 5, B: 4 }), "gruppenOffSize", "a group one over the count is drawn");
-    assert.equal(twoGroupsOfFour({ A: 4, B: 4, C: 1 }), "groupsInUse", "a club outside the offered groups is drawn into nothing");
-    assert.equal(twoGroupsOfFour({ A: 4, B: 4, C: 0 }), null, "a group the season does not run strands nobody while it holds nobody");
-    assert.equal(twoGroupsOfFour({ A: 3, B: 4, C: 1 }), "gruppenOffSize", "the stranded club is named ahead of the group off its size");
+    expect(twoGroupsOfFour({ A: 4, B: 4 })).toBe(null);
+    expect(twoGroupsOfFour({ A: 4 }), "an empty offered group is drawn as if it fitted").toBe("gruppenOffSize");
+    expect(twoGroupsOfFour({ A: 4, B: 3 }), "a group one short of the count is drawn").toBe("gruppenOffSize");
+    expect(twoGroupsOfFour({ A: 5, B: 4 }), "a group one over the count is drawn").toBe("gruppenOffSize");
+    expect(twoGroupsOfFour({ A: 4, B: 4, C: 1 }), "a club outside the offered groups is drawn into nothing").toBe("groupsInUse");
+    expect(twoGroupsOfFour({ A: 4, B: 4, C: 0 }), "a group the season does not run strands nobody while it holds nobody").toBe(null);
+    expect(twoGroupsOfFour({ A: 3, B: 4, C: 1 }), "the stranded club is named ahead of the group off its size").toBe("gruppenOffSize");
   });
 });
 
 describe("whether the clubs fit any shape the draw offers", () => {
   /* Judged through `drawGruppenRefusal` at every offered count, so a fit here is a count the boxes can reach. */
   it("answers by the same refusal every offered count is judged by", () => {
-    assert.equal(fitsAnOfferedShape({ A: 4, B: 4 }), true);
-    assert.equal(fitsAnOfferedShape({ A: 3, B: 3, C: 3, D: 3 }), true);
-    assert.equal(fitsAnOfferedShape({ A: 4, B: 3 }), false, "groups of unequal size are fitted by some count");
-    assert.equal(fitsAnOfferedShape({ A: 4, B: 4, C: 4 }), false, "three groups are offered");
+    expect(fitsAnOfferedShape({ A: 4, B: 4 })).toBe(true);
+    expect(fitsAnOfferedShape({ A: 3, B: 3, C: 3, D: 3 })).toBe(true);
+    expect(fitsAnOfferedShape({ A: 4, B: 3 }), "groups of unequal size are fitted by some count").toBe(false);
+    expect(fitsAnOfferedShape({ A: 4, B: 4, C: 4 }), "three groups are offered").toBe(false);
   });
 });
 
@@ -334,13 +336,12 @@ describe("the draw's refusal over a replace's three numbers", () => {
       ...over,
     });
 
-    assert.equal(drawShapeRefusal({ shape: shape({}), occupancy: { A: 4, B: 4 } }), null);
-    assert.equal(
-      drawShapeRefusal({ shape: shape({ teams_per_group: 5, qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } }),
+    expect(drawShapeRefusal({ shape: shape({}), occupancy: { A: 4, B: 4 } })).toBe(null);
+    expect(drawShapeRefusal({ shape: shape({ teams_per_group: 5, qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe(
       "gruppenOffSize",
     );
-    assert.equal(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } }), "noBracket");
-    assert.equal(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 16 }), occupancy: { A: 4, B: 4 } }), "bracketTooLarge");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe("noBracket");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 16 }), occupancy: { A: 4, B: 4 } })).toBe("bracketTooLarge");
   });
 });
 
@@ -351,25 +352,22 @@ describe("the matchdays a replace's numbers imply", () => {
   it("counts an even group's round robin one short of its size, and an odd group's at its size", () => {
     const oneGroup = (teams: number): number => drawnSpieltage({ number_of_groups: 1, teams_per_group: teams, qualifiers_per_group: 1 });
 
-    assert.deepEqual([2, 3, 4, 5, 16].map(oneGroup), [1, 3, 3, 5, 15]);
+    expect([2, 3, 4, 5, 16].map(oneGroup)).toStrictEqual([1, 3, 3, 5, 15]);
   });
 
   it("adds one per knockout round, and none for a product no bracket takes", () => {
     const sixteenPerGroup = (groups: number, qualifiers: number): number =>
       drawnSpieltage({ number_of_groups: groups, teams_per_group: 16, qualifiers_per_group: qualifiers });
 
-    assert.deepEqual(
-      [
-        sixteenPerGroup(1, 1),
-        sixteenPerGroup(1, 2),
-        sixteenPerGroup(2, 2),
-        sixteenPerGroup(4, 2),
-        sixteenPerGroup(4, 4),
-        sixteenPerGroup(1, 3),
-        sixteenPerGroup(2, 16),
-      ],
-      [15, 16, 17, 18, 19, 15, 15],
-    );
+    expect([
+      sixteenPerGroup(1, 1),
+      sixteenPerGroup(1, 2),
+      sixteenPerGroup(2, 2),
+      sixteenPerGroup(4, 2),
+      sixteenPerGroup(4, 4),
+      sixteenPerGroup(1, 3),
+      sixteenPerGroup(2, 16),
+    ]).toStrictEqual([15, 16, 17, 18, 19, 15, 15]);
   });
 });
 
@@ -378,6 +376,6 @@ describe("the group cap", () => {
      ceiling is a third spelling of it. Let them part and the picker offers a season the create
      refuses outright. */
   it("is a group count a create saves", () => {
-    assert.equal(saves({ number_of_groups: MAX_GROUPS, qualifiers_per_group: 1, teams_per_group: MAX_TEAMS_PER_GROUP }), true);
+    expect(saves({ number_of_groups: MAX_GROUPS, qualifiers_per_group: 1, teams_per_group: MAX_TEAMS_PER_GROUP })).toBe(true);
   });
 });

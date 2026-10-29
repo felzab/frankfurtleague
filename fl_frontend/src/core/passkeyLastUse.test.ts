@@ -1,6 +1,3 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
 import {
   configDouble,
   cookieHeader,
@@ -10,8 +7,9 @@ import {
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-} from "./authDoubles.ts";
-import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
+} from "@/test-support/authDoubles.ts";
+import { assertionFor, COSE_KEY } from "@/test-support/testAuthenticator.ts";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 
@@ -74,7 +72,7 @@ async function overHttp(path: string, { cookie, body }: { cookie?: string; body?
 /** The whole ceremony a browser runs; `cookie` is a session the page already holds, as at a step-up. */
 async function assertPasskey(userVerified: boolean, cookie?: string): Promise<Response> {
   const offered = await overHttp("/passkey/generate-authenticate-options", { cookie });
-  assert.equal(offered.status, 200, await offered.clone().text());
+  expect(offered.status, await offered.clone().text()).toBe(200);
 
   const { challenge } = (await offered.json()) as { challenge: string };
   const challengeCookie = cookieHeader(offered);
@@ -120,10 +118,10 @@ describe("when a passkey was last used", () => {
 
     const answer = await assertPasskey(true);
 
-    assert.equal(answer.status, 200, await answer.clone().text());
+    expect(answer.status, await answer.clone().text()).toBe(200);
     const stamped = lastUse(asserted);
     assert.ok(stamped instanceof Date && stamped.getTime() >= before, "the asserted row carries no use from this sign-in");
-    assert.equal(lastUse(other), undefined, "a row nobody asserted was stamped as used");
+    expect(lastUse(other), "a row nobody asserted was stamped as used").toBe(undefined);
   });
 
   /* The step-up from a page already signed in runs the same verify route, and is as much a use. */
@@ -134,7 +132,7 @@ describe("when a passkey was last used", () => {
 
     const answer = await assertPasskey(true, cookieHeader(signedIn));
 
-    assert.equal(answer.status, 200, await answer.clone().text());
+    expect(answer.status, await answer.clone().text()).toBe(200);
     assert.ok(lastUse(asserted) instanceof Date, "the step-up left no use on the row");
   });
 
@@ -146,10 +144,10 @@ describe("when a passkey was last used", () => {
 
     const answer = await assertPasskey(true);
 
-    assert.equal(answer.status, 200, await answer.clone().text());
+    expect(answer.status, await answer.clone().text()).toBe(200);
     assert.ok(cookieHeader(answer) !== "", "the verified sign-in set no session cookie");
-    assert.equal(lastUse(asserted), undefined);
-    assert.deepEqual(warned, [["auth.passkey_last_use_failed", { error_code: "FE-AUTH-007", name: "Error" }]]);
+    expect(lastUse(asserted)).toBe(undefined);
+    expect(warned).toStrictEqual([["auth.passkey_last_use_failed", { error_code: "FE-AUTH-007", name: "Error" }]]);
   });
 
   /* A refused assertion signed nobody in, so a date here would tell the card's reader it had. */
@@ -158,7 +156,7 @@ describe("when a passkey was last used", () => {
 
     const answer = await assertPasskey(false);
 
-    assert.equal(answer.status, 400);
-    assert.equal(lastUse(asserted), undefined, "a refused assertion was stamped as a use");
+    expect(answer.status).toBe(400);
+    expect(lastUse(asserted), "a refused assertion was stamped as a use").toBe(undefined);
   });
 });

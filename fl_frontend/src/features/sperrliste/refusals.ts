@@ -21,14 +21,14 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
 });
 
 /**
- * No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12). Said alike where
+ * No repair sentence: the box carrying the message is itself the way out. Said alike where
  * the ban refuses a second ban and where the list's read finds one standing.
  */
 export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
 
 /**
- * One sentence about the value, in the erasure's words: the box is the way out, its hint asking for no name
- * (`docs/frontend/spec.md` §1.12). The refusal names no word and takes a common word equal to a name.
+ * One sentence about the value, in the erasure's words: the box is the way out, its hint asking for no name.
+ * The refusal names no word and takes a common word equal to a name.
  */
 const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
 

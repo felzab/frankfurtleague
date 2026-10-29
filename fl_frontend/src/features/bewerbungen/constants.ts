@@ -88,7 +88,7 @@ export const BEWERBUNG_STUFENGROESSE_MAX = 999;
 
 /**
  * The span a contact person's birthdate has to fall in, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py` (`docs/backend/spec.md :: I180`). The ceiling refuses a
+ * `fl_backend/app/shared/schemas/bounds.py`. The ceiling refuses a
  * mistyped century rather than a real age, and no other date in an application gains a bound.
  */
 export const BEWERBUNG_MIN_ALTER = 16;
@@ -136,8 +136,7 @@ export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
 
 /**
  * How many ids one sweep pass sends back, restated from
- * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
- * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
+ * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS`.
  */
 export const DELETIONS_LISTED_PER_PASS = 83;
 

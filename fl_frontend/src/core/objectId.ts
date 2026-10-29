@@ -6,8 +6,7 @@
 
 import z from "zod";
 
-// Named rather than written into the schema below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS`
-// can hold it against the backend's own rule for an id.
+// Named rather than written into the schema below.
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
 export const CustomObjectIdStringSchema = z.string().regex(OBJECT_ID_REGEX, {

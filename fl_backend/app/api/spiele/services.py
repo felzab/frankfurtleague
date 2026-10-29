@@ -142,8 +142,7 @@ _TEAM_ZUGESTIMMT = "team_zugestimmt"
 def _confirmations_lookup() -> Mapping[str, Any]:
     """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.stand`.
 
-    No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close
-    (`docs/backend/spec.md :: I763`).
+    No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close.
     """
 
     aktuell = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
@@ -206,7 +205,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
 
 
 def _ansetzung_bestaetigt() -> Mapping[str, Any]:
-    """Three-valued, `None` never folding into `False`, which marks the card provisional (`docs/backend/spec.md :: I763`).
+    """Three-valued, `None` never folding into `False`, which marks the card provisional.
 
     A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither; a discarded
     proposal as its club's agreement.
@@ -264,7 +263,7 @@ def _referee_lookup() -> Mapping[str, Any]:
 def _einsatz_bestaetigt() -> Mapping[str, Any]:
     """`True` only where the booked referee's open rows, else their latest answer, agree to the Ansetzung as it stands.
 
-    Never three-valued: a booking the pass has not reached would publish its referee (`docs/backend/spec.md :: I781`).
+    Never three-valued: a booking the pass has not reached would publish its referee.
     """
 
     own_rows = {
@@ -333,7 +332,7 @@ def build_spiele_pipeline(
     sort_by: Sequence[tuple[str, int]] | None = None,
     limit: int | None = None,
 ) -> list[Mapping[str, Any]]:
-    """Every match read runs this; the withdrawal joins on each document's OWN `saison_id` (`docs/backend/spec.md :: I32`).
+    """Every match read runs this; the withdrawal joins on each document's OWN `saison_id`.
 
     Both spellings are projected and each read model declares the one it serves: the document is
     the data, the model the allow-list.
@@ -513,7 +512,7 @@ class _BracketWalk:
 def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
     """The round this season's bracket opens on, or `None` where it plays none.
 
-    Off the rounds the season HOLDS rather than a phase name (`docs/backend/spec.md :: I27`): four
+    Off the rounds the season HOLDS rather than a phase name: four
     qualifiers open at the Halbfinale, two at the Finale.
     """
 
@@ -523,7 +522,7 @@ def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
 
 
 def _sources_feeding_two_fixtures(spiele: Iterable[FLSpielCommon]) -> frozenset[tuple[Any, ...]]:
-    """Every source whose slots span more than one fixture (`docs/backend/spec.md :: I27`).
+    """Every source whose slots span more than one fixture.
 
     A source feeding both sides of ONE fixture is `same_team`'s, so widening this would report one
     slot twice.
@@ -631,7 +630,7 @@ def _occupant_of(
 
         source = walk.by_nr[quelle.spiel_nr]
 
-        # A group match is no bracket edge (`docs/backend/spec.md :: I27`): its winner is the table's
+        # A group match is no bracket edge: its winner is the table's
         # answer, and a group draw states no winner at all.
         if source.saison_phase == "gruppenphase":
             walk.faults.append(
@@ -640,7 +639,7 @@ def _occupant_of(
             return stored, False
 
         # Every edge points at a strictly earlier round, which is also what makes a cycle
-        # inexpressible through the write path (`docs/backend/spec.md :: I27`).
+        # inexpressible through the write path.
         if PHASE_RANK[source.saison_phase] >= PHASE_RANK[spiel.saison_phase]:
             walk.faults.append(
                 FLBracketFaultQuelle(
@@ -709,7 +708,7 @@ def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
 
 
 def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamField | None:
-    """The side that came out of one match as `ausgang`. `sonderereignis` is not consulted (`docs/backend/spec.md :: I1a`)."""
+    """The side that came out of one match as `ausgang`. `sonderereignis` is not consulted."""
 
     spiel = walk.by_nr[spiel_nr]
     team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, walk)
@@ -725,8 +724,8 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
         return None
 
     if team1.tore == team2.tore:
-        # Read only here, so the bracket and the table disagree about this fixture on purpose
-        # (`docs/backend/spec.md :: I25a`). A group draw is final; that arm covers a hand edit.
+        # Read only here, so the bracket and the table disagree about this fixture on purpose.
+        # A group draw is final; that arm covers a hand edit.
         if spiel.saison_phase == "gruppenphase" or spiel.elfmeterschiessen is None:
             return None
 
@@ -818,7 +817,7 @@ def find_gruppen_not_run(spiele: Iterable[FLSpielCommon], *, number_of_groups: i
 class SaisonMembership:
     """One club's `saison_teams` row: the name this SEASON is played under, and the day the club left it.
 
-    The season's name rather than the club's (`docs/backend/spec.md :: I13`).
+    The season's name rather than the club's.
     """
 
     name: str
@@ -965,7 +964,7 @@ def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> Co
 
 
 def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules, resolved: ResolvedReferences) -> FLSpiel:
-    """Composed once for the save and its `dry_run` preview (`docs/backend/spec.md :: I29`).
+    """Composed once for the save and its `dry_run` preview.
 
     `rules` and `resolved` arrive as VALUES, keeping this module synchronous and collection-free: a
     forfeit from a constant could disagree with the season in play.
@@ -998,7 +997,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
 
 
 def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSpiel:
-    """The fixture under edit, from the caller's slice (`docs/backend/spec.md :: I108`).
+    """The fixture under edit, from the caller's slice.
 
     Absent means a truncated or wrong-season slice: the route has already read this `_id`. A
     refusal that permits what it cannot see is the wrong default.
@@ -1047,7 +1046,6 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     return None
 
 
-# What each code refuses is `docs/backend/spec.md` §1.4.
 ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
 ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
 SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
@@ -1195,8 +1193,7 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None,
     )
 
 
-# A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it
-# (`docs/backend/spec.md :: READ-REFEREE-006`).
+# A fixture whose referee block carries the record's id: never `FLSpielJoined`, whose block withholds it.
 type BookedFixture = FLSpiel | FLSpielJoinedAdmin
 
 
@@ -1348,7 +1345,7 @@ def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[Slo
 
     # The ghost claims nothing, where `find_new_bookings` beside this still names it: every erased
     # referee's fixtures share this one id, so two strangers' matches would read as one person
-    # double-booked (`docs/backend/spec.md :: I259`).
+    # double-booked.
     if held.schiedsrichter_id is not None and held.schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
         claims.append(SlotClaim("Schiedsrichter", "schiedsrichter.schiedsrichter_id", held.schiedsrichter_id, spiel.datum, spiel.uhrzeit))
 
@@ -1363,7 +1360,7 @@ def find_claims_made(stored: BookedFixture, payload: FLPatchSpielDataPayload) ->
 
     # A claim the fixture already made was in every rival's snapshot, or its maker anchored it. Judging
     # it again would refuse every save of a fixture a reopening left clashing, a note included, until
-    # somebody moves it (`docs/backend/spec.md :: I258`).
+    # somebody moves it.
     standing = set(find_slot_claims(stored))
 
     return [claim for claim in find_slot_claims(payload) if claim not in standing]
@@ -1476,7 +1473,7 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
 
 
 def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLBracketFaultOccupant]:
-    """Every fixture fielding a team that left the season, in every phase (`docs/backend/spec.md :: I28`)."""
+    """Every fixture fielding a team that left the season, in every phase."""
 
     faults: list[FLBracketFaultOccupant] = []
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
@@ -1554,7 +1551,7 @@ def find_retired_bookings(
     retired_venues: Mapping[CustomObjectId, str],
     retired_referees: Mapping[CustomObjectId, str],
 ) -> list[FLBracketFaultBooking]:
-    """`REQ-BOOKING-001`'s state on a fixture still to be played, wherever it got stored (`docs/backend/spec.md :: I257`)."""
+    """`REQ-BOOKING-001`'s state on a fixture still to be played, wherever it got stored."""
 
     faults: list[FLBracketFaultBooking] = []
 
@@ -1656,7 +1653,7 @@ class SpieltagVerdict:
 
 
 def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> SpieltagVerdict:
-    """Where this payload's teams already stand on the same Spieltag (`docs/backend/spec.md :: I30`)."""
+    """Where this payload's teams already stand on the same Spieltag."""
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1791,7 +1788,7 @@ def find_wiring_refusal(
     # accept a slot wired to a group the season does not run.
     number_of_groups: int,
 ) -> WriteRefusal | None:
-    """Why this patch's bracket wiring must be refused (`docs/backend/spec.md :: I27`) -- the WRITE PATH only."""
+    """Why this patch's bracket wiring must be refused -- the WRITE PATH only."""
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1818,7 +1815,7 @@ def find_wiring_refusal(
 
     for label, _, quelle, stored_quelle in sides:
         # The payload replaces the fixture wholesale, so a rule reading it alone would latch every
-        # later edit of a fixture already wired this way (`docs/backend/spec.md :: I44`).
+        # later edit of a fixture already wired this way.
         if quelle is None or quelle == stored_quelle:
             continue
 

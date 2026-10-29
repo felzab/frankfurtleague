@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
 import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 

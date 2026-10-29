@@ -53,7 +53,7 @@ export function DescriptionEditModal({
       heading="Beschreibung bearbeiten">
       <div className="flex w-full flex-col gap-y-6 px-2">
         {/* The field and its counter keep a rung of their own, so the column above them is free to
-            give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
+            give the band the distance a block in a column takes. */}
         <div className="flex w-full flex-col gap-y-4">
           <TextField
             aria-label="Beschreibung"
@@ -78,7 +78,7 @@ export function DescriptionEditModal({
 
         {/* `EntityForm`'s footer band, from the same constant, so every modal draws one boundary
             between what you fill in and what you press — and the action first, as in every dialog
-            footer (`docs/frontend/spec.md` §1.19). */}
+            footer. */}
         <div className={MODAL_FOOTER_ROW_CLASSES}>
           <Button
             type="button"

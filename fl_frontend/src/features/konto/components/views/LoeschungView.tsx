@@ -35,11 +35,11 @@ import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
 
 /** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
-export type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
+type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
 
 /**
  * What the page opens on. The token rides only where a press can spend it: a browser holding no session
- * completes nothing here, and is sent to sign in and open the link again (`docs/frontend/spec.md :: I677`).
+ * completes nothing here, and is sent to sign in and open the link again.
  */
 export type LoeschungStart =
   | { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht }
@@ -49,7 +49,7 @@ export type LoeschungStart =
 
 /**
  * A grant holder's windows as the page's render read them, with whose session that was: a confirmation
- * made once it has ended can sign another account in (`docs/frontend/spec.md :: I428`).
+ * made once it has ended can sign another account in.
  */
 export type GrantHolderStepUp = ConfirmedUntil & { readonly holderId: string };
 
@@ -142,7 +142,7 @@ function GrantHolderStepUpProvider({ served, children }: { served: GrantHolderSt
 
 /**
  * The interstitial a mailed deletion link opens: it restates what goes, and only a signed-in press destroys
- * it. `stepUp` is a grant holder's, whose press asks for the passkey first (`docs/frontend/spec.md :: I707`).
+ * it. `stepUp` is a grant holder's, whose press asks for the passkey first.
  */
 export function LoeschungView({ start, stepUp = null }: { start: LoeschungStart; stepUp?: GrantHolderStepUp | null }) {
   // Mounted for a person too: the refresh after a grant holder's deletion renders no grant, and a provider
@@ -203,7 +203,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
           </p>
 
           {/* No press the action would refuse: the last owner reads why, in the refusal's own words, and the link
-              stays unspent for when another owner is made (`docs/frontend/spec.md :: I708`). */}
+              stays unspent for when another owner is made. */}
           {stand.ansicht.letzter_inhaber ? (
             <p className={ABSATZ_CLASSES}>{LETZTE_INHABERIN}</p>
           ) : (

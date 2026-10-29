@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/HelpPopover` replaces it.
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
 import { Description } from "@heroui/react/description";
@@ -24,7 +25,6 @@ type HintBody = {
   /**
    * **Says what the thing is or does, in the league's words.** No justification, no mechanism, no
    * derivation: the reader runs a school football league, not this system.
-   * `docs/frontend/spec.md` §1.12 holds the whole standard.
    */
   lead: string;
   /**

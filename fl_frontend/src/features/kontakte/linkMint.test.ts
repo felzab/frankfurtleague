@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { describe, expect, it } from "vitest";
 
 import { kontakteMayMoveLinks } from "./linkMint.ts";
 
@@ -31,18 +29,18 @@ const block = (ansprechperson: FLKontaktpersonPayload | null, stellvertretung: F
   trainer_ist_zugleich: null,
 });
 
-/* A save that mints or voids a bearer link is a step-up write, and one moving no link keeps its undo
-   (`docs/frontend/spec.md :: I432`): each arm a passkey asked too often or a link moved unasked. */
+/* A save that mints or voids a bearer link is a step-up write, and one moving no link keeps its undo:
+   each arm a passkey asked too often or a link moved unasked. */
 describe("whether a contacts save may move a seat's link", () => {
   it("asks where a seat is filled, handed to another person, or emptied", () => {
-    assert.equal(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna@schule.example"), gesendet("Bernd", "b@schule.example"))), true);
-    assert.equal(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna.neu@schule.example"))), true);
-    assert.equal(kontakteMayMoveLinks(STORED, block(null)), true, "emptying a seat voids its person's link unasked");
+    expect(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna@schule.example"), gesendet("Bernd", "b@schule.example")))).toBe(true);
+    expect(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna.neu@schule.example")))).toBe(true);
+    expect(kontakteMayMoveLinks(STORED, block(null)), "emptying a seat voids its person's link unasked").toBe(true);
   });
 
   it("asks nothing where every seat keeps its person, a corrected telephone included", () => {
-    assert.equal(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna@schule.example", "069 999"))), false);
-    assert.equal(kontakteMayMoveLinks(null, block(null)), false);
+    expect(kontakteMayMoveLinks(STORED, block(gesendet("Anna", "anna@schule.example", "069 999")))).toBe(false);
+    expect(kontakteMayMoveLinks(null, block(null))).toBe(false);
   });
 
   /* A confirmed seat's own link is spent, but its links on the team's match confirmations that season, answered and
@@ -57,6 +55,6 @@ describe("whether a contacts save may move a seat's link", () => {
       },
     };
 
-    assert.equal(kontakteMayMoveLinks(bestaetigt, block(null)), true);
+    expect(kontakteMayMoveLinks(bestaetigt, block(null))).toBe(true);
   });
 });

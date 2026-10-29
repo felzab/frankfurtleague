@@ -1,11 +1,9 @@
-import assert from "node:assert/strict";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { readPublishedDocument, REGENERATE_CITATION } from "@/test-support/openapiDocument.ts";
+import { isZodSchema, schemaModules } from "@/test-support/schemaModules.ts";
+import { assert, describe, expect, it } from "vitest";
 import z from "zod";
-
-import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
-import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -94,7 +92,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   // so the request carries no body for FastAPI to describe.
   FLEinwilligungErneutPayload: "the re-send addresses its seat entirely in the path and sends no body",
   // The only alias here whose sole use site is a QUERY PARAMETER: no stored field carries the
-  // status, so the use-site test below and `apiRequests.test.ts` are together what pin its members.
+  // status, so the use-site test below is what pins its members.
   FLSpielStatus: "a Pydantic Literal alias, published inline on the spiel_status query parameter and on no component field",
 
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
@@ -142,7 +140,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
-  // One form creates the row and its junction: without one the club is invisible (backend spec I11).
+  // One form creates the row and its junction: without one the club is invisible.
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
   SchiedsrichterAbsage: "the decline action's own argument; the action wraps it in the answer's payload",
 };
@@ -187,8 +185,7 @@ type JsonSchema = Record<string, unknown>;
 
 /**
  * The whole of what is compared here. Patterns, floors and messages diverge by design, and
- * comparing validation policy produces failures nobody can act on; a published ceiling is compared
- * on its own (`fl_frontend/src/core/payloadBounds.test.ts`).
+ * comparing validation policy produces failures nobody can act on.
  */
 type FieldFacts = {
   required: boolean;
@@ -378,24 +375,22 @@ describe("every shape is paired or recorded", () => {
   it("pairs every published component with a Zod mirror, or records why none exists", () => {
     const unpaired = Object.keys(components).filter((name) => !mirrors.has(NAME_ALIASES[name] ?? name) && !(name in BACKEND_ONLY));
 
-    assert.deepEqual(
+    expect(
       unpaired,
-      [],
       `These backend components have no Zod mirror and no recorded reason:\n  ${unpaired.join("\n  ")}\n` +
         `Mirror each one the frontend reads, and add any other to BACKEND_ONLY in this file with the reason nothing reads it.`,
-    );
+    ).toStrictEqual([]);
   });
 
   it("pairs every Zod schema with a published component, or records why none exists", () => {
     const aliased = new Set(Object.values(NAME_ALIASES));
     const unpaired = [...mirrors.keys()].filter((name) => !(name in components) && !aliased.has(name) && !(name in FRONTEND_ONLY)).sort();
 
-    assert.deepEqual(
+    expect(
       unpaired,
-      [],
       `These Zod schemas have no backend component and no recorded reason:\n  ${unpaired.join("\n  ")}\n` +
         `Add it to FRONTEND_ONLY in this file with the reason no component can exist.`,
-    );
+    ).toStrictEqual([]);
   });
 
   // Both lists rot the other way too: a component that gains a mirror, or a schema that gains a
@@ -408,16 +403,14 @@ describe("every shape is paired or recorded", () => {
       .filter((name) => !mirrors.has(name) || name in components)
       .sort();
 
-    assert.deepEqual(
+    expect(
       deadBackend,
-      [],
       `These BACKEND_ONLY entries are dead -- the component is gone, or it now has a mirror:\n  ${deadBackend.join("\n  ")}`,
-    );
-    assert.deepEqual(
+    ).toStrictEqual([]);
+    expect(
       deadFrontend,
-      [],
       `These FRONTEND_ONLY entries are dead -- the schema is gone, or it now has a component:\n  ${deadFrontend.join("\n  ")}`,
-    );
+    ).toStrictEqual([]);
   });
 
   /* An alias exempted as "inlined at each use site" is compared only through those sites, so one
@@ -455,12 +448,11 @@ describe("every shape is paired or recorded", () => {
     // nothing and report nothing, which is the one failure a coverage test must not have.
     assert.ok(examined.length > 0, `No exempted schema resolved to a closed set, so this test compared nothing.`);
 
-    assert.deepEqual(
+    expect(
       uncompared,
-      [],
       `These exempted enum aliases appear at no published use site, so nothing compares their members:\n  ${uncompared.join("\n  ")}\n` +
         `Either the backend dropped the field, or the exemption's reason no longer describes what happens.`,
-    );
+    ).toStrictEqual([]);
   });
 
   /* The two sets have to overlap for the guard below to be capable of failing at all. Asserted
@@ -481,7 +473,9 @@ describe("every shape is paired or recorded", () => {
   it("reaches the failure bodies from the responses", () => {
     const unreached = ["FLFailureBody", "FLRefusedPayloadBody", "FLRefusedField"].filter((name) => !RESPONSE_REACHABLE.has(name));
 
-    assert.deepEqual(unreached, [], `These failure bodies are reached from no response, so they are compared as request shapes: ${unreached}`);
+    expect(unreached, `These failure bodies are reached from no response, so they are compared as request shapes: ${unreached}`).toStrictEqual(
+      [],
+    );
   });
 
   it("has no component reached from both a request and a response while carrying a default", () => {
@@ -492,7 +486,9 @@ describe("every shape is paired or recorded", () => {
       .filter(([, node]) => Object.values((node.properties ?? {}) as Record<string, JsonSchema>).some((p) => p.default !== undefined))
       .map(([name]) => name);
 
-    assert.deepEqual(ambiguous, [], `Reached from both directions and carrying a default, so "always on the wire" is ambiguous: ${ambiguous}`);
+    expect(ambiguous, `Reached from both directions and carrying a default, so "always on the wire" is ambiguous: ${ambiguous}`).toStrictEqual(
+      [],
+    );
   });
 });
 
@@ -512,17 +508,15 @@ describe("each pair agrees on the wire contract", () => {
         const backendRequired = [...((node.required ?? []) as string[])].sort();
         const mirrorRequired = [...((converted.required ?? []) as string[])].sort();
 
-        assert.deepEqual(
+        expect(
           mirrorKeys.map(String).sort(),
-          keyEnum.map(String).sort(),
           `${component} publishes keys [${keyEnum}] and ${mirror}Schema declares [${mirrorKeys}].`,
-        );
-        assert.deepEqual(
+        ).toStrictEqual(keyEnum.map(String).sort());
+        expect(
           mirrorRequired,
-          backendRequired,
           `${component} requires [${backendRequired}] of its keys and ${mirror}Schema requires [${mirrorRequired}]: ` +
             `one side guarantees a key the other takes as optional.`,
-        );
+        ).toStrictEqual(backendRequired);
         return;
       }
 
@@ -550,12 +544,11 @@ describe("each pair agrees on the wire contract", () => {
         }
       }
 
-      assert.deepEqual(
+      expect(
         problems,
-        [],
         `${component} and ${mirror}Schema (${mirrors.get(mirror)!.module}) disagree:\n  ${problems.join("\n  ")}\n` +
           `Change both sides in the same commit, then refresh the document with the command ${REGENERATE_CITATION} declares.`,
-      );
+      ).toStrictEqual([]);
     });
   }
 });

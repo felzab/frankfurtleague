@@ -52,10 +52,10 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
 
-export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
+const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
 /** The fixtures whose day has gone by, listed apart below the ones to come, which a season's past would bury. */
-export const VERGANGENE_EINSAETZE = "Vergangene Einsätze";
+const VERGANGENE_EINSAETZE = "Vergangene Einsätze";
 
 /** The place each answer's control holds in every open row, so an answered row hands the focus to the same control in the next. */
 const ZUSAGEN = "zusagen";
@@ -76,7 +76,7 @@ const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "succe
 
 /**
  * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
- * the last open row is answered, so the focus has somewhere to land (`docs/frontend/spec.md :: I536`).
+ * the last open row is answered, so the focus has somewhere to land.
  */
 export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelbst[] }) {
   const panel = formPanel();

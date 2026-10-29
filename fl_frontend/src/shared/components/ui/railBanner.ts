@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/Callout` replaces it.
+
 /**
  * One entry per situation, rendered in two places: the rail takes `resolveRailBanners`, a panel the entries whose
  * `inline` names its spot. An editor's `banners.ts` is the one authoring site, so the two cannot disagree.

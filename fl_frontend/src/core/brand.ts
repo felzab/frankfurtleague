@@ -14,7 +14,7 @@ export const VORSTAND = [
   { name: "Janosch Weiß", amt: "Schatzmeister", vorsitz: false },
 ] as const;
 
-/** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead (`docs/frontend/spec.md :: I186`). */
+/** The PUBLISHED origin, spelled once: a message's links stand on the serving one instead. */
 export const SITE_URL = "https://frankfurtleague.de";
 
 /** One spelling: the footer's mark, the contact page's channel row and the application page's invitation all press through to this. */
@@ -22,3 +22,6 @@ export const INSTAGRAM_URL = "https://www.instagram.com/frankfurt.league/";
 
 /** What a reader sees where the profile is named rather than worn as a mark. */
 export const INSTAGRAM_HANDLE = "@frankfurt.league";
+
+/** One spelling, as Instagram's: the footers' mark and the contact page's channel row. */
+export const THREADS_URL = "https://www.threads.com/@frankfurt.league";

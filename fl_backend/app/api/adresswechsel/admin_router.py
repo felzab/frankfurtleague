@@ -442,7 +442,7 @@ async def einladen_adresswechsel(
 
     The previous link stops working at once and the delivery state of the message it went out in goes with it; the
     deadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no
-    refusal while the change stands, which is until the next hourly pass ends it (`docs/backend/spec.md :: I693`). Acts
+    refusal while the change stands, which is until the next hourly pass ends it. Acts
     on the change the id names alone, so a page showing a change since replaced re-sends nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
@@ -550,7 +550,7 @@ async def delete_adresswechsel(
     """
     Discard the change this id names: its links open nothing to press, and the address on file stays.
 
-    **Its address goes from the action log too** (`docs/backend/spec.md :: I704`): every image the log holds of the change
+    **Its address goes from the action log too**: every image the log holds of the change
     loses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not
     bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
     alone, so a page showing a change since replaced discards nothing.

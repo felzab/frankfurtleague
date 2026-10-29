@@ -10,21 +10,20 @@ import type { NextRequest } from "next/server";
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
   // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
-  // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's
-  // (`docs/frontend/spec.md :: I122`).
+  // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
   if (sessionCookieOf(req.headers) === null) {
     // No return destination carried across: honouring one needs it checked against an allowlist first.
     return inBereich(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
   }
 
   try {
-    // Only here can a person who only reads slide their cookie with their row (`docs/frontend/spec.md :: I495`).
+    // Only here can a person who only reads slide their cookie with their row.
     // Its answer decides nothing: the library expires a cookie whose row is gone or expired, and the
     // page's guard refuses the rest.
     await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
-    // into its area's error boundary, which renders nothing it guards (`docs/frontend/spec.md :: I519`).
+    // into its area's error boundary, which renders nothing it guards.
   }
 
   return NextResponse.next();
@@ -32,7 +31,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 
 function turnAway(req: NextRequest, destination: string): NextResponse {
   // Never a 307 for an action's POST: its `fetch` replays one as a POST it cannot read. This header,
-  // with no body, is the redirect Next's action client navigates on (`docs/frontend/spec.md :: I251`).
+  // with no body, is the redirect Next's action client navigates on.
   if (req.method === "POST" && req.headers.has("next-action")) {
     return new NextResponse(null, { headers: { "x-action-redirect": `${destination};replace` } });
   }
@@ -65,7 +64,7 @@ export const config = {
       source: "/bereich/:path*",
       missing: [
         // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
-        // prefetch sends no header and runs the proxy, which `fl_frontend/eslint.config.mjs :: FULL_PREFETCH` refuses.
+        // prefetch sends no header and runs the proxy.
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
       ],

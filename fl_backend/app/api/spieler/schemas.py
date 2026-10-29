@@ -202,11 +202,11 @@ class FLPatchSpielerPayload(BaseModel):
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
 class _SaisonSpielerPayload(_SaisonSpielerWritable):
     # Forbidding extras is also what refuses `ist_nachnominiert`: the create derives the marker and
-    # nothing edits it (`docs/backend/spec.md :: I334`), so a caller's value is never stored.
+    # nothing edits it, so a caller's value is never stored.
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored number would answer 500 for
-    # the whole list over one row (`docs/backend/spec.md :: I254`).
+    # the whole list over one row.
     nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
 
 
@@ -386,7 +386,7 @@ class FLSpielerSelbstKaderZeile(BaseModel):
     """One squad row as its own pupil reads it, with the name the club played that season under."""
 
     team_id: CustomObjectId
-    # The season row's own name and never the club's current one (`docs/backend/spec.md :: I13`): a
+    # The season row's own name and never the club's current one: a
     # squad left two seasons ago is listed as it was played.
     team_name: str
     saison_id: str
@@ -438,7 +438,7 @@ class SelbstEinwilligungPayload(BaseModel):
     umfang: Literal["kader_oeffentlich", "intern"]
     medien: bool
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The record's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I591`).
+    # The record's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
 
 

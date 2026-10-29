@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ClassicFrame` replaces it.
+
 import { connection } from "next/server";
 
 // Reads the clock at request time. Under `cacheComponents` a `new Date()` in a client component's

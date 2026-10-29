@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ChoiceButtons` replaces it.
+
 /**
  * The one chip a detached `ToggleButtonGroup` offers its answers as, spelled once so two groups on one
  * page cannot read as two different questions.

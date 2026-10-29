@@ -512,7 +512,7 @@ function KontaktpersonInputs({
 
       <div className={FIELD_PAIR_CLASSES}>
         {/* Read out and never picked: the date is the person's own to enter at their confirmation, and
-            the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
+            the payload carries no `geburtsdatum` for a message to land on. */}
         <TextField
           isReadOnly
           value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am))}

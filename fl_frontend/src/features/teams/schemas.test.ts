@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
 
@@ -88,60 +87,64 @@ const replacement = (overrides: Record<string, unknown> = {}) => ({
 
 describe("FLSaisonTeamResponseSchema", () => {
   it("takes a junction row carrying the season's copy of the club identity", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam()), []);
+    expect(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam())).toStrictEqual([]);
   });
 
   it("holds the shorthand to exactly two characters, as `TEAM_SHORTHAND_LENGTH` does", () => {
     for (const shorthand of ["", "R", "RWD"]) {
-      assert.deepEqual(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam({ shorthand })), ["shorthand"], `expected "${shorthand}" refused`);
+      expect(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam({ shorthand })), `expected "${shorthand}" refused`).toStrictEqual([
+        "shorthand",
+      ]);
     }
   });
 
   it("refuses an empty name, which no club document can hold", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam({ name: "" })), ["name"]);
+    expect(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam({ name: "" }))).toStrictEqual(["name"]);
   });
 
   it("requires both, so a row seeded without them is a malformed response rather than a partial one", () => {
     const { name: _name, shorthand: _shorthand, ...withoutIdentity } = saisonTeam();
 
-    assert.deepEqual(pathsRefused(FLSaisonTeamResponseSchema, withoutIdentity), ["name", "shorthand"]);
+    expect(pathsRefused(FLSaisonTeamResponseSchema, withoutIdentity)).toStrictEqual(["name", "shorthand"]);
   });
 });
 
 describe("FLPatchTeamResponseSchema", () => {
   it("takes a rename that reached no junction row, the answer for a club whose every season is past", () => {
-    assert.deepEqual(pathsRefused(FLPatchTeamResponseSchema, patchTeam()), []);
+    expect(pathsRefused(FLPatchTeamResponseSchema, patchTeam())).toStrictEqual([]);
   });
 
   it("refuses a negative junction count, a figure no `modified_count` can report", () => {
-    assert.deepEqual(pathsRefused(FLPatchTeamResponseSchema, patchTeam({ fanned_out_to_saison_teams: -1 })), ["fanned_out_to_saison_teams"]);
+    expect(pathsRefused(FLPatchTeamResponseSchema, patchTeam({ fanned_out_to_saison_teams: -1 }))).toStrictEqual([
+      "fanned_out_to_saison_teams",
+    ]);
   });
 
   it("requires the junction count, so it cannot be read as zero when the endpoint never sent it", () => {
     const { fanned_out_to_saison_teams: _count, ...withoutCount } = patchTeam();
 
-    assert.deepEqual(pathsRefused(FLPatchTeamResponseSchema, withoutCount), ["fanned_out_to_saison_teams"]);
+    expect(pathsRefused(FLPatchTeamResponseSchema, withoutCount)).toStrictEqual(["fanned_out_to_saison_teams"]);
   });
 });
 
 describe("FLReplaceSaisonTeamResponseSchema", () => {
   it("takes a row handed over with its fixtures, carrying the identity reseeded from the incoming club", () => {
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement()), []);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement())).toStrictEqual([]);
   });
 
   it("holds the reseeded identity to the same bounds a junction row's own copy is held to", () => {
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ shorthand: "RWD" })), ["shorthand"]);
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ name: "" })), ["name"]);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ shorthand: "RWD" }))).toStrictEqual(["shorthand"]);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ name: "" }))).toStrictEqual(["name"]);
   });
 
   it("refuses a negative fan-out, a figure no `modified_count` can report", () => {
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ fanned_out_to_spiele: -1 })), ["fanned_out_to_spiele"]);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ fanned_out_to_spiele: -1 }))).toStrictEqual(["fanned_out_to_spiele"]);
   });
 
   it("requires the fan-out, so it cannot be read as zero when the endpoint never sent it", () => {
     const { fanned_out_to_spiele: _count, ...withoutCount } = replacement();
 
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount), ["fanned_out_to_spiele"]);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount)).toStrictEqual(["fanned_out_to_spiele"]);
   });
 
   /* Its own required figure: a squad austragen that reported nothing would read as zero, and the
@@ -149,8 +152,8 @@ describe("FLReplaceSaisonTeamResponseSchema", () => {
   it("requires the ausgetragen squad count, which is not derivable from the fixture fan-out", () => {
     const { ausgetragene_squad_rows: _ausgetragen, ...withoutCount } = replacement();
 
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount), ["ausgetragene_squad_rows"]);
-    assert.deepEqual(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ ausgetragene_squad_rows: -1 })), [
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, withoutCount)).toStrictEqual(["ausgetragene_squad_rows"]);
+    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ ausgetragene_squad_rows: -1 }))).toStrictEqual([
       "ausgetragene_squad_rows",
     ]);
   });
@@ -160,7 +163,7 @@ describe("FLReplaceSaisonTeamResponseSchema", () => {
   it("drops an austritt an over-eager caller reads for, rather than carrying one", () => {
     const parsed = FLReplaceSaisonTeamResponseSchema.parse(replacement({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }));
 
-    assert.equal("austritt" in parsed, false);
+    expect("austritt" in parsed).toBe(false);
   });
 });
 
@@ -187,19 +190,19 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
      not a typo in one of the two people beside it -- without re-entering the person who asked to be
      forgotten, which is the collection the erasure destroyed. */
   it("takes an empty seat, so a row one erasure emptied stays editable", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: null })), []);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: null }))).toStrictEqual([]);
   });
 
   /* The block's own guarantee moved to the form, which mounts a seat's boxes only while somebody is
      recorded in it and makes every one of them required. */
   it("still refuses a seat half filled in, field by field", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "" }) })), [
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "" }) }))).toStrictEqual([
       "trainer.email",
     ]);
   });
 
   it("refuses a seat that is neither a whole person nor empty", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" })), ["trainer"]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: "Erika Mustermann" }))).toStrictEqual(["trainer"]);
   });
 
   /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
@@ -207,55 +210,50 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
   it("takes a seat whose address carries an umlaut domain, and marks one with an umlaut before the at sign", () => {
     const withAddress = (email: string) => kontaktePayload({ trainer: kontaktpersonPayload({ email }) });
 
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example")), []);
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de")), ["trainer.email"]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("kaethe@käthe-schule.example"))).toStrictEqual([]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de"))).toStrictEqual(["trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
      sentence, which never tells the admin what to change. */
   it("refuses a seat whose address the API would refuse", () => {
-    assert.deepEqual(
+    expect(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
-      ["trainer.email"],
-    );
+    ).toStrictEqual(["trainer.email"]);
   });
 
   /* The application's two rules, which the API applies to this block too: refused there they arrive as
      a 422 naming the block, so they are judged here, each on the box of the later seat. */
   it("refuses two seats sharing an address or a number, on the later seat's box", () => {
-    assert.deepEqual(
+    expect(
       pathsRefused(
         FLSaisonTeamKontaktePayloadSchema,
         kontaktePayload({ stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "MAX@beispiel.de", telefon: "069 2345678" }) }),
       ),
-      ["stellvertretung.email"],
-    );
-    assert.deepEqual(
+    ).toStrictEqual(["stellvertretung.email"]);
+    expect(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ telefon: "+49 69 7654321" }) })),
-      ["trainer.telefon"],
-    );
+    ).toStrictEqual(["trainer.telefon"]);
   });
 
   /* An empty seat holds nobody to compare, so a row an erasure emptied never fails on the person gone. */
   it("compares no seat an erasure emptied", () => {
-    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ ansprechperson: null, stellvertretung: null })), []);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ ansprechperson: null, stellvertretung: null }))).toStrictEqual([]);
   });
 
   /* The paired Trainer IS the named seat's person: sharing everything is the point, and a difference is a drift. */
   it("compares a paired Trainer as one person with the seat it holds", () => {
     const max = kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" });
 
-    assert.deepEqual(
+    expect(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_ist_zugleich: "ansprechperson" })),
-      [],
-    );
-    assert.deepEqual(
+    ).toStrictEqual([]);
+    expect(
       pathsRefused(
         FLSaisonTeamKontaktePayloadSchema,
         kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_ist_zugleich: "ansprechperson" }),
       ),
-      ["ansprechperson.vorname"],
-    );
+    ).toStrictEqual(["ansprechperson.vorname"]);
   });
 });
 
@@ -280,44 +278,44 @@ describe("a club's website", () => {
 
   /* The baseline, so each case below fails for the field it changed. */
   it("takes a club that has one, on the way in and on the way out", () => {
-    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("https://example.org")), []);
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("https://example.org")), []);
+    expect(pathsRefused(FLTeamRecordSchema, club("https://example.org"))).toStrictEqual([]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, payload("https://example.org"))).toStrictEqual([]);
   });
 
   /* `null` is what the API publishes as the absent case, and the only spelling this product writes. */
   it("takes a club that has none", () => {
-    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club(null)), []);
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload(null)), []);
+    expect(pathsRefused(FLTeamRecordSchema, club(null))).toStrictEqual([]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, payload(null))).toStrictEqual([]);
   });
 
   /* One spelling of absence, so no reader downstream tests for two. The API coerces an empty box to
      null before storing it, and `toWebsiteUrl` is what keeps this side from composing one. */
   it("refuses the empty string, which is the other spelling nothing produces", () => {
-    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("")), ["website_url"]);
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("")), ["website_url"]);
+    expect(pathsRefused(FLTeamRecordSchema, club(""))).toStrictEqual(["website_url"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, payload(""))).toStrictEqual(["website_url"]);
   });
 
   /* Optional is not unchecked: the value is rendered straight into an href on a public page, and
      `javascript:` parses as a URL. */
   it("still refuses an address that is neither empty nor a http(s) address", () => {
-    assert.deepEqual(pathsRefused(FLTeamRecordSchema, club("javascript:alert(1)")), ["website_url"]);
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, payload("javascript:alert(1)")), ["website_url"]);
+    expect(pathsRefused(FLTeamRecordSchema, club("javascript:alert(1)"))).toStrictEqual(["website_url"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, payload("javascript:alert(1)"))).toStrictEqual(["website_url"]);
   });
 
   /* Optional is not unchecked on the READ side either: the value is rendered straight into an href
      on a public page, so a stored address that is not one may not reach it. */
   it("holds a stated address to the same rule on the way out as on the way in", () => {
-    assert.equal(OptionalExternalUrlSchema.safeParse(null).success, true);
-    assert.equal(OptionalExternalUrlSchema.safeParse("https://example.org").success, true);
-    assert.equal(OptionalExternalUrlSchema.safeParse("javascript:alert(1)").success, false);
-    assert.equal(OptionalExternalUrlSchema.safeParse("").success, false);
+    expect(OptionalExternalUrlSchema.safeParse(null).success).toBe(true);
+    expect(OptionalExternalUrlSchema.safeParse("https://example.org").success).toBe(true);
+    expect(OptionalExternalUrlSchema.safeParse("javascript:alert(1)").success).toBe(false);
+    expect(OptionalExternalUrlSchema.safeParse("").success).toBe(false);
   });
 
   /* The key is required whatever its value: an omitted one is a payload the API cannot read. */
   it("still refuses the field being left out altogether", () => {
     const { website_url: _absent, ...ohne } = payload(null);
 
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, ohne), ["website_url"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, ohne)).toStrictEqual(["website_url"]);
   });
 });
 
@@ -347,38 +345,38 @@ describe("the write payloads' floors, against the stripped floors at the API", (
   const SPACES = "   ";
 
   it("refuses a club name, full name or Kürzel of spaces alone", () => {
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ name: SPACES })), ["name"]);
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ full_name: SPACES })), ["full_name"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ name: SPACES }))).toStrictEqual(["name"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ full_name: SPACES }))).toStrictEqual(["full_name"]);
     // A Kürzel of spaces alone satisfies an untrimmed width exactly, which is the arm a floor alone would miss.
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "  " })), ["shorthand"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "  " }))).toStrictEqual(["shorthand"]);
   });
 
   it("takes a padded Kürzel and sends the two characters it holds", () => {
-    assert.equal(FLPostTeamPayloadSchema.parse(postTeam({ shorthand: " RW " })).shorthand, "RW");
+    expect(FLPostTeamPayloadSchema.parse(postTeam({ shorthand: " RW " })).shorthand).toBe("RW");
   });
 
   it("carries the embedded address's own floors, which the club payload does not restate", () => {
     const address = { ...postTeam().address, strasse: SPACES };
 
-    assert.deepEqual(pathsRefused(FLPostTeamPayloadSchema, postTeam({ address })), ["address.strasse"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ address }))).toStrictEqual(["address.strasse"]);
   });
 
   it("refuses a Kenntnisnahme whose Fassung is spaces alone, which cites no wording at all", () => {
     const kenntnisnahme = { umfang: "kontaktdaten", text_version: SPACES, datum: "2025-09-01" };
 
-    assert.deepEqual(pathsRefused(FLKontaktKenntnisnahmePayloadSchema, kenntnisnahme), ["text_version"]);
+    expect(pathsRefused(FLKontaktKenntnisnahmePayloadSchema, kenntnisnahme)).toStrictEqual(["text_version"]);
   });
 
   it("refuses an austritt whose published reason is spaces alone", () => {
     const austritt = { ...junctionPayload().austritt, grund: SPACES };
 
-    assert.deepEqual(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt })), ["austritt.grund"]);
+    expect(pathsRefused(FLPatchSaisonTeamPayloadSchema, junctionPayload({ austritt }))).toStrictEqual(["austritt.grund"]);
   });
 
   /* The half the private payload schema exists for: put the trim on `FLAustrittSchema` instead and a
-     club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
+     club whose stored reason is blank fails the list it appears in. */
   it("leaves the read schema taking a stored reason of spaces alone", () => {
-    assert.equal(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success, true);
+    expect(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success).toBe(true);
   });
 });
 
@@ -394,7 +392,7 @@ describe("a club's two names, against the single-line class the application's re
   } as const;
 
   /* By codepoint, so this file carries no invisible byte: the next line `trim` keeps, and the line
-     separator that breaks a rendered name (`docs/frontend/spec.md :: I87`). */
+     separator that breaks a rendered name. */
   for (const [was, character] of [
     ["a next line", String.fromCodePoint(0x85)],
     ["a line separator", String.fromCodePoint(0x2028)],
@@ -404,7 +402,7 @@ describe("a club's two names, against the single-line class the application's re
         it(`refuses ${field} broken by ${was} in ${form}, with the field's own message`, () => {
           const result = schema.safeParse({ ...postTeam({ [field]: `Carl${character}Schurz` }), ...extra });
 
-          assert.deepEqual(result.success ? [] : result.error.issues.map((issue) => [issue.path.join("."), issue.message]), [
+          expect(result.success ? [] : result.error.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
             [field, MESSAGES[field]],
           ]);
         });
@@ -414,7 +412,7 @@ describe("a club's two names, against the single-line class the application's re
 
   it("takes both names unbroken in either form", () => {
     for (const [, schema, extra] of FORMS) {
-      assert.equal(schema.safeParse({ ...postTeam({ name: "Carl Schurz", full_name: "Carl-Schurz-Schule" }), ...extra }).success, true);
+      expect(schema.safeParse({ ...postTeam({ name: "Carl Schurz", full_name: "Carl-Schurz-Schule" }), ...extra }).success).toBe(true);
     }
   });
 });
@@ -437,12 +435,12 @@ const SERVED_KENNTNISNAHME = {
 describe("a contact seat's record whose evidence is filled, as a read serves it", () => {
   // Equal rather than merely parsed, for the reason `fl_frontend/src/features/spieler/schemas.test.ts` gives.
   it("keeps who seated the person and each choice's act", () => {
-    assert.deepEqual(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME), SERVED_KENNTNISNAHME);
+    expect(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME)).toStrictEqual(SERVED_KENNTNISNAHME);
   });
 
   it("keeps both choices' stand a read serves as the press's precondition", () => {
     const stand = { umfang: null, medien: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071" };
 
-    assert.deepEqual(FLEinwilligungStandSchema.parse(stand), stand);
+    expect(FLEinwilligungStandSchema.parse(stand)).toStrictEqual(stand);
   });
 });

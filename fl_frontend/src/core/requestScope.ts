@@ -6,12 +6,12 @@ import { mintSpanId } from "./trace";
 
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
-// times each gap between reads, not the response (`docs/frontend/spec.md :: I366`).
+// times each gap between reads, not the response.
 export const REQUEST_DEADLINE_MS = 30000;
 
 /**
  * As long as a request's own, counted from when `runBehindTheResponse` starts: its work is a request's half
- * moved behind the answer, sending the same calls. A stopping container waits out both (`docs/ops/spec.md :: I547`).
+ * moved behind the answer, sending the same calls. A stopping container waits out both.
  */
 export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 
@@ -27,7 +27,7 @@ export type RequestActor = { readonly email: string; readonly lane: ActorLane; r
 interface RequestScope {
   traceId: string;
   // This service's own span, minted per request: each hop mints one locally and only the trace id
-  // travels end to end (`docs/logging/spec.md :: L12`).
+  // travels end to end.
   spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: RequestActor;
@@ -38,8 +38,7 @@ interface RequestScope {
   // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
   // answer leaves standing, where an action declaring it would repeat what each call already says.
   writeSent: boolean;
-  // Set before a write that may end the session the request carries: the spine then renders no page again
-  // (`docs/frontend/spec.md :: I831`).
+  // Set before a write that may end the session the request carries: the spine then renders no page again.
   endsOwnSession: boolean;
   // The cache tags this request's writes feed, declared before each write so a lost answer still drops them.
   writeTags: Set<string>;
@@ -52,7 +51,7 @@ const storage = new AsyncLocalStorage<RequestScope>();
 
 // React's per-request memo, a page's reads each opening a scope with no render-wide entry to anchor
 // on. Outside a render it memoizes nothing, so an action's or route handler's outermost scope starts
-// its request (`docs/frontend/spec.md :: I366`).
+// its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
 export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "spanId" | "actor">, fn: () => Promise<T>): Promise<T> {
@@ -94,7 +93,7 @@ export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
 
 /**
  * Runs `work` behind a response, under a deadline of its own from `AFTER_RESPONSE_DEADLINE_MS`: the request's
- * would leave it only what the request did not use (`docs/frontend/spec.md :: I546`). It keeps the trace, no actor.
+ * would leave it only what the request did not use. It keeps the trace, no actor.
  */
 export function runBehindTheResponse(traceId: string, work: () => Promise<void>): Promise<void> {
   const scope: RequestScope = {
@@ -163,8 +162,8 @@ export function markOutcomeUnknown(): void {
 }
 
 /**
- * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request
- * (`docs/frontend/spec.md :: I366`). A write it sends still counts as sent. A no-op outside a scope.
+ * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request.
+ * A write it sends still counts as sent. A no-op outside a scope.
  */
 export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
   const store = storage.getStore();
@@ -243,7 +242,7 @@ export function setRequestActor(actor: RequestActor): void {
   if (!store) return;
 
   // A second guard on one request is a programming error: whichever landed last would name every
-  // write's actor (`docs/frontend/spec.md :: I272`). Compared by who and which lane, never by the
+  // write's actor. Compared by who and which lane, never by the
   // token each mint makes afresh.
   if (store.actor !== undefined && (store.actor.email !== actor.email || store.actor.lane !== actor.lane)) {
     throw new Error("A second actor was set on one request scope.");

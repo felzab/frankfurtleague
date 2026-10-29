@@ -33,9 +33,9 @@ import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/features/adresswechsel/schemas";
 
-export const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
-export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
-export const ADRESSWECHSEL_VERWERFEN_ARMED = "Ja, Änderung verwerfen";
+const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
+const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
+const ADRESSWECHSEL_VERWERFEN_ARMED = "Ja, Änderung verwerfen";
 
 /** What the armed discard costs: nothing tells the person, so the administrator who discards is the one who can. */
 const VERWERFEN_FOLGE =
@@ -57,7 +57,7 @@ const WARTET: Readonly<Record<FLAdresswechselWartetAuf, string>> = {
 };
 
 /**
- * The reload comes first (`docs/frontend/spec.md` §1.12), and this page holds what it showed in no address: a reload
+ * The reload comes first, and this page holds what it showed in no address: a reload
  * opens on an empty box, so the address is shown again before anything is pressed again.
  */
 const ERNEUT_OHNE_ANTWORT =
@@ -131,7 +131,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
 
   return (
     // A block of the tool's panel under an `h3`, as the read's list beside it: a box here would hold the discard's
-    // reveal at its own rung (`docs/frontend/spec.md` §1.18).
+    // reveal at its own rung.
     <section
       className="flex w-full flex-col gap-4"
       {...focusSection("adresswechsel")}>

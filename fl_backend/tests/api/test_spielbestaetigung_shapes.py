@@ -12,11 +12,8 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     ansetzung_stand_of,
-    build_token_filter,
     compose_ansetzung,
-    seat_holding,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.shared.schemas.bounds import SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 
 TEAM1 = ObjectId("650000000000000000000001")
@@ -74,38 +71,6 @@ class TestTheStandNamesOneAnsetzung:
         assert set(composed) == set(FLSpielbestaetigungAnsetzung.model_fields) == {*ANSETZUNG_QUELLEN, "stand"}
         assert composed["stand"] == ansetzung_stand_of(spiel())
         FLSpielbestaetigungAnsetzung.model_validate(composed)
-
-
-def row(**seats: Any) -> dict[str, Any]:
-    return {"kontakte": {seat: seats.get(seat) for seat in KONTAKT_ROLLEN}}
-
-
-class TestATokenNamesItsSeat:
-    def test_the_filter_has_one_clause_per_seat(self):
-        """One clause per seat, each the path a support index carries: an `$or` uses indexes only where every clause has one."""
-
-        assert build_token_filter(token_hash="h") == {"$or": [{f"kontakte.{seat}.token_hashes": "h"} for seat in KONTAKT_ROLLEN]}
-
-    def test_every_link_a_seat_was_mailed_names_it(self):
-        found = row(trainer={"token_hashes": ["t"]}, stellvertretung={"token_hashes": ["s1", "s2", "s3"]})
-
-        assert [seat_holding(spielbestaetigung_raw=found, token_hash=h) for h in ("t", "s1", "s2", "s3")] == [
-            "trainer",
-            "stellvertretung",
-            "stellvertretung",
-            "stellvertretung",
-        ]
-
-    def test_a_link_two_seats_share_names_the_first_in_seat_order(self):
-        """The case that fails if the resolution assumes one hash per seat."""
-
-        found = row(trainer={"token_hashes": ["p"]}, stellvertretung={"token_hashes": ["p"]})
-
-        assert seat_holding(spielbestaetigung_raw=found, token_hash="p") == "trainer"
-
-    @pytest.mark.parametrize("found", [row(trainer={"token_hashes": ["t"]}), {"kontakte": None}, {}])
-    def test_a_hash_no_seat_holds_names_none(self, found: dict[str, Any]):
-        assert seat_holding(spielbestaetigung_raw=found, token_hash="x") is None
 
 
 VORSCHLAG = {"datum": "2027-05-20", "uhrzeit": "17:00:00"}

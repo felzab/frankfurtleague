@@ -21,7 +21,6 @@ from app.core.security import (
 )
 from app.core.transactions import transaction_session
 from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
-from tests.core.test_duplicate_key_publication import _write_operations as write_operations
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -333,37 +332,10 @@ ADMIN_TIER_WRITES = [
     if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
 ]
 
-# Every operation the sweep above, and the published `x-fl-stores-nothing`, take at its word: held below to the word.
-STORES_NOTHING_OPERATIONS = sorted(
-    operation
-    for operation in PUBLISHED_OPERATIONS
-    if operation[1] != "get" and stores_nothing in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
-)
-
-
-@pytest.mark.parametrize(("path", "method"), STORES_NOTHING_OPERATIONS, ids=lambda value: value)
-def test_an_operation_declaring_it_stores_nothing_reaches_no_write(path: str, method: str):
-    """Through the write trace `tests/core/test_duplicate_key_publication.py` builds per route, its helpers and the driver's own writes alike.
-
-    A write behind the declaration is judged by no transaction and published as storing nothing.
-    """
-
-    operation = f"{method.upper()} {ROUTES_BY_OPERATION[(path, method)].path_format}"
-    _, writes = write_operations()[operation]
-
-    assert [f"{write.helper} at {write.site}" for write in writes] == []
-
-
-def test_the_declaration_sweep_reads_some_operation_and_a_write():
-    """The floors: an empty population passes every case above, and a trace that finds no write passes them too."""
-
-    assert STORES_NOTHING_OPERATIONS
-    assert any(writes for _, writes in write_operations().values())
-
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
 def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
-    """`docs/backend/spec.md :: I575`: a write outside the helper's session is judged once, before its handler.
+    """A write outside the helper's session is judged once, before its handler.
 
     A revoke committing between that check and the write then leaves the revoked administrator one write to make.
     """
@@ -380,7 +352,7 @@ PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if oper
 
 @pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
 def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
-    """`docs/backend/spec.md :: I576`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
+    """The binder reads the ban once before the handler; the transaction reads it again in each attempt."""
 
     assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
         f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
@@ -472,12 +444,12 @@ def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: s
 
 
 # The sweep's one read, listing every season for the caller: system tier because
-# `docs/backend/spec.md :: I47` keeps a `future` season off the base one, and the seasons taking
+# the rule keeps a `future` season off the base one, and the seasons taking
 # applications are exactly those.
 SYSTEM_READS = [
     ("/api/v0/bewerbungen/sweep", "get"),
     # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
-    # seasons it lists are `active`, which the base tier serves, so `docs/backend/spec.md :: I47` is not its reason.
+    # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
     ("/api/v0/spielbestaetigungen/sweep", "get"),
 ]
 

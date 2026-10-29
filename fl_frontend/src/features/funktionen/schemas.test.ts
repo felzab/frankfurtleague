@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { asSignInIdentifier } from "@/core/emailAddress.ts";
@@ -30,7 +29,7 @@ const LOOKUPS = [
 
 describe("the address the erasure, its reveal and the sign-out look up", () => {
   /* The records an erasure removes are keyed on whatever a rule of their day stored; refusing that erases
-     nobody (GDPR Art. 17, `docs/backend/spec.md :: I329`). The full-width at sign is built from its code point. */
+     nobody (GDPR Art. 17). The full-width at sign is built from its code point. */
   it("takes every address any rule stored, so the request can name any record", () => {
     const stored = [
       "käthe@example.de",
@@ -41,7 +40,7 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
       `erika${String.fromCharCode(0xff20)}x@example.de`,
     ];
     for (const [payload, takes] of LOOKUPS) {
-      for (const email of stored) assert.equal(takes(email), true, `${payload} refused "${email}"`);
+      for (const email of stored) expect(takes(email), `${payload} refused "${email}"`).toBe(true);
     }
   });
 
@@ -49,7 +48,7 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
   it("refuses what the API's lookup refuses, so the box carries the message", () => {
     for (const [payload, takes] of LOOKUPS) {
       for (const email of ["", "   ", "erika.example.de", `${"a".repeat(250)}@schule.de`]) {
-        assert.equal(takes(email), false, `${payload} took "${email}"`);
+        expect(takes(email), `${payload} took "${email}"`).toBe(false);
       }
     }
   });
@@ -78,7 +77,7 @@ describe("the mailbox each lookup asks for", () => {
     ] as const;
     for (const [payload, asked] of parsed) {
       for (const row of ADDRESSES) {
-        assert.equal(asSignInIdentifier(asked(row.typed)), (row.frontend ?? row).folded, `${payload}: ${row.case}`);
+        expect(asSignInIdentifier(asked(row.typed)), `${payload}: ${row.case}`).toBe((row.frontend ?? row).folded);
       }
     }
   });
@@ -89,30 +88,29 @@ describe("the request the erasure answers", () => {
     FLErasurePayloadSchema.safeParse({ email: "ada@example.org", anlass: anlass }).error?.issues[0]?.message;
 
   it("takes a date and a subject", () => {
-    assert.equal(refused(ANLASS), undefined);
+    expect(refused(ANLASS)).toBe(undefined);
   });
 
   /* Each a refusal the API makes too (`fl_backend/app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT` for the
      address): the log keeps the Anlass a year, past the redaction of anybody it names. */
   it("refuses a blank one, an over-long one, one of two lines and one holding an address, each in German", () => {
-    assert.equal(refused("   "), "Bitte gib einen Anlass ein.");
-    assert.equal(
-      refused("a".repeat(ERASURE_ANLASS_MAX_LENGTH + 1)),
+    expect(refused("   ")).toBe("Bitte gib einen Anlass ein.");
+    expect(refused("a".repeat(ERASURE_ANLASS_MAX_LENGTH + 1))).toBe(
       `Der Anlass darf höchstens ${String(ERASURE_ANLASS_MAX_LENGTH)} Zeichen lang sein.`,
     );
-    assert.equal(refused("E-Mail vom 12.10.2026\nBetreff Löschung"), "Der Anlass darf keine Zeilenumbrüche oder Steuerzeichen enthalten.");
-    assert.equal(refused("E-Mail von ada@example.org vom 12.10.2026"), "Der Anlass darf keine E-Mail-Adresse enthalten.");
+    expect(refused("E-Mail vom 12.10.2026\nBetreff Löschung")).toBe("Der Anlass darf keine Zeilenumbrüche oder Steuerzeichen enthalten.");
+    expect(refused("E-Mail von ada@example.org vom 12.10.2026")).toBe("Der Anlass darf keine E-Mail-Adresse enthalten.");
   });
 
   /* Measured as the API measures it, after the strip. */
   it("counts the bound on the trimmed request", () => {
-    assert.equal(refused(` ${"a".repeat(ERASURE_ANLASS_MAX_LENGTH)} `), undefined);
+    expect(refused(` ${"a".repeat(ERASURE_ANLASS_MAX_LENGTH)} `)).toBe(undefined);
   });
 
   /* A deliverable shape only: an at sign in prose, or a domain with no top level, stays an Anlass. */
   it("refuses an address where the API's table refuses one", () => {
     for (const { value, refused: verweigert } of REFUSALS.anlass) {
-      assert.equal(refused(value), verweigert ? "Der Anlass darf keine E-Mail-Adresse enthalten." : undefined, `"${value}"`);
+      expect(refused(value), `"${value}"`).toBe(verweigert ? "Der Anlass darf keine E-Mail-Adresse enthalten." : undefined);
     }
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/RailFrame` replaces it.
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

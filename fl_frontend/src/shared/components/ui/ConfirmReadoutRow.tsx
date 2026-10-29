@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ConfirmDialog` replaces it.
+
 import { NAME_WRAP_CLASSES } from "./nameWrap";
 
 import type { ReactNode } from "react";

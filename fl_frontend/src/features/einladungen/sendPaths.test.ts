@@ -1,13 +1,10 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
-
-import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
+import type { MailOutcome, SentMail } from "@/test-support/mailDouble.ts";
 
 /* The real client reaches a backend no test process runs and the real mailer a provider, so those two
    are replaced; the fan-out is the real one, and what the actions hand it is read off the messages it sends. */
@@ -52,15 +49,9 @@ const NEXT_CACHE = {
 doubleActionRequest();
 
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG,
-    "features/teams/queries.ts": TEAMS,
-  },
-  specifiers: {
-    "next/cache": NEXT_CACHE,
-  },
-});
+vi.doMock("@/core/config.ts", () => CONFIG);
+vi.doMock("@/features/teams/queries.ts", () => TEAMS);
+vi.doMock("next/cache", () => NEXT_CACHE);
 
 const { mailEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 const { ZURUECKGEHALTEN } = await import("./meldungen.ts");
@@ -134,12 +125,9 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success && res.versand, "gesendet");
-    assert.equal(sentence(res), "Der Link ist an alle 2 Adressen unterwegs.");
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      ["jonas@beispiel.de", "erika@beispiel.de"],
-    );
+    expect(res.success && res.versand).toBe("gesendet");
+    expect(sentence(res)).toBe("Der Link ist an alle 2 Adressen unterwegs.");
+    expect(mail.sent.map(({ to }) => to)).toStrictEqual(["jonas@beispiel.de", "erika@beispiel.de"]);
   });
 
   /* Outside production every address is withheld, so a press that cannot tell the two apart offers
@@ -151,8 +139,8 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success && res.versand, "zurueckgehalten");
-    assert.equal(sentence(res), ZURUECKGEHALTEN);
+    expect(res.success && res.versand).toBe("zurueckgehalten");
+    expect(sentence(res)).toBe(ZURUECKGEHALTEN);
   });
 
   /* A held message reached no provider, so the press wrote nothing and the delivery record the panel
@@ -168,7 +156,7 @@ describe("what the single invite press answers", () => {
   });
 
   /* A retry meets the same ban, so a refusal offering one sends the administrator round a loop; the
-     answer names no address (`docs/frontend/spec.md :: I542`). */
+     answer names no address. */
   it("counts a fan-out the ban list kept from every address as answered, offering no retry", async () => {
     const teamId = "8b".repeat(12);
     sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
@@ -176,8 +164,8 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success && res.versand, "gesperrt");
-    assert.equal(sentence(res), "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.");
+    expect(res.success && res.versand).toBe("gesperrt");
+    expect(sentence(res)).toBe("Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.");
     assert.ok(!sentence(res).includes("@"), "the answer named an address");
   });
 
@@ -189,8 +177,8 @@ describe("what the single invite press answers", () => {
     const res = await press(teamId);
 
     // One link per team, and it reached a seat.
-    assert.equal(res.success && res.versand, "gesendet");
-    assert.equal(sentence(res), "Der Link ist unterwegs: 1 von 2. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.");
+    expect(res.success && res.versand).toBe("gesendet");
+    expect(sentence(res)).toBe("Der Link ist unterwegs: 1 von 2. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.");
   });
 
   it("refuses a fan-out that delivered to nobody and was withheld from nobody", async () => {
@@ -200,8 +188,8 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, false);
-    assert.match(sentence(res), /Die E-Mail konnte nicht gesendet werden/);
+    expect(res.success).toBe(false);
+    expect(sentence(res)).toMatch(/Die E-Mail konnte nicht gesendet werden/);
   });
 
   /* A message is the press's only write, and one whose connection broke may have reached the provider:
@@ -213,7 +201,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.deepEqual(res, outcomeUnknown());
+    expect(res).toStrictEqual(outcomeUnknown());
   });
 
   /* The spine leaves a refusal standing, and a refused address is still written to the delivery record
@@ -225,7 +213,7 @@ describe("what the single invite press answers", () => {
 
     await press(teamId);
 
-    assert.equal(log.at(-1), "refresh", "the panel keeps a delivery record from before the refused send");
+    expect(log.at(-1), "the panel keeps a delivery record from before the refused send").toBe("refresh");
   });
 
   /* A panel left open while somebody replaced the link would otherwise mail a value a newer mint
@@ -237,9 +225,9 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, false);
-    assert.match(sentence(res), /Dieser Link ist nicht mehr der offene Link dieses Teams/);
-    assert.deepEqual(mail.sent, [], "a revoked token reached the fan-out");
+    expect(res.success).toBe(false);
+    expect(sentence(res)).toMatch(/Dieser Link ist nicht mehr der offene Link dieses Teams/);
+    expect(mail.sent, "a revoked token reached the fan-out").toStrictEqual([]);
   });
 
   it("refuses where no link stands at all, and composes nothing", async () => {
@@ -249,9 +237,9 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, false);
-    assert.match(sentence(res), /Für dieses Team steht kein Link mehr offen/);
-    assert.deepEqual(mail.sent, []);
+    expect(res.success).toBe(false);
+    expect(sentence(res)).toMatch(/Für dieses Team steht kein Link mehr offen/);
+    expect(mail.sent).toStrictEqual([]);
   });
 
   /* Two refusals, each naming a different repair: entering contacts, or waiting for one of them to
@@ -267,9 +255,9 @@ describe("what the single invite press answers", () => {
     });
     const ohneBestaetigung = await press("3c".repeat(12));
 
-    assert.match(sentence(ohneBlock), /keine Kontaktdaten hinterlegt/);
-    assert.match(sentence(ohneBestaetigung), /bisher selbst bestätigt/);
-    assert.deepEqual(mail.sent, [], "a team nobody may be written to still reached the fan-out");
+    expect(sentence(ohneBlock)).toMatch(/keine Kontaktdaten hinterlegt/);
+    expect(sentence(ohneBestaetigung)).toMatch(/bisher selbst bestätigt/);
+    expect(mail.sent, "a team nobody may be written to still reached the fan-out").toStrictEqual([]);
   });
 
   /* This press mints nothing, so two presses compose the identical body for the identical row and
@@ -280,7 +268,7 @@ describe("what the single invite press answers", () => {
 
     await press(teamId);
 
-    assert.match(mail.sent[0] === undefined ? "" : (keyTag(mail.sent[0]) ?? ""), /^\d{4}-\d{2}-\d{2}$/);
+    expect(mail.sent[0] === undefined ? "" : (keyTag(mail.sent[0]) ?? "")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   /* The delivery record is the only thing this press writes, so a refresh above the send would show
@@ -293,7 +281,7 @@ describe("what the single invite press answers", () => {
 
     // The two confirmed seats are written to at once, so both sends settle before the refresh.
     const [send, settled] = [`send:${EINLADUNG_ID}`, `settled:${EINLADUNG_ID}`];
-    assert.deepEqual(log, [send, send, settled, settled, "refresh"]);
+    expect(log).toStrictEqual([send, send, settled, settled, "refresh"]);
   });
 });
 
@@ -321,10 +309,7 @@ describe("what the season-wide press answers", () => {
 
     // The refresh is dropped rather than asserted on: this press writes through the API first, so
     // its place in the log is settled and the ordering under test is the two sends'.
-    assert.deepEqual(
-      log.filter((entry) => entry !== "refresh"),
-      ["send:aa", "settled:aa", "send:bb", "settled:bb"],
-    );
+    expect(log.filter((entry) => entry !== "refresh")).toStrictEqual(["send:aa", "settled:aa", "send:bb", "settled:bb"]);
   });
 
   /* Keyed per minted row, so the provider collapses a transport retry of a broken send, and on a tag
@@ -333,7 +318,7 @@ describe("what the season-wide press answers", () => {
     await pressSeason([zeile("aa", "t-aa", null), zeile("bb", "t-bb", null)]);
 
     const keyed = mail.sent.map((sent) => [sent.tags?.ziel_id, keyTag(sent)]);
-    assert.equal(new Set(keyed.map(([zielId]) => zielId)).size, 2, "two teams' sends share one record");
+    expect(new Set(keyed.map(([zielId]) => zielId)).size, "two teams' sends share one record").toBe(2);
     for (const [, tag] of keyed) {
       assert.ok(tag !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(tag), `a send was keyed ${String(tag)}`);
     }
@@ -346,30 +331,30 @@ describe("what the season-wide press answers", () => {
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
-    assert.deepEqual(res.success && res.versendet, ["zurueckgehalten"]);
-    assert.deepEqual(res.success ? res.zeilen[0]?.zurueckgehalten : [], ["erika-aa@beispiel.de"]);
+    expect(res.success && res.versendet).toStrictEqual(["zurueckgehalten"]);
+    expect(res.success ? res.zeilen[0]?.zurueckgehalten : []).toStrictEqual(["erika-aa@beispiel.de"]);
   });
 
   /* A count and never the address: the row is the administrator's, and a barred one is in no list
-     it names (`docs/frontend/spec.md :: I542`). */
+     it names. */
   it("carries how many addresses the ban list kept the link from, naming none of them", async () => {
     sendWith(() => "barred");
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
     const row = res.success ? res.zeilen[0] : undefined;
-    assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt], [[], [], [], 1]);
-    assert.deepEqual(res.success && res.versendet, ["gesperrt"]);
+    expect([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt]).toStrictEqual([[], [], [], 1]);
+    expect(res.success && res.versendet).toStrictEqual(["gesperrt"]);
   });
 
   it("leaves a skipped team's row empty on all three address lists", async () => {
     const res = await pressSeason([zeile("aa", null, "kein_kontaktblock")]);
 
     const row = res.success ? res.zeilen[0] : undefined;
-    assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
-    assert.deepEqual(mail.sent, [], "a team the endpoint skipped was mailed anyway");
+    expect([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten]).toStrictEqual([[], [], []]);
+    expect(mail.sent, "a team the endpoint skipped was mailed anyway").toStrictEqual([]);
     // Passed over by the rule the preview showed: no link this press meant to send, so no grade.
-    assert.deepEqual(res.success ? res.versendet : "refused", []);
+    expect(res.success ? res.versendet : "refused").toStrictEqual([]);
   });
 
   /* The armed readout counts the teams the press writes to apart from those it passes over, so a sentence counting
@@ -385,16 +370,16 @@ describe("what the season-wide press answers", () => {
     ]);
     const zwei = await pressSeason([zeile("ha", "t-ha", null), zeile("hb", "t-hb", null), zeile("hc", null, "austritt_eingetragen")]);
 
-    assert.equal(sentence(einer), "Der Link ging an das Team.");
+    expect(sentence(einer)).toBe("Der Link ging an das Team.");
     // A team whose every confirmed address is barred included: the plan minted it nothing, so no link was held back.
-    assert.deepEqual(einer.success && einer.versendet, ["gesendet"]);
-    assert.equal(sentence(zwei), "Registrierungslinks gesendet: 2 von 2 Teams.");
+    expect(einer.success && einer.versendet).toStrictEqual(["gesendet"]);
+    expect(sentence(zwei)).toBe("Registrierungslinks gesendet: 2 von 2 Teams.");
   });
 
   it("says a season's one team was passed over, in no failure's words", async () => {
     const res = await pressSeason([zeile("ia", null, "keine_bestaetigte_kontaktperson")]);
 
-    assert.equal(sentence(res), "Das Team wurde übersprungen.");
+    expect(sentence(res)).toBe("Das Team wurde übersprungen.");
   });
 
   /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of
@@ -406,13 +391,13 @@ describe("what the season-wide press answers", () => {
       { ...zeile("cc", null, "erzeugung_fehlgeschlagen"), hatte_link: null },
     ]);
 
-    assert.deepEqual(res.success ? res.zeilen.map((row) => [row.team_id, row.ersetzt_link, row.hatte_link]) : [], [
+    expect(res.success ? res.zeilen.map((row) => [row.team_id, row.ersetzt_link, row.hatte_link]) : []).toStrictEqual([
       ["aa", true, true],
       ["bb", false, true],
       ["cc", false, null],
     ]);
     // A team whose link was never minted got none, which the press's grade counts as failed; a commit of unknown
     // outcome too, its link reaching nobody this press can name.
-    assert.deepEqual(res.success && res.versendet, ["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"]);
+    expect(res.success && res.versendet).toStrictEqual(["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"]);
   });
 });

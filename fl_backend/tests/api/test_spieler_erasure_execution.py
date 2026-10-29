@@ -223,7 +223,7 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
 
 
 class TestARetiredPupilIsErasedWhole:
-    """`docs/backend/spec.md :: I42` through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
+    """Through the endpoint: the person, their squad rows and their values in the log, or none of the three."""
 
     def test_the_person_is_gone_from_the_collection(self, mongo_replica_set_url: str):
         """Catches an erasure that only stamps `inactive_since` again -- the soft delete wearing a new route."""
@@ -420,7 +420,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
 
 class TestAHalfDoneErasureCommitsNothing:
-    """`docs/backend/spec.md :: I42`'s failure mode.
+    """The failure mode.
 
     A person removed while the log still holds their values reports an erasure that did not happen.
     """

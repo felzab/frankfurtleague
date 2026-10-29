@@ -42,7 +42,7 @@ function qualifiedLegend(anzahl: number, isFinishedSaison: boolean): string {
 }
 
 /**
- * Annotative and never additive: a forfeit is in both figures (`docs/backend/spec.md :: I1d`), so a
+ * Annotative and never additive: a forfeit is in both figures, so a
  * `+1` would invite a reader to add it to the tally and reach a total the season never held.
  *
  * A hint, not `IconTooltip` — `Hint.tsx` carries why.
@@ -156,7 +156,7 @@ export function SaisontabelleView({
                       {/* A left rule on this cell, so the marker reads as an annotation on the
                           POSITION rather than as a highlight on the club. */}
                       <Table.Cell
-                        className={`w-fit py-4 pl-2 font-numeric fluid-xs font-bold tabular-nums lg:px-4 ${
+                        className={`w-fit py-4 pl-2 font-numeric fluid-xs font-bold lg:px-4 ${
                           qualifying.has(teamData.id) ? "border-l-4 border-brand" : "border-l-4 border-l-transparent"
                         }`}>
                         {/* Colour is never the only carrier: a screen reader gets the same fact the
@@ -203,7 +203,7 @@ export function SaisontabelleView({
                         </TeamPopoverMenu>
                       </Table.Cell>
 
-                      <Table.Cell className="px-1 py-4 text-center font-numeric font-medium text-foreground-muted tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric font-medium text-foreground-muted lg:px-2">
                         {/* A flex row, not two inline nodes: a badge on the text baseline would drag
                             the number off the cell's centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
@@ -217,24 +217,24 @@ export function SaisontabelleView({
                       {/* `-strong`, not the plain accents: a figure this size is text and answers to
                           4.5:1, where the plain accents measure 3.15:1 to 4.73:1 on the card's ground
                           in the light theme. */}
-                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-medium tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-medium lg:px-2">
                         <span className="font-semibold text-success-strong">{teamData.statistik.siege}</span>-
                         <span className="font-semibold text-warning-strong">{teamData.statistik.unentschieden}</span>-
                         <span className="font-semibold text-danger-strong">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
-                      <Table.Cell className="px-1 py-4 text-center font-numeric muted-meta tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric muted-meta lg:px-2">
                         {teamData.statistik.tore_geschossen}
                       </Table.Cell>
 
-                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-bold tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-bold lg:px-2">
                         <Tordifferenz
                           geschossen={teamData.statistik.tore_geschossen}
                           kassiert={teamData.statistik.tore_kassiert}
                         />
                       </Table.Cell>
 
-                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-sm font-extrabold text-foreground tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-sm font-extrabold text-foreground lg:px-2">
                         {teamData.statistik.punkte}
                       </Table.Cell>
                     </Table.Row>

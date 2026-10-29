@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; `kit/EditorBar` replaces it.
 import { useEffect, useRef, useState } from "react";
 
 import { trackCountBadge } from "@/shared/components/ui/badges";

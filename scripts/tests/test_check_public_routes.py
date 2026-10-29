@@ -18,8 +18,6 @@ from pathlib import Path
 import pytest
 from conftest import details, import_scripts, new_root, severities, write
 
-SCRIPTS = Path(__file__).resolve().parents[1]
-
 [routes] = import_scripts("check_public_routes")
 
 SOURCE = "fixture.conf"
@@ -154,6 +152,24 @@ def test_a_reserved_name_inside_a_private_folder_is_no_claim_on_the_population()
     A refusal here would be repaired by renaming a legitimate component, which is the wrong repair.
     """
     assert routes.metadata(with_files("_components/icon.tsx", "_lib/sitemap.ts")) == ()
+
+
+def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url():
+    """A slot is no segment of the URL, and `(.)spiele` names `spiele` on its own level: the pop-up answers the match page's URL."""
+    [page] = routes.pages(tree("/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx"))
+
+    assert (page.url, page.head, page.dynamic) == ("/saisons/[saison]/spiele/[spiel]", "/saisons/", True)
+
+
+@pytest.mark.parametrize("marker", ["(..)", "(...)", "(..)(..)"])
+def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
+    """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
+    try:
+        routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
+    except routes.RouteShape as refusal:
+        assert re.search("cannot derive", str(refusal)), refusal
+    else:
+        raise AssertionError("an intercepting route reaching above its level was given a URL")
 
 
 def test_a_reserved_metadata_name_the_map_does_not_carry_refuses():
@@ -582,7 +598,7 @@ def test_a_minted_link_this_reader_cannot_place_refuses(monkeypatch, text):
 
 @pytest.mark.parametrize("suffix", [".ts", ".tsx", ".js", ".jsx"])
 def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
-    """Every extension the walk reads, for `.claude/rules/cross-surface.md`'s sweeps clause: a fixture is no minter."""
+    """Every extension the walk reads: a fixture is no minter."""
     root = new_root("check-public-routes-")
     write(root, f"core/neuLink.test{suffix}", "const fixture = `/neuhilfe?token=kein-echtes-token`;\n")
 
@@ -834,14 +850,6 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 
     assert tree_of[0].block is not None
     assert len(tree_of[0].block) == 2
-
-
-def test_the_module_under_test_is_this_repository_own():
-    """Names the import-order hazard the withdrawal above prevents, rather than leaving it silent.
-
-    A `checker_kernel` from `test_check_docs.py`'s throwaway copy would root this module there.
-    """
-    assert routes.REPO_ROOT == SCRIPTS.parent
 
 
 def repository_own() -> tuple:

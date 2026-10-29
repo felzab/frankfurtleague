@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
-
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleToasts } from "@/test-support/actionDoubles.ts";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ANTWORT_UNKLAR } from "./publicSubmit.ts";
 
@@ -31,24 +29,23 @@ describe("reportRefusedConfirmation", () => {
   it("titles an answer of unknown outcome as unread, over the reopen sentence, and hands neither arm", () => {
     const seen = drive({ success: false, outcome: "unknown", error: "Ob es gespeichert wurde, ist unklar.", zustand: "verbraucht" });
 
-    assert.deepEqual(seen, []);
-    assert.deepEqual(
-      raised.map(({ variant, title, description }) => [variant, title, description]),
-      [["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR]],
-    );
+    expect(seen).toStrictEqual([]);
+    expect(raised.map(({ variant, title, description }) => [variant, title, description])).toStrictEqual([
+      ["danger", "Unklar, ob es bei uns angekommen ist", ANTWORT_UNKLAR],
+    ]);
   });
 
   it("hands a link that died between the open and the press to its panel, raising nothing", () => {
     const seen = drive({ success: false, error: "Der Link ist abgelaufen.", zustand: "abgelaufen" });
 
-    assert.deepEqual(seen, ["zustand:abgelaufen"]);
-    assert.deepEqual(raised, []);
+    expect(seen).toStrictEqual(["zustand:abgelaufen"]);
+    expect(raised).toStrictEqual([]);
   });
 
   it("leaves every other refusal to the form's own raising", () => {
     const seen = drive({ success: false, error: "Deine Antwort wurde nicht gespeichert." });
 
-    assert.deepEqual(seen, ["refusal"]);
-    assert.deepEqual(raised, []);
+    expect(seen).toStrictEqual(["refusal"]);
+    expect(raised).toStrictEqual([]);
   });
 });

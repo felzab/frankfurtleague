@@ -99,7 +99,7 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
     }
 
     const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
-    // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
+    // The approvers are told through the grants' outbox the start queued, drained behind
     // the answer as an approval is: mailing them here too would tell each twice.
     if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
 
@@ -189,7 +189,7 @@ export async function genehmigeAdresswechselAction(
   // sends them to, and authorises nothing, the backend judging the approval and the tool on their own.
   einsehbarVerwehrt: EinsehbarVerwehrt | null,
 ): Promise<ActionResult> {
-  // The enrolment's window, the grant write's own: the approval hands a grant to another address (`docs/frontend/spec.md :: I458`).
+  // The enrolment's window, the grant write's own: the approval hands a grant to another address.
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {
     const validated = FLAdresswechselGenehmigungPayloadSchema.safeParse(rawPayload);
     const verwehrt = EinsehbarVerwehrtSchema.nullable().safeParse(einsehbarVerwehrt);

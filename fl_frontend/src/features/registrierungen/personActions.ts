@@ -81,7 +81,7 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
       throw error;
     }
 
-    // The decline has committed: a send broken off is no doubt about it (`docs/frontend/spec.md :: I372`).
+    // The decline has committed: a send broken off is no doubt about it.
     if (ablehnung.bestaetigt) await runAnsweringOwnCut(() => mailAbsage(ablehnung));
 
     // The same words whatever the send did: a team told that a note was withheld would learn that the
@@ -105,7 +105,7 @@ async function mailAbsage(ablehnung: FLRegistrierungAblehnungResponse): Promise<
         vorname: ablehnung.vorname,
         teamName: ablehnung.team,
         saisonId: ablehnung.saison_id,
-        // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`).
+        // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
         origin: frontend_config.AUTH_URL,
         grund: ablehnung.grund,
       }),

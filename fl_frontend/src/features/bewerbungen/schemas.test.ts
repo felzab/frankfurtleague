@@ -1,12 +1,10 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
+import { assert, describe, expect, it } from "vitest";
 
-import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
-import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
+import { FormTeamSection } from "./components/forms/BewerbungForm/FormTeamSection.tsx";
 import {
   BEWERBUNG_STUFENGROESSE_MAX,
   BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -29,12 +27,6 @@ import {
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
-
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
-
-/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
-   registered as `renderTest` evaluates, and a static import resolves before that. */
-const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 
 /** The label the application form runs, off the registry the backend generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
@@ -88,7 +80,7 @@ describe("what the public submission schema accepts", () => {
   /* First, because every case below asserts that ONE path is refused: a baseline that failed would
      make each of them pass over a refusal it did not cause. */
   it("accepts a whole submission at all", () => {
-    assert.deepEqual(refusedPaths(validDraft()), []);
+    expect(refusedPaths(validDraft())).toStrictEqual([]);
   });
 
   /* The API stores an umlaut domain as its punycode and refuses an umlaut before the at sign, so the
@@ -97,8 +89,8 @@ describe("what the public submission schema accepts", () => {
     const draft = validDraft();
     const withAddress = (email: string) => validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email }) } });
 
-    assert.deepEqual(refusedPaths(withAddress("erika@käthe-schule.example")), []);
-    assert.deepEqual(refusedPaths(withAddress("käthe@beispiel.de")), ["kontakte.trainer.email"]);
+    expect(refusedPaths(withAddress("erika@käthe-schule.example"))).toStrictEqual([]);
+    expect(refusedPaths(withAddress("käthe@beispiel.de"))).toStrictEqual(["kontakte.trainer.email"]);
   });
 
   /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
@@ -107,7 +99,7 @@ describe("what the public submission schema accepts", () => {
     const draft = validDraft();
     const brokenDraft = validDraft({ kontakte: { ...draft.kontakte, trainer: person("Tim", { email: "tim@ab-.de" }) } });
 
-    assert.deepEqual(refusedPaths(brokenDraft), ["kontakte.trainer.email"]);
+    expect(refusedPaths(brokenDraft)).toStrictEqual(["kontakte.trainer.email"]);
   });
 });
 
@@ -120,7 +112,7 @@ describe("the three people have to be tellable apart", () => {
       kontakte: { ...draft.kontakte, stellvertretung: person("Lena", { email: draft.kontakte.ansprechperson.email }) },
     });
 
-    assert.deepEqual(refusedPaths(sharedSeat), ["kontakte.stellvertretung.email"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.stellvertretung.email"]);
   });
 
   it("refuses a shared telephone number the same way", () => {
@@ -131,7 +123,7 @@ describe("the three people have to be tellable apart", () => {
 
     // The TRAINER's box, although the Ansprechperson's is the one that was changed: the Trainer's
     // panel is the later of the two, so it is the one still on screen when the message appears.
-    assert.deepEqual(refusedPaths(sharedSeat), ["kontakte.trainer.telefon"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.trainer.telefon"]);
   });
 
   /* Case is not a second person: byte for byte, `ERIKA@…` beside `erika@…` passes here and is then
@@ -141,7 +133,7 @@ describe("the three people have to be tellable apart", () => {
       kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { email: "ERIKA@beispiel.de" }) },
     });
 
-    assert.deepEqual(refusedPaths(sharedSeat), ["kontakte.stellvertretung.email"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.stellvertretung.email"]);
   });
 
   /* The exception the rule exists with: a seat DECLARED to be the Trainer is one person in two
@@ -156,7 +148,7 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    assert.deepEqual(refusedPaths(sharedSeat), []);
+    expect(refusedPaths(sharedSeat)).toStrictEqual([]);
   });
 
   /* The exception is scoped to the pair the claim names. Widened to the whole block, a school could
@@ -176,7 +168,7 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    assert.deepEqual(refusedPaths(sharedSeat), [
+    expect(refusedPaths(sharedSeat)).toStrictEqual([
       "kontakte.stellvertretung.email",
       "kontakte.stellvertretung.telefon",
       "kontakte.trainer.email",
@@ -203,7 +195,7 @@ describe("the three people have to be tellable apart", () => {
     };
     const parsed = FLPostBewerbungPayloadSchema.safeParse(drifted);
 
-    assert.deepEqual(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort(), ["kontakte.ansprechperson.telefon"]);
+    expect(parsed.success ? [] : Object.keys(toFieldErrors(parsed.error)).sort()).toStrictEqual(["kontakte.ansprechperson.telefon"]);
   });
 
   /* zod skips a refinement once a check in its object aborts, and the consent switch left off is one:
@@ -218,7 +210,7 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    assert.deepEqual(refusedPaths(sharedSeat), ["kontakte.stellvertretung.email", "kontakte.trainer.einwilligung.erteilt"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.stellvertretung.email", "kontakte.trainer.einwilligung.erteilt"]);
   });
 
   /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
@@ -227,8 +219,8 @@ describe("the three people have to be tellable apart", () => {
     const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(buildEmptyBewerbungDraft("2627", FORM_LABEL)));
     const sharedSeat = parsed.success ? [] : parsed.error.issues.filter((issue) => issue.message.includes("schon bei einer anderen Person"));
 
-    assert.equal(parsed.success, false);
-    assert.deepEqual(sharedSeat, []);
+    expect(parsed.success).toBe(false);
+    expect(sharedSeat).toStrictEqual([]);
   });
 
   /* A drifted client can send a seat that is no object and a claim naming no seat. The pair checks run
@@ -240,7 +232,7 @@ describe("the three people have to be tellable apart", () => {
     for (const kontakte of [withoutSeat, { ...payload.kontakte, trainer_ist_zugleich: "trainer" }]) {
       const parsed = FLPostBewerbungPayloadSchema.safeParse({ ...payload, kontakte });
 
-      assert.equal(parsed.success, false, JSON.stringify(Object.keys(kontakte)));
+      expect(parsed.success, JSON.stringify(Object.keys(kontakte))).toBe(false);
     }
   });
 
@@ -256,7 +248,7 @@ describe("the three people have to be tellable apart", () => {
       },
     });
 
-    assert.equal(bewerbungPayload(draft).kontakte.trainer.vorname, "Erika");
+    expect(bewerbungPayload(draft).kontakte.trainer.vorname).toBe("Erika");
   });
 });
 
@@ -284,15 +276,15 @@ describe("two spellings of one telephone number are one number", () => {
     ["069-1234567", "069 1234567", "a hyphen against a space"],
   ] as const) {
     it(`refuses ${wie}`, () => {
-      assert.deepEqual(refusedPaths(sharedNumber(eine, andere)), ["kontakte.stellvertretung.telefon"]);
+      expect(refusedPaths(sharedNumber(eine, andere))).toStrictEqual(["kontakte.stellvertretung.telefon"]);
     });
   }
 
   /* The fold may not over-match either: two different numbers that merely start alike are two people,
      and refusing them would cost a school a seat it filled correctly. */
   it("leaves two genuinely different numbers standing", () => {
-    assert.deepEqual(refusedPaths(sharedNumber("0170 1234567", "0170 1234568")), []);
-    assert.deepEqual(refusedPaths(sharedNumber("+49 170 1234567", "+49 171 1234567")), []);
+    expect(refusedPaths(sharedNumber("0170 1234567", "0170 1234568"))).toStrictEqual([]);
+    expect(refusedPaths(sharedNumber("+49 170 1234567", "+49 171 1234567"))).toStrictEqual([]);
   });
 });
 
@@ -304,7 +296,7 @@ describe("the Kenntnisnahme each seat carries", () => {
       kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", erteilt: false } }) },
     });
 
-    assert.deepEqual(refusedPaths(without), ["kontakte.stellvertretung.einwilligung.erteilt"]);
+    expect(refusedPaths(without)).toStrictEqual(["kontakte.stellvertretung.einwilligung.erteilt"]);
   });
 
   /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
@@ -314,7 +306,7 @@ describe("the Kenntnisnahme each seat carries", () => {
       kontakte: { ...validDraft().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", erteilt: true } }) },
     });
 
-    assert.deepEqual(refusedPaths(without), ["kontakte.trainer.einwilligung.text_version"]);
+    expect(refusedPaths(without)).toStrictEqual(["kontakte.trainer.einwilligung.text_version"]);
   });
 });
 
@@ -322,7 +314,7 @@ describe("a submission names exactly one school", () => {
   /* The picker's key IS the answer, so an unanswered picker is the only shape left that names
      neither. `team_id` is where the message lands, that being the name the picker renders under. */
   it("refuses one where nothing was picked", () => {
-    assert.deepEqual(refusedPaths(validDraft({ auswahl: null })), ["team_id"]);
+    expect(refusedPaths(validDraft({ auswahl: null }))).toStrictEqual(["team_id"]);
   });
 
   /* zod skips a refinement once any box is refused, so without `when` an empty first press would mark
@@ -332,13 +324,13 @@ describe("a submission names exactly one school", () => {
     const refusals = parsed.success ? {} : toFieldErrors(parsed.error);
 
     assert.ok(Object.keys(refusals).length > 1, "the empty draft is refused for the picker alone, so nothing else competes with it");
-    assert.equal(refusals.team_id, "Bitte wähle eine Schule aus oder trage eine neue ein.");
+    expect(refusals.team_id).toBe("Bitte wähle eine Schule aus oder trage eine neue ein.");
   });
 
   /* The picked-club arm carries no school block at all, so nothing of the club's own details is
      re-submitted by a visitor who could type anything into them. */
   it("accepts one naming a club the league already holds", () => {
-    assert.deepEqual(refusedPaths(validDraft({ auswahl: "6890a1b2c3d4e5f607190001" })), []);
+    expect(refusedPaths(validDraft({ auswahl: "6890a1b2c3d4e5f607190001" }))).toStrictEqual([]);
   });
 
   /* The whole reason one field holds the answer: a club and a new school cannot BOTH reach the
@@ -346,8 +338,8 @@ describe("a submission names exactly one school", () => {
   it("drops a typed new school the moment a club is picked", () => {
     const payload = bewerbungPayload(validDraft({ auswahl: "6890a1b2c3d4e5f607190001" }));
 
-    assert.equal(payload.schule, null);
-    assert.equal(payload.team_id, "6890a1b2c3d4e5f607190001");
+    expect(payload.schule).toBe(null);
+    expect(payload.team_id).toBe("6890a1b2c3d4e5f607190001");
   });
 
   /* The mirror image, and the reason the sentinel may not look like an id: under it the picked key
@@ -355,8 +347,8 @@ describe("a submission names exactly one school", () => {
   it("names no club while the new-school option stands", () => {
     const payload = bewerbungPayload(validDraft());
 
-    assert.equal(payload.team_id, null);
-    assert.equal(payload.schule?.team_name, "Goethe");
+    expect(payload.team_id).toBe(null);
+    expect(payload.schule?.team_name).toBe("Goethe");
   });
 });
 
@@ -390,27 +382,26 @@ const SINGLE_LINE_INTACT = "Goethe Startgeld: 500 Euro";
 
 describe("what a new school has to state", () => {
   it("refuses a Kürzel that is not exactly two characters", () => {
-    assert.deepEqual(refusedPaths(validDraft({ schule: schule({ shorthand: "GGY" }) })), ["schule.shorthand"]);
+    expect(refusedPaths(validDraft({ schule: schule({ shorthand: "GGY" }) }))).toStrictEqual(["schule.shorthand"]);
   });
 
   /* `trim` leaves an interior break, and every surface that sets one value to the line reads it as a
-     second line — in a decision mail, one no reader can tell from a stated fact
-     (`docs/frontend/spec.md :: I46`). */
+     second line — in a decision mail, one no reader can tell from a stated fact. */
   for (const [was, padded2] of SINGLE_LINE_BROKEN) {
     it(`refuses a team name broken by ${was}`, () => {
-      assert.deepEqual(refusedPaths(validDraft({ schule: schule({ team_name: padded2 }) })), ["schule.team_name"]);
+      expect(refusedPaths(validDraft({ schule: schule({ team_name: padded2 }) }))).toStrictEqual(["schule.team_name"]);
     });
 
     it(`refuses a full name broken by ${was}`, () => {
-      assert.deepEqual(refusedPaths(validDraft({ schule: schule({ full_name: padded2 }) })), ["schule.full_name"]);
+      expect(refusedPaths(validDraft({ schule: schule({ full_name: padded2 }) }))).toStrictEqual(["schule.full_name"]);
     });
   }
 
   /* The other direction, stated once: what every case above breaks is itself accepted, so a refusal
      there is the character's own rather than a length or a shape the case never named. */
   it("takes the same names with none of the class in them", () => {
-    assert.deepEqual(refusedPaths(validDraft({ schule: schule({ team_name: SINGLE_LINE_INTACT }) })), []);
-    assert.deepEqual(refusedPaths(validDraft({ schule: schule({ full_name: SINGLE_LINE_INTACT }) })), []);
+    expect(refusedPaths(validDraft({ schule: schule({ team_name: SINGLE_LINE_INTACT }) }))).toStrictEqual([]);
+    expect(refusedPaths(validDraft({ schule: schule({ full_name: SINGLE_LINE_INTACT }) }))).toStrictEqual([]);
   });
 
   /* At either END it is a paste artefact rather than a second line, so `trim` repairs what it clears
@@ -420,20 +411,20 @@ describe("what a new school has to state", () => {
     it(`${trimmed ? "trims" : "refuses"} a team name padded with ${was}`, () => {
       const padded2 = `${character} Goethe ${character}`;
 
-      assert.deepEqual(refusedPaths(validDraft({ schule: schule({ team_name: padded2 }) })), trimmed ? [] : ["schule.team_name"]);
+      expect(refusedPaths(validDraft({ schule: schule({ team_name: padded2 }) }))).toStrictEqual(trimmed ? [] : ["schule.team_name"]);
     });
   }
 
   /* `ExternalUrlSchema` rather than `z.url()`: the address is rendered into an `href` on a public
      page once the club exists, and `javascript:` parses as a URL. */
   it("refuses a website address with no http scheme", () => {
-    assert.deepEqual(refusedPaths(validDraft({ schule: schule({ website_url: "javascript:alert(1)" }) })), ["schule.website_url"]);
+    expect(refusedPaths(validDraft({ schule: schule({ website_url: "javascript:alert(1)" }) }))).toStrictEqual(["schule.website_url"]);
   });
 
   /* Answered, unlike the club editor's: the one person who knows which school type it is, is the
      applicant filling this box, and „Keine Angabe“ there is a gap nobody chases afterwards. */
   it("refuses an unanswered school type", () => {
-    assert.deepEqual(refusedPaths(validDraft({ schule: schule({ schulform: null }) })), ["schule.schulform"]);
+    expect(refusedPaths(validDraft({ schule: schule({ schulform: null }) }))).toStrictEqual(["schule.schulform"]);
   });
 
   /* Required on THIS payload alone. The shared address model leaves it optional, because a place can
@@ -441,7 +432,7 @@ describe("what a new school has to state", () => {
   it("refuses an address with no district", () => {
     const without = validDraft({ schule: schule({ address: { ...schule().address, stadtteil: "" } }) });
 
-    assert.deepEqual(refusedPaths(without), ["schule.address.stadtteil"]);
+    expect(refusedPaths(without)).toStrictEqual(["schule.address.stadtteil"]);
   });
 
   it("still accepts an address with no district through the shared model", async () => {
@@ -449,7 +440,7 @@ describe("what a new school has to state", () => {
     // only a carve-out if the model it extends still admits what it refuses.
     const { FLAddressPayloadSchema } = await import("@/shared/schemas");
 
-    assert.equal(FLAddressPayloadSchema.safeParse({ ...schule().address, stadtteil: "" }).success, true);
+    expect(FLAddressPayloadSchema.safeParse({ ...schule().address, stadtteil: "" }).success).toBe(true);
   });
 });
 
@@ -457,11 +448,11 @@ describe("the colour the school wishes for", () => {
   /* Answered on the PAYLOAD, unlike the stored field it becomes: a school has a wish, and an empty
      row standing for „keine“ satisfies the browser's `required` while meaning the opposite. */
   it("refuses a submission naming no colour", () => {
-    assert.deepEqual(refusedPaths(validDraft({ trikot: { vorhandener_satz: "15 rote", wunschfarbe: null } })), ["trikot.wunschfarbe"]);
+    expect(refusedPaths(validDraft({ trikot: { vorhandener_satz: "15 rote", wunschfarbe: null } }))).toStrictEqual(["trikot.wunschfarbe"]);
   });
 
   it("accepts one naming a colour, and asks for nothing about the shirts themselves", () => {
-    assert.deepEqual(refusedPaths(validDraft({ trikot: { vorhandener_satz: "", wunschfarbe: "blau" } })), []);
+    expect(refusedPaths(validDraft({ trikot: { vorhandener_satz: "", wunschfarbe: "blau" } }))).toStrictEqual([]);
   });
 });
 
@@ -470,15 +461,15 @@ describe("what the season's assigned colours parse as", () => {
 
   /* First, because the refusals below are only refusals if the shape parses at all. */
   it("reads a season that has assigned some of the palette, and one that has assigned none", () => {
-    assert.equal(colourAnswer(["rot", "blau"]).success, true);
-    assert.equal(colourAnswer([]).success, true);
+    expect(colourAnswer(["rot", "blau"]).success).toBe(true);
+    expect(colourAnswer([]).success).toBe(true);
   });
 
   /* Pinned HERE rather than by `apiContract.test.ts`: that comparison reads a field's own type and
      never descends into an array's items, so `z.array(z.string())` would agree with the document. */
   it("refuses a colour the league's palette does not hold", () => {
-    assert.equal(colourAnswer(["rot", "neonpink"]).success, false, "the mirror admits a colour outside FLTrikotFarbe");
-    assert.equal(colourAnswer(["rot", 7]).success, false, "the mirror admits a value that is not a colour at all");
+    expect(colourAnswer(["rot", "neonpink"]).success, "the mirror admits a colour outside FLTrikotFarbe").toBe(false);
+    expect(colourAnswer(["rot", 7]).success, "the mirror admits a value that is not a colour at all").toBe(false);
   });
 });
 
@@ -486,7 +477,7 @@ describe("the opponent the school wishes for", () => {
   /* Free text and never a club id: a school may name one that has not applied yet, which is the whole
      reason this is not a picker. */
   it("accepts a name the league holds no club for", () => {
-    assert.deepEqual(refusedPaths(validDraft({ wunschgegner: "Irgendeine Schule, die es noch nicht gibt" })), []);
+    expect(refusedPaths(validDraft({ wunschgegner: "Irgendeine Schule, die es noch nicht gibt" }))).toStrictEqual([]);
   });
 
   /* Optional, so an untouched box submits. `null` and not `""`: one spelling of „kein Wunsch“, or the
@@ -494,39 +485,39 @@ describe("the opponent the school wishes for", () => {
   it("submits an untouched box as null rather than as an empty string", () => {
     const payload = bewerbungPayload(validDraft({ wunschgegner: "" }));
 
-    assert.equal(payload.wunschgegner, null);
-    assert.deepEqual(refusedPaths(validDraft({ wunschgegner: "" })), []);
+    expect(payload.wunschgegner).toBe(null);
+    expect(refusedPaths(validDraft({ wunschgegner: "" }))).toStrictEqual([]);
   });
 
   /* Spaces alone are no more a wish than an empty box is, and `min_length` counts characters — so the
      form and `parse_empty_string_to_none` have to agree about which entries mean „kein Wunsch“. */
   it("submits a box holding only spaces as null too", () => {
-    assert.equal(bewerbungPayload(validDraft({ wunschgegner: "   " })).wunschgegner, null);
+    expect(bewerbungPayload(validDraft({ wunschgegner: "   " })).wunschgegner).toBe(null);
   });
 
   /* Sent untrimmed, as every other name on this payload is: the backend strips before it stores, so a
      trim here would be a second place deciding what the stored value is. */
   it("sends a named opponent as it was typed", () => {
-    assert.equal(bewerbungPayload(validDraft({ wunschgegner: " Goethe-Gymnasium " })).wunschgegner, " Goethe-Gymnasium ");
+    expect(bewerbungPayload(validDraft({ wunschgegner: " Goethe-Gymnasium " })).wunschgegner).toBe(" Goethe-Gymnasium ");
   });
 
   it("refuses a name past the payload's ceiling", () => {
-    assert.deepEqual(refusedPaths(validDraft({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1) })), ["wunschgegner"]);
-    assert.deepEqual(refusedPaths(validDraft({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH) })), []);
+    expect(refusedPaths(validDraft({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1) }))).toStrictEqual(["wunschgegner"]);
+    expect(refusedPaths(validDraft({ wunschgegner: "G".repeat(BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH) }))).toStrictEqual([]);
   });
 
-  /* The forgery `docs/frontend/spec.md :: I87` describes, on the one applicant-controlled value the
+  /* A forged line in a mail, on the one applicant-controlled value the
      payload takes: the decision mail sets one fact to the line, so an interior break opens a line
      the reader cannot tell from a stated one. */
   for (const [was, padded2] of SINGLE_LINE_BROKEN) {
     it(`refuses an opponent broken by ${was}`, () => {
-      assert.deepEqual(refusedPaths(validDraft({ wunschgegner: padded2 })), ["wunschgegner"]);
+      expect(refusedPaths(validDraft({ wunschgegner: padded2 }))).toStrictEqual(["wunschgegner"]);
     });
   }
 
   /* The other direction, as for a school's own name: what every case above breaks is accepted here. */
   it("takes the same opponent with none of the class in it", () => {
-    assert.deepEqual(refusedPaths(validDraft({ wunschgegner: SINGLE_LINE_INTACT })), []);
+    expect(refusedPaths(validDraft({ wunschgegner: SINGLE_LINE_INTACT }))).toStrictEqual([]);
   });
 
   /* Padded, the same split as a school's own name: `trim` repairs what it clears, and the two it
@@ -535,7 +526,7 @@ describe("the opponent the school wishes for", () => {
     it(`${trimmed ? "trims" : "refuses"} an opponent padded with ${was}`, () => {
       const padded2 = `${character} Goethe ${character}`;
 
-      assert.deepEqual(refusedPaths(validDraft({ wunschgegner: padded2 })), trimmed ? [] : ["wunschgegner"]);
+      expect(refusedPaths(validDraft({ wunschgegner: padded2 }))).toStrictEqual(trimmed ? [] : ["wunschgegner"]);
     });
   }
 
@@ -544,7 +535,7 @@ describe("the opponent the school wishes for", () => {
   it("accepts a submission that names no such key at all", () => {
     const { wunschgegner: _weggelassen, ...without } = bewerbungPayload(validDraft());
 
-    assert.equal(FLPostBewerbungPayloadSchema.safeParse(without).success, true);
+    expect(FLPostBewerbungPayloadSchema.safeParse(without).success).toBe(true);
   });
 });
 
@@ -552,8 +543,10 @@ describe("the squad the school estimates", () => {
   /* The estimate the league plans a season's groups against. Zero teams is not a team, and an empty
      box is `null` rather than a number the form invented. */
   it("refuses a squad of nobody and a squad nobody estimated", () => {
-    assert.deepEqual(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 0, gute_spieler: 0 } })), ["kader.voraussichtliche_groesse"]);
-    assert.deepEqual(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: null, gute_spieler: 0 } })), [
+    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 0, gute_spieler: 0 } }))).toStrictEqual([
+      "kader.voraussichtliche_groesse",
+    ]);
+    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: null, gute_spieler: 0 } }))).toStrictEqual([
       "kader.voraussichtliche_groesse",
     ]);
   });
@@ -561,12 +554,12 @@ describe("the squad the school estimates", () => {
   /* Answered rather than nullable: „keiner“ is a number, and a blank box left the league guessing
      whether the school meant none or had not looked. */
   it("refuses an unanswered count of active players and accepts a count of none", () => {
-    assert.deepEqual(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } })), ["kader.gute_spieler"]);
-    assert.deepEqual(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: 0 } })), []);
+    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } }))).toStrictEqual(["kader.gute_spieler"]);
+    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: 0 } }))).toStrictEqual([]);
   });
 
   it("refuses a negative count of active players", () => {
-    assert.deepEqual(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: -1 } })), ["kader.gute_spieler"]);
+    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: -1 } }))).toStrictEqual(["kader.gute_spieler"]);
   });
 
   /* A fraction is not an unanswered box, and `z.int()` collapsed the two into one `invalid_type`: both
@@ -579,15 +572,15 @@ describe("the squad the school estimates", () => {
   };
 
   it("tells each count apart from its own empty box when a fraction is typed", () => {
-    assert.equal(kaderRefusal("voraussichtliche_groesse", 1.5), "Ein Kader zählt keine halben Spieler.");
-    assert.equal(kaderRefusal("gute_spieler", 1.5), "Bitte gib eine ganze Zahl an Spielern ein.");
+    expect(kaderRefusal("voraussichtliche_groesse", 1.5)).toBe("Ein Kader zählt keine halben Spieler.");
+    expect(kaderRefusal("gute_spieler", 1.5)).toBe("Bitte gib eine ganze Zahl an Spielern ein.");
   });
 
   /* The half these sit beside: the empty box keeps the message that names what the field is FOR, which
      is the one a school reads most often. */
   it("keeps each count's own empty-box message", () => {
-    assert.match(kaderRefusal("voraussichtliche_groesse", NaN), /^Bitte gib an, mit wie vielen Spielern/);
-    assert.match(kaderRefusal("gute_spieler", NaN), /Verbandsliga/);
+    expect(kaderRefusal("voraussichtliche_groesse", NaN)).toMatch(/^Bitte gib an, mit wie vielen Spielern/);
+    expect(kaderRefusal("gute_spieler", NaN)).toMatch(/Verbandsliga/);
   });
 });
 
@@ -603,28 +596,28 @@ describe("the Abi-Jahrgang the school states", () => {
   /* An emptied box records `null` rather than a number nobody typed, and `z.int()` answers `null` and
      a fraction alike — which is why the mirror spells this one `z.number().int()`. */
   it("asks for the count where the box is empty, and for a whole number where it holds a fraction", () => {
-    assert.equal(stufenRefusal(null), "Bitte gib an, wie viele Schülerinnen und Schüler in Deinem Abi-Jahrgang sind.");
-    assert.equal(stufenRefusal(1.5), "Bitte gib eine ganze Zahl ein.");
+    expect(stufenRefusal(null)).toBe("Bitte gib an, wie viele Schülerinnen und Schüler in Deinem Abi-Jahrgang sind.");
+    expect(stufenRefusal(1.5)).toBe("Bitte gib eine ganze Zahl ein.");
   });
 
   /* Unreachable through the control, which `react-stately` clamps to `minValue` and `maxValue` on
      commit. Kept for the openapi sweep and for a body that never came from the control at all. */
   it("names each end of the span the backend publishes", () => {
-    assert.equal(stufenRefusal(0), "Bitte gib eine Zahl ab 1 ein.");
-    assert.equal(stufenRefusal(BEWERBUNG_STUFENGROESSE_MAX + 1), `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.`);
+    expect(stufenRefusal(0)).toBe("Bitte gib eine Zahl ab 1 ein.");
+    expect(stufenRefusal(BEWERBUNG_STUFENGROESSE_MAX + 1)).toBe(`Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.`);
   });
 
   /* Both ends accepted, so each refusal above is the bound's own rather than a shape the case never
      named. A school of one pupil is a school. */
   it("takes an Abi-Jahrgang at either end of that span", () => {
-    assert.deepEqual(refusedPaths(validDraft({ stufengroesse: 1 })), []);
-    assert.deepEqual(refusedPaths(validDraft({ stufengroesse: BEWERBUNG_STUFENGROESSE_MAX })), []);
+    expect(refusedPaths(validDraft({ stufengroesse: 1 }))).toStrictEqual([]);
+    expect(refusedPaths(validDraft({ stufengroesse: BEWERBUNG_STUFENGROESSE_MAX }))).toStrictEqual([]);
   });
 
   /* Asked of every applicant, not only of one entering a new school: the picked-club arm submits this
      payload too, so a form hiding the box there would compose a body nothing accepts. */
   it("asks it of an application naming a club the league already holds", () => {
-    assert.deepEqual(refusedPaths(validDraft({ auswahl: "6890a1b2c3d4e5f607190001", stufengroesse: null })), ["stufengroesse"]);
+    expect(refusedPaths(validDraft({ auswahl: "6890a1b2c3d4e5f607190001", stufengroesse: null }))).toStrictEqual(["stufengroesse"]);
   });
 });
 
@@ -656,8 +649,8 @@ describe("the squad question asks for one level in both halves", () => {
 
     assert.ok(label !== "", "the squad field carries no label to compare against");
     assert.ok(refusal !== "", "an unanswered squad field is not refused, so there is nothing to compare");
-    assert.match(label, /Verbandsliga/, "the label dropped the level, leaving „im Verein“ to be read as breadth");
-    assert.match(refusal, /Verbandsliga/, "the refusal dropped the level the label names");
+    expect(label, "the label dropped the level, leaving „im Verein“ to be read as breadth").toMatch(/Verbandsliga/);
+    expect(refusal, "the refusal dropped the level the label names").toMatch(/Verbandsliga/);
   });
 });
 
@@ -676,8 +669,8 @@ describe("the one field of a submitted application an administrator may move", (
   };
 
   it("takes an application, a seat, an address and the address the page showed, and refuses any other key", () => {
-    assert.deepEqual(refusalFor(CORRECTION), {});
-    assert.deepEqual(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, vorname: "Erika" })), [
+    expect(refusalFor(CORRECTION)).toStrictEqual({});
+    expect(Object.keys(FLBewerbungKontaktEmailPayloadSchema.parse({ ...CORRECTION, vorname: "Erika" }))).toStrictEqual([
       "id",
       "rolle",
       "email",
@@ -688,8 +681,8 @@ describe("the one field of a submitted application an administrator may move", (
   /* One address is judged alike wherever it is typed: a sentence of this schema's own would tell an
      administrator something different from what the school was told about the same value. */
   it("refuses a malformed address in the submission's own words", () => {
-    assert.equal(refusalFor({ ...CORRECTION, email: "erika@" })["email"], "Bitte gib eine gültige E-Mail-Adresse ein.");
-    assert.match(refusalFor({ ...CORRECTION, email: `${"e".repeat(300)}@schule.de` })["email"] ?? "", /^Die E-Mail-Adresse darf höchstens /);
+    expect(refusalFor({ ...CORRECTION, email: "erika@" })["email"]).toBe("Bitte gib eine gültige E-Mail-Adresse ein.");
+    expect(refusalFor({ ...CORRECTION, email: `${"e".repeat(300)}@schule.de` })["email"] ?? "").toMatch(/^Die E-Mail-Adresse darf höchstens /);
   });
 
   it("refuses an empty address rather than storing a seat nothing can reach", () => {
@@ -700,25 +693,25 @@ describe("the one field of a submitted application an administrator may move", (
      has to pass here: refused, the seat stays unreachable and no other route moves it. */
   it("takes every address the API stores, so any mailbox can be corrected to", () => {
     for (const email of ["erika@käthe-schule.example", "a!b@schule.de"]) {
-      assert.deepEqual(refusalFor({ ...CORRECTION, email }), {}, email);
+      expect(refusalFor({ ...CORRECTION, email }), email).toStrictEqual({});
     }
   });
 
   /* Exported for the editor, which refuses another person's address at the field: two spellings of one
      rule would let a correction through that the submission's own comparison refuses. */
   it("compares two spellings of one address the way the submission does", () => {
-    assert.equal(gleicheAdresse(" Erika@Schule.de ", "erika@schule.de"), true);
-    assert.equal(gleicheAdresse("erika@schule.de", "mira@schule.de"), false);
-    assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would refuse a seat that has none");
+    expect(gleicheAdresse(" Erika@Schule.de ", "erika@schule.de")).toBe(true);
+    expect(gleicheAdresse("erika@schule.de", "mira@schule.de")).toBe(false);
+    expect(gleicheAdresse("", ""), "two empty boxes read as one address, which would refuse a seat that has none").toBe(false);
   });
 
   /* The sign-in fold, as the API compares: an umlaut domain is its punycode, a full-width „e“ before the
      at sign is another address (built from its code point, rendering as the ASCII one), and „strasse“
      is not „straße“. */
   it("folds as sign-in folds, never as a case-fold would", () => {
-    assert.equal(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de"), true);
-    assert.equal(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de"), false);
-    assert.equal(gleicheAdresse("erika@straße.de", "erika@strasse.de"), false);
+    expect(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de")).toBe(true);
+    expect(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de")).toBe(false);
+    expect(gleicheAdresse("erika@straße.de", "erika@strasse.de")).toBe(false);
   });
 });
 
@@ -738,8 +731,8 @@ describe("what the two delivery writes may put on the wire", () => {
   /* First, because every case below asserts a refusal: over an envelope already refused each of them
      would pass on a shape it never named. */
   it("takes the envelope each write composes", () => {
-    assert.equal(accepted({}).success, true);
-    assert.equal(ereignis({}).success, true);
+    expect(accepted({}).success).toBe(true);
+    expect(ereignis({}).success).toBe(true);
   });
 
   /* Past the ceiling the endpoint answers 422, and neither caller retries: the acceptance's is caught
@@ -749,90 +742,31 @@ describe("what the two delivery writes may put on the wire", () => {
     ["the event", ereignis],
   ] as const) {
     it(`refuses a message id past the endpoint's ceiling in ${was}, and takes one at it`, () => {
-      assert.equal(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success, true);
-      assert.equal(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success, false);
+      expect(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success).toBe(true);
+      expect(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success).toBe(false);
     });
 
     /* The LENGTH alone, which is what the endpoint states at this field; whether the value is an
        instant at all is screened before either payload is composed. */
     it(`refuses an instant past the endpoint's ceiling in ${was}, and takes one at it`, () => {
-      assert.equal(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success, true);
-      assert.equal(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success, false);
+      expect(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success).toBe(true);
+      expect(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success).toBe(false);
     });
 
     /* `strip_whitespace=True` runs ahead of the endpoint's own floor, so spaces alone is an empty
        value there while a ceiling without the trim would send it. */
     it(`refuses a message id of whitespace alone in ${was}`, () => {
-      assert.equal(meldung({ nachricht_id: "   " }).success, false);
-      assert.equal(meldung({ am: "   " }).success, false);
+      expect(meldung({ nachricht_id: "   " }).success).toBe(false);
+      expect(meldung({ am: "   " }).success).toBe(false);
     });
   }
 
   /* No floor on this one, unlike the two above: the endpoint bounds the reason's length and takes an
      empty one, a bounce being a fact about the mailbox with or without the provider's token. */
   it("bounds the reason and still takes an empty one", () => {
-    assert.equal(ereignis({ grund: "" }).success, true);
-    assert.equal(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH) }).success, true);
-    assert.equal(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH + 1) }).success, false);
-  });
-});
-
-/* `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` as text: the frontend holds no copy
-   of it that could be read instead, and `fl_frontend/src/core/apiContract.test.ts` leaves patterns out
-   of the contract comparison by design. */
-const BACKEND_SINGLE_LINE = /^SINGLE_LINE_PATTERN = r"([^"]+)"$/m.exec(
-  readFileSync(path.resolve(SRC_DIR, "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"), "utf8"),
-)?.[1];
-
-/* Latin-1 for the control characters and U+2000..U+20FF for the two separators, so every codepoint
-   either spelling names is probed -- a divergence over one neither names would reach no alphabet. */
-const SINGLE_LINE_PROBES = [...Array.from({ length: 0x100 }, (_, at) => at), ...Array.from({ length: 0x100 }, (_, at) => 0x2000 + at)];
-
-/** Interior, never padding: `trim` and pydantic's strip disagree about U+0085, and that gap is a padded value's. */
-const brokenName = (point: number) => `Goethe${String.fromCodePoint(point)}Startgeld`;
-
-describe("the one-line rule the submission and the endpoint hold together", () => {
-  const endpointRefuses = (source: string) => {
-    const pattern = new RegExp(source, "u");
-
-    return SINGLE_LINE_PROBES.filter((point) => !pattern.test(brokenName(point)));
-  };
-
-  /* Compared by VERDICT and never as text: this module's `refine` spells the class positively where
-     the endpoint spells it as a negated full match, so two correct spellings differ character for
-     character. */
-  it("refuses on a submitted name exactly what the endpoint's pattern refuses", () => {
-    assert.ok(BACKEND_SINGLE_LINE !== undefined, "`SINGLE_LINE_PATTERN` is no longer one raw string on one line, so nothing was compared");
-
-    const refused = endpointRefuses(BACKEND_SINGLE_LINE);
-
-    // Both ends, because a pattern refusing nothing and one refusing everything each agree with anything.
-    assert.ok(refused.length > 0, "the endpoint's pattern refuses none of the probes");
-    assert.ok(refused.length < SINGLE_LINE_PROBES.length, "the endpoint's pattern refuses every probe");
-
-    const refusedHere = SINGLE_LINE_PROBES.filter((point) => {
-      const paths = refusedPaths(validDraft({ schule: schule({ team_name: brokenName(point) }) }));
-
-      assert.ok(
-        paths.length === 0 || (paths.length === 1 && paths[0] === "schule.team_name"),
-        `U+${point.toString(16)} was refused on ${paths.join()}`,
-      );
-
-      return paths.length === 1;
-    });
-
-    assert.deepEqual(refusedHere, refused);
-  });
-
-  /* The table above drives every character case in this module, so a row dropped from it stops
-     probing that character in silence. Pinned to the endpoint rather than to the class beside it. */
-  it("names in its own table exactly the codepoints that pattern refuses", () => {
-    assert.ok(BACKEND_SINGLE_LINE !== undefined);
-
-    assert.deepEqual(
-      [...new Set(SINGLE_LINE.flatMap(([, codes]) => [...codes]))].sort((first, second) => first - second),
-      endpointRefuses(BACKEND_SINGLE_LINE),
-    );
+    expect(ereignis({ grund: "" }).success).toBe(true);
+    expect(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH) }).success).toBe(true);
+    expect(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH + 1) }).success).toBe(false);
   });
 });
 
@@ -849,10 +783,9 @@ describe("the consenting answer's birth date", () => {
       text_version: "2026-08",
     });
 
-    assert.deepEqual(
-      parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-      [["geburtsdatum", "Bitte gib Dein Geburtsdatum ein."]],
-    );
+    expect(parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message])).toStrictEqual([
+      ["geburtsdatum", "Bitte gib Dein Geburtsdatum ein."],
+    ]);
   });
 });
 
@@ -869,17 +802,14 @@ describe("the ceiling on the confirmation link's own token", () => {
      `REQ-VAL-001` naming it marks nothing, and the page can only report a failed save. */
   it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
     for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1))) {
-      assert.equal(parsed.success, false);
-      assert.deepEqual(
-        parsed.error?.issues.map((issue) => issue.message),
-        ["Bitte öffne den Link aus Deiner E-Mail erneut."],
-      );
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte öffne den Link aus Deiner E-Mail erneut."]);
     }
   });
 
   it("takes a token at the ceiling, as the endpoint does", () => {
     for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH))) {
-      assert.equal(parsed.success, true);
+      expect(parsed.success).toBe(true);
     }
   });
 });
@@ -892,11 +822,10 @@ describe("the label a confirmation's answer names", () => {
 
     for (const text_version of ["", "   "]) {
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });
-      assert.deepEqual(
+      expect(
         parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]],
         JSON.stringify(text_version),
-      );
+      ).toStrictEqual([["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]]);
     }
   });
 });

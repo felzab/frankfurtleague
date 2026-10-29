@@ -22,11 +22,11 @@ from app.core.config import (
     SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
-    BackendSecrets,  # noqa: TID251
+    BackendSecrets,
     EnvironmentValidationError,
     get_app_config,
     get_config,  # noqa: TID251
-    read_environment,  # noqa: TID251
+    read_environment,
 )
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
@@ -332,7 +332,7 @@ class TestTheBanListKey:
 
 
 class TestTheSecretFiles:
-    """Each credential is its file's, and only its file's (`docs/backend/spec.md` §1.5)."""
+    """Each credential is its file's, and only its file's."""
 
     @pytest.mark.parametrize("file", SECRET_FILES)
     def test_a_directory_missing_one_file_refuses_the_boot_naming_it_whatever_the_environment_carries(self, monkeypatch, tmp_path, file):
@@ -530,7 +530,7 @@ class TestTheSecretFiles:
 
 
 class TestALineASecretFileReplaced:
-    """A host's `fl_backend/.env` may still hold the lines the secret files replaced (`docs/backend/spec.md` §1.5)."""
+    """A host's `fl_backend/.env` may still hold the lines the secret files replaced."""
 
     def test_each_one_in_the_environment_file_refuses_the_boot_naming_it_and_no_value(self, monkeypatch, tmp_path):
         """Every such name at once, so a credential's line taking a declaration back reads as one name missing from the refusal."""
@@ -750,8 +750,8 @@ class TestTheStartupPing:
 
         assert str(raised.value) == NO_SERVER.sentence
         assert MONGODB_URI_FILE in caplog.text
-        # The `extra=` reaching the record is what puts `error_code` in the envelope
-        # (`docs/logging/spec.md` §1.2), which is the field an operator greps a boot failure by.
+        # The `extra=` reaching the record is what puts `error_code` in the envelope,
+        # which is the field an operator greps a boot failure by.
         assert caplog.records[-1].error_code == NO_SERVER.error_code
 
 

@@ -1,3 +1,5 @@
+// Redesign: goes with its last importer; `kit/ListPage` replaces it.
+
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 /** One column that cannot outgrow its container: an `auto` track takes a wide table's max-content, where a flex column stretches. */
@@ -20,7 +22,7 @@ const INK_ROOM_CLASSES = "-m-1 p-1";
 
 /**
  * The pair is complementary and stays so: the unclamped layer alone reports a height, which is what
- * stands a region at its own placeholder rather than at a number (`docs/frontend/spec.md :: I239`).
+ * stands a region at its own placeholder rather than at a number.
  * `100000px` stands in for no ceiling.
  */
 export const COVER_LAYER_CLASSES = `${IN_THE_CELL_CLASSES} ${CLIPPED_CLASSES} ${INK_ROOM_CLASSES} max-h-[calc(100000px*var(--admin-region-held))]`;

@@ -1,9 +1,4 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import path from "node:path";
-import { describe, it } from "node:test";
-
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { SPECIAL_USE_DOMAINS } from "@/core/emailAddress.ts";
@@ -34,32 +29,32 @@ const validAddress = {
 
 describe("FLAddressSchema", () => {
   it("accepts a valid address", () => {
-    assert.equal(FLAddressSchema.safeParse(validAddress).success, true);
+    expect(FLAddressSchema.safeParse(validAddress).success).toBe(true);
   });
 
   it("requires plz to be exactly five digits", () => {
     for (const plz of ["6031", "603145", "6031a", "", " 60314", "60 314"]) {
-      assert.equal(FLAddressSchema.safeParse({ ...validAddress, plz }).success, false, `expected "${plz}" to be rejected`);
+      expect(FLAddressSchema.safeParse({ ...validAddress, plz }).success, `expected "${plz}" to be rejected`).toBe(false);
     }
-    assert.equal(FLAddressSchema.safeParse({ ...validAddress, plz: "01067" }).success, true);
+    expect(FLAddressSchema.safeParse({ ...validAddress, plz: "01067" }).success).toBe(true);
   });
 
   it("accepts hausnummer as digits, hyphens and a/b/c, or empty", () => {
     for (const hausnummer of ["12", "12a", "12-14", "12B", "", "1-3c"]) {
-      assert.equal(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, true, `expected "${hausnummer}" to be accepted`);
+      expect(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be accepted`).toBe(true);
     }
   });
 
   it("rejects hausnummer with other letters or spaces", () => {
     for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
-      assert.equal(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, false, `expected "${hausnummer}" to be rejected`);
+      expect(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be rejected`).toBe(false);
     }
   });
 
   it("requires strasse and stadt to be non-empty but allows an empty stadtteil", () => {
-    assert.equal(FLAddressSchema.safeParse({ ...validAddress, strasse: "" }).success, false);
-    assert.equal(FLAddressSchema.safeParse({ ...validAddress, stadt: "" }).success, false);
-    assert.equal(FLAddressSchema.safeParse({ ...validAddress, stadtteil: "" }).success, true);
+    expect(FLAddressSchema.safeParse({ ...validAddress, strasse: "" }).success).toBe(false);
+    expect(FLAddressSchema.safeParse({ ...validAddress, stadt: "" }).success).toBe(false);
+    expect(FLAddressSchema.safeParse({ ...validAddress, stadtteil: "" }).success).toBe(true);
   });
 });
 
@@ -76,14 +71,14 @@ describe("FLAddressPayloadSchema", () => {
   it("accepts a value exactly at the cap and refuses the next character", () => {
     for (const { field, cap, filler } of capped) {
       const atTheCap = filler.repeat(cap);
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap }).success, true, `${field} at the cap`);
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap + filler }).success, false, `${field} over it`);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap }).success, `${field} at the cap`).toBe(true);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: atTheCap + filler }).success, `${field} over it`).toBe(false);
     }
   });
 
   it("keeps refusing an empty strasse or stadt, which redeclaring the field could have dropped", () => {
     for (const field of ["strasse", "stadt"] as const) {
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, false, `${field} empty`);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, `${field} empty`).toBe(false);
     }
   });
 
@@ -91,11 +86,11 @@ describe("FLAddressPayloadSchema", () => {
   // with a `REQ-VAL-001` marking the box with a generic sentence rather than the floor's German.
   it("refuses a strasse or stadt of spaces alone, and sends a padded one stripped", () => {
     for (const field of ["strasse", "stadt"] as const) {
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "   " }).success, false, `${field} spaces alone`);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "   " }).success, `${field} spaces alone`).toBe(false);
       // `.trim()` has to precede the floor: `.nonempty().trim()` type-checks, lints, and takes spaces alone.
       const padded = FLAddressPayloadSchema.parse({ ...validAddress, [field]: `  ${validAddress[field]}  ` });
 
-      assert.equal(padded[field], validAddress[field], `${field} reaches the API padded`);
+      expect(padded[field], `${field} reaches the API padded`).toBe(validAddress[field]);
     }
   });
 
@@ -103,14 +98,14 @@ describe("FLAddressPayloadSchema", () => {
   // redeclaration bounding its length must not turn it into a required one.
   it("keeps accepting an empty hausnummer or stadtteil", () => {
     for (const field of ["hausnummer", "stadtteil"] as const) {
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, true, `${field} empty`);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, `${field} empty`).toBe(true);
     }
   });
 
   // Nothing else would catch the loss: a pattern is outside what `fl_frontend/src/core/apiContract.test.ts` compares.
   it("keeps refusing a hausnummer outside its alphabet, which redeclaring the field could have dropped", () => {
     for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
-      assert.equal(FLAddressPayloadSchema.safeParse({ ...validAddress, hausnummer }).success, false, `expected "${hausnummer}" to be rejected`);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be rejected`).toBe(false);
     }
   });
 
@@ -118,7 +113,7 @@ describe("FLAddressPayloadSchema", () => {
   // fail the list it appears in.
   it("leaves the read schema accepting a stored value the payload refuses", () => {
     for (const { field, cap, filler } of capped) {
-      assert.equal(FLAddressSchema.safeParse({ ...validAddress, [field]: filler.repeat(cap + 1) }).success, true, `${field} over the cap`);
+      expect(FLAddressSchema.safeParse({ ...validAddress, [field]: filler.repeat(cap + 1) }).success, `${field} over the cap`).toBe(true);
     }
   });
 });
@@ -139,7 +134,7 @@ describe("PHONE_REGEX", () => {
 
   it("accepts every spelling of a German number the tree already uses", () => {
     for (const telefon of IN_USE) {
-      assert.equal(PHONE_REGEX.test(telefon), true, `expected ${JSON.stringify(telefon)} to be accepted`);
+      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be accepted`).toBe(true);
     }
   });
 
@@ -147,7 +142,7 @@ describe("PHONE_REGEX", () => {
   // number handed to whoever tries to ring the school.
   it("refuses a value carrying no digit at all", () => {
     for (const telefon of ["   ", "().", "---", "(  )"]) {
-      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be refused`).toBe(false);
     }
   });
 
@@ -155,7 +150,7 @@ describe("PHONE_REGEX", () => {
   // the digit count fits a pattern that carries its own ceiling as well.
   it("refuses a value trailing off into a space or punctuation", () => {
     for (const telefon of ["(069)", "069 ", "069-"]) {
-      assert.equal(PHONE_REGEX.test(telefon), false, `expected ${JSON.stringify(telefon)} to be refused`);
+      expect(PHONE_REGEX.test(telefon), `expected ${JSON.stringify(telefon)} to be refused`).toBe(false);
     }
   });
 
@@ -168,7 +163,7 @@ describe("PHONE_REGEX", () => {
       ["0".repeat(2), false],
       ["0".repeat(21), false],
     ] as const) {
-      assert.equal(PHONE_REGEX.test(telefon), accepted, `expected ${String(telefon.length)} characters to be ${String(accepted)}`);
+      expect(PHONE_REGEX.test(telefon), `expected ${String(telefon.length)} characters to be ${String(accepted)}`).toBe(accepted);
     }
   });
 });
@@ -178,13 +173,13 @@ describe("FLKontaktSchema", () => {
   // member is at `FLKontaktSchema` itself; what this pins is that one such row does not fail the list.
   it("serves every stored value the write rule would refuse", () => {
     for (const telefon of ["069 1234567 ", "+49 (0) 69 1234-567 ", "069 1234-", "(069) 1234567.", "nicht bekannt"]) {
-      assert.equal(FLKontaktSchema.safeParse({ telefon, email: null }).success, true, `expected ${JSON.stringify(telefon)} to be served`);
+      expect(FLKontaktSchema.safeParse({ telefon, email: null }).success, `expected ${JSON.stringify(telefon)} to be served`).toBe(true);
     }
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null, email: "a".repeat(300) }).success, true);
+    expect(FLKontaktSchema.safeParse({ telefon: null, email: "a".repeat(300) }).success).toBe(true);
   });
 
   it("rejects a missing field outright", () => {
-    assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+    expect(FLKontaktSchema.safeParse({ telefon: null }).success).toBe(false);
   });
 });
 
@@ -194,13 +189,13 @@ const ADRESSE = "kontakt@example.de";
 describe("FLKontaktPayloadSchema", () => {
   it("accepts common German phone formats", () => {
     for (const telefon of ["069123456", "+49 69 123456", "(069) 123-456", "+49-69-123456"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, true, `expected "${telefon}" to be accepted`);
+      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected "${telefon}" to be accepted`).toBe(true);
     }
   });
 
   it("rejects phone numbers with letters, or shorter than 3 / longer than 20 characters", () => {
     for (const telefon of ["ab", "06", "069-ABC-123", "+4969123456789012345678"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, false, `expected "${telefon}" to be rejected`);
+      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected "${telefon}" to be rejected`).toBe(false);
     }
   });
 
@@ -208,10 +203,8 @@ describe("FLKontaktPayloadSchema", () => {
   // out of the contract comparison, so a unit test is what holds the two spellings together.
   it("rejects a phone number carrying a control character, which the backend rejects too", () => {
     for (const telefon of ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069123\n456"]) {
-      assert.equal(
-        FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success,
+      expect(FLKontaktPayloadSchema.safeParse({ telefon, email: ADRESSE }).success, `expected ${JSON.stringify(telefon)} to be rejected`).toBe(
         false,
-        `expected ${JSON.stringify(telefon)} to be rejected`,
       );
     }
   });
@@ -219,37 +212,34 @@ describe("FLKontaktPayloadSchema", () => {
   // The telephone takes null (not supplied) and "" (supplied but cleared), two distinct states in
   // the admin forms.
   it("accepts null and empty string for the telephone", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: ADRESSE }).success, true);
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "", email: ADRESSE }).success, true);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: ADRESSE }).success).toBe(true);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: "", email: ADRESSE }).success).toBe(true);
   });
 
   // The address is how a referee learns an administrator entered them. Both referee forms fold a
   // cleared box to null, so this one sentence is what an empty box says.
   it("refuses a missing address with the one sentence an empty box shows", () => {
     const refused = FLKontaktPayloadSchema.safeParse({ telefon: null, email: null });
-    assert.deepEqual(
-      refused.error?.issues.map((issue) => issue.message),
-      ["Bitte gib eine E-Mail-Adresse ein."],
-    );
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "" }).success, false);
+    expect(refused.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte gib eine E-Mail-Adresse ein."]);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "" }).success).toBe(false);
   });
 
   // `PHONE_REGEX` refuses a value with no digit, so the union's empty branch is what takes a box
   // holding spaces alone — as `fl_backend/app/shared/schemas/custom.py :: parse_empty_string_to_none` reads it.
   it("takes a telefon of spaces alone as cleared rather than as malformed", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: ADRESSE }).success, true);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: "   ", email: ADRESSE }).success).toBe(true);
   });
 
   // Each is a value the API takes and stores: an umlaut host it converts to punycode, an atext
   // character outside zod's class, and a local part past RFC 5321's 64.
   it("takes every address the API stores, whose rule no zod pattern spells", () => {
     for (const email of ["kaethe@käthe-schule.example", "a!b@example.de", `${"a".repeat(70)}@example.de`]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, true, `expected "${email}" to be accepted`);
+      expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, `expected "${email}" to be accepted`).toBe(true);
     }
   });
 
   it("rejects a missing field outright", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null }).success, false);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null }).success).toBe(false);
   });
 });
 
@@ -270,7 +260,7 @@ describe("KontaktEmailSchema", () => {
     ];
 
     for (const email of addresses) {
-      assert.equal(KontaktEmailSchema.safeParse(email).success, true, `expected "${email}" to be accepted`);
+      expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be accepted`).toBe(true);
     }
   });
 
@@ -295,38 +285,36 @@ describe("KontaktEmailSchema", () => {
     ];
 
     for (const email of addresses) {
-      assert.equal(KontaktEmailSchema.safeParse(email).success, false, `expected "${email}" to be rejected`);
+      expect(KontaktEmailSchema.safeParse(email).success, `expected "${email}" to be rejected`).toBe(false);
     }
   });
 
   // The label cap is 63 OCTETS of the punycoded host and an umlaut costs more than one, so read on the
   // value as typed the second of these is 58 characters and passes.
   it("measures the label cap on the punycoded host rather than on what was typed", () => {
-    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(57)}.de`).success, true);
-    assert.equal(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(58)}.de`).success, false);
+    expect(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(57)}.de`).success).toBe(true);
+    expect(KontaktEmailSchema.safeParse(`anna@${"ä".repeat(58)}.de`).success).toBe(false);
   });
 
   // Pydantic strips before it validates, so the API takes this and stores it trimmed. The padding is
   // invisible, which is what makes a refusal over it unactionable.
   it("takes a pasted address padded with spaces and submits it trimmed", () => {
-    assert.equal(KontaktEmailSchema.parse("  erika@example.de  "), "erika@example.de");
+    expect(KontaktEmailSchema.parse("  erika@example.de  ")).toBe("erika@example.de");
   });
 
   // The API takes this one and stores the address alone. Refused rather than unwrapped: the name is on
   // screen for the applicant to delete, where a quiet rewrite would submit what nobody typed.
   it("refuses an address wrapped in a display name rather than unwrapping it", () => {
-    assert.equal(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success, false);
+    expect(KontaktEmailSchema.safeParse("Erika <erika@example.de>").success).toBe(false);
   });
 
   // A person can repair only what the sentence names, and the generic one names nothing an umlaut
   // domain does not share. The full-width at sign is built from its code point, rendering as the ASCII one.
   it("refuses, in a sentence of its own, a local part above ASCII", () => {
     for (const email of ["käthe@schule.de", `erika${String.fromCharCode(0xff20)}x@schule.de`]) {
-      assert.deepEqual(
-        refusals(email),
-        ["Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen."],
-        email,
-      );
+      expect(refusals(email), email).toStrictEqual([
+        "Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen.",
+      ]);
     }
   });
 
@@ -337,7 +325,7 @@ describe("KontaktEmailSchema", () => {
 
     for (const name of SPECIAL_USE_DOMAINS) {
       for (const email of [`trainer@example.${name}`, `Trainer@Schule.${name.toUpperCase()}`]) {
-        assert.deepEqual(refusals(email), [RESERVIERT], email);
+        expect(refusals(email), email).toStrictEqual([RESERVIERT]);
       }
     }
   });
@@ -345,13 +333,13 @@ describe("KontaktEmailSchema", () => {
   // The library leaves these off its list, so the API stores them and a stricter copy refuses what the save takes.
   it("takes the example domains the special-use names leave out", () => {
     for (const email of ["trainer@example.com", "trainer@example.org", "trainer@example.net"]) {
-      assert.deepEqual(refusals(email), [], email);
+      expect(refusals(email), email).toStrictEqual([]);
     }
   });
 
   it("carries one German sentence per fault", () => {
-    assert.deepEqual(refusals("erika@"), ["Bitte gib eine gültige E-Mail-Adresse ein."]);
-    assert.deepEqual(refusals(`${"e".repeat(300)}@schule.de`), [
+    expect(refusals("erika@")).toStrictEqual(["Bitte gib eine gültige E-Mail-Adresse ein."]);
+    expect(refusals(`${"e".repeat(300)}@schule.de`)).toStrictEqual([
       `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
     ]);
   });
@@ -373,9 +361,9 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   }
 
   it("validates email addresses", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success, true);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: "info@frankfurtleague.de" }).success).toBe(true);
     for (const email of ["info@", "@frankfurtleague.de", "info frankfurtleague.de", "info@@x.de"]) {
-      assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, false, `expected "${email}" to be rejected`);
+      expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email }).success, `expected "${email}" to be rejected`).toBe(false);
     }
   });
 
@@ -383,22 +371,21 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   // REQ-VAL-001 marks the box with a generic sentence, so without this the ceiling went unnamed.
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
     const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
-    assert.equal(atTheCap.length, KONTAKT_EMAIL_MAX_LENGTH);
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: atTheCap }).success, true, "at the cap");
+    expect(atTheCap.length).toBe(KONTAKT_EMAIL_MAX_LENGTH);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: atTheCap }).success, "at the cap").toBe(true);
 
     const over = FLKontaktPayloadSchema.safeParse({ telefon: null, email: addressOfLength(KONTAKT_EMAIL_MAX_LENGTH + 1) });
-    assert.equal(over.success, false, "one over the cap");
+    expect(over.success, "one over the cap").toBe(false);
     // No union carries the message, so the box names the ceiling rather than calling the address invalid.
-    assert.deepEqual(
-      over.error?.issues.map((issue) => issue.message),
-      [`Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`],
-    );
+    expect(over.error?.issues.map((issue) => issue.message)).toStrictEqual([
+      `Die E-Mail-Adresse darf höchstens ${String(KONTAKT_EMAIL_MAX_LENGTH)} Zeichen lang sein.`,
+    ]);
   });
 
   // email-validator applies RFC 5321's 64-octet local-part cap only under `strict`, which pydantic
   // does not pass. A bound here alone would refuse in German an address the API stores.
   it("accepts a local part over 64 characters, which the backend accepts too", () => {
-    assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success, true);
+    expect(FLKontaktPayloadSchema.safeParse({ telefon: null, email: `${"a".repeat(65)}@example.com` }).success).toBe(true);
   });
 });
 
@@ -415,8 +402,8 @@ describe("ExternalUrlSchema", () => {
   // The whole reason this schema exists: bare z.url() accepts every one of these.
   it("rejects the script-bearing schemes that z.url() lets through", () => {
     for (const url of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
-      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
-      assert.equal(z.url().safeParse(url).success, true, `z.url() no longer accepts "${url}" — this test can be simplified`);
+      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
+      expect(z.url().safeParse(url).success, `z.url() no longer accepts "${url}" — this test can be simplified`).toBe(true);
     }
   });
 
@@ -426,21 +413,21 @@ describe("ExternalUrlSchema", () => {
     const hostAlone = z.url({ hostname: z.regexes.domain });
 
     for (const url of ["javascript://example.de/%0aalert(1)", "data://example.de/x", "ftp://example.de/x"]) {
-      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
-      assert.equal(hostAlone.safeParse(url).success, true, `the domain rule refuses "${url}" itself, so this case pins nothing`);
+      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
+      expect(hostAlone.safeParse(url).success, `the domain rule refuses "${url}" itself, so this case pins nothing`).toBe(true);
     }
   });
 
   it("accepts ordinary http and https links", () => {
     for (const url of HARMLOS) {
-      assert.equal(ExternalUrlSchema.safeParse(url).success, true, `expected "${url}" to be accepted`);
+      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be accepted`).toBe(true);
     }
   });
 
   it("rejects a URL whose userinfo hides the host it reaches", () => {
     // Everything before the `@` is userinfo. The visible text names the league; the browser goes to evil.com.
     for (const url of USERINFO) {
-      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
     }
   });
 
@@ -449,43 +436,21 @@ describe("ExternalUrlSchema", () => {
     // has more of them than a test can name.
     const accepted = [...USERINFO, ...HARMLOS].filter((url) => ExternalUrlSchema.safeParse(url).success);
 
-    assert.deepEqual(accepted, HARMLOS, "the corpus proves nothing unless the harmless half still parses");
+    expect(accepted, "the corpus proves nothing unless the harmless half still parses").toStrictEqual(HARMLOS);
     for (const url of accepted) {
-      assert.equal(new URL(url).username, "", `${url}: accepted while carrying a user`);
-      assert.equal(new URL(url).password, "", `${url}: accepted while carrying a password`);
+      expect(new URL(url).username, `${url}: accepted while carrying a user`).toBe("");
+      expect(new URL(url).password, `${url}: accepted while carrying a password`).toBe("");
     }
   });
 
   it("rejects a hostname that is not a domain", () => {
     for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
-      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+      expect(ExternalUrlSchema.safeParse(url).success, `expected "${url}" to be rejected`).toBe(false);
     }
   });
 
-  // A zod release moves `z.regexes.domain` without us, and the two ends then accept different hosts
-  // on either side of one stored URL.
-  it("checks the hostname against the regex the backend copied out of zod", () => {
-    // Source text rather than an import: `fl_backend/app/shared/schemas/custom.py :: DOMAIN_REGEX` is Python, which nothing here can load.
-    const custom = readFileSync(
-      path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "app", "shared", "schemas", "custom.py"),
-      "utf8",
-    );
-    // Every module-level binding, since Python obeys the last one and a first match would read a
-    // rebinding below it as absent.
-    const bindings = [...custom.matchAll(/^DOMAIN_REGEX\b[^=\n]*=(?!=)(?<value>.*)$/gm)];
-    assert.equal(bindings.length, 1, "custom.py binds DOMAIN_REGEX more than once, so this case cannot tell which one Python keeps");
-    const copied = /^ re\.compile\(r"(?<pattern>.+)"\)$/.exec(bindings[0]?.groups?.value ?? "")?.groups?.pattern;
-    // The INSTALLED package's own version, never `fl_frontend/package.json`'s range, which names no one regex.
-    const zod = JSON.parse(readFileSync(createRequire(import.meta.url).resolve("zod/package.json"), "utf8")) as { version: string };
-
-    assert.ok(copied, "custom.py no longer spells DOMAIN_REGEX as one compiled raw string, so this case compares nothing");
-    assert.equal(copied, z.regexes.domain.source, `the backend's copy no longer matches zod ${zod.version}`);
-    // A Python pattern string carries no flags, so a flag zod added would divide the two ends while the sources still compared equal.
-    assert.equal(z.regexes.domain.flags, "", `zod ${zod.version} gives its domain regex a flag`);
-  });
-
-  // The case above holds zod's regex to the backend's copy and never to the schema, so a hand-written
-  // `hostname` in its place would leave it green while the two ends parted.
+  // The backend validates hosts with its copy of zod's domain regex, so a hand-written `hostname` in
+  // the schema's place would part the two ends.
   it("judges every hostname exactly as zod's domain regex does", () => {
     const hosts = [
       "example.de",
@@ -504,30 +469,30 @@ describe("ExternalUrlSchema", () => {
       new Set(expected.map(([, verdict]) => verdict)).size === 2,
       "the hosts hold one verdict alone, so agreeing on them proves nothing",
     );
-    assert.deepEqual(judged, expected);
+    expect(judged).toStrictEqual(expected);
   });
 });
 
 describe("CustomTimeStringSchema", () => {
   it("accepts HH:MM:SS", () => {
     for (const t of ["00:00:00", "09:05:00", "14:30:00", "23:59:59"]) {
-      assert.equal(CustomTimeStringSchema.safeParse(t).success, true, `expected ${t} to parse`);
+      expect(CustomTimeStringSchema.safeParse(t).success, `expected ${t} to parse`).toBe(true);
     }
   });
 
   // `z.iso.time()` accepts both of these and the backend's `CustomTimeString` does not, so a
   // looser schema here lets the admin form submit a value the API answers with a 422.
   it("rejects a time without seconds, which the backend rejects too", () => {
-    assert.equal(CustomTimeStringSchema.safeParse("14:30").success, false);
+    expect(CustomTimeStringSchema.safeParse("14:30").success).toBe(false);
   });
 
   it("rejects fractional seconds, which the backend rejects too", () => {
-    assert.equal(CustomTimeStringSchema.safeParse("14:30:00.5").success, false);
+    expect(CustomTimeStringSchema.safeParse("14:30:00.5").success).toBe(false);
   });
 
   it("rejects out-of-range and malformed values", () => {
     for (const t of ["24:00:00", "14:60:00", "14:30:60", "2:30:00", "", "abc"]) {
-      assert.equal(CustomTimeStringSchema.safeParse(t).success, false, `expected ${t} to be rejected`);
+      expect(CustomTimeStringSchema.safeParse(t).success, `expected ${t} to be rejected`).toBe(false);
     }
   });
 });

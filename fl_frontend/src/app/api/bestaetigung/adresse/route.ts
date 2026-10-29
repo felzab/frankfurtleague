@@ -21,7 +21,7 @@ const PresseSchema = z.union([
   FLAdresswechselStoppPayloadSchema.extend({ antwort: z.literal("gestoppt") }),
 ]);
 
-// A route handler and POST alone, for the consent link's reasons (`docs/frontend/spec.md` §1.3): a
+// A route handler and POST alone, for the consent link's reasons: a
 // mail scanner's GET must not answer for the person whether a mailbox is theirs, nor stop a change.
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The effect queued its notice and its account's carry in its own transaction: delivered behind the response, and
-      // by the hourly pass where this drain never runs (`docs/backend/spec.md :: I846`). No address reaches this handler.
+      // by the hourly pass where this drain never runs. No address reaches this handler.
       if (antwort.wirksam) {
         afterTheResponse(runAdresswechselPostausgang);
         // A grant the effect moved is announced now, as the approval announces one, not at the next five-minute pass.

@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
 
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
@@ -116,17 +115,17 @@ const sofort = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]>): bo
 
 describe("buildSpielBanners", () => {
   it("raises nothing for an untouched knockout fixture with both sides wired", () => {
-    assert.deepEqual(ids(build({ sides: [side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } })] })), []);
+    expect(ids(build({ sides: [side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } })] }))).toStrictEqual([]);
   });
 
   it("says nothing about a manual side in the group phase, where there is no wiring to lose", () => {
-    assert.deepEqual(ids(build({ isKnockout: false, sides: [side("team1"), side("team2")] })), []);
+    expect(ids(build({ isKnockout: false, sides: [side("team1"), side("team2")] }))).toStrictEqual([]);
   });
 
   it("gives the two sides distinct ids, which is what the React key now rests on", () => {
     const built = build({ sides: [side("team1"), side("team2")] });
 
-    assert.deepEqual(ids(built), ["spiel.team1-manual", "spiel.team2-manual"]);
+    expect(ids(built)).toStrictEqual(["spiel.team1-manual", "spiel.team2-manual"]);
   });
 
   /* Two lines, and the rail is why the title may spell the picker's own choice back: it renders away
@@ -134,8 +133,8 @@ describe("buildSpielBanners", () => {
   it("names the hand-set state in the title and what it costs in the body", () => {
     const [banner] = build({ sides: [side("team1")] });
 
-    assert.match(banner?.title ?? "", /Team 1 wird manuell gesetzt/);
-    assert.match(banner?.body ?? "", /nicht mehr verantwortlich für die Auswahl/);
+    expect(banner?.title ?? "").toMatch(/Team 1 wird manuell gesetzt/);
+    expect(banner?.body ?? "").toMatch(/nicht mehr verantwortlich für die Auswahl/);
   });
 
   /* Why colour and confirmation are two fields: an unwired slot is as wrong as the red says and as
@@ -143,9 +142,9 @@ describe("buildSpielBanners", () => {
   it("grades a hand-set side danger without confirming a save over it", () => {
     const built = build({ sides: [side("team1"), side("team2")] });
 
-    assert.equal(built[0]?.severity, "danger");
-    assert.equal(built[0]?.raisedBy, "state");
-    assert.equal(resolveBlockingBanners(built), null);
+    expect(built[0]?.severity).toBe("danger");
+    expect(built[0]?.raisedBy).toBe("state");
+    expect(resolveBlockingBanners(built)).toBe(null);
   });
 
   /* The other half of the same banner. Taking a wired slot over is the one moment the fixture stops
@@ -153,9 +152,9 @@ describe("buildSpielBanners", () => {
   it("confirms the save that takes a wired side over, while the inherited one stays quiet", () => {
     const takenOver = build({ sides: [side("team1", { storedQuelle: { type: "spiel", spiel_nr: 5, ausgang: "sieger" } })] });
 
-    assert.equal(takenOver[0]?.raisedBy, "change");
-    assert.deepEqual(ids(resolveBlockingBanners(takenOver) ?? []), ["spiel.team1-manual"]);
-    assert.equal(resolveBlockingBanners(build({ sides: [side("team1")] })), null);
+    expect(takenOver[0]?.raisedBy).toBe("change");
+    expect(ids(resolveBlockingBanners(takenOver) ?? [])).toStrictEqual(["spiel.team1-manual"]);
+    expect(resolveBlockingBanners(build({ sides: [side("team1")] }))).toBe(null);
   });
 
   /* Same split, one banner down: fielding an unqualified team is worth a question when the draft is
@@ -164,8 +163,8 @@ describe("buildSpielBanners", () => {
     const picked = build({ sides: [side("team1", { team: team("t1", "Falken"), storedTeam: null })] });
     const inherited = build({ sides: [side("team1", { team: team("t1", "Falken") })] });
 
-    assert.equal(picked.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy, "change");
-    assert.equal(inherited.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy, "state");
+    expect(picked.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy).toBe("change");
+    expect(inherited.find((banner) => banner.id === "spiel.team1-unqualified")?.raisedBy).toBe("state");
   });
 
   /* The rule in one case: a fixture opened on its faults and left alone asks nothing, whatever the
@@ -178,13 +177,13 @@ describe("buildSpielBanners", () => {
     });
 
     assert.ok(stored.every((banner) => banner.raisedBy === "state"));
-    assert.equal(resolveBlockingBanners(stored), null);
+    expect(resolveBlockingBanners(stored)).toBe(null);
   });
 
   it("confirms once the same draft causes something of its own", () => {
     const chosen = build({ isNewlyChosen: true, sonderereignis: "ausgefallen" });
 
-    assert.equal(resolveBlockingBanners(chosen)?.[0]?.id, "spiel.sonderereignis-meaning");
+    expect(resolveBlockingBanners(chosen)?.[0]?.id).toBe("spiel.sonderereignis-meaning");
   });
 
   /* The closed Herkunft row states its reason inside a popover and the two controls under it state
@@ -193,27 +192,27 @@ describe("buildSpielBanners", () => {
     const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
     const [banner, ...rest] = build({ seedsFromTheGroups: false, sides: [seeded] });
 
-    assert.equal(rest.length, 0);
-    assert.equal(banner?.id, "spiel.team1-seed-closed");
-    assert.equal(banner?.inline, "team1-herkunft");
-    assert.match(banner?.title ?? "", /Herkunft von Team 1 nur in der ersten KO-Runde/);
+    expect(rest.length).toBe(0);
+    expect(banner?.id).toBe("spiel.team1-seed-closed");
+    expect(banner?.inline).toBe("team1-herkunft");
+    expect(banner?.title ?? "").toMatch(/Herkunft von Team 1 nur in der ersten KO-Runde/);
     // The fixture saves as it stands, so nothing under the title may offer a repair for a block.
-    assert.equal(banner?.body, undefined);
+    expect(banner?.body).toBe(undefined);
   });
 
   it("says it per side, so both sides of a hand-wired fixture carry their own", () => {
     const gruppe = { type: "gruppe", gruppe: "A", platz: 1 } as const;
     const built = build({ seedsFromTheGroups: false, sides: [side("team1", { quelle: gruppe }), side("team2", { quelle: gruppe })] });
 
-    assert.deepEqual(ids(built), ["spiel.team1-seed-closed", "spiel.team2-seed-closed"]);
-    assert.match(built[1]?.title ?? "", /Team 2/);
+    expect(ids(built)).toStrictEqual(["spiel.team1-seed-closed", "spiel.team2-seed-closed"]);
+    expect(built[1]?.title ?? "").toMatch(/Team 2/);
   });
 
   it("leaves a match-fed and a hand-set side alone on that same round", () => {
     const fed = side("team1", { quelle: { type: "spiel", spiel_nr: 29, ausgang: "sieger" } });
 
-    assert.deepEqual(ids(build({ seedsFromTheGroups: false, sides: [fed] })), []);
-    assert.deepEqual(ids(build({ seedsFromTheGroups: false, sides: [side("team2")] })), ["spiel.team2-manual"]);
+    expect(ids(build({ seedsFromTheGroups: false, sides: [fed] }))).toStrictEqual([]);
+    expect(ids(build({ seedsFromTheGroups: false, sides: [side("team2")] }))).toStrictEqual(["spiel.team2-manual"]);
   });
 
   /* A group fixture carrying wiring is refused under `REQ-WIRING-001` instead, whose repair is to
@@ -221,7 +220,7 @@ describe("buildSpielBanners", () => {
   it("leaves it off a group-phase fixture, which this rule does not reach", () => {
     const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
 
-    assert.deepEqual(ids(build({ isKnockout: false, seedsFromTheGroups: false, sides: [seeded] })), []);
+    expect(ids(build({ isKnockout: false, seedsFromTheGroups: false, sides: [seeded] }))).toStrictEqual([]);
   });
 
   /* `info` is what keeps it off the dialog, so it needs no place on the refusal list: the fixture
@@ -230,8 +229,8 @@ describe("buildSpielBanners", () => {
     const seeded = side("team1", { quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
     const built = build({ seedsFromTheGroups: false, sides: [seeded] });
 
-    assert.equal(built[0]?.severity, "info");
-    assert.equal(resolveBlockingBanners(built), null);
+    expect(built[0]?.severity).toBe("info");
+    expect(resolveBlockingBanners(built)).toBe(null);
     assert.ok(!isSpielRefusalBannerId("spiel.team1-seed-closed"));
     assert.ok(!isSpielRefusalBannerId("spiel.team1-manual"));
   });
@@ -257,7 +256,7 @@ describe("buildSpielBanners", () => {
   });
 
   it("keeps the standing note on a fixture called off in an earlier session with nothing else to say", () => {
-    assert.deepEqual(ids(resolveRailBanners(build({ sonderereignis: "ausgefallen" }))), ["spiel.sonderereignis-standing"]);
+    expect(ids(resolveRailBanners(build({ sonderereignis: "ausgefallen" })))).toStrictEqual(["spiel.sonderereignis-standing"]);
   });
 
   /* The title is the whole note, and a body about how the fixture reads elsewhere would be false of
@@ -266,21 +265,21 @@ describe("buildSpielBanners", () => {
     for (const sonderereignis of ["ausgefallen", "annulliert", "nichtantreten_team1"] as const) {
       const [banner] = resolveRailBanners(build({ sonderereignis }));
 
-      assert.equal(banner?.id, "spiel.sonderereignis-standing", sonderereignis);
-      assert.equal(banner?.body, undefined, sonderereignis);
+      expect(banner?.id, sonderereignis).toBe("spiel.sonderereignis-standing");
+      expect(banner?.body, sonderereignis).toBe(undefined);
     }
   });
 
   // **The one member the standing note excludes**: an abandoned fixture IS still chased, so "wird
   // nicht mehr angemahnt" would be false of it.
   it("never claims an abandoned fixture stops being chased", () => {
-    assert.deepEqual(ids(build({ sonderereignis: "abgebrochen" })), []);
+    expect(ids(build({ sonderereignis: "abgebrochen" }))).toStrictEqual([]);
   });
 
   it("announces a change from one member to another, not only a first event", () => {
     const swapped = build({ isNewlyChosen: true, sonderereignis: "annulliert" });
 
-    assert.match(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "", /zählt rückwirkend nicht mehr/);
+    expect(swapped.find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "").toMatch(/zählt rückwirkend nicht mehr/);
   });
 
   it("gives each member its own meaning rather than one sentence for all five", () => {
@@ -289,11 +288,10 @@ describe("buildSpielBanners", () => {
         build({ isNewlyChosen: true, sonderereignis }).find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "",
     );
 
-    assert.equal(new Set(titles).size, titles.length);
+    expect(new Set(titles).size).toBe(titles.length);
   });
 
-  /* The picker above spells the member's own name, so a title opening with it is the second telling
-     (`docs/frontend/spec.md` §1.12, diagnostic 4). */
+  /* The picker above spells the member's own name, so a title opening with it is the second telling. */
   it("never opens a meaning with the label the reader has just picked", () => {
     for (const sonderereignis of ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"] as const) {
       const title = build({ isNewlyChosen: true, sonderereignis }).find((banner) => banner.id === "spiel.sonderereignis-meaning")?.title ?? "";
@@ -307,8 +305,8 @@ describe("buildSpielBanners", () => {
     const one = build({ isNewlyChosen: true, sonderereignis: "ausgefallen", dependentSpielNummern: [29] });
     const many = build({ isNewlyChosen: true, sonderereignis: "annulliert", dependentSpielNummern: [29, 30, 31] });
 
-    assert.match(one.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiel 29 unbesetzt/);
-    assert.match(many.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "", /Spiele 29, 30 und 31 unbesetzt/);
+    expect(one.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "").toMatch(/Spiel 29 unbesetzt/);
+    expect(many.find((banner) => banner.id === "spiel.knockout-feeds")?.title ?? "").toMatch(/Spiele 29, 30 und 31 unbesetzt/);
   });
 
   /* `fl_frontend/src/features/spiele/utils.ts :: listDependentSpiele` matches a source naming THIS
@@ -316,7 +314,7 @@ describe("buildSpielBanners", () => {
   it("names the rounds behind the fixtures the title can enumerate", () => {
     const built = build({ isNewlyChosen: true, sonderereignis: "ausgefallen", dependentSpielNummern: [29] });
 
-    assert.match(built.find((banner) => banner.id === "spiel.knockout-feeds")?.body ?? "", /Runden danach/);
+    expect(built.find((banner) => banner.id === "spiel.knockout-feeds")?.body ?? "").toMatch(/Runden danach/);
   });
 
   // A no-show is awarded a result and an abandonment may still be scored, so each RESOLVES the slot
@@ -340,7 +338,7 @@ describe("buildSpielBanners", () => {
     for (const sonderereignis of ["ausgefallen", "annulliert"] as const) {
       const refusal = build({ sonderereignis, hasAnyTore: true }).find((banner) => banner.id === "spiel.result-refused");
 
-      assert.equal(refusal?.severity, "danger", sonderereignis);
+      expect(refusal?.severity, sonderereignis).toBe("danger");
     }
   });
 
@@ -366,8 +364,8 @@ describe("buildSpielBanners", () => {
     const withShootOut = build({ sonderereignis: "nichtantreten_team2", dropsShootOut: true });
 
     assert.ok(!ids(bare).includes("spiel.forfeit-awarded"));
-    assert.equal(withGoals.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
-    assert.equal(withShootOut.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity, "warning");
+    expect(withGoals.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity).toBe("warning");
+    expect(withShootOut.find((banner) => banner.id === "spiel.forfeit-awarded")?.severity).toBe("warning");
   });
 
   // The record is entered work like the goals are, and the award replaces nothing of it -- so the
@@ -376,11 +374,11 @@ describe("buildSpielBanners", () => {
     const built = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true, dropsShootOut: true });
     const forfeit = built.find((banner) => banner.id === "spiel.forfeit-awarded");
 
-    assert.equal(forfeit?.severity, "warning");
-    assert.equal(resolveBlockingBanners(built)?.[0]?.id, "spiel.forfeit-awarded");
+    expect(forfeit?.severity).toBe("warning");
+    expect(resolveBlockingBanners(built)?.[0]?.id).toBe("spiel.forfeit-awarded");
     // The title carries both losses, so nothing under it states the second one again.
-    assert.match(forfeit?.title ?? "", /Elfmeterschießen/);
-    assert.equal(forfeit?.body, undefined);
+    expect(forfeit?.title ?? "").toMatch(/Elfmeterschießen/);
+    expect(forfeit?.body).toBe(undefined);
   });
 
   /* An award standing over stored goals is how the fixture already reads, so the dialog is owed only
@@ -390,16 +388,16 @@ describe("buildSpielBanners", () => {
     const chosen = build({ isNewlyChosen: true, sonderereignis: "nichtantreten_team2", hasAnyTore: true });
     const discarding = build({ sonderereignis: "nichtantreten_team2", hasAnyTore: true, dropsShootOut: true });
 
-    assert.equal(standing.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "state");
-    assert.equal(chosen.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "change");
-    assert.equal(discarding.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy, "change");
+    expect(standing.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy).toBe("state");
+    expect(chosen.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy).toBe("change");
+    expect(discarding.find((banner) => banner.id === "spiel.forfeit-awarded")?.raisedBy).toBe("change");
   });
 
   it("says nothing about a shoot-out where none is being discarded", () => {
     const forfeit = build({ sonderereignis: "nichtantreten_team1", hasAnyTore: true }).find((banner) => banner.id === "spiel.forfeit-awarded");
 
-    assert.doesNotMatch(forfeit?.title ?? "", /Elfmeterschießen/);
-    assert.doesNotMatch(forfeit?.body ?? "", /Elfmeterschießen/);
+    expect(forfeit?.title ?? "").not.toMatch(/Elfmeterschießen/);
+    expect(forfeit?.body ?? "").not.toMatch(/Elfmeterschießen/);
   });
 
   // The one member for which the surviving warning text still reads correctly.
@@ -408,17 +406,17 @@ describe("buildSpielBanners", () => {
 
     assert.ok(ids(built).includes("spiel.abandoned-decided"));
     // Stored that way it is the reader's to reopen; picked here it is this save putting the question.
-    assert.equal(built.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy, "state");
+    expect(built.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy).toBe("state");
     const picked = build({ isNewlyChosen: true, sonderereignis: "abgebrochen", hasDecidedErgebnis: true, hasAnyTore: true });
 
-    assert.equal(picked.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy, "change");
+    expect(picked.find((banner) => banner.id === "spiel.abandoned-decided")?.raisedBy).toBe("change");
   });
 
   it("puts the void preview's fixture numbers in the title, where the consequence is", () => {
     const built = build({ voidedSpielNummern: [29, 30], releasedSpielNummern: [31] });
 
-    assert.match(built.find((banner) => banner.id === "spiel.void-preview")?.title ?? "", /Spielen 29 und 30/);
-    assert.match(built.find((banner) => banner.id === "spiel.release-preview")?.title ?? "", /Spiel 31 entfernt/);
+    expect(built.find((banner) => banner.id === "spiel.void-preview")?.title ?? "").toMatch(/Spielen 29 und 30/);
+    expect(built.find((banner) => banner.id === "spiel.release-preview")?.title ?? "").toMatch(/Spiel 31 entfernt/);
   });
 
   /* A rail naming no fixture reads as a save that voids none, which a dry run that never answered did
@@ -426,11 +424,10 @@ describe("buildSpielBanners", () => {
   it("says a failed void preview could not check, without naming a fixture or holding the save", () => {
     const built = build({ voidPreviewFailed: true });
 
-    assert.deepEqual(
-      built.map((banner) => [banner.id, banner.severity, banner.title]),
-      [["spiel.void-preview-ungeprueft", "info", "Ob Spiele dadurch entfallen, konnte nicht geprüft werden"]],
-    );
-    assert.equal(resolveBlockingBanners(built), null);
+    expect(built.map((banner) => [banner.id, banner.severity, banner.title])).toStrictEqual([
+      ["spiel.void-preview-ungeprueft", "info", "Ob Spiele dadurch entfallen, konnte nicht geprüft werden"],
+    ]);
+    expect(resolveBlockingBanners(built)).toBe(null);
   });
 
   it("carries the remedies the two rail-backed refusals leave off their field message", () => {
@@ -439,15 +436,15 @@ describe("buildSpielBanners", () => {
     const eligibility = build({ refusalCode: "REQ-ELIGIBILITY-001" });
     const body = eligibility.find((banner) => banner.id === "spiel.eligibility-refused")?.body ?? "";
 
-    assert.deepEqual(ids(eligibility), ["spiel.eligibility-refused"]);
-    assert.match(body, /Hebe den Austritt auf/);
+    expect(ids(eligibility)).toStrictEqual(["spiel.eligibility-refused"]);
+    expect(body).toMatch(/Hebe den Austritt auf/);
     // The alternative routes are gone: a refusal names the repair, not every other way round it.
     assert.ok(!/Nichtantreten|Gruppenphase/.test(body));
 
     const spieltag = build({ refusalCode: "REQ-SPIELTAG-001" });
 
-    assert.deepEqual(ids(spieltag), ["spiel.spieltag-refused"]);
-    assert.match(spieltag.find((banner) => banner.id === "spiel.spieltag-refused")?.body ?? "", /Ändere dort die Herkunft/);
+    expect(ids(spieltag)).toStrictEqual(["spiel.spieltag-refused"]);
+    expect(spieltag.find((banner) => banner.id === "spiel.spieltag-refused")?.body ?? "").toMatch(/Ändere dort die Herkunft/);
   });
 
   // Danger for the colour a delivered refusal earns. It does NOT reach the save gate: the form
@@ -457,8 +454,8 @@ describe("buildSpielBanners", () => {
     for (const refusalCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"] as const) {
       const [banner, ...rest] = build({ refusalCode });
 
-      assert.equal(rest.length, 0, refusalCode);
-      assert.equal(banner?.severity, "danger", refusalCode);
+      expect(rest.length, refusalCode).toBe(0);
+      expect(banner?.severity, refusalCode).toBe("danger");
       assert.ok((banner?.body ?? "").length > 0, refusalCode);
     }
   });
@@ -486,11 +483,10 @@ describe("buildSpielBanners", () => {
       ({ id }) => id === "spiel.bestaetigung-sofort",
     );
 
-    assert.equal(banner?.raisedBy, "change");
-    assert.equal(banner?.severity, "warning");
-    assert.equal(banner?.inline, null, "the banner sits at a field rather than on the rail");
-    assert.equal(
-      banner?.title,
+    expect(banner?.raisedBy).toBe("change");
+    expect(banner?.severity).toBe("warning");
+    expect(banner?.inline, "the banner sits at a field rather than on the rail").toBe(null);
+    expect(banner?.title).toBe(
       `Ein Spiel in den nächsten ${String(SPIEL_BESTAETIGUNG_FRIST_TAGE)} Tagen müssen die Teams noch am Tag der Anfrage bestätigen`,
     );
   });
@@ -500,7 +496,7 @@ describe("buildSpielBanners", () => {
       ({ id }) => id === "spiel.bestaetigung-sofort",
     );
 
-    assert.equal(banner?.raisedBy, "state");
+    expect(banner?.raisedBy).toBe("state");
   });
 
   /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come. The deadline's last
@@ -552,7 +548,7 @@ describe("buildSpielBanners", () => {
     it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks inside the deadline's days`, () => {
       const tage = anders.tage === undefined ? 3 : anders.tage;
 
-      assert.equal(
+      expect(
         sofort({
           ansetzung: zeilenAnsetzung(anders),
           storedAnsetzung: angesetzt(tagNach(30)),
@@ -561,18 +557,14 @@ describe("buildSpielBanners", () => {
           sonderereignis: anders.sonderereignis ?? null,
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
         }),
-        gefragt && tage !== null && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE,
-      );
+      ).toBe(gefragt && tage !== null && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE);
     });
   }
 
   it("sorts danger over warning over info on the rail", () => {
     const built = resolveRailBanners(build({ sonderereignis: "ausgefallen", releasedSpielNummern: [31], voidedSpielNummern: [29] }));
 
-    assert.deepEqual(
-      built.map((banner) => banner.severity),
-      ["danger", "warning", "info"],
-    );
+    expect(built.map((banner) => banner.severity)).toStrictEqual(["danger", "warning", "info"]);
   });
 });
 
@@ -581,7 +573,7 @@ describe("wirdAngefragt", () => {
      gains alone fails at the other. */
   for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
     it(`asks about a fixture exactly where the pass does: ${fall}`, () => {
-      assert.equal(
+      expect(
         wirdAngefragt(zeilenAnsetzung(anders), {
           isActiveSaison: true,
           hasAnyTore: anders.tore !== undefined,
@@ -590,8 +582,7 @@ describe("wirdAngefragt", () => {
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
           today: HEUTE,
         }),
-        gefragt,
-      );
+      ).toBe(gefragt);
     });
   }
 });

@@ -44,8 +44,8 @@ type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: bool
 const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
- * A second press is safe from this page alone, which holds the key the first one carried
- * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
+ * A second press is safe from this page alone, which holds the key the first one carried;
+ * unchanged, because other details under that key are refused.
  */
 const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
@@ -53,7 +53,7 @@ const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Dopp
 // the two render together — one promise in two wordings reads as two different promises.
 const KUERZEL_RATE_LIMIT = `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`;
 
-// A read and not a write, so it stays outside `postPublicForm` (`docs/frontend/spec.md` §1.3).
+// A read and not a write, so it stays outside `postPublicForm`.
 /**
  * `?shorthand=` and never a path segment: nginx matches this location EXACTLY, and a longer path
  * falls through to the catch-all where the rate limit does not apply and nothing reports it.
@@ -70,7 +70,7 @@ async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
 /**
  * One school's application, submitted with no session at all.
  *
- * **A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives**,
+ * **A route handler and not a server action**,
  * and reached through `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm` for it.
  */
 export function BewerbungForm({
@@ -99,7 +99,7 @@ export function BewerbungForm({
 
   const [isEingereicht, setIsEingereicht] = useState(false);
   const [draft, applyDraft] = useBewerbungDraft(saisonId, fassung.textVersion, isEingereicht);
-  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
+  /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it. */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   /**
    * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
@@ -229,7 +229,7 @@ export function BewerbungForm({
 
   const handleSubmit = () => {
     const payload = bewerbungPayload(draft);
-    // The block keeping an incomplete draft off the wire; it RUNS the write (`docs/frontend/spec.md :: I71`).
+    // The block keeping an incomplete draft off the wire; it RUNS the write.
     guardSubmit({ bewerbung: payload }, writeAfterBlock);
   };
 
@@ -271,8 +271,7 @@ export function BewerbungForm({
           }
 
           // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
-          // nothing, or the refusal saying the first details stand, and either keeps its replay
-          // (`docs/frontend/spec.md :: I348`).
+          // nothing, or the refusal saying the first details stand, and either keeps its replay.
           if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
 
           // The hook owns the press's one toast: none where a field shows the refusal.

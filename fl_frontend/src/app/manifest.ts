@@ -1,15 +1,20 @@
+import { COPY } from "@/core/copy";
+
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Frankfurt League",
-    short_name: "FL",
-    description: "Die Frankfurt League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    name: COPY.marke.name,
+    short_name: COPY.marke.kurzname,
+    description: COPY.marke.beschreibung,
     start_url: "/",
     display: "standalone",
-    // Not white: `background_color` paints the splash before the first frame, so an installed app
-    // would open on a white flash.
-    theme_color: "#033f11",
+    // Both copied from `fl_frontend/src/app/tokens.css` because the manifest is JSON. The title bar
+    // takes the light theme's `--bg-surface`, the browser bar's colour: the manifest offers no
+    // colour-scheme media, and the dark value is the viewport's in `layout.tsx`.
+    theme_color: "#f5f5f5",
+    // `--brand-solid`, not white: `background_color` paints the splash before the first frame, so an
+    // installed app would open on a white flash.
     background_color: "#033f11",
     icons: [
       // Both purposes stay: without the `any` pair, platforms honouring it show the padded image.

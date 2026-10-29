@@ -33,7 +33,7 @@ import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 /**
- * The cap and its wording are the write's own (`docs/frontend/spec.md :: I18`), asked of the field that
+ * The cap and its wording are the write's own, asked of the field that
  * judges it: a second spelling here is a bound the two tiers can disagree about.
  */
 const zuLangSatz = (grund: string): string | null => {
@@ -194,7 +194,7 @@ export function AdminBewerbungAblehnenSection({
 
         <ConfirmActionRow confirm={twoPress}>
           {/* On the control, never a sentence beside it that the first keystroke would unmount under the
-              admin typing (`docs/frontend/spec.md` §1.14). */}
+              admin typing. */}
           <ConfirmPressButton
             confirm={twoPress}
             reason={closedReason}

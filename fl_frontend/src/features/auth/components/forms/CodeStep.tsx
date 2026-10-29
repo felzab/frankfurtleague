@@ -1,5 +1,6 @@
 "use client";
 
+// Session 4: goes with its one importer, the old Konto page's `CodeConfirmation`; `kit/CodeField` replaces it.
 import { useEffect, useId, useRef, useState } from "react";
 
 import { useFocusRing } from "react-aria/useFocusRing";
@@ -29,7 +30,7 @@ const RESEND_COOLDOWN_MS = 30_000;
 /** Why the resend is closed while the cooldown runs: a disabled control also leaves the tab order. */
 const ERST_WARTEN = "Einen neuen Code kannst Du eine halbe Minute nach dem letzten anfordern.";
 
-export const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
+const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
 
 /**
  * The address field's own chrome. `border` is the width, never optional: HeroUI's theme sets a field border
@@ -233,7 +234,7 @@ export function CodeStep({
                 Code erneut senden
                 {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
                     never a number a second. */}
-                {isCoolingDown && <span className="font-numeric tabular-nums"> ({asClock(secondsLeft)})</span>}
+                {isCoolingDown && <span className="font-numeric"> ({asClock(secondsLeft)})</span>}
               </button>
             </Hint>
           </div>

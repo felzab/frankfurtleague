@@ -24,7 +24,7 @@ from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
 # The sites of an outbox row naming an address: the grant's own, before and after, and its actor's; and where a grant
-# address's person moved to since, which their erasure at the new address reads (`docs/backend/spec.md :: I659`).
+# address's person moved to since, which their erasure at the new address reads.
 _GRANT_SITES = ("jetzt", "vorher")
 _SUCCESSOR_SITES = tuple(f"nachfolge.{site}" for site in _GRANT_SITES)
 _QUEUED_SITES = (*(f"{site}.adresse" for site in _GRANT_SITES), "geaendert_von", *_SUCCESSOR_SITES)
@@ -136,8 +136,7 @@ async def carry_authorship_in_session(
 ) -> int:
     """Re-key every record and queued notice the person made to the new address, whatever they hold now.
 
-    Each collection named by its own parameter, as the erasure names them, so the traces resolve every write
-    (`docs/backend/spec.md :: I845`).
+    Each collection named by its own parameter, as the erasure names them, so the traces resolve every write.
     """
 
     carried = await _set_authored(berechtigungen_collection, "erteilt_von", alt, neue, session)
@@ -146,7 +145,7 @@ async def carry_authorship_in_session(
     carried += await _set_authored(sperrliste_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(einladungen_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(berechtigungen_postausgang_collection, "geaendert_von", alt, neue, session)
-    # A moved requester's request stays theirs, approvable as before (`docs/backend/spec.md :: I866`): carried so it holds no
+    # A moved requester's request stays theirs, approvable as before: carried so it holds no
     # address an erasure at the new one misses.
     carried += await _set_authored(berechtigungen_antraege_collection, "genehmigung.gestartet_von", alt, neue, session)
 
@@ -204,7 +203,7 @@ async def erase_grants_and_authorship_in_session(
     # By name, as every collection a write reaches: the duplicate-key trace resolves a collection by
     # its parameter's spelling, never through the ban list's attribute.
     sperrliste_collection: AsyncCollection,
-    # Answers which other address in a queued notice is barred (`docs/backend/spec.md :: I462`).
+    # Answers which other address in a queued notice is barred.
     sperrliste: BanList,
     # Folded (`app/shared/folding.py :: sign_in_identifier`).
     identifier: str,
@@ -215,7 +214,7 @@ async def erase_grants_and_authorship_in_session(
     # REQUIRED: the grants, the notices and the authored records go in one transaction or none.
     session: AsyncClientSession,
 ) -> ErasedGrantsAndAuthorship:
-    """Removes an `owner` grant and breaks the floor of two, refusing neither (`docs/backend/spec.md :: I435`, `:: I436`).
+    """Removes an `owner` grant and breaks the floor of two, refusing neither.
 
     Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
     """
@@ -239,8 +238,8 @@ async def erase_grants_and_authorship_in_session(
     changes: list[tuple[ObjectId, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None, str | None]] = []
     for grant in grants:
         record = records_by_id.get(grant["_id"])
-        # A database edit to the row nobody was told of goes out first, as a revoke's does
-        # (`docs/backend/spec.md :: I451`); `geaendert_von` null names the database as its source.
+        # A database edit to the row nobody was told of goes out first, as a revoke's does;
+        # `geaendert_von` null names the database as its source.
         changes += [(*change, None) for change in compare(grants=[grant], announced=[] if record is None else [record])]
         if lebendige_adresse(grant) is not None:
             changes.append((grant["_id"], "entzogen", None, stand_of(grant), geaendert_von))
@@ -267,8 +266,7 @@ async def erase_grants_and_authorship_in_session(
     if documents:
         await post_many_to_db(collection=berechtigungen_postausgang_collection, documents=documents, session=session)
 
-    # No image of either: a grant's image is the address itself, and the announced record is bookkeeping
-    # (`docs/backend/spec.md :: I465`).
+    # No image of either: a grant's image is the address itself, and the announced record is bookkeeping.
     if grant_ids:
         await erase_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
     if records:

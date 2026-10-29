@@ -1,8 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { publishedOperations } from "@/core/openapiDocument.ts";
-import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { publishedOperations } from "@/test-support/openapiDocument.ts";
+import { refusedOn } from "@/test-support/publishedRefusals.ts";
+import { assert, describe, expect, it } from "vitest";
 
 import {
   BEWERBUNG_NICHT_MEHR_OFFEN,
@@ -73,15 +71,12 @@ describe("the consent writes' mappers", () => {
     const veroeffentlicht = new Set(
       [...MAPPERS.map(([, operation]) => operation), ...EIGENE_WEITERE].flatMap((operation) => [...codesOf(operation)]),
     );
-    assert.deepEqual(
-      Object.keys(EINWILLIGUNG_WAHL_SAETZE).filter((code) => !veroeffentlicht.has(code)),
-      [],
-    );
+    expect(Object.keys(EINWILLIGUNG_WAHL_SAETZE).filter((code) => !veroeffentlicht.has(code))).toStrictEqual([]);
   });
 
   /* The table below asks each worded code's sentence, so a code the mappers gain is asked too. */
   it("asks every code the mappers share", () => {
-    assert.deepEqual(GETEILT.map(([code]) => code).sort(), Object.keys(EINWILLIGUNG_WAHL_SAETZE).sort());
+    expect(GETEILT.map(([code]) => code).sort()).toStrictEqual(Object.keys(EINWILLIGUNG_WAHL_SAETZE).sort());
   });
 
   for (const [art, operation, mapper, eintragWeg] of MAPPERS) {
@@ -89,20 +84,20 @@ describe("the consent writes' mappers", () => {
     for (const [code, ursache, worte] of GETEILT.filter(([code]) => veroeffentlicht.has(code))) {
       /* Read by its code at any status: a rule the backend moves to another status keeps its words. */
       it(`words ${ursache} on ${art}, at any status`, () => {
-        for (const status of [403, 409, 422, 429]) assert.deepEqual(mapper(refusedOn(operation, code, status)), { error: worte });
+        for (const status of [403, 409, 422, 429]) expect(mapper(refusedOn(operation, code, status))).toStrictEqual({ error: worte });
       });
     }
 
     /* The shared answer to a lost Funktion names a team, which these records have none of. */
     it(`words ${art} no longer the person's by that record`, () => {
-      assert.deepEqual(mapper(refusedOn(operation, "REQ-FUNKTION-001", 403)), { error: eintragWeg });
+      expect(mapper(refusedOn(operation, "REQ-FUNKTION-001", 403))).toStrictEqual({ error: eintragWeg });
     });
 
     /* A barred address is the person spine's, which words it once for every person write; answering
        it here would word it twice. */
     it(`leaves every other refusal on ${art}, and a failure that is no refusal, to the spine`, () => {
-      assert.equal(mapper(refusedOn(operation, "REQ-AUTH-008", 403)), null);
-      assert.equal(mapper(new Error("network")), null);
+      expect(mapper(refusedOn(operation, "REQ-AUTH-008", 403))).toBe(null);
+      expect(mapper(new Error("network"))).toBe(null);
     });
   }
 
@@ -111,7 +106,7 @@ describe("the consent writes' mappers", () => {
   for (const operation of ["PATCH /spieler/selbst/einwilligung", ...EIGENE_WEITERE]) {
     it(`names the media floor its record was served on ${operation}, and asks for a reload, at any status`, () => {
       for (const status of [403, 409, 422, 429]) {
-        assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(operation, "REQ-EINWILLIGUNG-002", status), MEDIEN_ALTER), {
+        expect(mapEigeneEinwilligungRefusal(refusedOn(operation, "REQ-EINWILLIGUNG-002", status), MEDIEN_ALTER)).toStrictEqual({
           error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Lade die Seite neu.",
         });
       }
@@ -120,13 +115,13 @@ describe("the consent writes' mappers", () => {
 
   /* The words themselves, through the mapper: the table above takes the sentence from the module it tests. */
   it("tells a pupil whose registration closed to reload, in sentences of their own", () => {
-    assert.deepEqual(mapRegistrierungEinwilligungRefusal(refusedOn(MAPPERS[2][1], "REQ-FUNKTION-001", 403)), {
+    expect(mapRegistrierungEinwilligungRefusal(refusedOn(MAPPERS[2][1], "REQ-FUNKTION-001", 403))).toStrictEqual({
       error: "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.",
     });
   });
 
   it("gives each cause its own sentence", () => {
     const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF, medienZuJung(MEDIEN_ALTER)];
-    assert.equal(new Set(saetze).size, saetze.length);
+    expect(new Set(saetze).size).toBe(saetze.length);
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+// Redesign: goes with its last importer; the kit's fields replace it.
 import { useMemo, useRef } from "react";
 
 import Xmark from "@gravity-ui/icons/Xmark";

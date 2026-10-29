@@ -131,7 +131,7 @@ export function AdminEditSpielDataForm({
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
-  // Held here because the create dialogs render beside the form (`docs/frontend/spec.md :: I711`), and
+  // Held here because the create dialogs render beside the form, and
   // each picker offers what they created until the server's lists carry it.
   const [creating, setCreating] = useState<"spielort" | "schiedsrichter" | null>(null);
   const [createdSpielorte, setCreatedSpielorte] = useState<FLSpielort[]>([]);
@@ -409,7 +409,7 @@ export function AdminEditSpielDataForm({
 
   const requestSave = () => {
     // The one draft-to-wire conversion: a still-empty field becomes a message on its own path rather than
-    // a value cast onto a type forbidding it (`docs/frontend/spec.md` I33).
+    // a value cast onto a type forbidding it.
     const payload = buildPayload();
     // The shared block, so this form refuses on the same terms as every other one. It records the DRAFT,
     // not the parsed value: a later blur hands `validatePaths` the draft, so the two compare path by path
@@ -466,8 +466,8 @@ export function AdminEditSpielDataForm({
 
         // Built BEFORE leaving: these are this render's props and the toast outlives the page.
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
-        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same
-        // (`docs/backend/spec.md :: I811`): the result it saved is the older proposal.
+        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same:
+        // the result it saved is the older proposal.
         const nichtUebernommen = uebernimmtBericht !== null && (res.priorBericht ?? null) === null;
         const gespeichert = res.message ?? SPIELDATEN_AKTUALISIERT;
 
@@ -705,7 +705,7 @@ export function AdminEditSpielDataForm({
       />
 
       {/* Beside the form, never inside it, though a portal would draw them elsewhere: inside, the form's
-          context and React's bubbling hand their submit to the editor's save (`docs/frontend/spec.md :: I711`). */}
+          context and React's bubbling hand their submit to the editor's save. */}
       <FormModal
         isOpen={creating === "spielort"}
         onClose={closeCreating}

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { deriveSpielerDraftStatus } from "./spielerDraftStatus";
 
@@ -34,16 +33,13 @@ describe("deriveSpielerDraftStatus", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({}), fieldErrors: {}, teams: TEAMS });
 
     // Three person fields plus the five squad rows; `ist_nachnominiert` is a note, never a field.
-    assert.equal(status.fields.length, 8);
+    expect(status.fields.length).toBe(8);
   });
 
   it("reports a renamed player as one change carrying both texts", () => {
     const status = deriveSpielerDraftStatus({ stored, draft: draftFrom({ vorname: "Moritz" }), fieldErrors: {}, teams: TEAMS });
 
-    assert.deepEqual(
-      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
-      [["vorname", "Max", "Moritz"]],
-    );
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([["vorname", "Max", "Moritz"]]);
   });
 
   it("reports a birthdate entered for the first time as the German day, carrying no previous value", () => {
@@ -57,10 +53,9 @@ describe("deriveSpielerDraftStatus", () => {
     // `isDirty` is what the save button reads, and a person field missing from the descriptor table
     // leaves it false: the input takes the date, the payload carries it, and nothing offers to save.
     assert.ok(status.isDirty);
-    assert.deepEqual(
-      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
-      [["geburtsdatum", null, "14.05.2008"]],
-    );
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([
+      ["geburtsdatum", null, "14.05.2008"],
+    ]);
   });
 
   it("drops every squad row while the player is in no squad that season", () => {
@@ -71,10 +66,7 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    assert.deepEqual(
-      status.fields.map((field) => field.path),
-      ["vorname", "nachname", "geburtsdatum"],
-    );
+    expect(status.fields.map((field) => field.path)).toStrictEqual(["vorname", "nachname", "geburtsdatum"]);
   });
 
   it("reads a transfer as the two teams' NAMES, never their ids", () => {
@@ -87,8 +79,8 @@ describe("deriveSpielerDraftStatus", () => {
 
     const row = status.byPath.get("team_id");
     assert.ok(row?.isChanged);
-    assert.equal(row.storedText, "Helmholtz");
-    assert.equal(row.draftText, "Lessing");
+    expect(row.storedText).toBe("Helmholtz");
+    expect(row.draftText).toBe("Lessing");
   });
 
   it("falls back to the id for a team the selected season does not offer", () => {
@@ -100,7 +92,7 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    assert.equal(status.byPath.get("team_id")?.storedText, "6890a1b2c3d4e5f607190009");
+    expect(status.byPath.get("team_id")?.storedText).toBe("6890a1b2c3d4e5f607190009");
   });
 
   it("treats a cleared number as removed rather than changed-to-empty-string", () => {
@@ -110,8 +102,8 @@ describe("deriveSpielerDraftStatus", () => {
     // `draftText: null` is what makes the change list render this as a removal. It comes from this
     // table's own `read`, so only a case over this table can pin it.
     assert.ok(row);
-    assert.equal(row.draftText, null);
-    assert.equal(row.storedText, "10");
+    expect(row.draftText).toBe(null);
+    expect(row.storedText).toBe("10");
   });
 
   it("treats a cleared position as removed, because a squad entry is filled in over time", () => {
@@ -119,14 +111,14 @@ describe("deriveSpielerDraftStatus", () => {
 
     const row = status.byPath.get("position");
     assert.ok(row?.isChanged);
-    assert.equal(row.draftText, null);
-    assert.equal(row.storedText, "Mittelfeld");
+    expect(row.draftText).toBe(null);
+    expect(row.storedText).toBe("Mittelfeld");
   });
 
   it("reads a role as a value gained and giving it up as a removal", () => {
     const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "kapitaen" })), fieldErrors: {}, teams: TEAMS });
-    assert.equal(gained.byPath.get("rolle")?.storedText, null);
-    assert.equal(gained.byPath.get("rolle")?.draftText, "Kapitän");
+    expect(gained.byPath.get("rolle")?.storedText).toBe(null);
+    expect(gained.byPath.get("rolle")?.draftText).toBe("Kapitän");
 
     const lost = deriveSpielerDraftStatus({
       stored: draftFrom(squad({ rolle: "kapitaen" })),
@@ -134,13 +126,13 @@ describe("deriveSpielerDraftStatus", () => {
       fieldErrors: {},
       teams: TEAMS,
     });
-    assert.equal(lost.byPath.get("rolle")?.draftText, null);
+    expect(lost.byPath.get("rolle")?.draftText).toBe(null);
   });
 
   it("reads the German for each role rather than its stored slug", () => {
     const co = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ rolle: "co_kapitaen" })), fieldErrors: {}, teams: TEAMS });
 
-    assert.equal(co.byPath.get("rolle")?.draftText, "Co-Kapitän");
+    expect(co.byPath.get("rolle")?.draftText).toBe("Co-Kapitän");
   });
 
   it("carries a field error onto its own row", () => {
@@ -153,7 +145,7 @@ describe("deriveSpielerDraftStatus", () => {
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
     // answers on a path no input carries.
-    assert.equal(status.byPath.get("vorname")?.error, "Bitte gib einen Vornamen ein.");
+    expect(status.byPath.get("vorname")?.error).toBe("Bitte gib einen Vornamen ein.");
   });
 
   it("counts several changes across both groups", () => {
@@ -164,9 +156,6 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    assert.deepEqual(
-      status.changed.map((field) => field.group),
-      ["Person", "Kader"],
-    );
+    expect(status.changed.map((field) => field.group)).toStrictEqual(["Person", "Kader"]);
   });
 });

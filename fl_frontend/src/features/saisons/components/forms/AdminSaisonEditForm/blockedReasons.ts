@@ -90,7 +90,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   const replacesDraw = spielplanHoldsADraw(input);
 
   if (replacesDraw && !isReplaceWindowOpen(input)) {
-    // One code, two sentences: nothing returns `status` to `future` (`docs/backend/spec.md :: I18`),
+    // One code, two sentences: nothing returns `status` to `future`,
     // while `PATCH /spiele/{spiel_id}` rewrites every recorded field. Only the record half has a way
     // back, so only it is worded as a state.
     return saisonStatus === "active"
@@ -176,13 +176,13 @@ export function spielplanPress({
   const isReplacing = operation === "anlegen" && spielplanReplacesDraw(input);
 
   // A replace's groups refusal stands on the page where the clubs fit no offered shape: no step in the boxes lifts
-  // it, and the team page is the repair (`docs/frontend/spec.md` §1.14).
+  // it, and the team page is the repair.
   const standingReason =
     (operation === "anlegen" ? drawBlockedReason : undrawBlockedReason) ??
     (isReplacing && !fitsAnOfferedShape(input.gruppen.occupancy) ? GRUPPEN_OFF_RULES : null);
 
   // Said on the control alone rather than in the panel's body, where a pick or a step would take it away under
-  // the reader's hands (`docs/frontend/spec.md` §1.14).
+  // the reader's hands.
   const closedReason = isUnchosen
     ? `Wähle „${SPIELPLAN_NEU_ANLEGEN}“ oder „${SPIELPLAN_ZURUECKNEHMEN}“.`
     : (standingReason ??

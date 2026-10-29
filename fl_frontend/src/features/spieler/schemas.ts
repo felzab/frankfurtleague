@@ -171,8 +171,7 @@ export const FLReactivateSpielerPayloadSchema = z.object({
 });
 export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPayloadSchema>;
 
-// Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
-// can pair it with the backend's spelling.
+// Named rather than written into the field below.
 const SQUAD_NUMMER_REGEX = /^\d{1,4}$/;
 
 /**

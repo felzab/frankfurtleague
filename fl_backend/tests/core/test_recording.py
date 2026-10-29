@@ -207,7 +207,7 @@ class TestWhatEachWriteRecords:
         assert log.inserted[0]["document_id"] is None
 
     def test_a_fan_out_that_changed_nothing_records_nothing(self):
-        """A removal's rule (`docs/backend/spec.md :: I744`): an hourly pass whose filter meets nothing would otherwise file a row a pass."""
+        """A removal's rule: an hourly pass whose filter meets nothing would otherwise file a row a pass."""
         target, log = build(modified_count=0)
 
         asyncio.run(patch_many_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))

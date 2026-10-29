@@ -14,7 +14,7 @@ from app.shared.folding import canonical_address, league_address, sign_in_identi
 EMAIL_ADDRESSES: Final = Path(__file__).resolve().parent / "email_addresses.json"
 
 # Recorded under the keying every stored ban was hashed with, and only ever appended to: a null is a
-# probe the address rule now refuses (`docs/backend/spec.md :: I330`).
+# probe the address rule now refuses.
 BAN_KEYS: Final = Path(__file__).resolve().parent / "ban_keys.json"
 
 
@@ -29,8 +29,7 @@ class Row(NamedTuple):
     # What a payload stores, or `None` where the rule refuses the address.
     stored: str | None
     folded: str
-    # The frontend's own answer where the two runtimes' tables part
-    # (`docs/backend/spec.md :: The two runtimes' folds part on a domain no payload stores`).
+    # The frontend's own answer where the two runtimes' tables part.
     frontend: Answer | None = None
 
 

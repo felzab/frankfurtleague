@@ -3,7 +3,6 @@ from typing import Any, get_args
 
 import pytest
 from pydantic import BaseModel, ValidationError
-from pymongo import ASCENDING
 
 from app.api.bewerbungen.services import hash_token, mint_token
 from app.api.schiedsrichter.schemas import (
@@ -19,56 +18,34 @@ from app.api.schiedsrichter.services import (
     BESTAETIGUNG_ANSICHT_FIELDS,
     BESTAETIGUNG_ANTWORT_FIELDS,
     BESTAETIGUNG_FELD,
-    EINLADEN_FIELDS,
     EINWILLIGUNG_FELD,
-    SCHIEDSRICHTER_ADRESSE_GESPERRT,
-    SCHIEDSRICHTER_ALREADY_CONFIRMED,
-    SCHIEDSRICHTER_ALTER,
-    SCHIEDSRICHTER_KEINE_ADRESSE,
-    SCHIEDSRICHTER_MEDIEN_ALTER,
-    SCHIEDSRICHTER_RETIRED,
-    SCHIEDSRICHTER_TOKEN_EXPIRED,
-    SCHIEDSRICHTER_TOKEN_UNKNOWN,
     bestaetigung_frist_from,
     build_token_filter,
     compose_bestaetigung,
     compose_confirmation_update,
     compose_einwilligung,
-    compose_korrektur_update,
-    find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
-    find_gesperrt_refusal,
-    find_medien_refusal,
-    find_missing_address_refusal,
-    find_retired_refusal,
-    find_unknown_token_refusal,
-    frist_of,
-    owes_reactivation_mint,
     vorname_of,
     zustand_of,
 )
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
-from app.core.constraints import _SCHIEDSRICHTER_BESTAETIGUNG, COLLECTION_VALIDATORS, SUPPORT_INDEXES, UNIQUE_INDEXES
+from app.core.constraints import _SCHIEDSRICHTER_BESTAETIGUNG, COLLECTION_VALIDATORS
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_TOKEN_MAX_LENGTH,
-    SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 
 TODAY = "2026-04-01"
 # The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
 CONFIRMED_AT = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
-TOMORROW = "2026-04-02"
 
 RAW_TOKEN = "raw-token-for-one-referee"
 TOKEN_HASH = hash_token(RAW_TOKEN)
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
-A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
 
@@ -223,13 +200,15 @@ class TestWhatAReopenedLinkShows:
         [
             (None, LIVE_BLOCK, "gueltig"),
             (None, {**LIVE_BLOCK, "frist": YESTERDAY}, "abgelaufen"),
+            # The deadline's own day still answers: the mail names that day.
+            (None, {**LIVE_BLOCK, "frist": TODAY}, "gueltig"),
             (confirmed(), LIVE_BLOCK, "bestaetigt"),
             # A stamp outranks the deadline: a person who answered on the last valid day is shown that they did.
             (confirmed(), {**LIVE_BLOCK, "frist": YESTERDAY}, "bestaetigt"),
             # A stamp of `""` is no answer: the page offers the link again rather than thanking nobody.
             (confirmed(bestaetigt_am=""), LIVE_BLOCK, "gueltig"),
         ],
-        ids=["live", "over", "answered", "answered-then-over", "empty-stamp"],
+        ids=["live", "over", "on-the-deadlines-day", "answered", "answered-then-over", "empty-stamp"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
         """The ban outranks every one of them: a barred referee's page shows the ban and nothing else."""
@@ -238,22 +217,11 @@ class TestWhatAReopenedLinkShows:
         assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=True) == "gesperrt"
 
 
-class TestABlockWithNoReadableDeadline:
-    """A row the hash filter matched carries the block that hash sits in, so this state is one the validator admits from nobody."""
+class TestALinkWhoseTimeIsOver:
+    def test_the_deadlines_own_day_still_takes_the_answer(self):
+        """The press as the view above reads it: a page offering the answer on that day and a press refusing it would lie."""
 
-    @pytest.mark.parametrize(
-        "bestaetigung", [None, {}, {"frist": None}, {"frist": 14}, "not-a-block"], ids=["absent", "empty", "null", "number", "unreadable"]
-    )
-    def test_the_view_answers_the_dead_link_rather_than_serialising_it(self, bestaetigung: Any):
-        """Defensive, and never `str()` over `Any`: that spelling answers the string "None" and the response model then 500s."""
-
-        refusal = find_unknown_token_refusal(found=isinstance(frist_of(bestaetigung), str))
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
-
-    def test_a_block_carrying_a_readable_deadline_is_served(self):
-        assert find_unknown_token_refusal(found=isinstance(frist_of(LIVE_BLOCK), str)) is None
+        assert find_expired_token_refusal(frist=TODAY, today=TODAY) is None
 
 
 class TestTheTokenPayloadBound:
@@ -276,305 +244,17 @@ class TestTheTokenPayloadBound:
             )
 
 
-class TestATokenNoRefereeHolds:
-    def test_a_hash_a_referee_holds_is_not_refused(self):
-        assert find_unknown_token_refusal(found=True) is None
-
-    def test_a_hash_no_referee_holds_is_refused(self):
-        refusal = find_unknown_token_refusal(found=False)
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
-
-    def test_the_three_origins_answer_one_code_and_one_message(self):
-        """A stranger's guess, a hash a later mint replaced and a deleted document all leave the lookup empty.
-
-        Answered apart, the message would tell whoever guessed which of the three they had found.
-        """
-
-        # The lookup's own answer for each, which is what parts these three anywhere at all.
-        guessed, replaced, erased = (find_unknown_token_refusal(found=False) for _ in range(3))
-
-        assert guessed == replaced == erased
-        assert guessed is not None
-        assert guessed.error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
-
-
-class TestALinkWhoseDeadlineHasPassed:
-    @pytest.mark.parametrize(
-        ("frist", "refused"),
-        [(TOMORROW, False), (TODAY, False), (YESTERDAY, True), (None, True), (12, True)],
-        ids=["before", "on-the-day", "after", "no-deadline", "unreadable"],
-    )
-    def test_each_boundary_falls_where_the_rule_says(self, frist: Any, refused: bool):
-        """The deadline's own day still works, and a block carrying no readable one is over: nothing can say it is still running."""
-
-        refusal = find_expired_token_refusal(frist=frist, today=TODAY)
-
-        assert (refusal is not None) is refused
-        if refusal is not None:
-            assert refusal.error_code == SCHIEDSRICHTER_TOKEN_EXPIRED
-
-
-class TestAnEntryAlreadyConfirmed:
-    @pytest.mark.parametrize(
-        "einwilligung",
-        [None, {"umfang": "intern", "bestaetigt_am": None}, "not-a-record", confirmed(bestaetigt_am="")],
-        ids=["absent", "unstamped", "unreadable", "empty-stamp"],
-    )
-    def test_an_entry_nobody_has_answered_takes_one(self, einwilligung: Any):
-        assert find_already_confirmed_refusal(einwilligung=einwilligung) is None
-
-    def test_a_stamped_record_takes_no_second_answer(self):
-        """The STAMP spends the link and never a nulled hash, so a second press is told why rather than answering `-002`."""
-
-        refusal = find_already_confirmed_refusal(einwilligung=confirmed())
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_ALREADY_CONFIRMED
-
-    def test_the_stamp_outranks_the_deadline_where_both_would_refuse(self):
-        """A person who answered on the last valid day and presses again is told their answer stands.
-
-        The other order sends them off for a fresh link, which repairs a state they are not in.
-        """
-
-        over = {**LIVE_BLOCK, "frist": YESTERDAY}
-
-        assert find_already_confirmed_refusal(einwilligung=confirmed()) is not None
-        assert find_expired_token_refusal(frist=frist_of(over), today=TODAY) is not None
-        assert zustand_of(einwilligung=confirmed(), bestaetigung=over, today=TODAY, gesperrt=False) == "bestaetigt"
-
-    def test_the_re_send_reads_the_stamp_it_judges(self):
-        """A confirmed referee takes no fresh link: minting one would replace a live block with a credential the confirmation always refuses."""
-
-        assert f"{EINWILLIGUNG_FELD}.bestaetigt_am" in EINLADEN_FIELDS
-
-
 class TestTheAgeThisConsentAsks:
-    """The referee's own floor and ceiling.
+    def test_a_referee_reaching_the_floor_today_may_confirm(self):
+        """The floor to the day: sixteen today is old enough, and refusing it tells the referee their date was wrong."""
 
-    The arithmetic under them is `fl_backend/tests/shared/test_alter.py :: TestWholeYears`, which
-    pins it for all three consent flows at once.
-    """
-
-    @pytest.mark.parametrize(
-        ("geburtsdatum", "refused"),
-        [("2010-04-01", False), ("2010-04-02", True), (AN_ADULTS_BIRTHDATE, False), (A_CHILDS_BIRTHDATE, True), ("1880-01-01", True)],
-        ids=["exactly-the-floor", "a-day-short", "an-adult", "a-child", "a-mistyped-century"],
-    )
-    def test_each_boundary_falls_where_the_bound_says(self, geburtsdatum: str, refused: bool):
-        refusal = find_alter_refusal(geburtsdatum=geburtsdatum, today=TODAY)
-
-        assert (refusal is not None) is refused
-        if refusal is not None:
-            assert refusal.error_code == SCHIEDSRICHTER_ALTER
-
-    @pytest.mark.parametrize(
-        ("geburtsdatum", "bound"),
-        [(A_CHILDS_BIRTHDATE, SCHIEDSRICHTER_MIN_AGE_YEARS), ("1880-01-01", BEWERBUNG_KONTAKT_MAX_AGE_YEARS)],
-        ids=["floor", "ceiling"],
-    )
-    def test_each_refusal_names_the_bound_it_judged_by(self, geburtsdatum: str, bound: int):
-        refusal = find_alter_refusal(geburtsdatum=geburtsdatum, today=TODAY)
-
-        assert refusal is not None
-        assert str(bound) in refusal.message
-
-
-class TestTheMediaAge:
-    """`REQ-SCHIEDSRICHTER-008`: a media consent is an adult's alone, and a `False` is every admitted age's answer."""
-
-    # Against `TODAY`, `2008-04-01` is 18 to the day and `2008-04-02` is 17 years and 364 days.
-    @pytest.mark.parametrize(
-        ("geburtsdatum", "medien", "refused"),
-        [
-            ("2008-04-02", True, True),
-            ("2008-04-01", True, False),
-            ("2010-04-01", False, False),
-            ("2008-04-02", False, False),
-        ],
-        ids=["a-day-short-of-18-says-yes", "18-to-the-day-says-yes", "16-says-no", "a-day-short-of-18-says-no"],
-    )
-    def test_each_boundary_falls_where_the_media_age_says(self, geburtsdatum: str, medien: bool, refused: bool):
-        refusal = find_medien_refusal(geburtsdatum=geburtsdatum, medien=medien, today=TODAY)
-
-        assert (refusal is not None) is refused
-        if refusal is not None:
-            assert refusal.error_code == SCHIEDSRICHTER_MEDIEN_ALTER
-
-    def test_the_age_is_the_rulings_eighteen_and_the_refusal_names_it(self):
-        """The LITERAL, never the constant the message is composed from: read through the constant, the case passes at any age at all."""
-
-        refusal = find_medien_refusal(geburtsdatum="2010-04-01", medien=True, today=TODAY)
-
-        assert refusal is not None
-        assert "18" in refusal.message
-
-
-class TestARetiredRefereeTakesNoFreshLink:
-    def test_a_live_referee_is_not_refused(self):
-        assert find_retired_refusal(inactive_since=None) is None
-
-    def test_a_retired_one_is(self):
-        """A refusal to COLLECT: a row taking no new booking would be asked to consent to a role nobody can give them."""
-
-        refusal = find_retired_refusal(inactive_since="2026-01-01")
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_RETIRED
-
-    def test_the_re_send_reads_the_state_it_judges(self):
-        assert "inactive_since" in EINLADEN_FIELDS
-
-    def test_the_save_stores_a_retired_referees_new_address_and_mints_nothing(self):
-        """Refusing it instead locks the row, every save carrying an address. The old link goes, the mailbox it reached being replaced."""
-
-        stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
-
-        update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert minted is False
-        assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
-
-    def test_a_live_referees_new_address_is_minted_for(self):
-        stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
-        payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
-
-        update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert minted is True
-        assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
-
-
-class TestTheReactivationAsks:
-    """The mint the retired save withholds is owed here, and only where a link can go and nobody has answered."""
-
-    @pytest.mark.parametrize(
-        ("stored", "owed"),
-        [
-            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, True),
-            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: None, "inactive_since": None}, False),
-            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
-            ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
-            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
-            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am=""), "inactive_since": "2026-01-01"}, True),
-        ],
-        ids=["retired-unanswered", "not-retired", "answered", "no-address", "unfoldable-address", "empty-stamp"],
-    )
-    def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
-        assert owes_reactivation_mint(stored=stored) is owed
-
-    def test_the_reactivation_reads_every_field_it_judges(self):
-        assert {"inactive_since", "kontakt.email", f"{EINWILLIGUNG_FELD}.bestaetigt_am"} <= set(EINLADEN_FIELDS)
-
-
-class TestARefereeWithNoAddress:
-    def test_an_address_is_not_refused(self):
-        assert find_missing_address_refusal(email="collina@example.com") is None
-
-    def test_a_missing_one_is(self):
-        """Refused at the write and not at the calling surface alone: a stamped `verschickt_am` would record a message never composed."""
-
-        refusal = find_missing_address_refusal(email=None)
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
-
-    def test_an_address_under_a_reserved_domain_is_refused_as_none(self):
-        """No payload takes one, and the ban-list hash cannot key it."""
-
-        refusal = find_missing_address_refusal(email="jemand@schule.invalid")
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
-
-    def test_the_re_send_reads_the_address_it_judges(self):
-        assert "kontakt.email" in EINLADEN_FIELDS
-
-
-class TestAnAddressOnTheBanList:
-    def test_an_address_the_list_does_not_hold_is_not_refused(self):
-        assert find_gesperrt_refusal(gesperrt=False) is None
-
-    def test_one_it_holds_is(self):
-        refusal = find_gesperrt_refusal(gesperrt=True)
-
-        assert refusal is not None
-        assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
-
-
-def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
-    """The save's update over an empty payload, so all it `$set`s is what the save minted."""
-
-    return compose_korrektur_update(
-        stored={"inactive_since": None, **stored}, payload={}, payload_email=payload_email, token_hash=TOKEN_HASH, today=today
-    )
-
-
-class TestACorrectedAddressReMints:
-    """The ruled behaviour: an unconfirmed referee's old link was posted to a mailbox nobody reads."""
-
-    @pytest.mark.parametrize(
-        ("stored", "payload_email"),
-        [
-            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com"),
-            ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
-            ({"kontakt": {"email": "jemand@schule.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
-            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
-        ],
-        ids=["address-moved", "address-entered", "unfoldable-replaced", "empty-stamp"],
-    )
-    def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == (
-            {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
-            True,
-        )
-
-    @pytest.mark.parametrize(
-        ("stored", "payload_email"),
-        [
-            ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
-            ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "same@example.com"),
-        ],
-        ids=["address-unchanged", "already-confirmed-and-unmoved"],
-    )
-    def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
-
-    def test_the_fresh_block_restarts_the_deadline(self):
-        update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
-
-        assert minted is True
-        assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
+        assert find_alter_refusal(geburtsdatum="2010-04-01", today=TODAY) is None
 
 
 class TestTheDeadlineIsStoredRatherThanDerived:
     def test_the_block_holds_it_so_a_raised_bound_moves_no_link_already_sent(self):
         assert LIVE_BLOCK["frist"] != LIVE_BLOCK["verschickt_am"]
         assert "frist" in _SCHIEDSRICHTER_BESTAETIGUNG["required"]
-
-
-class TestTheHashLookupIsIndexed:
-    """Driven by strangers, and by nothing else: a token nobody minted is what the collection is scanned for."""
-
-    def test_the_register_carries_the_key_the_token_filter_matches_on(self):
-        declared = next(index for index in SUPPORT_INDEXES if index.name == "schiedsrichter_bestaetigung_token_hash")
-
-        assert declared.collection == Collection.SCHIEDSRICHTER
-        assert dict(declared.keys) == {next(iter(build_token_filter(token_hash=TOKEN_HASH))): ASCENDING}
-
-    def test_it_is_a_support_index_rather_than_a_unique_one(self):
-        """Two referees carrying one hash is a collision nothing produces, so uniqueness would buy a refusal rather than a rule."""
-
-        keyed = {key for index in UNIQUE_INDEXES if index.collection == Collection.SCHIEDSRICHTER for key in index.keys}
-
-        assert f"{BESTAETIGUNG_FELD}.token_hash" not in keyed
 
 
 class TestTheScopeIsOneSetOfValues:

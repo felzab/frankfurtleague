@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 // The production code asks `control instanceof HTMLElement`, which node does not define. Declared before
 // the import so the stubs below and the module under test read the same constructor.
@@ -122,7 +121,7 @@ describe("focusFirstRefusal", () => {
       new El("div", ROOT("textfield"), doc).add(refused),
     );
 
-    assert.equal(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." }), true);
+    expect(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." })).toBe(true);
     assert.ok(doc.activeElement === refused, "focus landed on a field nothing refused");
   });
 
@@ -139,7 +138,7 @@ describe("focusFirstRefusal", () => {
       ),
     );
 
-    assert.equal(focusFirstRefusal(formOf(form), { team_id: "Bitte wähle eine Schule." }), true);
+    expect(focusFirstRefusal(formOf(form), { team_id: "Bitte wähle eine Schule." })).toBe(true);
     assert.ok(doc.activeElement === trigger, "focus parked inside an aria-hidden subtree, where nothing is announced");
   });
 
@@ -151,7 +150,7 @@ describe("focusFirstRefusal", () => {
     const named = new El("input", { type: "hidden", name: "kader.groesse" }, doc);
     const form = new El("form", {}, doc).add(new El("div", ROOT("number-field"), doc).add(spinbutton), named);
 
-    assert.equal(focusFirstRefusal(formOf(form), { "kader.groesse": "Zu klein." }), true);
+    expect(focusFirstRefusal(formOf(form), { "kader.groesse": "Zu klein." })).toBe(true);
     assert.ok(doc.activeElement === spinbutton, "the caret never reached the control the admin can type into");
   });
 
@@ -163,7 +162,7 @@ describe("focusFirstRefusal", () => {
     const proxy = new El("input", { type: "text", name: "einwilligung.erteilt", ...ROOT("input") }, doc);
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(new El("div", ROOT("switch"), doc).add(toggle), proxy));
 
-    assert.equal(focusFirstRefusal(formOf(form), { "einwilligung.erteilt": "Bitte stimme zu." }), true);
+    expect(focusFirstRefusal(formOf(form), { "einwilligung.erteilt": "Bitte stimme zu." })).toBe(true);
     assert.ok(doc.activeElement === toggle, "the consent switch never took the caret its own refusal names");
   });
 
@@ -173,7 +172,7 @@ describe("focusFirstRefusal", () => {
     const named = new El("input", { name: "email", type: "email", ...FOCUSABLE }, doc, true);
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(decoy, named));
 
-    assert.equal(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." }), true);
+    expect(focusFirstRefusal(formOf(form), { email: "Bitte gib eine Adresse ein." })).toBe(true);
     assert.ok(doc.activeElement === named, "the walk scanned past a control that could take focus itself");
   });
 
@@ -188,7 +187,7 @@ describe("focusFirstRefusal", () => {
     );
 
     const shown = { "rules.erlaubte_stufen": "Wähle eine Stufe.", name: "Bitte gib einen Namen ein." };
-    assert.equal(focusFirstRefusal(formOf(form), shown), true);
+    expect(focusFirstRefusal(formOf(form), shown)).toBe(true);
     assert.ok(doc.activeElement === reachable, "an unfocusable proxy swallowed the whole walk");
   });
 
@@ -197,7 +196,7 @@ describe("focusFirstRefusal", () => {
     const proxy = new El("input", { type: "hidden", name: "rules.erlaubte_stufen" }, doc);
     const form = new El("form", {}, doc).add(new El("div", ROOT("toggle-group"), doc), proxy);
 
-    assert.equal(focusFirstRefusal(formOf(form), { "rules.erlaubte_stufen": "Wähle eine Stufe." }), true);
+    expect(focusFirstRefusal(formOf(form), { "rules.erlaubte_stufen": "Wähle eine Stufe." })).toBe(true);
     assert.ok(doc.activeElement === null, "focus did not land where this case expects");
   });
 
@@ -206,7 +205,7 @@ describe("focusFirstRefusal", () => {
     const only = new El("input", { name: "vorname", type: "text", ...FOCUSABLE }, doc, true);
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(only));
 
-    assert.equal(focusFirstRefusal(formOf(form), { gruppe: "Wähle eine Gruppe." }), false);
+    expect(focusFirstRefusal(formOf(form), { gruppe: "Wähle eine Gruppe." })).toBe(false);
   });
 
   it("reads the map with `hasOwn`, so a field named for a prototype key is not a match", () => {
@@ -215,7 +214,7 @@ describe("focusFirstRefusal", () => {
     const form = new El("form", {}, doc).add(new El("div", ROOT("textfield"), doc).add(control));
 
     // With `in`, the empty map answers `true` here and the toast never fires for a genuinely unshown path.
-    assert.equal(focusFirstRefusal(formOf(form), {}), false);
+    expect(focusFirstRefusal(formOf(form), {})).toBe(false);
     assert.ok(doc.activeElement === null, "focus did not land where this case expects");
   });
 });
@@ -229,30 +228,30 @@ describe("which refused paths have to be announced instead of shown", () => {
     const doc: Doc = { activeElement: null };
     const form = new El("form", {}, doc).add(new El("input", { name: "vorname", type: "text" }, doc));
 
-    assert.deepEqual(unshownPaths(formOf(form), { vorname: "Bitte gib einen Vornamen ein.", gruppe: "Wähle eine Gruppe." }), ["gruppe"]);
+    expect(unshownPaths(formOf(form), { vorname: "Bitte gib einen Vornamen ein.", gruppe: "Wähle eine Gruppe." })).toStrictEqual(["gruppe"]);
   });
 
   it("names none where every refused path has a control, which is every ordinary refusal", () => {
     const doc: Doc = { activeElement: null };
     const form = new El("form", {}, doc).add(new El("input", { name: "gruppe", type: "text" }, doc));
 
-    assert.deepEqual(unshownPaths(formOf(form), { gruppe: "Wähle eine Gruppe." }), []);
+    expect(unshownPaths(formOf(form), { gruppe: "Wähle eine Gruppe." })).toStrictEqual([]);
   });
 
   it("names every refused path where no form is mounted", () => {
-    assert.deepEqual(unshownPaths(null, { gruppe: "Wähle eine Gruppe." }), ["gruppe"]);
+    expect(unshownPaths(null, { gruppe: "Wähle eine Gruppe." })).toStrictEqual(["gruppe"]);
   });
 });
 
 describe("hasFieldErrors", () => {
   it("is false for a map with nothing in it, which is what lets the toast speak", () => {
     // True here suppresses the fallback toast in every caller, so a failure belonging to no field is silent.
-    assert.equal(hasFieldErrors({}), false);
-    assert.equal(hasFieldErrors(undefined), false);
+    expect(hasFieldErrors({})).toBe(false);
+    expect(hasFieldErrors(undefined)).toBe(false);
   });
 
   it("is true once a path carries a message", () => {
-    assert.equal(hasFieldErrors({ email: "Bitte gib eine Adresse ein." }), true);
+    expect(hasFieldErrors({ email: "Bitte gib eine Adresse ein." })).toBe(true);
   });
 });
 
@@ -263,49 +262,46 @@ describe("what the fallback toast says", () => {
   /* The path's own message is the one thing that tells the reader what to change: a bare retry meets the
      same refusal again. */
   it("says what the save cost, then each unshown path's own message in place of the retry", () => {
-    assert.equal(
-      unshownRefusal(["Bitte wähle eine Saison.", "Bitte gib einen Namen ein."]),
+    expect(unshownRefusal(["Bitte wähle eine Saison.", "Bitte gib einen Namen ein."])).toBe(
       "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Bitte wähle eine Saison. Bitte gib einen Namen ein.",
     );
   });
 
   it("says one reason once, however many paths it refused", () => {
-    assert.equal(
-      unshownRefusal(["Diese Angabe wurde so nicht übernommen.", "Diese Angabe wurde so nicht übernommen."]),
+    expect(unshownRefusal(["Diese Angabe wurde so nicht übernommen.", "Diese Angabe wurde so nicht übernommen."])).toBe(
       "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Diese Angabe wurde so nicht übernommen.",
     );
   });
 
   it("closes a message that lacks a full stop, so the next never runs on from it", () => {
-    assert.equal(
-      unshownRefusal(["abgelehnt", "Bitte gib einen Namen ein."]),
+    expect(unshownRefusal(["abgelehnt", "Bitte gib einen Namen ein."])).toBe(
       "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. abgelehnt. Bitte gib einen Namen ein.",
     );
   });
 
   it("offers the retry only where no path brought a message", () => {
-    assert.equal(unshownRefusal([]), UNHANDLED_FIELD_REFUSAL);
-    assert.equal(unshownRefusal(["", "  "]), UNHANDLED_FIELD_REFUSAL);
+    expect(unshownRefusal([])).toBe(UNHANDLED_FIELD_REFUSAL);
+    expect(unshownRefusal(["", "  "])).toBe(UNHANDLED_FIELD_REFUSAL);
   });
 
   // Literal copy, pinned literally — but each clause below names the constraint it holds, so a rewrite that
   // breaks one fails with the reason rather than with a diff.
   it("says what the save cost, and that the work survived it", () => {
-    assert.equal(UNHANDLED_FIELD_REFUSAL, "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Versuche es erneut.");
+    expect(UNHANDLED_FIELD_REFUSAL).toBe("Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Versuche es erneut.");
   });
 
   it("borrows no word the triage owns", () => {
     // `ablehnen` is the application decline, and this toast can fire on that very page.
-    assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /ablehn/i);
+    expect(UNHANDLED_FIELD_REFUSAL).not.toMatch(/ablehn/i);
   });
 
   it("never sends the reader to a reload, which would discard the entries it just promised are intact", () => {
-    assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /lade die seite|neu laden/i);
+    expect(UNHANDLED_FIELD_REFUSAL).not.toMatch(/lade die seite|neu laden/i);
   });
 
   it("restates none of the condition that raised it", () => {
-    // `docs/frontend/spec.md`: a toast's body says what it COST. Why no control could be marked is the app's
+    // A toast's body says what it COST. Why no control could be marked is the app's
     // problem, and every rejected draft of this sentence has been a paraphrase of exactly that.
-    assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /grund|gehört zu kein|kein feld/i);
+    expect(UNHANDLED_FIELD_REFUSAL).not.toMatch(/grund|gehört zu kein|kein feld/i);
   });
 });

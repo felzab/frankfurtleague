@@ -9,8 +9,8 @@ import type { StepUp, StepUpDemand } from "@/shared/components/ui/stepUp";
 // Both ways in are called from the press itself, whose user activation the prompt needs, and never
 // inside a transition, which would hold back what the control says while the prompt is open.
 /**
- * The step-up a press runs before a write the server refuses from a session past the window
- * (`docs/frontend/spec.md :: I431`): every such control, one press or two, asks through this.
+ * The step-up a press runs before a write the server refuses from a session past the window:
+ * every such control, one press or two, asks through this.
  */
 export interface StepUpGate {
   /** Whether a press now would open the prompt; `due` is the window the server holds this press's write to, if any. */

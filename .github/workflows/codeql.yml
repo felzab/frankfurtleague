@@ -5,10 +5,9 @@ name: codeql
 # the schedule and the trigger set below are version-controlled and reviewable like everything else.
 #
 # CodeQL catches pattern-matchable classes alone. An authorization gap is a valid program doing the
-# wrong thing, and belongs to the audit programme (docs/_auditing/).
+# wrong thing, and belongs to review.
 #
-# Whether this workflow is required is a ruleset setting, outside the repository
-# (docs/_git/spec.md).
+# Whether this workflow is required is a ruleset setting, outside the repository.
 
 on:
   # No path filter, as the sibling workflows carry none: a push to main analyses whatever the two

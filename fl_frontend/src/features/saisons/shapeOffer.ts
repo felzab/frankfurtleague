@@ -119,7 +119,7 @@ function qualifierCountRefusal({ count, groups, teams }: { count: number; groups
   return bracketRefusal(groups, count);
 }
 
-/** A value the season HOLDS is always a row (`docs/frontend/spec.md :: 1.19`): the trigger and the list have to agree. */
+/** A value the season HOLDS is always a row: the trigger and the list have to agree. */
 function countOptions(universe: readonly number[], held: number, refusalOf: (count: number) => ShapeRefusal | null): RefusableOption[] {
   const counts = universe.includes(held) ? universe : [...universe, held].sort((first, second) => first - second);
 

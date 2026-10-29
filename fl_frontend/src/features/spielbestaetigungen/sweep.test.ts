@@ -1,13 +1,10 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it, mock } from "node:test";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { ACTOR_KEY_FILE } from "@/test-support/authDoubles.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-
-import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import type { MailOutcome, SentMail } from "@/test-support/mailDouble.ts";
 
 /** One thing that happened, in the order it happened: the stamp's order against the mail is what this slice owes. */
 type Ereignis = { art: "api"; endpoint: string; body: unknown } | { art: "mail"; mail: SentMail } | { art: "drop"; tags: readonly string[] };
@@ -134,6 +131,12 @@ const LOGGING_DOUBLE = {
 // Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
 // ever prove one side of it.
 const CONFIG_DOUBLE = {
+  // Each boot runs in-process with no preflight naming a deployment.
+  bootCheck: () => undefined,
+  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
+  refuseInvalidEnvironment: (): never => {
+    throw new Error("the doubled config refuses no environment");
+  },
   frontend_config: {
     LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
@@ -148,16 +151,12 @@ const CONFIG_DOUBLE = {
   },
 };
 
-registerDoubles({
-  modules: {
-    "core/logging.ts": LOGGING_DOUBLE,
-    "core/config.ts": CONFIG_DOUBLE,
-    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-    "core/authIndexes.ts": { buildAuthIndexes: () => Promise.resolve() },
-    // The loopback call reaches a server no test process runs; its pairing with the route is the route's own suite's.
-    "core/revalidation.ts": { revalidateOverLoopback: async (tags: readonly string[]) => void ereignisse.push({ art: "drop", tags: tags }) },
-  },
-});
+vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
+vi.doMock("@/core/revalidation.ts", () => ({
+  revalidateOverLoopback: async (tags: readonly string[]) => void ereignisse.push({ art: "drop", tags: tags }),
+}));
 
 const { register } = await import("../../instrumentation.ts");
 const { runSpielSweep } = await import("./sweep.ts");
@@ -209,17 +208,17 @@ describe("what register arms for the fixture confirmations", () => {
     const before = env.NODE_ENV;
     env.NODE_ENV = nodeEnv;
     sweepSwitch = value;
-    mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
     const counted: number[] = [];
     try {
       await register();
       for (const step of steps) {
-        mock.timers.tick(step);
+        vi.advanceTimersByTime(step);
         await new Promise((resolve) => setImmediate(resolve));
         counted.push(apiCalls().filter(({ endpoint }) => endpoint === LISTE).length);
       }
     } finally {
-      mock.timers.reset();
+      vi.useRealTimers();
       if (before === undefined) delete env.NODE_ENV;
       else env.NODE_ENV = before;
     }
@@ -230,22 +229,22 @@ describe("what register arms for the fixture confirmations", () => {
   it("waits its minute after a production boot reading on, then runs hourly", async () => {
     const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
 
-    assert.deepEqual(await bootAndStep("production", "on", steps), [0, 1, 1, 2]);
+    expect(await bootAndStep("production", "on", steps)).toStrictEqual([0, 1, 1, 2]);
   });
 
   /* The default: a deploy is not a mailing, and the first armed pass asks about every fixture inside the window. */
   it("arms nothing where the switch is off", async () => {
-    assert.deepEqual(await bootAndStep("production", "off", [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("production", "off", [3 * HOUR_MS])).toStrictEqual([0]);
   });
 
   // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
   it("arms nothing where the value is missing", async () => {
-    assert.deepEqual(await bootAndStep("production", undefined, [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("production", undefined, [3 * HOUR_MS])).toStrictEqual([0]);
   });
 
   /* `next dev` reaches whatever backend the developer's own environment names, and mails from it. */
   it("arms nothing under a development build, whatever the switch says", async () => {
-    assert.deepEqual(await bootAndStep("development", "on", [3 * HOUR_MS]), [0]);
+    expect(await bootAndStep("development", "on", [3 * HOUR_MS])).toStrictEqual([0]);
   });
 });
 
@@ -288,7 +287,7 @@ describe("which first requests the pass stamps", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(gestempelt(), [id(1), id(4), id(6), id(8)]);
+    expect(gestempelt()).toStrictEqual([id(1), id(4), id(6), id(8)]);
   });
 
   /* A stack that mails nothing would otherwise file every request hourly and never stamp one. */
@@ -298,7 +297,7 @@ describe("which first requests the pass stamps", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(gestempelt(), [id(1), id(3), id(4), id(6), id(7), id(8)]);
+    expect(gestempelt()).toStrictEqual([id(1), id(3), id(4), id(6), id(7), id(8)]);
   });
 
   /* Mail, then stamp: a stamp before the send would leave a team that was never asked running to its deadline. */
@@ -314,8 +313,8 @@ describe("which first requests the pass stamps", () => {
     const stempel = ereignisse.findIndex((ereignis) => ereignis.art === "api" && ereignis.endpoint === ANGEFRAGT("2627"));
     const letzteMail = ereignisse.findLastIndex((ereignis) => ereignis.art === "mail");
     assert.ok(stempel > letzteMail, "the pass stamped before its last message went");
-    assert.deepEqual(gestempelt(), [id(1), id(2)]);
-    assert.equal(gesendet().length, 3, "the reminder was not mailed");
+    expect(gestempelt()).toStrictEqual([id(1), id(2)]);
+    expect(gesendet().length, "the reminder was not mailed").toBe(3);
   });
 
   /* The referee's lane is no fan-out, so its failure is this pass's own line, and an address in it would be a person
@@ -331,13 +330,10 @@ describe("which first requests the pass stamps", () => {
     await runSpielSweep();
 
     const spielleitung = { error_code: "FE-MAIL-002", operation: "spielbestaetigungSweep" };
-    assert.deepEqual(
-      passLines().filter(({ level }) => level === "error"),
-      [
-        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
-        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
-      ],
-    );
+    expect(passLines().filter(({ level }) => level === "error")).toStrictEqual([
+      { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
+      { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
+    ]);
   });
 
   /* A row holding several links counts as asked once ANY of them went, whichever went first: a team whose second
@@ -355,28 +351,28 @@ describe("which first requests the pass stamps", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(gestempelt(), [id(1), id(2)]);
-    assert.equal(gesendet().length, 6, "a link went unmailed once its row counted as asked");
+    expect(gestempelt()).toStrictEqual([id(1), id(2)]);
+    expect(gesendet().length, "a link went unmailed once its row counted as asked").toBe(6);
   });
 
   /* The pass answers an unstamped referee's booking again each later day until the deadline: each is mailed and stamped
      as a first one, under that day's key, so the provider never folds one day's send into the last. */
-  it("mails and stamps a booking a later day's pass answers again, under that day's key", async (t) => {
-    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-02T09:00:00Z") });
+  it("mails and stamps a booking a later day's pass answers again, under that day's key", async ({ onTestFinished }) => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-11-02T09:00:00Z") });
+    onTestFinished(() => void vi.useRealTimers());
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), einteilungen: [einteilung(1, "schiri@schule.de")] });
 
     await runSpielSweep();
-    t.mock.timers.setTime(Date.parse("2026-11-03T09:00:00Z"));
+    vi.setSystemTime(Date.parse("2026-11-03T09:00:00Z"));
     await runSpielSweep();
 
     const [erste, zweite] = gesendet();
-    assert.deepEqual(
+    expect(
       gesendet().map(({ to }) => to),
-      ["schiri@schule.de", "schiri@schule.de"],
       "the booking answered again was not mailed again",
-    );
-    assert.equal(zweite?.subject, erste?.subject, "the booking answered again went out in other words");
-    assert.deepEqual(gestempelt(), [id(1), id(1)], "the booking answered again was not stamped");
+    ).toStrictEqual(["schiri@schule.de", "schiri@schule.de"]);
+    expect(zweite?.subject, "the booking answered again went out in other words").toBe(erste?.subject);
+    expect(gestempelt(), "the booking answered again was not stamped").toStrictEqual([id(1), id(1)]);
     assert.ok(erste?.idempotencyKey !== undefined && erste.idempotencyKey !== zweite?.idempotencyKey, "both days' sends share a key");
   });
 
@@ -386,15 +382,12 @@ describe("which first requests the pass stamps", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      apiCalls().map(({ endpoint }) => endpoint),
-      [LISTE, PASS("2627")],
-    );
+    expect(apiCalls().map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, PASS("2627")]);
   });
 });
 
 /* A mint or a close moves the verdict a public fixture card reads, and a call whose
-   answer was lost may have done either where no count shows it (`docs/frontend/spec.md :: I741`). */
+   answer was lost may have done either where no count shows it. */
 describe("the fixtures cache's drop", () => {
   const PASSES = [
     ["that asked nobody", () => undefined],
@@ -428,11 +421,8 @@ describe("the fixtures cache's drop", () => {
 
       await runSpielSweep();
 
-      assert.deepEqual(
-        drops().map(({ tags }) => tags),
-        [["spiele"]],
-      );
-      assert.equal(ereignisse.at(-1)?.art, "drop", "a call or a message followed the drop");
+      expect(drops().map(({ tags }) => tags)).toStrictEqual([["spiele"]]);
+      expect(ereignisse.at(-1)?.art, "a call or a message followed the drop").toBe("drop");
     });
   }
 });
@@ -467,27 +457,23 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, subject }) => [to, subject.split(":")[0]]),
-      [
-        ["team@schule.de", "Neu angesetzt"],
-        ["schiri@schule.de", "Neu angesetzt"],
-        ["team@schule.de", "Bitte bestätigen"],
-      ],
-    );
+    expect(gesendet().map(({ to, subject }) => [to, subject.split(":")[0]])).toStrictEqual([
+      ["team@schule.de", "Neu angesetzt"],
+      ["schiri@schule.de", "Neu angesetzt"],
+      ["team@schule.de", "Bitte bestätigen"],
+    ]);
     const [team, schiri, frische] = gesendet();
     // The team's notice is recorded against the seats it covered, the referee's rides the lane no record holds.
-    assert.deepEqual(team?.tags, { ziel: "spielbestaetigung", ziel_id: id(2), anlass: "neue_ansetzung", rollen: "trainer-ansprechperson" });
-    assert.deepEqual(schiri?.tags, { spielleitung: "hinweis" });
+    expect(team?.tags).toStrictEqual({ ziel: "spielbestaetigung", ziel_id: id(2), anlass: "neue_ansetzung", rollen: "trainer-ansprechperson" });
+    expect(schiri?.tags).toStrictEqual({ spielleitung: "hinweis" });
     // One subject for both readers, so only the body tells the referee's notice from the club's.
-    assert.deepEqual(
+    expect(
       [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_AN_DICH)),
-      [false, true],
       "a notice is worded for the other reader",
-    );
+    ).toStrictEqual([false, true]);
     // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
     assert.ok(team?.idempotencyKey !== undefined && schiri?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
-    assert.equal(frische?.idempotencyKey, undefined, "a request carrying a fresh token was keyed");
+    expect(frische?.idempotencyKey, "a request carrying a fresh token was keyed").toBe(undefined);
   });
 
   /* A mailbox the void notice missed would read the fresh request as the newer of the two: the request waits unstamped,
@@ -505,15 +491,12 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, subject }) => [to, subject.split(":")[0]]),
-      [
-        ["abgewiesen@schule.de", "Neu angesetzt"],
-        ["schiri-abgewiesen@schule.de", "Neu angesetzt"],
-        ["gast@schule.de", "Bitte bestätigen"],
-      ],
-    );
-    assert.deepEqual([gestempelt(), mitgeteilt()], [[id(2)], []]);
+    expect(gesendet().map(({ to, subject }) => [to, subject.split(":")[0]])).toStrictEqual([
+      ["abgewiesen@schule.de", "Neu angesetzt"],
+      ["schiri-abgewiesen@schule.de", "Neu angesetzt"],
+      ["gast@schule.de", "Bitte bestätigen"],
+    ]);
+    expect([gestempelt(), mitgeteilt()]).toStrictEqual([[id(2)], []]);
   });
 
   /* The deadline the row carries, never one reckoned from the fixture's day. */
@@ -523,7 +506,7 @@ describe("what one pass mails", () => {
     await runSpielSweep();
 
     const [nachricht] = gesendet();
-    assert.equal(nachricht?.to, "team@schule.de");
+    expect(nachricht?.to).toBe("team@schule.de");
     assert.ok(nachricht?.text.includes("Bitte antworte bis zum 10.11.2026."), "the request names another deadline");
     assert.ok(!nachricht?.text.includes("13.11.2026"), "the request names a deadline it reckoned");
     assert.ok(nachricht?.text.includes("http://localhost:3000/bestaetigung/spiel?token=token-1"), "the request carries another link");
@@ -545,10 +528,9 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, tags }) => [to, tags]),
-      [["trainer@schule.de", { ziel: "spielbestaetigung", ziel_id: id(1), anlass: "anfrage", rollen: "trainer-stellvertretung" }]],
-    );
+    expect(gesendet().map(({ to, tags }) => [to, tags])).toStrictEqual([
+      ["trainer@schule.de", { ziel: "spielbestaetigung", ziel_id: id(1), anlass: "anfrage", rollen: "trainer-stellvertretung" }],
+    ]);
   });
 
   it("sends a referee's booking on the referee's lane, with no token", async () => {
@@ -557,7 +539,7 @@ describe("what one pass mails", () => {
     await runSpielSweep();
 
     const [nachricht] = gesendet();
-    assert.deepEqual(nachricht?.tags, { spielleitung: "hinweis" });
+    expect(nachricht?.tags).toStrictEqual({ spielleitung: "hinweis" });
     assert.ok(!nachricht?.text.includes("token="), "the booking carries a token");
   });
 
@@ -568,12 +550,11 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
-      [["schiri@schule.de", "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium", { spielleitung: "hinweis" }]],
-    );
+    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
+      ["schiri@schule.de", "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium", { spielleitung: "hinweis" }],
+    ]);
     assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
-    assert.deepEqual([gestempelt(), mitgeteilt()], [[], [id(4)]]);
+    expect([gestempelt(), mitgeteilt()]).toStrictEqual([[], [id(4)]]);
   });
 
   /* The league's call-off reaches everyone it asked, so no club and no referee who agreed travels to the ground. */
@@ -586,33 +567,28 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
       [
-        [
-          "team@schule.de",
-          "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
-          { ziel: "spielbestaetigung", ziel_id: id(5), anlass: "spiel_abgesagt", rollen: "trainer" },
-        ],
-        ["schiri@schule.de", "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026", { spielleitung: "hinweis" }],
+        "team@schule.de",
+        "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
+        { ziel: "spielbestaetigung", ziel_id: id(5), anlass: "spiel_abgesagt", rollen: "trainer" },
       ],
-    );
+      ["schiri@schule.de", "Abgesagt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026", { spielleitung: "hinweis" }],
+    ]);
     // One subject for both readers, so only the body tells the referee's notice from the club's.
-    assert.deepEqual(
+    expect(
       gesendet().map(({ text }) => text.includes(NUR_AN_DICH)),
-      [false, true],
       "a notice is worded for the other reader",
-    );
+    ).toStrictEqual([false, true]);
     assert.ok(
       gesendet().every(({ idempotencyKey }) => idempotencyKey !== undefined),
       "a link-free notice went unkeyed",
     );
-    assert.deepEqual(mitgeteilt(), [id(5), id(6)]);
+    expect(mitgeteilt()).toStrictEqual([id(5), id(6)]);
     // Stamped after both went: stamped first, a crash between would leave a party told by nobody and owed nothing.
-    assert.deepEqual(
+    expect(
       ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
-      [LISTE, PASS("2627"), "team@schule.de", "schiri@schule.de", MITGETEILT("2627"), "drop"],
-    );
+    ).toStrictEqual([LISTE, PASS("2627"), "team@schule.de", "schiri@schule.de", MITGETEILT("2627"), "drop"]);
   });
 
   /* Its decline said the league decides; this is the word that it has, which nothing else sends. */
@@ -624,18 +600,15 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+    expect(gesendet().map(({ to, subject, tags }) => [to, subject, tags])).toStrictEqual([
       [
-        [
-          "team@schule.de",
-          "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
-          { ziel: "spielbestaetigung", ziel_id: id(7), anlass: "vorschlag_verworfen", rollen: "trainer-stellvertretung" },
-        ],
+        "team@schule.de",
+        "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
+        { ziel: "spielbestaetigung", ziel_id: id(7), anlass: "vorschlag_verworfen", rollen: "trainer-stellvertretung" },
       ],
-    );
+    ]);
     assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "the notice went unkeyed");
-    assert.deepEqual(mitgeteilt(), [id(7)]);
+    expect(mitgeteilt()).toStrictEqual([id(7)]);
   });
 
   /* Unstamped, the backend answers the notice again on the next pass; stamped though it never went, nobody would hear. */
@@ -667,7 +640,7 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(mitgeteilt(), [id(7), id(10)]);
+    expect(mitgeteilt()).toStrictEqual([id(7), id(10)]);
   });
 
   /* The pass call stamped the reminder before answering, so a pass ending at the notices' stamp would cost the season
@@ -683,12 +656,9 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
-      gesendet().map(({ to }) => to),
-      ["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"],
-    );
-    assert.deepEqual(gestempelt(), [id(3)]);
-    assert.deepEqual(passLines()[0], {
+    expect(gesendet().map(({ to }) => to)).toStrictEqual(["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"]);
+    expect(gestempelt()).toStrictEqual([id(3)]);
+    expect(passLines()[0]).toStrictEqual({
       level: "error",
       event: "spielbestaetigung.sweep_failed",
       fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
@@ -702,10 +672,9 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(
+    expect(
       ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
-      [LISTE, PASS("2627"), "2627@schule.de", ANGEFRAGT("2627"), PASS("2728"), "2728@schule.de", ANGEFRAGT("2728"), "drop"],
-    );
+    ).toStrictEqual([LISTE, PASS("2627"), "2627@schule.de", ANGEFRAGT("2627"), PASS("2728"), "2728@schule.de", ANGEFRAGT("2728"), "drop"]);
   });
 });
 
@@ -721,7 +690,7 @@ describe("the pass's lines", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       {
         level: "info",
         event: "spielbestaetigung.sweep_pass",
@@ -736,7 +705,7 @@ describe("the pass's lines", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
@@ -756,7 +725,7 @@ describe("the pass's lines", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(passLines(), [
+    expect(passLines()).toStrictEqual([
       ...aufgegeben.map((notice) => ({
         level: "warn",
         event: "spielbestaetigung.mitteilung_aufgegeben",
@@ -768,7 +737,7 @@ describe("the pass's lines", () => {
         fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
       },
     ]);
-    assert.deepEqual(mitgeteilt(), [id(11), id(12)]);
+    expect(mitgeteilt()).toStrictEqual([id(11), id(12)]);
   });
 
   it("files a season it could not sweep under its own code, and goes on to the next", async () => {
@@ -780,7 +749,7 @@ describe("the pass's lines", () => {
 
     await runSpielSweep();
 
-    assert.deepEqual(passLines()[0], {
+    expect(passLines()[0]).toStrictEqual({
       level: "error",
       event: "spielbestaetigung.sweep_failed",
       fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
@@ -802,10 +771,10 @@ describe("the pass's lines", () => {
     for (const freigeben of gehalten) freigeben();
     await laufend;
 
-    assert.equal(apiCalls().length, 1, "the second tick called the backend beside the running pass");
-    assert.deepEqual(
-      passLines().map(({ level, event }) => `${level} ${event}`),
-      ["info spielbestaetigung.sweep_skipped", "info spielbestaetigung.sweep_pass"],
-    );
+    expect(apiCalls().length, "the second tick called the backend beside the running pass").toBe(1);
+    expect(passLines().map(({ level, event }) => `${level} ${event}`)).toStrictEqual([
+      "info spielbestaetigung.sweep_skipped",
+      "info spielbestaetigung.sweep_pass",
+    ]);
   });
 });

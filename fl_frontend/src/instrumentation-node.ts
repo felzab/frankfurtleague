@@ -5,13 +5,9 @@ import { BootRefusal } from "./core/bootRefusal";
 const REFUSED = 3;
 
 export async function registerOnNode() {
-  // Set by the deploy's and the local stack's preflight alone, to the deployment it is about to start:
-  // the boot judges what it was handed and ends instead of serving. Read here and nowhere else.
-  const checkedAs = process.env.BOOT_CHECK;
-
-  const { frontend_config } = await passBootGates(checkedAs).catch((refusal: unknown) => {
+  const { frontend_config, checkedAs } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
-    // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
+    // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
     process.exitCode = refusal instanceof BootRefusal ? REFUSED : 1;
     process.stdout.write("", () => process.exit());
@@ -45,7 +41,7 @@ export async function registerOnNode() {
   }
 
   // Its own switch, never another sweep's: arming it starts the league's fixture mail, and an operator stops every
-  // season's at once with it alone. Compared to "on" for the reason above (`docs/frontend/spec.md :: I740`).
+  // season's at once with it alone. Compared to "on" for the reason above.
   if (process.env.NODE_ENV === "production" && frontend_config.SPIEL_SWEEP === "on") {
     const { armSpielSweep } = await import("./features/spielbestaetigungen/sweep");
     armSpielSweep();
@@ -59,7 +55,7 @@ export async function registerOnNode() {
   }
 
   // Unawaited: Next serves nothing until this hook returns, and the site serves without these
-  // indexes, where an outage of the store would otherwise hold every page (`docs/frontend/spec.md :: I498`).
+  // indexes, where an outage of the store would otherwise hold every page.
   if (process.env.NODE_ENV === "production") {
     const { buildAuthIndexes } = await import("./core/authIndexes");
     void buildAuthIndexes();
@@ -67,11 +63,11 @@ export async function registerOnNode() {
 }
 
 /** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
-async function passBootGates(checkedAs: string | undefined) {
+async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
-  // Taken apart where it loads, as lint holds every load of it to: the whole namespace would carry
-  // every secret's reader.
-  const { frontend_config, refuseInvalidEnvironment } = await import("./core/config");
+  // Taken apart where it loads: the whole namespace would carry every secret's reader.
+  const { bootCheck, frontend_config, refuseInvalidEnvironment } = await import("./core/config");
+  const checkedAs = bootCheck();
 
   // The schema demands production's files and keys on `APP_ENV`'s word alone, so a production host whose
   // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
@@ -88,5 +84,5 @@ async function passBootGates(checkedAs: string | undefined) {
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
   await loadActorSigningKeyAtBoot();
 
-  return { frontend_config };
+  return { frontend_config, checkedAs };
 }

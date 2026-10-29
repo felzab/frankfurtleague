@@ -78,8 +78,8 @@ def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     return {"getroffen_am": today, "von": von, "grund": grund}
 
 
-# What a decision's own answer withholds: the actor check admits no barred holder
-# (`docs/backend/spec.md :: I463`), so the administrator it just wrote is served as written.
+# What a decision's own answer withholds: the actor check admits no barred holder,
+# so the administrator it just wrote is served as written.
 _KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
 
 
@@ -197,7 +197,7 @@ async def annehmen_bewerbung(
                 # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
                 # confirmed by its own person before acceptance was allowed (`REQ-BEWERBUNG-013`).
                 "kontakte": bewerbung_raw["kontakte"],
-                # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
+                # Copied rather than joined on read.
                 "name": name,
                 "shorthand": shorthand,
             },
@@ -228,8 +228,7 @@ async def annehmen_bewerbung(
             trikot_farbe=annahme_data.trikot_farbe,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
+    # Whatever field the refusal helper's own write moved: every season write drops the cache.
     with dropping_the_saison_cache():
         # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
         # so a retry after a write conflict judges the season as it stands then rather than as it stood.
@@ -484,7 +483,7 @@ async def korrigiere_kontakt_email(
         )
         # Off the image this write replaced, never the read above it: the address the link left is the one the write moved.
         alt = str(before["kontakte"][rolle]["email"])
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        # The address entering here, which an erasure of it running now never read.
         await anchor_the_addresses(
             [email_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
@@ -494,7 +493,7 @@ async def korrigiere_kontakt_email(
             rollen=list(seats),
             token=raw,
             bestaetigungsfrist=bestaetigungsfrist,
-            # Both the stored fold (`docs/backend/spec.md :: I332`).
+            # Both the stored fold.
             abgang_email=None if alt == email_data.email else alt,
         )
 
@@ -595,7 +594,7 @@ async def besetze_kontakt_sitz(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        # The address entering here, which an erasure of it running now never read.
         await anchor_the_addresses(
             [sitz_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )

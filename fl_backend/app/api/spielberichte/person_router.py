@@ -34,8 +34,8 @@ from app.api.spielberichte.services import (
     find_saison_beendet_refusal,
     ist_abgeschlossen,
     judge_bericht,
+    kader_ist_offen,
     neu_genannt,
-    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.config import API_VERSION
@@ -58,7 +58,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, ve
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# The referee's own router, binding the referee's Funktion at router level (`docs/backend/spec.md :: I41`).
+# The referee's own router, binding the referee's Funktion at router level.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielberichte",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
@@ -212,7 +212,7 @@ async def get_spielbericht_bericht(
 
         # After the season, the referee's page is a view of the report: no squad to pick from, no write.
         abgeschlossen = ist_abgeschlossen(lage)
-        kader_offen = nimmt_einen_bericht(lage.spiel, today=today) and not abgeschlossen
+        kader_offen = kader_ist_offen(lage, today=today)
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection,
@@ -326,8 +326,7 @@ async def put_spielbericht_bericht(
         )
 
         # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
-        # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction
-        # (`docs/backend/spec.md :: I118`).
+        # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
         async with db.start_session(snapshot=True) as ausserhalb:
             subjekt_jetzt = await funktionen_of(identifier, records, session=ausserhalb)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt_jetzt.schiedsrichter)))
@@ -352,7 +351,7 @@ async def put_spielbericht_bericht(
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
-    # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
+    # A first write anchors the season, a season write the cache serves.
     with dropping_the_saison_cache():
         async with transaction_session(db) as session:
             answer, angelegt = await session.with_transaction(write_the_report)

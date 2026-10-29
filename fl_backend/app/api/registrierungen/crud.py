@@ -1,8 +1,7 @@
 """
 API · what a registration is read and judged by, and the erasure's removal of an address's registrations
 
-Here rather than in `services.py`, which decides from its arguments and names no handle
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
+Here rather than in `services.py`, which decides from its arguments and names no handle.
 """
 
 from collections.abc import Mapping, Sequence
@@ -123,8 +122,7 @@ async def erase_registrierungen_in_session(
     # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
     stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """Remove these registrations whole, then empty every log image of them, answering how many went: the document is the person's own."""
@@ -135,7 +133,7 @@ async def erase_registrierungen_in_session(
 
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
-    # keep what this removal destroys (`docs/backend/spec.md :: I48`).
+    # keep what this removal destroys.
     erased = await erase_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},

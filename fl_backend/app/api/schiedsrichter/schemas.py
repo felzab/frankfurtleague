@@ -31,8 +31,7 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 
 # What a reopened link shows. `abgelaufen` outranks nothing: a stamp is read first, so a referee who
-# confirmed on the last valid day still sees that they did. `gesperrt` ranks first
-# (`docs/backend/spec.md :: I515`).
+# confirmed on the last valid day still sees that they did. `gesperrt` ranks first.
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
@@ -53,7 +52,7 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored name would answer 500 for
-    # the whole list over one row (`docs/backend/spec.md :: I36`). The type every person's name
+    # the whole list over one row. The type every person's name
     # takes, one ceiling for them all.
     name: CustomKontaktName
     # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
@@ -144,7 +143,7 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     updated_document: FLSchiedsrichter
-    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
+    # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
     # the mailbox nobody reads.
@@ -194,8 +193,7 @@ class FLSchiedsrichterBestaetigungPayload(BaseModel):
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
-    # The label of the words the page showed: the write refuses any but the running one
-    # (`docs/backend/spec.md :: I550`).
+    # The label of the words the page showed: the write refuses any but the running one.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 

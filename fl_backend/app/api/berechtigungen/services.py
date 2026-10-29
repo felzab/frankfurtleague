@@ -2,7 +2,7 @@
 API · the grants' refusals, the one reading of a stored row, and the outbox's rows, apart from the handles they are asked of
 
 Each refusal takes what its caller read inside its own transaction, so a retry after a conflict
-judges the list afresh (`docs/backend/spec.md :: I53`).
+judges the list afresh.
 """
 
 from collections.abc import Collection, Mapping, Sequence, Set
@@ -26,7 +26,7 @@ from app.shared.folding import is_stored_identifier, sign_in_identifier
 BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
 
 # A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
-# out of an administrator's reach; only an erasure and an address change's move remove one (`docs/backend/spec.md :: I436`).
+# out of an administrator's reach; only an erasure and an address change's move remove one.
 BERECHTIGUNG_INHABER = "REQ-BERECHTIGUNG-002"
 
 BERECHTIGUNG_GESPERRT = "REQ-BERECHTIGUNG-003"
@@ -50,13 +50,12 @@ OWNER: Final = "owner"
 BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
 
 # The claims that hand a notice out before the next gives it up: at the lease above, four hours
-# of passes none of which stamped it. Counted on the row, so a restart resets nothing
-# (`docs/backend/spec.md :: I480`).
+# of passes none of which stamped it. Counted on the row, so a restart resets nothing.
 VERSUCHE_HOECHSTENS: Final = 24
 
 
 def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
-    """The address a stored grant admits, or `None` for a dead row, which every reader skips (`docs/backend/spec.md :: I453`).
+    """The address a stored grant admits, or `None` for a dead row, which every reader skips.
 
     Every reader takes this one reading: two readers disagreeing is one mailbox holding two rows.
     """
@@ -69,15 +68,14 @@ def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
 def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
     """When a stored grant took effect, the one reading the subject lookup and the actor check share.
 
-    Two readings would let the frontend's guard and this side judge one session against two instants
-    (`docs/backend/spec.md :: I525`).
+    Two readings would let the frontend's guard and this side judge one session against two instants.
     """
 
     seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
     if angekuendigt is None:
         # Seen before and its record gone since: made live from a dead spelling, repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
-        # before that edit (`docs/backend/spec.md :: I529`).
+        # before that edit.
         if row.get("gesehen_am") is not None:
             return None
 
@@ -93,7 +91,7 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
 def inhaber_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
     """When a stored grant's `owner` tier took effect, or `None` where no session holds an owner's power through it.
 
-    A session older than it keeps administering and holds none of an owner's (`docs/backend/spec.md :: I534`).
+    A session older than it keeps administering and holds none of an owner's.
     """
 
     seit = berechtigt_seit(row, angekuendigt)
@@ -114,7 +112,7 @@ def signed_in_since(auth_time: int, seit: datetime) -> bool:
     """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
 
     Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
-    here (`docs/backend/spec.md :: I526`).
+    here.
     """
 
     return auth_time >= int(seit.timestamp())
@@ -243,7 +241,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 
 
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I479`).
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner`.
 
     Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.
@@ -282,7 +280,7 @@ def compare(
         elif now is None:
             changes.append((berechtigung_id, "entzogen", None, before))
         # Read as one tier change, a repointed address would name its new holder alone and hide whose
-        # access ended (`docs/backend/spec.md :: I464`).
+        # access ended.
         elif now.adresse != before.adresse:
             changes.append((berechtigung_id, "entzogen", None, before))
             changes.append((berechtigung_id, "erteilt", now, None))
@@ -293,7 +291,7 @@ def compare(
 
 
 def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FLBerechtigungStand | None:
-    """`stand` with its address removed where that address is barred (`docs/backend/spec.md :: I452`)."""
+    """`stand` with its address removed where that address is barred."""
 
     if stand is None or stand.adresse is None or stand.adresse not in gesperrt:
         return stand
@@ -313,7 +311,7 @@ def compose_postausgang(
 ) -> dict[str, Any]:
     """One outbox row, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
 
-    The actor stored folded, the spelling a later ban matches pending rows by (`docs/backend/spec.md :: I462`).
+    The actor stored folded, the spelling a later ban matches pending rows by.
     """
 
     rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
@@ -343,7 +341,7 @@ def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, 
 def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, verwaltung: str) -> datetime | None:
     """Since when the four-eyes rule counts this grant's holder as holding `verwaltung`'s tier.
 
-    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced (`docs/backend/spec.md :: I866`).
+    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced.
     """
 
     seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, angekuendigt)
@@ -417,7 +415,7 @@ def genehmigung_verwehrt(
 ) -> FLGenehmigungVerwehrt | None:
     """Why this folded administrator may not approve the act `genehmigung` waits on, or `None`.
 
-    `inhaber` is whether their session holds an owner's power now (`docs/backend/spec.md :: I818`, `:: I843`).
+    `inhaber` is whether their session holds an owner's power now.
     """
 
     if betroffen == akteur:
@@ -443,7 +441,7 @@ def genehmigung_steht(
 ) -> bool:
     """Whether a given approval still stands where the act takes effect: its approver may approve it now as when they did.
 
-    An approval never outlives its approver's grant, their owner's tier, or a ban since (`docs/backend/spec.md :: I844`).
+    An approval never outlives its approver's grant, their owner's tier, or a ban since.
     """
 
     von = genehmigung.get("genehmigt_von")

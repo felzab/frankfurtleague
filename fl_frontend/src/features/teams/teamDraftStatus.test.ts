@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, expect, it } from "vitest";
 
 import { deriveTeamDraftStatus } from "./teamDraftStatus";
 
@@ -32,16 +31,15 @@ describe("deriveTeamDraftStatus", () => {
 
     // Every club field plus every junction row. The season's three contact seats are not among them:
     // they are `fl_frontend/src/features/kontakte/kontakteDraftStatus.ts`'s, and their own page's.
-    assert.equal(status.fields.length, 14);
+    expect(status.fields.length).toBe(14);
   });
 
   it("reports a renamed club as one change carrying both texts", () => {
     const status = deriveTeamDraftStatus({ stored, draft: draftFrom({ name: "Helmholtz II" }), fieldErrors: {} });
 
-    assert.deepEqual(
-      status.changed.map((field) => [field.path, field.storedText, field.draftText]),
-      [["name", "Helmholtz", "Helmholtz II"]],
-    );
+    expect(status.changed.map((field) => [field.path, field.storedText, field.draftText])).toStrictEqual([
+      ["name", "Helmholtz", "Helmholtz II"],
+    ]);
   });
 
   it("treats an emptied optional field as removed rather than changed-to-empty-string", () => {
@@ -55,8 +53,8 @@ describe("deriveTeamDraftStatus", () => {
     // `draftText: null` is what makes the change list render this as a removal. It comes from this
     // table's own `read`, so only a case over this table can pin it.
     assert.ok(row);
-    assert.equal(row.draftText, null);
-    assert.equal(row.storedText, "Ostend");
+    expect(row.draftText).toBe(null);
+    expect(row.storedText).toBe("Ostend");
   });
 
   it("formats an entered austritt with its route, reason and formatted date", () => {
@@ -68,8 +66,8 @@ describe("deriveTeamDraftStatus", () => {
 
     const row = status.byPath.get("austritt");
     assert.ok(row?.isChanged);
-    assert.equal(row.storedText, null);
-    assert.match(row.draftText ?? "", /^Rückzug: Schule aufgelöst \(ab 14\./);
+    expect(row.storedText).toBe(null);
+    expect(row.draftText ?? "").toMatch(/^Rückzug: Schule aufgelöst \(ab 14\./);
   });
 
   it("sees a route swapped on an otherwise identical record as a change", () => {
@@ -80,17 +78,17 @@ describe("deriveTeamDraftStatus", () => {
       fieldErrors: {},
     });
 
-    assert.equal(status.byPath.get("austritt")?.isChanged, true);
+    expect(status.byPath.get("austritt")?.isChanged).toBe(true);
   });
 
   it("drops every membership row while the club is not in the selected season", () => {
     const noMembership = draftFrom({ membership: null });
     const status = deriveTeamDraftStatus({ stored: noMembership, draft: noMembership, fieldErrors: {} });
 
-    assert.equal(status.fields.length, 11);
-    assert.equal(status.byPath.has("gruppe"), false);
-    assert.equal(status.byPath.has("austritt"), false);
-    assert.equal(status.byPath.has("trikot_farbe"), false);
+    expect(status.fields.length).toBe(11);
+    expect(status.byPath.has("gruppe")).toBe(false);
+    expect(status.byPath.has("austritt")).toBe(false);
+    expect(status.byPath.has("trikot_farbe")).toBe(false);
   });
 
   it("finds an austritt error under any of the record's four paths", () => {
@@ -101,11 +99,8 @@ describe("deriveTeamDraftStatus", () => {
     });
 
     const row = status.byPath.get("austritt");
-    assert.equal(row?.error, "Bitte gib einen Grund an.");
-    assert.deepEqual(
-      status.invalid.map((field) => field.path),
-      ["austritt"],
-    );
+    expect(row?.error).toBe("Bitte gib einen Grund an.");
+    expect(status.invalid.map((field) => field.path)).toStrictEqual(["austritt"]);
   });
 
   it("finds the unpicked route under its own path, and renders the record as still open", () => {
@@ -116,7 +111,7 @@ describe("deriveTeamDraftStatus", () => {
     });
 
     const row = status.byPath.get("austritt");
-    assert.equal(row?.error, "Bitte wähle, wie das Team ausgeschieden ist.");
-    assert.match(row?.draftText ?? "", /^Art nicht hinterlegt: /);
+    expect(row?.error).toBe("Bitte wähle, wie das Team ausgeschieden ist.");
+    expect(row?.draftText ?? "").toMatch(/^Art nicht hinterlegt: /);
   });
 });

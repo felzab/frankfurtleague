@@ -1,15 +1,13 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
+import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
+import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APINetworkError } from "@/core/errors.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
-import { doubleSendMail } from "@/core/mailDouble.ts";
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
@@ -20,8 +18,8 @@ import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } 
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
-import type { MailOutcome } from "@/core/mailDouble.ts";
-import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -69,7 +67,8 @@ doubleActionRequest();
 const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
-registerDoubles({ modules: { "core/config.ts": CONFIG_DOUBLE, "core/logging.ts": LOGGER_DOUBLE } });
+vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
+vi.doMock("@/core/logging.ts", () => LOGGER_DOUBLE);
 /** Whether `call` is the delivery report a sent message files, after the write the case is about. */
 const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
 /** The report's answer as the endpoint sends it: every seat the message named, applied. */
@@ -84,10 +83,10 @@ const answerWith = (next: () => Promise<unknown>): void =>
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
 // `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
-doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
-const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
+doubleActions({ modules: ["@/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
+const { answerWith: readWith } = doubleActions({ modules: ["@/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
-  modules: ["/src/features/teams/queries.ts"],
+  modules: ["@/features/teams/queries.ts"],
   answer: () => Promise.resolve({ teams: [{ id: GEWAEHLT.bewerbung.team_id, name: "Helmholtz" }] }),
 });
 
@@ -131,11 +130,10 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
     }
     for (const code of published) {
-      assert.notEqual(
+      expect(
         answerShown(ANNEHMEN_OPERATION, code, acceptanceMapped),
-        null,
         `${code} is published on the acceptance and reaches the admin unmapped`,
-      );
+      ).not.toBe(null);
     }
     await assertEachAnswered({
       operation: ANNEHMEN_OPERATION,
@@ -148,13 +146,12 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   it("answers every code the decline publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ABLEHNEN_OPERATION);
 
-    assert.deepEqual(published, ["REQ-BEWERBUNG-001"]);
+    expect(published).toStrictEqual(["REQ-BEWERBUNG-001"]);
     for (const code of published) {
-      assert.notEqual(
+      expect(
         answerShown(ABLEHNEN_OPERATION, code, declineMapped),
-        null,
         `${code} is published on the decline and reaches the admin unmapped`,
-      );
+      ).not.toBe(null);
     }
     await assertEachAnswered({
       operation: ABLEHNEN_OPERATION,
@@ -171,11 +168,10 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 
     for (const code of REUSED_ENTRY_CODES) {
       assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
-      assert.notEqual(
+      expect(
         acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code)),
-        null,
         `${code} can refuse an acceptance and the mapper does not answer it`,
-      );
+      ).not.toBe(null);
     }
   });
 
@@ -185,7 +181,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
     answerWith(() => Promise.reject(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY)));
 
-    assert.match(errorOf(await annehmenBewerbungAction(ANNAHME)), /Kürzel des anderen Teams/, "the collision names no way out of itself");
+    expect(errorOf(await annehmenBewerbungAction(ANNAHME)), "the collision names no way out of itself").toMatch(/Kürzel des anderen Teams/);
   });
 
   it("answers a picked club's duplicate key in the club editor's words for a club already in the season", async () => {
@@ -195,7 +191,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 
     const answer = errorOf(await annehmenBewerbungAction(ANNAHME));
 
-    assert.equal(answer, mapAlreadyEnteredRefusal(collision), "a club already in the season is sent to change another club's Kürzel");
+    expect(answer, "a club already in the season is sent to change another club's Kürzel").toBe(mapAlreadyEnteredRefusal(collision));
   });
 
   /* Neither sentence without the application: each tells the admin to repair something that may not be at fault. */
@@ -215,8 +211,8 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       ),
     );
 
-    assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
-    assert.deepEqual(collisionReadLines(), []);
+    expect(errorOf(await annehmenBewerbungAction(ANNAHME))).toBe(toActionErrorResult(collision).error);
+    expect(collisionReadLines()).toStrictEqual([]);
   });
 
   /* A bug in the read words the refusal as the shared reader does, which only its line tells apart. */
@@ -225,11 +221,8 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     answerWith(() => Promise.reject(collision));
     readWith(() => Promise.reject(new TypeError("Cannot read properties of undefined (reading 'bewerbung')")));
 
-    assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
-    assert.deepEqual(
-      collisionReadLines().map((meta) => meta.error_code),
-      ["FE-ACT-001"],
-    );
+    expect(errorOf(await annehmenBewerbungAction(ANNAHME))).toBe(toActionErrorResult(collision).error);
+    expect(collisionReadLines().map((meta) => meta.error_code)).toStrictEqual(["FE-ACT-001"]);
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields
@@ -238,12 +231,10 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
     const refusal = acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
 
-    assert.match(
-      refusal,
+    expect(refusal, "the refusal names no field an administrator could look at").toMatch(
       /Team, vollständiger Name, Kürzel, Adresse oder Website/,
-      "the refusal names no field an administrator could look at",
     );
-    assert.match(refusal, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
+    expect(refusal, "the refusal offers no route the admin surface actually has").toMatch(/Lehne die Bewerbung ab und lege das Team/);
   });
 
   /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
@@ -253,7 +244,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
       publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-BEWERBUNG-013"),
       "the unconfirmed seat's rule is no longer published on the acceptance",
     );
-    assert.match(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
+    expect(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "").toMatch(/Kontaktperson/);
   });
 
   /* `REQ-ENTER-004` guards a group MOVE, which no acceptance performs: a row is created here, never
@@ -428,7 +419,7 @@ describe("the application's writes", () => {
     const sent = requestsOf(writes).map((request) => {
       if (request.body === undefined) return request;
       const { am, ...body } = request.body as { am?: unknown };
-      if (am !== undefined) assert.match(String(am), /^\d{4}-\d\d-\d\dT[\d:.]+Z$/, "a delivery report dated in another form");
+      if (am !== undefined) expect(String(am), "a delivery report dated in another form").toMatch(/^\d{4}-\d\d-\d\dT[\d:.]+Z$/);
       return { ...request, body };
     });
     const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
@@ -439,7 +430,7 @@ describe("the application's writes", () => {
       body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: `msg-${String(nachricht)}`, rollen: ["ansprechperson"] },
     });
     const { id: _id, rolle: _rolle, ...person } = SITZ;
-    assert.deepEqual(sent, [
+    expect(sent).toStrictEqual([
       { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
       { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
@@ -465,12 +456,12 @@ describe("what each decision moves", () => {
     const [acceptance] = DECISIONS;
     answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
 
-    assert.equal((await acceptance.press()).success, true, "the acceptance never landed, so its tags are judged on nothing");
-    assert.deepEqual(
-      cacheCalls,
-      [{ name: "updateTag", args: ["teams"] }, { name: "updateTag", args: ["teams:saison_id:2026"] }, ...REFRESH_ALONE],
-      "the acceptance clears other than the club reads it wrote into",
-    );
+    expect((await acceptance.press()).success, "the acceptance never landed, so its tags are judged on nothing").toBe(true);
+    expect(cacheCalls, "the acceptance clears other than the club reads it wrote into").toStrictEqual([
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: ["teams:saison_id:2026"] },
+      ...REFRESH_ALONE,
+    ]);
   });
 
   /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
@@ -479,8 +470,8 @@ describe("what each decision moves", () => {
     const [, decline] = DECISIONS;
     answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
 
-    assert.equal((await decline.press()).success, true, "the decline never landed, so its tags are judged on nothing");
-    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the decline clears a cached read its endpoint does not move");
+    expect((await decline.press()).success, "the decline never landed, so its tags are judged on nothing").toBe(true);
+    expect(cacheCalls, "the decline clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
@@ -491,14 +482,13 @@ describe("the message that follows a decision", () => {
     const [acceptance] = DECISIONS;
     answerWith(() => Promise.resolve({ ...acceptance.landed(ENTSCHIEDEN), saison_id: "2027", trikot_farbe: "hellgruen" }));
 
-    assert.equal((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, true, "the acceptance never landed");
+    expect((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, "the acceptance never landed").toBe(true);
     const [mail] = mailed;
     assert.ok(mail?.text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
-    assert.deepEqual(
-      mail?.absender,
-      { name: "Jonathan Kroh, Frankfurt League", antwortAn: "kontakt@frankfurtleague.de" },
-      "the sender line or the reply address never reached the send",
-    );
+    expect(mail?.absender, "the sender line or the reply address never reached the send").toStrictEqual({
+      name: "Jonathan Kroh, Frankfurt League",
+      antwortAn: "kontakt@frankfurtleague.de",
+    });
   });
 
   /* After the write in both, and the write is what the report is about: a message sent first would
@@ -509,8 +499,8 @@ describe("the message that follows a decision", () => {
 
       const result = await press();
 
-      assert.equal(result.success, false, `${where} was not refused, so the mail below is judged on nothing`);
-      assert.deepEqual(mailed, [], `${where} told the school of a decision the backend refused`);
+      expect(result.success, `${where} was not refused, so the mail below is judged on nothing`).toBe(false);
+      expect(mailed, `${where} told the school of a decision the backend refused`).toStrictEqual([]);
     }
   });
 
@@ -524,13 +514,15 @@ describe("the message that follows a decision", () => {
 
       const result = await press();
 
-      assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
-      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`), `${where} drops the delivery report`);
+      expect(result.success, `${where} fails the whole decision over a message it could not send`).toBe(true);
+      expect(answerOf(result), `${where} drops the delivery report`).toMatch(
+        new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`),
+      );
     }
   });
 
   /* A send broken off unanswered may have arrived: answered as the request's doubt, the decision would read as perhaps
-     unsaved and the sentence naming whom to tell by hand would go (`docs/frontend/spec.md :: I372`). */
+     unsaved and the sentence naming whom to tell by hand would go. */
   it("reports the decision as taken where a send broke off unanswered, naming the address in doubt", async () => {
     answerMailWith(() => "lost");
 
@@ -539,7 +531,7 @@ describe("the message that follows a decision", () => {
 
       const result = await press();
 
-      assert.equal(result.success, true, `${where} answered a committed decision as of unknown outcome`);
+      expect(result.success, `${where} answered a committed decision as of unknown outcome`).toBe(true);
       assert.ok(
         answerOf(result).endsWith(` Ob die ${betreff} bei ${PERSON.email} ankam, ist unklar. Melde Dich selbst bei ihnen.`),
         `${where} drops the address in doubt`,
@@ -548,7 +540,7 @@ describe("the message that follows a decision", () => {
   });
 
   /* Told the ban is why, by count: an address in the report is one the administrator is asked to
-     write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
+     write to by hand, which would name a barred person. */
   it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {
     answerMailWith(() => "barred");
 
@@ -557,9 +549,8 @@ describe("the message that follows a decision", () => {
 
       const result = await press();
 
-      assert.equal(result.success, true, `${where} fails the whole decision over a ban`);
-      assert.match(
-        answerOf(result),
+      expect(result.success, `${where} fails the whole decision over a ban`).toBe(true);
+      expect(answerOf(result)).toMatch(
         new RegExp(`Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht`),
       );
       assert.ok(!answerOf(result).includes("@"), `${where} named an address`);
@@ -644,7 +635,7 @@ const NOT_A_TEAM = /(?<!\p{L})(ihn|ihm|er)(?!\p{L})/gu;
 
 /**
  * The words ending in `-st` that address nobody. Every other one is a second-person indicative, and a
- * repair is written as an imperative (`docs/frontend/spec.md` §1.12).
+ * repair is written as an imperative.
  */
 const NOT_AN_INDICATIVE = ["ist", "lässt", "erst", "selbst", "sonst", "zunächst", "fast", "meist", "Frist", "Rest"];
 
@@ -672,7 +663,7 @@ function assertTheGermanAgrees(where: string, sentences: readonly string[]): voi
     }
 
     for (const [, object] of sentence.matchAll(/Reaktiviere\s+([^.,;]+)/gu)) {
-      assert.match(object!, REACTIVATED_OBJECT, `${where} reactivates „${object!}“, which does not agree with the neuter „Team“`);
+      expect(object!, `${where} reactivates „${object!}“, which does not agree with the neuter „Team“`).toMatch(REACTIVATED_OBJECT);
     }
 
     for (const [pronoun] of sentence.matchAll(NOT_A_TEAM)) {
@@ -689,13 +680,12 @@ describe("the German one refusal code is given", () => {
   /* First: a cut that stopped matching, or a banner that stopped being raised, leaves nothing for the
      cases below to read, and no sentence carries a banned word, so each would pass over nothing. */
   it("finds every rendering of the retired-club refusal before judging one", () => {
-    assert.equal(
+    expect(
       RETIRED_RENDERINGS.length,
-      7,
       `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
-    );
+    ).toBe(7);
     for (const { where, sentences } of RETIRED_RENDERINGS) {
-      assert.notEqual(sentences.length, 0, `${where} holds no rendered sentence`);
+      expect(sentences.length, `${where} holds no rendered sentence`).not.toBe(0);
     }
   });
 
@@ -705,7 +695,7 @@ describe("the German one refusal code is given", () => {
   it("calls a retired club stillgelegt in every branch that answers it", () => {
     for (const { where, german } of RETIRED_RENDERINGS) {
       assert.ok(german.includes("stillgelegt"), `${where} gives REQ-ENTER-005 a state word other than „stillgelegt“`);
-      assert.match(german, /\bTeam\b/, `${where} names the club as something other than a „Team“`);
+      expect(german, `${where} names the club as something other than a „Team“`).toMatch(/\bTeam\b/);
 
       for (const banned of ["usgeschieden", "usgetragen", "verlassen", "Verein"]) {
         assert.ok(!german.includes(banned), `${where} says „${banned}“ of a retired club, which is another record entirely`);
@@ -742,14 +732,14 @@ describe("the sentence both entry surfaces render for one code", () => {
     it(`opens ${code} with one sentence, spelled the same on both`, () => {
       // Before the comparison: a cut that stopped matching leaves one side empty, and two empty
       // sides are equal.
-      assert.equal(renderings.length, 2, `${code} is rendered in ${String(renderings.length)} places, not the two this case reads`);
+      expect(renderings.length, `${code} is rendered in ${String(renderings.length)} places, not the two this case reads`).toBe(2);
       for (const { where, sentences } of renderings) {
-        assert.notEqual(sentences.length, 0, `${where} was cut to something holding no rendered sentence for ${code}`);
+        expect(sentences.length, `${where} was cut to something holding no rendered sentence for ${code}`).not.toBe(0);
       }
 
       const [first, second] = renderings;
 
-      assert.equal(second?.sentences[0], first?.sentences[0], `the two surfaces open ${code} with different sentences`);
+      expect(second?.sentences[0], `the two surfaces open ${code} with different sentences`).toBe(first?.sentences[0]);
     });
   }
 
@@ -768,12 +758,11 @@ describe("the decline's bound", () => {
   it("refuses a reason that is only whitespace, and carries the trimmed one", () => {
     const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "   " });
 
-    assert.equal(parsed.success, false, "a whitespace-only reason parses, and would be stored and mailed as one");
-    assert.equal(
+    expect(parsed.success, "a whitespace-only reason parses, and would be stored and mailed as one").toBe(false);
+    expect(
       FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "  Kein Platz.  " }).data?.grund,
-      "Kein Platz.",
       "the reason reaches the write with the padding the administrator typed around it",
-    );
+    ).toBe("Kein Platz.");
   });
 
   /* A reason at the cap with padding around it: the schema takes it, so the panel that measures the
@@ -782,8 +771,8 @@ describe("the decline's bound", () => {
     const padded = `  ${"a".repeat(BEWERBUNG_GRUND_MAX_LENGTH)}  `;
     const parsed = FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: padded });
 
-    assert.equal(parsed.success, true, "a reason inside the cap once trimmed is refused by the schema");
-    assert.equal(parsed.data?.grund.length, BEWERBUNG_GRUND_MAX_LENGTH);
+    expect(parsed.success, "a reason inside the cap once trimmed is refused by the schema").toBe(true);
+    expect(parsed.data?.grund.length).toBe(BEWERBUNG_GRUND_MAX_LENGTH);
   });
 });
 
@@ -791,7 +780,7 @@ describe("the pills the queue's card wears", () => {
   /* A pill that cannot break overruns the cell it sits in instead of wrapping inside it, and a
      card's own grid track is where one gets narrow enough to break. */
   it("never lets a pill break across two lines", () => {
-    assert.match(labelBadge("info"), /\bwhitespace-nowrap\b/, "a pill breaks across two lines, where it reads as two pills");
+    expect(labelBadge("info"), "a pill breaks across two lines, where it reads as two pills").toMatch(/\bwhitespace-nowrap\b/);
   });
 });
 
@@ -808,11 +797,9 @@ describe("a message that cannot be sent", () => {
 
       const result = await press();
 
-      assert.equal(result.success, true, `${where} reports a committed decision as one that did not happen`);
-      assert.match(
-        answerOf(result),
+      expect(result.success, `${where} reports a committed decision as one that did not happen`).toBe(true);
+      expect(answerOf(result), `${where} leaves the administrator no remedy for the message nobody received`).toMatch(
         new RegExp(`Die ${betreff} konnte nicht verschickt werden\\. Melde Dich selbst bei den Kontaktpersonen der Bewerbung\\.`),
-        `${where} leaves the administrator no remedy for the message nobody received`,
       );
     }
   });
@@ -828,12 +815,11 @@ describe("a message that cannot be sent", () => {
     ] as const) {
       const result = await press();
 
-      assert.equal(result.success, false, `${where} answered as though the club read had not failed`);
-      assert.deepEqual(
+      expect(result.success, `${where} answered as though the club read had not failed`).toBe(false);
+      expect(
         requestsOf(writes).filter(({ endpoint }) => endpoint === mint),
-        [],
         `${where} spent the seat's link before a club read that could not compose its message`,
-      );
+      ).toStrictEqual([]);
     }
   });
 });
@@ -845,16 +831,15 @@ describe("the re-sent confirmation link", () => {
     const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
 
     assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
-    assert.doesNotMatch(String(answered), /Trage eine andere Adresse ein/);
+    expect(String(answered)).not.toMatch(/Trage eine andere Adresse ein/);
   });
 
   it("answers every code the re-send publishes through its own mapper", async () => {
     for (const code of publishedRefusals(ERNEUT_OPERATION)) {
-      assert.notEqual(
+      expect(
         answerShown(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
-        null,
         `${code} is published on the re-send and reaches the admin unmapped`,
-      );
+      ).not.toBe(null);
     }
     await assertEachAnswered({
       operation: ERNEUT_OPERATION,
@@ -864,8 +849,7 @@ describe("the re-sent confirmation link", () => {
     });
   });
 
-  /* A link built on the published origin sends a reader of the local stack into production
-     (`docs/frontend/spec.md :: I186`). */
+  /* A link built on the published origin sends a reader of the local stack into production. */
   it("mints the re-sent link on the configured origin", async () => {
     mailed.length = 0;
     const frist = "2026-09-18";
@@ -883,7 +867,7 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" });
 
-    assert.equal(result.success, true, "the re-send mailed nothing, so the origin below is judged on nothing");
+    expect(result.success, "the re-send mailed nothing, so the origin below is judged on nothing").toBe(true);
     assert.ok(
       mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
       "the re-sent link is minted on an origin this run was not configured with",
@@ -895,8 +879,8 @@ describe("the re-sent confirmation link", () => {
   it("mails nothing where the write is refused, and states the deadline the write set", async () => {
     answerWith(() => Promise.reject(refusedOn(ERNEUT_OPERATION, publishedRefusals(ERNEUT_OPERATION)[0] ?? "")));
 
-    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, false, "the re-send was not refused, so nothing is judged");
-    assert.equal(mailed.length, 0, "the re-send mailed a link the backend refused to mint");
+    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send was not refused, so nothing is judged").toBe(false);
+    expect(mailed.length, "the re-send mailed a link the backend refused to mint").toBe(0);
 
     // Each press that mints a link, its write answering a deadline the page's read does not hold.
     for (const [where, press, answer, to] of [
@@ -907,7 +891,7 @@ describe("the re-sent confirmation link", () => {
       readWith(() => Promise.resolve(VOR_DER_REPARATUR));
       answerWith(() => Promise.resolve(answer));
 
-      assert.equal((await press()).success, true, `${where} did not land, so its deadline is judged on nothing`);
+      expect((await press()).success, `${where} did not land, so its deadline is judged on nothing`).toBe(true);
       const text = mailed.findLast((mail) => mail.to === to)?.text ?? "";
       assert.ok(text.includes(formatSpielDatum("2026-09-18")), `${where}'s message states no deadline the write set`);
       assert.ok(!text.includes(formatSpielDatum("2026-09-01")), `${where}'s message states the deadline the page held`);
@@ -919,11 +903,11 @@ describe("the re-sent confirmation link", () => {
   it("refuses what it could not send before it spends the seat's link", async () => {
     const answers = await unsendableAnswers();
 
-    assert.match(answers.weg, /Diese Bewerbung gibt es nicht mehr/);
-    assert.match(answers.leer, /Für diese Rolle steht niemand mehr in der Bewerbung/);
-    assert.equal(answers.ohneAdresse, ERNEUT_OHNE_ADRESSE);
-    assert.match(answers.ohneTeam, /Diese Bewerbung nennt kein Team/);
-    assert.deepEqual(writes, [], "the re-send spent the seat's link on a press that could never compose its message");
+    expect(answers.weg).toMatch(/Diese Bewerbung gibt es nicht mehr/);
+    expect(answers.leer).toMatch(/Für diese Rolle steht niemand mehr in der Bewerbung/);
+    expect(answers.ohneAdresse).toBe(ERNEUT_OHNE_ADRESSE);
+    expect(answers.ohneTeam).toMatch(/Diese Bewerbung nennt kein Team/);
+    expect(writes, "the re-send spent the seat's link on a press that could never compose its message").toStrictEqual([]);
   });
 
   /* One sentence for four states told an administrator the seat had no address where the application
@@ -949,7 +933,7 @@ describe("the re-sent confirmation link", () => {
       saetze.every((satz) => satz !== ""),
       `a re-send answered with no sentence at all: ${saetze.join(" | ")}`,
     );
-    assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
+    expect(new Set(saetze).size, "two of the re-send's answers say the same thing").toBe(saetze.length);
   });
 
   /* The mint stands, so the press landed: a link that never went out is reported as failed, never as
@@ -961,9 +945,9 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.equal(result.success && result.versand, "fehlgeschlagen", "a refused send is still reported as a link on its way");
-    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
-    assert.match(answerOf(result), /Versuche es erneut/, "the report names no way out");
+    expect(result.success && result.versand, "a refused send is still reported as a link on its way").toBe("fehlgeschlagen");
+    expect(answerOf(result), "the report does not say the previous link is spent").toMatch(/Der alte Link gilt nicht mehr/);
+    expect(answerOf(result), "the report names no way out").toMatch(/Versuche es erneut/);
   });
 
   /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
@@ -973,7 +957,7 @@ describe("the re-sent confirmation link", () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), outcomeUnknown());
+    expect(await einwilligungErneutSendenAction(ERNEUT)).toStrictEqual(outcomeUnknown());
   });
 
   /* Outside production every send is withheld, and a failure there offers a retry no repeat of the
@@ -985,11 +969,11 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN, versand: "zurueckgehalten" });
+    expect(result).toStrictEqual({ success: true, message: ZURUECKGEHALTEN, versand: "zurueckgehalten" });
   });
 
   /* A retry meets the same ban, so a failure would offer one no repeat can reach; and the answer
-     names no address (`docs/frontend/spec.md :: I542`). */
+     names no address. */
   it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
     answerMailWith(() => "barred");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
@@ -997,7 +981,7 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.deepEqual(result, {
+    expect(result).toStrictEqual({
       success: true,
       message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
       versand: "gesperrt",
@@ -1013,8 +997,8 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.equal(result.success && result.versand, "fehlgeschlagen", "the message went, so the refresh below is judged on nothing");
-    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
+    expect(result.success && result.versand, "the message went, so the refresh below is judged on nothing").toBe("fehlgeschlagen");
+    expect(cacheCalls.filter(({ name }) => name === "refresh").length, "the page keeps a link the mint has already spent").toBe(1);
   });
 
   /* A correction landing between the page's read and this write moves the mailbox, and only the
@@ -1025,11 +1009,10 @@ describe("the re-sent confirmation link", () => {
 
     await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.deepEqual(
+    expect(
       mailed.map(({ to }) => to),
-      ["anna.neu@example.de"],
       "the re-send mails the address its own read held",
-    );
+    ).toStrictEqual(["anna.neu@example.de"]);
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
   });
 
@@ -1043,10 +1026,7 @@ describe("the re-sent confirmation link", () => {
     answerWith(() => Promise.resolve(besetzt()));
     await besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" });
 
-    assert.deepEqual(
-      mailed.map(({ to }) => to),
-      [KORREKTUR.email, SITZ.email],
-    );
+    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email, SITZ.email]);
   });
 
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
@@ -1097,19 +1077,18 @@ describe("the re-sent confirmation link", () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, true, "the re-send never landed, so its tags are judged on nothing");
-    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the re-send clears a cached read its endpoint does not move");
+    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send never landed, so its tags are judged on nothing").toBe(true);
+    expect(cacheCalls, "the re-send clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
 describe("the corrected contact address", () => {
   it("answers every code the correction publishes through its own mapper", async () => {
     for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
-      assert.notEqual(
+      expect(
         answerShown(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
-        null,
         `${code} is published on the correction and reaches the admin unmapped`,
-      );
+      ).not.toBe(null);
     }
     await assertEachAnswered({
       operation: KORREKTUR_OPERATION,
@@ -1127,11 +1106,10 @@ describe("the corrected contact address", () => {
 
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
-    assert.deepEqual(
+    expect(
       mailed.map(({ to }) => to),
-      [KORREKTUR.email],
       "the correction composes its message against the address the application held before the write",
-    );
+    ).toStrictEqual([KORREKTUR.email]);
   });
 
   /* The address IS corrected whatever the message did, so a failure arm here would tell the
@@ -1143,10 +1121,10 @@ describe("the corrected contact address", () => {
 
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
 
-    assert.equal(result.success, true, "a refused send reports the correction as one that did not happen");
-    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", "a refused send reports a link on its way");
+    expect(result.success, "a refused send reports the correction as one that did not happen").toBe(true);
+    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
     // Its own words, sending the administrator to the re-send: a second correction over the moved row is refused.
-    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the report is not the correction's own");
+    expect(answerOf(result), "the report is not the correction's own").toBe(KORREKTUR_OHNE_LINK);
   });
 
   /* One press writes every seat the person holds, and only the write knows which: a pairing read before it can have
@@ -1169,25 +1147,24 @@ describe("the corrected contact address", () => {
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
 
     const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
-    assert.deepEqual(notice?.tags, { kontakt_abgang: "hinweis" }, "the mailbox the link left was not told on its lane");
-    assert.match(notice?.text ?? "", new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
+    expect(notice?.tags, "the mailbox the link left was not told on its lane").toStrictEqual({ kontakt_abgang: "hinweis" });
+    expect(notice?.text ?? "").toMatch(new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
     // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
-    assert.doesNotMatch(notice?.text ?? "", /Spielterminen/, "the application's seat is told of fixture links it never held");
-    assert.doesNotMatch(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, new RegExp(PERSON.vorname), "the notice names the person");
-    assert.deepEqual(
-      mailed.map(({ to }) => to).sort(),
+    expect(notice?.text ?? "", "the application's seat is told of fixture links it never held").not.toMatch(/Spielterminen/);
+    expect(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, "the notice names the person").not.toMatch(new RegExp(PERSON.vorname));
+    expect(mailed.map(({ to }) => to).sort(), "the correction mailed someone beyond the two mailboxes it moved the link between").toStrictEqual(
       ["anna.alt@example.de", KORREKTUR.email].sort(),
-      "the correction mailed someone beyond the two mailboxes it moved the link between",
     );
-    assert.doesNotMatch(JSON.stringify(result), /anna\.alt@/);
+    expect(JSON.stringify(result)).not.toMatch(/anna\.alt@/);
   });
 
   /* The correction is stored before either message, so the request's deadline cutting the leaving notice alone leaves
-     that notice in doubt and the correction answered by its own link (`docs/frontend/spec.md :: I372`). */
-  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async (t) => {
+     that notice in doubt and the correction answered by its own link. */
+  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async ({ onTestFinished }) => {
     // The request's clock, which its deadline was set on as the press began.
     let clock = 0;
-    t.mock.method(performance, "now", () => clock);
+    const now = vi.spyOn(performance, "now").mockImplementation(() => clock);
+    onTestFinished(() => void now.mockRestore());
     answerMailWith(async ({ to }): Promise<MailOutcome> => {
       if (to !== "anna.alt@example.de") return "accepted";
       // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
@@ -1202,7 +1179,7 @@ describe("the corrected contact address", () => {
 
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
 
-    assert.deepEqual(result, { success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
+    expect(result).toStrictEqual({ success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
   });
 
   it("tells nobody where the corrected address is the same mailbox", async () => {
@@ -1211,33 +1188,27 @@ describe("the corrected contact address", () => {
 
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
-    assert.deepEqual(
-      mailed.map(({ to }) => to),
-      [KORREKTUR.email],
-    );
+    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email]);
   });
 
   it("moves no tag", async () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(korrigiert()));
 
-    assert.equal(
-      (await kontaktEmailKorrigierenAction(KORREKTUR)).success,
+    expect((await kontaktEmailKorrigierenAction(KORREKTUR)).success, "the correction never landed, so its tags are judged on nothing").toBe(
       true,
-      "the correction never landed, so its tags are judged on nothing",
     );
-    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the correction clears a cached read its endpoint does not move");
+    expect(cacheCalls, "the correction clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
 describe("the person seated where one stepped out", () => {
   it("answers every code the reseat publishes through its own mapper", async () => {
     for (const code of publishedRefusals(SITZ_OPERATION)) {
-      assert.notEqual(
+      expect(
         answerShown(SITZ_OPERATION, code, mapKontaktSitzRefusal),
-        null,
         `${code} is published on the reseat and reaches the admin unmapped`,
-      );
+      ).not.toBe(null);
     }
     await assertEachAnswered({
       operation: SITZ_OPERATION,
@@ -1264,7 +1235,7 @@ describe("the person seated where one stepped out", () => {
 
     const result = await besetzeKontaktSitzAction(SITZ);
 
-    assert.equal(result.success, true, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`);
+    expect(result.success, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`).toBe(true);
     assert.ok(
       requestsOf(writes).some(({ endpoint }) => endpoint === SITZ_PATH),
       "the reseat never reached its write",
@@ -1273,12 +1244,12 @@ describe("the person seated where one stepped out", () => {
 
   it("still refuses what it cannot compose a message from, before it seats anybody", async () => {
     readWith(() => Promise.resolve(null));
-    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung gibt es nicht mehr/);
+    expect(errorOf(await besetzeKontaktSitzAction(SITZ))).toMatch(/Diese Bewerbung gibt es nicht mehr/);
 
     readWith(() => Promise.resolve({ bewerbung: { ...VOR_DER_REPARATUR.bewerbung, schule: null, team_id: null } }));
-    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung nennt kein Team/);
+    expect(errorOf(await besetzeKontaktSitzAction(SITZ))).toMatch(/Diese Bewerbung nennt kein Team/);
 
-    assert.deepEqual(writes, [], "the reseat seated a person behind a message nobody could compose");
+    expect(writes, "the reseat seated a person behind a message nobody could compose").toStrictEqual([]);
   });
 
   /* A pair recomputed from the page's read mirrors `paired_seat`, which drops a seat missing either half — and every
@@ -1301,18 +1272,18 @@ describe("the person seated where one stepped out", () => {
 
     const result = await besetzeKontaktSitzAction(SITZ);
 
-    assert.equal(result.success, true, "a refused send reports the seat as one that was never filled");
-    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", "a refused send reports a link on its way");
+    expect(result.success, "a refused send reports the seat as one that was never filled").toBe(true);
+    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
     // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
-    assert.equal(answerOf(result), BESETZUNG_OHNE_LINK, "a refused send is reported as something other than the reseat's own");
+    expect(answerOf(result), "a refused send is reported as something other than the reseat's own").toBe(BESETZUNG_OHNE_LINK);
   });
 
   it("moves no tag", async () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(besetzt()));
 
-    assert.equal((await besetzeKontaktSitzAction(SITZ)).success, true, "the reseat never landed, so its tags are judged on nothing");
-    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the reseat clears a cached read its endpoint does not move");
+    expect((await besetzeKontaktSitzAction(SITZ)).success, "the reseat never landed, so its tags are judged on nothing").toBe(true);
+    expect(cacheCalls, "the reseat clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
@@ -1337,7 +1308,7 @@ describe("the failure lines of the three repairs' shared send", () => {
 
       await press();
 
-      assert.deepEqual(failedUnder(), [operation], "the refused send logs under another press");
+      expect(failedUnder(), "the refused send logs under another press").toStrictEqual([operation]);
     });
   }
 });

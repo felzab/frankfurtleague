@@ -16,7 +16,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The matchday editor. One per URL and no season in it: a matchday carries its own `saison_id`, so
  * reading it is what tells the page which season's rules bound the form. It resolves nothing
- * itself (`docs/frontend/spec.md :: I22`).
+ * itself.
  */
 export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id: string }>) {
   return (
@@ -74,7 +74,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
   };
 
   return (
-    // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+    // Keyed by the state the draft mirrors.
     <AdminSpieltagEditView
       key={JSON.stringify(row)}
       spieltag={row}
