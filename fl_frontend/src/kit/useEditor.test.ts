@@ -207,12 +207,18 @@ describe("an editor's refused save", () => {
 
   it("points at the fields when they alone were refused, until the next edit", async () => {
     const plz = COPY.shared.feld.pflichtfeld;
-    const { result } = editorOn(STORED, async () => ({ ok: false, fieldErrors: { plz } }));
+    // The action keys a message by its field's whole path in the save, and the box is named by its key in `changes`.
+    const { result, rerender } = editorOn(STORED, async () => ({ ok: false, fieldErrors: { "changes.plz": plz } }));
 
     act(() => result.current.set("plz", ""));
     await press(result.current.submit);
     expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.vorlage.felderPruefen });
     expect(result.current.fieldErrors).toStrictEqual({ plz });
+
+    // The same object across renders, which React Aria would take for a new refusal to show again.
+    const shown = result.current.fieldErrors;
+    rerender({ shown: STORED });
+    expect(result.current.fieldErrors).toBe(shown);
 
     act(() => result.current.set("plz", "60439"));
     expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.vorlage.aenderungenOffen(1) });

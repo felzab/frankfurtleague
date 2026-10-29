@@ -1,12 +1,13 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";
 
+import type { Copy } from "@/core/copy";
 import type { ActionAnswer, FormStatus } from "./useFormAction";
 
 /** A value an editor's field holds: text, a figure, a choice, or nothing yet. */
@@ -31,6 +32,15 @@ export type EditorSave<Values extends Record<string, EditorValue>> = {
   fingerprint: string;
   changes: Partial<Values>;
 };
+
+const CHANGES = "changes.";
+
+/**
+ * The server's messages by the box each belongs to. The action keys a message by its field's whole path in what the
+ * save sends, so a box's message arrives under `changes.<name>`.
+ */
+const byBox = (fieldErrors: Readonly<Record<string, Copy>>): Readonly<Record<string, Copy>> =>
+  Object.fromEntries(Object.entries(fieldErrors).map(([path, text]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, text]));
 
 function sameValue(a: EditorValue | undefined, b: EditorValue | undefined) {
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => item === b[index]);
@@ -154,6 +164,8 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const answered = statusOf(answer?.ok === true ? answer : refused, current.blockedVersion === current.version, form.isPending);
   const status: FormStatus =
     answered?.tone !== "error" && count > 0 ? { tone: "changes", text: COPY.vorlage.aenderungenOffen(count) } : answered;
+  // One object while the refusal stands: React Aria shows a box's server message afresh whenever the object changes.
+  const fieldErrors = useMemo(() => (refused?.fieldErrors === undefined ? undefined : byBox(refused.fieldErrors)), [refused?.fieldErrors]);
 
   return {
     /** The values the fields show. */
@@ -167,7 +179,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     count,
     status,
     /** The server's message for each field it refused, by the field's `name`. */
-    fieldErrors: refused?.fieldErrors,
+    fieldErrors,
     /** Saves the whole record: its changed fields, on the fingerprint the draft was made on. */
     submit: () => {
       setHeld((state) => ({ ...state, sentVersion: state.version }));

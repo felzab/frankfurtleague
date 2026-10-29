@@ -199,7 +199,7 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: false,
-      fieldErrors: { mietpreis: COPY.shared.feld.format(COPY.verwaltung.spielort.mietpreisBeispiel) },
+      fieldErrors: { "changes.mietpreis": COPY.shared.feld.format(COPY.verwaltung.spielort.mietpreisBeispiel) },
     });
     expect(stand.gesendet).toEqual([]);
   });
@@ -207,7 +207,7 @@ describe("the match editor's save", () => {
   it("asks for a price while a venue is chosen, writing nothing", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { mietpreis: "" } });
 
-    expect(answer).toEqual({ ok: false, fieldErrors: { mietpreis: COPY.shared.feld.pflichtfeld } });
+    expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } });
     expect(stand.gesendet).toEqual([]);
   });
 
@@ -218,7 +218,7 @@ describe("the match editor's save", () => {
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "REQ-DATE-001",
-      fieldErrors: { datum: COPY.shared.ablehnung["REQ-DATE-001"] },
+      fieldErrors: { "changes.datum": COPY.shared.ablehnung["REQ-DATE-001"] },
     });
 
     stand.ablehnung = refusal("REQ-CLASH-001");
