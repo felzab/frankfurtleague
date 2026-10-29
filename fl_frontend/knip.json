@@ -3,6 +3,8 @@
   // Generated from `fl_backend/openapi.json` by `orval.config.ts`: an export for every operation and component, which
   // a caller takes as it needs (https://knip.dev/guides/handling-issues).
   "entry": ["src/core/generated/**/*.ts"],
+  // The backend's runner, which the `contract` script calls to export the document: a machine tool, never a package.
+  "ignoreBinaries": ["uv"],
   // One directory up, where knip does not look: without it the two Prettier plugins read as unused.
   "prettier": {
     "config": ["../.prettierrc.json"]
@@ -30,13 +32,11 @@
   "treatTagHintsAsErrors": true,
   // Each entry is a reader knip cannot see.
   "ignoreIssues": {
-    // `fl_frontend/src/core/apiContract.test.ts` pairs every `*Schema`, alias included, with a backend
-    // component. An inferred type stays beside its schema, or the next caller writes it back.
+    // Redesign: goes as the last slice moves onto the generated contract. A slice's hand-written schemas export
+    // each mirror of a backend model, read or not, and an inferred type stays beside its schema.
     "src/**/schemas.ts": ["exports", "types", "duplicates"],
     // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
     // exported facet array; a URL parameter stays exported beside the rest of its family.
-    "src/features/*/facets.ts": ["exports"],
-    // `docs/decisions.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/features/*/facets.ts": ["exports"]
   }
 }

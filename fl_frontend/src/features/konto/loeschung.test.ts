@@ -99,7 +99,7 @@ const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
 const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
 const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
-const { assertEachAnswered } = await import("@/test-support/publishedRefusals.ts");
+const { assertEachAnswered, refusalCodes } = await import("@/test-support/refusals.ts");
 const { auth } = await import("@/core/auth.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -184,7 +184,7 @@ describe("a person's own account deletion, from the account page's press to the 
     let acts = 0;
 
     await assertEachAnswered({
-      operation: "POST /identitaet/selbst/erasure",
+      codes: refusalCodes("DB-COMMON-002", "REQ-PURGE-004"),
       // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
       refuseWith: (next) => {
         erasureRefused = next().then(

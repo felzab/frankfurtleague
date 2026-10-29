@@ -11,6 +11,7 @@ import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/type
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import serverAction from "./eslint-rules/server-action.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
 // ---------------------------------------------------------------------------------------------------
@@ -499,10 +500,10 @@ const SOURCE_BANS = [
     // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "fl_frontend/src/shared/utils/adminMutation.ts clears the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
+      "The save spines, fl_frontend/src/core/action.ts and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/adminMutation.ts"] },
+    { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
   ),
   syntaxBan(
     // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
@@ -1144,6 +1145,20 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/api/bestaetigung/**/route.ts"],
     rules: { "no-restricted-exports": ["error", { restrictedNamedExportsPattern: "^(?!POST$)[A-Z]+$" }] },
+  },
+
+  // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
+  // route handlers no browser form posts to, the three that stay for callers that are not a browser.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    plugins: { fl: { rules: { "server-action": serverAction } } },
+    rules: {
+      "fl/server-action": [
+        "error",
+        { keptRoutes: ["src/app/api/auth/[...all]/route.ts", "src/app/api/mail/zustellung/route.ts", "src/app/api/client-error/route.ts"] },
+      ],
+    },
   },
 
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already

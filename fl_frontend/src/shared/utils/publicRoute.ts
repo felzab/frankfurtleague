@@ -1,7 +1,8 @@
+// Redesign: goes with its last importer.
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { isContractBreak } from "@/core/errors";
+import { ContractBreakError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
@@ -42,7 +43,8 @@ export async function readAfterAnsweredWrite<T>(routeName: string, read: () => P
   try {
     return await runAnsweringOwnCut(read);
   } catch (error) {
-    if (isContractBreak(error)) logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
+    if (error instanceof ContractBreakError)
+      logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
     else if (!explainsItself(error)) logRouteError(`Public route read failed after its write was answered: ${routeName}`, error);
     return null;
   }

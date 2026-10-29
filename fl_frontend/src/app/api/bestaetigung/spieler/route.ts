@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { postSpielerBestaetigung } from "@/features/registrierungen/mutations";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { FLRegistrierungBestaetigungPayloadSchema } from "@/features/registrierungen/schemas";

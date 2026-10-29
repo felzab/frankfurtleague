@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { publishedOperations } from "@/test-support/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
+import { Code } from "@/core/generated/client/types.ts";
 
 import {
   EDGE_REFUSAL_BODY,
@@ -253,22 +253,6 @@ describe("toActionErrorResult", () => {
     }
   });
 
-  it("maps a read's malformed data onto its own message", () => {
-    for (const sent of READS) {
-      const result = toActionErrorResult(new APIMalformedDataError({ ...base, ...sent, message: "m", statusCode: 200 }));
-
-      expect(result.error, sent.method).toMatch(/fehlerhaft/);
-      expect(result.outcome, sent.method).toBe(undefined);
-    }
-  });
-
-  // A 2xx says the write landed, and only its answer is unreadable: "try again" repeats it.
-  it("says a write whose answer failed its schema is of unknown outcome", () => {
-    const result = toActionErrorResult(new APIMalformedDataError({ ...write, message: "m", statusCode: 200 }));
-
-    expect(result.outcome).toBe("unknown");
-  });
-
   // An error of this application's own code carries no request: the one its caller answered decides.
   it("says an unknown throw answering a write is of unknown outcome, and one answering a read a failure", () => {
     expect(toActionErrorResult(new Error("anything"), { method: "POST", readOnly: false }).outcome).toBe("unknown");
@@ -367,15 +351,17 @@ describe("a refusal read by its code, whatever its status", () => {
     expect(isRefusalCode(undefined)).toBe(false);
   });
 
-  /* The harness reads the same predicate, so this asks the document itself: every code it publishes at
-     a 4xx is a refusal exactly where the predicate says so, at the status it is published under. */
-  it("reads a published refusal as a rule's at its published status, and nothing else", () => {
-    const answers = publishedOperations().flatMap(({ operation, answers: published }) => published.map((answer) => ({ operation, ...answer })));
-    assert.ok(answers.some(({ code }) => isRefusalCode(code)) && answers.some(({ code }) => !isRefusalCode(code)), "one class is missing");
+  /* Every code the API has, at every client status it answers with: each is a rule's refusal exactly where the
+     predicate says so, whichever status its rule chose. */
+  it("reads every code as a rule's refusal exactly where its class says so, at any client status", () => {
+    const codes = Object.values(Code);
+    assert.ok(codes.some((code) => isRefusalCode(code)) && codes.some((code) => !isRefusalCode(code)), "one class is missing");
 
-    for (const { operation, code, status } of answers.filter(({ status: published }) => published < 500)) {
-      const refusal = new APIBadStatusError({ ...write, message: "bad", statusCode: status, serverErrorCode: code });
-      expect(isRuleRefusal(refusal), `${code} at ${String(status)} on ${operation}`).toBe(isRefusalCode(code));
+    for (const code of codes) {
+      for (const status of [400, 401, 403, 404, 409, 410, 422, 429]) {
+        const refusal = new APIBadStatusError({ ...write, message: "bad", statusCode: status, serverErrorCode: code });
+        expect(isRuleRefusal(refusal), `${code} at ${String(status)}`).toBe(isRefusalCode(code));
+      }
     }
   });
 

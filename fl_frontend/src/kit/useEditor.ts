@@ -48,10 +48,11 @@ type Held<Values extends Record<string, EditorValue>> = {
   /** The fingerprint the draft was made on, which a save sends. */
   base: string;
   edits: Partial<Values>;
-  /** This editor's own save went through: the next fingerprint the page serves is the saved record's. */
-  adopt: boolean;
-  /** The last save: the record as the page served it when it was sent, and the changes it sent. */
-  sent: { from: EditorRecord<Values>; changes: Partial<Values> } | null;
+  /**
+   * This editor's own save went through and the page has not yet served what it stored: the fingerprint the
+   * save was sent on, the one it answered as stored, and the changes it sent.
+   */
+  settling: { from: string; stored: string; changes: Partial<Values> } | null;
   /** Counts the edits, so a refusal is shown only until the person edits again. */
   version: number;
   sentVersion: number;
@@ -63,12 +64,16 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
   id: record.id,
   base: record.fingerprint,
   edits: {},
-  adopt: false,
-  sent: null,
+  settling: null,
   version: 0,
   sentVersion: -1,
   blockedVersion: -1,
 });
+
+/** The edits less those a save sent that nobody has touched since: the record holds them now, in its own form. */
+function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Values>, sent: Partial<Values>) {
+  return Object.fromEntries(Object.entries(edits).filter(([key, value]) => !(key in sent && sameValue(value, sent[key])))) as Partial<Values>;
+}
 
 /**
  * The one way an editor holds its record: a draft made of the stored values and the person's edits, the
@@ -76,11 +81,12 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
  * save through the one form action. Keyed on the record's id, so a refreshed read never clears a draft and
  * another record always starts one fresh.
  *
- * When the page serves the record anew, the draft takes the new fingerprint only where nothing unsaved
- * rests on the old one, or where this editor's own save produced it; a draft made on a read someone else
- * has since changed keeps the old fingerprint, so its save is refused as stale rather than overwriting. A
- * save the write stores as what was already stored is served back under the same fingerprint, and the draft
- * then holds what the record holds.
+ * A save answers the fingerprint of the record it stored, which the draft takes at once. The page's fresh
+ * serving is told apart by that fingerprint alone, never by when it arrives beside the answer: once it is
+ * served, the changes the save sent, untouched since, are what the record holds, a value the write stored in
+ * its own form (a trimmed note, a price without its leading zero) included. Any other new serving the draft
+ * takes only where nothing unsaved rests on the read before it; a draft made on a read someone else has since
+ * changed keeps its fingerprint, so its save is refused as stale rather than overwriting.
  *
  * While changes are unsaved, the frame's way back asks before it drops them, and the browser asks before a
  * reload or a closed tab. A „Gespeichert“ shown is cleared once the page is left, the documented reset; an
@@ -88,30 +94,26 @@ const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<
  */
 export function useEditor<Values extends Record<string, EditorValue>>(
   record: EditorRecord<Values>,
-  save: (change: EditorSave<Values>) => Promise<ActionAnswer>,
+  save: (change: EditorSave<Values>) => Promise<ActionAnswer<string>>,
 ) {
   const [held, setHeld] = useState<Held<Values>>(() => fresh(record));
 
   // A new record, or a new read of this one, is taken while rendering, React's pattern for state that
   // follows a prop, so no render ever shows a draft on the wrong record.
   let current = held;
+  const { settling } = held;
   if (held.id !== record.id) {
     current = fresh(record);
-  } else if (held.base !== record.fingerprint) {
+  } else if (settling !== null && record.fingerprint === settling.stored) {
+    current = { ...held, base: record.fingerprint, edits: lessSent(held.edits, settling.changes), settling: null };
+  } else if (settling !== null && record.fingerprint === settling.from) {
+    // Still the read the save was sent on: the page's fresh serving is on its way.
+  } else if (settling !== null || held.base !== record.fingerprint) {
+    // A serving newer than this editor's read, or than its own save: someone else wrote.
     const pending = changesOf(record.values, held.edits);
-    if (held.adopt || Object.keys(pending).length === 0) {
-      current = { ...held, base: record.fingerprint, edits: pending, adopt: false };
-    }
-  } else if (held.adopt && held.sent !== null && record !== held.sent.from) {
-    // Served anew after this editor's own save under the fingerprint it was sent from: the write stored a value
-    // it reads as the one already stored, a trimmed note or a price without its leading zero. There is nothing
-    // to adopt, so the flag goes, or the next read someone else changed would be taken as this save's while
-    // edits rest on the old one. The edits the save sent, untouched since, are what the record now holds.
-    const gesendet = held.sent.changes;
-    const edits = Object.fromEntries(
-      Object.entries(held.edits).filter(([key, value]) => !(key in gesendet && sameValue(value, gesendet[key]))),
-    ) as Partial<Values>;
-    current = { ...held, edits, adopt: false };
+    // Under unsaved edits the draft keeps its fingerprint, set only where it changes, or each render would set it again.
+    if (Object.keys(pending).length === 0) current = { ...held, base: record.fingerprint, edits: pending, settling: null };
+    else if (settling !== null) current = { ...held, settling: null };
   }
   if (current !== held) setHeld(current);
 
@@ -120,11 +122,13 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const draft = { ...record.values, ...current.edits };
 
   const form = useFormAction(
-    async (sent: EditorSave<Values>) => {
+    async (sent: EditorSave<Values>): Promise<ActionAnswer> => {
       const answer = await save(sent);
+      if (!answer.ok) return answer;
+      const settled = { from: sent.fingerprint, stored: answer.value, changes: sent.changes };
       // A form's action runs in a transition, and an update after its `await` commits outside it.
-      if (answer.ok) startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, adopt: true } : state)));
-      return answer;
+      startTransition(() => setHeld((state) => (state.id === sent.id ? { ...state, base: answer.value, settling: settled } : state)));
+      return { ok: true, value: undefined, note: answer.note };
     },
     { resetOnLeave: true },
   );
@@ -166,7 +170,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
     fieldErrors: refused?.fieldErrors,
     /** Saves the whole record: its changed fields, on the fingerprint the draft was made on. */
     submit: () => {
-      setHeld((state) => ({ ...state, sentVersion: state.version, adopt: false, sent: { from: record, changes } }));
+      setHeld((state) => ({ ...state, sentVersion: state.version }));
       form.submit({ id: record.id, fingerprint: current.base, changes });
     },
     /** The browser kept the save back for a field's own rule: the status line points at the fields. */

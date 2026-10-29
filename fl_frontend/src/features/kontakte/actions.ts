@@ -5,9 +5,8 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, replayRefusal, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { schlechtesterVersand } from "@/shared/utils/linkVersand";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
@@ -72,10 +71,6 @@ export async function patchSaisonTeamKontakteAction(
       const refusal = mapKontakteRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!saisonTeam.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves: no cached read holds a contact person.
@@ -146,8 +141,6 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
       return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { success: false, error: stale };
     }
 
-    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.");
-
     // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
     // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
     const versendet: KontaktVersand[] = await Promise.all(
@@ -194,10 +187,6 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
       const refusal = mapEinladenRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     const mint = mintOperation.bestaetigung;

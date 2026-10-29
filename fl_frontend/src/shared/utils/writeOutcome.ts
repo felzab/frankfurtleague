@@ -1,4 +1,5 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
+// Redesign: goes with its last importer.
+import { APIBadStatusError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
 import { requestOutcomeUnknown, requestWriteSent } from "@/core/requestScope";
 
 import { outcomeUnknown, toActionErrorResult } from "./actionError";
@@ -11,7 +12,7 @@ import type { Wording } from "./actionError";
  * unknown outcome; with none sent, the error answers for itself, in the press's `wording`.
  */
 export function answerThrow(error: unknown, wording?: Wording): ActionFailure {
-  const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
+  const typed = error instanceof APIBadStatusError || error instanceof APINetworkError;
   const writesOwn = error instanceof RolledBackError || (typed && mayHaveWritten(error));
 
   return requestWriteSent() && !writesOwn ? outcomeUnknown(wording) : toActionErrorResult(error, undefined, wording);

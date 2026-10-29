@@ -1,8 +1,7 @@
 "use server";
 
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
@@ -39,10 +38,6 @@ export async function postSpielortAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return { success: true, created_id: postOperation.created_id, message: "Spielort angelegt" };
   });
 }
@@ -70,10 +65,6 @@ export async function patchSpielortAction(
       const refusal = mapNameRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielortdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return {
@@ -106,10 +97,6 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: patchOperation.updated_document,
@@ -136,10 +123,6 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
     }
 
     const reactivateOperation = await reactivateSpielort(validated.data);
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielort wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: reactivateOperation.updated_document,
@@ -153,13 +136,12 @@ export async function undoAdminSpielortEditAction(rawPayload: FLPatchSpielortPay
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    let operation;
     try {
-      operation = await patchSpielort(validated.data);
+      await patchSpielort(validated.data);
     } catch (error) {
       return refusedReplay(error, SPIELORT_REPLAY_REFUSALS);
     }
 
-    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.");
+    return restored();
   });
 }

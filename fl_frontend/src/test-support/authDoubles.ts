@@ -256,7 +256,6 @@ export async function sessionByCode(
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
 export const GATE_BACKEND_CONFIG = {
   API_URL: "http://backend.test",
-  API_VERSION: 0,
 } as const;
 
 /** What the lookup answers an address holding nothing, which every answer below builds on. */

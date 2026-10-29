@@ -4,8 +4,7 @@ import z from "zod";
 
 import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { partlyRestored, refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
@@ -70,10 +69,6 @@ export async function postTeamAction(
       if (refusal !== null) return { success: false, error: VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // A refused entry leaves the club EXISTING in no season, which the
     // admin teams list shows and the club's page enters: recoverable, so two requests stand rather
     // than one transaction.
@@ -122,10 +117,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
       if (refusal !== null) return { success: false, error: VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Teamdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: patchOperation.updated_document,
@@ -154,10 +145,6 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: deleteOperation.updated_document,
@@ -175,10 +162,6 @@ export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload):
     }
 
     const reactivateOperation = await reactivateTeam(validated.data);
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       updated_document: reactivateOperation.updated_document,
@@ -282,10 +265,6 @@ export async function replaceSaisonTeamAction(
       throw error;
     }
 
-    if (!replacement.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht ersetzt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // Both halves said at zero too: the squad is the half of this write that reaches no page the
     // admin is looking at, so "none were" is as much the answer as a number is.
     const umfang = describeReplacementUmfang({
@@ -326,32 +305,19 @@ export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUnd
     const { club, saison } = validated.data;
 
     if (club !== undefined) {
-      let operation;
       try {
-        operation = await patchTeam(club);
+        await patchTeam(club);
       } catch (error) {
         // First of the two halves, so nothing is restored yet.
         return refusedReplay(error, TEAM_REPLAY_REFUSALS);
       }
-
-      if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten.");
     }
 
     if (saison !== undefined) {
-      let operation;
       try {
-        operation = await patchSaisonTeam(saison);
+        await patchSaisonTeam(saison);
       } catch (error) {
         return club === undefined ? refusedReplay(error, TEAM_REPLAY_REFUSALS) : partlyRestored(error, TEAM_REPLAY_REFUSALS, SEASON_HALF);
-      }
-
-      if (!operation.acknowledged) {
-        // The first half may already be restored; reported rather than papered over.
-        return unclearReplay(
-          club === undefined
-            ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
-            : `${CLUB_HALF_RESTORED} Prüfe die Saison-Zugehörigkeit.`,
-        );
       }
     }
 

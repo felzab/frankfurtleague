@@ -9,11 +9,11 @@ import {
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
 import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
-import type { FormState } from "@/shared/types/types.ts";
+import type { ActionAnswer } from "@/kit/useFormAction.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
@@ -84,6 +84,9 @@ const { sent } = registerAuthDoubles({
   },
 });
 
+// The action builder clears the site's cache tag, which Next takes from an action's own request alone.
+vi.mock("next/cache", async (original) => ({ ...(await original<object>()), updateTag: () => undefined }));
+
 const deferred: (() => Promise<void>)[] = [];
 const store = memoryStore(STORE);
 
@@ -105,7 +108,7 @@ interface Attempt {
   readonly askedWhileAnswering: number;
   readonly askedAfter: number;
   readonly scheduled: number;
-  readonly result: FormState;
+  readonly result: ActionAnswer<string>;
 }
 
 async function signInWith(email: string): Promise<Attempt> {
@@ -119,7 +122,7 @@ async function signInWith(email: string): Promise<Attempt> {
   const askedBefore = asked.length;
   deferred.length = 0;
 
-  const result = await handleSignIn(undefined, submitted);
+  const result = await handleSignIn(submitted);
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
   const writtenWhileAnswering = store.verification.length - storedBefore;
   const askedWhileAnswering = asked.length - askedBefore;
@@ -172,10 +175,10 @@ function kindsOf(identifiers: readonly string[], email: string): string[] {
     .sort();
 }
 
-/** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
-function bodyWithoutEcho(result: FormState): Record<string, unknown> {
+/** The answer with the echo dropped: the address the code went to is the caller's own input and differs by design. */
+function bodyWithoutEcho(result: ActionAnswer<string>): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...result };
-  delete copy.submittedEmail;
+  delete copy.value;
 
   return copy;
 }
@@ -202,7 +205,7 @@ describe("what a sign-in leaves behind on the response", () => {
 
   it("answers with the same body", () => {
     expect(bodyWithoutEcho(granted.result)).toStrictEqual(bodyWithoutEcho(rejected.result));
-    expect(granted.result?.success).toBe(true);
+    expect(granted.result.ok).toBe(true);
   });
 
   /* The whole library call sits behind the response, so no branch-dependent work is timed by the
@@ -319,7 +322,7 @@ describe("what the action answers an address it cannot parse", () => {
   it("refuses in front of the response and schedules nothing, a format check leaking no membership", async () => {
     const attempt = await signInWith("keine-adresse");
 
-    expect(attempt.result?.success).toBe(false);
+    expect(attempt.result.ok).toBe(false);
     expect(attempt.scheduled).toBe(0);
   });
 });

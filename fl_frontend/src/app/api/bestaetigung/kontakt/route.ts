@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
