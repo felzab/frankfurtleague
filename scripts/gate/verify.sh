@@ -551,7 +551,9 @@ build_images() {
   local -A build_pid=()
   logs="$(mktemp -d)"
   for image in frontend backend; do
-    docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" > "${logs}/${image}" 2>&1 &
+    # Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored, which would leave a build
+    # running past a Ctrl-C and tagging an image after `cleanup_images` ran: reset in the subshell.
+    ( trap - INT QUIT; exec docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" ) > "${logs}/${image}" 2>&1 &
     build_pid[$image]=$!
   done
   for image in frontend backend; do

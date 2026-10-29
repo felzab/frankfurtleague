@@ -135,8 +135,9 @@ spinner_start() {
     wait "$_SPIN_PID" 2>/dev/null || true
     _SPIN_PID=""
   fi
-  # No INT trap in here: Ctrl-C reaches the whole process group, and a spinner that ignored it would
-  # keep drawing over the interrupt message.
+  # SIGINT stays ignored in here, as bash starts every `&` command of a script, so the frames go on
+  # through a Ctrl-C while the run's tool winds down. They never draw over the interrupt message:
+  # `on_interrupt` ends them through `spinner_stop` before it prints.
   (
     # Detached because `set -E` hands this child the run's ERR trap: a failed frame would run
     # `on_error` here and print the run's closing table from a process that is not the run.
