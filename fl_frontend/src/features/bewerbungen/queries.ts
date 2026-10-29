@@ -169,7 +169,7 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
   );
 }
 
-/** Whether a two-letter code already belongs to a club, in one neutral answer that names none. */
+/** Whether a Kürzel already belongs to a club, in one neutral answer that names none. */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
   return runWithIncomingTrace(() =>
     apiClient<FLBewerbungKuerzelResponse>(`/bewerbungen/kuerzel/${encodeURIComponent(shorthand)}`, FLBewerbungKuerzelResponseSchema, {
