@@ -19,21 +19,22 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 
-BERICHT_NICHT_GESPIELT: Final = "REQ-BERICHT-001"
-BERICHT_NICHT_GELEITET: Final = "REQ-BERICHT-002"
-BERICHT_NICHT_IM_KADER: Final = "REQ-BERICHT-003"
-BERICHT_ABGESAGT: Final = "REQ-BERICHT-004"
-BERICHT_NAME_IN_BEMERKUNGEN: Final = "REQ-BERICHT-005"
+BERICHT_NICHT_GESPIELT: Final = Code.BERICHT_NICHT_GESPIELT
+BERICHT_NICHT_GELEITET: Final = Code.BERICHT_NICHT_GELEITET
+BERICHT_NICHT_IM_KADER: Final = Code.BERICHT_NICHT_IM_KADER
+BERICHT_ABGESAGT: Final = Code.BERICHT_ABGESAGT
+BERICHT_NAME_IN_BEMERKUNGEN: Final = Code.BERICHT_NAME_IN_BEMERKUNGEN
 # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
-BERICHT_INZWISCHEN_GEAENDERT: Final = "REQ-BERICHT-006"
-BERICHT_SAISON_BEENDET: Final = "REQ-BERICHT-007"
-BERICHT_GRUND_FEHLT: Final = "REQ-BERICHT-008"
-BERICHT_ELFMETER_IN_DER_GRUPPE: Final = "REQ-BERICHT-009"
+BERICHT_INZWISCHEN_GEAENDERT: Final = Code.BERICHT_INZWISCHEN_GEAENDERT
+BERICHT_SAISON_BEENDET: Final = Code.BERICHT_SAISON_BEENDET
+BERICHT_GRUND_FEHLT: Final = Code.BERICHT_GRUND_FEHLT
+BERICHT_ELFMETER_IN_DER_GRUPPE: Final = Code.BERICHT_ELFMETER_IN_DER_GRUPPE
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 

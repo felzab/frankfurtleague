@@ -1,6 +1,5 @@
 import re
 from collections.abc import Callable, Mapping, Sequence
-from collections.abc import Set as AbstractSet
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -13,28 +12,28 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.crud import a_write_may_stand
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, BaseAPIException
+from app.core.exceptions import DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
-from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
-PAYLOAD_REFUSED = "REQ-VAL-001"
+PAYLOAD_REFUSED = Code.PAYLOAD_REFUSED
 # A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
-BODY_UNREADABLE = "REQ-VAL-002"
-STORED_DATA_INVALID = "SRV-VAL-001"
-UNHANDLED_CRASH = "SRV-FAIL-001"
-DATABASE_FAILED = "DB-FAIL-001"
+BODY_UNREADABLE = Code.BODY_UNREADABLE
+STORED_DATA_INVALID = Code.STORED_DATA_INVALID
+UNHANDLED_CRASH = Code.UNHANDLED_CRASH
+DATABASE_FAILED = Code.DATABASE_FAILED
 # FastAPI's error type for a body that is not JSON at all, reported before any field is read.
 UNDECODABLE_BODY = "json_invalid"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
-UNKNOWN_OUTCOME = "DB-FAIL-002"
+UNKNOWN_OUTCOME = Code.UNKNOWN_OUTCOME
 
 # The routing layer's own refusals, raised before any handler runs.
-NO_ROUTE = "REQ-ROUTE-001"
-METHOD_NOT_SERVED = "REQ-ROUTE-002"
+NO_ROUTE = Code.NO_ROUTE
+METHOD_NOT_SERVED = Code.METHOD_NOT_SERVED
 # Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
 # not parse, and a status outside these is a server fault the catch-all answers.
 ROUTING_CODES: Final[Mapping[int, str]] = {
@@ -181,47 +180,31 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     return match.group(1) if match else None
 
 
-COMPONENT_REF = "#/components/schemas/{model}"
-JSON_MEDIA_TYPE = "application/json"
+# Every failure status an operation answers; the 405 of a method no operation serves is none of them.
+FAILURE_STATUSES: Final = (
+    HTTPStatus.BAD_REQUEST,
+    HTTPStatus.UNAUTHORIZED,
+    HTTPStatus.FORBIDDEN,
+    HTTPStatus.NOT_FOUND,
+    HTTPStatus.CONFLICT,
+    HTTPStatus.GONE,
+    HTTPStatus.UNPROCESSABLE_CONTENT,
+    HTTPStatus.TOO_MANY_REQUESTS,
+    HTTPStatus.INTERNAL_SERVER_ERROR,
+    HTTPStatus.SERVICE_UNAVAILABLE,
+)
+FAILURE_RESPONSE_REF: Final = "#/components/responses/{status}"
 
+# Declared on every operation alike, each a reference to its status's one shared response: the body's
+# `error_code` is `Code`, so the document lists every code once rather than per operation.
+FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
+}
 
-# The statuses whose every refusal names when to come back: `DrosselungException`'s and
-# `DatabaseUnavailableException`'s, the one class raising each (`fl_backend/tests/api/test_error_responses.py ::
-# TestTheRetryAfterHeader`).
-RETRY_AFTER_STATUSES: Final = frozenset({HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE})
-RETRY_AFTER: Final = "Retry-After"
-
-
-def refusal_response(status: HTTPStatus, codes: AbstractSet[str]) -> dict[str, Any]:
-    """A failure status as an OpenAPI Response Object: the body it answers, its `error_code` narrowed to `codes`."""
-
-    # A 422 alone carries `fields` (`error_response`'s callers), so it alone publishes that body.
-    body = FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody
-    # The component narrowed rather than restated, so each failure body keeps one published shape.
-    narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
-    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=body.__name__)}, narrowed]}
-
-    # The reason phrase, FastAPI's own default for a declared response, being true of every code the status carries.
-    response: dict[str, Any] = {"description": status.phrase, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
-    if status in RETRY_AFTER_STATUSES:
-        response["headers"] = {RETRY_AFTER: {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
-
-    return response
-
-
-def refused_codes(response: Mapping[str, Any]) -> set[str]:
-    """The codes a `refusal_response` narrows to, and none for a response of any other shape."""
-
-    schema = response.get("content", {}).get(JSON_MEDIA_TYPE, {}).get("schema", {})
-
-    return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
-
-
-# A Response Object and never a status-keyed dict: two such dicts unpacked into one `responses` keep
-# the second 409 alone, so a second reason joins this code in one `refusal_response`.
-DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE_KEY})
-# Declared as the duplicate key is, and for its reason.
-DOCUMENT_NOT_FOUND_RESPONSE: Final = refusal_response(HTTPStatus.NOT_FOUND, {DOCUMENT_NOT_FOUND})
+# Session 2: the sweep removes every route's own `responses=` and deletes this.
+DUPLICATE_KEY_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.CONFLICT]
+# Session 2: the sweep removes every route's own `responses=` and deletes this.
+DOCUMENT_NOT_FOUND_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.NOT_FOUND]
 
 
 def stores_nothing() -> None:

@@ -20,24 +20,25 @@ from app.api.berechtigungen.schemas import (
     as_utc,
 )
 from app.api.sperrliste.services import withheld_actor
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
 
-BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
+BERECHTIGUNG_VORHANDEN = Code.BERECHTIGUNG_VORHANDEN
 
 # A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
 # out of an administrator's reach; only an erasure and an address change's move remove one.
-BERECHTIGUNG_INHABER = "REQ-BERECHTIGUNG-002"
+BERECHTIGUNG_INHABER = Code.BERECHTIGUNG_INHABER
 
-BERECHTIGUNG_GESPERRT = "REQ-BERECHTIGUNG-003"
+BERECHTIGUNG_GESPERRT = Code.BERECHTIGUNG_GESPERRT
 
-BERECHTIGUNG_MINDESTZAHL = "REQ-BERECHTIGUNG-004"
+BERECHTIGUNG_MINDESTZAHL = Code.BERECHTIGUNG_MINDESTZAHL
 
 # 403 and not 409: the refusal is about who asks, and granting the asker `owner` is what lifts it.
-BERECHTIGUNG_NUR_INHABER = "REQ-BERECHTIGUNG-005"
+BERECHTIGUNG_NUR_INHABER = Code.BERECHTIGUNG_NUR_INHABER
 
 # 409: the grants' state, and promoting another owner first is what lifts it.
-BERECHTIGUNG_LETZTER_INHABER = "REQ-BERECHTIGUNG-007"
+BERECHTIGUNG_LETZTER_INHABER = Code.BERECHTIGUNG_LETZTER_INHABER
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
 # met would leave nobody to act while that one person is unreachable.

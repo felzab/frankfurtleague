@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.codes import Code
+
 
 class BaseAPIResponse(BaseModel):
     # On every response model, so a client tells a successful empty result from a failure without
@@ -12,7 +14,7 @@ class BaseAPIResponse(BaseModel):
 # The failure bodies as published, never as built: `app/core/exception_handlers.py :: error_response`
 # writes plain dicts, a model raising inside a handler leaving the caller with no answer at all.
 class FLFailureBody(BaseModel):
-    error_code: str
+    error_code: Code
     trace_id: str
 
 

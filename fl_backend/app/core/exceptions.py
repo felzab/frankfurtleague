@@ -7,10 +7,12 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+
 # Named once, because a literal repeated across files is one a rename leaves behind.
-DOCUMENT_NOT_FOUND = "DB-COMMON-001"
-DUPLICATE_KEY = "DB-COMMON-002"
-NO_DATABASE_CLIENT = "DB-CONN-001"
+DOCUMENT_NOT_FOUND = Code.DOCUMENT_NOT_FOUND
+DUPLICATE_KEY = Code.DUPLICATE_KEY
+NO_DATABASE_CLIENT = Code.NO_DATABASE_CLIENT
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -1,7 +1,5 @@
 import functools
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from collections.abc import Set as AbstractSet
-from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
@@ -11,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute, iter_route_contexts
-from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from starlette.convertors import Convertor
 
@@ -70,52 +67,12 @@ from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.actor_token import ActorTokenKey
 from app.core.config import API_VERSION, BackendConfig
-from app.core.db import get_database, get_db_client, lifespan
-from app.core.domain import OPERATION_SEPARATOR, RULES
-from app.core.drosselung import DROSSELUNG_ERREICHT, get_drossel
-from app.core.exception_handlers import (
-    BODY_UNREADABLE,
-    COMPONENT_REF,
-    JSON_MEDIA_TYPE,
-    METHOD_NOT_SERVED,
-    NO_ROUTE,
-    PAYLOAD_REFUSED,
-    STORES_NOTHING_WHEN,
-    refusal_response,
-    refused_codes,
-    register_exception_handlers,
-    stores_nothing,
-)
-from app.core.exceptions import NO_DATABASE_CLIENT
+from app.core.db import lifespan
+from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, STORES_NOTHING_WHEN, register_exception_handlers, stores_nothing
 from app.core.logging import setup_custom_logger
 from app.core.middlewares import TracedApp
 from app.core.routing import ObjectIdConvertor
-from app.core.security import (
-    ACTOR_NOT_ADMIN,
-    ACTOR_TOKEN_REFUSED,
-    CONFIRMATION_REQUIRED,
-    MISSING_ACTOR,
-    MISSING_TOKEN,
-    PERSON_BARRED,
-    WRONG_ADMIN_KEY,
-    WRONG_BASE_KEY,
-    WRONG_SYSTEM_KEY,
-    get_actor_token,
-    get_person_confirmation_check,
-    get_recent_confirmation_check,
-    get_step_up_check,
-    get_token,
-    verify_access_admin,
-    verify_access_base,
-    verify_access_system,
-    verify_actor_is_admin,
-    verify_admin_actor,
-    verify_person_actor,
-    verify_person_is_unbarred,
-    verify_recent_confirmation,
-    verify_recent_person_confirmation,
-    verify_step_up,
-)
+from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 # Split by whether a router writes, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
@@ -198,79 +155,9 @@ KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 
 
-@dataclass(frozen=True, kw_only=True)
-class DependencyRefusal:
-    status: HTTPStatus
-    code: str
-
-
-# Each dependency answering a refusal of its own, and the one it answers.
-# One table, so a dependency added to it is published with no second list to join.
-DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
-    get_token: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=MISSING_TOKEN),
-    verify_access_base: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_BASE_KEY),
-    verify_access_admin: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_ADMIN_KEY),
-    verify_access_system: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=WRONG_SYSTEM_KEY),
-    # The actor's three, each raised by the dependency it is keyed on; a binder declaring them raises
-    # none of its own, and an operation meets them through it (`dependency_refusals` walks sub-dependencies).
-    get_actor_token: DependencyRefusal(status=HTTPStatus.BAD_REQUEST, code=MISSING_ACTOR),
-    verify_admin_actor: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=ACTOR_TOKEN_REFUSED),
-    verify_person_actor: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=ACTOR_TOKEN_REFUSED),
-    # A session older than its grant is refused here under `verify_admin_actor`'s code, which this
-    # check's own dependency on it publishes on every operation running both.
-    verify_actor_is_admin: DependencyRefusal(status=HTTPStatus.FORBIDDEN, code=ACTOR_NOT_ADMIN),
-    verify_person_is_unbarred: DependencyRefusal(status=HTTPStatus.FORBIDDEN, code=PERSON_BARRED),
-    verify_recent_confirmation: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    verify_recent_person_confirmation: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    verify_step_up: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    get_db_client: DependencyRefusal(status=HTTPStatus.SERVICE_UNAVAILABLE, code=NO_DATABASE_CLIENT),
-    get_database: DependencyRefusal(status=HTTPStatus.SERVICE_UNAVAILABLE, code=NO_DATABASE_CLIENT),
-    # A check handed to the handler, which calls it on the calls it judges.
-    get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    get_person_confirmation_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    get_recent_confirmation_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED),
-    get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT),
-}
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
-
-# Not domain rules: each is a property of the transport, or of how much one person writes in a day.
-# Each is raised in `app/core/` and declared by no `RULES` row, which is what
-# `fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer` holds.
-PROTOCOL_CODES = frozenset(
-    {
-        MISSING_TOKEN,
-        WRONG_BASE_KEY,
-        WRONG_SYSTEM_KEY,
-        WRONG_ADMIN_KEY,
-        MISSING_ACTOR,
-        ACTOR_NOT_ADMIN,
-        ACTOR_TOKEN_REFUSED,
-        PERSON_BARRED,
-        CONFIRMATION_REQUIRED,
-        DROSSELUNG_ERREICHT,
-        PAYLOAD_REFUSED,
-        BODY_UNREADABLE,
-        NO_ROUTE,
-        METHOD_NOT_SERVED,
-    }
-)
-
-# Published for the frontend, which hands a code to no slice's mapper by its family alone
-# (`fl_frontend/src/core/errors.ts :: PROTOCOL_FAMILIES`) and is compared against this.
-PROTOCOL_FAMILIES_EXTENSION = "x-fl-protocol-families"
-
-
-def refusal_family(code: str) -> str:
-    return code.split("-")[1]
-
-
-# Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
-# a refused payload's adds `fields`; FastAPI's default 422, `HTTPValidationError`, is a body this API
-# never sends.
-FAILURE_BODIES = (FLFailureBody, FLRefusedPayloadBody)
-FASTAPI_VALIDATION_BODIES = ("HTTPValidationError", "ValidationError")
 
 
 Operation = tuple[str, str]
@@ -400,162 +287,39 @@ def publish_stores_nothing(app: FastAPI) -> DocumentPass:
     return functools.partial(with_extension, extension=STORES_NOTHING_EXTENSION, values=declared)
 
 
-def with_protocol_families(document: Mapping[str, Any]) -> Document:
-    # On the document rather than an operation: a family is the protocol's on every operation alike.
-    return {**document, PROTOCOL_FAMILIES_EXTENSION: sorted({refusal_family(code) for code in PROTOCOL_CODES})}
+# A 422 alone carries `fields` (`app/core/exception_handlers.py :: error_response`'s callers), so it
+# alone answers with the refused payload's body.
+FAILURE_BODIES = {status: FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody for status in FAILURE_STATUSES}
+# The statuses whose every refusal names when to come back: the throttle's and the unavailable database's.
+RETRY_AFTER_STATUSES = frozenset({HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE})
+RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
+SCHEMA_REF = "#/components/schemas/{model}"
 
 
-def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
-    return {"description": description, "content": {JSON_MEDIA_TYPE: {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
+def failure_response(status: HTTPStatus) -> dict[str, Any]:
+    response: dict[str, Any] = {
+        "description": status.phrase,
+        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FAILURE_BODIES[status].__name__)}}},
+    }
+    if status in RETRY_AFTER_STATUSES:
+        response["headers"] = RETRY_AFTER_HEADER
+
+    return response
 
 
-RESPONSE_REF = "#/components/responses/{name}"
+def with_failure_responses(document: Mapping[str, Any]) -> Document:
+    """`document` publishing the shared response every operation's `FAILURE_RESPONSES` refers to, and the bodies they carry.
 
-
-def shared_response_name(status: str, codes: AbstractSet[str]) -> str:
-    """The status and then the codes, so a reference reads as what it publishes.
-
-    Derived from the content and never numbered: a numbering renames every later response when one
-    operation's codes change.
+    FastAPI publishes a model only where an operation names it, and these are named by reference.
     """
 
-    return ".".join([status, *sorted(codes)])
-
-
-def with_shared_responses(document: Mapping[str, Any], shared: Mapping[str, Any]) -> Document:
-    """`document` publishing `shared` under `components.responses` beside what it held."""
-
     components = document.get("components", {})
-    # Sorted for the reason `with_failure_bodies` sorts the schemas.
-    responses = dict(sorted({**components.get("responses", {}), **shared}.items()))
-
-    return {**document, "components": {**components, "responses": responses}}
-
-
-def with_failure_bodies(document: Mapping[str, Any]) -> Document:
-    """`document` publishing this API's failure bodies in place of FastAPI's own."""
-
-    components = document.get("components", {})
-    schemas = {name: schema for name, schema in components.get("schemas", {}).items() if name not in FASTAPI_VALIDATION_BODIES}
-    schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
-    failure = shared_response_name("default", set())
-
-    def edit(_: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
-        # Written here rather than declared to FastAPI, whose own 422 a declared `default` suppresses everywhere.
-        return {**operation, "responses": {**operation["responses"], "default": {"$ref": RESPONSE_REF.format(name=failure)}}}
-
+    bodies = models_json_schema([(body, "serialization") for body in set(FAILURE_BODIES.values())], ref_template=SCHEMA_REF)[1]["$defs"]
     # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
-    with_bodies = {**document, "components": {**components, "schemas": dict(sorted(schemas.items()))}}
+    schemas = dict(sorted({**components.get("schemas", {}), **bodies}.items()))
+    responses = {str(int(status)): failure_response(status) for status in FAILURE_STATUSES}
 
-    return with_operations_edited(with_shared_responses(with_bodies, {failure: body_response(FLFailureBody, "Failure")}), edit)
-
-
-# Each operation's refusal codes, keyed by the status each is answered at.
-Refusals = dict[HTTPStatus, set[str]]
-
-
-def declared_refusals() -> dict[Operation, Refusals]:
-    """Each operation's rule codes by status, keyed as the document keys an operation: its path, then its lower-case method."""
-
-    declared: dict[Operation, Refusals] = {}
-    for rule in RULES:
-        for token in rule.operation.split(OPERATION_SEPARATOR):
-            method, route = token.split(" ", 1)
-            declared.setdefault((f"/api/v{API_VERSION}{route}", method.lower()), {}).setdefault(rule.status, set()).add(rule.code)
-
-    return declared
-
-
-def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
-    """Every dependency the operation runs, a dependency's own among them."""
-
-    for dependency in dependant.dependencies:
-        if dependency.call is not None:
-            yield dependency.call
-        yield from _dependency_calls(dependency)
-
-
-def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them."""
-
-    found: dict[Operation, Refusals] = {}
-    for route in document_routes(app):
-        refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
-        for operation in route.operations:
-            for call in refusing:
-                refusal = DEPENDENCY_REFUSALS[call]
-                found.setdefault(operation, {}).setdefault(refusal.status, set()).add(refusal.code)
-
-    return found
-
-
-def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
-    """Each operation's refusal codes by status: its rules', its dependencies' and the codes its route's own declarations name."""
-
-    codes = declared_refusals()
-    for operation, refusals in dependency_refusals(app).items():
-        for status, found in refusals.items():
-            codes.setdefault(operation, {}).setdefault(status, set()).update(found)
-
-    unnamed: list[str] = []
-    for route in document_routes(app):
-        for status_code, response in route.responses.items():
-            # A success a route answers besides its default, such as a PUT's 201 on a create, refuses nothing.
-            if HTTPStatus(int(status_code)).is_success:
-                continue
-            # Read off the declaration and never assumed from it, so a route refusing for a second
-            # reason publishes that reason's code rather than the duplicate key's.
-            if not (named := refused_codes(response)):
-                unnamed.extend(f"{status_code} on {method} {route.path_format}" for method in sorted(route.methods or ()))
-            for operation in route.operations:
-                codes.setdefault(operation, {}).setdefault(HTTPStatus(int(status_code)), set()).update(named)
-
-    if unnamed:
-        raise ValueError(f"these declare a response naming no code, so the document would publish none: {sorted(unnamed)}")
-
-    return codes
-
-
-def publish_refusals(app: FastAPI) -> DocumentPass:
-    """Each operation's refusals at their statuses, derived rather than listed, so the document cannot drift from `RULES` or a declaration."""
-
-    # At build rather than when the document is asked for: the document is built on the first read,
-    # so a raise there would fail that request alone and leave the build standing.
-    codes = refusal_codes(app)
-    served = {operation for route in document_routes(app) for operation in route.operations}
-    if unserved := sorted(codes.keys() - served):
-        raise LookupError(f"RULES names operations the application does not serve: {unserved}")
-
-    return functools.partial(with_refusals, codes=codes)
-
-
-def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping[HTTPStatus, AbstractSet[str]]]) -> Document:
-    """`document` with each status an operation refuses at replaced by a reference to the response publishing exactly its codes."""
-
-    shared: dict[str, Any] = {}
-
-    def edit(key: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
-        statuses = {status: set(found) for status, found in codes.get(key, {}).items()}
-        # FastAPI's own placement of its 422, on every operation taking input, is where a payload can be refused.
-        if str(int(HTTPStatus.UNPROCESSABLE_CONTENT)) in operation["responses"]:
-            statuses.setdefault(HTTPStatus.UNPROCESSABLE_CONTENT, set()).add(PAYLOAD_REFUSED)
-        # A body arrives only where the operation takes one, and only a body can be undecodable.
-        if "requestBody" in operation:
-            statuses.setdefault(HTTPStatus.BAD_REQUEST, set()).add(BODY_UNREADABLE)
-        refused: dict[str, Any] = {}
-        for status, found in sorted(statuses.items()):
-            # One response per whole code set and never one per reason: a status holds one response,
-            # so an operation refusing there for two reasons could refer to only one of them.
-            name = shared_response_name(str(int(status)), found)
-            shared[name] = refusal_response(status, found)
-            refused[str(int(status))] = {"$ref": RESPONSE_REF.format(name=name)}
-
-        return {**operation, "responses": {**operation["responses"], **refused}}
-
-    # Walked before `shared` is published, since `edit` fills it.
-    edited = with_operations_edited(document, edit)
-
-    return with_shared_responses(edited, shared)
+    return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:
@@ -591,14 +355,15 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
 
-    app.include_router(system_router)
+    app.include_router(system_router, responses=FAILURE_RESPONSES)
     for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
-        app.include_router(router)
+        app.include_router(router, responses=FAILURE_RESPONSES)
 
     # The published prose is the decorator's rather than the docstring's: a docstring cannot
     # interpolate, so the version would reach `openapi.json` as the literal `{API_VERSION}`.
     @app.get(
         "/",
+        responses=FAILURE_RESPONSES,
         description=f"Confirm the service is answering. The versioned API is under `/api/v{API_VERSION}`; `/system/is_live` is the probe.",
     )
     def root():
@@ -613,9 +378,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
             publish_key_tiers(app),
             publish_stores_nothing(app),
             publish_path_patterns(app),
-            with_failure_bodies,
-            publish_refusals(app),
-            with_protocol_families,
+            with_failure_responses,
         ),
     )
 

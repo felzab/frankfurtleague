@@ -8,6 +8,7 @@ from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel, is_unplayed
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -41,20 +42,19 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
     return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
 
-# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-RULES_BRACKET_IMPOSSIBLE = "REQ-RULES-001"
-RULES_GROUPS_IN_USE = "REQ-RULES-002"
-RULES_CAPACITY_BELOW_USE = "REQ-RULES-003"
-RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
-RULES_SAISON_FINISHED = "REQ-RULES-005"
-RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
-RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
-RULES_DRAW_OUTVALUES_WIN = "REQ-RULES-008"
-RULES_KADER_BELOW_USE = "REQ-RULES-009"
-RULES_FORFEIT_DRAWS_A_KNOCKOUT = "REQ-RULES-010"
-RULES_SHAPE_AFTER_DRAW = "REQ-RULES-011"
-RULES_TIEBREAK_AFTER_KNOCKOUT = "REQ-RULES-012"
-RULES_FIXTURES_OVER_ONE_READ = "REQ-RULES-013"
+RULES_BRACKET_IMPOSSIBLE = Code.RULES_BRACKET_IMPOSSIBLE
+RULES_GROUPS_IN_USE = Code.RULES_GROUPS_IN_USE
+RULES_CAPACITY_BELOW_USE = Code.RULES_CAPACITY_BELOW_USE
+RULES_QUALIFIERS_BELOW_WIRING = Code.RULES_QUALIFIERS_BELOW_WIRING
+RULES_SAISON_FINISHED = Code.RULES_SAISON_FINISHED
+RULES_QUALIFIERS_ABOVE_GROUP = Code.RULES_QUALIFIERS_ABOVE_GROUP
+RULES_MATCHDAY_OVER_ITS_PHASE = Code.RULES_MATCHDAY_OVER_ITS_PHASE
+RULES_DRAW_OUTVALUES_WIN = Code.RULES_DRAW_OUTVALUES_WIN
+RULES_KADER_BELOW_USE = Code.RULES_KADER_BELOW_USE
+RULES_FORFEIT_DRAWS_A_KNOCKOUT = Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
+RULES_SHAPE_AFTER_DRAW = Code.RULES_SHAPE_AFTER_DRAW
+RULES_TIEBREAK_AFTER_KNOCKOUT = Code.RULES_TIEBREAK_AFTER_KNOCKOUT
+RULES_FIXTURES_OVER_ONE_READ = Code.RULES_FIXTURES_OVER_ONE_READ
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
@@ -308,9 +308,9 @@ def find_rules_refusal(
     return None
 
 
-SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
+SAISON_SPAN_BELOW_SPIELTAGE = Code.SAISON_SPAN_BELOW_SPIELTAGE
 # DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
-SAISON_SPAN_BELOW_SCHEDULE = "REQ-DATE-005"
+SAISON_SPAN_BELOW_SCHEDULE = Code.SAISON_SPAN_BELOW_SCHEDULE
 
 
 def find_saison_span_refusal(
@@ -351,12 +351,12 @@ def find_saison_span_refusal(
 
 # Each code the draw shares with a season write, and its twin: the draw judges the STORED rules and
 # dates beneath its shape, so a refusal reading a stored value is a conflict with state, a 409.
-RULES_BRACKET_IMPOSSIBLE_AS_STORED = "REQ-RULES-014"
-RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED = "REQ-RULES-015"
-RULES_DRAW_OUTVALUES_WIN_AS_STORED = "REQ-RULES-016"
-RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED = "REQ-RULES-017"
-RULES_FIXTURES_OVER_ONE_READ_AS_STORED = "REQ-RULES-018"
-SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = "REQ-DATE-009"
+RULES_BRACKET_IMPOSSIBLE_AS_STORED = Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED
+RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED = Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED
+RULES_DRAW_OUTVALUES_WIN_AS_STORED = Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED
+RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED = Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED
+RULES_FIXTURES_OVER_ONE_READ_AS_STORED = Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED
+SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
 
 DRAW_TWINS: Mapping[str, str] = {
     RULES_BRACKET_IMPOSSIBLE: RULES_BRACKET_IMPOSSIBLE_AS_STORED,
@@ -382,19 +382,19 @@ def as_the_draw_answers(refusal: WriteRefusal | None, *, shape_stated: bool) -> 
 
 
 # Activating demotes the incumbent to `past`, whose rules then freeze (`REQ-RULES-005`).
-ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
+ACTIVATE_SAISON_UNFINISHED = Code.ACTIVATE_SAISON_UNFINISHED
 
 # No escape, and no demotion endpoint beside it: both keep the state reachable, and this is the one
 # operation that can reopen a finished season's points, groups and table. A season closed by mistake
 # is repaired at the database.
-ACTIVATE_TARGET_PAST = "REQ-ACTIVATE-002"
+ACTIVATE_TARGET_PAST = Code.ACTIVATE_TARGET_PAST
 # The pair to `REQ-SPIELPLAN-003`: that one lets a running season still be drawn, and this one keeps
 # a season from going live undrawn in the first place.
-ACTIVATE_TARGET_UNDRAWN = "REQ-ACTIVATE-003"
+ACTIVATE_TARGET_UNDRAWN = Code.ACTIVATE_TARGET_UNDRAWN
 
 # Every matchday rather than the first alone: a season goes public with a whole calendar, and a
 # league running `active` with nothing dated enters every late addition as an ordinary one.
-ACTIVATE_SPIELTAGE_UNDATED = "REQ-ACTIVATE-004"
+ACTIVATE_SPIELTAGE_UNDATED = Code.ACTIVATE_SPIELTAGE_UNDATED
 
 # The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
@@ -538,17 +538,16 @@ def find_activation_refusal(
     )
 
 
-# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SPIELPLAN_ALREADY_DRAWN = "REQ-SPIELPLAN-001"
-SPIELPLAN_MATCHDAYS_HELD = "REQ-SPIELPLAN-002"
-SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"
+SPIELPLAN_ALREADY_DRAWN = Code.SPIELPLAN_ALREADY_DRAWN
+SPIELPLAN_MATCHDAYS_HELD = Code.SPIELPLAN_MATCHDAYS_HELD
+SPIELPLAN_SAISON_FINISHED = Code.SPIELPLAN_SAISON_FINISHED
 # One code, because one repair reaches all three: every offered group holding exactly
 # `teams_per_group`, short or over, and no club standing outside them.
-SPIELPLAN_GRUPPEN_OFF_RULES = "REQ-SPIELPLAN-004"
+SPIELPLAN_GRUPPEN_OFF_RULES = Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
 # ONE code for both halves of the window -- `future`, and nothing recorded. They differ in kind:
 # `status` moves one way, what was entered can be cleared, so the MESSAGE names the repair.
-SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-005"
+SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
 
 
 # The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
@@ -685,11 +684,11 @@ def find_spielplan_refusal(
 
 # A code of its own, never `REQ-SPIELPLAN-005`'s: a rule resolves to ONE `implemented_by`, and that
 # one already names `find_spielplan_refusal`.
-SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-006"
+SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 
 
 # A code of its own beside the window's: a report is no field of a fixture, and the window's sentence counts fixtures.
-SPIELPLAN_BERICHTE_EINGEREICHT = "REQ-SPIELPLAN-007"
+SPIELPLAN_BERICHTE_EINGEREICHT = Code.SPIELPLAN_BERICHTE_EINGEREICHT
 
 
 def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:

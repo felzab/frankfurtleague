@@ -60,18 +60,18 @@ anchor (`fl_backend/app/core/crud.py :: anchor_in_db` and `:: anchor_by_id_in_db
 nothing a reader sees, records what it replaced or removed on the action log (`Aktion`,
 `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
 
-**The domain's relations are declared once**, in `fl_backend/app/core/domain.py`: the aggregates,
-the references between collections and what each write owes them, which fields may change when, and
-every rule a write can be refused under (`RULES`). The league table is computed from the matches on
-each read of `GET /teams` and stored nowhere. The one cache kept here is a process-local read of
+**The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
+rules it is refused under where it writes. The league table is computed from the matches on each
+read of `GET /teams` and stored nowhere. The one cache kept here is a process-local read of
 season documents with a TTL (`fl_backend/app/api/saisons/cache.py`), dropped whole on the write path.
 
 ## Errors
 
 **Every failure answers `{error_code, trace_id}`**, a refused payload adding which field each
 refusal sits on, and never the submitted value or a stack trace. A code names one failure rather
-than a status class: a domain rule's is declared in `RULES` with the status it answers, and
-`fl_backend/openapi.json` publishes each code an operation can refuse with, at its status. The status
+than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling:
+`fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
+response each status refers to, and never per operation. The status
 follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
 contradicts itself, 404 where what it names does not exist, 403 only where the caller's own
 authority or standing does. The handlers are `fl_backend/app/core/exception_handlers.py`.

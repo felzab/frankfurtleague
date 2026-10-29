@@ -5,19 +5,20 @@ from types import MappingProxyType
 from typing import Any, Final
 
 from app.api.einwilligung.schemas import FLEinwilligungFassung
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
 from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
-# What the code refuses is `fl_backend/app/core/domain.py :: RULES`. One code for every write that
+# One code for every write that
 # stamps a label, so a page's form maps one refusal however many writes share its page.
-FASSUNG_UNZULAESSIG = "REQ-EINWILLIGUNG-001"
+FASSUNG_UNZULAESSIG = Code.FASSUNG_UNZULAESSIG
 
 # One code for every write taking a person's media consent, the account presses and the contact
 # confirmation alike, so each page maps one refusal.
-SELBST_MEDIEN_ALTER = "REQ-EINWILLIGUNG-002"
+SELBST_MEDIEN_ALTER = Code.SELBST_MEDIEN_ALTER
 
 # The reader's own facts inside the words, spelled `{name}` in every label.
 _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")

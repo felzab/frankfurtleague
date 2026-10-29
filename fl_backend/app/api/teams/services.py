@@ -29,6 +29,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
     kontakte_stand_of,
 )
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
@@ -1281,11 +1282,10 @@ def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktRolle) -> tuple[FLKo
     return (seat,)
 
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
-KONTAKT_SITZ_OHNE_BESTAETIGUNG = "REQ-KONTAKT-002"
-KONTAKT_SITZ_GESPERRT = "REQ-KONTAKT-003"
-KONTAKT_ZEILE_OHNE_SAISON = "REQ-KONTAKT-005"
+KONTAKTE_MOVED_UNDER_THE_SAVE = Code.KONTAKTE_MOVED_UNDER_THE_SAVE
+KONTAKT_SITZ_OHNE_BESTAETIGUNG = Code.KONTAKT_SITZ_OHNE_BESTAETIGUNG
+KONTAKT_SITZ_GESPERRT = Code.KONTAKT_SITZ_GESPERRT
+KONTAKT_ZEILE_OHNE_SAISON = Code.KONTAKT_ZEILE_OHNE_SAISON
 
 
 def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktZeile:
@@ -1373,11 +1373,11 @@ def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRe
     )
 
 
-ENTRY_SAISON_NOT_FUTURE = "REQ-ENTER-001"
-ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
-ENTRY_GRUPPE_FULL = "REQ-ENTER-003"
-ENTRY_GRUPPE_LOCKED = "REQ-ENTER-004"
-CLUB_RETIRED = "REQ-ENTER-005"
+ENTRY_SAISON_NOT_FUTURE = Code.ENTRY_SAISON_NOT_FUTURE
+ENTRY_GRUPPE_NOT_OFFERED = Code.ENTRY_GRUPPE_NOT_OFFERED
+ENTRY_GRUPPE_FULL = Code.ENTRY_GRUPPE_FULL
+ENTRY_GRUPPE_LOCKED = Code.ENTRY_GRUPPE_LOCKED
+CLUB_RETIRED = Code.CLUB_RETIRED
 
 
 def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
@@ -1455,15 +1455,15 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
 # A swap is neither an entry nor the move `REQ-ENTER-004` locks, so it carries codes of its own.
 # One code covers the two "not a swap" shapes the season decides, because the control offers only
 # pairs that are one.
-SWAP_NOT_A_SWAP = "REQ-SWAP-001"
-SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
-SWAP_SAISON_FINISHED = "REQ-SWAP-003"
-SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
-SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
+SWAP_NOT_A_SWAP = Code.SWAP_NOT_A_SWAP
+SWAP_KNOCKOUT_STARTED = Code.SWAP_KNOCKOUT_STARTED
+SWAP_SAISON_FINISHED = Code.SWAP_SAISON_FINISHED
+SWAP_GRUPPENPHASE_PLAYED = Code.SWAP_GRUPPENPHASE_PLAYED
+SWAP_SPIELTAG_CLASH = Code.SWAP_SPIELTAG_CLASH
 # `REQ-SWAP-006` is FORWARDS ONLY, exactly as `REQ-ELIGIBILITY-001` is: the past is left alone.
-SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
+SWAP_FIELDS_DISQUALIFIED = Code.SWAP_FIELDS_DISQUALIFIED
 # Apart from `REQ-SWAP-001`, being the payload's own fault: no season could make one club a pair.
-SWAP_ONE_CLUB_TWICE = "REQ-SWAP-007"
+SWAP_ONE_CLUB_TWICE = Code.SWAP_ONE_CLUB_TWICE
 
 
 def fixtures_newly_fielding_a_departed_club(
@@ -1605,11 +1605,11 @@ def find_gruppe_swap_refusal(
 
 # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
 # fixtures follow it, so it carries codes of its own.
-REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"
-REPLACE_OUTGOING_HAS_A_RECORD = "REQ-REPLACE-002"
-REPLACE_INCOMING_ALREADY_ENTERED = "REQ-REPLACE-003"
+REPLACE_SAISON_FINISHED = Code.REPLACE_SAISON_FINISHED
+REPLACE_OUTGOING_HAS_A_RECORD = Code.REPLACE_OUTGOING_HAS_A_RECORD
+REPLACE_INCOMING_ALREADY_ENTERED = Code.REPLACE_INCOMING_ALREADY_ENTERED
 # Apart from `REQ-REPLACE-003`, being the payload's own fault: no season makes a club its own replacement.
-REPLACE_ONE_CLUB_ON_BOTH_ENDS = "REQ-REPLACE-004"
+REPLACE_ONE_CLUB_ON_BOTH_ENDS = Code.REPLACE_ONE_CLUB_ON_BOTH_ENDS
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
@@ -1691,7 +1691,7 @@ def find_replacement_refusal(
     return None
 
 
-RETIRE_BLOCKED = "REQ-RETIRE-001"
+RETIRE_BLOCKED = Code.RETIRE_BLOCKED
 
 
 def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:

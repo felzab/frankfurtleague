@@ -26,6 +26,7 @@ from app.core.actor_token import (
     verify_actor_token,
 )
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
@@ -45,10 +46,10 @@ from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
 # than a copy a rename leaves behind.
-MISSING_TOKEN = "REQ-AUTH-001"
-WRONG_BASE_KEY = "REQ-AUTH-002"
-WRONG_SYSTEM_KEY = "REQ-AUTH-003"
-WRONG_ADMIN_KEY = "REQ-AUTH-004"
+MISSING_TOKEN = Code.MISSING_TOKEN
+WRONG_BASE_KEY = Code.WRONG_BASE_KEY
+WRONG_SYSTEM_KEY = Code.WRONG_SYSTEM_KEY
+WRONG_ADMIN_KEY = Code.WRONG_ADMIN_KEY
 
 # `auto_error=False` so a missing header reaches `get_token` and answers `MISSING_TOKEN`; FastAPI's
 # own 403 would carry none of the error-code contract.
@@ -112,11 +113,11 @@ def get_actor_email() -> str:
 
 ACTOR_HEADER = "X-FL-Actor"
 
-MISSING_ACTOR = "REQ-AUTH-005"
-ACTOR_NOT_ADMIN = "REQ-AUTH-006"
-ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
-PERSON_BARRED = "REQ-AUTH-008"
-CONFIRMATION_REQUIRED = "REQ-AUTH-009"
+MISSING_ACTOR = Code.MISSING_ACTOR
+ACTOR_NOT_ADMIN = Code.ACTOR_NOT_ADMIN
+ACTOR_TOKEN_REFUSED = Code.ACTOR_TOKEN_REFUSED
+PERSON_BARRED = Code.PERSON_BARRED
+CONFIRMATION_REQUIRED = Code.CONFIRMATION_REQUIRED
 
 
 def get_actor_token_key(request: Request) -> ActorTokenKey:

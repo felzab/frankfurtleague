@@ -59,7 +59,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change
 - **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
-- **domain** — Generate `app/core/domain.py`
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
 - **spiele** — Merge the cancellation count into the scoring lookup
