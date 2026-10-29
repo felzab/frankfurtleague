@@ -1,43 +1,10 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
-import {
-  ANTWORT_SATZ_HTML,
-  ANTWORT_SATZ_TEXT,
-  art21Satz,
-  ASIDE_TEXT,
-  BRAND_NAME,
-  brandPhrase,
-  einzeilig,
-  escapeHtml,
-  FALLBACK_SATZ,
-  fallbackBloecke,
-  link,
-  mailOrigin,
-  paragraph,
-  renderKarte,
-  strong,
-  stuffSignatureDelimiter,
-  textFooter,
-} from "./emailShell";
+import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 
-import type { Aktion } from "./emailShell";
-
-const UEBERSCHRIFT = "Dein Eintrag als Kontaktperson";
-
-/**
- * For the reader who never agreed to be a team's contact: an administrator typed this address, and
- * the link's second door is what takes the entry away again.
- */
-const ignorierSatz = (kontakt: string): string =>
-  `Du weißt nichts von diesem Eintrag? Dann widersprich ihm über den Link, oder schreib uns an ${kontakt}: Wir entfernen Deine Angaben dann.`;
-
-/** Named per message, as every close is: a sentence saying who else read this has to be true of it. */
-const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
-
-export type KontaktEmail = { subject: string; html: string; text: string };
+import type { Absatz, Mail, Satz } from "./emailShell";
 
 /**
  * The season row's state at the mint. Once the season is over or the team has left it, the link's
@@ -68,110 +35,35 @@ export interface KontaktBestaetigungData {
   zeile: KontaktZeile;
 }
 
-/** One control, as the referee's message carries one: the message exists for this link alone. */
-function aktionen(url: string, zeile: KontaktZeile): readonly Aktion[] {
-  // Named for what the page offers: a closed row's page has nothing to confirm.
-  return [{ href: url, label: zeile === "offen" ? "Eintrag bestätigen" : "Zum Eintrag", ton: "primary" }];
-}
-
-type Fakten = {
-  rollen: string;
-  schule: string;
-  saisonId: string;
-  frist: string;
-  url: string;
-  origin: string;
-  zeile: KontaktZeile;
-};
-
-function eintragSatz({ rollen, schule, saisonId }: Fakten, markup: boolean): string {
-  const team = markup ? strong(escapeHtml(schule)) : schule;
-  // Coloured as the registration and application messages colour the season they name.
-  const saison = markup ? brandPhrase(`Saison ${escapeHtml(saisonId)}`) : `Saison ${saisonId}`;
-
-  // „für {Team} in der Saison …“, as the registration messages name a team and its season.
-  return `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
-}
-
-// The signed-in area by its name on screen, and never „Zugang“: on screen that word names an
-// administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
-const DANACH_SATZ = `Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`;
-
-// Both answers are named before the press: a reader who came to object and meets a birthdate box was
-// asked something the message did not say.
-const SEITE_SATZ =
-  "Auf der Seite bestätigst Du den Eintrag mit Deinem Geburtsdatum, oder Du widersprichst ihm, dann entfernen wir Deine Angaben daraus.";
-
 /** Why a closed row's page offers no confirmation, in the page's own terms. */
 const GESCHLOSSEN_SATZ: Record<Exclude<KontaktZeile, "offen">, string> = {
   saison_vorbei: "Die Saison ist vorbei, deshalb kannst Du den Eintrag nicht bestätigen.",
   ausgetreten: "Das Team spielt in dieser Saison nicht mehr mit, deshalb kannst Du den Eintrag nicht bestätigen.",
 };
 
-// The one answer such a page takes, worded as the page words it.
-const WIDERSPRUCH_SATZ =
-  "Möchtest Du nicht eingetragen bleiben, kannst Du über den Link widersprechen. Dann entfernen wir Deine Angaben aus dem Eintrag.";
-
-/** The opening paragraph's ask, after the sentence naming the entry: a confirmation, or why there is none. */
-function bitteSatz(zeile: KontaktZeile, markup: boolean): string {
-  if (zeile !== "offen") return GESCHLOSSEN_SATZ[zeile];
-
-  return `${markup ? strong("Bitte bestätige, dass das stimmt") : "Bitte bestätige, dass das stimmt"}: ${DANACH_SATZ}`;
-}
-
 /**
  * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
  * one there (`REQ-KONTAKT-005`), so the message promises none.
  */
-function linkSaetze(zeile: KontaktZeile, frist: string): readonly string[] {
-  const gueltig = `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`;
+function linkAbsatz(zeile: KontaktZeile, frist: string): Absatz {
+  const gueltig: Satz = ["Der Link ist bis zum ", { stark: frist }, " gültig und funktioniert nur einmal."];
 
   return zeile === "offen"
-    ? [SEITE_SATZ, gueltig, "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen."]
-    : [WIDERSPRUCH_SATZ, gueltig];
+    ? [
+        // Both answers are named before the press: a reader who came to object and meets a birthdate box was
+        // asked something the message did not say.
+        "Auf der Seite bestätigst Du den Eintrag mit Deinem Geburtsdatum, oder Du widersprichst ihm, dann entfernen wir Deine Angaben daraus.",
+        gueltig,
+        "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
+      ]
+    : [
+        // The one answer such a page takes, worded as the page words it.
+        "Möchtest Du nicht eingetragen bleiben, kannst Du über den Link widersprechen.",
+        "Dann entfernen wir Deine Angaben aus dem Eintrag.",
+        gueltig,
+      ];
 }
 
-function renderHtml(fakten: Fakten): string {
-  return renderKarte({
-    titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    ueberschrift: escapeHtml(UEBERSCHRIFT),
-    bloecke: [
-      paragraph(`${eintragSatz(fakten, true)} ${bitteSatz(fakten.zeile, true)}`),
-      paragraph(linkSaetze(fakten.zeile, strong(escapeHtml(fakten.frist))).join(" ")),
-      // The address as a marked link: one a reader has to select and paste is not a route.
-      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
-      ...fallbackBloecke([{ label: "", url: fakten.url }], FALLBACK_SATZ),
-      paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
-    ],
-    aktionen: aktionen(fakten.url, fakten.zeile),
-    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
-    origin: fakten.origin,
-  });
-}
-
-function renderText(fakten: Fakten): string {
-  const oben = [
-    `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    "",
-    eintragSatz(fakten, false),
-    bitteSatz(fakten.zeile, false),
-    "",
-    ...linkSaetze(fakten.zeile, fakten.frist),
-    "",
-    art21Satz(KONTAKT_EMAIL),
-    "",
-    fakten.url,
-    "",
-    ignorierSatz(KONTAKT_EMAIL),
-  ];
-
-  return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(fakten.origin, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n");
-}
-
-/**
- * **The two parts state the same facts**, as in the application messages
- * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungBestaetigungEmail`).
- */
 export function buildKontaktBestaetigungEmail({
   origin,
   rollenText,
@@ -180,85 +72,30 @@ export function buildKontaktBestaetigungEmail({
   token,
   fristText,
   zeile,
-}: KontaktBestaetigungData): KontaktEmail {
+}: KontaktBestaetigungData): Mail {
   const site = mailOrigin(origin);
-  // Folded before either branch, and the subject with them: this message renders no fact panel, so
-  // nothing downstream would fold these, and a break in a subject is a header injection.
-  const fakten: Fakten = {
-    rollen: einzeilig(rollenText),
-    schule: einzeilig(schule),
-    saisonId: einzeilig(saisonId),
-    frist: einzeilig(fristText),
-    url: kontaktBestaetigungsLink(site, token),
-    origin: site,
-    zeile: zeile,
-  };
 
   return {
-    subject: `Du bist als ${fakten.rollen} für ${fakten.schule} eingetragen`,
-    html: renderHtml(fakten),
-    text: renderText(fakten),
-  };
-}
-
-const ABGANG_UEBERSCHRIFT = "Nicht mehr als Kontaktperson eingetragen";
-
-/** What a mailbox a write took a contact seat or its live link from is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
-export interface KontaktAbgangData {
-  origin: string;
-  /** The seats the mailbox lost there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
-  rollenText: string;
-  /** The seats the mailbox still holds there as one phrase, or `null` where it left the row. */
-  bleibtText: string | null;
-  schule: string;
-  saisonId: string;
-  /** Whose seat it was: a seat in an application was never asked about a fixture, so it held its confirmation's link alone. */
-  quelle: "saison" | "bewerbung";
-}
-
-// The two links that die with the seat, never "every link": the team's registration link stays live for the contacts who
-// remain. Unnamed, a dead one is pressed and meets a refusal with no reason.
-const ABGANG_FOLGE =
-  "Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
-
-const ABGANG_FOLGE_BEWERBUNG = "Der Link zum Bestätigen dieses Eintrags funktioniert nicht mehr. Du musst nichts tun.";
-
-/** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
-export function buildKontaktAbgangEmail({ origin, rollenText, bleibtText, schule, saisonId, quelle }: KontaktAbgangData): KontaktEmail {
-  const site = mailOrigin(origin);
-  const fakten = { rollen: einzeilig(rollenText), schule: einzeilig(schule), saisonId: einzeilig(saisonId) };
-  // A mailbox keeping a paired seat keeps that seat's links, so neither the heading nor the dead links are its.
-  const bleibt = bleibtText === null ? null : einzeilig(bleibtText);
-  const ueberschrift = bleibt === null ? ABGANG_UEBERSCHRIFT : `Nicht mehr als ${fakten.rollen} eingetragen`;
-  const tot = quelle === "bewerbung" ? ABGANG_FOLGE_BEWERBUNG : ABGANG_FOLGE;
-  const folge = (markup: boolean): string =>
-    bleibt === null
-      ? markup
-        ? escapeHtml(tot)
-        : tot
-      : `Als ${markup ? escapeHtml(bleibt) : bleibt} bleibst Du für ${markup ? strong(escapeHtml(fakten.schule)) : fakten.schule} eingetragen, dafür ändert sich nichts. Du musst nichts tun.`;
-
-  const abgang = (markup: boolean): string => {
-    const team = markup ? strong(escapeHtml(fakten.schule)) : fakten.schule;
-    const saison = markup ? brandPhrase(`Saison ${escapeHtml(fakten.saisonId)}`) : `Saison ${fakten.saisonId}`;
-
-    return `Hallo, Du bist in der ${saison} nicht mehr als ${markup ? escapeHtml(fakten.rollen) : fakten.rollen} für ${team} eingetragen.`;
-  };
-
-  const html = renderKarte({
-    titel: `${BRAND_NAME}: ${ueberschrift}`,
-    ueberschrift: escapeHtml(ueberschrift),
-    bloecke: [paragraph(abgang(true)), paragraph(folge(true))],
-    aktionen: [],
-    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    art: "erstkontakt",
+    betreff: `Du bist als ${rollenText} für ${schule} eingetragen`,
     origin: site,
-  });
-
-  const oben = [`${BRAND_NAME}: ${ueberschrift}`, "", abgang(false), "", folge(false)];
-
-  return {
-    subject: `Du bist nicht mehr als ${fakten.rollen} für ${fakten.schule} eingetragen`,
-    html: html,
-    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
+    vorname: "",
+    absaetze: [
+      [
+        // „für {Team} in der Saison …“, as the registration messages name a team and its season.
+        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${rollenText} für `, { stark: schule }, " eingetragen."],
+        zeile === "offen"
+          ? [
+              { stark: "Bitte bestätige, dass das stimmt" },
+              // The signed-in area by its name on screen, and never „Zugang“: on screen that word names an
+              // administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
+              `: Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`,
+            ]
+          : GESCHLOSSEN_SATZ[zeile],
+      ],
+      linkAbsatz(zeile, fristText),
+    ],
+    // Named for what the page offers: a closed row's page has nothing to confirm.
+    aktion: { label: zeile === "offen" ? "Eintrag bestätigen" : "Zum Eintrag", href: kontaktBestaetigungsLink(site, token) },
   };
 }

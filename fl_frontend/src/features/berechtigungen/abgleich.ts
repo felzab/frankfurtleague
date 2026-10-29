@@ -6,6 +6,7 @@ import { buildAdresswechselGenehmigungEmail } from "@/core/adresswechselEmail";
 import { buildAntragEndeEmail, buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
+import { renderMail } from "@/core/emailShell";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, sendMail } from "@/core/mail";
@@ -14,7 +15,8 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
-import type { BerechtigungEmail, Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Mail } from "@/core/emailShell";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
@@ -133,7 +135,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  const message = nachricht(aenderung);
+  const message = renderMail(nachricht(aenderung));
   // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
   // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
   const fassung = createHash("sha256")
@@ -182,7 +184,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
 }
 
 /** The message one claimed row sends, by its kind. */
-function nachricht(aenderung: FLBerechtigungAenderung): BerechtigungEmail {
+function nachricht(aenderung: FLBerechtigungAenderung): Mail {
   const { art } = aenderung;
   switch (art) {
     case "adresswechsel":
