@@ -102,7 +102,7 @@ def entered_for(groups: int, teams: int) -> tuple[EnteredTeam, ...]:
             team_id=ObjectId(f"6890a1b2c3d4e5f6072{index:05d}"),
             gruppe=gruppe,
             name=f"{gruppe}{seat + 1}-Schule",
-            shorthand=f"{index:02d}",
+            shorthand=f"T{chr(65 + index // 26)}{chr(65 + index % 26)}",
         )
         for index, (seat, gruppe) in enumerate(product(range(teams), GRUPPEN[:groups]))
     )
@@ -883,7 +883,13 @@ class TestTheSeasonIsPlayedUnderTheJunctionRowsNames:
 
         groups, teams, qualifiers = shape
         renamed = tuple(
-            EnteredTeam(row_id=team.row_id, team_id=team.team_id, gruppe=team.gruppe, name=f"Z{index}", shorthand=f"z{index % 10}")
+            EnteredTeam(
+                row_id=team.row_id,
+                team_id=team.team_id,
+                gruppe=team.gruppe,
+                name=f"Z{index}",
+                shorthand=f"Z{chr(65 + index // 26)}{chr(65 + index % 26)}",
+            )
             for index, team in enumerate(entered_for(groups, teams))
         )
 
@@ -903,7 +909,7 @@ class TestADrawRefusesWhatItCannotDrawTruthfully:
         """`number_of_groups` is the season's capacity, and a club outside it would be drawn into no round robin at all."""
 
         entered = entered_for(2, 4)
-        stray = EnteredTeam(row_id=entered[0].row_id, team_id=entered[0].team_id, gruppe="C", name="C1-Schule", shorthand="99")
+        stray = EnteredTeam(row_id=entered[0].row_id, team_id=entered[0].team_id, gruppe="C", name="C1-Schule", shorthand="JJX")
 
         with pytest.raises(ValueError, match="does not offer"):
             draw(2, 4, 2, entered=(stray, *entered[1:]))

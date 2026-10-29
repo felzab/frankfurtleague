@@ -57,13 +57,13 @@ Reader = Callable[[AsyncDatabase, AsyncMongoClient, ObjectId], Awaitable[Any]]
 
 async def seed(database: AsyncDatabase) -> ObjectId:
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-    await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZO"))
+    await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZOX"))
     await database[Collection.SAISON_TEAMS].insert_one(
         documents.saison_team_document(
             SAISON_ID,
             TEAM_OID,
             "Zorbanax",
-            "ZO",
+            "ZOX",
             kontakte={
                 "trainer": None,
                 "ansprechperson": documents.kontaktperson_document("Anna", bestaetigt_am="2026-03-21"),

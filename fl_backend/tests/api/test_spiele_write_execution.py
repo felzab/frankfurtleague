@@ -59,7 +59,7 @@ BETA = ObjectId("6890a1b2c3d4e5f607220002")
 GAMMA = ObjectId("6890a1b2c3d4e5f607220003")
 DELTA = ObjectId("6890a1b2c3d4e5f607220004")
 
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA"), DELTA: ("Delta", "DE")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX"), DELTA: ("Delta", "DEX")}
 
 SPIELTAG_GRUPPE = ObjectId("6890a1b2c3d4e5f6072200a1")
 SPIELTAG_VIERTELFINALE = ObjectId("6890a1b2c3d4e5f6072200a2")
@@ -677,7 +677,7 @@ class TestASavedSideIsNamedByTheSeason:
         """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GS"}})
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GSX"}})
             spiel_data = await payload_for(database, GRUPPE_FILLING)
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -685,7 +685,7 @@ class TestASavedSideIsNamedByTheSeason:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GS", "tore": None}
+        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GSX", "tore": None}
         # Composed from its OWN row, which the rename above did not touch: the change followed the
         # junction rather than one name reaching every side.
         assert spiele[GRUPPE_FILLING_NR]["team2"] == side(DELTA)
@@ -788,7 +788,7 @@ class TestASavedResultCarriesThroughTheBracket:
 
         assert spiele[VIERTELFINALE_NR]["ergebnis"] == "3:1"
 
-        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
         assert spiele[HALBFINALE_NR]["ergebnis"] is None
         # The stale shoot-out is the damage: the bracket would name a winner the goals no longer support.
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] is None, "the shoot-out outlived the side that won it"

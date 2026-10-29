@@ -25,14 +25,14 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
 CREATED_OID = ObjectId("6890a1b2c3d4e5f607500002")
 
 # The two images share no value, so a row holding the wrong one cannot pass by resembling the right one.
-BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LE"}
-AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LG"}
+BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX"}
+AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LGX"}
 
-CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CS"}
+CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CSX"}
 
 # More than two, so a row per document rather than per call is unmistakable, and none of them
 # carries an `_id`: a generated fixture leaves those to the driver.
-CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"C{index}"} for index in range(5)]
+CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"CL{chr(65 + index)}"} for index in range(5)]
 
 FILTER: Mapping[str, Any] = {"saison_id": "2026", "team_id": TEAM_OID}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing-Gymnasium"}}

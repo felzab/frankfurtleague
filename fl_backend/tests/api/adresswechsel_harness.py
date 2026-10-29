@@ -125,7 +125,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
     await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_many(
-        [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(SECOND_TEAM_OID, "Quellbrunn", "QB")]
+        [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(SECOND_TEAM_OID, "Quellbrunn", "QBX")]
     )
     pupils = [documents.spieler_document(OTHER_OID, "Jonte", "Wirbelauer", email=OTHER_EMAIL)]
     if pupil:
@@ -160,7 +160,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 SAISON_ID,
                 TEAM_OID,
                 "Zorbanax",
-                "ZO",
+                "ZOX",
                 kontakte=documents.kontakte_document(
                     ansprechperson=_seat(EMAIL, confirmed=True), stellvertretung=_seat(EMAIL, confirmed=False)
                 ),

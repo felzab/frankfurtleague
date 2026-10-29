@@ -119,19 +119,19 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database[Collection.SAISONS].insert_many([saison_document(), saison_document(PAST_SAISON, status="past")])
             await database[Collection.TEAMS].insert_many(
                 [
-                    team_document("Helmholtz", "HG", inactive_since=None),
-                    team_document("Lessing", "LE", inactive_since=RETIRED_ON),
-                    team_document("Goethe", "GO", inactive_since=GOETHE_RETIRED_ON),
+                    team_document("Helmholtz", "HGX", inactive_since=None),
+                    team_document("Lessing", "LEX", inactive_since=RETIRED_ON),
+                    team_document("Goethe", "GOX", inactive_since=GOETHE_RETIRED_ON),
                 ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    junction_row("Helmholtz", "HG"),
-                    junction_row("Lessing", "LE"),
-                    junction_row("Helmholtz", "HG", saison_id=PAST_SAISON),
-                    junction_row("Lessing", "LE", saison_id=PAST_SAISON),
-                    junction_row("Goethe", "GO", saison_id=PAST_SAISON),
-                    junction_row("Lessing", "LE", saison_id=UNDATED_SAISON),
+                    junction_row("Helmholtz", "HGX"),
+                    junction_row("Lessing", "LEX"),
+                    junction_row("Helmholtz", "HGX", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LEX", saison_id=PAST_SAISON),
+                    junction_row("Goethe", "GOX", saison_id=PAST_SAISON),
+                    junction_row("Lessing", "LEX", saison_id=UNDATED_SAISON),
                 ]
             )
 
@@ -302,7 +302,7 @@ FINALE_SPIELTAG = ObjectId("6890a1b2c3d4e5f607420102")
 FINALE = ObjectId("6890a1b2c3d4e5f607420103")
 
 
-SHORTHANDS = {"Helmholtz": "HG", "Lessing": "LE", "Goethe": "GO"}
+SHORTHANDS = {"Helmholtz": "HGX", "Lessing": "LEX", "Goethe": "GOX"}
 
 
 def side(key: str, tore: int) -> dict[str, Any]:

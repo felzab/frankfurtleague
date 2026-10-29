@@ -53,9 +53,9 @@ MatchFactory = Callable[..., dict[str, Any]]
 
 
 def shorthand_of(seed: int) -> str:
-    """A club's shorthand, which `FLTeam` fixes at two characters: a group at the largest legal size counts past nine in letters."""
+    """A club's shorthand, which `FLTeam` fixes at three letters, one per club of a group at the largest legal size."""
 
-    return f"T{'0123456789abcdefghijklmnopqrstuvwxyz'[seed]}"
+    return f"T{chr(65 + seed // 26)}{chr(65 + seed % 26)}"
 
 
 @pytest.fixture
@@ -897,7 +897,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=3), a_team(2, punkte=3)]
         decided = standing(teams, [played(9, 1, 2)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -908,7 +908,7 @@ class TestSeedingTheSlot:
         """A typo, not an outcome: erasing a team over a number nobody can resolve destroys more than it reports."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
@@ -922,7 +922,7 @@ class TestSeedingTheSlot:
 
         teams = [a_team(1, punkte=6, geschossen=5, kassiert=5), a_team(2, punkte=6, geschossen=5, kassiert=5)]
         decided = standing(teams, [played(1, 1, 2, 1, 1)])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
@@ -933,7 +933,7 @@ class TestSeedingTheSlot:
         """Idempotence across the group-seeded half too."""
 
         decided = standing([a_team(1, punkte=9), a_team(2, punkte=6)], [])
-        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "T1", "tore": None}
+        stored = {"team_id": TEAM_ID.format(1), "name": "Team 1", "shorthand": "TAB", "tore": None}
 
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 

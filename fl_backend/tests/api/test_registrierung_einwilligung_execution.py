@@ -92,7 +92,7 @@ EARLIER_RETURNING_LABEL = "2026-01-spielerseite-wiederkehrend"
 
 
 def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any]:
-    return documents.team_document(team_id, name, name[:2].upper(), full_name=full_name, website_url=None, schulform="gymnasium_g9")
+    return documents.team_document(team_id, name, name[:3].upper(), full_name=full_name, website_url=None, schulform="gymnasium_g9")
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:

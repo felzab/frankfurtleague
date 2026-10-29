@@ -147,7 +147,7 @@ STORED_UNCONFIRMED = {
 
 
 def junction(
-    row_id: ObjectId, team_id: ObjectId, kontakte: Any, *, name: str = TEAM_NAME, shorthand: str = "AD", **fields: Any
+    row_id: ObjectId, team_id: ObjectId, kontakte: Any, *, name: str = TEAM_NAME, shorthand: str = "ADX", **fields: Any
 ) -> dict[str, Any]:
     return {"_id": row_id, **documents.saison_team_document(SAISON_ID, team_id, name, shorthand, kontakte=kontakte, **fields)}
 
@@ -172,7 +172,11 @@ def on_a_league(
             # A ban entered through its route re-judges its actor's grant.
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
-            for team_id, name, shorthand in ((TEAM_OID, TEAM_NAME, "AD"), (OTHER_TEAM_OID, "Falken", "FA"), (INCOMING_TEAM_OID, "Eulen", "EU")):
+            for team_id, name, shorthand in (
+                (TEAM_OID, TEAM_NAME, "ADX"),
+                (OTHER_TEAM_OID, "Falken", "FAX"),
+                (INCOMING_TEAM_OID, "Eulen", "EUX"),
+            ):
                 await database[Collection.TEAMS].insert_one(
                     documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
                 )
@@ -924,7 +928,7 @@ class TestTheLinkConfirms:
                 "stellvertretung": None,
             },
             name="Falken",
-            shorthand="FA",
+            shorthand="FAX",
         )
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

@@ -76,7 +76,7 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
             await database[Collection.SAISONS].insert_one(
                 saison_document(SAISON_ID, "active", rules=rules_document(number_of_groups=2), registrierung=dict(REGISTRIERUNG))
             )
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=None))
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "ADX", kontakte=None))
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seed is not None:
                 await seed(database)

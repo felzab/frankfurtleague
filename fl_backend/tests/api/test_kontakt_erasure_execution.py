@@ -191,7 +191,7 @@ LOG_ROWS_PER_REACHED_ROW = 3
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
     return documents.saison_team_document(
-        saison_id, team_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=FORMER_BLOCKS[row_id]
+        saison_id, team_id, "Testschule", "TSX", _id=row_id, trikot_farbe="blau", kontakte=FORMER_BLOCKS[row_id]
     )
 
 
@@ -329,7 +329,7 @@ def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -
     Which is what lets a case seed as many rows as it likes under `uniq_saison_id_team_id`.
     """
 
-    return documents.saison_team_document(saison_id, row_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=dict(block))
+    return documents.saison_team_document(saison_id, row_id, "Testschule", "TSX", _id=row_id, trikot_farbe="blau", kontakte=dict(block))
 
 
 def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
@@ -1321,7 +1321,7 @@ def an_extra_row(position: int) -> ObjectId:
 def a_fixture_of(team_id: ObjectId, *, saison_id: str = LATER_SAISON, spiel_nr: int = 1) -> dict[str, Any]:
     """A fixture of this team's, never stored: a confirmation row is composed from it as the mint composes one."""
 
-    side = {"team_id": team_id, "name": "Adler", "shorthand": "AD", "tore": None}
+    side = {"team_id": team_id, "name": "Adler", "shorthand": "ADX", "tore": None}
 
     return documents.spiel_document(
         spiel_id=ObjectId(),

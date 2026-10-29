@@ -79,7 +79,7 @@ def team_documents() -> list[dict[str, Any]]:
         {
             "_id": oid(200 + index),
             "name": name,
-            "shorthand": f"T{index}",
+            "shorthand": f"T{chr(65 + index // 26)}{chr(65 + index % 26)}",
             "full_name": name,
             "schulform": "gymnasium_g9",
             "address": {"strasse": "Kaiserstraße", "hausnummer": "1", "plz": "60311", "stadtteil": "Innenstadt", "stadt": "Frankfurt am Main"},

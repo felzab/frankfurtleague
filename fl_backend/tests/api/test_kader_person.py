@@ -100,7 +100,7 @@ def _seat(email: str) -> dict[str, Any]:
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:2].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": None}
+        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": None}
     )
 
 

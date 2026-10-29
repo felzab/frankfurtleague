@@ -134,7 +134,7 @@ def on_a_league(url: str, body: Body, *, status: str = "active") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
-            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its person.
             for document in the_corpus():

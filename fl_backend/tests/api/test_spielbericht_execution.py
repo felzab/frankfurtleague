@@ -67,7 +67,7 @@ REFEREE_EMAIL = "otto.gruber@example.com"
 OTHER_REFEREE_EMAIL = "ella.engel@example.com"
 NOBODY = "niemand@example.com"
 
-NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
+NAMES = {TEAM1: ("Adler", "ADX"), TEAM2: ("Biber", "BIX")}
 PEOPLE = {TEAM1: ("Ida", "Albers"), TEAM2: ("Lea", "Dietz")}
 
 

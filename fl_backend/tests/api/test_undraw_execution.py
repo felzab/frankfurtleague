@@ -116,7 +116,7 @@ def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GRO
             saison_id,
             ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
             f"{gruppe}{seat + 1}-Schule",
-            f"{gruppe}{seat + 1}",
+            f"{gruppe}S{chr(65 + seat)}",
             _id=ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
             gruppe=gruppe,
         )
@@ -130,7 +130,7 @@ class Seed:
 
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
-    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NE")])
+    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NEX")])
     #: Seeded only by a case about what a removal must NOT reach: a database holding one season
     #: answers the same whether the removal was scoped or took the collection.
     neighbour: dict[str, Any] | None = None
@@ -557,8 +557,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
         datum="2026-05-01",
         uhrzeit="18:00:00",
     )

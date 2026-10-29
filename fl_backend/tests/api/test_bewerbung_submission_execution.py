@@ -71,12 +71,12 @@ ENTERED_OID = ObjectId("6890a1b2c3d4e5f607940003")
 # A club no `teams` document holds, which is what a client sending an id it was never given looks like.
 UNKNOWN_OID = ObjectId("6890a1b2c3d4e5f60794ffff")
 
-EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "AD"
-RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BI"
-ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CA"
+EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "ADX"
+RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
+ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 
 # Free, unlike `EXISTING_SHORTHAND`, which `uniq_shorthand` already holds.
-NEW_SCHOOL_SHORTHAND = "ZX"
+NEW_SCHOOL_SHORTHAND = "ZXX"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
@@ -759,7 +759,7 @@ class TestTwoSchoolsMayApplyForOneSeason:
     def test_a_second_new_school_is_stored_beside_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> int:
             await submit(database, team_id=None, schule=schule_block())
-            await submit(database, team_id=None, schule=schule_block(team_name="Yttrium", shorthand="YT"))
+            await submit(database, team_id=None, schule=schule_block(team_name="Yttrium", shorthand="YTX"))
 
             return await database[Collection.BEWERBUNGEN].count_documents({})
 
@@ -1016,7 +1016,7 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
         """`teams` carries its own validator, and acceptance is what writes a club from an application."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.TEAMS].insert_one(club_document(UNKNOWN_OID, "Ohnesite", "OS") | {"website_url": None})
+            await database[Collection.TEAMS].insert_one(club_document(UNKNOWN_OID, "Ohnesite", "OSX") | {"website_url": None})
             stored = await database[Collection.TEAMS].find_one({"_id": UNKNOWN_OID})
 
             assert stored is not None
@@ -1028,7 +1028,7 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
         """Nullable, not optional: `required` names the key, so an omitted one is still a rejection."""
 
         async def body(database: AsyncDatabase) -> str:
-            document = club_document(UNKNOWN_OID, "Ohneschluessel", "OK")
+            document = club_document(UNKNOWN_OID, "Ohneschluessel", "OKX")
             del document["website_url"]
             try:
                 await database[Collection.TEAMS].insert_one(document)

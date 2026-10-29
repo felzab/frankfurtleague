@@ -59,7 +59,9 @@ def side(spiel_team_field: PayloadFactory) -> SideFactory:
     """Seeds stay single-digit: `shorthand` is exactly two characters."""
 
     def make(seed: int, tore: int | None = None) -> dict[str, Any]:
-        return spiel_team_field(team_id=BRACKET_TEAM_ID.format(seed), name=f"Team {seed}", shorthand=f"T{seed}", tore=tore)
+        return spiel_team_field(
+            team_id=BRACKET_TEAM_ID.format(seed), name=f"Team {seed}", shorthand=f"T{chr(65 + seed // 26)}{chr(65 + seed % 26)}", tore=tore
+        )
 
     return make
 

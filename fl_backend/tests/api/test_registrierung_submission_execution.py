@@ -100,7 +100,7 @@ RULES: Mapping[str, Any] = documents.rules_document(
 
 def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
     # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
-    return documents.team_document(team_id, name, name[:2].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
+    return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
 def einladung_document(
@@ -143,7 +143,7 @@ def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str
 
 
 def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
+    return documents.saison_team_document(saison_id, team_id, name, name[:3].upper())
 
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it

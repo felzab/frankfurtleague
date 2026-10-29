@@ -11,7 +11,6 @@ from app.shared.schemas.bounds import (
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     SPIEL_NOTIZ_MAX_LENGTH,
-    TEAM_SHORTHAND_LENGTH,
 )
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -20,6 +19,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalTimeString,
+    CustomShorthand,
     CustomSpielNr,
     CustomTimeString,
 )
@@ -155,7 +155,7 @@ class FLSpielTeamField(FLSpielTeamFieldPayload):
     """
 
     name: str = Field(min_length=1)
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
 
 
 class FLSpielTeamFieldJoined(FLSpielTeamField):

@@ -40,10 +40,10 @@ ALPHA_RIVAL = ObjectId("6890a1b2c3d4e5f60721000a")
 BETA_RIVAL = ObjectId("6890a1b2c3d4e5f60721000b")
 
 NAMES = {
-    ALPHA: ("Alpha", "AL"),
-    BETA: ("Beta", "BE"),
-    ALPHA_RIVAL: ("Alpha-Rival", "AR"),
-    BETA_RIVAL: ("Beta-Rival", "BR"),
+    ALPHA: ("Alpha", "ALX"),
+    BETA: ("Beta", "BEX"),
+    ALPHA_RIVAL: ("Alpha-Rival", "ARX"),
+    BETA_RIVAL: ("Beta-Rival", "BRX"),
 }
 
 
@@ -247,8 +247,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BE", "tore": None}
-        assert spiele[2]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
+        assert spiele[2]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
 
     def test_the_opponent_and_the_slot_are_left_alone(self, mongo_replica_set_url: str):
         """The date, venue and matchday stay with the fixture, so each club inherits the other's schedule rather than carrying its own."""
@@ -303,8 +303,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_fixture(1, ALPHA, BETA)])
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BE", "tore": None}
-        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
+        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
         assert rewritten == 1, "one fixture fielding both clubs was counted twice"
 
     def test_a_club_with_no_drawn_fixture_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):

@@ -55,8 +55,8 @@ def spiel_document(
     `(spieltag_id, team_id)` and needs no second document.
     """
 
-    home = _side(both_sides or HOME, "Alpha", "AL")
-    away = _side(both_sides or AWAY, "Beta", "BE")
+    home = _side(both_sides or HOME, "Alpha", "ALX")
+    away = _side(both_sides or AWAY, "Beta", "BEX")
 
     return documents.spiel_document(
         spiel_id=spiel_id,

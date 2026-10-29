@@ -88,8 +88,8 @@ SPIEL = spiel_document(
     saison_id=ACTIVE_SAISON,
     spiel_nr=1,
     spieltag_id=ObjectId("6890a1b2c3d4e5f607840042"),
-    team1={"team_id": TEAM_A_OID, "name": ROW_NAME_A_ACTIVE, "tore": None, "shorthand": "HE"},
-    team2={"team_id": TEAM_B_OID, "name": ROW_NAME_B, "tore": None, "shorthand": "LE"},
+    team1={"team_id": TEAM_A_OID, "name": ROW_NAME_A_ACTIVE, "tore": None, "shorthand": "HEX"},
+    team2={"team_id": TEAM_B_OID, "name": ROW_NAME_B, "tore": None, "shorthand": "LEX"},
 )
 
 # `NOW` in UTC, as evidence spells its instant.
@@ -151,13 +151,13 @@ def _person(email: str) -> SignedActor:
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.TEAMS].insert_many(
-        [team_document(TEAM_A_OID, CLUB_NAME_A_NOW, "HE"), team_document(TEAM_B_OID, ROW_NAME_B, "LE")]
+        [team_document(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), team_document(TEAM_B_OID, ROW_NAME_B, "LEX")]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            saison_team_document(PAST_SAISON, TEAM_A_OID, ROW_NAME_A_PAST, "HE"),
-            saison_team_document(ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HE"),
-            saison_team_document(ACTIVE_SAISON, TEAM_B_OID, ROW_NAME_B, "LE"),
+            saison_team_document(PAST_SAISON, TEAM_A_OID, ROW_NAME_A_PAST, "HEX"),
+            saison_team_document(ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HEX"),
+            saison_team_document(ACTIVE_SAISON, TEAM_B_OID, ROW_NAME_B, "LEX"),
         ]
     )
 

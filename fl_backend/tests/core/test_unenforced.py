@@ -96,7 +96,7 @@ SLOT_NR = 29
 
 
 def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:2].upper(), **overrides}
+    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:3].upper(), **overrides}
 
 
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
@@ -705,8 +705,8 @@ class TestAPupilsAgeNoSquadRuleJudges:
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="AD", departed_from=EXIT_BEFORE_THE_FIXTURE),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BI", departed_from=None),
+    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BIX", departed_from=None),
 }
 
 

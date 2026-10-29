@@ -107,7 +107,7 @@ LIVE_OID = ObjectId("6890a1b2c3d4e5f607230001")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607230002")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607230003")
 
-CLUB_NAMES = {LIVE_OID: ("Adler", "AD"), RETIRED_OID: ("Bieber", "BI")}
+CLUB_NAMES = {LIVE_OID: ("Adler", "ADX"), RETIRED_OID: ("Bieber", "BIX")}
 
 
 def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, Any]:

@@ -349,7 +349,7 @@ def _junction_row(team_id: ObjectId) -> dict[str, Any]:
         SAISON_ID,
         team_id,
         TEAM_NAMES[team_id],
-        TEAM_NAMES[team_id][:2].upper(),
+        TEAM_NAMES[team_id][:3].upper(),
         _id=ObjectId(),
         kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
     )

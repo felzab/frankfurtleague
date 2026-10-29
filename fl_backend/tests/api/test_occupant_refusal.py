@@ -104,13 +104,13 @@ PayloadFactory = Callable[..., dict[str, Any]]
 def team(team_id: str, name: str, tore: int | None = None) -> dict[str, Any]:
     """A side as a DOCUMENT holds it. The payload model drops the two names, which is what makes it a stored shape."""
 
-    return {"team_id": team_id, "name": name, "tore": tore, "shorthand": name[:2].upper()}
+    return {"team_id": team_id, "name": name, "tore": tore, "shorthand": name[:3].upper()}
 
 
 def membership_of(team_id: str, departed_from: str | None = None) -> SaisonMembership:
     """One junction row as `pull_saison_membership` answers it, under `team`'s shorthand rule."""
 
-    return SaisonMembership(name=CLUBS[team_id], shorthand=CLUBS[team_id][:2].upper(), departed_from=departed_from)
+    return SaisonMembership(name=CLUBS[team_id], shorthand=CLUBS[team_id][:3].upper(), departed_from=departed_from)
 
 
 def references(**overrides: Any) -> ResolvedReferences:
@@ -401,11 +401,11 @@ class TestComposingTheDisplayCopies:
     def test_a_sides_name_comes_from_the_junction(self, season):
         """The junction is the season's own record of what a club is called, and the payload carries no name to prefer."""
 
-        renamed = ResolvedReferences(teams={ObjectId(ADLER): SaisonMembership(name="Adler-Schule", shorthand="AS", departed_from=None)})
+        renamed = ResolvedReferences(teams={ObjectId(ADLER): SaisonMembership(name="Adler-Schule", shorthand="ASX", departed_from=None)})
         patched = patched_spiel(season, 1, resolved=renamed, team1=team(ADLER, "Typed By A Client"), team2=None)
 
         assert patched.team1 is not None
-        assert (patched.team1.name, patched.team1.shorthand) == ("Adler-Schule", "AS")
+        assert (patched.team1.name, patched.team1.shorthand) == ("Adler-Schule", "ASX")
 
     def test_a_side_the_season_holds_no_row_for_keeps_the_name_the_fixture_stores(self, season):
         """`REQ-ELIGIBILITY-002` refuses a NEWLY fielded club holding no row, so this is one already standing here."""
@@ -1494,7 +1494,7 @@ def club_row(address: PayloadFactory) -> Callable[[str, str], dict[str, Any]]:
         return {
             "_id": ObjectId(team_id),
             "name": CLUBS[team_id],
-            "shorthand": CLUBS[team_id][:2].upper(),
+            "shorthand": CLUBS[team_id][:3].upper(),
             "gruppe": gruppe,
             "description": "",
             "full_name": f"{CLUBS[team_id]}-Schule",

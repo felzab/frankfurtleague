@@ -113,7 +113,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "gruppe": "A",
             "statistik": statistik(),
             "austritt": None,
-            "shorthand": "CS",
+            "shorthand": "CSX",
             "description": "",
             "schulform": "gymnasium_g9",
             "full_name": "Carl-Schurz-Schule",
@@ -126,7 +126,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def spiel_team_field() -> PayloadFactory:
-    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CS"})
+    return _factory({"team_id": TEAM_ID, "name": "Carl-Schurz", "tore": 2, "shorthand": "CSX"})
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def spiel(
         {
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
-            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
+            "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LEX", tore=1),
             # A group-phase fixture: both sides are drawn by the schedule, so neither has a source.
             "team1_quelle": None,
             "team2_quelle": None,

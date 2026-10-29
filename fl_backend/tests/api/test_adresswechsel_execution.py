@@ -691,7 +691,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             await database[Collection.SAISON_TEAMS].insert_one(
                 {
                     **documents.saison_team_document(
-                        SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QB", kontakte=documents.kontakte_document(trainer=seat)
+                        SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX", kontakte=documents.kontakte_document(trainer=seat)
                     ),
                     "_id": VERA_ROW_OID,
                 }

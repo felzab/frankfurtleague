@@ -189,7 +189,7 @@ def _kontakte(**seats: Any) -> dict[str, Any]:
 async def _seed(database: AsyncDatabase) -> None:
     # The clubs as they are called today, apart from each season row's copy, so the `{schule}` fill is seen to be the club's.
     await database[Collection.TEAMS].insert_many(
-        [team_document(TEAM_A_OID, "Helmholtz-Gymnasium Frankfurt", "HE"), team_document(TEAM_B_OID, "Lessing-Gymnasium", "LE")]
+        [team_document(TEAM_A_OID, "Helmholtz-Gymnasium Frankfurt", "HEX"), team_document(TEAM_B_OID, "Lessing-Gymnasium", "LEX")]
     )
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -199,7 +199,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 PAST_SAISON,
                 TEAM_A_OID,
                 ROW_NAME_A_PAST,
-                "HE",
+                "HEX",
                 kontakte=_kontakte(
                     trainer=_seat(REFEREE_STORED, medien=True),
                     ansprechperson=_seat(REFEREE_STORED, medien=True),
@@ -210,12 +210,12 @@ async def _seed(database: AsyncDatabase) -> None:
                 ACTIVE_SAISON,
                 TEAM_B_OID,
                 ROW_NAME_B,
-                "LE",
+                "LEX",
                 kontakte=_kontakte(trainer=_seat(BYSTANDER, medien=True), stellvertretung=_seat(REFEREE_STORED, medien=True)),
             ),
             # Awaiting its person's confirmation: nothing on it to change yet.
             saison_team_document(
-                ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HE", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, bestaetigt_am=None))
+                ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HEX", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, bestaetigt_am=None))
             ),
         ]
     )
@@ -943,7 +943,7 @@ async def _both_homes(database: AsyncDatabase) -> None:
             eingereicht_am="2025-01-10",
             bestaetigungsfrist="2025-01-24",
             team_id=TEAM_A_OID,
-            schule=neue_schule_document(BEWERBUNG_SCHULE, "HW"),
+            schule=neue_schule_document(BEWERBUNG_SCHULE, "HWX"),
             link_prefix=BEWERBUNG_LINK,
         )
     )
@@ -997,7 +997,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         eingereicht_am="2026-09-01",
         bestaetigungsfrist="2026-09-15",
-        schule=neue_schule_document(PENDING_SCHULE, "GW"),
+        schule=neue_schule_document(PENDING_SCHULE, "GWX"),
     )
 
 

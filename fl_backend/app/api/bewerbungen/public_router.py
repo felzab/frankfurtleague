@@ -207,7 +207,7 @@ async def get_schulen(teams_collection: TeamsCollection) -> FLBewerbungSchulenRe
 @router.get("/kuerzel/{shorthand}", response_model=FLBewerbungKuerzelResponse, summary="Whether a Kürzel is already a club's")
 async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBewerbungKuerzelResponse:
     """
-    Answer whether any club holds this two-letter code.
+    Answer whether any club holds this three-letter code.
 
     Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
     naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).

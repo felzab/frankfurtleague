@@ -38,12 +38,12 @@ TEAM_OIDS = {
 # club document's, which is what proves the copy; Fremd, holding no season row, is written to match
 # its club document instead.
 SAISON_SHORTHANDS = {
-    "Helmholtz": "HE",
-    "Bock": "BO",
-    "Lessing": "LE",
-    "Ohne": "OH",
-    "Fremd": "FR",
-    "Komplett": "KO",
+    "Helmholtz": "HEX",
+    "Bock": "BOX",
+    "Lessing": "LEX",
+    "Ohne": "OHX",
+    "Fremd": "FRX",
+    "Komplett": "KOX",
 }
 
 # A dict rather than a model: Pydantic could not express a row the validator rejects.
@@ -177,12 +177,12 @@ def _spiel(
 # Module level, so `test_corpus_shape.py` can hold the rows to the shipped validator without a
 # database: the collections these are written into carry none (`tests/conftest.py :: mongo_database`).
 TEAMS = [
-    _team("Helmholtz", "HG", name="Helmholtz-Gymnasium"),
-    _team("Bock", "BO"),
-    _team("Lessing", "LE"),
-    _team("Ohne", "OH"),
-    _team("Fremd", "FR"),
-    _team("Komplett", "KO"),
+    _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
+    _team("Bock", "BOX"),
+    _team("Lessing", "LEX"),
+    _team("Ohne", "OHX"),
+    _team("Fremd", "FRX"),
+    _team("Komplett", "KOX"),
 ]
 
 SAISON_TEAMS = [

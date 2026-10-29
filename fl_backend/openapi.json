@@ -4041,8 +4041,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -4122,8 +4121,7 @@
             "type": "string"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -6945,8 +6943,7 @@
             "type": "string"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -9513,8 +9510,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -10240,8 +10236,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -11437,8 +11432,7 @@
             "type": "string"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -12397,8 +12391,7 @@
             "type": "string"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -14333,8 +14326,7 @@
             "type": "string"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -18397,8 +18389,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -18617,8 +18608,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -18831,8 +18821,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "maxLength": 2,
-            "minLength": 2,
+            "pattern": "^[A-Z]{3}$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -21619,7 +21608,7 @@
     },
     "/api/v0/bewerbungen/kuerzel/{shorthand}": {
       "get": {
-        "description": "Answer whether any club holds this two-letter code.\n\nRetired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer\nnaming the holder would publish which schools have left (`READ-BEWERBUNG-001`).",
+        "description": "Answer whether any club holds this three-letter code.\n\nRetired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer\nnaming the holder would publish which schools have left (`READ-BEWERBUNG-001`).",
         "operationId": "bewerbungen_get_kuerzel",
         "parameters": [
           {

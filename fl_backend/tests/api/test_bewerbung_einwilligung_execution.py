@@ -128,7 +128,7 @@ def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any)
         kontakte=kontakte(),
         eingereicht_am="2026-03-20",
         bestaetigungsfrist="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 
@@ -143,7 +143,7 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
             return await body(database, client)
@@ -598,7 +598,7 @@ class TestTheMediaConsent:
                     SAISON_ID,
                     CLUB_OID,
                     CLUB_NAME,
-                    "AD",
+                    "ADX",
                     kontakte=kontakte(),
                     bestaetigungen=compose_bestaetigungen_mit(
                         stored_bestaetigungen=None, minted={"trainer": compose_kontakt_bestaetigung(token_hash=hash_token(raw), today=TODAY)}

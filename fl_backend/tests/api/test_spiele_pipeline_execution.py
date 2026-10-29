@@ -122,8 +122,8 @@ VERDICT_HOME = ObjectId("6890a1b2c3d4e5f607250011")
 VERDICT_AWAY = ObjectId("6890a1b2c3d4e5f607250012")
 VERDICT_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607250021")
 
-HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "AL", "tore": None}
-AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BE", "tore": None}
+HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "ALX", "tore": None}
+AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BEX", "tore": None}
 GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
 OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
 

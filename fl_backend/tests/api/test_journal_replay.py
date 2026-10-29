@@ -141,7 +141,7 @@ SERVED_STAND: dict[Seite, dict[str, str | None]] = {
 
 
 async def _seed(database: AsyncDatabase) -> None:
-    await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Helmholtz-Gymnasium", "HE"))
+    await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Helmholtz-Gymnasium", "HEX"))
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
     await database[Collection.SAISON_TEAMS].insert_one(
         {
@@ -149,7 +149,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 SAISON_ID,
                 TEAM_OID,
                 "Helmholtz",
-                "HE",
+                "HEX",
                 kontakte=kontakte_document(trainer=_seat(PERSON), stellvertretung=_seat(DECLINER, confirmed=False)),
             ),
             "_id": ROW_OID,

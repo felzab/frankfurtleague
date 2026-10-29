@@ -378,10 +378,10 @@ REFUSED_INDEX = "uniq_shorthand"
 DUPLICATE_ERROR: Mapping[str, Any] = {
     "index": 2,
     "code": DUPLICATE_KEY_ERROR,
-    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "C2" }}',
+    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "CCX" }}',
     "keyPattern": {"shorthand": 1},
-    "keyValue": {"shorthand": "C2"},
-    "op": {"name": "Club 2", "shorthand": "C2"},
+    "keyValue": {"shorthand": "CCX"},
+    "op": {"name": "Club 2", "shorthand": "CCX"},
 }
 
 
