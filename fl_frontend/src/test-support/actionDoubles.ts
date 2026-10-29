@@ -1,7 +1,6 @@
 import { untilAnswered } from "@/test-support/answersInFlight.ts";
 import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 
-import { withoutStoredValues } from "@/core/logFormat.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
@@ -145,11 +144,10 @@ export const NEXT_HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers(
 export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };
 
 /**
- * What the real logger writes of an attached error (`fl_frontend/src/core/logFormat.ts :: serializeError`): its message
- * and stack are where a submitted address reaches the log, so a suite's address check over these lines reads them too.
+ * An attached error's message and stack as thrown, before the real logger's address scrub: a suite's address check
+ * over these lines is held to what the caller handed over.
  */
-function writtenOf(attached: unknown): unknown {
-  const error = withoutStoredValues(attached);
+function writtenOf(error: unknown): unknown {
   return error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error;
 }
 

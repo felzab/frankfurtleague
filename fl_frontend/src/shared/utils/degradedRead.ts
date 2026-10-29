@@ -24,8 +24,6 @@ export function explainsItself(error: unknown): boolean {
   return error instanceof APINetworkError || error instanceof ApiUnsentError || error instanceof UnreadGrantError || isRuleRefusal(error);
 }
 
-// Private to the page reads below, the one exemption the error ban grants a spine: an action's or a route's failure is
-// `fl_frontend/src/shared/utils/actionFailure.ts :: logActionFailure`'s, which hands the log no error.
 function logReadFailure(message: string, error: unknown): void {
   const typed =
     error instanceof APIBadStatusError ||

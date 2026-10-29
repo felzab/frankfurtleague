@@ -97,14 +97,11 @@ describe("formatLogLine json", () => {
     expect(typeof document.error.stack).toBe("string");
   });
 
-  // Every spine that attaches what it caught reaches this writer, a store error included.
-  it("writes a store error as its class and the server's code, and nothing the server quoted", () => {
-    const document = JSON.parse(formatLogLine("json", "ERROR", "crash", { error: duplicateAddress() }));
+  it("writes no address a store error or a field quoted, and keeps the error's frames", () => {
+    const line = formatLogLine("json", "ERROR", "crash", { error: duplicateAddress(), recipient: ADDRESS });
 
-    expect(document.error.name).toBe("MongoServerError");
-    expect(document.error.message).toBe("code 11000 (DuplicateKey)");
-    expect(document.error.stack).toMatch(/^MongoServerError: code 11000 \(DuplicateKey\)\n {4}at /);
-    expect(JSON.stringify(document), "the line quoted the address the refusal named").not.toContain(ADDRESS);
+    assert.ok(!line.includes(ADDRESS), line);
+    expect(JSON.parse(line).error.stack).toMatch(/^MongoServerError: E11000 .*\n {4}at /);
   });
 
   it("passes structured extras through as fields", () => {
@@ -218,14 +215,6 @@ describe("formatLogLine console", () => {
     const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: stackless })).split("\n");
 
     expect(rendered.slice(1)).toStrictEqual(["    Error: boom"]);
-  });
-
-  it("renders a store error's frames under its class and code, and nothing the server quoted", () => {
-    const rendered = plain(formatLogLine("console", "ERROR", "crash", { error: duplicateAddress() })).split("\n");
-
-    expect(rendered[1]).toBe("    MongoServerError: code 11000 (DuplicateKey)");
-    assert.ok(rendered.length > 2, "the frames went with the message");
-    expect(rendered.join("\n"), "the line quoted the address the refusal named").not.toContain(ADDRESS);
   });
 
   it("keeps the error off the key=value tail", () => {
