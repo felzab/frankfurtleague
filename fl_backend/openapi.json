@@ -28,71 +28,6 @@
         "x-fl-tier": "none"
       }
     },
-    "/api/v0/system/is_ready": {
-      "get": {
-        "summary": "Readiness probe",
-        "description": "Readiness: can this process reach its database?\n\nPings MongoDB and returns 503 with `DB-CONN-002` if it cannot. Requires the system key.",
-        "operationId": "check_is_ready_api_v0_system_is_ready_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CheckIsReadyResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "$ref": "#/components/responses/503.DB-CONN-001.DB-CONN-002"
-          },
-          "default": {
-            "$ref": "#/components/responses/default"
-          },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "x-fl-tier": "system"
-      }
-    },
-    "/api/v0/system/info": {
-      "get": {
-        "summary": "Service metadata",
-        "description": "Report the running API version. Requires the system key; not intended for public consumption.",
-        "operationId": "system_info_api_v0_system_info_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemInfoResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/default"
-          },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "x-fl-tier": "system"
-      }
-    },
     "/api/v0/spiele": {
       "get": {
         "summary": "List Spiele",
@@ -11397,27 +11332,6 @@
         },
         "type": "object",
         "title": "CheckIsLiveResponse"
-      },
-      "CheckIsReadyResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "status": {
-            "type": "string",
-            "const": "ok",
-            "title": "Status",
-            "default": "ok"
-          }
-        },
-        "type": "object",
-        "title": "CheckIsReadyResponse"
       },
       "FLAblehnenBewerbungPayload": {
         "properties": {
@@ -32171,28 +32085,6 @@
         ],
         "title": "FLZustellungResponse",
         "description": "Whether the write reached the record; false where the report is about a message the record does not hold.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a\nsuccess answers it."
-      },
-      "SystemInfoResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "api_version": {
-            "type": "integer",
-            "title": "Api Version"
-          }
-        },
-        "type": "object",
-        "required": [
-          "api_version"
-        ],
-        "title": "SystemInfoResponse"
       }
     },
     "securitySchemes": {
@@ -35033,38 +34925,6 @@
                     "error_code": {
                       "enum": [
                         "DB-CONN-001"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        },
-        "headers": {
-          "Retry-After": {
-            "description": "Seconds to wait before asking again",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        }
-      },
-      "503.DB-CONN-001.DB-CONN-002": {
-        "description": "Service Unavailable",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-CONN-001",
-                        "DB-CONN-002"
                       ]
                     }
                   }

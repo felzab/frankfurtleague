@@ -6,7 +6,7 @@ import pytest
 from pytest import HIDDEN_PARAM
 
 from app.api.spiele.schemas import FLPatchSpielDataResponse
-from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
+from app.api.system.schemas import CheckIsLiveResponse
 from app.shared.schemas.responses import BaseAPIResponse
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -58,7 +58,6 @@ def test_the_response_model_inventory_clears_its_floor():
     "model,expected",
     [
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
-        (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
         # Every list defaults empty: an edit resolving no bracket slot is the ordinary answer for a
         # group fixture, an undecided placing is nobody's problem, and displacing no team releases none.
         (
@@ -72,11 +71,3 @@ def test_the_response_model_inventory_clears_its_floor():
 def test_declares_the_envelope_on_every_untyped_route(model, expected):
     """A route whose body is small enough to hand-build: its shape is declared, not implied."""
     assert model().model_dump() == expected
-
-
-def test_system_info_reports_the_api_version_as_a_number():
-    """Zero matters specifically: it is the current version and it is falsy, so a non-empty string mirror could never match."""
-    dumped = SystemInfoResponse(api_version=0).model_dump()
-
-    assert dumped == {"acknowledged": 1, "api_version": 0}
-    assert isinstance(dumped["api_version"], int)

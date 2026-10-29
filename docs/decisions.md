@@ -70,7 +70,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a
   published ceiling
-- **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
+- **system** — Remove the system key
 - **cache** — Add a second invalidation endpoint beside `fl_frontend/src/app/api/revalidate/route.ts`,
   a tag past its base-tag allowlist, or an edge location forwarding it; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
