@@ -60,7 +60,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
+      # The application too, though no step of this scope imports it: the uv cache's one writer
+      # installs it, since every caller restores the cache under one key.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
@@ -96,7 +97,9 @@ jobs:
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
-  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files.
+  # Both db tiers: the `db`-marked backend tests and the frontend's `*.db.test.*` files; and the
+  # contract check, which regenerates openapi.json and the client from it and diffs both, needing
+  # both toolchains.
   db:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
     # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
