@@ -1,3 +1,5 @@
+/* Session 8: HeroUI's stylesheet imports go, each component's with the last page using it, and its base
+   sheets, theme, utilities and variants with the last of them. */
 /* HeroUI, component by component: its own entry pulls in everything and Tailwind
    does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`. */
 
@@ -407,6 +409,7 @@ input:focus:placeholder-shown::placeholder {
   mask-image: linear-gradient(to right, #000 85%, transparent);
 }
 
+/* Session 8: this override of HeroUI's search field goes with that component, by this session at the latest. */
 /* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER. HeroUI only
    fades its clear control out, leaving 48px of a 122px chrome budget in flow.
    `display` is what reclaims it; `visibility` would leave the gap standing. */
@@ -430,6 +433,8 @@ input:focus:placeholder-shown::placeholder {
   }
 }
 
+/* Session 8: HeroUI's overrides from here to the code slot's go, each with the HeroUI component it
+   overrides, by this session at the latest. */
 /* THREE CATEGORIES lose the ring that fires on focus no keyboard user asked for, each control
    saying "focused" another way. Unlayered, so nothing in a layer can put that ring back. */
 /* 1. FIELD-SHAPED CONTROLS match :focus-visible on a plain mouse click, by the
@@ -785,6 +790,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     animation: none !important;
   }
 
+  /* Session 8: the spinner's and the skeleton's rules go with HeroUI's `Spinner` and `Skeleton`, by this
+     session at the latest. */
   /* HeroUI stops its OWN spinner here and this app does not: `appToast.pending`
      raises a toast with `timeout: 0`, so its spinner is the only thing saying the
      request is still running. The value is the vendor's token. */
@@ -822,6 +829,8 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 }
 
 @layer components {
+  /* Session 8: the skeleton's and the tables' overrides go with HeroUI's `Skeleton` and `Table`, by this
+     session at the latest. */
   /* HeroUI's own sweep runs 2-3 lightness points from the `--bg-muted` these blocks
      are painted, so it animates and cannot be seen. Same layer as HeroUI's rule and
      declared after it, so source order settles it without `!`. */
@@ -959,6 +968,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 }
 
+/* Session 8: the calendar's overrides go with HeroUI's `Calendar`, by this session at the latest. */
 /* App-side overrides for the calendar, whose class names are `@heroui/styles`' own, last so each
    beats the vendored rule it names at equal specificity. */
 @layer components {

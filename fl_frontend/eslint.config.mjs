@@ -253,6 +253,7 @@ const SITE_ORIGIN = {
  * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
  * formats a subtree's dates by whatever it pins. Tests mount their own.
  */
+// Session 8: retargeted from HeroUI's re-export to `react-aria-components` as the provider moves there.
 const LOCALE_PROVIDER = {
   regex: packageUnder("@heroui/react/rac"),
   importNames: ["I18nProvider"],

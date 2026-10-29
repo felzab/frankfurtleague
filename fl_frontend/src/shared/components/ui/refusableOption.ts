@@ -1,4 +1,4 @@
-// Redesign: goes with its last importer; the kit's fields replaces it.
+// Redesign: goes with its last importer; the kit's fields replace it.
 
 import { tv } from "tailwind-variants";
 
