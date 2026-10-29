@@ -94,9 +94,9 @@ const table = tv({
 function NameCell({ row, barred }: { row: TableRow; barred: boolean }) {
   return (
     <td className={table({ qualifies: barred }).name()}>
-      {/* A long name wraps beside the plaque, which keeps its column on the name's first line; the plaque and
-          the chip keep their size. */}
-      <span className="flex min-w-0 items-baseline gap-2">
+      {/* A long name wraps beside the plaque, which keeps its column and stands centred in the row, as the
+          rank and the figures do; the plaque and the chip keep their size. */}
+      <span className="flex min-w-0 items-center gap-2">
         {row.plaque !== undefined && <TeamPlaque {...row.plaque} />}
         <span className="min-w-0">
           {row.href === undefined ? (
