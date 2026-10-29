@@ -87,7 +87,7 @@ from app.core.exception_handlers import (
     stores_nothing,
 )
 from app.core.exceptions import NO_DATABASE_CLIENT
-from app.core.logging import setup_custom_logger
+from app.core.logging import setup_logging
 from app.core.middlewares import TracedApp
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
@@ -572,7 +572,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.
-    setup_custom_logger(config)
+    setup_logging()
 
     app = TracedApp(lifespan=lifespan)
     app.state.config = config

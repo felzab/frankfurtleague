@@ -19,6 +19,7 @@ from typing import Any, Literal
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.core import clock
 from app.core.collections import Collection
 from app.core.logging import trace_id_var
 
@@ -173,7 +174,7 @@ def _row(
     request = request_var.get()
 
     # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
-    moment = datetime.now(UTC)
+    moment = clock.now().astimezone(UTC)
 
     return {
         "at": log_stamp(moment),

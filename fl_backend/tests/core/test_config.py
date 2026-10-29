@@ -25,7 +25,7 @@ from app.core.config import (
     BackendSecrets,
     EnvironmentValidationError,
     get_app_config,
-    get_config,  # noqa: TID251
+    get_config,
     read_environment,
 )
 from app.core.constraints import COLLECTION_VALIDATORS
