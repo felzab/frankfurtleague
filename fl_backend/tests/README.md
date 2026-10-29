@@ -26,6 +26,7 @@ them.
 | `records.py`                                                             | The subject lookup's collections as a request holds them, over one database or stand-ins, any one replaced by name  |
 | `whole_database.py`                                                      | Each collection holding a value anywhere in the database, so a value is looked for where nobody thought to put it   |
 | `plans.py`                                                               | The server's plan for each read a call sends, which the index cases hold their scans to                             |
+| `wire.py`                                                                | The commands a call sends, counted by name on a client of its own (`fl_backend/tests/wire.py :: commands_by_name`)  |
 | `bracket_reference.py`                                                   | The hand-written bracket rows the draw's construction is held to                                                    |
 | `shared/`                                                                | The custom types and shared schemas under `app/shared/`                                                             |
 | `core/`                                                                  | What `app/core/` declares, and what a real `mongod` does with it                                                    |
