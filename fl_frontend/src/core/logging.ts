@@ -32,7 +32,7 @@ function log(level: LogLevel, message: string, meta?: LogMeta) {
   const line = formatLogLine(frontend_config.LOG_FORMAT, level, message, withScope);
 
   if (frontend_config.LOG_FORMAT === "json") {
-    // Straight to stdout: one stream, ordered, and out of the console shim's way.
+    // Straight to stdout: one stream, ordered.
     process.stdout.write(line + "\n");
     return;
   }

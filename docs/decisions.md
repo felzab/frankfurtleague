@@ -74,7 +74,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **cache** — Add a second invalidation endpoint beside `fl_frontend/src/app/api/revalidate/route.ts`,
   a tag past its base-tag allowlist, or an edge location forwarding it; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
-- **logging** — Let nginx honour a client's traceparent; log outside the envelope
+- **logging** — Let nginx honour a client's traceparent; log our own lines outside the envelope; wrap a
+  library's or Next's own output into it
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
 - **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving
   its role

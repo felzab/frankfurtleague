@@ -365,7 +365,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
   });
 
   /* A passkey removal runs from a server action, outside every endpoint, where the library writes this
-     line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`. */
+     line to the console, where it stays the library's own output. */
   it("writes a removal's transaction left open to the console when its commit and its abort both hang", async ({ onTestFinished }) => {
     const printed: unknown[][] = [];
     const printing = vi.spyOn(console, "error").mockImplementation((...line: unknown[]) => void printed.push(line));
