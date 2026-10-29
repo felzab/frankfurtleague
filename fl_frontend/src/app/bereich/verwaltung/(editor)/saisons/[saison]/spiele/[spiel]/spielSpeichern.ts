@@ -76,7 +76,11 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Aenderungen): FLPatchSpie
     datum: changes.datum === undefined ? werte.datum : changes.datum,
     uhrzeit: changes.uhrzeit === undefined ? werte.uhrzeit : changes.uhrzeit,
     ort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
-    schiedsrichter: gespeichert.schiedsrichter,
+    // The booking alone: the write takes no display copy of the referee's name.
+    schiedsrichter:
+      gespeichert.schiedsrichter === null
+        ? null
+        : { schiedsrichter_id: gespeichert.schiedsrichter.schiedsrichter_id, payment: gespeichert.schiedsrichter.payment },
     team1: team1 === null ? null : { team_id: team1.team_id, tore: team1.tore },
     team2: team2 === null ? null : { team_id: team2.team_id, tore: team2.tore },
     team1_quelle: gespeichert.team1_quelle,

@@ -21,7 +21,7 @@ import type { EditorSave } from "./useEditor";
 import type { ActionAnswer } from "./useFormAction";
 
 // The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
-const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
