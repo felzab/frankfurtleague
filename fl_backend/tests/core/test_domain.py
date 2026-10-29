@@ -25,7 +25,6 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import (
     AGGREGATES,
     FIELD_POLICIES,
@@ -38,6 +37,7 @@ from app.core.domain import (
     Editability,
 )
 from app.core.exceptions import WriteRefusal
+from app.core.readback import RECORD_MODELS
 from app.main import PROTOCOL_CODES, PROTOCOL_FAMILIES_EXTENSION, create_app, refusal_family
 from tests.config import build_test_config
 from tests.core.app_source import SESSION_TYPE_MODULE, Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
@@ -87,19 +87,29 @@ def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
     return found
 
 
-def _validator_properties(collection: Collection) -> Mapping[str, Any]:
-    return COLLECTION_VALIDATORS[collection]["$jsonSchema"]["properties"]
+def _stored_keys(model: type[BaseModel]) -> dict[str, Any]:
+    """A record model's fields by the key a document stores them under, so `id` reads `_id`."""
+
+    return {
+        field.validation_alias if isinstance(field.validation_alias, str) else name: field.annotation
+        for name, field in model.model_fields.items()
+    }
 
 
-def _resolves_in_validator(collection: Collection, path: str) -> bool:
-    properties = _validator_properties(collection)
+def _models_in(annotation: Any) -> set[type[BaseModel]]:
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return {annotation}
+    return set[type[BaseModel]]().union(*(_models_in(argument) for argument in get_args(annotation)))
+
+
+def _resolves_in_record(collection: Collection, path: str) -> bool:
+    """Through every model a segment's type names, so a union's variants each answer for their own keys."""
+
+    models = {RECORD_MODELS[collection]} if collection in RECORD_MODELS else set()
     *ancestors, leaf = path.split(".")
     for segment in ancestors:
-        nested = properties.get(segment)
-        if not isinstance(nested, Mapping) or "properties" not in nested:
-            return False
-        properties = nested["properties"]
-    return leaf in properties
+        models = {nested for model in models if segment in _stored_keys(model) for nested in _models_in(_stored_keys(model)[segment])}
+    return any(leaf in _stored_keys(model) for model in models)
 
 
 def _resolves_in_model(collection: Collection, path: str) -> bool:
@@ -111,7 +121,7 @@ def _resolves_in_model(collection: Collection, path: str) -> bool:
 
 
 def _resolves(collection: Collection, path: str) -> bool:
-    return _resolves_in_validator(collection, path) or _resolves_in_model(collection, path)
+    return _resolves_in_record(collection, path) or _resolves_in_model(collection, path)
 
 
 @functools.cache
@@ -263,9 +273,9 @@ def _import_symbol(dotted: str) -> Any:
 
 
 def test_every_collection_belongs_to_exactly_one_aggregate():
-    """Keyed on `COLLECTION_VALIDATORS` rather than a list: a new collection fails here until an aggregate owns it."""
+    """Keyed on `Collection` rather than a list: a new collection fails here until an aggregate owns it."""
 
-    placements: dict[str, list[str]] = {collection: [] for collection in COLLECTION_VALIDATORS}
+    placements: dict[str, list[str]] = {collection: [] for collection in Collection}
     for aggregate in AGGREGATES:
         for collection in (aggregate.root, *aggregate.members):
             assert collection in placements, f"{aggregate.name} names `{collection}`, which is not a collection this database has"
@@ -309,17 +319,15 @@ def test_the_document_publishes_every_protocol_family_and_no_other():
 
 
 def test_every_collection_is_declared_once():
-    """`db.py`'s accessors, `constraints.py`'s validator keys and `Collection` would otherwise drift, and a new one could reach only some."""
+    """`db.py`'s accessors and `Collection` would otherwise drift, and a new one could reach only one."""
 
     declared = {collection.value for collection in Collection}
-    validated = {str(collection) for collection in COLLECTION_VALIDATORS}
     accessed = {
         line.split("Collection.")[1].split("]")[0]
         for line in (APP_ROOT / "core" / "db.py").read_text(encoding="utf-8").splitlines()
         if "return db[Collection." in line
     }
 
-    assert validated == declared, "a collection the database validates is missing from `Collection`, or the reverse"
     assert {getattr(Collection, member).value for member in accessed} == declared, (
         "a collection has no DI accessor, or one names a member nothing declares"
     )
@@ -394,8 +402,8 @@ def test_no_field_policy_is_declared_twice():
 
 @pytest.mark.parametrize("reference", REFERENCES, ids=lambda reference: f"{reference.source}->{reference.target}:{reference.fields[0]}")
 def test_every_reference_names_real_collections_and_real_fields(reference):
-    assert reference.source in COLLECTION_VALIDATORS
-    assert reference.target in COLLECTION_VALIDATORS
+    assert reference.source in Collection
+    assert reference.target in Collection
 
     for path in reference.fields:
         assert _resolves(reference.source, path), f"{reference.source}.{path} is on neither the model nor the validator"
@@ -403,7 +411,7 @@ def test_every_reference_names_real_collections_and_real_fields(reference):
 
 @pytest.mark.parametrize("policy", FIELD_POLICIES, ids=lambda policy: f"{policy.collection}.{policy.field}")
 def test_every_field_policy_names_a_real_field(policy):
-    assert policy.collection in COLLECTION_VALIDATORS
+    assert policy.collection in Collection
     assert _resolves(policy.collection, policy.field), f"{policy.collection}.{policy.field} is on neither the model nor the validator"
 
 
@@ -414,7 +422,7 @@ def test_a_derived_field_is_on_no_document(policy):
     if policy.editability is not Editability.DERIVED:
         return
 
-    assert not _resolves_in_validator(policy.collection, policy.field), (
+    assert not _resolves_in_record(policy.collection, policy.field), (
         f"{policy.collection}.{policy.field} is declared DERIVED and the validator stores it"
     )
     assert _resolves_in_model(policy.collection, policy.field), (
@@ -590,7 +598,7 @@ def test_every_collection_that_retires_declares_when_that_field_is_written():
     """`FIELD_POLICIES`' other direction, at the one place it is mechanical: a collection that retires declares when that field is written."""
 
     declared = {(policy.collection, policy.field) for policy in FIELD_POLICIES}
-    retiring = {collection for collection in COLLECTION_VALIDATORS if _resolves_in_validator(collection, "inactive_since")}
+    retiring = {collection for collection in Collection if _resolves_in_record(collection, "inactive_since")}
     undeclared = sorted(str(collection) for collection in retiring if (collection, "inactive_since") not in declared)
 
     assert not undeclared, f"{undeclared} carry `inactive_since` and declare nothing about when it may be written"

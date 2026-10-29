@@ -28,7 +28,7 @@ from app.core.config import (
     get_config,  # noqa: TID251
     read_environment,
 )
-from app.core.constraints import COLLECTION_VALIDATORS
+from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 from app.main import KEY_TIERS, create_app
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
@@ -768,8 +768,8 @@ def booted(config: BackendConfig) -> None:
 
 
 @pytest.mark.db
-class TestTheBootAppliesTheConstraintsWhereTheApplicationServes:
-    def test_the_constraints_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_url: str):
+class TestTheBootAppliesTheIndexesWhereTheApplicationServes:
+    def test_the_indexes_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_url: str):
         """The environment names a second database on the same server, so a boot reading it applies there instead."""
         built_name, environment_name = worker_database("fl_boot_built"), worker_database("fl_boot_environment")
         an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: mongo_url.encode()}, DB_BASE_NAME=environment_name)
@@ -781,8 +781,10 @@ class TestTheBootAppliesTheConstraintsWhereTheApplicationServes:
 
             booted(build(mongodb_uri=SecretStr(mongo_url), db_base_name=built_name))
 
-            validated = {info["name"] for info in client[built_name].list_collections() if info.get("options", {}).get("validator")}
-            assert (set(COLLECTION_VALIDATORS) - validated, client[environment_name].list_collection_names()) == (set(), [])
+            declared = {(index.collection, index.name) for index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
+            database = client[built_name]
+            built = {(name, spec["name"]) for name in database.list_collection_names() for spec in database[name].list_indexes()}
+            assert (declared - built, client[environment_name].list_collection_names()) == (set(), [])
         finally:
             for name in (built_name, environment_name):
                 client.drop_database(name)

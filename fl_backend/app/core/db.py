@@ -84,8 +84,8 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
     """
 
     grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
-    # The one reading every reader of a grant takes: the validator
-    # refuses no spelling, so a hand-typed row may be stored that no request matches.
+    # The one reading every reader of a grant takes: the store refuses no spelling, so a hand-typed
+    # row may be stored that no request matches.
     live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
 
     if len(live) < len(grants):
@@ -131,16 +131,14 @@ async def lifespan(app: FastAPI):
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
             fl_logger.critical(
-                "Database constraints could not be applied, so the application will not start. Run "
-                "`python -m app.core.constraints --check` for the offending documents and the collMod privilege.",
+                "Database indexes could not be applied, so the application will not start.",
                 exc_info=True,
                 extra={"error_code": "SRV-BOOT-004"},
             )
             raise
         fl_logger.info(
-            f"Database constraints applied: {constraints.validators} validators, "
-            f"{constraints.unique_indexes} unique, {constraints.support_indexes} support "
-            f"and {constraints.ttl_indexes} TTL indexes."
+            f"Database indexes applied: {constraints.unique_indexes} unique, {constraints.support_indexes} support "
+            f"and {constraints.ttl_indexes} TTL."
         )
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])

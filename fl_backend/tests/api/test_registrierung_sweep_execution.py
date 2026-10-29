@@ -128,11 +128,14 @@ def season(saison_id: str, status: str) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, status: str = "active") -> Any:
-    """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
+def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema: bool = False) -> Any:
+    """The SHIPPED indexes, with a history on every row so the redaction has images to empty.
+
+    `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`.
+    """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
@@ -475,8 +478,14 @@ SECOND_OID = ObjectId("6890a1b2c3d4e5f607970007")
 BARRED_OID = ObjectId("6890a1b2c3d4e5f607970008")
 
 
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+
+
 def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
@@ -497,10 +506,11 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
 async def refuse_the_redaction_of(database: AsyncDatabase, registrierung_id: ObjectId) -> None:
     row = await stored(database, registrierung_id)
     assert row is not None
-    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(row), bypass_document_validation=True)
+    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(row))
+    await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
 
 
-# What the planted log image's refusal reads as on a passed-over line: the property its validator requires.
+# What the planted log image's refusal reads as on a passed-over line: the property the installed validator requires.
 REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
 
 
@@ -530,7 +540,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, await standing(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, left = on_a_league(mongo_replica_set_url, body)
+            answer, left = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         # The clocks after it ran: the drive at the fork found the deadline's row standing and the call raising every pass.
         assert (
@@ -552,7 +562,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, await standing(database), await the_days_stamp(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, left, day = on_a_league(mongo_replica_set_url, body, status="past")
+            answer, left, day = on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True)
 
         assert (answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, [entry.registrierung_id for entry in answer.benachrichtigt]) == (
             3,
@@ -574,7 +584,7 @@ class TestOneRowHoldsBackNoOther:
 
             return answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, await the_days_stamp(database)
 
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (0, 1, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True) == (0, 1, TODAY)
 
     def test_a_pupil_the_seasons_end_note_cannot_carry_stands_named_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Confirmed, with an empty first name: never erased untold, and read past by the page after its own rather than again."""
@@ -609,7 +619,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, await standing(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, left = on_a_league(mongo_replica_set_url, body)
+            answer, left = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (
             answer.geloescht_unbestaetigt,
@@ -646,14 +656,15 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A hand-edited registration short of a field its validator requires: strict validation refuses the stamp's update.
+        """A hand-edited registration short of a field it now requires: strict validation refuses the stamp's update.
 
         Beside it a barred one, which the share leaves out: its count stays the whole page's once the share is taken apart.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             invalid = {key: value for key, value in registrierung(SECOND_OID).items() if key != "einladung_id"}
-            await database[Collection.REGISTRIERUNGEN].insert_one(invalid, bypass_document_validation=True)
+            await database[Collection.REGISTRIERUNGEN].insert_one(invalid)
+            await refuse_writes_breaking(database, Collection.REGISTRIERUNGEN, {"required": ["einladung_id"]})
             await database[Collection.REGISTRIERUNGEN].insert_one(registrierung(BARRED_OID))
             await database[Collection.SPERRLISTE].insert_one(ban_document(f"{BARRED_OID}@example.com", bis=STANDING))
             # Inside: the level outside is whatever an earlier test on this worker left.
@@ -664,7 +675,7 @@ class TestOneRowHoldsBackNoOther:
 
             return {entry.registrierung_id for entry in answer.erinnerungen}, answer.fehlgeschlagen, refused["bestaetigung"]["erinnert_am"]
 
-        answered, count, stamp = on_a_league(mongo_replica_set_url, body)
+        answered, count, stamp = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (answered, count, stamp) == ({REMIND_OID, INSIDE_OID}, 1, None)
         refusal = "OperationFailure, code 121: [{'loc': 'einladung_id', 'type': 'required', 'msg': 'property is missing'}]"
@@ -679,13 +690,14 @@ class TestOneRowHoldsBackNoOther:
         """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"einladung_id": ""}}, bypass_document_validation=True)
+            await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"einladung_id": ""}})
+            await refuse_writes_breaking(database, Collection.REGISTRIERUNGEN, {"required": ["einladung_id"]})
             answer = await sweep(database, client)
 
             return answer.erinnerungen, answer.fehlgeschlagen, await the_days_stamp(database)
 
         # The two registrations at their reminder mark.
-        assert on_a_league(mongo_replica_set_url, body) == ([], 2, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 2, TODAY)
 
 
 # A page and a short one after it. At a page plus ONE the first read takes every row, so a clock

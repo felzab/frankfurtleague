@@ -11,7 +11,7 @@ and renumbering what stands would repoint every citation of it, the scripts' own
 | Section                                                                                                                        | Answers                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to the database's constraints](#2-before-deploying-a-change-to-the-databases-constraints)        | The one check to run before a constraint reaches production    |
+| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)       | The order a shape or index change runs in, then the read-back  |
 | [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
 | [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
 | [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
@@ -210,228 +210,86 @@ the machine is outside the repository. What it does tell you:
   healthy pair is no statement about whether the edge in front of it reaches the pair or what it
   loads.
 
-## 2. Before deploying a change to the database's constraints
+## 2. Before deploying a change to a stored shape or an index
+
+**What a stored document may hold is its record model** — the model `fl_backend/app/core/readback.py ::
+RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
+shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
+stored shape lands with the Playground paste that moves every stored document into it, and the
+read-back command is what says they all moved:
 
 ```bash
-cd fl_backend && .venv/Scripts/python -m app.core.constraints --check
+docker compose -f docker-compose.yml exec -T backend python -m app.core.readback
 ```
 
-Dev, on Windows; on the server it is `python -m app.core.constraints --check` inside the backend container.
-It writes nothing and exit 0 means clean. Run it whenever `fl_backend/app/core/constraints.py` changes:
-it reports the stored documents a constraint would refuse, and whether the database user holds `find`, `collMod`
-and `listCollections`. `--apply` does the same work startup does, which is how to
-put a corrected constraint in place without waiting for a deploy.
+On the server, from the checkout. It reads every document through its record model, writes nothing,
+prints each refused document's collection, id and error location and never a value, and exits 0 when
+every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
+line names the collections it does not read.
 
-**Run it BEFORE the deploy, from a checkout carrying the new constraints while the old image is still
-serving.** A container built from the previous commit carries the previous validators and reads clean on
-the very documents the new ones reject, so the only run that answers the question is the one made against
-the constraints that are about to land. Nothing later in the pipeline compares stored documents against a
-validator.
+**Run it after the paste and the deploy, never before**: it judges stored documents against the
+models of the image it runs in, so a run inside the old image reads the old shape clean.
 
-**On the server that checkout reaches the container as a bind mount**, the image carrying an `app/` of its
-own:
+**A field that is RENAMED cannot be renamed before the deploy.** The still-serving image reads and
+writes the old name, so a rename pasted first breaks every read of the field until the new image
+is up. **This repository holds no migration runner and no migration**: the command belongs to the
+change that needs it and is run by hand as a MongoDB Playground paste against the cluster, as every
+migration here is, so what is written here is the order alone.
 
-```bash
-docker run --rm --network <compose-network> --user 0:0 \
-  -v "$PWD/fl_backend/app:/app/app:ro" \
-  -v "$PWD/fl_backend/.env:/app/.env:ro" \
-  -v "$PWD/secrets/backend_mongodb_uri:/run/secrets/backend_mongodb_uri:ro" \
-  -v "$PWD/secrets/sperrliste_schluessel:/run/secrets/sperrliste_schluessel:ro" \
-  -v "$PWD/secrets/internal_api_key_base:/run/secrets/internal_api_key_base:ro" \
-  -v "$PWD/secrets/internal_api_key_system:/run/secrets/internal_api_key_system:ro" \
-  -v "$PWD/secrets/internal_api_key_admin:/run/secrets/internal_api_key_admin:ro" \
-  <backend-image> python -m app.core.constraints --check
-```
+1. Deploy. Every read of the renamed field fails from here until step 2 lands.
+2. **At once**, the rename, written as every paste is: a count of the rows still holding the old
+   name, the rename, and the same count again, which must read 0.
+3. The read-back: exit 0.
+4. Drop any index the previous name held, by a `dropIndex` line in the same paste —
+   `create_index` refuses a name already held at different options and creates nothing under a
+   name it does not declare, so the boot leaves the old one standing forever.
 
-**`--user 0:0` is not optional.** The image runs as uid 1002, and the internal keys are root's and
-group 1003's (§16), a group a bare `docker run` does not add, so without it the run cannot read them
-and exits on a permission error before it checks anything. Root inside the
-container reads them; `--check` writes nothing either way. **Each of the backend's five files is
-mounted by name, and never `secrets/` whole**, which would hand this container the frontend's
-credentials and the signing key besides.
-
-**Every setting given no default is required, and the environment file and the five secret files
-are what supply them.** A run reaching none of them exits 1 on a validation error naming each; the
-settings class reads the package's file from the image's own working directory
-(`fl_backend/app/core/config.py :: model_config`) and the secret files from `/run/secrets`, which is
-where the mounts land them.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing them as
-`-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up values `--check` never reads — the run touches the database URI and
-`DB_BASE_NAME` and nothing else the settings require.
-
-One caveat, untested against the server itself: an SELinux host needs `:z` on each mount.
-
-**Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
-query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
-same document and reports clean.
-
-**A validator that newly REQUIRES a field fails every row written before it.** `--check` is what says how
-many and names a few of them, and back-filling those rows belongs to the change that added the field
-rather than to a follow-up: `--apply` attaches the validator without touching stored documents, so the
-first read that parses one is where the omission surfaces.
-
-**A validator that WIDENS what it accepts can fail no stored row, and owes no backfill.** `--check` reads
-clean before such a change lands as well as after, so the run is confirmation rather than the gate the
-paragraph above describes. The `spieltage` span is of that kind: `beginn` and `ende` accept a null beside a
-string, which every row already holding a date satisfies.
-
-**A property declared OUTSIDE `required` is the weaker case, and only for a key nothing stores yet.** An
-absent key passes, which is the whole of what `required` decides; a stored key of the wrong shape fails
-exactly as it would inside the list. `saisons.spielplan` is declared that way, and `--check` is what says
-whether any season already carries the key — declaring a shape over a key some row already holds is an
-ordinary constraint change, and assuming which of the two you are in is what this procedure replaces.
-
-**A collection the change ADDS is the free case, and `--check` says so by counting nothing.** The
-namespace does not exist, so `report_violations` answers `0 of 0` and there is no backfill to hunt:
-`_apply_validator` creates the collection with the validator already attached
-(`fl_backend/app/core/constraints.py :: NAMESPACE_NOT_FOUND`), which either `--apply` or the deploy's
-own boot reaches. A `0 of 0` against a collection you expected to hold rows is the case to stop on.
-
-The order does not change either way: `--check` from the new checkout while the old image still serves,
-then `--apply` or the deploy's own boot to attach the validators
-(`fl_backend/app/core/db.py :: lifespan` applies them before it yields, so a new image attaches before it
-serves), then `--check` again.
-
-**A field that is RENAMED is the one case where the backfill cannot precede the validator.** The
-validator is attached strict (`fl_backend/app/core/constraints.py :: _apply_validator`) and the
-previous one lists the old name under `required`, so a `$rename` run under it produces a document
-missing a required field and is refused for every row; the same strictness refuses an erasure's
-`$set` over a row the NEW validator finds invalid,
-which is why the rename cannot wait either. **This repository holds no migration runner and no
-migration**: the command belongs to the change that needs it and is run by hand as a MongoDB
-Playground paste against the cluster, as every migration here is, so what is written here is the
-order alone.
-
-1. `--check` from the new checkout while the old image still serves. Every row is reported as
-   missing the new name, which is the confirmation that the rename is owed rather than a finding to
-   fix — and it is the count step 3 is read against.
-2. Deploy. The boot attaches the new validator before the image serves.
-3. **At once**, the rename. Between this step and the previous one every read of the renamed field
-   fails and an erasure over such a row is refused, so paste it as the deploy reports healthy.
-4. `--check` again: clean.
-5. Drop any index the previous name held, by hand — `create_index` refuses a name already held at
-   different options and creates nothing under a name it does not declare, so the boot leaves the old
-   one standing forever.
-
-**Three things decide whether the command pasted at step 3 is the right one.**
+**Three things decide whether the command pasted at step 2 is the right one.**
 
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
-- **`updateMany` is ordered**, so a count below what step 1 reported means it stopped at a row the
-  new validator refuses for a reason of its own. Repair the row the error names and paste it again:
-  a filter on the old name's `$exists` skips every row already moved, which is what makes the command
-  re-runnable rather than a thing to get right once.
+- **A filter on the old name's `$exists`** skips every row already moved, which is what makes the
+  command re-runnable rather than a thing to get right once.
 - **A dotted path through a nullable block is renamed ONE PATH AT A TIME.** `$rename` refuses the
   whole document where a segment has to traverse a null —
   `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
   three `kontakte` seats moves rows until it meets the first club holding one seat and not another
-  and then stops, the earlier rows moved and the later ones not, inside the window step 3 exists to
+  and then stops, the earlier rows moved and the later ones not, inside the window step 2 exists to
   keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
   a document matching that filter necessarily holding the segment. Measured against a copy of
   production, 2026-09-08.
 
-The alternative order — `--apply` and the rename from the checkout, THEN the deploy — closes the
-window for reads and erasures and opens a worse one: every recorded write of the still-serving old
-image is refused until the new image is up, because it writes the old name.
-
-**Where the renamed field sits inside `kontakte`, step 3's window is wider than step 3 says.**
+**Where the renamed field sits inside `kontakte`, step 1's window is wider than it says.**
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
 editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. A junction contacts save over a seat its person keeps is refused too: it writes
-that seat's stored record back whole (`fl_backend/app/api/teams/services.py :: _confirmation_held_by`),
-under the old name, which the renamed validator refuses. **A
-contact person's own confirmation link still OPENS**, serving no contact record
-(`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
-refused with everything else, so a person who confirms or objects in that window is told nothing
-landed. Every public club read keeps working, the junction join withholding the block from the base
-tier.
+the rename lands. Every public club read keeps working, the junction join withholding the block from the base tier.
 
-**A change that only adds a read index has nothing for `--check` to answer**, and a clean report is not
-evidence it landed: those indexes constrain nothing, so no stored document can be in breach of one
-(`fl_backend/app/core/constraints.py :: SupportIndex`). `--apply` or the next boot is what builds it, and
-either fails loudly if it cannot.
+**A change that only adds an index has nothing for the read-back to answer**: no stored document can
+be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
+builds it, and fails loudly if it cannot. A new unique index is the exception: one Playground
+aggregate grouping the collection by its keys, counting the groups holding more than one document,
+says before the deploy whether its build will meet a duplicate, which fails the boot.
 
 **Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
-refusal does not say. **A changed RETENTION bound** is moved at the keyboard first, from the same
-shell the `--check` above runs in: a `collMod` on the `aktionen` collection, naming the index
-`aktionen_retention` and setting its `expireAfterSeconds` to the new bound.
-
-Dropping the index instead also works, the next boot rebuilding it at the declared bound; `collMod`
-is the smaller window, no read losing the index in between. The new bound must equal
-`fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
+refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
+checklist, setting the `aktionen_retention` index's `expireAfterSeconds` to the new bound, which must
+equal `fl_backend/app/shared/schemas/bounds.py :: AKTION_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
-**A uniqueness rule narrowed to a `partial_filter`** cannot be moved that way, because a narrowing
-is a different index rather than a changed one: `collMod`'s `index` option reaches four properties —
-`expireAfterSeconds`, `hidden`, `prepareUnique` and `unique` — and never the filter deciding which
-rows the rule indexes, so an index can be made unique in place and cannot be made to cover fewer
-rows. Mirrored from <https://www.mongodb.com/docs/manual/reference/command/collMod/>, which moves
-without us; read 2026-09-09. The live index is dropped by hand while the stack is down, and the boot
-that follows builds the narrowed one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The
-drop is the whole procedure, and it belongs in the deploy's own window rather than ahead of it —
-between the stack coming down and the new build coming up, because the refusal above is what the boot
-answers with while the old index stands.
-
-**A uniqueness rule WIDENED — a `partial_filter` removed — is the same refusal from the other side,
-and the drop is only half the procedure.** `collMod` reaches the filter in neither direction, so the
-live index still goes by hand; what the widening adds is that rows the narrow rule excused fall
-inside the wide one, so any that would collide have to move before the boot rebuilds it, which fixes
-the order: move the rows while the old build still serves, drop the index in the deploy's own window
-as above. The moves are a Playground paste as every migration here is, keyed on a state the previous
-statement leaves so a paste that dies partway is repaired by pasting it again. **Run the `--check` at
-the head of this section only once the rows have moved**: it groups every row against the widened
-rule, so before the move it answers about a database the boot will not meet.
+**A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
+changed one, so the live index is dropped by a `dropIndex` line, and the boot that follows builds the
+new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop belongs in the deploy's
+own window, between the stack coming down and the new build coming up, because the refusal above is
+what the boot answers with while the old index stands. A widening also lets rows the narrow rule
+excused fall inside the wide one, so any that would collide move first, by a paste keyed on a state
+the previous statement leaves, so that one dying partway is repaired by pasting it again.
 
 **A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
 it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
 dropping it again before the retry is what clears it. Where the earlier build declares no index of
 that name, nothing rebuilds it and the retry needs only the rows.
-
-**When `every junction row names a club that exists (saison_teams)` reports a group**, it has found a
-`saison_teams` row whose `team_id` matches no `teams` document. Nothing on the API produces one now — entry
-reads the club and answers 404 for an id `teams` does not hold
-(`fl_backend/app/api/teams/admin_router.py :: post_saison_team`), and the acceptance that also writes these
-rows either creates the club in the same transaction or takes the id from the club document it resolved
-in-session (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung`) — and nothing on the API
-removes one, the junction having no DELETE. **That says nothing about where the row came from.** A row older than that read
-arrived through `POST /teams/{team_id}/saisons` itself: entry resolved no club then, so a `team_id` that was
-well-formed and wrong inserted a row with nobody touching the database at all. It is invisible from the side
-worth checking first: `GET /teams` starts from `teams` and never joins the orphan, so the club list and every
-league table read normally.
-
-**Which reading is right is a judgement, and one of the two has a command behind it.** An id mistyped at entry names
-a club that never existed, so there is nothing to restore and the row's place belongs to whichever club should
-have been entered instead: `POST /teams/{team_id}/saisons/{saison_id}/replace` hands the row over, reseeding
-its `name` and `shorthand` from the incoming club and carrying that club into the season's fixtures. It
-resolves the INCOMING club alone and never the one the path names, which is exactly what lets it act on a row
-whose `team_id` resolves to nothing (`fl_backend/app/core/domain.py :: REFERENCES`). Its own refusals bound how
-far it reaches: not a `past` season (`REQ-REPLACE-001`), and not once one of that club's fixtures has left a
-record (`REQ-REPLACE-002`). An orphan in a season that was played is therefore still a database edit, and so
-is one whose place no club should hold at all: the replacement brings a club in for one going out, and removes
-no row.
-
-A club document that went missing is the other reading, and restoring it is that repair — but no route deletes
-a club, retirement being soft and leaving the document in place
-(`fl_backend/app/api/teams/admin_router.py :: delete_team`), so that history needs a database edit of its own
-before it is worth acting on. **Settle which reading applies before running anything**: the replacement writes
-a club into the season's record, so run on the second reading it names a club that never played. Only somebody
-who knows whether that club played that season can say. Re-run `--check` afterwards.
-
-**The junction failure that does stop the site is the other report**, the validator one: a `saison_teams`
-row missing `name` takes `PATCH /spiele/{spiel_id}` down for every fixture in that season, the save and
-its `dry_run` preview alike, because `fl_backend/app/api/spiele/crud.py :: pull_saison_membership` indexes
-that field directly — and it takes the season's club reads with it: the name is what
-`fl_backend/app/api/teams/services.py :: build_team_pipeline` projects, and `GET /teams`, `GET /teams/{team_id}`
-and the admin twin `GET /teams/list/admin` (`fl_backend/app/api/teams/admin_router.py :: get_teams_for_admin`)
-are each built on that pipeline. `GET /spiele/action_required` for that season goes down with them once its
-knockout slots draw on a group placing, because `fl_backend/app/api/spiele/crud.py :: find_bracket_faults`
-resolves those against that same pipeline. Every other season's queue still loads, so a queue failing for one
-season alone points at that season's rows — or at a malformed `uhrzeit` on another season's fixture booked
-within a day onto one of its venues or referees. The two reports are independent: an orphan row can carry
-a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
@@ -1687,18 +1545,6 @@ replay compares with the restore's end, so a pass already reading as the restore
 count; the day files cannot say it, since a pass rewrites one only where it found a new line. The
 hourly passes keep the stamp's mtime inside §7's age bound, so only thirty days with no pass reading
 the stream remove it, and the replay refuses then as well.
-
-**`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
-constraint landed restores rows the current validators reject, and the validators are attached strict,
-so such a row refuses any erasure or replay below that writes over it rather than removing it.
-Its privileges must read `ok` for `listCollections` too: the replay reads every stored validator
-through it, and without it judges no line, exiting 2 on a database it cannot read.
-
-**Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
-
-```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
-```
 
 **Then list what the lines ask for, giving both moments written down above, each with its offset:**
 

@@ -22,9 +22,6 @@ from app.api.registrierungen.services import (
     sole_person,
     zustand_of,
 )
-from app.core.constraints import (
-    _EINWILLIGUNG_UMFANG,
-)
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 from tests.documents import eigene_einwilligung_document
@@ -239,14 +236,14 @@ class TestWhatAReturningAdmissionWrites:
     }
 
     def test_a_new_person_is_never_born_from_it(self):
-        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one the validator refuses mid-transaction."""
+        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one every read of their record refuses."""
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
 
 
 class TestAPersonIsNeverWrittenNameless:
-    """The `spieler` validator admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
+    """The `spieler` record admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
 
     NEW = {
         "vorname": "Quillhilde",
@@ -298,12 +295,6 @@ class TestWhatTheAnswerPayloadRefuses:
         )
 
         assert (stated.geburtsdatum, stated.umfang, stated.medien) == (None, None, None)
-
-    def test_the_two_scopes_are_the_pair_the_validator_declares(self):
-        """A third member offered here and refused by mongod is a 500 on a page that has already taken the consent."""
-
-        assert sorted(_EINWILLIGUNG_UMFANG) == ["intern", "kader_oeffentlich"]
-        assert FLRegistrierungBestaetigungPayload.model_validate(antwort(umfang="kader_oeffentlich")).umfang == "kader_oeffentlich"
 
     def test_a_scope_outside_the_pair_is_refused(self, assert_rejects):
         assert_rejects(FLRegistrierungBestaetigungPayload, antwort(umfang="kontaktdaten"), "umfang")

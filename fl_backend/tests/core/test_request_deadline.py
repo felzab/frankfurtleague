@@ -257,7 +257,7 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
     """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets."""
 
     async def body() -> _Transacted:
-        fresh = a_clean_database(url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,))
+        fresh = a_clean_database(url, DATABASE_NAME, constraints=False)
         async with fresh as (client, database):
             written = database[Collection.AKTIONEN]
 

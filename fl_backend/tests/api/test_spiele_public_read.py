@@ -29,7 +29,6 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
@@ -533,17 +532,11 @@ class TestTheStoredShape:
         [("ort", MIETPREIS_KEY, MIETPREIS), ("schiedsrichter", PAYMENT_KEY, PAYMENT)],
         ids=["the venue", "the referee"],
     )
-    def test_the_dump_a_save_writes_carries_every_key_the_validator_requires(self, embedded: str, money: str, amount: int):
-        """Guards the re-declaration on `fl_backend/app/api/spiele/schemas.py :: FLSpiel`, whose docstring holds the reason.
-
-        Required keys are read off `COLLECTION_VALIDATORS` rather than listed here, so the model and
-        the database's own demand move together.
-        """
+    def test_the_dump_a_save_writes_keeps_the_figure(self, embedded: str, money: str, amount: int):
+        """Guards the re-declaration on `fl_backend/app/api/spiele/schemas.py :: FLSpiel`, whose docstring holds the reason."""
 
         dumped = FLSpiel.model_validate(stored_document()).model_dump()[embedded]
-        required = set(COLLECTION_VALIDATORS[Collection.SPIELE]["$jsonSchema"]["properties"][embedded]["required"])
 
-        assert required <= set(dumped)
         assert dumped[money] == amount
 
 

@@ -923,7 +923,7 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> None:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
@@ -959,7 +959,7 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
         aborts = _Aborts()
 
         async def body() -> int:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
