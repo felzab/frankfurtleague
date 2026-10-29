@@ -47,6 +47,24 @@
     --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
   }
 
+  /* The two frames' measures, on the root rather than on a frame, since React Aria draws the toast region,
+     which they place, in the body: the phone's band; the desktop rail's head, which the title strip shares;
+     the signed-in rail foot, which an editor's bar matches, so the two top hairlines are one line (its 1-px
+     edge, its 8-px and 12-px padding and the 48-px account row); the rail's width standing open and
+     collapsed to its glyphs, 24 px of inset at each side of one; and the classic frame's header. */
+  :root {
+    --rail-band: 3.5rem;
+    --rail-strip: 3rem;
+    --rail-foot: calc(1px + 0.5rem + 0.75rem + 3rem);
+    --rail-width: 16rem;
+    --rail-width-collapsed: 4.5rem;
+    --classic-header: 3.5rem;
+
+    @variant lg {
+      --classic-header: 4rem;
+    }
+  }
+
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */

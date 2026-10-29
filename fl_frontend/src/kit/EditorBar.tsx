@@ -38,7 +38,7 @@ export function EditorBar({
     />
   );
   return (
-    // On desktop as tall as the rail's foot beside it (`--rail-foot`, set by the rail frame), so the two top
+    // On desktop as tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top
     // hairlines are one line.
     <div className="sticky bottom-0 z-10 flex h-14 items-center gap-4 border-t border-border bg-bg px-4 lg:h-(--rail-foot) lg:px-8">
       <StatusLine
