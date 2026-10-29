@@ -16,6 +16,7 @@ from app.core.codes import Code  # Session 2: the sweep moves every use onto Cod
 from app.core.crud import a_write_may_stand
 from app.core.exceptions import DUPLICATE_KEY, APIError
 from app.core.logging import fl_logger, trace_id_var
+from app.core.middlewares import record_error_code
 
 NO_DATA_TEXT = "//- No Data -//"
 
@@ -50,7 +51,11 @@ def error_response(
     *,
     fields: list[dict[str, Any]] | None = None,
 ) -> JSONResponse:
-    """The one failure body shape every handler returns: the code, the id to quote, and a refused payload's `fields`."""
+    """The one failure body shape every handler returns: the code, the id to quote, and a refused payload's `fields`.
+
+    The code reaches the request's access line from here, which is the one log line a refusal writes.
+    """
+    record_error_code(error_code)
     content: dict[str, Any] = {"error_code": error_code, "trace_id": trace_id_var.get()}
     if fields is not None:
         content["fields"] = fields
@@ -59,7 +64,6 @@ def error_response(
 
 
 async def api_error_handler(request: Request, exc: APIError):
-    fl_logger.warning(f"Refusal ({exc.status_code})", extra={"error_code": exc.error_code})
     # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `REQ-VAL-001`
     # carries pydantic's error type.
     fields = (
@@ -78,7 +82,6 @@ async def routing_exception_handler(request: Request, exc: StarletteHTTPExceptio
     if error_code is None:
         return await global_catch_all_exception_handler(request, exc)
 
-    fl_logger.warning(f"Routing refusal ({exc.status_code}): {exc.detail or NO_DATA_TEXT}", extra={"error_code": error_code})
     headers = exc.headers
     if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
         headers = {**(headers or {}), "Allow": ", ".join(served_methods(request))}
@@ -105,10 +108,7 @@ def served_methods(request: Request) -> list[str]:
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
     # A server-side model failing on server-side data; a request payload raises
     # `RequestValidationError` instead. 500, not 422.
-    fl_logger.error(
-        f"Model validation failed outside request parsing: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
-        extra={"error_code": STORED_DATA_INVALID},
-    )
+    fl_logger.error("http.stored_data_invalid", extra={"error_code": STORED_DATA_INVALID, "rejected": rejected_fields_of(exc.errors())})
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, STORED_DATA_INVALID)
 
@@ -116,13 +116,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
     if any(error["type"] == UNDECODABLE_BODY for error in errors):
-        fl_logger.warning(f"Request body unreadable: {rejected_fields_of(errors) or NO_DATA_TEXT}", extra={"error_code": BODY_UNREADABLE})
         return error_response(status.HTTP_400_BAD_REQUEST, BODY_UNREADABLE)
-
-    fl_logger.warning(
-        f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
-        extra={"error_code": PAYLOAD_REFUSED},
-    )
 
     return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 
@@ -155,23 +149,16 @@ def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
 
 
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
-    """A unique index refused the write. 409, not a 500.
-
-    The index NAME is logged rather than returned: it names a collection and its fields.
-    """
-    fl_logger.warning(
-        f"Unique index refused a write: {refused_index_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": DUPLICATE_KEY},
-    )
+    """A unique index refused the write. 409, not a 500, and the index's name is never returned: it names a collection and its fields."""
 
     return error_response(status.HTTP_409_CONFLICT, DUPLICATE_KEY)
 
 
-# The server's own spelling in `errmsg`; `keyValue` sits right beside it, which is why the whole
-# sentence must never travel.
+# Session 2: the sweep moves its two tests off this and deletes it with `refused_index_of`.
 _INDEX_NAME = re.compile(r"index: (\S+) dup key")
 
 
+# Session 2: the sweep moves its two tests off this and deletes it with `_INDEX_NAME`.
 def refused_index_of(exc: DuplicateKeyError) -> str | None:
     """The name of the unique index that refused, and nothing else of the server's report.
 
@@ -234,13 +221,17 @@ async def db_exception_handler(request: Request, exc: PyMongoError):
     # actor check has written nothing, and a write outside a transaction carries no label.
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and a_write_may_stand())
     error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
-    what = "Database deadline passed" if exc.timeout else "Database crash"
 
-    # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
-    # whole `op` under a bulk write -- and a traceback renders it a second time in its last line.
+    # Never `str(exc)`, which quotes the document the server refused -- `consideredValue` under a
+    # validator, the whole `op` under a bulk write -- and a traceback renders it a second time.
     fl_logger.error(
-        f"{what} ({type(exc).__name__}, code {getattr(exc, 'code', None)}): {refused_properties_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": error_code},
+        "http.database_timeout" if exc.timeout else "http.database_failed",
+        extra={
+            "error_code": error_code,
+            "exception": type(exc).__name__,
+            "server_code": getattr(exc, "code", None),
+            "refused": refused_properties_of(exc),
+        },
     )
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, error_code)
@@ -293,11 +284,8 @@ def _dotted(path: str, name: Any) -> str:
 
 
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
-    fl_logger.error(
-        f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}",
-        exc_info=True,
-        extra={"error_code": UNHANDLED_CRASH},
-    )
+    # The stack is uvicorn's own line, which follows this one; `str(exc)` can quote a value, so only the type travels.
+    fl_logger.error("http.unhandled", extra={"error_code": UNHANDLED_CRASH, "exception": type(exc).__name__})
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, UNHANDLED_CRASH)
 
