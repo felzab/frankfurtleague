@@ -32,6 +32,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
 )
+from app.shared.schemas.custom import fold_shorthand
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -1727,7 +1728,7 @@ def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
     if team_id is not None:
         return f"{gruppe.get('saison_id')} team {team_id}"
 
-    kuerzel = str(gruppe.get("shorthand") or "").strip().upper()
+    kuerzel = fold_shorthand(str(gruppe.get("shorthand") or ""))
 
     return None if kuerzel == "" else f"{gruppe.get('saison_id')} kuerzel {kuerzel}"
 
@@ -1735,8 +1736,10 @@ def _dublette_schluessel(gruppe: Mapping[str, Any]) -> str | None:
 def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
     """Which keys more than one open application holds, over every row the tally covered.
 
-    `.strip().upper()` and never a collation: this has to fold as the served row's key does in
-    `fl_frontend/src/features/bewerbungen/duplicates.ts`, or a marked pair loses one half.
+    `fold_shorthand` and never a collation: the tally groups the stored codes, a row written before the
+    input fold among them, while `CustomShorthand` folds each as it is served and
+    `fl_frontend/src/features/bewerbungen/duplicates.ts` keys a row by the served code, so a pair
+    parted only by a stored code's case or padding is one collision at both ends.
     """
 
     gehalten: dict[str, int] = {}

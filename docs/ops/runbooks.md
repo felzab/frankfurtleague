@@ -1371,7 +1371,7 @@ which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; t
 **The erasure journal's export answers in its unit's status and its file names** (§7): the status
 says when the last pass ran and how it ended, and every pass writes a file for each day of the last
 thirty that the backend's logs hold a line of, an empty one where no erasure fell. The backend logs
-every request at `INFO`, its own health probe's among them, so at the default `LOG_LEVEL_APP` every
+every request at `INFO`, its own health probe's among them, so every
 day it ran has a file, today's from that day's first pass, and a day missing among them is one no
 pass read while the stream or a deploy copy still held it:
 

@@ -378,8 +378,7 @@ def test_the_person_exemption_names_only_published_operations():
 def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
-    `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
-    agree. Not parametrised, so one failure names every unearned exemption at once.
+    Not parametrised, so one failure names every unearned exemption at once.
     """
     unearned = []
     for operation in sorted(PERSON_OPERATIONS):

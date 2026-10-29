@@ -33,7 +33,7 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
 function dublettenSchluessel(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
   if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
-  // As stored: the backend strips and upper-cases a code on arrival, so two spellings of one code are one value.
+  // As served: the backend folds a code on arrival and again as it serves one, so two spellings of one code are one value.
   const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand;
 
   return kuerzel === "" ? null : { art: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };

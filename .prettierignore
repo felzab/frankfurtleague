@@ -19,8 +19,9 @@ fl_frontend/out/
 *.tsbuildinfo
 next-env.d.ts
 
-# Generated: formatting one only guarantees it drifts again on the next regeneration, and the
-# reformat would bury the change its diff carries.
+# Generated, and never formatted by hand: a hand reformat drifts again on the next regeneration and
+# buries the change its diff carries. Orval formats its own output as it writes it
+# (`fl_frontend/orval.config.ts`).
 fl_backend/openapi.json
 fl_frontend/eslint-suppressions.json
 fl_frontend/src/core/generated/

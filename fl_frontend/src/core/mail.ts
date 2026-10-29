@@ -35,7 +35,7 @@ function absenderZeile(von: MailVon): string {
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
 const ANTWORT_AN = KONTAKT_EMAIL;
 
-// Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` bounds a
+// Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
 // backend call: a per-attempt budget would multiply by the attempts below, and the application-form
 // notices are awaited inside an admin's own save.
 const MAIL_TIMEOUT_MS = 15000;

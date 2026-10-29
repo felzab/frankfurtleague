@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.core.security import GrantLookup, get_grant_lookup
 from tests.config import ADMINISTRATORS
 
-# Before any sign-in a case signs a token for, so the check this answers admits every one of them.
+# Before any sign-in a case states, so the check this answers admits every one of them.
 GRANTED_SINCE = datetime(2026, 1, 1, tzinfo=UTC)
 
 

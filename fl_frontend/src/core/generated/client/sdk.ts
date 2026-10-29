@@ -1,4 +1,7 @@
-import 'server-only';
+import "server-only";
+
+import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
+
 import type {
   AdresswechselSweepAdresswechselParams,
   AktionenGetAktionenParams,
@@ -27,8 +30,8 @@ import type {
   FLAdresswechselVerwaltungPayload,
   FLAdresswechselZugestelltPayload,
   FLAdresswechselZugestelltResponse,
-  FLAktionSingleResponse,
   FLAktionenListResponse,
+  FLAktionSingleResponse,
   FLAnmeldungResponse,
   FLAnnehmenBewerbungPayload,
   FLAnnehmenBewerbungResponse,
@@ -37,14 +40,15 @@ import type {
   FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
   FLBerechtigungAntragGenehmigtResponse,
+  FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
-  FLBerechtigungenListResponse,
   FLBewerbungEinwilligungAnsichtPayload,
   FLBewerbungEinwilligungAnsichtResponse,
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungenListResponse,
   FLBewerbungFensterResponse,
   FLBewerbungKeinFensterResponse,
   FLBewerbungKontaktEmailPayload,
@@ -66,7 +70,6 @@ import type {
   FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
-  FLBewerbungenListResponse,
   FLEinladungAnsichtPayload,
   FLEinladungAnsichtResponse,
   FLEinladungMintResponse,
@@ -143,19 +146,19 @@ import type {
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
+  FLRegistrierungenListResponse,
   FLRegistrierungSelbstEinwilligungPayload,
   FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
-  FLRegistrierungenListResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonsListResponse,
   FLSaisonSpielerResponse,
+  FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
   FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSaisonTeamResponse,
-  FLSaisonsListResponse,
-  FLSaisonsSingleResponse,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
@@ -172,16 +175,18 @@ import type {
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
   FLSpielberichtAdminResponse,
-  FLSpielberichtPayload,
-  FLSpielberichtSchiedsrichterResponse,
   FLSpielberichtePersonResponse,
   FLSpielberichteSaisonResponse,
+  FLSpielberichtPayload,
+  FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnsichtPayload,
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
   FLSpielbestaetigungEintragenResponse,
+  FLSpielbestaetigungenListResponse,
+  FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
@@ -191,13 +196,10 @@ import type {
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
   FLSpielbestaetigungVerwerfenResponse,
-  FLSpielbestaetigungenListResponse,
-  FLSpielbestaetigungenSelbstResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpieleListResponse,
-  FLSpieleSingleResponse,
   FLSpielerAdminSingleResponse,
   FLSpielerListResponse,
   FLSpielerMembershipsResponse,
@@ -206,22 +208,23 @@ import type {
   FLSpielerSelbstEinwilligungResponse,
   FLSpielerSelbstResponse,
   FLSpielerSingleResponse,
-  FLSpielortWriteResponse,
+  FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
-  FLSpieltagWriteResponse,
+  FLSpielortWriteResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
+  FLSpieltagWriteResponse,
   FLSubjektPayload,
   FLSubjektResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
-  FLTeamSitzeResponse,
-  FLTeamWriteResponse,
   FLTeamsGroupedResponse,
+  FLTeamSitzeResponse,
   FLTeamsListResponse,
   FLTeamsMembershipsResponse,
   FLTeamsSingleResponse,
+  FLTeamWriteResponse,
   FLUndrawSpielplanResponse,
   FLZustellungAbgewiesenPayload,
   FLZustellungAngenommenPayload,
@@ -247,42 +250,27 @@ import type {
   SpieltageGetSpieltageParams,
   TeamsGetTeamParams,
   TeamsGetTeamsForAdminParams,
-  TeamsGetTeamsParams
-} from './types.ts';
+  TeamsGetTeamsParams,
+} from "./types.ts";
 
-import { unkeyedTransport } from '@/core/transport';
-import { adminKeyTransport } from '@/core/transport';
-import { baseKeyTransport } from '@/core/transport';
-import { systemKeyTransport } from '@/core/transport';
-import { serializeQuery } from '@/core/transport';
 export const getSystemRootUrl = () => {
-
-
-  return `/`
-}
+  return `/`;
+};
 
 /**
  * Confirm the service is answering. The versioned API is under `/api/v0`; `/system/is_live` is the probe.
  * @summary Root
  */
-export const systemRoot = async ( options?: Parameters<typeof unkeyedTransport>[1]): Promise<unknown> => {
-
-  return unkeyedTransport<unknown>(getSystemRootUrl(),
-  {
+export const systemRoot = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<unknown> => {
+  return unkeyedTransport<unknown>(getSystemRootUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getAdresswechselPostAdresswechselVerwaltungUrl = () => {
-
-
-  return `/api/v0/adresswechsel`
-}
+  return `/api/v0/adresswechsel`;
+};
 
 /**
  * Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.
@@ -302,15 +290,15 @@ export const getAdresswechselPostAdresswechselVerwaltungUrl = () => {
  * (`-011`), and a reason naming a person of the records the change would move (`-008`).
  * @summary Start an address change for a person who says they cannot sign in
  */
-export const adresswechselPostAdresswechselVerwaltung = async (fLAdresswechselVerwaltungPayload: FLAdresswechselVerwaltungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAdresswechselVerwaltungMintResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselPostAdresswechselVerwaltung = async (
+  fLAdresswechselVerwaltungPayload: FLAdresswechselVerwaltungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAdresswechselVerwaltungMintResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -318,22 +306,17 @@ export const adresswechselPostAdresswechselVerwaltung = async (fLAdresswechselVe
     }
     return headers;
   };
-return adminKeyTransport<FLAdresswechselVerwaltungMintResponse>(getAdresswechselPostAdresswechselVerwaltungUrl(),
-  {
+  return adminKeyTransport<FLAdresswechselVerwaltungMintResponse>(getAdresswechselPostAdresswechselVerwaltungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselVerwaltungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselVerwaltungPayload),
+  });
+};
 
 export const getAdresswechselGetAdresswechselVerwaltungAnsichtUrl = () => {
-
-
-  return `/api/v0/adresswechsel/ansicht`
-}
+  return `/api/v0/adresswechsel/ansicht`;
+};
 
 /**
  * Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.
@@ -346,15 +329,15 @@ export const getAdresswechselGetAdresswechselVerwaltungAnsichtUrl = () => {
  * kept, and `REQ-ADRESSWECHSEL-002` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
  */
-export const adresswechselGetAdresswechselVerwaltungAnsicht = async (fLAdresswechselVerwaltungAnsichtPayload: FLAdresswechselVerwaltungAnsichtPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAdresswechselVerwaltungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselGetAdresswechselVerwaltungAnsicht = async (
+  fLAdresswechselVerwaltungAnsichtPayload: FLAdresswechselVerwaltungAnsichtPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAdresswechselVerwaltungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -362,22 +345,17 @@ export const adresswechselGetAdresswechselVerwaltungAnsicht = async (fLAdresswec
     }
     return headers;
   };
-return adminKeyTransport<FLAdresswechselVerwaltungAnsichtResponse>(getAdresswechselGetAdresswechselVerwaltungAnsichtUrl(),
-  {
+  return adminKeyTransport<FLAdresswechselVerwaltungAnsichtResponse>(getAdresswechselGetAdresswechselVerwaltungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselVerwaltungAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselVerwaltungAnsichtPayload),
+  });
+};
 
 export const getAdresswechselPostAdresswechselAntwortUrl = () => {
-
-
-  return `/api/v0/adresswechsel/bestaetigung`
-}
+  return `/api/v0/adresswechsel/bestaetigung`;
+};
 
 /**
  * Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.
@@ -403,15 +381,15 @@ export const getAdresswechselPostAdresswechselAntwortUrl = () => {
  * `-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
-export const adresswechselPostAdresswechselAntwort = async (fLAdresswechselAntwortPayload: FLAdresswechselAntwortPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLAdresswechselAntwortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselPostAdresswechselAntwort = async (
+  fLAdresswechselAntwortPayload: FLAdresswechselAntwortPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLAdresswechselAntwortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -419,22 +397,17 @@ export const adresswechselPostAdresswechselAntwort = async (fLAdresswechselAntwo
     }
     return headers;
   };
-return baseKeyTransport<FLAdresswechselAntwortResponse>(getAdresswechselPostAdresswechselAntwortUrl(),
-  {
+  return baseKeyTransport<FLAdresswechselAntwortResponse>(getAdresswechselPostAdresswechselAntwortUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAntwortPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselAntwortPayload),
+  });
+};
 
 export const getAdresswechselGetAdresswechselAnsichtUrl = () => {
-
-
-  return `/api/v0/adresswechsel/bestaetigung/ansicht`
-}
+  return `/api/v0/adresswechsel/bestaetigung/ansicht`;
+};
 
 /**
  * Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
@@ -452,15 +425,15 @@ export const getAdresswechselGetAdresswechselAnsichtUrl = () => {
  * until when, and never whether it could be confirmed: the stop is refused nothing.
  * @summary What one address link opens
  */
-export const adresswechselGetAdresswechselAnsicht = async (fLAdresswechselAnsichtPayload: FLAdresswechselAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLAdresswechselAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselGetAdresswechselAnsicht = async (
+  fLAdresswechselAnsichtPayload: FLAdresswechselAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLAdresswechselAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -468,22 +441,17 @@ export const adresswechselGetAdresswechselAnsicht = async (fLAdresswechselAnsich
     }
     return headers;
   };
-return baseKeyTransport<FLAdresswechselAnsichtResponse>(getAdresswechselGetAdresswechselAnsichtUrl(),
-  {
+  return baseKeyTransport<FLAdresswechselAnsichtResponse>(getAdresswechselGetAdresswechselAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselAnsichtPayload),
+  });
+};
 
 export const getAdresswechselPostAdresswechselStoppUrl = () => {
-
-
-  return `/api/v0/adresswechsel/bestaetigung/stopp`
-}
+  return `/api/v0/adresswechsel/bestaetigung/stopp`;
+};
 
 /**
  * Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
@@ -492,15 +460,15 @@ export const getAdresswechselPostAdresswechselStoppUrl = () => {
  * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
  * @summary Stop a pending address change
  */
-export const adresswechselPostAdresswechselStopp = async (fLAdresswechselStoppPayload: FLAdresswechselStoppPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLAdresswechselStoppResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselPostAdresswechselStopp = async (
+  fLAdresswechselStoppPayload: FLAdresswechselStoppPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLAdresswechselStoppResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -508,22 +476,19 @@ export const adresswechselPostAdresswechselStopp = async (fLAdresswechselStoppPa
     }
     return headers;
   };
-return baseKeyTransport<FLAdresswechselStoppResponse>(getAdresswechselPostAdresswechselStoppUrl(),
-  {
+  return baseKeyTransport<FLAdresswechselStoppResponse>(getAdresswechselPostAdresswechselStoppUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselStoppPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselStoppPayload),
+  });
+};
 
-
-
-export const getAdresswechselSweepAdresswechselUrl = (params?: AdresswechselSweepAdresswechselParams,) => {
+export const getAdresswechselSweepAdresswechselUrl = (params?: AdresswechselSweepAdresswechselParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/adresswechsel/sweep?${stringifiedParams}` : `/api/v0/adresswechsel/sweep`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/adresswechsel/sweep?${stringifiedParams}` : `/api/v0/adresswechsel/sweep`;
+};
 
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
@@ -547,24 +512,19 @@ export const getAdresswechselSweepAdresswechselUrl = (params?: AdresswechselSwee
  * the changes standing due after the call, so it is no stopping condition.
  * @summary End the lapsed address changes, and make the due ones take effect
  */
-export const adresswechselSweepAdresswechsel = async (params?: AdresswechselSweepAdresswechselParams, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLAdresswechselSweepResponse> => {
-
-  return systemKeyTransport<FLAdresswechselSweepResponse>(getAdresswechselSweepAdresswechselUrl(params),
-  {
+export const adresswechselSweepAdresswechsel = async (
+  params?: AdresswechselSweepAdresswechselParams,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAdresswechselSweepResponse> => {
+  return systemKeyTransport<FLAdresswechselSweepResponse>(getAdresswechselSweepAdresswechselUrl(params), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getAdresswechselGetAdresswechselAdresseUrl = () => {
-
-
-  return `/api/v0/adresswechsel/sweep/adresse`
-}
+  return `/api/v0/adresswechsel/sweep/adresse`;
+};
 
 /**
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
@@ -576,15 +536,15 @@ export const getAdresswechselGetAdresswechselAdresseUrl = () => {
  * address only in the answer.
  * @summary Say which address a live change would move to
  */
-export const adresswechselGetAdresswechselAdresse = async (fLAdresswechselAdressePayload: FLAdresswechselAdressePayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLAdresswechselAdresseResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselGetAdresswechselAdresse = async (
+  fLAdresswechselAdressePayload: FLAdresswechselAdressePayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAdresswechselAdresseResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -592,22 +552,17 @@ export const adresswechselGetAdresswechselAdresse = async (fLAdresswechselAdress
     }
     return headers;
   };
-return systemKeyTransport<FLAdresswechselAdresseResponse>(getAdresswechselGetAdresswechselAdresseUrl(),
-  {
+  return systemKeyTransport<FLAdresswechselAdresseResponse>(getAdresswechselGetAdresswechselAdresseUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAdressePayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselAdressePayload),
+  });
+};
 
 export const getAdresswechselPostAdresswechselPostausgangUrl = () => {
-
-
-  return `/api/v0/adresswechsel/sweep/postausgang`
-}
+  return `/api/v0/adresswechsel/sweep/postausgang`;
+};
 
 /**
  * Claim, oldest first and a page at a time, every owed notice no claim holds or whose claim has lapsed, for ten minutes.
@@ -620,24 +575,18 @@ export const getAdresswechselPostAdresswechselPostausgangUrl = () => {
  * the caller delivers nothing, logs it by id and stamps it. Server to server alone: the answer names addresses.
  * @summary Claim the notices the address changes' ends still owe
  */
-export const adresswechselPostAdresswechselPostausgang = async ( options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLAdresswechselPostausgangResponse> => {
-
-  return systemKeyTransport<FLAdresswechselPostausgangResponse>(getAdresswechselPostAdresswechselPostausgangUrl(),
-  {
+export const adresswechselPostAdresswechselPostausgang = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAdresswechselPostausgangResponse> => {
+  return systemKeyTransport<FLAdresswechselPostausgangResponse>(getAdresswechselPostAdresswechselPostausgangUrl(), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getAdresswechselPostAdresswechselZugestelltUrl = () => {
-
-
-  return `/api/v0/adresswechsel/sweep/postausgang/zugestellt`
-}
+  return `/api/v0/adresswechsel/sweep/postausgang/zugestellt`;
+};
 
 /**
  * Remove each named notice the named claim still holds, and nothing else.
@@ -647,15 +596,15 @@ export const getAdresswechselPostAdresswechselZugestelltUrl = () => {
  * names addresses, and the log keeps no image of its removal.
  * @summary Remove the delivered notices a claim holds
  */
-export const adresswechselPostAdresswechselZugestellt = async (fLAdresswechselZugestelltPayload: FLAdresswechselZugestelltPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLAdresswechselZugestelltResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const adresswechselPostAdresswechselZugestellt = async (
+  fLAdresswechselZugestelltPayload: FLAdresswechselZugestelltPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAdresswechselZugestelltResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -663,22 +612,17 @@ export const adresswechselPostAdresswechselZugestellt = async (fLAdresswechselZu
     }
     return headers;
   };
-return systemKeyTransport<FLAdresswechselZugestelltResponse>(getAdresswechselPostAdresswechselZugestelltUrl(),
-  {
+  return systemKeyTransport<FLAdresswechselZugestelltResponse>(getAdresswechselPostAdresswechselZugestelltUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselZugestelltPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselZugestelltPayload),
+  });
+};
 
-
-
-export const getAdresswechselDeleteAdresswechselUrl = (adresswechselId: string,) => {
-
-
-  return `/api/v0/adresswechsel/${adresswechselId}`
-}
+export const getAdresswechselDeleteAdresswechselUrl = (adresswechselId: string) => {
+  return `/api/v0/adresswechsel/${adresswechselId}`;
+};
 
 /**
  * Discard the change this id names: its links open nothing to press, and the address on file stays.
@@ -692,24 +636,19 @@ export const getAdresswechselDeleteAdresswechselUrl = (adresswechselId: string,)
  * (`REQ-ADRESSWECHSEL-002`); 404 for an id naming no change.
  * @summary Discard a pending address change
  */
-export const adresswechselDeleteAdresswechsel = async (adresswechselId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAdresswechselIdResponse> => {
-
-  return adminKeyTransport<FLAdresswechselIdResponse>(getAdresswechselDeleteAdresswechselUrl(adresswechselId),
-  {
+export const adresswechselDeleteAdresswechsel = async (
+  adresswechselId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAdresswechselIdResponse> => {
+  return adminKeyTransport<FLAdresswechselIdResponse>(getAdresswechselDeleteAdresswechselUrl(adresswechselId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getAdresswechselEinladenAdresswechselUrl = (adresswechselId: string,) => {
-
-
-  return `/api/v0/adresswechsel/${adresswechselId}/einladen`
-}
+export const getAdresswechselEinladenAdresswechselUrl = (adresswechselId: string) => {
+  return `/api/v0/adresswechsel/${adresswechselId}/einladen`;
+};
 
 /**
  * Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.
@@ -726,24 +665,19 @@ export const getAdresswechselEinladenAdresswechselUrl = (adresswechselId: string
  * or confirmed, has no link to re-send.
  * @summary Send a pending address a fresh link
  */
-export const adresswechselEinladenAdresswechsel = async (adresswechselId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAdresswechselVerwaltungMintResponse> => {
-
-  return adminKeyTransport<FLAdresswechselVerwaltungMintResponse>(getAdresswechselEinladenAdresswechselUrl(adresswechselId),
-  {
+export const adresswechselEinladenAdresswechsel = async (
+  adresswechselId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAdresswechselVerwaltungMintResponse> => {
+  return adminKeyTransport<FLAdresswechselVerwaltungMintResponse>(getAdresswechselEinladenAdresswechselUrl(adresswechselId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getAdresswechselPostAdresswechselGenehmigungUrl = (adresswechselId: string,) => {
-
-
-  return `/api/v0/adresswechsel/${adresswechselId}/genehmigung`
-}
+export const getAdresswechselPostAdresswechselGenehmigungUrl = (adresswechselId: string) => {
+  return `/api/v0/adresswechsel/${adresswechselId}/genehmigung`;
+};
 
 /**
  * Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.
@@ -763,24 +697,21 @@ export const getAdresswechselPostAdresswechselGenehmigungUrl = (adresswechselId:
  * `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
  * @summary Approve the move of an administrator's access with their address change
  */
-export const adresswechselPostAdresswechselGenehmigung = async (adresswechselId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAdresswechselGenehmigungResponse> => {
-
-  return adminKeyTransport<FLAdresswechselGenehmigungResponse>(getAdresswechselPostAdresswechselGenehmigungUrl(adresswechselId),
-  {
+export const adresswechselPostAdresswechselGenehmigung = async (
+  adresswechselId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAdresswechselGenehmigungResponse> => {
+  return adminKeyTransport<FLAdresswechselGenehmigungResponse>(getAdresswechselPostAdresswechselGenehmigungUrl(adresswechselId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getAktionenGetAktionenUrl = (params?: AktionenGetAktionenParams,) => {
+export const getAktionenGetAktionenUrl = (params?: AktionenGetAktionenParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/aktionen?${stringifiedParams}` : `/api/v0/aktionen`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/aktionen?${stringifiedParams}` : `/api/v0/aktionen`;
+};
 
 /**
  * List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
@@ -804,24 +735,19 @@ export const getAktionenGetAktionenUrl = (params?: AktionenGetAktionenParams,) =
  * such write rather than one (`docs/glossary.md :: Vorgangsnummer`).
  * @summary List recorded admin actions
  */
-export const aktionenGetAktionen = async (params?: AktionenGetAktionenParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAktionenListResponse> => {
-
-  return adminKeyTransport<FLAktionenListResponse>(getAktionenGetAktionenUrl(params),
-  {
+export const aktionenGetAktionen = async (
+  params?: AktionenGetAktionenParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAktionenListResponse> => {
+  return adminKeyTransport<FLAktionenListResponse>(getAktionenGetAktionenUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getAktionenGetAktionByIdUrl = (aktionId: string,) => {
-
-
-  return `/api/v0/aktionen/${aktionId}`
-}
+export const getAktionenGetAktionByIdUrl = (aktionId: string) => {
+  return `/api/v0/aktionen/${aktionId}`;
+};
 
 /**
  * One row with the document its write replaced, which the list withholds.
@@ -830,24 +756,19 @@ export const getAktionenGetAktionByIdUrl = (aktionId: string,) => {
  * address in it included; the actor is withheld as the list withholds it.
  * @summary One recorded admin action
  */
-export const aktionenGetAktionById = async (aktionId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAktionSingleResponse> => {
-
-  return adminKeyTransport<FLAktionSingleResponse>(getAktionenGetAktionByIdUrl(aktionId),
-  {
+export const aktionenGetAktionById = async (
+  aktionId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAktionSingleResponse> => {
+  return adminKeyTransport<FLAktionSingleResponse>(getAktionenGetAktionByIdUrl(aktionId), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBerechtigungenGetBerechtigungenUrl = () => {
-
-
-  return `/api/v0/berechtigungen`
-}
+  return `/api/v0/berechtigungen`;
+};
 
 /**
  * List every live grant of access to the administration, by address: its tier, who granted it and when.
@@ -871,24 +792,18 @@ export const getBerechtigungenGetBerechtigungenUrl = () => {
  * grant's row.
  * @summary List who may enter the administration
  */
-export const berechtigungenGetBerechtigungen = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBerechtigungenListResponse> => {
-
-  return adminKeyTransport<FLBerechtigungenListResponse>(getBerechtigungenGetBerechtigungenUrl(),
-  {
+export const berechtigungenGetBerechtigungen = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBerechtigungenListResponse> => {
+  return adminKeyTransport<FLBerechtigungenListResponse>(getBerechtigungenGetBerechtigungenUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBerechtigungenPostBerechtigungUrl = () => {
-
-
-  return `/api/v0/berechtigungen`
-}
+  return `/api/v0/berechtigungen`;
+};
 
 /**
  * Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.
@@ -902,19 +817,18 @@ export const getBerechtigungenPostBerechtigungUrl = () => {
  * holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
  * the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
  * its announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier
- * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused
- * `REQ-AUTH-009` otherwise.
+ * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
  * @summary Grant access to the administration
  */
-export const berechtigungenPostBerechtigung = async (fLPostBerechtigungPayload: FLPostBerechtigungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostBerechtigungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const berechtigungenPostBerechtigung = async (
+  fLPostBerechtigungPayload: FLPostBerechtigungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostBerechtigungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -922,22 +836,17 @@ export const berechtigungenPostBerechtigung = async (fLPostBerechtigungPayload: 
     }
     return headers;
   };
-return adminKeyTransport<FLPostBerechtigungResponse>(getBerechtigungenPostBerechtigungUrl(),
-  {
+  return adminKeyTransport<FLPostBerechtigungResponse>(getBerechtigungenPostBerechtigungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostBerechtigungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostBerechtigungPayload),
+  });
+};
 
 export const getBerechtigungenPostBerechtigungenAbgleichUrl = () => {
-
-
-  return `/api/v0/berechtigungen/abgleich`
-}
+  return `/api/v0/berechtigungen/abgleich`;
+};
 
 /**
  * Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.
@@ -975,24 +884,18 @@ export const getBerechtigungenPostBerechtigungenAbgleichUrl = () => {
  * while they hold a live, unbarred grant, and nobody otherwise. `an` is null on every other row.
  * @summary Claim the grant changes still to be announced
  */
-export const berechtigungenPostBerechtigungenAbgleich = async ( options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBerechtigungAbgleichResponse> => {
-
-  return systemKeyTransport<FLBerechtigungAbgleichResponse>(getBerechtigungenPostBerechtigungenAbgleichUrl(),
-  {
+export const berechtigungenPostBerechtigungenAbgleich = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBerechtigungAbgleichResponse> => {
+  return systemKeyTransport<FLBerechtigungAbgleichResponse>(getBerechtigungenPostBerechtigungenAbgleichUrl(), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getBerechtigungenPostBerechtigungenAngekuendigtUrl = () => {
-
-
-  return `/api/v0/berechtigungen/abgleich/angekuendigt`
-}
+  return `/api/v0/berechtigungen/abgleich/angekuendigt`;
+};
 
 /**
  * Remove each named change from the queue, where the named claim still holds it, and nothing else.
@@ -1002,15 +905,15 @@ export const getBerechtigungenPostBerechtigungenAngekuendigtUrl = () => {
  * claim. A repeated id counts once. One transaction, recorded under the system actor.
  * @summary Remove the announced changes a claim holds
  */
-export const berechtigungenPostBerechtigungenAngekuendigt = async (fLBerechtigungAngekuendigtPayload: FLBerechtigungAngekuendigtPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBerechtigungAngekuendigtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const berechtigungenPostBerechtigungenAngekuendigt = async (
+  fLBerechtigungAngekuendigtPayload: FLBerechtigungAngekuendigtPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBerechtigungAngekuendigtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1018,22 +921,17 @@ export const berechtigungenPostBerechtigungenAngekuendigt = async (fLBerechtigun
     }
     return headers;
   };
-return systemKeyTransport<FLBerechtigungAngekuendigtResponse>(getBerechtigungenPostBerechtigungenAngekuendigtUrl(),
-  {
+  return systemKeyTransport<FLBerechtigungAngekuendigtResponse>(getBerechtigungenPostBerechtigungenAngekuendigtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBerechtigungAngekuendigtPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBerechtigungAngekuendigtPayload),
+  });
+};
 
-
-
-export const getBerechtigungenDeleteAntragUrl = (antragId: string,) => {
-
-
-  return `/api/v0/berechtigungen/antraege/${antragId}`
-}
+export const getBerechtigungenDeleteAntragUrl = (antragId: string) => {
+  return `/api/v0/berechtigungen/antraege/${antragId}`;
+};
 
 /**
  * Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.
@@ -1046,24 +944,19 @@ export const getBerechtigungenDeleteAntragUrl = (antragId: string,) => {
  * nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.
  * @summary Refuse a grant or a promotion another administrator asked for, or withdraw one's own
  */
-export const berechtigungenDeleteAntrag = async (antragId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBerechtigungAntragAbgelehntResponse> => {
-
-  return adminKeyTransport<FLBerechtigungAntragAbgelehntResponse>(getBerechtigungenDeleteAntragUrl(antragId),
-  {
+export const berechtigungenDeleteAntrag = async (
+  antragId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBerechtigungAntragAbgelehntResponse> => {
+  return adminKeyTransport<FLBerechtigungAntragAbgelehntResponse>(getBerechtigungenDeleteAntragUrl(antragId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string,) => {
-
-
-  return `/api/v0/berechtigungen/antraege/${antragId}/genehmigung`
-}
+export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string) => {
+  return `/api/v0/berechtigungen/antraege/${antragId}/genehmigung`;
+};
 
 /**
  * Approve a request, the second pair of eyes a grant or a promotion waits on.
@@ -1080,24 +973,19 @@ export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string,) => 
  * `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
  * @summary Approve a grant or a promotion another administrator asked for
  */
-export const berechtigungenPostAntragGenehmigung = async (antragId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBerechtigungAntragGenehmigtResponse> => {
-
-  return adminKeyTransport<FLBerechtigungAntragGenehmigtResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId),
-  {
+export const berechtigungenPostAntragGenehmigung = async (
+  antragId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBerechtigungAntragGenehmigtResponse> => {
+  return adminKeyTransport<FLBerechtigungAntragGenehmigtResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBerechtigungenDeleteBerechtigungUrl = (berechtigungId: string,) => {
-
-
-  return `/api/v0/berechtigungen/${berechtigungId}`
-}
+export const getBerechtigungenDeleteBerechtigungUrl = (berechtigungId: string) => {
+  return `/api/v0/berechtigungen/${berechtigungId}`;
+};
 
 /**
  * Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.
@@ -1110,24 +998,19 @@ export const getBerechtigungenDeleteBerechtigungUrl = (berechtigungId: string,) 
  * or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
  * @summary Revoke access to the administration
  */
-export const berechtigungenDeleteBerechtigung = async (berechtigungId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBerechtigungWriteResponse> => {
-
-  return adminKeyTransport<FLBerechtigungWriteResponse>(getBerechtigungenDeleteBerechtigungUrl(berechtigungId),
-  {
+export const berechtigungenDeleteBerechtigung = async (
+  berechtigungId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBerechtigungWriteResponse> => {
+  return adminKeyTransport<FLBerechtigungWriteResponse>(getBerechtigungenDeleteBerechtigungUrl(berechtigungId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBerechtigungenPatchBerechtigungUrl = (berechtigungId: string,) => {
-
-
-  return `/api/v0/berechtigungen/${berechtigungId}`
-}
+export const getBerechtigungenPatchBerechtigungUrl = (berechtigungId: string) => {
+  return `/api/v0/berechtigungen/${berechtigungId}`;
+};
 
 /**
  * Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
@@ -1150,16 +1033,16 @@ export const getBerechtigungenPatchBerechtigungUrl = (berechtigungId: string,) =
  * `REQ-AUTH-009`, as the grant's is.
  * @summary Change a grant between administrator and owner
  */
-export const berechtigungenPatchBerechtigung = async (berechtigungId: string,
-    fLPatchBerechtigungPayload: FLPatchBerechtigungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBerechtigungStufeResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const berechtigungenPatchBerechtigung = async (
+  berechtigungId: string,
+  fLPatchBerechtigungPayload: FLPatchBerechtigungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBerechtigungStufeResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1167,22 +1050,19 @@ export const berechtigungenPatchBerechtigung = async (berechtigungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLBerechtigungStufeResponse>(getBerechtigungenPatchBerechtigungUrl(berechtigungId),
-  {
+  return adminKeyTransport<FLBerechtigungStufeResponse>(getBerechtigungenPatchBerechtigungUrl(berechtigungId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchBerechtigungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchBerechtigungPayload),
+  });
+};
 
-
-
-export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbungenParams,) => {
+export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbungenParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen?${stringifiedParams}` : `/api/v0/bewerbungen`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen?${stringifiedParams}` : `/api/v0/bewerbungen`;
+};
 
 /**
  * Every application, newest first, narrowable by season and by any number of the three statuses.
@@ -1210,24 +1090,19 @@ export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbung
  * match.
  * @summary List Bewerbungen
  */
-export const bewerbungenGetBewerbungen = async (params?: BewerbungenGetBewerbungenParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungenListResponse> => {
-
-  return adminKeyTransport<FLBewerbungenListResponse>(getBewerbungenGetBewerbungenUrl(params),
-  {
+export const bewerbungenGetBewerbungen = async (
+  params?: BewerbungenGetBewerbungenParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungenListResponse> => {
+  return adminKeyTransport<FLBewerbungenListResponse>(getBewerbungenGetBewerbungenUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBewerbungenPostBewerbungUrl = () => {
-
-
-  return `/api/v0/bewerbungen`
-}
+  return `/api/v0/bewerbungen`;
+};
 
 /**
  * Store one school's application to play one season as submitted, and mint one confirmation link per contact person.
@@ -1248,15 +1123,15 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * and only once the key has been looked up: a stored key is answered whatever wording it names.
  * @summary Submit a Bewerbung
  */
-export const bewerbungenPostBewerbung = async (fLPostBewerbungPayload: FLPostBewerbungPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLPostBewerbungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenPostBewerbung = async (
+  fLPostBewerbungPayload: FLPostBewerbungPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLPostBewerbungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1264,22 +1139,17 @@ export const bewerbungenPostBewerbung = async (fLPostBewerbungPayload: FLPostBew
     }
     return headers;
   };
-return baseKeyTransport<FLPostBewerbungResponse>(getBewerbungenPostBewerbungUrl(),
-  {
+  return baseKeyTransport<FLPostBewerbungResponse>(getBewerbungenPostBewerbungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostBewerbungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostBewerbungPayload),
+  });
+};
 
 export const getBewerbungenPostEinwilligungUrl = () => {
-
-
-  return `/api/v0/bewerbungen/einwilligung`
-}
+  return `/api/v0/bewerbungen/einwilligung`;
+};
 
 /**
  * Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.
@@ -1308,15 +1178,15 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  * from any seat they held, from its row and its log images, the answer standing.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
-export const bewerbungenPostEinwilligung = async (fLBewerbungEinwilligungAntwortPayload: FLBewerbungEinwilligungAntwortPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenPostEinwilligung = async (
+  fLBewerbungEinwilligungAntwortPayload: FLBewerbungEinwilligungAntwortPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1324,22 +1194,20 @@ export const bewerbungenPostEinwilligung = async (fLBewerbungEinwilligungAntwort
     }
     return headers;
   };
-return baseKeyTransport<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse>(getBewerbungenPostEinwilligungUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungEinwilligungAntwortPayload)
-  }
-);}
-
-
+  return baseKeyTransport<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse>(
+    getBewerbungenPostEinwilligungUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+      body: JSON.stringify(fLBewerbungEinwilligungAntwortPayload),
+    },
+  );
+};
 
 export const getBewerbungenGetEinwilligungAnsichtUrl = () => {
-
-
-  return `/api/v0/bewerbungen/einwilligung/ansicht`
-}
+  return `/api/v0/bewerbungen/einwilligung/ansicht`;
+};
 
 /**
  * Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
@@ -1362,15 +1230,15 @@ export const getBewerbungenGetEinwilligungAnsichtUrl = () => {
  * season that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.
  * @summary What one confirmation link opens
  */
-export const bewerbungenGetEinwilligungAnsicht = async (fLBewerbungEinwilligungAnsichtPayload: FLBewerbungEinwilligungAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungEinwilligungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenGetEinwilligungAnsicht = async (
+  fLBewerbungEinwilligungAnsichtPayload: FLBewerbungEinwilligungAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungEinwilligungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1378,22 +1246,17 @@ export const bewerbungenGetEinwilligungAnsicht = async (fLBewerbungEinwilligungA
     }
     return headers;
   };
-return baseKeyTransport<FLBewerbungEinwilligungAnsichtResponse>(getBewerbungenGetEinwilligungAnsichtUrl(),
-  {
+  return baseKeyTransport<FLBewerbungEinwilligungAnsichtResponse>(getBewerbungenGetEinwilligungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungEinwilligungAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungEinwilligungAnsichtPayload),
+  });
+};
 
 export const getBewerbungenGetOffenesFensterUrl = () => {
-
-
-  return `/api/v0/bewerbungen/fenster`
-}
+  return `/api/v0/bewerbungen/fenster`;
+};
 
 /**
  * Return the season taking applications today -- its window open and the season not ended; 404 when none is.
@@ -1402,24 +1265,16 @@ export const getBewerbungenGetOffenesFensterUrl = () => {
  * withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
  * @summary The Saison currently accepting applications
  */
-export const bewerbungenGetOffenesFenster = async ( options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungFensterResponse> => {
-
-  return baseKeyTransport<FLBewerbungFensterResponse>(getBewerbungenGetOffenesFensterUrl(),
-  {
+export const bewerbungenGetOffenesFenster = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungFensterResponse> => {
+  return baseKeyTransport<FLBewerbungFensterResponse>(getBewerbungenGetOffenesFensterUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenGetFensterUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/bewerbungen/fenster/${saisonId}`
-}
+export const getBewerbungenGetFensterUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/fenster/${saisonId}`;
+};
 
 /**
  * Return one season's application window, or that it records none; 404 only where no season carries the id.
@@ -1429,24 +1284,19 @@ export const getBewerbungenGetFensterUrl = (saisonId: string,) => {
  * reason, and its existence is the whole of what this tier learns about it.
  * @summary One Saison's application window
  */
-export const bewerbungenGetFenster = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse> => {
-
-  return baseKeyTransport<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse>(getBewerbungenGetFensterUrl(saisonId),
-  {
+export const bewerbungenGetFenster = async (
+  saisonId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse> => {
+  return baseKeyTransport<FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse>(getBewerbungenGetFensterUrl(saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenGetKuerzelUrl = (shorthand: string,) => {
-
-
-  return `/api/v0/bewerbungen/kuerzel/${shorthand}`
-}
+export const getBewerbungenGetKuerzelUrl = (shorthand: string) => {
+  return `/api/v0/bewerbungen/kuerzel/${shorthand}`;
+};
 
 /**
  * Answer whether any club holds this three-letter code.
@@ -1455,24 +1305,19 @@ export const getBewerbungenGetKuerzelUrl = (shorthand: string,) => {
  * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
  * @summary Whether a Kürzel is already a club's
  */
-export const bewerbungenGetKuerzel = async (shorthand: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungKuerzelResponse> => {
-
-  return baseKeyTransport<FLBewerbungKuerzelResponse>(getBewerbungenGetKuerzelUrl(shorthand),
-  {
+export const bewerbungenGetKuerzel = async (
+  shorthand: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungKuerzelResponse> => {
+  return baseKeyTransport<FLBewerbungKuerzelResponse>(getBewerbungenGetKuerzelUrl(shorthand), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBewerbungenGetSchulenUrl = () => {
-
-
-  return `/api/v0/bewerbungen/schulen`
-}
+  return `/api/v0/bewerbungen/schulen`;
+};
 
 /**
  * Every club still in the league, as `{id, name}` and nothing else, sorted by name.
@@ -1481,24 +1326,16 @@ export const getBewerbungenGetSchulenUrl = () => {
  * decides what leaves the database. Both are pinned.
  * @summary The clubs a public application may name
  */
-export const bewerbungenGetSchulen = async ( options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungSchulenResponse> => {
-
-  return baseKeyTransport<FLBewerbungSchulenResponse>(getBewerbungenGetSchulenUrl(),
-  {
+export const bewerbungenGetSchulen = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungSchulenResponse> => {
+  return baseKeyTransport<FLBewerbungSchulenResponse>(getBewerbungenGetSchulenUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBewerbungenGetSweepSaisonsUrl = () => {
-
-
-  return `/api/v0/bewerbungen/sweep`
-}
+  return `/api/v0/bewerbungen/sweep`;
+};
 
 /**
  * Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
@@ -1510,24 +1347,18 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
  * nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
  * @summary Every season the sweep has to visit
  */
-export const bewerbungenGetSweepSaisons = async ( options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungSweepSaisonsResponse> => {
-
-  return systemKeyTransport<FLBewerbungSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(),
-  {
+export const bewerbungenGetSweepSaisons = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungSweepSaisonsResponse> => {
+  return systemKeyTransport<FLBewerbungSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenSweepSaisonUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/bewerbungen/sweep/${saisonId}`
-}
+export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/sweep/${saisonId}`;
+};
 
 /**
  * Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
@@ -1573,24 +1404,19 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string,) => {
  * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
  * @summary Run one season's retention clocks
  */
-export const bewerbungenSweepSaison = async (saisonId: string, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungSweepResponse> => {
-
-  return systemKeyTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId),
-  {
+export const bewerbungenSweepSaison = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungSweepResponse> => {
+  return systemKeyTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/bewerbungen/sweep/${saisonId}/angekuendigt`
-}
+export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/sweep/${saisonId}/angekuendigt`;
+};
 
 /**
  * Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
@@ -1605,16 +1431,16 @@ export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string,) => {
  * list answers zero.
  * @summary Stamp the candidates whose notice was delivered
  */
-export const bewerbungenAngekuendigtBewerbungen = async (saisonId: string,
-    fLBewerbungSweepAngekuendigtPayload: FLBewerbungSweepAngekuendigtPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungSweepAngekuendigtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenAngekuendigtBewerbungen = async (
+  saisonId: string,
+  fLBewerbungSweepAngekuendigtPayload: FLBewerbungSweepAngekuendigtPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungSweepAngekuendigtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1622,22 +1448,17 @@ export const bewerbungenAngekuendigtBewerbungen = async (saisonId: string,
     }
     return headers;
   };
-return systemKeyTransport<FLBewerbungSweepAngekuendigtResponse>(getBewerbungenAngekuendigtBewerbungenUrl(saisonId),
-  {
+  return systemKeyTransport<FLBewerbungSweepAngekuendigtResponse>(getBewerbungenAngekuendigtBewerbungenUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepAngekuendigtPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungSweepAngekuendigtPayload),
+  });
+};
 
-
-
-export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/bewerbungen/sweep/${saisonId}/loeschen`
-}
+export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/sweep/${saisonId}/loeschen`;
+};
 
 /**
  * Erase the applications whose deletion notice went out, and redact every log row naming them.
@@ -1651,16 +1472,16 @@ export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string,) => {
  * counted in `fehlgeschlagen`.
  * @summary Erase the notified deletion candidates
  */
-export const bewerbungenLoeschenBewerbungen = async (saisonId: string,
-    fLBewerbungSweepLoeschenPayload: FLBewerbungSweepLoeschenPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungSweepLoeschenResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenLoeschenBewerbungen = async (
+  saisonId: string,
+  fLBewerbungSweepLoeschenPayload: FLBewerbungSweepLoeschenPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungSweepLoeschenResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1668,22 +1489,17 @@ export const bewerbungenLoeschenBewerbungen = async (saisonId: string,
     }
     return headers;
   };
-return systemKeyTransport<FLBewerbungSweepLoeschenResponse>(getBewerbungenLoeschenBewerbungenUrl(saisonId),
-  {
+  return systemKeyTransport<FLBewerbungSweepLoeschenResponse>(getBewerbungenLoeschenBewerbungenUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepLoeschenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungSweepLoeschenPayload),
+  });
+};
 
-
-
-export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/bewerbungen/trikotfarben/${saisonId}`
-}
+export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string) => {
+  return `/api/v0/bewerbungen/trikotfarben/${saisonId}`;
+};
 
 /**
  * Answer which kit colours this season has assigned, so the form can offer the rest.
@@ -1692,24 +1508,19 @@ export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string,) => {
  * The SET alone, naming no club (`READ-BEWERBUNG-001`).
  * @summary The kit colours a Saison has already assigned
  */
-export const bewerbungenGetTrikotfarben = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLBewerbungTrikotFarbenResponse> => {
-
-  return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId),
-  {
+export const bewerbungenGetTrikotfarben = async (
+  saisonId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLBewerbungTrikotFarbenResponse> => {
+  return baseKeyTransport<FLBewerbungTrikotFarbenResponse>(getBewerbungenGetTrikotfarbenUrl(saisonId), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getBewerbungenPostZustellungUrl = () => {
-
-
-  return `/api/v0/bewerbungen/zustellung`
-}
+  return `/api/v0/bewerbungen/zustellung`;
+};
 
 /**
  * Record what the mail provider reported about one message, on every seat that message was sent to.
@@ -1724,15 +1535,15 @@ export const getBewerbungenPostZustellungUrl = () => {
  * must not retry maps it rather than repeating the call.
  * @summary Apply one delivery event to the seats its message was sent to
  */
-export const bewerbungenPostZustellung = async (fLBewerbungZustellungEreignisPayload: FLBewerbungZustellungEreignisPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungZustellungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenPostZustellung = async (
+  fLBewerbungZustellungEreignisPayload: FLBewerbungZustellungEreignisPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungZustellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1740,22 +1551,17 @@ export const bewerbungenPostZustellung = async (fLBewerbungZustellungEreignisPay
     }
     return headers;
   };
-return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenPostZustellungUrl(),
-  {
+  return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenPostZustellungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungZustellungEreignisPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungZustellungEreignisPayload),
+  });
+};
 
 export const getBewerbungenAngenommenZustellungUrl = () => {
-
-
-  return `/api/v0/bewerbungen/zustellung/angenommen`
-}
+  return `/api/v0/bewerbungen/zustellung/angenommen`;
+};
 
 /**
  * Record that the mail provider accepted one message for the seats named, under the id it answered with.
@@ -1770,15 +1576,15 @@ export const getBewerbungenAngenommenZustellungUrl = () => {
  * skipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.
  * @summary Record the message the provider accepted for these seats
  */
-export const bewerbungenAngenommenZustellung = async (fLBewerbungZustellungAngenommenPayload: FLBewerbungZustellungAngenommenPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLBewerbungZustellungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenAngenommenZustellung = async (
+  fLBewerbungZustellungAngenommenPayload: FLBewerbungZustellungAngenommenPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLBewerbungZustellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1786,22 +1592,17 @@ export const bewerbungenAngenommenZustellung = async (fLBewerbungZustellungAngen
     }
     return headers;
   };
-return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenAngenommenZustellungUrl(),
-  {
+  return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenAngenommenZustellungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungZustellungAngenommenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungZustellungAngenommenPayload),
+  });
+};
 
-
-
-export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}`
-}
+export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}`;
+};
 
 /**
  * One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.
@@ -1809,24 +1610,19 @@ export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string,) => {
  * Answers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.
  * @summary One Bewerbung
  */
-export const bewerbungenGetBewerbungById = async (bewerbungId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungSingleResponse> => {
-
-  return adminKeyTransport<FLBewerbungSingleResponse>(getBewerbungenGetBewerbungByIdUrl(bewerbungId),
-  {
+export const bewerbungenGetBewerbungById = async (
+  bewerbungId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungSingleResponse> => {
+  return adminKeyTransport<FLBewerbungSingleResponse>(getBewerbungenGetBewerbungByIdUrl(bewerbungId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenAblehnenBewerbungUrl = (bewerbungId: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/ablehnen`
-}
+export const getBewerbungenAblehnenBewerbungUrl = (bewerbungId: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/ablehnen`;
+};
 
 /**
  * Decline an application, recording who decided and the reason they gave.
@@ -1835,16 +1631,16 @@ export const getBewerbungenAblehnenBewerbungUrl = (bewerbungId: string,) => {
  * so what the school wrote stays the record the decision was taken against.
  * @summary Decline a Bewerbung
  */
-export const bewerbungenAblehnenBewerbung = async (bewerbungId: string,
-    fLAblehnenBewerbungPayload: FLAblehnenBewerbungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAblehnenBewerbungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenAblehnenBewerbung = async (
+  bewerbungId: string,
+  fLAblehnenBewerbungPayload: FLAblehnenBewerbungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAblehnenBewerbungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1852,22 +1648,17 @@ export const bewerbungenAblehnenBewerbung = async (bewerbungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLAblehnenBewerbungResponse>(getBewerbungenAblehnenBewerbungUrl(bewerbungId),
-  {
+  return adminKeyTransport<FLAblehnenBewerbungResponse>(getBewerbungenAblehnenBewerbungUrl(bewerbungId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAblehnenBewerbungPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAblehnenBewerbungPayload),
+  });
+};
 
-
-
-export const getBewerbungenAnnehmenBewerbungUrl = (bewerbungId: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/annehmen`
-}
+export const getBewerbungenAnnehmenBewerbungUrl = (bewerbungId: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/annehmen`;
+};
 
 /**
  * Accept an application, creating the school's club where the applicant proposed a new one.
@@ -1877,16 +1668,16 @@ export const getBewerbungenAnnehmenBewerbungUrl = (bewerbungId: string,) => {
  * confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
  * @summary Accept a Bewerbung and enter the school into the season
  */
-export const bewerbungenAnnehmenBewerbung = async (bewerbungId: string,
-    fLAnnehmenBewerbungPayload: FLAnnehmenBewerbungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAnnehmenBewerbungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenAnnehmenBewerbung = async (
+  bewerbungId: string,
+  fLAnnehmenBewerbungPayload: FLAnnehmenBewerbungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAnnehmenBewerbungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1894,23 +1685,17 @@ export const bewerbungenAnnehmenBewerbung = async (bewerbungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLAnnehmenBewerbungResponse>(getBewerbungenAnnehmenBewerbungUrl(bewerbungId),
-  {
+  return adminKeyTransport<FLAnnehmenBewerbungResponse>(getBewerbungenAnnehmenBewerbungUrl(bewerbungId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAnnehmenBewerbungPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAnnehmenBewerbungPayload),
+  });
+};
 
-
-
-export const getBewerbungenErneutEinwilligungUrl = (bewerbungId: string,
-    seat: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/einwilligung/${seat}/erneut`
-}
+export const getBewerbungenErneutEinwilligungUrl = (bewerbungId: string, seat: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/einwilligung/${seat}/erneut`;
+};
 
 /**
  * Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
@@ -1923,26 +1708,20 @@ export const getBewerbungenErneutEinwilligungUrl = (bewerbungId: string,
  * holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
  * @summary Re-send one seat's confirmation link
  */
-export const bewerbungenErneutEinwilligung = async (bewerbungId: string,
-    seat: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungEinwilligungErneutResponse> => {
-
-  return adminKeyTransport<FLBewerbungEinwilligungErneutResponse>(getBewerbungenErneutEinwilligungUrl(bewerbungId,seat),
-  {
+export const bewerbungenErneutEinwilligung = async (
+  bewerbungId: string,
+  seat: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungEinwilligungErneutResponse> => {
+  return adminKeyTransport<FLBewerbungEinwilligungErneutResponse>(getBewerbungenErneutEinwilligungUrl(bewerbungId, seat), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string,
-    seat: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}`
-}
+export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string, seat: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}`;
+};
 
 /**
  * Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.
@@ -1964,17 +1743,17 @@ export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string,
  * seated being a new acceptance. A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
-export const bewerbungenBesetzeKontaktSitz = async (bewerbungId: string,
-    seat: string,
-    fLBewerbungKontaktSitzPayload: FLBewerbungKontaktSitzPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungKontaktSitzResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenBesetzeKontaktSitz = async (
+  bewerbungId: string,
+  seat: string,
+  fLBewerbungKontaktSitzPayload: FLBewerbungKontaktSitzPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungKontaktSitzResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -1982,23 +1761,17 @@ export const bewerbungenBesetzeKontaktSitz = async (bewerbungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenBesetzeKontaktSitzUrl(bewerbungId,seat),
-  {
+  return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenBesetzeKontaktSitzUrl(bewerbungId, seat), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungKontaktSitzPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungKontaktSitzPayload),
+  });
+};
 
-
-
-export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string,
-    seat: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}/email`
-}
+export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string, seat: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}/email`;
+};
 
 /**
  * Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
@@ -2020,17 +1793,17 @@ export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string,
  * no seat is a 404.
  * @summary Correct one contact person's email address and re-send their link
  */
-export const bewerbungenKorrigiereKontaktEmail = async (bewerbungId: string,
-    seat: string,
-    fLBewerbungKontaktEmailPayload: FLBewerbungKontaktEmailPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungKontaktEmailResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenKorrigiereKontaktEmail = async (
+  bewerbungId: string,
+  seat: string,
+  fLBewerbungKontaktEmailPayload: FLBewerbungKontaktEmailPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungKontaktEmailResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2038,22 +1811,17 @@ export const bewerbungenKorrigiereKontaktEmail = async (bewerbungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenKorrigiereKontaktEmailUrl(bewerbungId,seat),
-  {
+  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenKorrigiereKontaktEmailUrl(bewerbungId, seat), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungKontaktEmailPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungKontaktEmailPayload),
+  });
+};
 
-
-
-export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string,) => {
-
-
-  return `/api/v0/bewerbungen/${bewerbungId}/person/einwilligung`
-}
+export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
+  return `/api/v0/bewerbungen/${bewerbungId}/person/einwilligung`;
+};
 
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
@@ -2070,16 +1838,16 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string,) => {
  * naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
-export const bewerbungenPatchEinwilligung = async (bewerbungId: string,
-    fLBewerbungPersonEinwilligungPayload: FLBewerbungPersonEinwilligungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBewerbungPersonEinwilligungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const bewerbungenPatchEinwilligung = async (
+  bewerbungId: string,
+  fLBewerbungPersonEinwilligungPayload: FLBewerbungPersonEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungPersonEinwilligungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2087,22 +1855,17 @@ export const bewerbungenPatchEinwilligung = async (bewerbungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLBewerbungPersonEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId),
-  {
+  return adminKeyTransport<FLBewerbungPersonEinwilligungResponse>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungPersonEinwilligungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLBewerbungPersonEinwilligungPayload),
+  });
+};
 
-
-
-export const getEinwilligungGetFassungUrl = (textVersion: string,) => {
-
-
-  return `/api/v0/einwilligung/fassungen/${textVersion}`
-}
+export const getEinwilligungGetFassungUrl = (textVersion: string) => {
+  return `/api/v0/einwilligung/fassungen/${textVersion}`;
+};
 
 /**
  * Return the words a consent label names: its paragraphs, its switch, its other controls, its page and the day it took effect.
@@ -2111,24 +1874,19 @@ export const getEinwilligungGetFassungUrl = (textVersion: string,) => {
  * and never answers another label's words.
  * @summary The words one consent label names
  */
-export const einwilligungGetFassung = async (textVersion: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungFassungResponse> => {
-
-  return baseKeyTransport<FLEinwilligungFassungResponse>(getEinwilligungGetFassungUrl(textVersion),
-  {
+export const einwilligungGetFassung = async (
+  textVersion: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLEinwilligungFassungResponse> => {
+  return baseKeyTransport<FLEinwilligungFassungResponse>(getEinwilligungGetFassungUrl(textVersion), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getEinwilligungGetSeitenUrl = () => {
-
-
-  return `/api/v0/einwilligung/seiten`
-}
+  return `/api/v0/einwilligung/seiten`;
+};
 
 /**
  * Return, for every page that stamps a consent label, the label a new acceptance on it must name.
@@ -2136,24 +1894,16 @@ export const getEinwilligungGetSeitenUrl = () => {
  * A deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.
  * @summary The consent label each page stamps today
  */
-export const einwilligungGetSeiten = async ( options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungSeitenResponse> => {
-
-  return baseKeyTransport<FLEinwilligungSeitenResponse>(getEinwilligungGetSeitenUrl(),
-  {
+export const einwilligungGetSeiten = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungSeitenResponse> => {
+  return baseKeyTransport<FLEinwilligungSeitenResponse>(getEinwilligungGetSeitenUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getIdentitaetPostAbmeldungUrl = () => {
-
-
-  return `/api/v0/identitaet/abmeldung`
-}
+  return `/api/v0/identitaet/abmeldung`;
+};
 
 /**
  * File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.
@@ -2168,15 +1918,15 @@ export const getIdentitaetPostAbmeldungUrl = () => {
  * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
  * @summary Log the ending of every session an address holds
  */
-export const identitaetPostAbmeldung = async (fLAbmeldungPayload: FLAbmeldungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAbmeldungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetPostAbmeldung = async (
+  fLAbmeldungPayload: FLAbmeldungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAbmeldungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2184,22 +1934,17 @@ export const identitaetPostAbmeldung = async (fLAbmeldungPayload: FLAbmeldungPay
     }
     return headers;
   };
-return adminKeyTransport<FLAbmeldungResponse>(getIdentitaetPostAbmeldungUrl(),
-  {
+  return adminKeyTransport<FLAbmeldungResponse>(getIdentitaetPostAbmeldungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAbmeldungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAbmeldungPayload),
+  });
+};
 
 export const getIdentitaetGetAnmeldungUrl = () => {
-
-
-  return `/api/v0/identitaet/anmeldung`
-}
+  return `/api/v0/identitaet/anmeldung`;
+};
 
 /**
  * Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.
@@ -2218,15 +1963,15 @@ export const getIdentitaetGetAnmeldungUrl = () => {
  * caller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.
  * @summary Say whether one mailbox may be offered a sign-in
  */
-export const identitaetGetAnmeldung = async (fLSubjektPayload: FLSubjektPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLAnmeldungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetGetAnmeldung = async (
+  fLSubjektPayload: FLSubjektPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAnmeldungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2234,22 +1979,17 @@ export const identitaetGetAnmeldung = async (fLSubjektPayload: FLSubjektPayload,
     }
     return headers;
   };
-return systemKeyTransport<FLAnmeldungResponse>(getIdentitaetGetAnmeldungUrl(),
-  {
+  return systemKeyTransport<FLAnmeldungResponse>(getIdentitaetGetAnmeldungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSubjektPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSubjektPayload),
+  });
+};
 
 export const getIdentitaetEraseAufAnfrageUrl = () => {
-
-
-  return `/api/v0/identitaet/erasure`
-}
+  return `/api/v0/identitaet/erasure`;
+};
 
 /**
  * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
@@ -2277,15 +2017,15 @@ export const getIdentitaetEraseAufAnfrageUrl = () => {
  * answered.
  * @summary Erase every record an address holds, on that person's request
  */
-export const identitaetEraseAufAnfrage = async (fLErasurePayload: FLErasurePayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetEraseAufAnfrage = async (
+  fLErasurePayload: FLErasurePayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLErasureResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2293,22 +2033,17 @@ export const identitaetEraseAufAnfrage = async (fLErasurePayload: FLErasurePaylo
     }
     return headers;
   };
-return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseAufAnfrageUrl(),
-  {
+  return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseAufAnfrageUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasurePayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLErasurePayload),
+  });
+};
 
 export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
-
-
-  return `/api/v0/identitaet/erasure/ansicht`
-}
+  return `/api/v0/identitaet/erasure/ansicht`;
+};
 
 /**
  * Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
@@ -2342,15 +2077,15 @@ export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
  * the administrator holds an owner's power (`REQ-PURGE-005`).
  * @summary Show what an erasure of an address would remove
  */
-export const identitaetGetErasureAnsichtAufAnfrage = async (fLErasureAnsichtPayload: FLErasureAnsichtPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetGetErasureAnsichtAufAnfrage = async (
+  fLErasureAnsichtPayload: FLErasureAnsichtPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLErasureAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2358,22 +2093,17 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (fLErasureAnsichtPayl
     }
     return headers;
   };
-return adminKeyTransport<FLErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtAufAnfrageUrl(),
-  {
+  return adminKeyTransport<FLErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtAufAnfrageUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLErasureAnsichtPayload),
+  });
+};
 
 export const getIdentitaetGetGesperrtUrl = () => {
-
-
-  return `/api/v0/identitaet/gesperrt`
-}
+  return `/api/v0/identitaet/gesperrt`;
+};
 
 /**
  * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
@@ -2389,15 +2119,15 @@ export const getIdentitaetGetGesperrtUrl = () => {
  * The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
  * @summary Say whether a ban stands on an address about to be mailed
  */
-export const identitaetGetGesperrt = async (fLGesperrtPayload: FLGesperrtPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLGesperrtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetGetGesperrt = async (
+  fLGesperrtPayload: FLGesperrtPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLGesperrtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2405,22 +2135,19 @@ export const identitaetGetGesperrt = async (fLGesperrtPayload: FLGesperrtPayload
     }
     return headers;
   };
-return systemKeyTransport<FLGesperrtResponse>(getIdentitaetGetGesperrtUrl(),
-  {
+  return systemKeyTransport<FLGesperrtResponse>(getIdentitaetGetGesperrtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLGesperrtPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLGesperrtPayload),
+  });
+};
 
-
-
-export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschungLaufParams,) => {
+export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschungLaufParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/identitaet/loeschung/lauf?${stringifiedParams}` : `/api/v0/identitaet/loeschung/lauf`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/identitaet/loeschung/lauf?${stringifiedParams}` : `/api/v0/identitaet/loeschung/lauf`;
+};
 
 /**
  * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
@@ -2455,24 +2182,19 @@ export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschu
  * handler; this call counts that failure as any other and never answers it.
  * @summary Delete one share of the pupils the season-after rule makes due
  */
-export const identitaetPostLoeschungLauf = async (params?: IdentitaetPostLoeschungLaufParams, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLLoeschungLaufResponse> => {
-
-  return systemKeyTransport<FLLoeschungLaufResponse>(getIdentitaetPostLoeschungLaufUrl(params),
-  {
+export const identitaetPostLoeschungLauf = async (
+  params?: IdentitaetPostLoeschungLaufParams,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLLoeschungLaufResponse> => {
+  return systemKeyTransport<FLLoeschungLaufResponse>(getIdentitaetPostLoeschungLaufUrl(params), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getIdentitaetGetReferenzenUrl = () => {
-
-
-  return `/api/v0/identitaet/referenzen`
-}
+  return `/api/v0/identitaet/referenzen`;
+};
 
 /**
  * Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.
@@ -2506,15 +2228,15 @@ export const getIdentitaetGetReferenzenUrl = () => {
  * refused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.
  * @summary Say which of these sign-in addresses no record references
  */
-export const identitaetGetReferenzen = async (fLReferenzenPayload: FLReferenzenPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLReferenzenResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetGetReferenzen = async (
+  fLReferenzenPayload: FLReferenzenPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLReferenzenResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2522,22 +2244,17 @@ export const identitaetGetReferenzen = async (fLReferenzenPayload: FLReferenzenP
     }
     return headers;
   };
-return systemKeyTransport<FLReferenzenResponse>(getIdentitaetGetReferenzenUrl(),
-  {
+  return systemKeyTransport<FLReferenzenResponse>(getIdentitaetGetReferenzenUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLReferenzenPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLReferenzenPayload),
+  });
+};
 
 export const getIdentitaetEraseSelbstUrl = () => {
-
-
-  return `/api/v0/identitaet/selbst/erasure`
-}
+  return `/api/v0/identitaet/selbst/erasure`;
+};
 
 /**
  * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
@@ -2569,24 +2286,16 @@ export const getIdentitaetEraseSelbstUrl = () => {
  * touched here: deleting it is the caller's, once this has answered.
  * @summary Erase every record the signed-in address holds
  */
-export const identitaetEraseSelbst = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
-
-  return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseSelbstUrl(),
-  {
+export const identitaetEraseSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
+  return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseSelbstUrl(), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getIdentitaetGetErasureAnsichtUrl = () => {
-
-
-  return `/api/v0/identitaet/selbst/erasure/ansicht`
-}
+  return `/api/v0/identitaet/selbst/erasure/ansicht`;
+};
 
 /**
  * Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.
@@ -2614,24 +2323,18 @@ export const getIdentitaetGetErasureAnsichtUrl = () => {
  * the press judges again, and its answer alone decides.
  * @summary Show what an erasure of the signed-in address would remove
  */
-export const identitaetGetErasureAnsicht = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSelbstErasureAnsichtResponse> => {
-
-  return adminKeyTransport<FLSelbstErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtUrl(),
-  {
+export const identitaetGetErasureAnsicht = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSelbstErasureAnsichtResponse> => {
+  return adminKeyTransport<FLSelbstErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getIdentitaetGetSubjektUrl = () => {
-
-
-  return `/api/v0/identitaet/subjekt`
-}
+  return `/api/v0/identitaet/subjekt`;
+};
 
 /**
  * Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
@@ -2679,15 +2382,15 @@ export const getIdentitaetGetSubjektUrl = () => {
  * An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
  * @summary Say which league records one mailbox holds
  */
-export const identitaetGetSubjekt = async (fLSubjektPayload: FLSubjektPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSubjektResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const identitaetGetSubjekt = async (
+  fLSubjektPayload: FLSubjektPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSubjektResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2695,22 +2398,17 @@ export const identitaetGetSubjekt = async (fLSubjektPayload: FLSubjektPayload, o
     }
     return headers;
   };
-return systemKeyTransport<FLSubjektResponse>(getIdentitaetGetSubjektUrl(),
-  {
+  return systemKeyTransport<FLSubjektResponse>(getIdentitaetGetSubjektUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSubjektPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSubjektPayload),
+  });
+};
 
 export const getKontoDeleteAdresswechselUrl = () => {
-
-
-  return `/api/v0/konto/adresswechsel`
-}
+  return `/api/v0/konto/adresswechsel`;
+};
 
 /**
  * Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.
@@ -2718,24 +2416,16 @@ export const getKontoDeleteAdresswechselUrl = () => {
  * Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
  * @summary Stop the address change pending on the signed-in person
  */
-export const kontoDeleteAdresswechsel = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselResponse> => {
-
-  return adminKeyTransport<FLKontoAdresswechselResponse>(getKontoDeleteAdresswechselUrl(),
-  {
+export const kontoDeleteAdresswechsel = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselResponse> => {
+  return adminKeyTransport<FLKontoAdresswechselResponse>(getKontoDeleteAdresswechselUrl(), {
     ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
+    method: "DELETE",
+  });
+};
 
 export const getKontoGetAdresswechselUrl = () => {
-
-
-  return `/api/v0/konto/adresswechsel`
-}
+  return `/api/v0/konto/adresswechsel`;
+};
 
 /**
  * Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
@@ -2747,24 +2437,16 @@ export const getKontoGetAdresswechselUrl = () => {
  * `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
  * @summary Whether a signed-in person may change their address
  */
-export const kontoGetAdresswechsel = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselResponse> => {
-
-  return adminKeyTransport<FLKontoAdresswechselResponse>(getKontoGetAdresswechselUrl(),
-  {
+export const kontoGetAdresswechsel = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselResponse> => {
+  return adminKeyTransport<FLKontoAdresswechselResponse>(getKontoGetAdresswechselUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getKontoPostAdresswechselUrl = () => {
-
-
-  return `/api/v0/konto/adresswechsel`
-}
+  return `/api/v0/konto/adresswechsel`;
+};
 
 /**
  * Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.
@@ -2784,15 +2466,15 @@ export const getKontoPostAdresswechselUrl = () => {
  * `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
  * @summary Start a change of the signed-in person's address
  */
-export const kontoPostAdresswechsel = async (fLKontoAdresswechselPayload: FLKontoAdresswechselPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselMintResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const kontoPostAdresswechsel = async (
+  fLKontoAdresswechselPayload: FLKontoAdresswechselPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKontoAdresswechselMintResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2800,22 +2482,17 @@ export const kontoPostAdresswechsel = async (fLKontoAdresswechselPayload: FLKont
     }
     return headers;
   };
-return adminKeyTransport<FLKontoAdresswechselMintResponse>(getKontoPostAdresswechselUrl(),
-  {
+  return adminKeyTransport<FLKontoAdresswechselMintResponse>(getKontoPostAdresswechselUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLKontoAdresswechselPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLKontoAdresswechselPayload),
+  });
+};
 
 export const getKontoPostAdresswechselFreigabeUrl = () => {
-
-
-  return `/api/v0/konto/adresswechsel/freigabe`
-}
+  return `/api/v0/konto/adresswechsel/freigabe`;
+};
 
 /**
  * Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
@@ -2829,15 +2506,15 @@ export const getKontoPostAdresswechselFreigabeUrl = () => {
  * `REQ-DROSSELUNG-001` as the start is.
  * @summary Approve the address change an administrator asked of the signed-in person
  */
-export const kontoPostAdresswechselFreigabe = async (fLKontoAdresswechselFreigabePayload: FLKontoAdresswechselFreigabePayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoAdresswechselFreigabeResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const kontoPostAdresswechselFreigabe = async (
+  fLKontoAdresswechselFreigabePayload: FLKontoAdresswechselFreigabePayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKontoAdresswechselFreigabeResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2845,22 +2522,17 @@ export const kontoPostAdresswechselFreigabe = async (fLKontoAdresswechselFreigab
     }
     return headers;
   };
-return adminKeyTransport<FLKontoAdresswechselFreigabeResponse>(getKontoPostAdresswechselFreigabeUrl(),
-  {
+  return adminKeyTransport<FLKontoAdresswechselFreigabeResponse>(getKontoPostAdresswechselFreigabeUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLKontoAdresswechselFreigabePayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLKontoAdresswechselFreigabePayload),
+  });
+};
 
 export const getKontoGetEinwilligungenUrl = () => {
-
-
-  return `/api/v0/konto/einwilligungen`
-}
+  return `/api/v0/konto/einwilligungen`;
+};
 
 /**
  * Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.
@@ -2878,24 +2550,18 @@ export const getKontoGetEinwilligungenUrl = () => {
  * confirmation is not served: there is nothing on it yet to change.
  * @summary A signed-in person's own consent records
  */
-export const kontoGetEinwilligungen = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoEinwilligungenResponse> => {
-
-  return adminKeyTransport<FLKontoEinwilligungenResponse>(getKontoGetEinwilligungenUrl(),
-  {
+export const kontoGetEinwilligungen = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontoEinwilligungenResponse> => {
+  return adminKeyTransport<FLKontoEinwilligungenResponse>(getKontoGetEinwilligungenUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getRegistrierungenGetRegistrierungenUrl = (params?: RegistrierungenGetRegistrierungenParams,) => {
+export const getRegistrierungenGetRegistrierungenUrl = (params?: RegistrierungenGetRegistrierungenParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/registrierungen?${stringifiedParams}` : `/api/v0/registrierungen`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/registrierungen?${stringifiedParams}` : `/api/v0/registrierungen`;
+};
 
 /**
  * Every pending registration, newest first, narrowable by season, by team and by status.
@@ -2907,24 +2573,19 @@ export const getRegistrierungenGetRegistrierungenUrl = (params?: Registrierungen
  * served in plain.
  * @summary List Registrierungen
  */
-export const registrierungenGetRegistrierungen = async (params?: RegistrierungenGetRegistrierungenParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLRegistrierungenListResponse> => {
-
-  return adminKeyTransport<FLRegistrierungenListResponse>(getRegistrierungenGetRegistrierungenUrl(params),
-  {
+export const registrierungenGetRegistrierungen = async (
+  params?: RegistrierungenGetRegistrierungenParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungenListResponse> => {
+  return adminKeyTransport<FLRegistrierungenListResponse>(getRegistrierungenGetRegistrierungenUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getRegistrierungenPostRegistrierungUrl = () => {
-
-
-  return `/api/v0/registrierungen`
-}
+  return `/api/v0/registrierungen`;
+};
 
 /**
  * Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.
@@ -2942,15 +2603,15 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
  * admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
  * @summary Register through a team's link
  */
-export const registrierungenPostRegistrierung = async (fLPostRegistrierungPayload: FLPostRegistrierungPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLPostRegistrierungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenPostRegistrierung = async (
+  fLPostRegistrierungPayload: FLPostRegistrierungPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLPostRegistrierungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -2958,22 +2619,17 @@ export const registrierungenPostRegistrierung = async (fLPostRegistrierungPayloa
     }
     return headers;
   };
-return baseKeyTransport<FLPostRegistrierungResponse>(getRegistrierungenPostRegistrierungUrl(),
-  {
+  return baseKeyTransport<FLPostRegistrierungResponse>(getRegistrierungenPostRegistrierungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostRegistrierungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostRegistrierungPayload),
+  });
+};
 
 export const getRegistrierungenPostBestaetigungUrl = () => {
-
-
-  return `/api/v0/registrierungen/bestaetigung`
-}
+  return `/api/v0/registrierungen/bestaetigung`;
+};
 
 /**
  * Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.
@@ -2999,15 +2655,15 @@ export const getRegistrierungenPostBestaetigungUrl = () => {
  * or a squad row.
  * @summary Confirm one registration and record the pupil's consent
  */
-export const registrierungenPostBestaetigung = async (fLRegistrierungBestaetigungPayload: FLRegistrierungBestaetigungPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLRegistrierungBestaetigungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenPostBestaetigung = async (
+  fLRegistrierungBestaetigungPayload: FLRegistrierungBestaetigungPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLRegistrierungBestaetigungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3015,22 +2671,17 @@ export const registrierungenPostBestaetigung = async (fLRegistrierungBestaetigun
     }
     return headers;
   };
-return baseKeyTransport<FLRegistrierungBestaetigungResponse>(getRegistrierungenPostBestaetigungUrl(),
-  {
+  return baseKeyTransport<FLRegistrierungBestaetigungResponse>(getRegistrierungenPostBestaetigungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungBestaetigungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLRegistrierungBestaetigungPayload),
+  });
+};
 
 export const getRegistrierungenGetBestaetigungAnsichtUrl = () => {
-
-
-  return `/api/v0/registrierungen/bestaetigung/ansicht`
-}
+  return `/api/v0/registrierungen/bestaetigung/ansicht`;
+};
 
 /**
  * Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
@@ -3052,15 +2703,15 @@ export const getRegistrierungenGetBestaetigungAnsichtUrl = () => {
  * pupil nothing to press.
  * @summary What one registration confirmation link opens
  */
-export const registrierungenGetBestaetigungAnsicht = async (fLRegistrierungBestaetigungAnsichtPayload: FLRegistrierungBestaetigungAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLRegistrierungBestaetigungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenGetBestaetigungAnsicht = async (
+  fLRegistrierungBestaetigungAnsichtPayload: FLRegistrierungBestaetigungAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLRegistrierungBestaetigungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3068,22 +2719,17 @@ export const registrierungenGetBestaetigungAnsicht = async (fLRegistrierungBesta
     }
     return headers;
   };
-return baseKeyTransport<FLRegistrierungBestaetigungAnsichtResponse>(getRegistrierungenGetBestaetigungAnsichtUrl(),
-  {
+  return baseKeyTransport<FLRegistrierungBestaetigungAnsichtResponse>(getRegistrierungenGetBestaetigungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungBestaetigungAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLRegistrierungBestaetigungAnsichtPayload),
+  });
+};
 
 export const getRegistrierungenPostEinladungAnsichtUrl = () => {
-
-
-  return `/api/v0/registrierungen/einladung/ansicht`
-}
+  return `/api/v0/registrierungen/einladung/ansicht`;
+};
 
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
@@ -3093,15 +2739,15 @@ export const getRegistrierungenPostEinladungAnsichtUrl = () => {
  * rather than as invalid; only a link that opens no live invite is refused.
  * @summary What a registration link opens
  */
-export const registrierungenPostEinladungAnsicht = async (fLEinladungAnsichtPayload: FLEinladungAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinladungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenPostEinladungAnsicht = async (
+  fLEinladungAnsichtPayload: FLEinladungAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLEinladungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3109,24 +2755,25 @@ export const registrierungenPostEinladungAnsicht = async (fLEinladungAnsichtPayl
     }
     return headers;
   };
-return baseKeyTransport<FLEinladungAnsichtResponse>(getRegistrierungenPostEinladungAnsichtUrl(),
-  {
+  return baseKeyTransport<FLEinladungAnsichtResponse>(getRegistrierungenPostEinladungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLEinladungAnsichtPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLEinladungAnsichtPayload),
+  });
+};
 
-
-
-export const getRegistrierungenGetOffeneRegistrierungenUrl = (teamId: string,
-    saisonId: string,
-    params?: RegistrierungenGetOffeneRegistrierungenParams,) => {
+export const getRegistrierungenGetOffeneRegistrierungenUrl = (
+  teamId: string,
+  saisonId: string,
+  params?: RegistrierungenGetOffeneRegistrierungenParams,
+) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/registrierungen/kader/${teamId}/${saisonId}?${stringifiedParams}` : `/api/v0/registrierungen/kader/${teamId}/${saisonId}`
-}
+  return stringifiedParams.length > 0
+    ? `/api/v0/registrierungen/kader/${teamId}/${saisonId}?${stringifiedParams}`
+    : `/api/v0/registrierungen/kader/${teamId}/${saisonId}`;
+};
 
 /**
  * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
@@ -3137,26 +2784,21 @@ export const getRegistrierungenGetOffeneRegistrierungenUrl = (teamId: string,
  * `vollstaendig` is false where more pending rows exist than `limit` serves.
  * @summary A team's pending registrations for one season
  */
-export const registrierungenGetOffeneRegistrierungen = async (teamId: string,
-    saisonId: string,
-    params?: RegistrierungenGetOffeneRegistrierungenParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOffeneRegistrierungenResponse> => {
-
-  return adminKeyTransport<FLOffeneRegistrierungenResponse>(getRegistrierungenGetOffeneRegistrierungenUrl(teamId,saisonId,params),
-  {
+export const registrierungenGetOffeneRegistrierungen = async (
+  teamId: string,
+  saisonId: string,
+  params?: RegistrierungenGetOffeneRegistrierungenParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLOffeneRegistrierungenResponse> => {
+  return adminKeyTransport<FLOffeneRegistrierungenResponse>(getRegistrierungenGetOffeneRegistrierungenUrl(teamId, saisonId, params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string,) => {
-
-
-  return `/api/v0/registrierungen/selbst/${registrierungId}/einwilligung`
-}
+export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) => {
+  return `/api/v0/registrierungen/selbst/${registrierungId}/einwilligung`;
+};
 
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
@@ -3175,16 +2817,16 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string,)
  * nothing.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
-export const registrierungenPatchEinwilligung = async (registrierungId: string,
-    fLRegistrierungSelbstEinwilligungPayload: FLRegistrierungSelbstEinwilligungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLRegistrierungSelbstEinwilligungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenPatchEinwilligung = async (
+  registrierungId: string,
+  fLRegistrierungSelbstEinwilligungPayload: FLRegistrierungSelbstEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungSelbstEinwilligungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3192,22 +2834,17 @@ export const registrierungenPatchEinwilligung = async (registrierungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLRegistrierungSelbstEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId),
-  {
+  return adminKeyTransport<FLRegistrierungSelbstEinwilligungResponse>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungSelbstEinwilligungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLRegistrierungSelbstEinwilligungPayload),
+  });
+};
 
-
-
-export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/registrierungen/sweep/${saisonId}`
-}
+export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
+  return `/api/v0/registrierungen/sweep/${saisonId}`;
+};
 
 /**
  * Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
@@ -3245,24 +2882,19 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string,) => 
  * nothing.
  * @summary Run one season's registration retention clocks
  */
-export const registrierungenSweepRegistrierungen = async (saisonId: string, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLRegistrierungSweepResponse> => {
-
-  return systemKeyTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId),
-  {
+export const registrierungenSweepRegistrierungen = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLRegistrierungSweepResponse> => {
+  return systemKeyTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getRegistrierungenAblehnenUrl = (registrierungId: string,) => {
-
-
-  return `/api/v0/registrierungen/${registrierungId}/ablehnen`
-}
+export const getRegistrierungenAblehnenUrl = (registrierungId: string) => {
+  return `/api/v0/registrierungen/${registrierungId}/ablehnen`;
+};
 
 /**
  * Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.
@@ -3276,16 +2908,16 @@ export const getRegistrierungenAblehnenUrl = (registrierungId: string,) => {
  * registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).
  * @summary Decline a registration
  */
-export const registrierungenAblehnen = async (registrierungId: string,
-    fLRegistrierungAblehnenPayload: FLRegistrierungAblehnenPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLRegistrierungAblehnungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenAblehnen = async (
+  registrierungId: string,
+  fLRegistrierungAblehnenPayload: FLRegistrierungAblehnenPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungAblehnungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3293,22 +2925,17 @@ export const registrierungenAblehnen = async (registrierungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLRegistrierungAblehnungResponse>(getRegistrierungenAblehnenUrl(registrierungId),
-  {
+  return adminKeyTransport<FLRegistrierungAblehnungResponse>(getRegistrierungenAblehnenUrl(registrierungId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungAblehnenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLRegistrierungAblehnenPayload),
+  });
+};
 
-
-
-export const getRegistrierungenAufnehmenUrl = (registrierungId: string,) => {
-
-
-  return `/api/v0/registrierungen/${registrierungId}/aufnehmen`
-}
+export const getRegistrierungenAufnehmenUrl = (registrierungId: string) => {
+  return `/api/v0/registrierungen/${registrierungId}/aufnehmen`;
+};
 
 /**
  * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
@@ -3336,16 +2963,16 @@ export const getRegistrierungenAufnehmenUrl = (registrierungId: string,) => {
  * (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
  * @summary Admit a registration into the team's squad
  */
-export const registrierungenAufnehmen = async (registrierungId: string,
-    fLRegistrierungAufnehmenPayload: FLRegistrierungAufnehmenPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLRegistrierungAufnahmeResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const registrierungenAufnehmen = async (
+  registrierungId: string,
+  fLRegistrierungAufnehmenPayload: FLRegistrierungAufnehmenPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungAufnahmeResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3353,22 +2980,19 @@ export const registrierungenAufnehmen = async (registrierungId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLRegistrierungAufnahmeResponse>(getRegistrierungenAufnehmenUrl(registrierungId),
-  {
+  return adminKeyTransport<FLRegistrierungAufnahmeResponse>(getRegistrierungenAufnehmenUrl(registrierungId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungAufnehmenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLRegistrierungAufnehmenPayload),
+  });
+};
 
-
-
-export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams,) => {
+export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons?${stringifiedParams}` : `/api/v0/saisons`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/saisons?${stringifiedParams}` : `/api/v0/saisons`;
+};
 
 /**
  * List the seasons the public may read, optionally narrowed to `past` or `active`.
@@ -3377,24 +3001,19 @@ export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams,) => {
  * withheld here and served by `GET /saisons/list/admin`.
  * @summary List Saisons
  */
-export const saisonsGetSaisons = async (params?: SaisonsGetSaisonsParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsListResponse> => {
-
-  return baseKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsUrl(params),
-  {
+export const saisonsGetSaisons = async (
+  params?: SaisonsGetSaisonsParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSaisonsListResponse> => {
+  return baseKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSaisonsPostSaisonUrl = () => {
-
-
-  return `/api/v0/saisons`
-}
+  return `/api/v0/saisons`;
+};
 
 /**
  * Create a season, always `future`.
@@ -3403,15 +3022,15 @@ export const getSaisonsPostSaisonUrl = () => {
  * references, so reusing one comes back 409. Making the season live is a separate step.
  * @summary Create a Saison
  */
-export const saisonsPostSaison = async (fLPostSaisonPayload: FLPostSaisonPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostSaisonResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const saisonsPostSaison = async (
+  fLPostSaisonPayload: FLPostSaisonPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostSaisonResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3419,45 +3038,34 @@ export const saisonsPostSaison = async (fLPostSaisonPayload: FLPostSaisonPayload
     }
     return headers;
   };
-return adminKeyTransport<FLPostSaisonResponse>(getSaisonsPostSaisonUrl(),
-  {
+  return adminKeyTransport<FLPostSaisonResponse>(getSaisonsPostSaisonUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSaisonPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSaisonPayload),
+  });
+};
 
 export const getSaisonsGetCurrentSaisonUrl = () => {
-
-
-  return `/api/v0/saisons/current`
-}
+  return `/api/v0/saisons/current`;
+};
 
 /**
  * Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.
  * @summary The active Saison
  */
-export const saisonsGetCurrentSaison = async ( options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
-
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetCurrentSaisonUrl(),
-  {
+export const saisonsGetCurrentSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
+  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetCurrentSaisonUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdminParams,) => {
+export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`;
+};
 
 /**
  * List every season, the `future` ones `GET /saisons` withholds included.
@@ -3466,24 +3074,19 @@ export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdm
  * still is, so an admin who cannot see one cannot run the league.
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsForAdmin = async (params?: SaisonsGetSaisonsForAdminParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonsListResponse> => {
-
-  return adminKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsForAdminUrl(params),
-  {
+export const saisonsGetSaisonsForAdmin = async (
+  params?: SaisonsGetSaisonsForAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonsListResponse> => {
+  return adminKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsForAdminUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsGetSaisonUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}`
-}
+export const getSaisonsGetSaisonUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}`;
+};
 
 /**
  * Return one season by its id; 404 when none carries it, rather than an empty list.
@@ -3492,24 +3095,19 @@ export const getSaisonsGetSaisonUrl = (saisonId: string,) => {
  * genuine one and nothing here has to know it was withheld.
  * @summary One Saison
  */
-export const saisonsGetSaison = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
-
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetSaisonUrl(saisonId),
-  {
+export const saisonsGetSaison = async (
+  saisonId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSaisonsSingleResponse> => {
+  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetSaisonUrl(saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsPatchSaisonUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}`
-}
+export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}`;
+};
 
 /**
  * Update a season's dates and rules. `status` is on no payload.
@@ -3518,16 +3116,16 @@ export const getSaisonsPatchSaisonUrl = (saisonId: string,) => {
  * finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
  * @summary Update a Saison's dates and rules
  */
-export const saisonsPatchSaison = async (saisonId: string,
-    fLPatchSaisonPayload: FLPatchSaisonPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSaisonResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const saisonsPatchSaison = async (
+  saisonId: string,
+  fLPatchSaisonPayload: FLPatchSaisonPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSaisonResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3535,22 +3133,17 @@ export const saisonsPatchSaison = async (saisonId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLPatchSaisonResponse>(getSaisonsPatchSaisonUrl(saisonId),
-  {
+  return adminKeyTransport<FLPatchSaisonResponse>(getSaisonsPatchSaisonUrl(saisonId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSaisonPayload),
+  });
+};
 
-
-
-export const getSaisonsActivateSaisonUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/activate`
-}
+export const getSaisonsActivateSaisonUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/activate`;
+};
 
 /**
  * Make this the active season, moving whichever holds `active` to `past` in one transaction.
@@ -3559,24 +3152,19 @@ export const getSaisonsActivateSaisonUrl = (saisonId: string,) => {
  * refused, and every matchday of the target carries a date.
  * @summary Make this the active Saison
  */
-export const saisonsActivateSaison = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLActivateSaisonResponse> => {
-
-  return adminKeyTransport<FLActivateSaisonResponse>(getSaisonsActivateSaisonUrl(saisonId),
-  {
+export const saisonsActivateSaison = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLActivateSaisonResponse> => {
+  return adminKeyTransport<FLActivateSaisonResponse>(getSaisonsActivateSaisonUrl(saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsPostEinladungenVersandUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/einladungen/versand`
-}
+export const getSaisonsPostEinladungenVersandUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/einladungen/versand`;
+};
 
 /**
  * Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
@@ -3603,16 +3191,16 @@ export const getSaisonsPostEinladungenVersandUrl = (saisonId: string,) => {
  * delivery record yet.
  * @summary Mint every admitted team a link
  */
-export const saisonsPostEinladungenVersand = async (saisonId: string,
-    fLEinladungVersandPayload: FLEinladungVersandPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLEinladungVersandResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const saisonsPostEinladungenVersand = async (
+  saisonId: string,
+  fLEinladungVersandPayload: FLEinladungVersandPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLEinladungVersandResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3620,23 +3208,21 @@ export const saisonsPostEinladungenVersand = async (saisonId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLEinladungVersandResponse>(getSaisonsPostEinladungenVersandUrl(saisonId),
-  {
+  return adminKeyTransport<FLEinladungVersandResponse>(getSaisonsPostEinladungenVersandUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLEinladungVersandPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLEinladungVersandPayload),
+  });
+};
 
-
-
-export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string,
-    params?: SaisonsPreviewEinladungenVersandParams,) => {
+export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string, params?: SaisonsPreviewEinladungenVersandParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau?${stringifiedParams}` : `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau`
-}
+  return stringifiedParams.length > 0
+    ? `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau?${stringifiedParams}`
+    : `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau`;
+};
 
 /**
  * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
@@ -3655,25 +3241,20 @@ export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string,
  * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
  * @summary Who the send would reach
  */
-export const saisonsPreviewEinladungenVersand = async (saisonId: string,
-    params?: SaisonsPreviewEinladungenVersandParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLEinladungVersandVorschauResponse> => {
-
-  return adminKeyTransport<FLEinladungVersandVorschauResponse>(getSaisonsPreviewEinladungenVersandUrl(saisonId,params),
-  {
+export const saisonsPreviewEinladungenVersand = async (
+  saisonId: string,
+  params?: SaisonsPreviewEinladungenVersandParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLEinladungVersandVorschauResponse> => {
+  return adminKeyTransport<FLEinladungVersandVorschauResponse>(getSaisonsPreviewEinladungenVersandUrl(saisonId, params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsSwapGruppenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/gruppen/swap`
-}
+export const getSaisonsSwapGruppenUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/gruppen/swap`;
+};
 
 /**
  * Exchange the groups of two clubs entered in this season, as one write.
@@ -3682,16 +3263,16 @@ export const getSaisonsSwapGruppenUrl = (saisonId: string,) => {
  * so each group stays a round robin. Neither `tore` nor `austritt` moves.
  * @summary Exchange two teams' groups
  */
-export const saisonsSwapGruppen = async (saisonId: string,
-    fLSwapGruppenPayload: FLSwapGruppenPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSwapGruppenResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const saisonsSwapGruppen = async (
+  saisonId: string,
+  fLSwapGruppenPayload: FLSwapGruppenPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSwapGruppenResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3699,22 +3280,17 @@ export const saisonsSwapGruppen = async (saisonId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSwapGruppenResponse>(getSaisonsSwapGruppenUrl(saisonId),
-  {
+  return adminKeyTransport<FLSwapGruppenResponse>(getSaisonsSwapGruppenUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSwapGruppenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSwapGruppenPayload),
+  });
+};
 
-
-
-export const getSaisonsPreviewLoeschungUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/loeschung/vorschau`
-}
+export const getSaisonsPreviewLoeschungUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/loeschung/vorschau`;
+};
 
 /**
  * How many pupils `POST /identitaet/loeschung/lauf` deletes once this season is activated, and which season that activation closes.
@@ -3726,24 +3302,19 @@ export const getSaisonsPreviewLoeschungUrl = (saisonId: string,) => {
  * `abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
  * @summary How many pupils activating this season would delete
  */
-export const saisonsPreviewLoeschung = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLLoeschungVorschauResponse> => {
-
-  return adminKeyTransport<FLLoeschungVorschauResponse>(getSaisonsPreviewLoeschungUrl(saisonId),
-  {
+export const saisonsPreviewLoeschung = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLLoeschungVorschauResponse> => {
+  return adminKeyTransport<FLLoeschungVorschauResponse>(getSaisonsPreviewLoeschungUrl(saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsUndrawSpielplanUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/spielplan`
-}
+export const getSaisonsUndrawSpielplanUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/spielplan`;
+};
 
 /**
  * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
@@ -3755,24 +3326,19 @@ export const getSaisonsUndrawSpielplanUrl = (saisonId: string,) => {
  * an entry.
  * @summary Undraw this Saison's Spielplan
  */
-export const saisonsUndrawSpielplan = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLUndrawSpielplanResponse> => {
-
-  return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsUndrawSpielplanUrl(saisonId),
-  {
+export const saisonsUndrawSpielplan = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLUndrawSpielplanResponse> => {
+  return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsUndrawSpielplanUrl(saisonId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSaisonsGenerateSpielplanUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/saisons/${saisonId}/spielplan`
-}
+export const getSaisonsGenerateSpielplanUrl = (saisonId: string) => {
+  return `/api/v0/saisons/${saisonId}/spielplan`;
+};
 
 /**
  * Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
@@ -3784,16 +3350,16 @@ export const getSaisonsGenerateSpielplanUrl = (saisonId: string,) => {
  * the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
-export const saisonsGenerateSpielplan = async (saisonId: string,
-    fLGenerateSpielplanPayload?: FLGenerateSpielplanPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGenerateSpielplanResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const saisonsGenerateSpielplan = async (
+  saisonId: string,
+  fLGenerateSpielplanPayload?: FLGenerateSpielplanPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLGenerateSpielplanResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3801,22 +3367,19 @@ export const saisonsGenerateSpielplan = async (saisonId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLGenerateSpielplanResponse>(getSaisonsGenerateSpielplanUrl(saisonId),
-  {
+  return adminKeyTransport<FLGenerateSpielplanResponse>(getSaisonsGenerateSpielplanUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLGenerateSpielplanPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLGenerateSpielplanPayload),
+  });
+};
 
-
-
-export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGetSchiedsrichterParams,) => {
+export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGetSchiedsrichterParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/schiedsrichter?${stringifiedParams}` : `/api/v0/schiedsrichter`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/schiedsrichter?${stringifiedParams}` : `/api/v0/schiedsrichter`;
+};
 
 /**
  * An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).
@@ -3829,24 +3392,19 @@ export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGet
  * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
  * @summary List Schiedsrichter
  */
-export const schiedsrichterGetSchiedsrichter = async (params?: SchiedsrichterGetSchiedsrichterParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterListResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterListResponse>(getSchiedsrichterGetSchiedsrichterUrl(params),
-  {
+export const schiedsrichterGetSchiedsrichter = async (
+  params?: SchiedsrichterGetSchiedsrichterParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterListResponse> => {
+  return adminKeyTransport<FLSchiedsrichterListResponse>(getSchiedsrichterGetSchiedsrichterUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSchiedsrichterPostSchiedsrichterUrl = () => {
-
-
-  return `/api/v0/schiedsrichter`
-}
+  return `/api/v0/schiedsrichter`;
+};
 
 /**
  * Create a referee and mint their confirmation link.
@@ -3859,15 +3417,15 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
  * Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
-export const schiedsrichterPostSchiedsrichter = async (fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostSchiedsrichterResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const schiedsrichterPostSchiedsrichter = async (
+  fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostSchiedsrichterResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3875,22 +3433,17 @@ export const schiedsrichterPostSchiedsrichter = async (fLPostSchiedsrichterPaylo
     }
     return headers;
   };
-return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(),
-  {
+  return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSchiedsrichterPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSchiedsrichterPayload),
+  });
+};
 
 export const getSchiedsrichterPostBestaetigungUrl = () => {
-
-
-  return `/api/v0/schiedsrichter/bestaetigung`
-}
+  return `/api/v0/schiedsrichter/bestaetigung`;
+};
 
 /**
  * Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
@@ -3910,15 +3463,15 @@ export const getSchiedsrichterPostBestaetigungUrl = () => {
  * a withheld name would go on being served for as long as that entry lives.
  * @summary Confirm one Schiedsrichter's entry and consent
  */
-export const schiedsrichterPostBestaetigung = async (fLSchiedsrichterBestaetigungPayload: FLSchiedsrichterBestaetigungPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSchiedsrichterBestaetigungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const schiedsrichterPostBestaetigung = async (
+  fLSchiedsrichterBestaetigungPayload: FLSchiedsrichterBestaetigungPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSchiedsrichterBestaetigungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3926,22 +3479,17 @@ export const schiedsrichterPostBestaetigung = async (fLSchiedsrichterBestaetigun
     }
     return headers;
   };
-return baseKeyTransport<FLSchiedsrichterBestaetigungResponse>(getSchiedsrichterPostBestaetigungUrl(),
-  {
+  return baseKeyTransport<FLSchiedsrichterBestaetigungResponse>(getSchiedsrichterPostBestaetigungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterBestaetigungPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSchiedsrichterBestaetigungPayload),
+  });
+};
 
 export const getSchiedsrichterGetBestaetigungAnsichtUrl = () => {
-
-
-  return `/api/v0/schiedsrichter/bestaetigung/ansicht`
-}
+  return `/api/v0/schiedsrichter/bestaetigung/ansicht`;
+};
 
 /**
  * Answer what this token opens: the link's state and deadline, and both age floors.
@@ -3957,15 +3505,15 @@ export const getSchiedsrichterGetBestaetigungAnsichtUrl = () => {
  * so the page offers a barred referee nothing to press.
  * @summary What one Schiedsrichter confirmation link opens
  */
-export const schiedsrichterGetBestaetigungAnsicht = async (fLSchiedsrichterBestaetigungAnsichtPayload: FLSchiedsrichterBestaetigungAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const schiedsrichterGetBestaetigungAnsicht = async (
+  fLSchiedsrichterBestaetigungAnsichtPayload: FLSchiedsrichterBestaetigungAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -3973,22 +3521,17 @@ export const schiedsrichterGetBestaetigungAnsicht = async (fLSchiedsrichterBesta
     }
     return headers;
   };
-return baseKeyTransport<FLSchiedsrichterBestaetigungAnsichtResponse>(getSchiedsrichterGetBestaetigungAnsichtUrl(),
-  {
+  return baseKeyTransport<FLSchiedsrichterBestaetigungAnsichtResponse>(getSchiedsrichterGetBestaetigungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterBestaetigungAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSchiedsrichterBestaetigungAnsichtPayload),
+  });
+};
 
 export const getSchiedsrichterGetSelbstUrl = () => {
-
-
-  return `/api/v0/schiedsrichter/selbst`
-}
+  return `/api/v0/schiedsrichter/selbst`;
+};
 
 /**
  * Answer every confirmed referee record the signed-in address holds, with its stored contact details.
@@ -3999,24 +3542,16 @@ export const getSchiedsrichterGetSelbstUrl = () => {
  * Refuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).
  * @summary A signed-in referee's own records
  */
-export const schiedsrichterGetSelbst = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterSelbstResponse>(getSchiedsrichterGetSelbstUrl(),
-  {
+export const schiedsrichterGetSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSelbstResponse>(getSchiedsrichterGetSelbstUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`
-}
+export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`;
+};
 
 /**
  * Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
@@ -4038,16 +3573,16 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string,)
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
  */
-export const schiedsrichterPatchEinwilligung = async (schiedsrichterId: string,
-    fLSchiedsrichterSelbstEinwilligungPayload: FLSchiedsrichterSelbstEinwilligungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstEinwilligungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const schiedsrichterPatchEinwilligung = async (
+  schiedsrichterId: string,
+  fLSchiedsrichterSelbstEinwilligungPayload: FLSchiedsrichterSelbstEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterSelbstEinwilligungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4055,45 +3590,35 @@ export const schiedsrichterPatchEinwilligung = async (schiedsrichterId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSchiedsrichterSelbstEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId),
-  {
+  return adminKeyTransport<FLSchiedsrichterSelbstEinwilligungResponse>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterSelbstEinwilligungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSchiedsrichterSelbstEinwilligungPayload),
+  });
+};
 
-
-
-export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`
-}
+export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+};
 
 /**
  * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
-export const schiedsrichterDeleteSchiedsrichter = async (schiedsrichterId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterWriteResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterWriteResponse>(getSchiedsrichterDeleteSchiedsrichterUrl(schiedsrichterId),
-  {
+export const schiedsrichterDeleteSchiedsrichter = async (
+  schiedsrichterId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterWriteResponse> => {
+  return adminKeyTransport<FLSchiedsrichterWriteResponse>(getSchiedsrichterDeleteSchiedsrichterUrl(schiedsrichterId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`
-}
+export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+};
 
 /**
  * Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
@@ -4107,24 +3632,19 @@ export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: stri
  * beside why the tool refuses it this administrator, null where it opens it.
  * @summary One Schiedsrichter
  */
-export const schiedsrichterGetSchiedsrichterById = async (schiedsrichterId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSingleResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterSingleResponse>(getSchiedsrichterGetSchiedsrichterByIdUrl(schiedsrichterId),
-  {
+export const schiedsrichterGetSchiedsrichterById = async (
+  schiedsrichterId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterSingleResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSingleResponse>(getSchiedsrichterGetSchiedsrichterByIdUrl(schiedsrichterId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`
-}
+export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+};
 
 /**
  * Update a referee, then update the embedded name on every Spiel that uses them.
@@ -4149,16 +3669,16 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  * fixtures of every referee already erased.
  * @summary Update a Schiedsrichter and fan the change out
  */
-export const schiedsrichterPatchSchiedsrichter = async (schiedsrichterId: string,
-    fLPatchSchiedsrichterPayload: FLPatchSchiedsrichterPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSchiedsrichterResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const schiedsrichterPatchSchiedsrichter = async (
+  schiedsrichterId: string,
+  fLPatchSchiedsrichterPayload: FLPatchSchiedsrichterPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSchiedsrichterResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4166,22 +3686,17 @@ export const schiedsrichterPatchSchiedsrichter = async (schiedsrichterId: string
     }
     return headers;
   };
-return adminKeyTransport<FLPatchSchiedsrichterResponse>(getSchiedsrichterPatchSchiedsrichterUrl(schiedsrichterId),
-  {
+  return adminKeyTransport<FLPatchSchiedsrichterResponse>(getSchiedsrichterPatchSchiedsrichterUrl(schiedsrichterId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSchiedsrichterPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSchiedsrichterPayload),
+  });
+};
 
-
-
-export const getSchiedsrichterEinladenSchiedsrichterUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/${schiedsrichterId}/bestaetigung/einladen`
-}
+export const getSchiedsrichterEinladenSchiedsrichterUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/${schiedsrichterId}/bestaetigung/einladen`;
+};
 
 /**
  * Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.
@@ -4202,24 +3717,19 @@ export const getSchiedsrichterEinladenSchiedsrichterUrl = (schiedsrichterId: str
  * credential that can never be spent.
  * @summary Send a Schiedsrichter a fresh confirmation link
  */
-export const schiedsrichterEinladenSchiedsrichter = async (schiedsrichterId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterMintResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterEinladenSchiedsrichterUrl(schiedsrichterId),
-  {
+export const schiedsrichterEinladenSchiedsrichter = async (
+  schiedsrichterId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterMintResponse> => {
+  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterEinladenSchiedsrichterUrl(schiedsrichterId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: string,) => {
-
-
-  return `/api/v0/schiedsrichter/${schiedsrichterId}/reactivate`
-}
+export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: string) => {
+  return `/api/v0/schiedsrichter/${schiedsrichterId}/reactivate`;
+};
 
 /**
  * Clear `inactive_since`, putting the referee back into the picker and every default read.
@@ -4235,24 +3745,19 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
  * person behind it.
  * @summary Bring a deactivated Schiedsrichter back
  */
-export const schiedsrichterReactivateSchiedsrichter = async (schiedsrichterId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterReactivateResponse> => {
-
-  return adminKeyTransport<FLSchiedsrichterReactivateResponse>(getSchiedsrichterReactivateSchiedsrichterUrl(schiedsrichterId),
-  {
+export const schiedsrichterReactivateSchiedsrichter = async (
+  schiedsrichterId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterReactivateResponse> => {
+  return adminKeyTransport<FLSchiedsrichterReactivateResponse>(getSchiedsrichterReactivateSchiedsrichterUrl(schiedsrichterId), {
     ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
+    method: "POST",
+  });
+};
 
 export const getSperrlisteGetSperrlisteUrl = () => {
-
-
-  return `/api/v0/sperrliste`
-}
+  return `/api/v0/sperrliste`;
+};
 
 /**
  * List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
@@ -4265,24 +3770,16 @@ export const getSperrlisteGetSperrlisteUrl = () => {
  * served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
  * @summary List the banned addresses
  */
-export const sperrlisteGetSperrliste = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSperrlisteListResponse> => {
-
-  return adminKeyTransport<FLSperrlisteListResponse>(getSperrlisteGetSperrlisteUrl(),
-  {
+export const sperrlisteGetSperrliste = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSperrlisteListResponse> => {
+  return adminKeyTransport<FLSperrlisteListResponse>(getSperrlisteGetSperrlisteUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSperrlistePostSperrlisteEintragUrl = () => {
-
-
-  return `/api/v0/sperrliste`
-}
+  return `/api/v0/sperrliste`;
+};
 
 /**
  * Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
@@ -4300,15 +3797,15 @@ export const getSperrlistePostSperrlisteEintragUrl = () => {
  * is, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.
  * @summary Ban an email address
  */
-export const sperrlistePostSperrlisteEintrag = async (fLPostSperrlistePayload: FLPostSperrlistePayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostSperrlisteResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const sperrlistePostSperrlisteEintrag = async (
+  fLPostSperrlistePayload: FLPostSperrlistePayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostSperrlisteResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4316,22 +3813,17 @@ export const sperrlistePostSperrlisteEintrag = async (fLPostSperrlistePayload: F
     }
     return headers;
   };
-return adminKeyTransport<FLPostSperrlisteResponse>(getSperrlistePostSperrlisteEintragUrl(),
-  {
+  return adminKeyTransport<FLPostSperrlisteResponse>(getSperrlistePostSperrlisteEintragUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSperrlistePayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSperrlistePayload),
+  });
+};
 
-
-
-export const getSperrlisteDeleteSperrlisteEintragUrl = (sperrlisteId: string,) => {
-
-
-  return `/api/v0/sperrliste/${sperrlisteId}`
-}
+export const getSperrlisteDeleteSperrlisteEintragUrl = (sperrlisteId: string) => {
+  return `/api/v0/sperrliste/${sperrlisteId}`;
+};
 
 /**
  * Lift a ban before it lapses, removing the row. HARD, no soft form.
@@ -4345,24 +3837,21 @@ export const getSperrlisteDeleteSperrlisteEintragUrl = (sperrlisteId: string,) =
  * at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
  * @summary Lift a ban
  */
-export const sperrlisteDeleteSperrlisteEintrag = async (sperrlisteId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSperrlisteWriteResponse> => {
-
-  return adminKeyTransport<FLSperrlisteWriteResponse>(getSperrlisteDeleteSperrlisteEintragUrl(sperrlisteId),
-  {
+export const sperrlisteDeleteSperrlisteEintrag = async (
+  sperrlisteId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSperrlisteWriteResponse> => {
+  return adminKeyTransport<FLSperrlisteWriteResponse>(getSperrlisteDeleteSperrlisteEintragUrl(sperrlisteId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielberichteGetSpielberichteUrl = (params?: SpielberichteGetSpielberichteParams,) => {
+export const getSpielberichteGetSpielberichteUrl = (params?: SpielberichteGetSpielberichteParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spielberichte?${stringifiedParams}` : `/api/v0/spielberichte`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spielberichte?${stringifiedParams}` : `/api/v0/spielberichte`;
+};
 
 /**
  * Every report of one season holding a block, each with its state against its fixture and what it proposes.
@@ -4372,24 +3861,19 @@ export const getSpielberichteGetSpielberichteUrl = (params?: SpielberichteGetSpi
  * season is active.
  * @summary Every report of a season and the state it reads in
  */
-export const spielberichteGetSpielberichte = async (params?: SpielberichteGetSpielberichteParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichteSaisonResponse> => {
-
-  return adminKeyTransport<FLSpielberichteSaisonResponse>(getSpielberichteGetSpielberichteUrl(params),
-  {
+export const spielberichteGetSpielberichte = async (
+  params?: SpielberichteGetSpielberichteParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichteSaisonResponse> => {
+  return adminKeyTransport<FLSpielberichteSaisonResponse>(getSpielberichteGetSpielberichteUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielberichteGetSpielberichtePersonUrl = () => {
-
-
-  return `/api/v0/spielberichte/person`
-}
+  return `/api/v0/spielberichte/person`;
+};
 
 /**
  * The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.
@@ -4403,24 +3887,18 @@ export const getSpielberichteGetSpielberichtePersonUrl = () => {
  * Refused `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.
  * @summary The fixtures a signed-in referee reports on
  */
-export const spielberichteGetSpielberichtePerson = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtePersonResponse> => {
-
-  return adminKeyTransport<FLSpielberichtePersonResponse>(getSpielberichteGetSpielberichtePersonUrl(),
-  {
+export const spielberichteGetSpielberichtePerson = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtePersonResponse> => {
+  return adminKeyTransport<FLSpielberichtePersonResponse>(getSpielberichteGetSpielberichtePersonUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielberichtePatchSpielberichtUrl = (spielId: string,) => {
-
-
-  return `/api/v0/spielberichte/${spielId}`
-}
+export const getSpielberichtePatchSpielberichtUrl = (spielId: string) => {
+  return `/api/v0/spielberichte/${spielId}`;
+};
 
 /**
  * Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
@@ -4444,16 +3922,16 @@ export const getSpielberichtePatchSpielberichtUrl = (spielId: string,) => {
  * opened on no report: the later is refused.
  * @summary Write one fixture's report as an administrator
  */
-export const spielberichtePatchSpielbericht = async (spielId: string,
-    fLSpielberichtPayload: FLSpielberichtPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtAdminResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielberichtePatchSpielbericht = async (
+  spielId: string,
+  fLSpielberichtPayload: FLSpielberichtPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtAdminResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4461,23 +3939,21 @@ export const spielberichtePatchSpielbericht = async (spielId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichtePatchSpielberichtUrl(spielId),
-  {
+  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichtePatchSpielberichtUrl(spielId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielberichtPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielberichtPayload),
+  });
+};
 
-
-
-export const getSpielberichteGetSpielberichtAdminUrl = (spielId: string,
-    params?: SpielberichteGetSpielberichtAdminParams,) => {
+export const getSpielberichteGetSpielberichtAdminUrl = (spielId: string, params?: SpielberichteGetSpielberichtAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spielberichte/${spielId}/admin?${stringifiedParams}` : `/api/v0/spielberichte/${spielId}/admin`
-}
+  return stringifiedParams.length > 0
+    ? `/api/v0/spielberichte/${spielId}/admin?${stringifiedParams}`
+    : `/api/v0/spielberichte/${spielId}/admin`;
+};
 
 /**
  * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
@@ -4488,25 +3964,20 @@ export const getSpielberichteGetSpielberichtAdminUrl = (spielId: string,
  * a fixture that does not exist.
  * @summary One fixture's report, whole, for an administrator
  */
-export const spielberichteGetSpielberichtAdmin = async (spielId: string,
-    params?: SpielberichteGetSpielberichtAdminParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtAdminResponse> => {
-
-  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtAdminUrl(spielId,params),
-  {
+export const spielberichteGetSpielberichtAdmin = async (
+  spielId: string,
+  params?: SpielberichteGetSpielberichtAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtAdminResponse> => {
+  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtAdminUrl(spielId, params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string,) => {
-
-
-  return `/api/v0/spielberichte/${spielId}/bericht`
-}
+export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
+  return `/api/v0/spielberichte/${spielId}/bericht`;
+};
 
 /**
  * What the booked referee's report form reads.
@@ -4522,24 +3993,19 @@ export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string,) => {
  * is booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.
  * @summary One fixture's report as its referee reads it
  */
-export const spielberichteGetSpielberichtBericht = async (spielId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtSchiedsrichterResponse> => {
-
-  return adminKeyTransport<FLSpielberichtSchiedsrichterResponse>(getSpielberichteGetSpielberichtBerichtUrl(spielId),
-  {
+export const spielberichteGetSpielberichtBericht = async (
+  spielId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtSchiedsrichterResponse> => {
+  return adminKeyTransport<FLSpielberichtSchiedsrichterResponse>(getSpielberichteGetSpielberichtBerichtUrl(spielId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string,) => {
-
-
-  return `/api/v0/spielberichte/${spielId}/bericht`
-}
+export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
+  return `/api/v0/spielberichte/${spielId}/bericht`;
+};
 
 /**
  * Write the whole report of one fixture as its booked referee, replacing what stood.
@@ -4570,16 +4036,16 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string,) => {
  * refused.
  * @summary Write one fixture's report as its referee
  */
-export const spielberichtePutSpielberichtBericht = async (spielId: string,
-    fLSpielberichtPayload: FLSpielberichtPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtSchiedsrichterResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielberichtePutSpielberichtBericht = async (
+  spielId: string,
+  fLSpielberichtPayload: FLSpielberichtPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtSchiedsrichterResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4587,22 +4053,19 @@ export const spielberichtePutSpielberichtBericht = async (spielId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSpielberichtSchiedsrichterResponse>(getSpielberichtePutSpielberichtBerichtUrl(spielId),
-  {
+  return adminKeyTransport<FLSpielberichtSchiedsrichterResponse>(getSpielberichtePutSpielberichtBerichtUrl(spielId), {
     ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielberichtPayload)
-  }
-);}
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielberichtPayload),
+  });
+};
 
-
-
-export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: SpielbestaetigungenGetSpielbestaetigungenParams,) => {
+export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: SpielbestaetigungenGetSpielbestaetigungenParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spielbestaetigungen?${stringifiedParams}` : `/api/v0/spielbestaetigungen`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spielbestaetigungen?${stringifiedParams}` : `/api/v0/spielbestaetigungen`;
+};
 
 /**
  * Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
@@ -4612,24 +4075,19 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
  * oldest of them out. A season no document has answers no rows and a null day rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
-export const spielbestaetigungenGetSpielbestaetigungen = async (params: SpielbestaetigungenGetSpielbestaetigungenParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielbestaetigungenListResponse> => {
-
-  return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params),
-  {
+export const spielbestaetigungenGetSpielbestaetigungen = async (
+  params: SpielbestaetigungenGetSpielbestaetigungenParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungenListResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
-
-
-  return `/api/v0/spielbestaetigungen`
-}
+  return `/api/v0/spielbestaetigungen`;
+};
 
 /**
  * Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
@@ -4650,15 +4108,15 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * than letting it stand.
  * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
  */
-export const spielbestaetigungenPostSpielbestaetigung = async (fLSpielbestaetigungAntwortPayload: FLSpielbestaetigungAntwortPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielbestaetigungAntwortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenPostSpielbestaetigung = async (
+  fLSpielbestaetigungAntwortPayload: FLSpielbestaetigungAntwortPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielbestaetigungAntwortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4666,22 +4124,17 @@ export const spielbestaetigungenPostSpielbestaetigung = async (fLSpielbestaetigu
     }
     return headers;
   };
-return baseKeyTransport<FLSpielbestaetigungAntwortResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(),
-  {
+  return baseKeyTransport<FLSpielbestaetigungAntwortResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAntwortPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungAntwortPayload),
+  });
+};
 
 export const getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl = () => {
-
-
-  return `/api/v0/spielbestaetigungen/ansicht`
-}
+  return `/api/v0/spielbestaetigungen/ansicht`;
+};
 
 /**
  * Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).
@@ -4696,15 +4149,15 @@ export const getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl = () => {
  * Ansetzung, whose date and hour alone are served.
  * @summary What one fixture confirmation link opens
  */
-export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (fLSpielbestaetigungAnsichtPayload: FLSpielbestaetigungAnsichtPayload, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielbestaetigungAnsichtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
+  fLSpielbestaetigungAnsichtPayload: FLSpielbestaetigungAnsichtPayload,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielbestaetigungAnsichtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4712,22 +4165,17 @@ export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (fLSpielbest
     }
     return headers;
   };
-return baseKeyTransport<FLSpielbestaetigungAnsichtResponse>(getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl(),
-  {
+  return baseKeyTransport<FLSpielbestaetigungAnsichtResponse>(getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAnsichtPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungAnsichtPayload),
+  });
+};
 
 export const getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl = () => {
-
-
-  return `/api/v0/spielbestaetigungen/selbst`
-}
+  return `/api/v0/spielbestaetigungen/selbst`;
+};
 
 /**
  * Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
@@ -4745,24 +4193,18 @@ export const getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl = () => {
  * Refuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).
  * @summary A signed-in referee's own fixture assignments
  */
-export const spielbestaetigungenGetEigeneSpielbestaetigungen = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielbestaetigungenSelbstResponse> => {
-
-  return adminKeyTransport<FLSpielbestaetigungenSelbstResponse>(getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl(),
-  {
+export const spielbestaetigungenGetEigeneSpielbestaetigungen = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungenSelbstResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungenSelbstResponse>(getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
-
-
-  return `/api/v0/spielbestaetigungen/sweep`
-}
+  return `/api/v0/spielbestaetigungen/sweep`;
+};
 
 /**
  * Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.
@@ -4773,24 +4215,18 @@ export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
  * it writes nothing.
  * @summary Every season the confirmation pass visits
  */
-export const spielbestaetigungenGetSpielSweepSaisons = async ( options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSpielbestaetigungSweepSaisonsResponse> => {
-
-  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSpielSweepSaisonsUrl(),
-  {
+export const spielbestaetigungenGetSpielSweepSaisons = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSpielbestaetigungSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSpielSweepSaisonsUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}`
-}
+export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: string) => {
+  return `/api/v0/spielbestaetigungen/sweep/${saisonId}`;
+};
 
 /**
  * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.
@@ -4857,24 +4293,19 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
-export const spielbestaetigungenSweepSpielbestaetigungen = async (saisonId: string, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSpielbestaetigungSweepResponse> => {
-
-  return systemKeyTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId),
-  {
+export const spielbestaetigungenSweepSpielbestaetigungen = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSpielbestaetigungSweepResponse> => {
+  return systemKeyTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielbestaetigungenAngefragtSpielbestaetigungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/angefragt`
-}
+export const getSpielbestaetigungenAngefragtSpielbestaetigungenUrl = (saisonId: string) => {
+  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/angefragt`;
+};
 
 /**
  * Record that the first message about the rows named went out, team and referee rows alike.
@@ -4885,16 +4316,16 @@ export const getSpielbestaetigungenAngefragtSpielbestaetigungenUrl = (saisonId: 
  * logged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.
  * @summary Stamp the confirmations whose first message went out
  */
-export const spielbestaetigungenAngefragtSpielbestaetigungen = async (saisonId: string,
-    fLSpielbestaetigungSweepAngefragtPayload: FLSpielbestaetigungSweepAngefragtPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSpielbestaetigungSweepAngefragtResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenAngefragtSpielbestaetigungen = async (
+  saisonId: string,
+  fLSpielbestaetigungSweepAngefragtPayload: FLSpielbestaetigungSweepAngefragtPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSpielbestaetigungSweepAngefragtResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4902,22 +4333,17 @@ export const spielbestaetigungenAngefragtSpielbestaetigungen = async (saisonId: 
     }
     return headers;
   };
-return systemKeyTransport<FLSpielbestaetigungSweepAngefragtResponse>(getSpielbestaetigungenAngefragtSpielbestaetigungenUrl(saisonId),
-  {
+  return systemKeyTransport<FLSpielbestaetigungSweepAngefragtResponse>(getSpielbestaetigungenAngefragtSpielbestaetigungenUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungSweepAngefragtPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungSweepAngefragtPayload),
+  });
+};
 
-
-
-export const getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`
-}
+export const getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl = (saisonId: string) => {
+  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
+};
 
 /**
  * Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.
@@ -4928,16 +4354,16 @@ export const getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl = (saisonId:
  * transaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.
  * @summary Stamp the confirmations whose notice went out
  */
-export const spielbestaetigungenMitgeteiltSpielbestaetigungen = async (saisonId: string,
-    fLSpielbestaetigungSweepMitgeteiltPayload: FLSpielbestaetigungSweepMitgeteiltPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenMitgeteiltSpielbestaetigungen = async (
+  saisonId: string,
+  fLSpielbestaetigungSweepMitgeteiltPayload: FLSpielbestaetigungSweepMitgeteiltPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -4945,22 +4371,17 @@ export const spielbestaetigungenMitgeteiltSpielbestaetigungen = async (saisonId:
     }
     return headers;
   };
-return systemKeyTransport<FLSpielbestaetigungSweepMitgeteiltResponse>(getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl(saisonId),
-  {
+  return systemKeyTransport<FLSpielbestaetigungSweepMitgeteiltResponse>(getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl(saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungSweepMitgeteiltPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungSweepMitgeteiltPayload),
+  });
+};
 
-
-
-export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaetigungId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/antwort`
-}
+export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/antwort`;
+};
 
 /**
  * Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
@@ -4984,16 +4405,16 @@ export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaeti
  * on the public fixture, and a decline takes it off.
  * @summary Accept or decline one of the signed-in referee's own fixture assignments
  */
-export const spielbestaetigungenPostSchiedsrichterAntwort = async (spielbestaetigungId: string,
-    fLSpielbestaetigungSchiedsrichterAntwortPayload: FLSpielbestaetigungSchiedsrichterAntwortPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenPostSchiedsrichterAntwort = async (
+  spielbestaetigungId: string,
+  fLSpielbestaetigungSchiedsrichterAntwortPayload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5001,22 +4422,20 @@ export const spielbestaetigungenPostSchiedsrichterAntwort = async (spielbestaeti
     }
     return headers;
   };
-return adminKeyTransport<FLSpielbestaetigungSchiedsrichterAntwortResponse>(getSpielbestaetigungenPostSchiedsrichterAntwortUrl(spielbestaetigungId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAntwortPayload)
-  }
-);}
+  return adminKeyTransport<FLSpielbestaetigungSchiedsrichterAntwortResponse>(
+    getSpielbestaetigungenPostSchiedsrichterAntwortUrl(spielbestaetigungId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+      body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAntwortPayload),
+    },
+  );
+};
 
-
-
-export const getSpielbestaetigungenEintragenSpielbestaetigungUrl = (spielbestaetigungId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/eintragen`
-}
+export const getSpielbestaetigungenEintragenSpielbestaetigungUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/eintragen`;
+};
 
 /**
  * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
@@ -5029,16 +4448,16 @@ export const getSpielbestaetigungenEintragenSpielbestaetigungUrl = (spielbestaet
  * left is settled as asked, and the next confirmation pass closes it.
  * @summary Record a party's Zusage on its behalf
  */
-export const spielbestaetigungenEintragenSpielbestaetigung = async (spielbestaetigungId: string,
-    fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielbestaetigungEintragenResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielbestaetigungenEintragenSpielbestaetigung = async (
+  spielbestaetigungId: string,
+  fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungEintragenResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5046,22 +4465,17 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (spielbestaet
     }
     return headers;
   };
-return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId),
-  {
+  return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungEintragenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungEintragenPayload),
+  });
+};
 
-
-
-export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaetigungId: string,) => {
-
-
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/verwerfen`
-}
+export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/verwerfen`;
+};
 
 /**
  * Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
@@ -5075,24 +4489,21 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
  * the confirmation pass closes that row and tells its club of the move.
  * @summary Discard a club's proposed date
  */
-export const spielbestaetigungenVerwerfenSpielbestaetigung = async (spielbestaetigungId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielbestaetigungVerwerfenResponse> => {
-
-  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId),
-  {
+export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
+  spielbestaetigungId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungVerwerfenResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams,) => {
+export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele?${stringifiedParams}` : `/api/v0/spiele`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spiele?${stringifiedParams}` : `/api/v0/spiele`;
+};
 
 /**
  * List Spiele matching the given filters.
@@ -5101,24 +4512,21 @@ export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams,) => {
  * `saison_phase` aliases `playoffs` to "any phase but gruppenphase"; `ausstehend` includes today.
  * @summary List Spiele
  */
-export const spieleGetSpiele = async (params?: SpieleGetSpieleParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieleListResponse> => {
-
-  return baseKeyTransport<FLSpieleListResponse>(getSpieleGetSpieleUrl(params),
-  {
+export const spieleGetSpiele = async (
+  params?: SpieleGetSpieleParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpieleListResponse> => {
+  return baseKeyTransport<FLSpieleListResponse>(getSpieleGetSpieleUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams,) => {
+export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActionRequiredParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/action_required?${stringifiedParams}` : `/api/v0/spiele/action_required`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/action_required?${stringifiedParams}` : `/api/v0/spiele/action_required`;
+};
 
 /**
  * List Spiele needing attention, and the bracket faults among them.
@@ -5138,24 +4546,21 @@ export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActi
  * and one whose venue or referee another fixture of any season claims less than four hours away.
  * @summary Spiele needing attention
  */
-export const spieleGetSpieleActionRequired = async (params?: SpieleGetSpieleActionRequiredParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieleActionRequiredResponse> => {
-
-  return adminKeyTransport<FLSpieleActionRequiredResponse>(getSpieleGetSpieleActionRequiredUrl(params),
-  {
+export const spieleGetSpieleActionRequired = async (
+  params?: SpieleGetSpieleActionRequiredParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleActionRequiredResponse> => {
+  return adminKeyTransport<FLSpieleActionRequiredResponse>(getSpieleGetSpieleActionRequiredUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminParams,) => {
+export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/admin?${stringifiedParams}` : `/api/v0/spiele/list/admin`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/admin?${stringifiedParams}` : `/api/v0/spiele/list/admin`;
+};
 
 /**
  * List a season's Spiele for the admin surfaces, a `future` season's included.
@@ -5165,24 +4570,19 @@ export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminPa
  * carries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).
  * @summary Spiele for the admin surfaces
  */
-export const spieleGetSpieleForAdmin = async (params?: SpieleGetSpieleForAdminParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieleAdminListResponse> => {
-
-  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleForAdminUrl(params),
-  {
+export const spieleGetSpieleForAdmin = async (
+  params?: SpieleGetSpieleForAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleAdminListResponse> => {
+  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleForAdminUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieleGetSpielUrl = (spielId: string,) => {
-
-
-  return `/api/v0/spiele/${spielId}`
-}
+export const getSpieleGetSpielUrl = (spielId: string) => {
+  return `/api/v0/spiele/${spielId}`;
+};
 
 /**
  * Return one match by its id.
@@ -5192,24 +4592,17 @@ export const getSpieleGetSpielUrl = (spielId: string,) => {
  * @summary One Spiel
  */
 export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieleSingleResponse> => {
-
-  return baseKeyTransport<FLSpieleSingleResponse>(getSpieleGetSpielUrl(spielId),
-  {
+  return baseKeyTransport<FLSpieleSingleResponse>(getSpieleGetSpielUrl(spielId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielePatchSpielDataUrl = (spielId: string,
-    params?: SpielePatchSpielDataParams,) => {
+export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatchSpielDataParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/${spielId}?${stringifiedParams}` : `/api/v0/spiele/${spielId}`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/${spielId}?${stringifiedParams}` : `/api/v0/spiele/${spielId}`;
+};
 
 /**
  * Update one Spiel and resolve the season's bracket.
@@ -5222,17 +4615,17 @@ export const getSpielePatchSpielDataUrl = (spielId: string,
  * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
  * @summary Update a Spiel
  */
-export const spielePatchSpielData = async (spielId: string,
-    fLPatchSpielDataPayload: FLPatchSpielDataPayload,
-    params?: SpielePatchSpielDataParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSpielDataResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielePatchSpielData = async (
+  spielId: string,
+  fLPatchSpielDataPayload: FLPatchSpielDataPayload,
+  params?: SpielePatchSpielDataParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSpielDataResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5240,22 +4633,17 @@ export const spielePatchSpielData = async (spielId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielDataUrl(spielId,params),
-  {
+  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielDataUrl(spielId, params), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpielDataPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSpielDataPayload),
+  });
+};
 
-
-
-export const getSpieleGetSpielForAdminUrl = (spielId: string,) => {
-
-
-  return `/api/v0/spiele/${spielId}/admin`
-}
+export const getSpieleGetSpielForAdminUrl = (spielId: string) => {
+  return `/api/v0/spiele/${spielId}/admin`;
+};
 
 /**
  * Return one match in the joined shape, plus the two figures the base tier withholds.
@@ -5264,24 +4652,21 @@ export const getSpieleGetSpielForAdminUrl = (spielId: string,) => {
  * which are admin-tier (`READ-MONEY-001`).
  * @summary One Spiel for the admin editor
  */
-export const spieleGetSpielForAdmin = async (spielId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieleAdminSingleResponse> => {
-
-  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielForAdminUrl(spielId),
-  {
+export const spieleGetSpielForAdmin = async (
+  spielId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleAdminSingleResponse> => {
+  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielForAdminUrl(spielId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams,) => {
+export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spieler?${stringifiedParams}` : `/api/v0/spieler`;
+};
 
 /**
  * List players, normally one team's squad in one season.
@@ -5295,25 +4680,19 @@ export const getSpielerGetSpielerUrl = (params?: SpielerGetSpielerParams,) => {
  * (`READ-PUPIL-005`).
  * @summary List Spieler
  */
-export const spielerGetSpieler = async (params?: SpielerGetSpielerParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielerListResponse> => {
-
-  return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params),
-  {
+export const spielerGetSpieler = async (
+  params?: SpielerGetSpielerParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielerListResponse> => {
+  return baseKeyTransport<FLSpielerListResponse>(getSpielerGetSpielerUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerGetKaderUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}`
-}
+export const getSpielerGetKaderUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/spieler/kader/${teamId}/${saisonId}`;
+};
 
 /**
  * The squad of one team in one season, for a person holding any contact seat on it.
@@ -5325,27 +4704,20 @@ export const getSpielerGetKaderUrl = (teamId: string,
  * team in this season, a seat on a `past` season holding none.
  * @summary Read a team's squad as its seat holder
  */
-export const spielerGetKader = async (teamId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKaderResponse> => {
-
-  return adminKeyTransport<FLKaderResponse>(getSpielerGetKaderUrl(teamId,saisonId),
-  {
+export const spielerGetKader = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderResponse> => {
+  return adminKeyTransport<FLKaderResponse>(getSpielerGetKaderUrl(teamId, saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerDeleteKaderZeileUrl = (teamId: string,
-    saisonId: string,
-    spielerId: string,) => {
-
-
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`
-}
+export const getSpielerDeleteKaderZeileUrl = (teamId: string, saisonId: string, spielerId: string) => {
+  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`;
+};
 
 /**
  * Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.
@@ -5356,28 +4728,21 @@ export const getSpielerDeleteKaderZeileUrl = (teamId: string,
  * German day, ahead of the 404, and `REQ-FUNKTION-001` without a seat.
  * @summary Take a Spieler out of the squad as its team's seat holder (austragen)
  */
-export const spielerDeleteKaderZeile = async (teamId: string,
-    saisonId: string,
-    spielerId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKaderZeileResponse> => {
-
-  return adminKeyTransport<FLKaderZeileResponse>(getSpielerDeleteKaderZeileUrl(teamId,saisonId,spielerId),
-  {
+export const spielerDeleteKaderZeile = async (
+  teamId: string,
+  saisonId: string,
+  spielerId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderZeileResponse> => {
+  return adminKeyTransport<FLKaderZeileResponse>(getSpielerDeleteKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerPatchKaderZeileUrl = (teamId: string,
-    saisonId: string,
-    spielerId: string,) => {
-
-
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`
-}
+export const getSpielerPatchKaderZeileUrl = (teamId: string, saisonId: string, spielerId: string) => {
+  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`;
+};
 
 /**
  * Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
@@ -5390,18 +4755,18 @@ export const getSpielerPatchKaderZeileUrl = (teamId: string,
  * for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
  * @summary Update a squad entry as its team's seat holder
  */
-export const spielerPatchKaderZeile = async (teamId: string,
-    saisonId: string,
-    spielerId: string,
-    fLPatchKaderZeilePayload: FLPatchKaderZeilePayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKaderZeileResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielerPatchKaderZeile = async (
+  teamId: string,
+  saisonId: string,
+  spielerId: string,
+  fLPatchKaderZeilePayload: FLPatchKaderZeilePayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderZeileResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5409,22 +4774,17 @@ export const spielerPatchKaderZeile = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLKaderZeileResponse>(getSpielerPatchKaderZeileUrl(teamId,saisonId,spielerId),
-  {
+  return adminKeyTransport<FLKaderZeileResponse>(getSpielerPatchKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchKaderZeilePayload)
-  }
-);}
-
-
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchKaderZeilePayload),
+  });
+};
 
 export const getSpielerGetSpielerMembershipsUrl = () => {
-
-
-  return `/api/v0/spieler/memberships`
-}
+  return `/api/v0/spieler/memberships`;
+};
 
 /**
  * Every player, retired ones included, each with every squad row they hold.
@@ -5436,24 +4796,18 @@ export const getSpielerGetSpielerMembershipsUrl = () => {
  * `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
  * @summary Every Spieler with their squad rows
  */
-export const spielerGetSpielerMemberships = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerMembershipsResponse> => {
-
-  return adminKeyTransport<FLSpielerMembershipsResponse>(getSpielerGetSpielerMembershipsUrl(),
-  {
+export const spielerGetSpielerMemberships = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerMembershipsResponse> => {
+  return adminKeyTransport<FLSpielerMembershipsResponse>(getSpielerGetSpielerMembershipsUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string,) => {
-
-
-  return `/api/v0/spieler/nachnominierung/${saisonId}`
-}
+export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
+  return `/api/v0/spieler/nachnominierung/${saisonId}`;
+};
 
 /**
  * Whether a player entered into this season's squads today would be marked a Nachnominierung.
@@ -5463,24 +4817,19 @@ export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string,) => {
  * holds none yet, answers `false`. 404 where no season has this id.
  * @summary Whether a squad entry into a season today is a Nachnominierung
  */
-export const spielerGetSpielerNachnominierung = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerNachnominierungResponse> => {
-
-  return adminKeyTransport<FLSpielerNachnominierungResponse>(getSpielerGetSpielerNachnominierungUrl(saisonId),
-  {
+export const spielerGetSpielerNachnominierung = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerNachnominierungResponse> => {
+  return adminKeyTransport<FLSpielerNachnominierungResponse>(getSpielerGetSpielerNachnominierungUrl(saisonId), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielerGetSelbstUrl = () => {
-
-
-  return `/api/v0/spieler/selbst`
-}
+  return `/api/v0/spieler/selbst`;
+};
 
 /**
  * Answer the signed-in address's own pupil record's stored data with every squad row it holds.
@@ -5491,24 +4840,16 @@ export const getSpielerGetSelbstUrl = () => {
  * Refuses an address holding no confirmed pupil record (`REQ-FUNKTION-001`).
  * @summary A signed-in pupil's own record
  */
-export const spielerGetSelbst = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstResponse> => {
-
-  return adminKeyTransport<FLSpielerSelbstResponse>(getSpielerGetSelbstUrl(),
-  {
+export const spielerGetSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstResponse> => {
+  return adminKeyTransport<FLSpielerSelbstResponse>(getSpielerGetSelbstUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielerPatchEinwilligungUrl = () => {
-
-
-  return `/api/v0/spieler/selbst/einwilligung`
-}
+  return `/api/v0/spieler/selbst/einwilligung`;
+};
 
 /**
  * Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
@@ -5530,15 +4871,15 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * name is served, and nothing here can.
  * @summary Change a signed-in pupil's own publication and media consent
  */
-export const spielerPatchEinwilligung = async (fLSpielerSelbstEinwilligungPayload: FLSpielerSelbstEinwilligungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstEinwilligungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielerPatchEinwilligung = async (
+  fLSpielerSelbstEinwilligungPayload: FLSpielerSelbstEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerSelbstEinwilligungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5546,45 +4887,35 @@ export const spielerPatchEinwilligung = async (fLSpielerSelbstEinwilligungPayloa
     }
     return headers;
   };
-return adminKeyTransport<FLSpielerSelbstEinwilligungResponse>(getSpielerPatchEinwilligungUrl(),
-  {
+  return adminKeyTransport<FLSpielerSelbstEinwilligungResponse>(getSpielerPatchEinwilligungUrl(), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielerSelbstEinwilligungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielerSelbstEinwilligungPayload),
+  });
+};
 
-
-
-export const getSpielerDeleteSpielerUrl = (spielerId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}`
-}
+export const getSpielerDeleteSpielerUrl = (spielerId: string) => {
+  return `/api/v0/spieler/${spielerId}`;
+};
 
 /**
  * Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.
  * @summary Retire a Spieler (soft delete)
  */
-export const spielerDeleteSpieler = async (spielerId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerAdminSingleResponse> => {
-
-  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerDeleteSpielerUrl(spielerId),
-  {
+export const spielerDeleteSpieler = async (
+  spielerId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerAdminSingleResponse> => {
+  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerDeleteSpielerUrl(spielerId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerGetSpielerByIdUrl = (spielerId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}`
-}
+export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
+  return `/api/v0/spieler/${spielerId}`;
+};
 
 /**
  * Return one player -- an id, a forename and an INITIAL, which is all this surface needs.
@@ -5595,39 +4926,34 @@ export const getSpielerGetSpielerByIdUrl = (spielerId: string,) => {
  * here would make the answer depend on a default nobody asked for.
  * @summary One Spieler
  */
-export const spielerGetSpielerById = async (spielerId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielerSingleResponse> => {
-
-  return baseKeyTransport<FLSpielerSingleResponse>(getSpielerGetSpielerByIdUrl(spielerId),
-  {
+export const spielerGetSpielerById = async (
+  spielerId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpielerSingleResponse> => {
+  return baseKeyTransport<FLSpielerSingleResponse>(getSpielerGetSpielerByIdUrl(spielerId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerPatchSpielerUrl = (spielerId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}`
-}
+export const getSpielerPatchSpielerUrl = (spielerId: string) => {
+  return `/api/v0/spieler/${spielerId}`;
+};
 
 /**
  * Replace a player's own facts wholesale. No fan-out: unlike a team or a venue, a person is embedded in no other document.
  * @summary Update a Spieler's name
  */
-export const spielerPatchSpieler = async (spielerId: string,
-    fLPatchSpielerPayload: FLPatchSpielerPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerAdminSingleResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielerPatchSpieler = async (
+  spielerId: string,
+  fLPatchSpielerPayload: FLPatchSpielerPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerAdminSingleResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5635,45 +4961,35 @@ export const spielerPatchSpieler = async (spielerId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerPatchSpielerUrl(spielerId),
-  {
+  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerPatchSpielerUrl(spielerId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpielerPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSpielerPayload),
+  });
+};
 
-
-
-export const getSpielerReactivateSpielerUrl = (spielerId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}/reactivate`
-}
+export const getSpielerReactivateSpielerUrl = (spielerId: string) => {
+  return `/api/v0/spieler/${spielerId}/reactivate`;
+};
 
 /**
  * Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate.
  * @summary Bring a retired Spieler back
  */
-export const spielerReactivateSpieler = async (spielerId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerAdminSingleResponse> => {
-
-  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerReactivateSpielerUrl(spielerId),
-  {
+export const spielerReactivateSpieler = async (
+  spielerId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerAdminSingleResponse> => {
+  return adminKeyTransport<FLSpielerAdminSingleResponse>(getSpielerReactivateSpielerUrl(spielerId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerPostSaisonSpielerUrl = (spielerId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}/saisons`
-}
+export const getSpielerPostSaisonSpielerUrl = (spielerId: string) => {
+  return `/api/v0/spieler/${spielerId}/saisons`;
+};
 
 /**
  * Put a player in a team's squad for a season.
@@ -5685,16 +5001,16 @@ export const getSpielerPostSaisonSpielerUrl = (spielerId: string,) => {
  * that matchday is undated.
  * @summary Add a Spieler to a squad
  */
-export const spielerPostSaisonSpieler = async (spielerId: string,
-    fLPostSaisonSpielerPayload: FLPostSaisonSpielerPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonSpielerResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielerPostSaisonSpieler = async (
+  spielerId: string,
+  fLPostSaisonSpielerPayload: FLPostSaisonSpielerPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonSpielerResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5702,23 +5018,17 @@ export const spielerPostSaisonSpieler = async (spielerId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPostSaisonSpielerUrl(spielerId),
-  {
+  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPostSaisonSpielerUrl(spielerId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSaisonSpielerPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSaisonSpielerPayload),
+  });
+};
 
-
-
-export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`
-}
+export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
+  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`;
+};
 
 /**
  * Take a player out of a season's squad. SOFT: the row stays.
@@ -5727,26 +5037,20 @@ export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string,
  * leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
  * @summary Remove a Spieler from a squad
  */
-export const spielerDeleteSaisonSpieler = async (spielerId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonSpielerResponse> => {
-
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerDeleteSaisonSpielerUrl(spielerId,saisonId),
-  {
+export const spielerDeleteSaisonSpieler = async (
+  spielerId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonSpielerResponse> => {
+  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerDeleteSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielerPatchSaisonSpielerUrl = (spielerId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`
-}
+export const getSpielerPatchSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
+  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`;
+};
 
 /**
  * Update a player's squad entry for that season.
@@ -5756,17 +5060,17 @@ export const getSpielerPatchSaisonSpielerUrl = (spielerId: string,
  * (`REQ-SQUAD-004`).
  * @summary Update a squad entry
  */
-export const spielerPatchSaisonSpieler = async (spielerId: string,
-    saisonId: string,
-    fLPatchSaisonSpielerPayload: FLPatchSaisonSpielerPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonSpielerResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielerPatchSaisonSpieler = async (
+  spielerId: string,
+  saisonId: string,
+  fLPatchSaisonSpielerPayload: FLPatchSaisonSpielerPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonSpielerResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5774,23 +5078,17 @@ export const spielerPatchSaisonSpieler = async (spielerId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPatchSaisonSpielerUrl(spielerId,saisonId),
-  {
+  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerPatchSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonSpielerPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSaisonSpielerPayload),
+  });
+};
 
-
-
-export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}/reactivate`
-}
+export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
+  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}/reactivate`;
+};
 
 /**
  * Clear a squad row's `inactive_since`, with the number and position it had.
@@ -5800,25 +5098,22 @@ export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string,
  * `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
  * @summary Put a Spieler back in a squad they left
  */
-export const spielerReactivateSaisonSpieler = async (spielerId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonSpielerResponse> => {
-
-  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerReactivateSaisonSpielerUrl(spielerId,saisonId),
-  {
+export const spielerReactivateSaisonSpieler = async (
+  spielerId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonSpielerResponse> => {
+  return adminKeyTransport<FLSaisonSpielerResponse>(getSpielerReactivateSaisonSpielerUrl(spielerId, saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams,) => {
+export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spielorte?${stringifiedParams}` : `/api/v0/spielorte`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spielorte?${stringifiedParams}` : `/api/v0/spielorte`;
+};
 
 /**
  * An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
@@ -5826,38 +5121,33 @@ export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams
  * Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
-export const spielorteGetSpielorte = async (params?: SpielorteGetSpielorteParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielorteListResponse> => {
-
-  return adminKeyTransport<FLSpielorteListResponse>(getSpielorteGetSpielorteUrl(params),
-  {
+export const spielorteGetSpielorte = async (
+  params?: SpielorteGetSpielorteParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielorteListResponse> => {
+  return adminKeyTransport<FLSpielorteListResponse>(getSpielorteGetSpielorteUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSpielortePostSpielortUrl = () => {
-
-
-  return `/api/v0/spielorte`
-}
+  return `/api/v0/spielorte`;
+};
 
 /**
  * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
  * @summary Create a Spielort
  */
-export const spielortePostSpielort = async (fLPostSpielortPayload: FLPostSpielortPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostSpielortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielortePostSpielort = async (
+  fLPostSpielortPayload: FLPostSpielortPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostSpielortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5865,22 +5155,17 @@ export const spielortePostSpielort = async (fLPostSpielortPayload: FLPostSpielor
     }
     return headers;
   };
-return adminKeyTransport<FLPostSpielortResponse>(getSpielortePostSpielortUrl(),
-  {
+  return adminKeyTransport<FLPostSpielortResponse>(getSpielortePostSpielortUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSpielortPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSpielortPayload),
+  });
+};
 
-
-
-export const getSpielorteDeleteSpielortUrl = (spielortId: string,) => {
-
-
-  return `/api/v0/spielorte/${spielortId}`
-}
+export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
+  return `/api/v0/spielorte/${spielortId}`;
+};
 
 /**
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
@@ -5889,24 +5174,19 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string,) => {
  * while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
  * @summary Deactivate a Spielort (soft delete)
  */
-export const spielorteDeleteSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielortWriteResponse> => {
-
-  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteDeleteSpielortUrl(spielortId),
-  {
+export const spielorteDeleteSpielort = async (
+  spielortId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielortWriteResponse> => {
+  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteDeleteSpielortUrl(spielortId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielorteGetSpielortUrl = (spielortId: string,) => {
-
-
-  return `/api/v0/spielorte/${spielortId}`
-}
+export const getSpielorteGetSpielortUrl = (spielortId: string) => {
+  return `/api/v0/spielorte/${spielortId}`;
+};
 
 /**
  * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
@@ -5914,24 +5194,19 @@ export const getSpielorteGetSpielortUrl = (spielortId: string,) => {
  * Deactivated ones included -- a historical match's venue is the case worth answering.
  * @summary One Spielort
  */
-export const spielorteGetSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielorteSingleResponse> => {
-
-  return adminKeyTransport<FLSpielorteSingleResponse>(getSpielorteGetSpielortUrl(spielortId),
-  {
+export const spielorteGetSpielort = async (
+  spielortId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielorteSingleResponse> => {
+  return adminKeyTransport<FLSpielorteSingleResponse>(getSpielorteGetSpielortUrl(spielortId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpielortePatchSpielortUrl = (spielortId: string,) => {
-
-
-  return `/api/v0/spielorte/${spielortId}`
-}
+export const getSpielortePatchSpielortUrl = (spielortId: string) => {
+  return `/api/v0/spielorte/${spielortId}`;
+};
 
 /**
  * Update a venue, then update every Spiel that embeds it.
@@ -5940,16 +5215,16 @@ export const getSpielortePatchSpielortUrl = (spielortId: string,) => {
  * NOT fanned out -- the rent on a match is what was agreed for that match.
  * @summary Update a Spielort and fan the change out
  */
-export const spielortePatchSpielort = async (spielortId: string,
-    fLPatchSpielortPayload: FLPatchSpielortPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSpielortResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spielortePatchSpielort = async (
+  spielortId: string,
+  fLPatchSpielortPayload: FLPatchSpielortPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSpielortResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -5957,45 +5232,37 @@ export const spielortePatchSpielort = async (spielortId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLPatchSpielortResponse>(getSpielortePatchSpielortUrl(spielortId),
-  {
+  return adminKeyTransport<FLPatchSpielortResponse>(getSpielortePatchSpielortUrl(spielortId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpielortPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSpielortPayload),
+  });
+};
 
-
-
-export const getSpielorteReactivateSpielortUrl = (spielortId: string,) => {
-
-
-  return `/api/v0/spielorte/${spielortId}/reactivate`
-}
+export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
+  return `/api/v0/spielorte/${spielortId}/reactivate`;
+};
 
 /**
  * Clear `inactive_since`, putting the venue back into the picker and every default read.
  * @summary Bring a deactivated Spielort back
  */
-export const spielorteReactivateSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielortWriteResponse> => {
-
-  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteReactivateSpielortUrl(spielortId),
-  {
+export const spielorteReactivateSpielort = async (
+  spielortId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielortWriteResponse> => {
+  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteReactivateSpielortUrl(spielortId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams,) => {
+export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage?${stringifiedParams}` : `/api/v0/spieltage`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spieltage?${stringifiedParams}` : `/api/v0/spieltage`;
+};
 
 /**
  * List matchdays for a season, in the order they are played.
@@ -6004,24 +5271,21 @@ export const getSpieltageGetSpieltageUrl = (params?: SpieltageGetSpieltageParams
  * Omitting `saison_id` returns the CURRENT season; one this tier may not read 404s.
  * @summary List Spieltage
  */
-export const spieltageGetSpieltage = async (params?: SpieltageGetSpieltageParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieltageListResponse> => {
-
-  return baseKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageUrl(params),
-  {
+export const spieltageGetSpieltage = async (
+  params?: SpieltageGetSpieltageParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpieltageListResponse> => {
+  return baseKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieltageGetSpieltageForAdminUrl = (params?: SpieltageGetSpieltageForAdminParams,) => {
+export const getSpieltageGetSpieltageForAdminUrl = (params?: SpieltageGetSpieltageForAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/admin?${stringifiedParams}` : `/api/v0/spieltage/list/admin`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/admin?${stringifiedParams}` : `/api/v0/spieltage/list/admin`;
+};
 
 /**
  * List a season's matchdays for the admin surfaces, a `future` season's included.
@@ -6030,24 +5294,19 @@ export const getSpieltageGetSpieltageForAdminUrl = (params?: SpieltageGetSpielta
  * are drawn while it is planned, and dating them is what this list is for.
  * @summary Spieltage for the admin surfaces
  */
-export const spieltageGetSpieltageForAdmin = async (params?: SpieltageGetSpieltageForAdminParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieltageListResponse> => {
-
-  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageForAdminUrl(params),
-  {
+export const spieltageGetSpieltageForAdmin = async (
+  params?: SpieltageGetSpieltageForAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieltageListResponse> => {
+  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageForAdminUrl(params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieltageGetSpieltagUrl = (spieltagId: string,) => {
-
-
-  return `/api/v0/spieltage/${spieltagId}`
-}
+export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
+  return `/api/v0/spieltage/${spieltagId}`;
+};
 
 /**
  * Return one matchday by its id.
@@ -6056,24 +5315,19 @@ export const getSpieltageGetSpieltagUrl = (spieltagId: string,) => {
  * that season's rules. A matchday of a season this tier may not read 404s.
  * @summary One Spieltag
  */
-export const spieltageGetSpieltag = async (spieltagId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieltageSingleResponse> => {
-
-  return baseKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagUrl(spieltagId),
-  {
+export const spieltageGetSpieltag = async (
+  spieltagId: string,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLSpieltageSingleResponse> => {
+  return baseKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagUrl(spieltagId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getSpieltagePatchSpieltagUrl = (spieltagId: string,) => {
-
-
-  return `/api/v0/spieltage/${spieltagId}`
-}
+export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
+  return `/api/v0/spieltage/${spieltagId}`;
+};
 
 /**
  * Move a matchday's span.
@@ -6082,16 +5336,16 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string,) => {
  * to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
  * @summary Re-date a Spieltag
  */
-export const spieltagePatchSpieltag = async (spieltagId: string,
-    fLPatchSpieltagPayload: FLPatchSpieltagPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieltagWriteResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const spieltagePatchSpieltag = async (
+  spieltagId: string,
+  fLPatchSpieltagPayload: FLPatchSpieltagPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieltagWriteResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6099,22 +5353,17 @@ export const spieltagePatchSpieltag = async (spieltagId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSpieltagWriteResponse>(getSpieltagePatchSpieltagUrl(spieltagId),
-  {
+  return adminKeyTransport<FLSpieltagWriteResponse>(getSpieltagePatchSpieltagUrl(spieltagId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpieltagPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSpieltagPayload),
+  });
+};
 
-
-
-export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string,) => {
-
-
-  return `/api/v0/spieltage/${spieltagId}/admin`
-}
+export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string) => {
+  return `/api/v0/spieltage/${spieltagId}/admin`;
+};
 
 /**
  * Return one matchday by its id for the admin editor, a `future` season's included.
@@ -6123,24 +5372,19 @@ export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string,) => {
  * matchday to date it, and that happens before its season is ever activated.
  * @summary One Spieltag for the admin editor
  */
-export const spieltageGetSpieltagForAdmin = async (spieltagId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpieltageSingleResponse> => {
-
-  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagForAdminUrl(spieltagId),
-  {
+export const spieltageGetSpieltagForAdmin = async (
+  spieltagId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieltageSingleResponse> => {
+  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagForAdminUrl(spieltagId), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getSystemCheckIsLiveUrl = () => {
-
-
-  return `/api/v0/system/is_live`
-}
+  return `/api/v0/system/is_live`;
+};
 
 /**
  * Liveness: is this process serving requests?
@@ -6149,24 +5393,18 @@ export const getSystemCheckIsLiveUrl = () => {
  * cannot fix.
  * @summary Liveness probe
  */
-export const systemCheckIsLive = async ( options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsLiveResponse> => {
-
-  return unkeyedTransport<CheckIsLiveResponse>(getSystemCheckIsLiveUrl(),
-  {
+export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsLiveResponse> => {
+  return unkeyedTransport<CheckIsLiveResponse>(getSystemCheckIsLiveUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams,) => {
+export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams?${stringifiedParams}` : `/api/v0/teams`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/teams?${stringifiedParams}` : `/api/v0/teams`;
+};
 
 /**
  * List teams for a season.
@@ -6176,38 +5414,33 @@ export const getTeamsGetTeamsUrl = (params?: TeamsGetTeamsParams,) => {
  * is listed in a `past` season alone.
  * @summary List teams, flat or grouped
  */
-export const teamsGetTeams = async (params?: TeamsGetTeamsParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-
-  return baseKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsUrl(params),
-  {
+export const teamsGetTeams = async (
+  params?: TeamsGetTeamsParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
+  return baseKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getTeamsPostTeamUrl = () => {
-
-
-  return `/api/v0/teams`
-}
+  return `/api/v0/teams`;
+};
 
 /**
  * Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409.
  * @summary Create a team
  */
-export const teamsPostTeam = async (fLPostTeamPayload: FLPostTeamPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPostTeamResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPostTeam = async (
+  fLPostTeamPayload: FLPostTeamPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostTeamResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6215,22 +5448,19 @@ export const teamsPostTeam = async (fLPostTeamPayload: FLPostTeamPayload, option
     }
     return headers;
   };
-return adminKeyTransport<FLPostTeamResponse>(getTeamsPostTeamUrl(),
-  {
+  return adminKeyTransport<FLPostTeamResponse>(getTeamsPostTeamUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostTeamPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostTeamPayload),
+  });
+};
 
-
-
-export const getTeamsGetTeamsForAdminUrl = (params?: TeamsGetTeamsForAdminParams,) => {
+export const getTeamsGetTeamsForAdminUrl = (params?: TeamsGetTeamsForAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
+};
 
 /**
  * List a season's teams for the admin surfaces, a `future` season's included.
@@ -6239,24 +5469,19 @@ export const getTeamsGetTeamsForAdminUrl = (params?: TeamsGetTeamsForAdminParams
  * season is still planned, so an admin who cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsForAdmin = async (params?: TeamsGetTeamsForAdminParams, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-
-  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsForAdminUrl(params),
-  {
+export const teamsGetTeamsForAdmin = async (
+  params?: TeamsGetTeamsForAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
+  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsForAdminUrl(params), {
     ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
+    method: "GET",
+  });
+};
 
 export const getTeamsGetTeamMembershipsUrl = () => {
-
-
-  return `/api/v0/teams/memberships`
-}
+  return `/api/v0/teams/memberships`;
+};
 
 /**
  * Every team, retired ones included, each with every season membership it holds. Sorted by name.
@@ -6266,24 +5491,16 @@ export const getTeamsGetTeamMembershipsUrl = () => {
  * administrator.
  * @summary Every team with its season memberships
  */
-export const teamsGetTeamMemberships = async ( options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsMembershipsResponse> => {
-
-  return adminKeyTransport<FLTeamsMembershipsResponse>(getTeamsGetTeamMembershipsUrl(),
-  {
+export const teamsGetTeamMemberships = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsMembershipsResponse> => {
+  return adminKeyTransport<FLTeamsMembershipsResponse>(getTeamsGetTeamMembershipsUrl(), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsDeleteTeamUrl = (teamId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}`
-}
+export const getTeamsDeleteTeamUrl = (teamId: string) => {
+  return `/api/v0/teams/${teamId}`;
+};
 
 /**
  * Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
@@ -6293,24 +5510,17 @@ export const getTeamsDeleteTeamUrl = (teamId: string,) => {
  * @summary Retire a team (soft delete)
  */
 export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamWriteResponse> => {
-
-  return adminKeyTransport<FLTeamWriteResponse>(getTeamsDeleteTeamUrl(teamId),
-  {
+  return adminKeyTransport<FLTeamWriteResponse>(getTeamsDeleteTeamUrl(teamId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsGetTeamUrl = (teamId: string,
-    params?: TeamsGetTeamParams,) => {
+export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/${teamId}?${stringifiedParams}` : `/api/v0/teams/${teamId}`
-}
+  return stringifiedParams.length > 0 ? `/api/v0/teams/${teamId}?${stringifiedParams}` : `/api/v0/teams/${teamId}`;
+};
 
 /**
  * Return one team, with its group and its statistics for a season.
@@ -6319,25 +5529,20 @@ export const getTeamsGetTeamUrl = (teamId: string,
  * season-scoped. 404 where the team, its row or the season is one this tier cannot read.
  * @summary One team
  */
-export const teamsGetTeam = async (teamId: string,
-    params?: TeamsGetTeamParams, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLTeamsSingleResponse> => {
-
-  return baseKeyTransport<FLTeamsSingleResponse>(getTeamsGetTeamUrl(teamId,params),
-  {
+export const teamsGetTeam = async (
+  teamId: string,
+  params?: TeamsGetTeamParams,
+  options?: Parameters<typeof baseKeyTransport>[1],
+): Promise<FLTeamsSingleResponse> => {
+  return baseKeyTransport<FLTeamsSingleResponse>(getTeamsGetTeamUrl(teamId, params), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsPatchTeamUrl = (teamId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}`
-}
+export const getTeamsPatchTeamUrl = (teamId: string) => {
+  return `/api/v0/teams/${teamId}`;
+};
 
 /**
  * Update a club, then rewrite the name and shorthand its unfinished seasons carry.
@@ -6346,16 +5551,16 @@ export const getTeamsPatchTeamUrl = (teamId: string,) => {
  * season keeps the name it was played under.
  * @summary Update a team and fan the rename out
  */
-export const teamsPatchTeam = async (teamId: string,
-    fLPatchTeamPayload: FLPatchTeamPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchTeamResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPatchTeam = async (
+  teamId: string,
+  fLPatchTeamPayload: FLPatchTeamPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchTeamResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6363,45 +5568,32 @@ export const teamsPatchTeam = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLPatchTeamResponse>(getTeamsPatchTeamUrl(teamId),
-  {
+  return adminKeyTransport<FLPatchTeamResponse>(getTeamsPatchTeamUrl(teamId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchTeamPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchTeamPayload),
+  });
+};
 
-
-
-export const getTeamsReactivateTeamUrl = (teamId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/reactivate`
-}
+export const getTeamsReactivateTeamUrl = (teamId: string) => {
+  return `/api/v0/teams/${teamId}/reactivate`;
+};
 
 /**
  * Clear `inactive_since`, restoring a retired club to reads that hide retired ones.
  * @summary Bring a retired team back
  */
 export const teamsReactivateTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamWriteResponse> => {
-
-  return adminKeyTransport<FLTeamWriteResponse>(getTeamsReactivateTeamUrl(teamId),
-  {
+  return adminKeyTransport<FLTeamWriteResponse>(getTeamsReactivateTeamUrl(teamId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsPostSaisonTeamUrl = (teamId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons`
-}
+export const getTeamsPostSaisonTeamUrl = (teamId: string) => {
+  return `/api/v0/teams/${teamId}/saisons`;
+};
 
 /**
  * Enter a team into a season, in a group, under the name the club carries today.
@@ -6409,16 +5601,16 @@ export const getTeamsPostSaisonTeamUrl = (teamId: string,) => {
  * A club with no row here is ABSENT from that season rather than merely unlisted.
  * @summary Enter a team into a season
  */
-export const teamsPostSaisonTeam = async (teamId: string,
-    fLPostSaisonTeamPayload: FLPostSaisonTeamPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonTeamResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPostSaisonTeam = async (
+  teamId: string,
+  fLPostSaisonTeamPayload: FLPostSaisonTeamPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonTeamResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6426,23 +5618,17 @@ export const teamsPostSaisonTeam = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPostSaisonTeamUrl(teamId),
-  {
+  return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPostSaisonTeamUrl(teamId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSaisonTeamPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostSaisonTeamPayload),
+  });
+};
 
-
-
-export const getTeamsPatchSaisonTeamUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}`
-}
+export const getTeamsPatchSaisonTeamUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}`;
+};
 
 /**
  * Rewrite a team's row for one season: group, exit record and kit colour.
@@ -6451,17 +5637,17 @@ export const getTeamsPatchSaisonTeamUrl = (teamId: string,
  * The contact block is `PATCH .../kontakte`'s.
  * @summary Rewrite a team's season row: group, exit record and kit colour
  */
-export const teamsPatchSaisonTeam = async (teamId: string,
-    saisonId: string,
-    fLPatchSaisonTeamPayload: FLPatchSaisonTeamPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonTeamResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPatchSaisonTeam = async (
+  teamId: string,
+  saisonId: string,
+  fLPatchSaisonTeamPayload: FLPatchSaisonTeamPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonTeamResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6469,23 +5655,17 @@ export const teamsPatchSaisonTeam = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPatchSaisonTeamUrl(teamId,saisonId),
-  {
+  return adminKeyTransport<FLSaisonTeamResponse>(getTeamsPatchSaisonTeamUrl(teamId, saisonId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonTeamPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSaisonTeamPayload),
+  });
+};
 
-
-
-export const getTeamsDeleteEinladungUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`
-}
+export const getTeamsDeleteEinladungUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+};
 
 /**
  * Stamp this team's live registration link revoked, so it opens nothing from here on.
@@ -6494,26 +5674,20 @@ export const getTeamsDeleteEinladungUrl = (teamId: string,
  * which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
  * @summary Revoke this team's live registration link for a season
  */
-export const teamsDeleteEinladung = async (teamId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLEinladungWriteResponse> => {
-
-  return adminKeyTransport<FLEinladungWriteResponse>(getTeamsDeleteEinladungUrl(teamId,saisonId),
-  {
+export const teamsDeleteEinladung = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLEinladungWriteResponse> => {
+  return adminKeyTransport<FLEinladungWriteResponse>(getTeamsDeleteEinladungUrl(teamId, saisonId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsGetEinladungUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`
-}
+export const getTeamsGetEinladungUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+};
 
 /**
  * What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
@@ -6527,26 +5701,20 @@ export const getTeamsGetEinladungUrl = (teamId: string,
  * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
  * @summary This team's live registration link for a season, and whether it opens anything
  */
-export const teamsGetEinladung = async (teamId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLEinladungResponse> => {
-
-  return adminKeyTransport<FLEinladungResponse>(getTeamsGetEinladungUrl(teamId,saisonId),
-  {
+export const teamsGetEinladung = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLEinladungResponse> => {
+  return adminKeyTransport<FLEinladungResponse>(getTeamsGetEinladungUrl(teamId, saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsPostEinladungUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`
-}
+export const getTeamsPostEinladungUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+};
 
 /**
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
@@ -6568,26 +5736,20 @@ export const getTeamsPostEinladungUrl = (teamId: string,
  * writes nothing; a team's first link is not.
  * @summary Mint this team's registration link for a season
  */
-export const teamsPostEinladung = async (teamId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLEinladungMintResponse> => {
-
-  return adminKeyTransport<FLEinladungMintResponse>(getTeamsPostEinladungUrl(teamId,saisonId),
-  {
+export const teamsPostEinladung = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLEinladungMintResponse> => {
+  return adminKeyTransport<FLEinladungMintResponse>(getTeamsPostEinladungUrl(teamId, saisonId), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte`
-}
+export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte`;
+};
 
 /**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
@@ -6621,17 +5783,17 @@ export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string,
  * running one, and its record is carried either way.
  * @summary Rewrite a team's season contacts, and nothing else on the row
  */
-export const teamsPatchSaisonTeamKontakte = async (teamId: string,
-    saisonId: string,
-    fLPatchSaisonTeamKontaktePayload: FLPatchSaisonTeamKontaktePayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSaisonTeamKontakteResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPatchSaisonTeamKontakte = async (
+  teamId: string,
+  saisonId: string,
+  fLPatchSaisonTeamKontaktePayload: FLPatchSaisonTeamKontaktePayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPatchSaisonTeamKontakteResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6639,24 +5801,17 @@ export const teamsPatchSaisonTeamKontakte = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLPatchSaisonTeamKontakteResponse>(getTeamsPatchSaisonTeamKontakteUrl(teamId,saisonId),
-  {
+  return adminKeyTransport<FLPatchSaisonTeamKontakteResponse>(getTeamsPatchSaisonTeamKontakteUrl(teamId, saisonId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSaisonTeamKontaktePayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPatchSaisonTeamKontaktePayload),
+  });
+};
 
-
-
-export const getTeamsEinladenKontaktUrl = (teamId: string,
-    saisonId: string,
-    seat: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte/${seat}/bestaetigung/einladen`
-}
+export const getTeamsEinladenKontaktUrl = (teamId: string, saisonId: string, seat: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte/${seat}/bestaetigung/einladen`;
+};
 
 /**
  * Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.
@@ -6671,27 +5826,21 @@ export const getTeamsEinladenKontaktUrl = (teamId: string,
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
  * @summary Send one contact seat a fresh confirmation link
  */
-export const teamsEinladenKontakt = async (teamId: string,
-    saisonId: string,
-    seat: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLKontaktEinladenResponse> => {
-
-  return adminKeyTransport<FLKontaktEinladenResponse>(getTeamsEinladenKontaktUrl(teamId,saisonId,seat),
-  {
+export const teamsEinladenKontakt = async (
+  teamId: string,
+  saisonId: string,
+  seat: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKontaktEinladenResponse> => {
+  return adminKeyTransport<FLKontaktEinladenResponse>(getTeamsEinladenKontaktUrl(teamId, saisonId, seat), {
     ...options,
-    method: 'POST'
+    method: "POST",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsPatchEinwilligungUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/einwilligung`
-}
+export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/einwilligung`;
+};
 
 /**
  * Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
@@ -6712,17 +5861,17 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string,
  * which counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
-export const teamsPatchEinwilligung = async (teamId: string,
-    saisonId: string,
-    fLSaisonTeamPersonEinwilligungPayload: FLSaisonTeamPersonEinwilligungPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonTeamPersonEinwilligungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsPatchEinwilligung = async (
+  teamId: string,
+  saisonId: string,
+  fLSaisonTeamPersonEinwilligungPayload: FLSaisonTeamPersonEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonTeamPersonEinwilligungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6730,23 +5879,17 @@ export const teamsPatchEinwilligung = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLSaisonTeamPersonEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId,saisonId),
-  {
+  return adminKeyTransport<FLSaisonTeamPersonEinwilligungResponse>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSaisonTeamPersonEinwilligungPayload)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSaisonTeamPersonEinwilligungPayload),
+  });
+};
 
-
-
-export const getTeamsGetTeamSitzeUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/sitze`
-}
+export const getTeamsGetTeamSitzeUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/sitze`;
+};
 
 /**
  * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
@@ -6755,26 +5898,20 @@ export const getTeamsGetTeamSitzeUrl = (teamId: string,
  * confirmation date is served, whoever asks.
  * @summary A team's seats in one season
  */
-export const teamsGetTeamSitze = async (teamId: string,
-    saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamSitzeResponse> => {
-
-  return adminKeyTransport<FLTeamSitzeResponse>(getTeamsGetTeamSitzeUrl(teamId,saisonId),
-  {
+export const teamsGetTeamSitze = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamSitzeResponse> => {
+  return adminKeyTransport<FLTeamSitzeResponse>(getTeamsGetTeamSitzeUrl(teamId, saisonId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
-
-  }
-);}
-
-
-
-export const getTeamsReplaceSaisonTeamUrl = (teamId: string,
-    saisonId: string,) => {
-
-
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/replace`
-}
+export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${teamId}/saisons/${saisonId}/replace`;
+};
 
 /**
  * Hand this season's junction row, and every fixture on it, to another club.
@@ -6783,17 +5920,17 @@ export const getTeamsReplaceSaisonTeamUrl = (teamId: string,
  * live squad rows are retired, in ONE transaction: the schedule survives.
  * @summary Replace a club in a season, keeping its schedule
  */
-export const teamsReplaceSaisonTeam = async (teamId: string,
-    saisonId: string,
-    fLReplaceSaisonTeamPayload: FLReplaceSaisonTeamPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLReplaceSaisonTeamResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const teamsReplaceSaisonTeam = async (
+  teamId: string,
+  saisonId: string,
+  fLReplaceSaisonTeamPayload: FLReplaceSaisonTeamPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLReplaceSaisonTeamResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6801,22 +5938,17 @@ export const teamsReplaceSaisonTeam = async (teamId: string,
     }
     return headers;
   };
-return adminKeyTransport<FLReplaceSaisonTeamResponse>(getTeamsReplaceSaisonTeamUrl(teamId,saisonId),
-  {
+  return adminKeyTransport<FLReplaceSaisonTeamResponse>(getTeamsReplaceSaisonTeamUrl(teamId, saisonId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLReplaceSaisonTeamPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLReplaceSaisonTeamPayload),
+  });
+};
 
 export const getZustellungPostZustellungUrl = () => {
-
-
-  return `/api/v0/zustellung`
-}
+  return `/api/v0/zustellung`;
+};
 
 /**
  * Record what the mail provider reported about one message, on the record that message was sent about.
@@ -6834,15 +5966,15 @@ export const getZustellungPostZustellungUrl = () => {
  * 422.
  * @summary Apply one delivery event to the record its message was sent about
  */
-export const zustellungPostZustellung = async (fLZustellungEreignisPayload: FLZustellungEreignisPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLZustellungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const zustellungPostZustellung = async (
+  fLZustellungEreignisPayload: FLZustellungEreignisPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLZustellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6850,22 +5982,17 @@ export const zustellungPostZustellung = async (fLZustellungEreignisPayload: FLZu
     }
     return headers;
   };
-return systemKeyTransport<FLZustellungResponse>(getZustellungPostZustellungUrl(),
-  {
+  return systemKeyTransport<FLZustellungResponse>(getZustellungPostZustellungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungEreignisPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLZustellungEreignisPayload),
+  });
+};
 
 export const getZustellungAbgewiesenZustellungUrl = () => {
-
-
-  return `/api/v0/zustellung/abgewiesen`
-}
+  return `/api/v0/zustellung/abgewiesen`;
+};
 
 /**
  * Record that the mail provider refused the send itself, so no message about this record exists.
@@ -6883,15 +6010,15 @@ export const getZustellungAbgewiesenZustellungUrl = () => {
  * 422.
  * @summary Record the send the provider refused for this record
  */
-export const zustellungAbgewiesenZustellung = async (fLZustellungAbgewiesenPayload: FLZustellungAbgewiesenPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLZustellungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const zustellungAbgewiesenZustellung = async (
+  fLZustellungAbgewiesenPayload: FLZustellungAbgewiesenPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLZustellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6899,22 +6026,17 @@ export const zustellungAbgewiesenZustellung = async (fLZustellungAbgewiesenPaylo
     }
     return headers;
   };
-return systemKeyTransport<FLZustellungResponse>(getZustellungAbgewiesenZustellungUrl(),
-  {
+  return systemKeyTransport<FLZustellungResponse>(getZustellungAbgewiesenZustellungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungAbgewiesenPayload)
-  }
-);}
-
-
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLZustellungAbgewiesenPayload),
+  });
+};
 
 export const getZustellungAngenommenZustellungUrl = () => {
-
-
-  return `/api/v0/zustellung/angenommen`
-}
+  return `/api/v0/zustellung/angenommen`;
+};
 
 /**
  * Record that the mail provider accepted one message about the record named, under the id it answered with.
@@ -6933,15 +6055,15 @@ export const getZustellungAngenommenZustellungUrl = () => {
  * 422.
  * @summary Record the message the provider accepted for this record
  */
-export const zustellungAngenommenZustellung = async (fLZustellungAngenommenPayload: FLZustellungAngenommenPayload, options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLZustellungResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+export const zustellungAngenommenZustellung = async (
+  fLZustellungAngenommenPayload: FLZustellungAngenommenPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLZustellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
     }
     const headers: Record<string, string | readonly string[]> = {};
     for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
@@ -6949,11 +6071,10 @@ export const zustellungAngenommenZustellung = async (fLZustellungAngenommenPaylo
     }
     return headers;
   };
-return systemKeyTransport<FLZustellungResponse>(getZustellungAngenommenZustellungUrl(),
-  {
+  return systemKeyTransport<FLZustellungResponse>(getZustellungAngenommenZustellungUrl(), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungAngenommenPayload)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLZustellungAngenommenPayload),
+  });
+};

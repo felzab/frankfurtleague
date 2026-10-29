@@ -28,16 +28,16 @@ import type { SubjectSession } from "./subject";
 /** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
 type WordedCode = keyof typeof COPY.shared.ablehnung;
 
-/** The name of every leaf of an input, which is the name a form's box posts it under. */
-type Field<T> = T extends readonly unknown[]
+/** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
+type Field<T, Above extends string = ""> = T extends readonly unknown[]
   ? never
   : T extends object
     ? {
         [K in keyof T & string]-?: NonNullable<T[K]> extends readonly unknown[]
-          ? K
+          ? `${Above}${K}`
           : NonNullable<T[K]> extends object
-            ? Field<NonNullable<T[K]>>
-            : K;
+            ? Field<NonNullable<T[K]>, `${Above}${K}.`>
+            : `${Above}${K}`;
       }[keyof T & string]
     : never;
 
@@ -133,9 +133,17 @@ function stripped(value: unknown): unknown {
 /** A posted form as an object, each box under its name; a box posted twice keeps its last value. */
 const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
 
-/** The box an issue or a refusal belongs to: the last name on its path. */
+/**
+ * The box an issue belongs to: its path's names joined by dots, up to the first index, where a list's box holds every
+ * item. Keyed by the whole path, two leaves sharing a last name, `team1.tore` and `team2.tore`, stay two boxes.
+ */
 function fieldOf(path: readonly PropertyKey[]): string | undefined {
-  return path.findLast((segment): segment is string => typeof segment === "string");
+  const names: string[] = [];
+  for (const segment of path) {
+    if (typeof segment !== "string") break;
+    names.push(segment);
+  }
+  return names.length === 0 ? undefined : names.join(".");
 }
 
 /**

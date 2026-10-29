@@ -46,7 +46,7 @@ export function buildSpieltagBanners({
     });
   }
 
-  // Reported and never refused, on `fl_backend/app/core/domain.py :: Unenforced`'s reasoning: no write
+  // Reported and never refused, on the reasoning of `docs/domain.md`'s „What the model permits on purpose“: no write
   // path produces this state, and refusing it would latch shut the stored rows that already hold it.
   if (spieleAngelegt !== anzahlSpiele) {
     banners.push({

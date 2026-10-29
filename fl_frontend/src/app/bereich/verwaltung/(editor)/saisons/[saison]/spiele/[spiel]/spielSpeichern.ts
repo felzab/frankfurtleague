@@ -58,7 +58,7 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Aenderungen): FLPatchSpie
   const spielort = changes.spielort === undefined ? werte.spielort : changes.spielort;
   const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(gespeichert) : changes.mietpreis;
   // The price is required while a venue is chosen.
-  if (spielort !== null && mietpreis === null) return { ok: false, fieldErrors: { mietpreis: COPY.shared.feld.pflichtfeld } };
+  if (spielort !== null && mietpreis === null) return { ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } };
 
   const sonderereignis = changes.sonderereignis === undefined ? gespeichert.sonderereignis : changes.sonderereignis;
   // A no-show's goals are the award the write composed, never a score anyone played: taken back, the award
@@ -104,9 +104,9 @@ export const spielSpeichern = action({
   name: "spielSpeichern",
   input: SpielSpeichern,
   ownWords: {
-    "REQ-DATE-001": "datum",
-    "REQ-STATE-002": "sonderereignis",
-    "REQ-STATE-003": "sonderereignis",
+    "REQ-DATE-001": "changes.datum",
+    "REQ-STATE-002": "changes.sonderereignis",
+    "REQ-STATE-003": "changes.sonderereignis",
     "REQ-BOOKING-001": true,
     "REQ-BOOKING-002": true,
     "REQ-CLASH-001": true,
@@ -116,7 +116,7 @@ export const spielSpeichern = action({
     "REQ-ELIGIBILITY-001": true,
     "REQ-ELIGIBILITY-002": true,
   },
-  examples: { mietpreis: COPY.verwaltung.spielort.mietpreisBeispiel },
+  examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
   run: async ({ id, fingerprint, changes }): Promise<ActionAnswer<string>> => {
     const gelesen = await getAdminSpiel(id);
     if (gelesen === null || spielStateKey(gelesen.spiel) !== fingerprint) return { ok: false, reason: COPY.shared.fehler.veraltet };
@@ -130,7 +130,7 @@ export const spielSpeichern = action({
     if (gespeichert === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
 
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
-    const folgen = describeMovedSpiele(geschrieben.advanced_to ?? [], geschrieben.bracket_faults ?? [], geschrieben.released_sides ?? []);
+    const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
     const value = spielStateKey(gespeichert.spiel);
     return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) };
   },

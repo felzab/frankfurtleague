@@ -41,7 +41,10 @@ const operations = Object.fromEntries(
 const SERVER_ONLY = () => "import 'server-only';\n";
 
 // Two projects, each with a folder of its own: `clean` wipes its target's folder before it writes, so two projects
-// sharing one would each delete the other's output.
+// sharing one would each delete the other's output. Each formats what it writes with the repository's Prettier
+// config, because Orval's own output ends `types.ts` in a blank line, which the docs scope's `git diff --check`
+// refuses. The formatter reads that config directly and never `.prettierignore`, which keeps the format scope off
+// this folder.
 export default defineConfig({
   client: {
     input: { target: DOCUMENT_PATH },
@@ -52,6 +55,7 @@ export default defineConfig({
       schemas: { path: "src/core/generated/client/types.ts", mode: "single" },
       indexFiles: false,
       clean: true,
+      formatter: "prettier",
       override: {
         header: SERVER_ONLY,
         operations,
@@ -69,6 +73,7 @@ export default defineConfig({
       target: "src/core/generated/zod/inputs.ts",
       indexFiles: false,
       clean: true,
+      formatter: "prettier",
       override: {
         header: SERVER_ONLY,
         zod: {

@@ -45,7 +45,6 @@ const notice = {
   aufgegeben: false,
 };
 const claimOf = (mitteilungen: unknown[]) => ({
-  acknowledged: 1,
   beanspruchung: mitteilungen.length === 0 ? null : "claim-1",
   beansprucht_bis: mitteilungen.length === 0 ? null : "2026-10-21T10:10:00Z",
   mitteilungen: mitteilungen,
@@ -67,7 +66,7 @@ const calls = doubleApiClient((call: ApiCall, schema) => {
 
   if (stampFails !== null) return Promise.reject(stampFails);
   const ids = (JSON.parse(call.body ?? "{}") as { ids: string[] }).ids;
-  return schema.parse({ acknowledged: 1, zugestellt: ids.length, ignoriert: 0 });
+  return schema.parse({ zugestellt: ids.length, ignoriert: 0 });
 });
 
 const { runAdresswechselPostausgang } = await import("./postausgang.ts");

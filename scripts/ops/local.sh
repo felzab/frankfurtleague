@@ -263,8 +263,8 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
   ok "restored — ${seen} collection(s), and the local stack is reading its own data"
 }
 
-# Everything the end-to-end stack holds on the host: its keys, the start's one setting, its mail
-# sink and its access log, each at the path docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
+# Everything the end-to-end stack holds on the host: its keys, its mail sink and its access log, each
+# at the path docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.

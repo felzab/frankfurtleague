@@ -567,7 +567,7 @@ def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(s
     ],
 )
 def test_a_capability_or_a_privilege_left_in_place_fails(service: str, changed: dict[str, Any], said: str):
-    """NET_RAW is the one that reads the bridge the admin key and an actor token cross in plain HTTP."""
+    """NET_RAW is the one that reads the bridge the admin key and the actor's headers cross in plain HTTP."""
     rendered = model(**PRIVILEGED["services"] | {service: hardened(service) | changed})
 
     found = checker.privileges(rendered, "p")

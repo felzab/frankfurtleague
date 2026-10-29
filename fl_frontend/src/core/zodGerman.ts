@@ -37,5 +37,11 @@ export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {
   return fehler.unerwartet;
 }
 
-// Process-wide, below every message a schema, a check or a parse names itself, and above Zod's English locale.
-z.config({ customError: (issue) => feldMeldung(issue) });
+/**
+ * Makes the map the process's, below every message a schema, a check or a parse names itself, and above Zod's English
+ * locale. Called once, from `fl_frontend/src/instrumentation.ts :: register`, before the server serves: Zod keeps its
+ * config on `globalThis`, so every copy of Zod a server bundle holds reads it.
+ */
+export function installGermanMap(): void {
+  z.config({ customError: (issue) => feldMeldung(issue) });
+}

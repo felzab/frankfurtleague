@@ -126,6 +126,31 @@ describe("the admin lane", () => {
     expect(stand.steps).toStrictEqual(["admin guard"]);
   });
 
+  it("keeps two boxes apart whose paths end in one name, keying each by its whole path", async () => {
+    const Seite = z.object({ tore: z.number().min(0).max(99) });
+    const ergebnis = (wirft?: unknown) =>
+      action({
+        lane: "admin",
+        name: "ergebnis",
+        input: z.object({ team1: Seite, team2: Seite }),
+        ownWords: { "REQ-RESULT-001": "team2.tore" },
+        run: async () => {
+          if (wirft !== undefined) throw wirft;
+          return { ok: true, value: undefined };
+        },
+      });
+
+    expect(await ergebnis()({ team1: { tore: -1 }, team2: { tore: 100 } })).toStrictEqual({
+      ok: false,
+      fieldErrors: { "team1.tore": COPY.shared.feld.zwischen(0, 99), "team2.tore": COPY.shared.feld.zwischen(0, 99) },
+    });
+    expect(await ergebnis(refusal("REQ-RESULT-001"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
+      ok: false,
+      errorCode: "REQ-RESULT-001",
+      fieldErrors: { "team2.tore": COPY.shared.ablehnung["REQ-RESULT-001"] },
+    });
+  });
+
   it("answers a code its screen words on the box it names, or as the status line's reason", async () => {
     expect(await anlegen(refusal("DB-COMMON-002"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,

@@ -294,8 +294,7 @@ async def post_berechtigung(
     holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
     the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
     its announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier
-    change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused
-    `REQ-AUTH-009` otherwise.
+    change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
     """
 
     adresse = sign_in_identifier(str(berechtigung_data.email))

@@ -263,9 +263,9 @@ describe("who the seam answers for", () => {
     expect(answer.admin).toBe(false);
   });
 
-  /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
-     records can act on. */
-  it("answers the three lists, the two flags and the grant alone, carrying no transport envelope", async () => {
+  /* The lookup copies the records field by field: its read parses nothing, so a key the backend answers
+     beside them stays out of the session. */
+  it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
@@ -533,8 +533,8 @@ describe("the actor a person's lane states", () => {
     });
   });
 
-  /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one
-     it did not prove is the lie the token exists to prevent. */
+  /* A row stamped by no factor this league mints cannot be stated as a factor, and an actor claiming one
+     it did not prove is the lie the backend's factor check believes. */
   it("answers a session made by an unknown factor no session, and records no actor for it", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     row.authFactor = "link";
@@ -610,7 +610,7 @@ describe("the guard across one render pass", () => {
   });
 
   /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
-     holding them; what it alone saves is a second judgement and a second signed actor. */
+     holding them; what it alone saves is a second judgement and a second actor. */
   it("hands every guard of one render pass the one subject it judged", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);

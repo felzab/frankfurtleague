@@ -1,229 +1,229 @@
-import 'server-only';
+import "server-only";
+
 export const CheckIsLiveResponseValue = {
-  status: 'ok',
+  status: "ok",
 } as const;
 export type CheckIsLiveResponse = typeof CheckIsLiveResponseValue;
 
-export type Code = typeof Code[keyof typeof Code];
-
+export type Code = (typeof Code)[keyof typeof Code];
 
 export const Code = {
-  'DB-COMMON-001': 'DB-COMMON-001',
-  'DB-COMMON-002': 'DB-COMMON-002',
-  'DB-CONN-001': 'DB-CONN-001',
-  'DB-FAIL-001': 'DB-FAIL-001',
-  'DB-FAIL-002': 'DB-FAIL-002',
-  'REQ-ACTIVATE-001': 'REQ-ACTIVATE-001',
-  'REQ-ACTIVATE-002': 'REQ-ACTIVATE-002',
-  'REQ-ACTIVATE-003': 'REQ-ACTIVATE-003',
-  'REQ-ACTIVATE-004': 'REQ-ACTIVATE-004',
-  'REQ-ADRESSWECHSEL-001': 'REQ-ADRESSWECHSEL-001',
-  'REQ-ADRESSWECHSEL-002': 'REQ-ADRESSWECHSEL-002',
-  'REQ-ADRESSWECHSEL-003': 'REQ-ADRESSWECHSEL-003',
-  'REQ-ADRESSWECHSEL-004': 'REQ-ADRESSWECHSEL-004',
-  'REQ-ADRESSWECHSEL-005': 'REQ-ADRESSWECHSEL-005',
-  'REQ-ADRESSWECHSEL-006': 'REQ-ADRESSWECHSEL-006',
-  'REQ-ADRESSWECHSEL-007': 'REQ-ADRESSWECHSEL-007',
-  'REQ-ADRESSWECHSEL-008': 'REQ-ADRESSWECHSEL-008',
-  'REQ-ADRESSWECHSEL-009': 'REQ-ADRESSWECHSEL-009',
-  'REQ-ADRESSWECHSEL-010': 'REQ-ADRESSWECHSEL-010',
-  'REQ-ADRESSWECHSEL-011': 'REQ-ADRESSWECHSEL-011',
-  'REQ-ADRESSWECHSEL-012': 'REQ-ADRESSWECHSEL-012',
-  'REQ-ADRESSWECHSEL-013': 'REQ-ADRESSWECHSEL-013',
-  'REQ-ADRESSWECHSEL-014': 'REQ-ADRESSWECHSEL-014',
-  'REQ-ADRESSWECHSEL-015': 'REQ-ADRESSWECHSEL-015',
-  'REQ-ADRESSWECHSEL-016': 'REQ-ADRESSWECHSEL-016',
-  'REQ-ADRESSWECHSEL-017': 'REQ-ADRESSWECHSEL-017',
-  'REQ-ADRESSWECHSEL-018': 'REQ-ADRESSWECHSEL-018',
-  'REQ-ANSETZUNG-001': 'REQ-ANSETZUNG-001',
-  'REQ-ANSETZUNG-002': 'REQ-ANSETZUNG-002',
-  'REQ-ANSETZUNG-003': 'REQ-ANSETZUNG-003',
-  'REQ-ANSETZUNG-004': 'REQ-ANSETZUNG-004',
-  'REQ-ANSETZUNG-005': 'REQ-ANSETZUNG-005',
-  'REQ-ANSETZUNG-007': 'REQ-ANSETZUNG-007',
-  'REQ-ANSETZUNG-009': 'REQ-ANSETZUNG-009',
-  'REQ-ANSETZUNG-011': 'REQ-ANSETZUNG-011',
-  'REQ-ANSETZUNG-013': 'REQ-ANSETZUNG-013',
-  'REQ-ANSETZUNG-014': 'REQ-ANSETZUNG-014',
-  'REQ-ANSETZUNG-015': 'REQ-ANSETZUNG-015',
-  'REQ-AUTH-001': 'REQ-AUTH-001',
-  'REQ-AUTH-002': 'REQ-AUTH-002',
-  'REQ-AUTH-003': 'REQ-AUTH-003',
-  'REQ-AUTH-004': 'REQ-AUTH-004',
-  'REQ-AUTH-005': 'REQ-AUTH-005',
-  'REQ-AUTH-006': 'REQ-AUTH-006',
-  'REQ-AUTH-007': 'REQ-AUTH-007',
-  'REQ-AUTH-008': 'REQ-AUTH-008',
-  'REQ-AUTH-009': 'REQ-AUTH-009',
-  'REQ-BERECHTIGUNG-001': 'REQ-BERECHTIGUNG-001',
-  'REQ-BERECHTIGUNG-002': 'REQ-BERECHTIGUNG-002',
-  'REQ-BERECHTIGUNG-003': 'REQ-BERECHTIGUNG-003',
-  'REQ-BERECHTIGUNG-004': 'REQ-BERECHTIGUNG-004',
-  'REQ-BERECHTIGUNG-005': 'REQ-BERECHTIGUNG-005',
-  'REQ-BERECHTIGUNG-007': 'REQ-BERECHTIGUNG-007',
-  'REQ-BERECHTIGUNG-008': 'REQ-BERECHTIGUNG-008',
-  'REQ-BERECHTIGUNG-009': 'REQ-BERECHTIGUNG-009',
-  'REQ-BERECHTIGUNG-010': 'REQ-BERECHTIGUNG-010',
-  'REQ-BERECHTIGUNG-011': 'REQ-BERECHTIGUNG-011',
-  'REQ-BERECHTIGUNG-012': 'REQ-BERECHTIGUNG-012',
-  'REQ-BERICHT-001': 'REQ-BERICHT-001',
-  'REQ-BERICHT-002': 'REQ-BERICHT-002',
-  'REQ-BERICHT-003': 'REQ-BERICHT-003',
-  'REQ-BERICHT-004': 'REQ-BERICHT-004',
-  'REQ-BERICHT-005': 'REQ-BERICHT-005',
-  'REQ-BERICHT-006': 'REQ-BERICHT-006',
-  'REQ-BERICHT-007': 'REQ-BERICHT-007',
-  'REQ-BERICHT-008': 'REQ-BERICHT-008',
-  'REQ-BERICHT-009': 'REQ-BERICHT-009',
-  'REQ-BEWERBUNG-001': 'REQ-BEWERBUNG-001',
-  'REQ-BEWERBUNG-002': 'REQ-BEWERBUNG-002',
-  'REQ-BEWERBUNG-003': 'REQ-BEWERBUNG-003',
-  'REQ-BEWERBUNG-004': 'REQ-BEWERBUNG-004',
-  'REQ-BEWERBUNG-005': 'REQ-BEWERBUNG-005',
-  'REQ-BEWERBUNG-006': 'REQ-BEWERBUNG-006',
-  'REQ-BEWERBUNG-007': 'REQ-BEWERBUNG-007',
-  'REQ-BEWERBUNG-008': 'REQ-BEWERBUNG-008',
-  'REQ-BEWERBUNG-009': 'REQ-BEWERBUNG-009',
-  'REQ-BEWERBUNG-010': 'REQ-BEWERBUNG-010',
-  'REQ-BEWERBUNG-011': 'REQ-BEWERBUNG-011',
-  'REQ-BEWERBUNG-012': 'REQ-BEWERBUNG-012',
-  'REQ-BEWERBUNG-013': 'REQ-BEWERBUNG-013',
-  'REQ-BEWERBUNG-014': 'REQ-BEWERBUNG-014',
-  'REQ-BEWERBUNG-015': 'REQ-BEWERBUNG-015',
-  'REQ-BEWERBUNG-017': 'REQ-BEWERBUNG-017',
-  'REQ-BEWERBUNG-018': 'REQ-BEWERBUNG-018',
-  'REQ-BEWERBUNG-019': 'REQ-BEWERBUNG-019',
-  'REQ-BEWERBUNG-020': 'REQ-BEWERBUNG-020',
-  'REQ-BEWERBUNG-021': 'REQ-BEWERBUNG-021',
-  'REQ-BOOKING-001': 'REQ-BOOKING-001',
-  'REQ-BOOKING-002': 'REQ-BOOKING-002',
-  'REQ-BOOKING-003': 'REQ-BOOKING-003',
-  'REQ-CLASH-001': 'REQ-CLASH-001',
-  'REQ-DATE-001': 'REQ-DATE-001',
-  'REQ-DATE-002': 'REQ-DATE-002',
-  'REQ-DATE-003': 'REQ-DATE-003',
-  'REQ-DATE-004': 'REQ-DATE-004',
-  'REQ-DATE-005': 'REQ-DATE-005',
-  'REQ-DATE-008': 'REQ-DATE-008',
-  'REQ-DATE-009': 'REQ-DATE-009',
-  'REQ-DROSSELUNG-001': 'REQ-DROSSELUNG-001',
-  'REQ-EINLADUNG-001': 'REQ-EINLADUNG-001',
-  'REQ-EINLADUNG-002': 'REQ-EINLADUNG-002',
-  'REQ-EINLADUNG-003': 'REQ-EINLADUNG-003',
-  'REQ-EINWILLIGUNG-001': 'REQ-EINWILLIGUNG-001',
-  'REQ-EINWILLIGUNG-002': 'REQ-EINWILLIGUNG-002',
-  'REQ-EINWILLIGUNG-003': 'REQ-EINWILLIGUNG-003',
-  'REQ-EINWILLIGUNG-004': 'REQ-EINWILLIGUNG-004',
-  'REQ-ELIGIBILITY-001': 'REQ-ELIGIBILITY-001',
-  'REQ-ELIGIBILITY-002': 'REQ-ELIGIBILITY-002',
-  'REQ-ENTER-001': 'REQ-ENTER-001',
-  'REQ-ENTER-002': 'REQ-ENTER-002',
-  'REQ-ENTER-003': 'REQ-ENTER-003',
-  'REQ-ENTER-004': 'REQ-ENTER-004',
-  'REQ-ENTER-005': 'REQ-ENTER-005',
-  'REQ-FUNKTION-001': 'REQ-FUNKTION-001',
-  'REQ-KONTAKT-001': 'REQ-KONTAKT-001',
-  'REQ-KONTAKT-002': 'REQ-KONTAKT-002',
-  'REQ-KONTAKT-003': 'REQ-KONTAKT-003',
-  'REQ-KONTAKT-004': 'REQ-KONTAKT-004',
-  'REQ-KONTAKT-005': 'REQ-KONTAKT-005',
-  'REQ-KONTAKT-006': 'REQ-KONTAKT-006',
-  'REQ-PURGE-003': 'REQ-PURGE-003',
-  'REQ-PURGE-004': 'REQ-PURGE-004',
-  'REQ-PURGE-005': 'REQ-PURGE-005',
-  'REQ-PURGE-006': 'REQ-PURGE-006',
-  'REQ-PURGE-007': 'REQ-PURGE-007',
-  'REQ-REFERENZEN-001': 'REQ-REFERENZEN-001',
-  'REQ-REGISTRIERUNG-001': 'REQ-REGISTRIERUNG-001',
-  'REQ-REGISTRIERUNG-002': 'REQ-REGISTRIERUNG-002',
-  'REQ-REGISTRIERUNG-003': 'REQ-REGISTRIERUNG-003',
-  'REQ-REGISTRIERUNG-004': 'REQ-REGISTRIERUNG-004',
-  'REQ-REGISTRIERUNG-005': 'REQ-REGISTRIERUNG-005',
-  'REQ-REGISTRIERUNG-006': 'REQ-REGISTRIERUNG-006',
-  'REQ-REGISTRIERUNG-007': 'REQ-REGISTRIERUNG-007',
-  'REQ-REGISTRIERUNG-008': 'REQ-REGISTRIERUNG-008',
-  'REQ-REGISTRIERUNG-009': 'REQ-REGISTRIERUNG-009',
-  'REQ-REGISTRIERUNG-010': 'REQ-REGISTRIERUNG-010',
-  'REQ-REGISTRIERUNG-011': 'REQ-REGISTRIERUNG-011',
-  'REQ-REGISTRIERUNG-012': 'REQ-REGISTRIERUNG-012',
-  'REQ-REGISTRIERUNG-013': 'REQ-REGISTRIERUNG-013',
-  'REQ-REGISTRIERUNG-014': 'REQ-REGISTRIERUNG-014',
-  'REQ-REGISTRIERUNG-015': 'REQ-REGISTRIERUNG-015',
-  'REQ-REGISTRIERUNG-016': 'REQ-REGISTRIERUNG-016',
-  'REQ-REGISTRIERUNG-017': 'REQ-REGISTRIERUNG-017',
-  'REQ-REGISTRIERUNG-018': 'REQ-REGISTRIERUNG-018',
-  'REQ-REGISTRIERUNG-019': 'REQ-REGISTRIERUNG-019',
-  'REQ-REPLACE-001': 'REQ-REPLACE-001',
-  'REQ-REPLACE-002': 'REQ-REPLACE-002',
-  'REQ-REPLACE-003': 'REQ-REPLACE-003',
-  'REQ-REPLACE-004': 'REQ-REPLACE-004',
-  'REQ-RESULT-001': 'REQ-RESULT-001',
-  'REQ-RETIRE-001': 'REQ-RETIRE-001',
-  'REQ-RETIRE-003': 'REQ-RETIRE-003',
-  'REQ-RETIRE-004': 'REQ-RETIRE-004',
-  'REQ-ROUTE-001': 'REQ-ROUTE-001',
-  'REQ-ROUTE-002': 'REQ-ROUTE-002',
-  'REQ-RULES-001': 'REQ-RULES-001',
-  'REQ-RULES-002': 'REQ-RULES-002',
-  'REQ-RULES-003': 'REQ-RULES-003',
-  'REQ-RULES-004': 'REQ-RULES-004',
-  'REQ-RULES-005': 'REQ-RULES-005',
-  'REQ-RULES-006': 'REQ-RULES-006',
-  'REQ-RULES-007': 'REQ-RULES-007',
-  'REQ-RULES-008': 'REQ-RULES-008',
-  'REQ-RULES-009': 'REQ-RULES-009',
-  'REQ-RULES-010': 'REQ-RULES-010',
-  'REQ-RULES-011': 'REQ-RULES-011',
-  'REQ-RULES-012': 'REQ-RULES-012',
-  'REQ-RULES-013': 'REQ-RULES-013',
-  'REQ-RULES-014': 'REQ-RULES-014',
-  'REQ-RULES-015': 'REQ-RULES-015',
-  'REQ-RULES-016': 'REQ-RULES-016',
-  'REQ-RULES-017': 'REQ-RULES-017',
-  'REQ-RULES-018': 'REQ-RULES-018',
-  'REQ-SCHIEDSRICHTER-001': 'REQ-SCHIEDSRICHTER-001',
-  'REQ-SCHIEDSRICHTER-002': 'REQ-SCHIEDSRICHTER-002',
-  'REQ-SCHIEDSRICHTER-003': 'REQ-SCHIEDSRICHTER-003',
-  'REQ-SCHIEDSRICHTER-004': 'REQ-SCHIEDSRICHTER-004',
-  'REQ-SCHIEDSRICHTER-005': 'REQ-SCHIEDSRICHTER-005',
-  'REQ-SCHIEDSRICHTER-006': 'REQ-SCHIEDSRICHTER-006',
-  'REQ-SCHIEDSRICHTER-007': 'REQ-SCHIEDSRICHTER-007',
-  'REQ-SCHIEDSRICHTER-008': 'REQ-SCHIEDSRICHTER-008',
-  'REQ-SCHIEDSRICHTER-009': 'REQ-SCHIEDSRICHTER-009',
-  'REQ-SCHIEDSRICHTER-011': 'REQ-SCHIEDSRICHTER-011',
-  'REQ-SPERRLISTE-001': 'REQ-SPERRLISTE-001',
-  'REQ-SPERRLISTE-002': 'REQ-SPERRLISTE-002',
-  'REQ-SPERRLISTE-003': 'REQ-SPERRLISTE-003',
-  'REQ-SPERRLISTE-004': 'REQ-SPERRLISTE-004',
-  'REQ-SPIELPLAN-001': 'REQ-SPIELPLAN-001',
-  'REQ-SPIELPLAN-002': 'REQ-SPIELPLAN-002',
-  'REQ-SPIELPLAN-003': 'REQ-SPIELPLAN-003',
-  'REQ-SPIELPLAN-004': 'REQ-SPIELPLAN-004',
-  'REQ-SPIELPLAN-005': 'REQ-SPIELPLAN-005',
-  'REQ-SPIELPLAN-006': 'REQ-SPIELPLAN-006',
-  'REQ-SPIELPLAN-007': 'REQ-SPIELPLAN-007',
-  'REQ-SPIELTAG-001': 'REQ-SPIELTAG-001',
-  'REQ-SPIELTAG-002': 'REQ-SPIELTAG-002',
-  'REQ-SQUAD-001': 'REQ-SQUAD-001',
-  'REQ-SQUAD-003': 'REQ-SQUAD-003',
-  'REQ-SQUAD-004': 'REQ-SQUAD-004',
-  'REQ-SQUAD-005': 'REQ-SQUAD-005',
-  'REQ-STATE-002': 'REQ-STATE-002',
-  'REQ-STATE-003': 'REQ-STATE-003',
-  'REQ-SWAP-001': 'REQ-SWAP-001',
-  'REQ-SWAP-002': 'REQ-SWAP-002',
-  'REQ-SWAP-003': 'REQ-SWAP-003',
-  'REQ-SWAP-004': 'REQ-SWAP-004',
-  'REQ-SWAP-005': 'REQ-SWAP-005',
-  'REQ-SWAP-006': 'REQ-SWAP-006',
-  'REQ-SWAP-007': 'REQ-SWAP-007',
-  'REQ-VAL-001': 'REQ-VAL-001',
-  'REQ-VAL-002': 'REQ-VAL-002',
-  'REQ-WIRING-001': 'REQ-WIRING-001',
-  'REQ-WIRING-002': 'REQ-WIRING-002',
-  'REQ-WIRING-003': 'REQ-WIRING-003',
-  'SRV-FAIL-001': 'SRV-FAIL-001',
-  'SRV-VAL-001': 'SRV-VAL-001',
+  "DB-COMMON-001": "DB-COMMON-001",
+  "DB-COMMON-002": "DB-COMMON-002",
+  "DB-CONN-001": "DB-CONN-001",
+  "DB-FAIL-001": "DB-FAIL-001",
+  "DB-FAIL-002": "DB-FAIL-002",
+  "REQ-ACTIVATE-001": "REQ-ACTIVATE-001",
+  "REQ-ACTIVATE-002": "REQ-ACTIVATE-002",
+  "REQ-ACTIVATE-003": "REQ-ACTIVATE-003",
+  "REQ-ACTIVATE-004": "REQ-ACTIVATE-004",
+  "REQ-ADRESSWECHSEL-001": "REQ-ADRESSWECHSEL-001",
+  "REQ-ADRESSWECHSEL-002": "REQ-ADRESSWECHSEL-002",
+  "REQ-ADRESSWECHSEL-003": "REQ-ADRESSWECHSEL-003",
+  "REQ-ADRESSWECHSEL-004": "REQ-ADRESSWECHSEL-004",
+  "REQ-ADRESSWECHSEL-005": "REQ-ADRESSWECHSEL-005",
+  "REQ-ADRESSWECHSEL-006": "REQ-ADRESSWECHSEL-006",
+  "REQ-ADRESSWECHSEL-007": "REQ-ADRESSWECHSEL-007",
+  "REQ-ADRESSWECHSEL-008": "REQ-ADRESSWECHSEL-008",
+  "REQ-ADRESSWECHSEL-009": "REQ-ADRESSWECHSEL-009",
+  "REQ-ADRESSWECHSEL-010": "REQ-ADRESSWECHSEL-010",
+  "REQ-ADRESSWECHSEL-011": "REQ-ADRESSWECHSEL-011",
+  "REQ-ADRESSWECHSEL-012": "REQ-ADRESSWECHSEL-012",
+  "REQ-ADRESSWECHSEL-013": "REQ-ADRESSWECHSEL-013",
+  "REQ-ADRESSWECHSEL-014": "REQ-ADRESSWECHSEL-014",
+  "REQ-ADRESSWECHSEL-015": "REQ-ADRESSWECHSEL-015",
+  "REQ-ADRESSWECHSEL-016": "REQ-ADRESSWECHSEL-016",
+  "REQ-ADRESSWECHSEL-017": "REQ-ADRESSWECHSEL-017",
+  "REQ-ADRESSWECHSEL-018": "REQ-ADRESSWECHSEL-018",
+  "REQ-ANSETZUNG-001": "REQ-ANSETZUNG-001",
+  "REQ-ANSETZUNG-002": "REQ-ANSETZUNG-002",
+  "REQ-ANSETZUNG-003": "REQ-ANSETZUNG-003",
+  "REQ-ANSETZUNG-004": "REQ-ANSETZUNG-004",
+  "REQ-ANSETZUNG-005": "REQ-ANSETZUNG-005",
+  "REQ-ANSETZUNG-007": "REQ-ANSETZUNG-007",
+  "REQ-ANSETZUNG-009": "REQ-ANSETZUNG-009",
+  "REQ-ANSETZUNG-011": "REQ-ANSETZUNG-011",
+  "REQ-ANSETZUNG-013": "REQ-ANSETZUNG-013",
+  "REQ-ANSETZUNG-014": "REQ-ANSETZUNG-014",
+  "REQ-ANSETZUNG-015": "REQ-ANSETZUNG-015",
+  "REQ-AUTH-001": "REQ-AUTH-001",
+  "REQ-AUTH-002": "REQ-AUTH-002",
+  "REQ-AUTH-003": "REQ-AUTH-003",
+  "REQ-AUTH-004": "REQ-AUTH-004",
+  "REQ-AUTH-005": "REQ-AUTH-005",
+  "REQ-AUTH-006": "REQ-AUTH-006",
+  "REQ-AUTH-007": "REQ-AUTH-007",
+  "REQ-AUTH-008": "REQ-AUTH-008",
+  "REQ-AUTH-009": "REQ-AUTH-009",
+  "REQ-BERECHTIGUNG-001": "REQ-BERECHTIGUNG-001",
+  "REQ-BERECHTIGUNG-002": "REQ-BERECHTIGUNG-002",
+  "REQ-BERECHTIGUNG-003": "REQ-BERECHTIGUNG-003",
+  "REQ-BERECHTIGUNG-004": "REQ-BERECHTIGUNG-004",
+  "REQ-BERECHTIGUNG-005": "REQ-BERECHTIGUNG-005",
+  "REQ-BERECHTIGUNG-007": "REQ-BERECHTIGUNG-007",
+  "REQ-BERECHTIGUNG-008": "REQ-BERECHTIGUNG-008",
+  "REQ-BERECHTIGUNG-009": "REQ-BERECHTIGUNG-009",
+  "REQ-BERECHTIGUNG-010": "REQ-BERECHTIGUNG-010",
+  "REQ-BERECHTIGUNG-011": "REQ-BERECHTIGUNG-011",
+  "REQ-BERECHTIGUNG-012": "REQ-BERECHTIGUNG-012",
+  "REQ-BERICHT-001": "REQ-BERICHT-001",
+  "REQ-BERICHT-002": "REQ-BERICHT-002",
+  "REQ-BERICHT-003": "REQ-BERICHT-003",
+  "REQ-BERICHT-004": "REQ-BERICHT-004",
+  "REQ-BERICHT-005": "REQ-BERICHT-005",
+  "REQ-BERICHT-006": "REQ-BERICHT-006",
+  "REQ-BERICHT-007": "REQ-BERICHT-007",
+  "REQ-BERICHT-008": "REQ-BERICHT-008",
+  "REQ-BERICHT-009": "REQ-BERICHT-009",
+  "REQ-BEWERBUNG-001": "REQ-BEWERBUNG-001",
+  "REQ-BEWERBUNG-002": "REQ-BEWERBUNG-002",
+  "REQ-BEWERBUNG-003": "REQ-BEWERBUNG-003",
+  "REQ-BEWERBUNG-004": "REQ-BEWERBUNG-004",
+  "REQ-BEWERBUNG-005": "REQ-BEWERBUNG-005",
+  "REQ-BEWERBUNG-006": "REQ-BEWERBUNG-006",
+  "REQ-BEWERBUNG-007": "REQ-BEWERBUNG-007",
+  "REQ-BEWERBUNG-008": "REQ-BEWERBUNG-008",
+  "REQ-BEWERBUNG-009": "REQ-BEWERBUNG-009",
+  "REQ-BEWERBUNG-010": "REQ-BEWERBUNG-010",
+  "REQ-BEWERBUNG-011": "REQ-BEWERBUNG-011",
+  "REQ-BEWERBUNG-012": "REQ-BEWERBUNG-012",
+  "REQ-BEWERBUNG-013": "REQ-BEWERBUNG-013",
+  "REQ-BEWERBUNG-014": "REQ-BEWERBUNG-014",
+  "REQ-BEWERBUNG-015": "REQ-BEWERBUNG-015",
+  "REQ-BEWERBUNG-017": "REQ-BEWERBUNG-017",
+  "REQ-BEWERBUNG-018": "REQ-BEWERBUNG-018",
+  "REQ-BEWERBUNG-019": "REQ-BEWERBUNG-019",
+  "REQ-BEWERBUNG-020": "REQ-BEWERBUNG-020",
+  "REQ-BEWERBUNG-021": "REQ-BEWERBUNG-021",
+  "REQ-BOOKING-001": "REQ-BOOKING-001",
+  "REQ-BOOKING-002": "REQ-BOOKING-002",
+  "REQ-BOOKING-003": "REQ-BOOKING-003",
+  "REQ-CLASH-001": "REQ-CLASH-001",
+  "REQ-DATE-001": "REQ-DATE-001",
+  "REQ-DATE-002": "REQ-DATE-002",
+  "REQ-DATE-003": "REQ-DATE-003",
+  "REQ-DATE-004": "REQ-DATE-004",
+  "REQ-DATE-005": "REQ-DATE-005",
+  "REQ-DATE-008": "REQ-DATE-008",
+  "REQ-DATE-009": "REQ-DATE-009",
+  "REQ-DROSSELUNG-001": "REQ-DROSSELUNG-001",
+  "REQ-EINLADUNG-001": "REQ-EINLADUNG-001",
+  "REQ-EINLADUNG-002": "REQ-EINLADUNG-002",
+  "REQ-EINLADUNG-003": "REQ-EINLADUNG-003",
+  "REQ-EINWILLIGUNG-001": "REQ-EINWILLIGUNG-001",
+  "REQ-EINWILLIGUNG-002": "REQ-EINWILLIGUNG-002",
+  "REQ-EINWILLIGUNG-003": "REQ-EINWILLIGUNG-003",
+  "REQ-EINWILLIGUNG-004": "REQ-EINWILLIGUNG-004",
+  "REQ-ELIGIBILITY-001": "REQ-ELIGIBILITY-001",
+  "REQ-ELIGIBILITY-002": "REQ-ELIGIBILITY-002",
+  "REQ-ENTER-001": "REQ-ENTER-001",
+  "REQ-ENTER-002": "REQ-ENTER-002",
+  "REQ-ENTER-003": "REQ-ENTER-003",
+  "REQ-ENTER-004": "REQ-ENTER-004",
+  "REQ-ENTER-005": "REQ-ENTER-005",
+  "REQ-FUNKTION-001": "REQ-FUNKTION-001",
+  "REQ-KONTAKT-001": "REQ-KONTAKT-001",
+  "REQ-KONTAKT-002": "REQ-KONTAKT-002",
+  "REQ-KONTAKT-003": "REQ-KONTAKT-003",
+  "REQ-KONTAKT-004": "REQ-KONTAKT-004",
+  "REQ-KONTAKT-005": "REQ-KONTAKT-005",
+  "REQ-KONTAKT-006": "REQ-KONTAKT-006",
+  "REQ-PURGE-003": "REQ-PURGE-003",
+  "REQ-PURGE-004": "REQ-PURGE-004",
+  "REQ-PURGE-005": "REQ-PURGE-005",
+  "REQ-PURGE-006": "REQ-PURGE-006",
+  "REQ-PURGE-007": "REQ-PURGE-007",
+  "REQ-REFERENZEN-001": "REQ-REFERENZEN-001",
+  "REQ-REGISTRIERUNG-001": "REQ-REGISTRIERUNG-001",
+  "REQ-REGISTRIERUNG-002": "REQ-REGISTRIERUNG-002",
+  "REQ-REGISTRIERUNG-003": "REQ-REGISTRIERUNG-003",
+  "REQ-REGISTRIERUNG-004": "REQ-REGISTRIERUNG-004",
+  "REQ-REGISTRIERUNG-005": "REQ-REGISTRIERUNG-005",
+  "REQ-REGISTRIERUNG-006": "REQ-REGISTRIERUNG-006",
+  "REQ-REGISTRIERUNG-007": "REQ-REGISTRIERUNG-007",
+  "REQ-REGISTRIERUNG-008": "REQ-REGISTRIERUNG-008",
+  "REQ-REGISTRIERUNG-009": "REQ-REGISTRIERUNG-009",
+  "REQ-REGISTRIERUNG-010": "REQ-REGISTRIERUNG-010",
+  "REQ-REGISTRIERUNG-011": "REQ-REGISTRIERUNG-011",
+  "REQ-REGISTRIERUNG-012": "REQ-REGISTRIERUNG-012",
+  "REQ-REGISTRIERUNG-013": "REQ-REGISTRIERUNG-013",
+  "REQ-REGISTRIERUNG-014": "REQ-REGISTRIERUNG-014",
+  "REQ-REGISTRIERUNG-015": "REQ-REGISTRIERUNG-015",
+  "REQ-REGISTRIERUNG-016": "REQ-REGISTRIERUNG-016",
+  "REQ-REGISTRIERUNG-017": "REQ-REGISTRIERUNG-017",
+  "REQ-REGISTRIERUNG-018": "REQ-REGISTRIERUNG-018",
+  "REQ-REGISTRIERUNG-019": "REQ-REGISTRIERUNG-019",
+  "REQ-REPLACE-001": "REQ-REPLACE-001",
+  "REQ-REPLACE-002": "REQ-REPLACE-002",
+  "REQ-REPLACE-003": "REQ-REPLACE-003",
+  "REQ-REPLACE-004": "REQ-REPLACE-004",
+  "REQ-RESULT-001": "REQ-RESULT-001",
+  "REQ-RETIRE-001": "REQ-RETIRE-001",
+  "REQ-RETIRE-003": "REQ-RETIRE-003",
+  "REQ-RETIRE-004": "REQ-RETIRE-004",
+  "REQ-ROUTE-001": "REQ-ROUTE-001",
+  "REQ-ROUTE-002": "REQ-ROUTE-002",
+  "REQ-RULES-001": "REQ-RULES-001",
+  "REQ-RULES-002": "REQ-RULES-002",
+  "REQ-RULES-003": "REQ-RULES-003",
+  "REQ-RULES-004": "REQ-RULES-004",
+  "REQ-RULES-005": "REQ-RULES-005",
+  "REQ-RULES-006": "REQ-RULES-006",
+  "REQ-RULES-007": "REQ-RULES-007",
+  "REQ-RULES-008": "REQ-RULES-008",
+  "REQ-RULES-009": "REQ-RULES-009",
+  "REQ-RULES-010": "REQ-RULES-010",
+  "REQ-RULES-011": "REQ-RULES-011",
+  "REQ-RULES-012": "REQ-RULES-012",
+  "REQ-RULES-013": "REQ-RULES-013",
+  "REQ-RULES-014": "REQ-RULES-014",
+  "REQ-RULES-015": "REQ-RULES-015",
+  "REQ-RULES-016": "REQ-RULES-016",
+  "REQ-RULES-017": "REQ-RULES-017",
+  "REQ-RULES-018": "REQ-RULES-018",
+  "REQ-SCHIEDSRICHTER-001": "REQ-SCHIEDSRICHTER-001",
+  "REQ-SCHIEDSRICHTER-002": "REQ-SCHIEDSRICHTER-002",
+  "REQ-SCHIEDSRICHTER-003": "REQ-SCHIEDSRICHTER-003",
+  "REQ-SCHIEDSRICHTER-004": "REQ-SCHIEDSRICHTER-004",
+  "REQ-SCHIEDSRICHTER-005": "REQ-SCHIEDSRICHTER-005",
+  "REQ-SCHIEDSRICHTER-006": "REQ-SCHIEDSRICHTER-006",
+  "REQ-SCHIEDSRICHTER-007": "REQ-SCHIEDSRICHTER-007",
+  "REQ-SCHIEDSRICHTER-008": "REQ-SCHIEDSRICHTER-008",
+  "REQ-SCHIEDSRICHTER-009": "REQ-SCHIEDSRICHTER-009",
+  "REQ-SCHIEDSRICHTER-011": "REQ-SCHIEDSRICHTER-011",
+  "REQ-SPERRLISTE-001": "REQ-SPERRLISTE-001",
+  "REQ-SPERRLISTE-002": "REQ-SPERRLISTE-002",
+  "REQ-SPERRLISTE-003": "REQ-SPERRLISTE-003",
+  "REQ-SPERRLISTE-004": "REQ-SPERRLISTE-004",
+  "REQ-SPIELPLAN-001": "REQ-SPIELPLAN-001",
+  "REQ-SPIELPLAN-002": "REQ-SPIELPLAN-002",
+  "REQ-SPIELPLAN-003": "REQ-SPIELPLAN-003",
+  "REQ-SPIELPLAN-004": "REQ-SPIELPLAN-004",
+  "REQ-SPIELPLAN-005": "REQ-SPIELPLAN-005",
+  "REQ-SPIELPLAN-006": "REQ-SPIELPLAN-006",
+  "REQ-SPIELPLAN-007": "REQ-SPIELPLAN-007",
+  "REQ-SPIELTAG-001": "REQ-SPIELTAG-001",
+  "REQ-SPIELTAG-002": "REQ-SPIELTAG-002",
+  "REQ-SQUAD-001": "REQ-SQUAD-001",
+  "REQ-SQUAD-003": "REQ-SQUAD-003",
+  "REQ-SQUAD-004": "REQ-SQUAD-004",
+  "REQ-SQUAD-005": "REQ-SQUAD-005",
+  "REQ-STATE-002": "REQ-STATE-002",
+  "REQ-STATE-003": "REQ-STATE-003",
+  "REQ-SWAP-001": "REQ-SWAP-001",
+  "REQ-SWAP-002": "REQ-SWAP-002",
+  "REQ-SWAP-003": "REQ-SWAP-003",
+  "REQ-SWAP-004": "REQ-SWAP-004",
+  "REQ-SWAP-005": "REQ-SWAP-005",
+  "REQ-SWAP-006": "REQ-SWAP-006",
+  "REQ-SWAP-007": "REQ-SWAP-007",
+  "REQ-VAL-001": "REQ-VAL-001",
+  "REQ-VAL-002": "REQ-VAL-002",
+  "REQ-WIRING-001": "REQ-WIRING-001",
+  "REQ-WIRING-002": "REQ-WIRING-002",
+  "REQ-WIRING-003": "REQ-WIRING-003",
+  "SRV-FAIL-001": "SRV-FAIL-001",
+  "SRV-VAL-001": "SRV-VAL-001",
 } as const;
 
 /**
@@ -234,22 +234,21 @@ export const Code = {
  */
 export interface FLAblehnenBewerbungPayload {
   /**
-     * @minLength 1
-     * @maxLength 1000
-     */
+   * @minLength 1
+   * @maxLength 1000
+   */
   grund: string;
 }
 
-export type FLBewerbungZustellungStand = typeof FLBewerbungZustellungStand[keyof typeof FLBewerbungZustellungStand];
-
+export type FLBewerbungZustellungStand = (typeof FLBewerbungZustellungStand)[keyof typeof FLBewerbungZustellungStand];
 
 export const FLBewerbungZustellungStand = {
-  angenommen: 'angenommen',
-  zugestellt: 'zugestellt',
-  verzoegert: 'verzoegert',
-  unzustellbar: 'unzustellbar',
-  unterdrueckt: 'unterdrueckt',
-  beschwerde: 'beschwerde',
+  angenommen: "angenommen",
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
 } as const;
 
 /**
@@ -310,12 +309,12 @@ export interface FLBewerbungKader {
   voraussichtliche_groesse: number;
 }
 
-export type FLKontaktKenntnisnahmeEingetragenVon = typeof FLKontaktKenntnisnahmeEingetragenVon[keyof typeof FLKontaktKenntnisnahmeEingetragenVon];
-
+export type FLKontaktKenntnisnahmeEingetragenVon =
+  (typeof FLKontaktKenntnisnahmeEingetragenVon)[keyof typeof FLKontaktKenntnisnahmeEingetragenVon];
 
 export const FLKontaktKenntnisnahmeEingetragenVon = {
-  bewerbung: 'bewerbung',
-  liga: 'liga',
+  bewerbung: "bewerbung",
+  liga: "liga",
 } as const;
 
 /**
@@ -343,12 +342,11 @@ export interface FLEinwilligungNachweise {
   umfang?: FLEinwilligungNachweis | null;
 }
 
-export type FLKontaktKenntnisnahmeUmfang = typeof FLKontaktKenntnisnahmeUmfang[keyof typeof FLKontaktKenntnisnahmeUmfang];
-
+export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
 
 export const FLKontaktKenntnisnahmeUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 /**
@@ -383,12 +381,12 @@ export interface FLKontaktperson {
   vorname: string;
 }
 
-export type FLSaisonTeamKontakteTrainerIstZugleich = typeof FLSaisonTeamKontakteTrainerIstZugleich[keyof typeof FLSaisonTeamKontakteTrainerIstZugleich] | null;
-
+export type FLSaisonTeamKontakteTrainerIstZugleich =
+  (typeof FLSaisonTeamKontakteTrainerIstZugleich)[keyof typeof FLSaisonTeamKontakteTrainerIstZugleich] | null;
 
 export const FLSaisonTeamKontakteTrainerIstZugleich = {
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -416,16 +414,15 @@ export interface FLAddress {
   strasse: string;
 }
 
-export type FLBewerbungSchuleSchulform = typeof FLBewerbungSchuleSchulform[keyof typeof FLBewerbungSchuleSchulform] | null;
-
+export type FLBewerbungSchuleSchulform = (typeof FLBewerbungSchuleSchulform)[keyof typeof FLBewerbungSchuleSchulform] | null;
 
 export const FLBewerbungSchuleSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 /**
@@ -446,43 +443,41 @@ export interface FLBewerbungSchule {
   website_url: string | null;
 }
 
-export type FLBewerbungStatus = typeof FLBewerbungStatus[keyof typeof FLBewerbungStatus];
-
+export type FLBewerbungStatus = (typeof FLBewerbungStatus)[keyof typeof FLBewerbungStatus];
 
 export const FLBewerbungStatus = {
-  eingereicht: 'eingereicht',
-  angenommen: 'angenommen',
-  abgelehnt: 'abgelehnt',
+  eingereicht: "eingereicht",
+  angenommen: "angenommen",
+  abgelehnt: "abgelehnt",
 } as const;
 
-export type FLBewerbungTrikotWunschfarbe = typeof FLBewerbungTrikotWunschfarbe[keyof typeof FLBewerbungTrikotWunschfarbe];
-
+export type FLBewerbungTrikotWunschfarbe = (typeof FLBewerbungTrikotWunschfarbe)[keyof typeof FLBewerbungTrikotWunschfarbe];
 
 export const FLBewerbungTrikotWunschfarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -532,16 +527,18 @@ export interface FLAblehnenBewerbungResponse {
  */
 export interface FLAbmeldungPayload {
   /**
-     * @maxLength 254
-     * @pattern @
-     */
+   * @maxLength 254
+   * @pattern @
+   */
   email: string;
 }
 
 /**
  * The envelope alone: the log row it filed names no address to answer with.
  */
-export interface FLAbmeldungResponse { [key: string]: unknown }
+export interface FLAbmeldungResponse {
+  [key: string]: unknown;
+}
 
 /**
  * When the league accepts applications for this season.
@@ -570,16 +567,15 @@ export interface FLSaisonRegistrierung {
   von: string;
 }
 
-export type FLSaisonRulesErlaubteStufenItem = typeof FLSaisonRulesErlaubteStufenItem[keyof typeof FLSaisonRulesErlaubteStufenItem];
-
+export type FLSaisonRulesErlaubteStufenItem = (typeof FLSaisonRulesErlaubteStufenItem)[keyof typeof FLSaisonRulesErlaubteStufenItem];
 
 export const FLSaisonRulesErlaubteStufenItem = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -595,12 +591,11 @@ export interface FLSaisonForfeitErgebnis {
   verlierer_tore: number;
 }
 
-export type FLSaisonRulesTiebreakOrder = typeof FLSaisonRulesTiebreakOrder[keyof typeof FLSaisonRulesTiebreakOrder];
-
+export type FLSaisonRulesTiebreakOrder = (typeof FLSaisonRulesTiebreakOrder)[keyof typeof FLSaisonRulesTiebreakOrder];
 
 export const FLSaisonRulesTiebreakOrder = {
-  tordifferenz: 'tordifferenz',
-  direkter_vergleich: 'direkter_vergleich',
+  tordifferenz: "tordifferenz",
+  direkter_vergleich: "direkter_vergleich",
 } as const;
 
 export interface FLSaisonRules {
@@ -612,31 +607,30 @@ export interface FLSaisonRules {
   /** @exclusiveMinimum 0 */
   max_kadergroesse: number;
   /**
-     * @maximum 16
-     * @exclusiveMinimum 0
-     */
+   * @maximum 16
+   * @exclusiveMinimum 0
+   */
   number_of_groups: number;
   /** @exclusiveMinimum 0 */
   qualifiers_per_group: number;
   /**
-     * @minimum 2
-     * @maximum 16
-     */
+   * @minimum 2
+   * @maximum 16
+   */
   teams_per_group: number;
   tiebreak_order: FLSaisonRulesTiebreakOrder;
   /** @exclusiveMinimum 0 */
   win_points: number;
 }
 
-export type FLSaisonPhaseSchedulePhase = typeof FLSaisonPhaseSchedulePhase[keyof typeof FLSaisonPhaseSchedulePhase];
-
+export type FLSaisonPhaseSchedulePhase = (typeof FLSaisonPhaseSchedulePhase)[keyof typeof FLSaisonPhaseSchedulePhase];
 
 export const FLSaisonPhaseSchedulePhase = {
-  gruppenphase: 'gruppenphase',
-  achtelfinale: 'achtelfinale',
-  viertelfinale: 'viertelfinale',
-  halbfinale: 'halbfinale',
-  finale: 'finale',
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 } as const;
 
 /**
@@ -668,13 +662,12 @@ export interface FLSaisonSpielplan {
   spieltage: number;
 }
 
-export type FLSaisonStatus = typeof FLSaisonStatus[keyof typeof FLSaisonStatus];
-
+export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
 
 export const FLSaisonStatus = {
-  past: 'past',
-  active: 'active',
-  future: 'future',
+  past: "past",
+  active: "active",
+  future: "future",
 } as const;
 
 export interface FLSaison {
@@ -682,9 +675,9 @@ export interface FLSaison {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
@@ -705,23 +698,23 @@ export interface FLActivateSaisonResponse {
 
 export interface FLAddressPayload {
   /**
-     * @maxLength 16
-     * @pattern ^([0-9\-abcABC]+)?$
-     */
+   * @maxLength 16
+   * @pattern ^([0-9\-abcABC]+)?$
+   */
   hausnummer: string;
   /** @pattern ^[0-9]{5}$ */
   plz: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     */
+   * @minLength 1
+   * @maxLength 80
+   */
   stadt: string;
   /** @maxLength 80 */
   stadtteil: string;
   /**
-     * @minLength 1
-     * @maxLength 120
-     */
+   * @minLength 1
+   * @maxLength 120
+   */
   strasse: string;
 }
 
@@ -740,24 +733,22 @@ export interface FLAdresswechselAdresseResponse {
   email: string | null;
 }
 
-export type FLAdresswechselAnsichtBeendetArt = typeof FLAdresswechselAnsichtBeendetArt[keyof typeof FLAdresswechselAnsichtBeendetArt];
-
+export type FLAdresswechselAnsichtBeendetArt = (typeof FLAdresswechselAnsichtBeendetArt)[keyof typeof FLAdresswechselAnsichtBeendetArt];
 
 export const FLAdresswechselAnsichtBeendetArt = {
-  wirksam: 'wirksam',
-  abgelehnt: 'abgelehnt',
-  gestoppt: 'gestoppt',
-  abgelaufen: 'abgelaufen',
-  ersetzt: 'ersetzt',
-  verworfen: 'verworfen',
+  wirksam: "wirksam",
+  abgelehnt: "abgelehnt",
+  gestoppt: "gestoppt",
+  abgelaufen: "abgelaufen",
+  ersetzt: "ersetzt",
+  verworfen: "verworfen",
 } as const;
 
-export type FLAdresswechselAnsichtBeendetSeite = typeof FLAdresswechselAnsichtBeendetSeite[keyof typeof FLAdresswechselAnsichtBeendetSeite];
-
+export type FLAdresswechselAnsichtBeendetSeite = (typeof FLAdresswechselAnsichtBeendetSeite)[keyof typeof FLAdresswechselAnsichtBeendetSeite];
 
 export const FLAdresswechselAnsichtBeendetSeite = {
-  neu: 'neu',
-  bisherig: 'bisherig',
+  neu: "neu",
+  bisherig: "bisherig",
 } as const;
 
 /**
@@ -766,26 +757,25 @@ export const FLAdresswechselAnsichtBeendetSeite = {
 export interface FLAdresswechselAnsichtBeendet {
   art: FLAdresswechselAnsichtBeendetArt;
   seite: FLAdresswechselAnsichtBeendetSeite;
-  zustand: 'beendet';
+  zustand: "beendet";
 }
 
-export type FLAdresswechselAnsichtBisherigWeg = typeof FLAdresswechselAnsichtBisherigWeg[keyof typeof FLAdresswechselAnsichtBisherigWeg];
-
+export type FLAdresswechselAnsichtBisherigWeg = (typeof FLAdresswechselAnsichtBisherigWeg)[keyof typeof FLAdresswechselAnsichtBisherigWeg];
 
 export const FLAdresswechselAnsichtBisherigWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
-export type FLAdresswechselAnsichtBisherigZustand = typeof FLAdresswechselAnsichtBisherigZustand[keyof typeof FLAdresswechselAnsichtBisherigZustand];
-
+export type FLAdresswechselAnsichtBisherigZustand =
+  (typeof FLAdresswechselAnsichtBisherigZustand)[keyof typeof FLAdresswechselAnsichtBisherigZustand];
 
 export const FLAdresswechselAnsichtBisherigZustand = {
-  freigabe_offen: 'freigabe_offen',
-  offen: 'offen',
-  genehmigung: 'genehmigung',
-  wartezeit: 'wartezeit',
+  freigabe_offen: "freigabe_offen",
+  offen: "offen",
+  genehmigung: "genehmigung",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -793,31 +783,29 @@ export const FLAdresswechselAnsichtBisherigZustand = {
  */
 export interface FLAdresswechselAnsichtBisherig {
   gueltig_bis: string | null;
-  seite: 'bisherig';
+  seite: "bisherig";
   weg: FLAdresswechselAnsichtBisherigWeg;
   wirksam_ab: string | null;
   zustand: FLAdresswechselAnsichtBisherigZustand;
 }
 
-export type FLAdresswechselAnsichtNeuWeg = typeof FLAdresswechselAnsichtNeuWeg[keyof typeof FLAdresswechselAnsichtNeuWeg];
-
+export type FLAdresswechselAnsichtNeuWeg = (typeof FLAdresswechselAnsichtNeuWeg)[keyof typeof FLAdresswechselAnsichtNeuWeg];
 
 export const FLAdresswechselAnsichtNeuWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
-export type FLAdresswechselAnsichtNeuZustand = typeof FLAdresswechselAnsichtNeuZustand[keyof typeof FLAdresswechselAnsichtNeuZustand];
-
+export type FLAdresswechselAnsichtNeuZustand = (typeof FLAdresswechselAnsichtNeuZustand)[keyof typeof FLAdresswechselAnsichtNeuZustand];
 
 export const FLAdresswechselAnsichtNeuZustand = {
-  gueltig: 'gueltig',
-  abgelaufen: 'abgelaufen',
-  gesperrt: 'gesperrt',
-  nicht_bestaetigbar: 'nicht_bestaetigbar',
-  bestaetigt: 'bestaetigt',
-  genehmigung_abgelaufen: 'genehmigung_abgelaufen',
+  gueltig: "gueltig",
+  abgelaufen: "abgelaufen",
+  gesperrt: "gesperrt",
+  nicht_bestaetigbar: "nicht_bestaetigbar",
+  bestaetigt: "bestaetigt",
+  genehmigung_abgelaufen: "genehmigung_abgelaufen",
 } as const;
 
 /**
@@ -826,7 +814,7 @@ export const FLAdresswechselAnsichtNeuZustand = {
 export interface FLAdresswechselAnsichtNeu {
   genehmigung_offen: boolean | null;
   gueltig_bis: string | null;
-  seite: 'neu';
+  seite: "neu";
   weg: FLAdresswechselAnsichtNeuWeg;
   wirksam_ab: string | null;
   zustand: FLAdresswechselAnsichtNeuZustand;
@@ -834,9 +822,9 @@ export interface FLAdresswechselAnsichtNeu {
 
 export interface FLAdresswechselAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
@@ -847,29 +835,29 @@ export interface FLAdresswechselAnsichtResponse {
   ansicht: FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet;
 }
 
-export type FLAdresswechselAntwortPayloadAntwort = typeof FLAdresswechselAntwortPayloadAntwort[keyof typeof FLAdresswechselAntwortPayloadAntwort];
-
+export type FLAdresswechselAntwortPayloadAntwort =
+  (typeof FLAdresswechselAntwortPayloadAntwort)[keyof typeof FLAdresswechselAntwortPayloadAntwort];
 
 export const FLAdresswechselAntwortPayloadAntwort = {
-  bestaetigt: 'bestaetigt',
-  abgelehnt: 'abgelehnt',
+  bestaetigt: "bestaetigt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLAdresswechselAntwortPayload {
   antwort: FLAdresswechselAntwortPayloadAntwort;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLAdresswechselAntwortResponseAntwort = typeof FLAdresswechselAntwortResponseAntwort[keyof typeof FLAdresswechselAntwortResponseAntwort];
-
+export type FLAdresswechselAntwortResponseAntwort =
+  (typeof FLAdresswechselAntwortResponseAntwort)[keyof typeof FLAdresswechselAntwortResponseAntwort];
 
 export const FLAdresswechselAntwortResponseAntwort = {
-  bestaetigt: 'bestaetigt',
-  abgelehnt: 'abgelehnt',
+  bestaetigt: "bestaetigt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 /**
@@ -888,12 +876,12 @@ export interface FLAdresswechselGenehmigungResponse {
   wirksam: boolean;
 }
 
-export type FLAdresswechselGenehmigungStandVerwaltung = typeof FLAdresswechselGenehmigungStandVerwaltung[keyof typeof FLAdresswechselGenehmigungStandVerwaltung];
-
+export type FLAdresswechselGenehmigungStandVerwaltung =
+  (typeof FLAdresswechselGenehmigungStandVerwaltung)[keyof typeof FLAdresswechselGenehmigungStandVerwaltung];
 
 export const FLAdresswechselGenehmigungStandVerwaltung = {
-  administration: 'administration',
-  owner: 'owner',
+  administration: "administration",
+  owner: "owner",
 } as const;
 
 /**
@@ -910,21 +898,20 @@ export interface FLAdresswechselIdResponse {
   id: string;
 }
 
-export type FLAdresswechselPostausgangZeileArt = typeof FLAdresswechselPostausgangZeileArt[keyof typeof FLAdresswechselPostausgangZeileArt];
-
+export type FLAdresswechselPostausgangZeileArt = (typeof FLAdresswechselPostausgangZeileArt)[keyof typeof FLAdresswechselPostausgangZeileArt];
 
 export const FLAdresswechselPostausgangZeileArt = {
-  wirksam: 'wirksam',
-  verworfen: 'verworfen',
+  wirksam: "wirksam",
+  verworfen: "verworfen",
 } as const;
 
-export type FLAdresswechselPostausgangZeileWeg = typeof FLAdresswechselPostausgangZeileWeg[keyof typeof FLAdresswechselPostausgangZeileWeg] | null;
-
+export type FLAdresswechselPostausgangZeileWeg =
+  (typeof FLAdresswechselPostausgangZeileWeg)[keyof typeof FLAdresswechselPostausgangZeileWeg] | null;
 
 export const FLAdresswechselPostausgangZeileWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -955,9 +942,9 @@ export interface FLAdresswechselPostausgangResponse {
 
 export interface FLAdresswechselStoppPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
@@ -987,12 +974,12 @@ export interface FLAdresswechselVerwaltungAnsichtPayload {
   adresswechsel_id?: string | null;
 }
 
-export type FLAdresswechselVerwaltungBestandBerechtigung = typeof FLAdresswechselVerwaltungBestandBerechtigung[keyof typeof FLAdresswechselVerwaltungBestandBerechtigung] | null;
-
+export type FLAdresswechselVerwaltungBestandBerechtigung =
+  (typeof FLAdresswechselVerwaltungBestandBerechtigung)[keyof typeof FLAdresswechselVerwaltungBestandBerechtigung] | null;
 
 export const FLAdresswechselVerwaltungBestandBerechtigung = {
-  administration: 'administration',
-  owner: 'owner',
+  administration: "administration",
+  owner: "owner",
 } as const;
 
 /**
@@ -1012,12 +999,12 @@ export interface FLAdresswechselVerwaltungBestand {
   spieler: number;
 }
 
-export type FLAdresswechselVerwaltungGenehmigungVerwaltung = typeof FLAdresswechselVerwaltungGenehmigungVerwaltung[keyof typeof FLAdresswechselVerwaltungGenehmigungVerwaltung];
-
+export type FLAdresswechselVerwaltungGenehmigungVerwaltung =
+  (typeof FLAdresswechselVerwaltungGenehmigungVerwaltung)[keyof typeof FLAdresswechselVerwaltungGenehmigungVerwaltung];
 
 export const FLAdresswechselVerwaltungGenehmigungVerwaltung = {
-  administration: 'administration',
-  owner: 'owner',
+  administration: "administration",
+  owner: "owner",
 } as const;
 
 /**
@@ -1031,23 +1018,22 @@ export interface FLAdresswechselVerwaltungGenehmigung {
   verwaltung: FLAdresswechselVerwaltungGenehmigungVerwaltung;
 }
 
-export type FLAdresswechselVerwaltungOffenWartetAuf = typeof FLAdresswechselVerwaltungOffenWartetAuf[keyof typeof FLAdresswechselVerwaltungOffenWartetAuf];
-
+export type FLAdresswechselVerwaltungOffenWartetAuf =
+  (typeof FLAdresswechselVerwaltungOffenWartetAuf)[keyof typeof FLAdresswechselVerwaltungOffenWartetAuf];
 
 export const FLAdresswechselVerwaltungOffenWartetAuf = {
-  freigabe: 'freigabe',
-  neue_adresse: 'neue_adresse',
-  genehmigung: 'genehmigung',
-  wartezeit: 'wartezeit',
+  freigabe: "freigabe",
+  neue_adresse: "neue_adresse",
+  genehmigung: "genehmigung",
+  wartezeit: "wartezeit",
 } as const;
 
-export type FLAdresswechselVerwaltungOffenWeg = typeof FLAdresswechselVerwaltungOffenWeg[keyof typeof FLAdresswechselVerwaltungOffenWeg];
-
+export type FLAdresswechselVerwaltungOffenWeg = (typeof FLAdresswechselVerwaltungOffenWeg)[keyof typeof FLAdresswechselVerwaltungOffenWeg];
 
 export const FLAdresswechselVerwaltungOffenWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -1078,13 +1064,13 @@ export interface FLAdresswechselVerwaltungAnsichtResponse {
   offen: FLAdresswechselVerwaltungOffen | null;
 }
 
-export type FLAdresswechselVerwaltungMintResponseWeg = typeof FLAdresswechselVerwaltungMintResponseWeg[keyof typeof FLAdresswechselVerwaltungMintResponseWeg];
-
+export type FLAdresswechselVerwaltungMintResponseWeg =
+  (typeof FLAdresswechselVerwaltungMintResponseWeg)[keyof typeof FLAdresswechselVerwaltungMintResponseWeg];
 
 export const FLAdresswechselVerwaltungMintResponseWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -1120,10 +1106,10 @@ export interface FLAdresswechselZugestelltPayload {
   /** @minLength 1 */
   beanspruchung: string;
   /**
-     * @minItems 1
-     * @maxItems 1024
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @minItems 1
+   * @maxItems 1024
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   ids: string[];
 }
 
@@ -1134,27 +1120,25 @@ export interface FLAdresswechselZugestelltResponse {
   zugestellt: number;
 }
 
-export type FLAktionDbFilter = {[key: string]: string} | null;
+export type FLAktionDbFilter = { [key: string]: string } | null;
 
-export type FLAktionOperation = typeof FLAktionOperation[keyof typeof FLAktionOperation];
-
+export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
 
 export const FLAktionOperation = {
-  insert: 'insert',
-  insert_many: 'insert_many',
-  patch_one: 'patch_one',
-  patch_many: 'patch_many',
-  delete_many: 'delete_many',
-  erase_many: 'erase_many',
+  insert: "insert",
+  insert_many: "insert_many",
+  patch_one: "patch_one",
+  patch_many: "patch_many",
+  delete_many: "delete_many",
+  erase_many: "erase_many",
 } as const;
 
-export type FLAktorMitAdresseZeileKind = typeof FLAktorMitAdresseZeileKind[keyof typeof FLAktorMitAdresseZeileKind];
-
+export type FLAktorMitAdresseZeileKind = (typeof FLAktorMitAdresseZeileKind)[keyof typeof FLAktorMitAdresseZeileKind];
 
 export const FLAktorMitAdresseZeileKind = {
-  admin_session: 'admin_session',
-  system: 'system',
-  public: 'public',
+  admin_session: "admin_session",
+  system: "system",
+  public: "public",
 } as const;
 
 /**
@@ -1166,13 +1150,12 @@ export interface FLAktorMitAdresseZeile {
   kind: FLAktorMitAdresseZeileKind;
 }
 
-export type FLAktorPersonFunktion = typeof FLAktorPersonFunktion[keyof typeof FLAktorPersonFunktion];
-
+export type FLAktorPersonFunktion = (typeof FLAktorPersonFunktion)[keyof typeof FLAktorPersonFunktion];
 
 export const FLAktorPersonFunktion = {
-  kontakt: 'kontakt',
-  spieler: 'spieler',
-  schiedsrichter: 'schiedsrichter',
+  kontakt: "kontakt",
+  spieler: "spieler",
+  schiedsrichter: "schiedsrichter",
 } as const;
 
 /**
@@ -1182,7 +1165,7 @@ export const FLAktorPersonFunktion = {
  */
 export interface FLAktorPerson {
   funktion: FLAktorPersonFunktion;
-  kind: 'person_session';
+  kind: "person_session";
   pseudonym: string;
 }
 
@@ -1217,18 +1200,17 @@ export interface FLAktion {
 
 export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
 
-export type FLAktionMitStandDbFilter = {[key: string]: string} | null;
+export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
 
-export type FLAktionMitStandOperation = typeof FLAktionMitStandOperation[keyof typeof FLAktionMitStandOperation];
-
+export type FLAktionMitStandOperation = (typeof FLAktionMitStandOperation)[keyof typeof FLAktionMitStandOperation];
 
 export const FLAktionMitStandOperation = {
-  insert: 'insert',
-  insert_many: 'insert_many',
-  patch_one: 'patch_one',
-  patch_many: 'patch_many',
-  delete_many: 'delete_many',
-  erase_many: 'erase_many',
+  insert: "insert",
+  insert_many: "insert_many",
+  patch_one: "patch_one",
+  patch_many: "patch_many",
+  delete_many: "delete_many",
+  erase_many: "erase_many",
 } as const;
 
 /**
@@ -1258,11 +1240,11 @@ export interface FLAktionSingleResponse {
   aktion: FLAktionMitStand;
 }
 
-export type FLAktionenListResponseAnzahlJeCollection = {[key: string]: number};
+export type FLAktionenListResponseAnzahlJeCollection = { [key: string]: number };
 
-export type FLAktionenListResponseAnzahlJeHerkunft = {[key: string]: number};
+export type FLAktionenListResponseAnzahlJeHerkunft = { [key: string]: number };
 
-export type FLAktionenListResponseAnzahlJeOperation = {[key: string]: number};
+export type FLAktionenListResponseAnzahlJeOperation = { [key: string]: number };
 
 export interface FLAktionenListResponse {
   aktionen: FLAktion[];
@@ -1272,12 +1254,11 @@ export interface FLAktionenListResponse {
   vollstaendig: boolean;
 }
 
-export type FLAnmeldungResponseVerwaltung = typeof FLAnmeldungResponseVerwaltung[keyof typeof FLAnmeldungResponseVerwaltung] | null;
-
+export type FLAnmeldungResponseVerwaltung = (typeof FLAnmeldungResponseVerwaltung)[keyof typeof FLAnmeldungResponseVerwaltung] | null;
 
 export const FLAnmeldungResponseVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -1292,56 +1273,55 @@ export interface FLAnmeldungResponse {
   verwaltung: FLAnmeldungResponseVerwaltung;
 }
 
-export type FLAnnehmenBewerbungPayloadGruppe = typeof FLAnnehmenBewerbungPayloadGruppe[keyof typeof FLAnnehmenBewerbungPayloadGruppe];
-
+export type FLAnnehmenBewerbungPayloadGruppe = (typeof FLAnnehmenBewerbungPayloadGruppe)[keyof typeof FLAnnehmenBewerbungPayloadGruppe];
 
 export const FLAnnehmenBewerbungPayloadGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLAnnehmenBewerbungPayloadTrikotFarbe = typeof FLAnnehmenBewerbungPayloadTrikotFarbe[keyof typeof FLAnnehmenBewerbungPayloadTrikotFarbe] | null;
-
+export type FLAnnehmenBewerbungPayloadTrikotFarbe =
+  (typeof FLAnnehmenBewerbungPayloadTrikotFarbe)[keyof typeof FLAnnehmenBewerbungPayloadTrikotFarbe] | null;
 
 export const FLAnnehmenBewerbungPayloadTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -1355,56 +1335,55 @@ export interface FLAnnehmenBewerbungPayload {
   trikot_farbe: FLAnnehmenBewerbungPayloadTrikotFarbe;
 }
 
-export type FLAnnehmenBewerbungResponseGruppe = typeof FLAnnehmenBewerbungResponseGruppe[keyof typeof FLAnnehmenBewerbungResponseGruppe];
-
+export type FLAnnehmenBewerbungResponseGruppe = (typeof FLAnnehmenBewerbungResponseGruppe)[keyof typeof FLAnnehmenBewerbungResponseGruppe];
 
 export const FLAnnehmenBewerbungResponseGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLAnnehmenBewerbungResponseTrikotFarbe = typeof FLAnnehmenBewerbungResponseTrikotFarbe[keyof typeof FLAnnehmenBewerbungResponseTrikotFarbe] | null;
-
+export type FLAnnehmenBewerbungResponseTrikotFarbe =
+  (typeof FLAnnehmenBewerbungResponseTrikotFarbe)[keyof typeof FLAnnehmenBewerbungResponseTrikotFarbe] | null;
 
 export const FLAnnehmenBewerbungResponseTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -1420,12 +1399,11 @@ export interface FLAnnehmenBewerbungResponse {
   updated_document: FLBewerbung;
 }
 
-export type FLAustrittType = typeof FLAustrittType[keyof typeof FLAustrittType];
-
+export type FLAustrittType = (typeof FLAustrittType)[keyof typeof FLAustrittType];
 
 export const FLAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
 /**
@@ -1442,25 +1420,23 @@ export interface FLAustritt {
   type: FLAustrittType;
 }
 
-export type FLBerechtigungAenderungArt = typeof FLBerechtigungAenderungArt[keyof typeof FLBerechtigungAenderungArt];
-
+export type FLBerechtigungAenderungArt = (typeof FLBerechtigungAenderungArt)[keyof typeof FLBerechtigungAenderungArt];
 
 export const FLBerechtigungAenderungArt = {
-  erteilt: 'erteilt',
-  entzogen: 'entzogen',
-  geaendert: 'geaendert',
-  beantragt: 'beantragt',
-  adresswechsel: 'adresswechsel',
-  antrag_abgelehnt: 'antrag_abgelehnt',
-  antrag_beendet: 'antrag_beendet',
+  erteilt: "erteilt",
+  entzogen: "entzogen",
+  geaendert: "geaendert",
+  beantragt: "beantragt",
+  adresswechsel: "adresswechsel",
+  antrag_abgelehnt: "antrag_abgelehnt",
+  antrag_beendet: "antrag_beendet",
 } as const;
 
-export type FLBerechtigungStandVerwaltung = typeof FLBerechtigungStandVerwaltung[keyof typeof FLBerechtigungStandVerwaltung];
-
+export type FLBerechtigungStandVerwaltung = (typeof FLBerechtigungStandVerwaltung)[keyof typeof FLBerechtigungStandVerwaltung];
 
 export const FLBerechtigungStandVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -1471,12 +1447,11 @@ export interface FLBerechtigungStand {
   verwaltung: FLBerechtigungStandVerwaltung;
 }
 
-export type FLBerechtigungAenderungUrheber = typeof FLBerechtigungAenderungUrheber[keyof typeof FLBerechtigungAenderungUrheber];
-
+export type FLBerechtigungAenderungUrheber = (typeof FLBerechtigungAenderungUrheber)[keyof typeof FLBerechtigungAenderungUrheber];
 
 export const FLBerechtigungAenderungUrheber = {
-  anwendung: 'anwendung',
-  datenbank: 'datenbank',
+  anwendung: "anwendung",
+  datenbank: "datenbank",
 } as const;
 
 /**
@@ -1509,31 +1484,30 @@ export interface FLBerechtigungAbgleichResponse {
   uebersprungen: number;
 }
 
-export type FLBerechtigungAdresswechselEinsehbarVerwehrt = typeof FLBerechtigungAdresswechselEinsehbarVerwehrt[keyof typeof FLBerechtigungAdresswechselEinsehbarVerwehrt] | null;
-
+export type FLBerechtigungAdresswechselEinsehbarVerwehrt =
+  (typeof FLBerechtigungAdresswechselEinsehbarVerwehrt)[keyof typeof FLBerechtigungAdresswechselEinsehbarVerwehrt] | null;
 
 export const FLBerechtigungAdresswechselEinsehbarVerwehrt = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
-export type FLBerechtigungAdresswechselVerwehrt = typeof FLBerechtigungAdresswechselVerwehrt[keyof typeof FLBerechtigungAdresswechselVerwehrt] | null;
-
+export type FLBerechtigungAdresswechselVerwehrt =
+  (typeof FLBerechtigungAdresswechselVerwehrt)[keyof typeof FLBerechtigungAdresswechselVerwehrt] | null;
 
 export const FLBerechtigungAdresswechselVerwehrt = {
-  eigene: 'eigene',
-  gestartet: 'gestartet',
-  inhaber: 'inhaber',
-  juenger: 'juenger',
+  eigene: "eigene",
+  gestartet: "gestartet",
+  inhaber: "inhaber",
+  juenger: "juenger",
 } as const;
 
-export type FLBerechtigungAdresswechselWeg = typeof FLBerechtigungAdresswechselWeg[keyof typeof FLBerechtigungAdresswechselWeg];
-
+export type FLBerechtigungAdresswechselWeg = (typeof FLBerechtigungAdresswechselWeg)[keyof typeof FLBerechtigungAdresswechselWeg];
 
 export const FLBerechtigungAdresswechselWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -1560,10 +1534,10 @@ export interface FLBerechtigungAngekuendigtPayload {
   /** @minLength 1 */
   beanspruchung: string;
   /**
-     * @minItems 1
-     * @maxItems 1024
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @minItems 1
+   * @maxItems 1024
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   ids: string[];
 }
 
@@ -1590,22 +1564,22 @@ export interface FLBerechtigungAntragGenehmigtResponse {
   berechtigung_id: string;
 }
 
-export type FLBerechtigungAntragZeileVerwaltung = typeof FLBerechtigungAntragZeileVerwaltung[keyof typeof FLBerechtigungAntragZeileVerwaltung];
-
+export type FLBerechtigungAntragZeileVerwaltung =
+  (typeof FLBerechtigungAntragZeileVerwaltung)[keyof typeof FLBerechtigungAntragZeileVerwaltung];
 
 export const FLBerechtigungAntragZeileVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
-export type FLBerechtigungAntragZeileVerwehrt = typeof FLBerechtigungAntragZeileVerwehrt[keyof typeof FLBerechtigungAntragZeileVerwehrt] | null;
-
+export type FLBerechtigungAntragZeileVerwehrt =
+  (typeof FLBerechtigungAntragZeileVerwehrt)[keyof typeof FLBerechtigungAntragZeileVerwehrt] | null;
 
 export const FLBerechtigungAntragZeileVerwehrt = {
-  eigene: 'eigene',
-  gestartet: 'gestartet',
-  inhaber: 'inhaber',
-  juenger: 'juenger',
+  eigene: "eigene",
+  gestartet: "gestartet",
+  inhaber: "inhaber",
+  juenger: "juenger",
 } as const;
 
 /**
@@ -1643,12 +1617,11 @@ export interface FLBerechtigungWriteResponse {
   berechtigung_id: string;
 }
 
-export type FLBerechtigungZeileVerwaltung = typeof FLBerechtigungZeileVerwaltung[keyof typeof FLBerechtigungZeileVerwaltung];
-
+export type FLBerechtigungZeileVerwaltung = (typeof FLBerechtigungZeileVerwaltung)[keyof typeof FLBerechtigungZeileVerwaltung];
 
 export const FLBerechtigungZeileVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -1684,26 +1657,26 @@ export interface FLBerechtigungenListResponse {
  */
 export interface FLBewerbungAddressPayload {
   /**
-     * @maxLength 16
-     * @pattern ^([0-9\-abcABC]+)?$
-     */
+   * @maxLength 16
+   * @pattern ^([0-9\-abcABC]+)?$
+   */
   hausnummer: string;
   /** @pattern ^[0-9]{5}$ */
   plz: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     */
+   * @minLength 1
+   * @maxLength 80
+   */
   stadt: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     */
+   * @minLength 1
+   * @maxLength 80
+   */
   stadtteil: string;
   /**
-     * @minLength 1
-     * @maxLength 120
-     */
+   * @minLength 1
+   * @maxLength 120
+   */
   strasse: string;
 }
 
@@ -1724,57 +1697,57 @@ export interface FLBewerbungBestaetigungTokens {
  */
 export interface FLBewerbungEinwilligungAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLBewerbungEinwilligungAnsichtResponseQuelle = typeof FLBewerbungEinwilligungAnsichtResponseQuelle[keyof typeof FLBewerbungEinwilligungAnsichtResponseQuelle];
-
+export type FLBewerbungEinwilligungAnsichtResponseQuelle =
+  (typeof FLBewerbungEinwilligungAnsichtResponseQuelle)[keyof typeof FLBewerbungEinwilligungAnsichtResponseQuelle];
 
 export const FLBewerbungEinwilligungAnsichtResponseQuelle = {
-  bewerbung: 'bewerbung',
-  saison: 'saison',
+  bewerbung: "bewerbung",
+  saison: "saison",
 } as const;
 
-export type FLBewerbungEinwilligungAnsichtResponseRolle = typeof FLBewerbungEinwilligungAnsichtResponseRolle[keyof typeof FLBewerbungEinwilligungAnsichtResponseRolle];
-
+export type FLBewerbungEinwilligungAnsichtResponseRolle =
+  (typeof FLBewerbungEinwilligungAnsichtResponseRolle)[keyof typeof FLBewerbungEinwilligungAnsichtResponseRolle];
 
 export const FLBewerbungEinwilligungAnsichtResponseRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungEinwilligungAnsichtResponseZeile = typeof FLBewerbungEinwilligungAnsichtResponseZeile[keyof typeof FLBewerbungEinwilligungAnsichtResponseZeile] | null;
-
+export type FLBewerbungEinwilligungAnsichtResponseZeile =
+  (typeof FLBewerbungEinwilligungAnsichtResponseZeile)[keyof typeof FLBewerbungEinwilligungAnsichtResponseZeile] | null;
 
 export const FLBewerbungEinwilligungAnsichtResponseZeile = {
-  offen: 'offen',
-  saison_vorbei: 'saison_vorbei',
-  ausgetreten: 'ausgetreten',
+  offen: "offen",
+  saison_vorbei: "saison_vorbei",
+  ausgetreten: "ausgetreten",
 } as const;
 
-export type FLBewerbungEinwilligungAnsichtResponseZugleichRolle = typeof FLBewerbungEinwilligungAnsichtResponseZugleichRolle[keyof typeof FLBewerbungEinwilligungAnsichtResponseZugleichRolle] | null;
-
+export type FLBewerbungEinwilligungAnsichtResponseZugleichRolle =
+  (typeof FLBewerbungEinwilligungAnsichtResponseZugleichRolle)[keyof typeof FLBewerbungEinwilligungAnsichtResponseZugleichRolle] | null;
 
 export const FLBewerbungEinwilligungAnsichtResponseZugleichRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungEinwilligungAnsichtResponseZustand = typeof FLBewerbungEinwilligungAnsichtResponseZustand[keyof typeof FLBewerbungEinwilligungAnsichtResponseZustand];
-
+export type FLBewerbungEinwilligungAnsichtResponseZustand =
+  (typeof FLBewerbungEinwilligungAnsichtResponseZustand)[keyof typeof FLBewerbungEinwilligungAnsichtResponseZustand];
 
 export const FLBewerbungEinwilligungAnsichtResponseZustand = {
-  gueltig: 'gueltig',
-  bestaetigt: 'bestaetigt',
-  abgelehnt: 'abgelehnt',
-  abgelaufen: 'abgelaufen',
-  saison_vorbei: 'saison_vorbei',
-  gesperrt: 'gesperrt',
+  gueltig: "gueltig",
+  bestaetigt: "bestaetigt",
+  abgelehnt: "abgelehnt",
+  abgelaufen: "abgelaufen",
+  saison_vorbei: "saison_vorbei",
+  gesperrt: "gesperrt",
 } as const;
 
 /**
@@ -1797,12 +1770,12 @@ export interface FLBewerbungEinwilligungAnsichtResponse {
   zustand: FLBewerbungEinwilligungAnsichtResponseZustand;
 }
 
-export type FLBewerbungEinwilligungAntwortPayloadAntwort = typeof FLBewerbungEinwilligungAntwortPayloadAntwort[keyof typeof FLBewerbungEinwilligungAntwortPayloadAntwort];
-
+export type FLBewerbungEinwilligungAntwortPayloadAntwort =
+  (typeof FLBewerbungEinwilligungAntwortPayloadAntwort)[keyof typeof FLBewerbungEinwilligungAntwortPayloadAntwort];
 
 export const FLBewerbungEinwilligungAntwortPayloadAntwort = {
-  erteilt: 'erteilt',
-  abgelehnt: 'abgelehnt',
+  erteilt: "erteilt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 /**
@@ -1813,51 +1786,51 @@ export interface FLBewerbungEinwilligungAntwortPayload {
   geburtsdatum: string | null;
   medien: boolean;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
   whatsapp: boolean;
 }
 
-export type FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem = typeof FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem[keyof typeof FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem];
-
+export type FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem =
+  (typeof FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem)[keyof typeof FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem];
 
 export const FLBewerbungEinwilligungAntwortResponseAnsprechpersonRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungEinwilligungAntwortResponseAusstehendItem = typeof FLBewerbungEinwilligungAntwortResponseAusstehendItem[keyof typeof FLBewerbungEinwilligungAntwortResponseAusstehendItem];
-
+export type FLBewerbungEinwilligungAntwortResponseAusstehendItem =
+  (typeof FLBewerbungEinwilligungAntwortResponseAusstehendItem)[keyof typeof FLBewerbungEinwilligungAntwortResponseAusstehendItem];
 
 export const FLBewerbungEinwilligungAntwortResponseAusstehendItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungEinwilligungAntwortResponseErgebnis = typeof FLBewerbungEinwilligungAntwortResponseErgebnis[keyof typeof FLBewerbungEinwilligungAntwortResponseErgebnis];
-
+export type FLBewerbungEinwilligungAntwortResponseErgebnis =
+  (typeof FLBewerbungEinwilligungAntwortResponseErgebnis)[keyof typeof FLBewerbungEinwilligungAntwortResponseErgebnis];
 
 export const FLBewerbungEinwilligungAntwortResponseErgebnis = {
-  bestaetigt: 'bestaetigt',
-  abgelehnt: 'abgelehnt',
+  bestaetigt: "bestaetigt",
+  abgelehnt: "abgelehnt",
 } as const;
 
-export type FLBewerbungEinwilligungAntwortResponseRolle = typeof FLBewerbungEinwilligungAntwortResponseRolle[keyof typeof FLBewerbungEinwilligungAntwortResponseRolle];
-
+export type FLBewerbungEinwilligungAntwortResponseRolle =
+  (typeof FLBewerbungEinwilligungAntwortResponseRolle)[keyof typeof FLBewerbungEinwilligungAntwortResponseRolle];
 
 export const FLBewerbungEinwilligungAntwortResponseRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -1877,29 +1850,29 @@ export interface FLBewerbungEinwilligungAntwortResponse {
   ergebnis: FLBewerbungEinwilligungAntwortResponseErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
-  quelle: 'bewerbung';
+  quelle: "bewerbung";
   rolle: FLBewerbungEinwilligungAntwortResponseRolle;
   saison_id: string;
   vorname: string;
   whatsapp: boolean;
 }
 
-export type FLBewerbungEinwilligungErneutResponseRolle = typeof FLBewerbungEinwilligungErneutResponseRolle[keyof typeof FLBewerbungEinwilligungErneutResponseRolle];
-
+export type FLBewerbungEinwilligungErneutResponseRolle =
+  (typeof FLBewerbungEinwilligungErneutResponseRolle)[keyof typeof FLBewerbungEinwilligungErneutResponseRolle];
 
 export const FLBewerbungEinwilligungErneutResponseRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungEinwilligungErneutResponseRollenItem = typeof FLBewerbungEinwilligungErneutResponseRollenItem[keyof typeof FLBewerbungEinwilligungErneutResponseRollenItem];
-
+export type FLBewerbungEinwilligungErneutResponseRollenItem =
+  (typeof FLBewerbungEinwilligungErneutResponseRollenItem)[keyof typeof FLBewerbungEinwilligungErneutResponseRollenItem];
 
 export const FLBewerbungEinwilligungErneutResponseRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -1923,9 +1896,9 @@ export interface FLBewerbungEinwilligungErneutResponse {
 export interface FLBewerbungEinwilligungPayload {
   erteilt: true;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
 }
 
@@ -1948,14 +1921,14 @@ export interface FLBewerbungFensterResponse {
 
 export interface FLBewerbungKaderPayload {
   /**
-     * @minimum 0
-     * @maximum 200
-     */
+   * @minimum 0
+   * @maximum 200
+   */
   gute_spieler: number;
   /**
-     * @minimum 1
-     * @maximum 200
-     */
+   * @minimum 1
+   * @maximum 200
+   */
   voraussichtliche_groesse: number;
 }
 
@@ -1981,13 +1954,13 @@ export interface FLBewerbungKontaktEmailPayload {
   email: string;
 }
 
-export type FLBewerbungKontaktEmailResponseRollenItem = typeof FLBewerbungKontaktEmailResponseRollenItem[keyof typeof FLBewerbungKontaktEmailResponseRollenItem];
-
+export type FLBewerbungKontaktEmailResponseRollenItem =
+  (typeof FLBewerbungKontaktEmailResponseRollenItem)[keyof typeof FLBewerbungKontaktEmailResponseRollenItem];
 
 export const FLBewerbungKontaktEmailResponseRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2012,33 +1985,33 @@ export interface FLBewerbungKontaktSitzPayload {
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   nachname: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   telefon: string;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   vorname: string;
 }
 
-export type FLBewerbungKontaktSitzResponseRollenItem = typeof FLBewerbungKontaktSitzResponseRollenItem[keyof typeof FLBewerbungKontaktSitzResponseRollenItem];
-
+export type FLBewerbungKontaktSitzResponseRollenItem =
+  (typeof FLBewerbungKontaktSitzResponseRollenItem)[keyof typeof FLBewerbungKontaktSitzResponseRollenItem];
 
 export const FLBewerbungKontaktSitzResponseRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2052,12 +2025,12 @@ export interface FLBewerbungKontaktSitzResponse {
   token: string;
 }
 
-export type FLBewerbungKontaktePayloadTrainerIstZugleich = typeof FLBewerbungKontaktePayloadTrainerIstZugleich[keyof typeof FLBewerbungKontaktePayloadTrainerIstZugleich] | null;
-
+export type FLBewerbungKontaktePayloadTrainerIstZugleich =
+  (typeof FLBewerbungKontaktePayloadTrainerIstZugleich)[keyof typeof FLBewerbungKontaktePayloadTrainerIstZugleich] | null;
 
 export const FLBewerbungKontaktePayloadTrainerIstZugleich = {
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2071,18 +2044,18 @@ export interface FLBewerbungKontaktpersonPayload {
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   nachname: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   telefon: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   vorname: string;
 }
 
@@ -2110,12 +2083,12 @@ export interface FLBewerbungKuerzelResponse {
   vergeben: boolean;
 }
 
-export type FLBewerbungPersonEinwilligungPayloadUmfang = typeof FLBewerbungPersonEinwilligungPayloadUmfang[keyof typeof FLBewerbungPersonEinwilligungPayloadUmfang];
-
+export type FLBewerbungPersonEinwilligungPayloadUmfang =
+  (typeof FLBewerbungPersonEinwilligungPayloadUmfang)[keyof typeof FLBewerbungPersonEinwilligungPayloadUmfang];
 
 export const FLBewerbungPersonEinwilligungPayloadUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 export interface FLEinwilligungStandPayload {
@@ -2132,28 +2105,28 @@ export interface FLBewerbungPersonEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   umfang: FLBewerbungPersonEinwilligungPayloadUmfang;
 }
 
-export type FLBewerbungPersonEinwilligungResponseRollenItem = typeof FLBewerbungPersonEinwilligungResponseRollenItem[keyof typeof FLBewerbungPersonEinwilligungResponseRollenItem];
-
+export type FLBewerbungPersonEinwilligungResponseRollenItem =
+  (typeof FLBewerbungPersonEinwilligungResponseRollenItem)[keyof typeof FLBewerbungPersonEinwilligungResponseRollenItem];
 
 export const FLBewerbungPersonEinwilligungResponseRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungPersonEinwilligungResponseUmfang = typeof FLBewerbungPersonEinwilligungResponseUmfang[keyof typeof FLBewerbungPersonEinwilligungResponseUmfang];
-
+export type FLBewerbungPersonEinwilligungResponseUmfang =
+  (typeof FLBewerbungPersonEinwilligungResponseUmfang)[keyof typeof FLBewerbungPersonEinwilligungResponseUmfang];
 
 export const FLBewerbungPersonEinwilligungResponseUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 /**
@@ -2191,16 +2164,15 @@ export interface FLBewerbungSchuleOption {
   name: string;
 }
 
-export type FLBewerbungSchulePayloadSchulform = typeof FLBewerbungSchulePayloadSchulform[keyof typeof FLBewerbungSchulePayloadSchulform];
-
+export type FLBewerbungSchulePayloadSchulform = (typeof FLBewerbungSchulePayloadSchulform)[keyof typeof FLBewerbungSchulePayloadSchulform];
 
 export const FLBewerbungSchulePayloadSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 /**
@@ -2212,19 +2184,19 @@ export const FLBewerbungSchulePayloadSchulform = {
 export interface FLBewerbungSchulePayload {
   address: FLBewerbungAddressPayload;
   /**
-     * @minLength 1
-     * @maxLength 120
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   full_name: string;
   schulform: FLBewerbungSchulePayloadSchulform;
   /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
   /**
-     * @minLength 1
-     * @maxLength 60
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   team_name: string;
   website_url: string | null;
 }
@@ -2243,9 +2215,9 @@ export interface FLBewerbungSingleResponse {
  */
 export interface FLBewerbungSweepAngekuendigtPayload {
   /**
-     * @maxItems 83
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @maxItems 83
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   bewerbung_ids: string[];
 }
 
@@ -2255,13 +2227,12 @@ export interface FLBewerbungSweepAngekuendigtResponse {
   saison_id: string;
 }
 
-export type FLBewerbungSweepAusstehendRolle = typeof FLBewerbungSweepAusstehendRolle[keyof typeof FLBewerbungSweepAusstehendRolle];
-
+export type FLBewerbungSweepAusstehendRolle = (typeof FLBewerbungSweepAusstehendRolle)[keyof typeof FLBewerbungSweepAusstehendRolle];
 
 export const FLBewerbungSweepAusstehendRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2272,13 +2243,12 @@ export interface FLBewerbungSweepAusstehend {
   vorname: string | null;
 }
 
-export type FLBewerbungSweepSeatRollenItem = typeof FLBewerbungSweepSeatRollenItem[keyof typeof FLBewerbungSweepSeatRollenItem];
-
+export type FLBewerbungSweepSeatRollenItem = (typeof FLBewerbungSweepSeatRollenItem)[keyof typeof FLBewerbungSweepSeatRollenItem];
 
 export const FLBewerbungSweepSeatRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2312,9 +2282,9 @@ export interface FLBewerbungSweepErinnerung {
  */
 export interface FLBewerbungSweepLoeschenPayload {
   /**
-     * @maxItems 83
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @maxItems 83
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   bewerbung_ids: string[];
 }
 
@@ -2325,13 +2295,13 @@ export interface FLBewerbungSweepLoeschenResponse {
   saison_id: string;
 }
 
-export type FLBewerbungSweepLoeschungAnsprechpersonRollenItem = typeof FLBewerbungSweepLoeschungAnsprechpersonRollenItem[keyof typeof FLBewerbungSweepLoeschungAnsprechpersonRollenItem];
-
+export type FLBewerbungSweepLoeschungAnsprechpersonRollenItem =
+  (typeof FLBewerbungSweepLoeschungAnsprechpersonRollenItem)[keyof typeof FLBewerbungSweepLoeschungAnsprechpersonRollenItem];
 
 export const FLBewerbungSweepLoeschungAnsprechpersonRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2374,34 +2344,34 @@ export interface FLBewerbungSweepSaisonsResponse {
   sweep_gelaufen_am: string | null;
 }
 
-export type FLBewerbungTrikotFarbenResponseVergebenItem = typeof FLBewerbungTrikotFarbenResponseVergebenItem[keyof typeof FLBewerbungTrikotFarbenResponseVergebenItem];
-
+export type FLBewerbungTrikotFarbenResponseVergebenItem =
+  (typeof FLBewerbungTrikotFarbenResponseVergebenItem)[keyof typeof FLBewerbungTrikotFarbenResponseVergebenItem];
 
 export const FLBewerbungTrikotFarbenResponseVergebenItem = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -2415,34 +2385,34 @@ export interface FLBewerbungTrikotFarbenResponse {
   vergeben: FLBewerbungTrikotFarbenResponseVergebenItem[];
 }
 
-export type FLBewerbungTrikotPayloadWunschfarbe = typeof FLBewerbungTrikotPayloadWunschfarbe[keyof typeof FLBewerbungTrikotPayloadWunschfarbe];
-
+export type FLBewerbungTrikotPayloadWunschfarbe =
+  (typeof FLBewerbungTrikotPayloadWunschfarbe)[keyof typeof FLBewerbungTrikotPayloadWunschfarbe];
 
 export const FLBewerbungTrikotPayloadWunschfarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 export interface FLBewerbungTrikotPayload {
@@ -2451,13 +2421,13 @@ export interface FLBewerbungTrikotPayload {
   wunschfarbe: FLBewerbungTrikotPayloadWunschfarbe;
 }
 
-export type FLBewerbungZustellungAngenommenPayloadRollenItem = typeof FLBewerbungZustellungAngenommenPayloadRollenItem[keyof typeof FLBewerbungZustellungAngenommenPayloadRollenItem];
-
+export type FLBewerbungZustellungAngenommenPayloadRollenItem =
+  (typeof FLBewerbungZustellungAngenommenPayloadRollenItem)[keyof typeof FLBewerbungZustellungAngenommenPayloadRollenItem];
 
 export const FLBewerbungZustellungAngenommenPayloadRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2465,38 +2435,38 @@ export const FLBewerbungZustellungAngenommenPayloadRollenItem = {
  */
 export interface FLBewerbungZustellungAngenommenPayload {
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   am: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   nachricht_id: string;
   rollen: FLBewerbungZustellungAngenommenPayloadRollenItem[];
 }
 
-export type FLBewerbungZustellungEreignisPayloadRollenItem = typeof FLBewerbungZustellungEreignisPayloadRollenItem[keyof typeof FLBewerbungZustellungEreignisPayloadRollenItem];
-
+export type FLBewerbungZustellungEreignisPayloadRollenItem =
+  (typeof FLBewerbungZustellungEreignisPayloadRollenItem)[keyof typeof FLBewerbungZustellungEreignisPayloadRollenItem];
 
 export const FLBewerbungZustellungEreignisPayloadRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLBewerbungZustellungEreignisPayloadStand = typeof FLBewerbungZustellungEreignisPayloadStand[keyof typeof FLBewerbungZustellungEreignisPayloadStand];
-
+export type FLBewerbungZustellungEreignisPayloadStand =
+  (typeof FLBewerbungZustellungEreignisPayloadStand)[keyof typeof FLBewerbungZustellungEreignisPayloadStand];
 
 export const FLBewerbungZustellungEreignisPayloadStand = {
-  zugestellt: 'zugestellt',
-  verzoegert: 'verzoegert',
-  unzustellbar: 'unzustellbar',
-  unterdrueckt: 'unterdrueckt',
-  beschwerde: 'beschwerde',
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
 } as const;
 
 /**
@@ -2504,29 +2474,29 @@ export const FLBewerbungZustellungEreignisPayloadStand = {
  */
 export interface FLBewerbungZustellungEreignisPayload {
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   am: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   bewerbung_id: string;
   grund: string | null;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   nachricht_id: string;
   rollen: FLBewerbungZustellungEreignisPayloadRollenItem[];
   stand: FLBewerbungZustellungEreignisPayloadStand;
 }
 
-export type FLBewerbungZustellungResponseAngewendetItem = typeof FLBewerbungZustellungResponseAngewendetItem[keyof typeof FLBewerbungZustellungResponseAngewendetItem];
-
+export type FLBewerbungZustellungResponseAngewendetItem =
+  (typeof FLBewerbungZustellungResponseAngewendetItem)[keyof typeof FLBewerbungZustellungResponseAngewendetItem];
 
 export const FLBewerbungZustellungResponseAngewendetItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2546,19 +2516,18 @@ export interface FLBewerbungZustellungResponse {
  * application, so a pair the cap parted is named at both ends.
  */
 export interface FLBewerbungenListResponse {
-  anzahl_je_saisonbezug: Partial<Record<'diese_saison' | 'andere_saison', number>>;
-  anzahl_je_status: Partial<Record<'eingereicht' | 'angenommen' | 'abgelehnt', number>>;
+  anzahl_je_saisonbezug: Partial<Record<"diese_saison" | "andere_saison", number>>;
+  anzahl_je_status: Partial<Record<"eingereicht" | "angenommen" | "abgelehnt", number>>;
   bewerbungen: FLBewerbung[];
   dubletten_schluessel: string[];
   vollstaendig: boolean;
 }
 
-export type FLBracketFaultBookingBooking = typeof FLBracketFaultBookingBooking[keyof typeof FLBracketFaultBookingBooking];
-
+export type FLBracketFaultBookingBooking = (typeof FLBracketFaultBookingBooking)[keyof typeof FLBracketFaultBookingBooking];
 
 export const FLBracketFaultBookingBooking = {
-  ort: 'ort',
-  schiedsrichter: 'schiedsrichter',
+  ort: "ort",
+  schiedsrichter: "schiedsrichter",
 } as const;
 
 /**
@@ -2573,19 +2542,18 @@ export interface FLBracketFaultBooking {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   inactive_since: string;
   name: string | null;
-  reason: 'retired_booking';
+  reason: "retired_booking";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
 }
 
-export type FLBracketFaultClashBooking = typeof FLBracketFaultClashBooking[keyof typeof FLBracketFaultClashBooking];
-
+export type FLBracketFaultClashBooking = (typeof FLBracketFaultClashBooking)[keyof typeof FLBracketFaultClashBooking];
 
 export const FLBracketFaultClashBooking = {
-  ort: 'ort',
-  schiedsrichter: 'schiedsrichter',
+  ort: "ort",
+  schiedsrichter: "schiedsrichter",
 } as const;
 
 /**
@@ -2605,7 +2573,7 @@ export interface FLBracketFaultClash {
   other_spiel_nr: number;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
   other_uhrzeit: string;
-  reason: 'double_booked';
+  reason: "double_booked";
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -2613,36 +2581,34 @@ export interface FLBracketFaultClash {
   spiel_nr: number;
 }
 
-export type FLBracketFaultGruppeGruppe = typeof FLBracketFaultGruppeGruppe[keyof typeof FLBracketFaultGruppeGruppe];
-
+export type FLBracketFaultGruppeGruppe = (typeof FLBracketFaultGruppeGruppe)[keyof typeof FLBracketFaultGruppeGruppe];
 
 export const FLBracketFaultGruppeGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLBracketFaultGruppeReason = typeof FLBracketFaultGruppeReason[keyof typeof FLBracketFaultGruppeReason];
-
+export type FLBracketFaultGruppeReason = (typeof FLBracketFaultGruppeReason)[keyof typeof FLBracketFaultGruppeReason];
 
 export const FLBracketFaultGruppeReason = {
-  gruppe_too_small: 'gruppe_too_small',
-  gruppe_not_run: 'gruppe_not_run',
-  seed_past_the_opening_round: 'seed_past_the_opening_round',
-  tie_unresolved: 'tie_unresolved',
+  gruppe_too_small: "gruppe_too_small",
+  gruppe_not_run: "gruppe_not_run",
+  seed_past_the_opening_round: "seed_past_the_opening_round",
+  tie_unresolved: "tie_unresolved",
 } as const;
 
 /**
@@ -2662,20 +2628,18 @@ export interface FLBracketFaultGruppe {
   spiel_nr: number;
 }
 
-export type FLBracketFaultOccupantAustrittType = typeof FLBracketFaultOccupantAustrittType[keyof typeof FLBracketFaultOccupantAustrittType];
-
+export type FLBracketFaultOccupantAustrittType = (typeof FLBracketFaultOccupantAustrittType)[keyof typeof FLBracketFaultOccupantAustrittType];
 
 export const FLBracketFaultOccupantAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
-export type FLBracketFaultOccupantSide = typeof FLBracketFaultOccupantSide[keyof typeof FLBracketFaultOccupantSide];
-
+export type FLBracketFaultOccupantSide = (typeof FLBracketFaultOccupantSide)[keyof typeof FLBracketFaultOccupantSide];
 
 export const FLBracketFaultOccupantSide = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -2688,7 +2652,7 @@ export interface FLBracketFaultOccupant {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ausgeschieden_seit: string;
   austritt_type: FLBracketFaultOccupantAustrittType;
-  reason: 'departed_occupant';
+  reason: "departed_occupant";
   side: FLBracketFaultOccupantSide;
   spiel_datum: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2701,14 +2665,13 @@ export interface FLBracketFaultOccupant {
   team_name: string;
 }
 
-export type FLBracketFaultQuelleReason = typeof FLBracketFaultQuelleReason[keyof typeof FLBracketFaultQuelleReason];
-
+export type FLBracketFaultQuelleReason = (typeof FLBracketFaultQuelleReason)[keyof typeof FLBracketFaultQuelleReason];
 
 export const FLBracketFaultQuelleReason = {
-  spiel_missing: 'spiel_missing',
-  reference_cycle: 'reference_cycle',
-  gruppenphase_feeder: 'gruppenphase_feeder',
-  feeder_not_played_first: 'feeder_not_played_first',
+  spiel_missing: "spiel_missing",
+  reference_cycle: "reference_cycle",
+  gruppenphase_feeder: "gruppenphase_feeder",
+  feeder_not_played_first: "feeder_not_played_first",
 } as const;
 
 /**
@@ -2726,42 +2689,39 @@ export interface FLBracketFaultQuelle {
   spiel_nr: number;
 }
 
-export type FLBracketFaultSlotReason = typeof FLBracketFaultSlotReason[keyof typeof FLBracketFaultSlotReason];
-
+export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
 
 export const FLBracketFaultSlotReason = {
-  gruppenphase_fixture_wired: 'gruppenphase_fixture_wired',
-  source_feeds_another_fixture: 'source_feeds_another_fixture',
+  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
+  source_feeds_another_fixture: "source_feeds_another_fixture",
 } as const;
 
-export type FLBracketFaultSlotSide = typeof FLBracketFaultSlotSide[keyof typeof FLBracketFaultSlotSide];
-
+export type FLBracketFaultSlotSide = (typeof FLBracketFaultSlotSide)[keyof typeof FLBracketFaultSlotSide];
 
 export const FLBracketFaultSlotSide = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
-export type FLSpielQuelleGruppeGruppe = typeof FLSpielQuelleGruppeGruppe[keyof typeof FLSpielQuelleGruppeGruppe];
-
+export type FLSpielQuelleGruppeGruppe = (typeof FLSpielQuelleGruppeGruppe)[keyof typeof FLSpielQuelleGruppeGruppe];
 
 export const FLSpielQuelleGruppeGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
 /**
@@ -2771,15 +2731,14 @@ export interface FLSpielQuelleGruppe {
   gruppe: FLSpielQuelleGruppeGruppe;
   /** @exclusiveMinimum 0 */
   platz: number;
-  type: 'gruppe';
+  type: "gruppe";
 }
 
-export type FLSpielQuelleSpielAusgang = typeof FLSpielQuelleSpielAusgang[keyof typeof FLSpielQuelleSpielAusgang];
-
+export type FLSpielQuelleSpielAusgang = (typeof FLSpielQuelleSpielAusgang)[keyof typeof FLSpielQuelleSpielAusgang];
 
 export const FLSpielQuelleSpielAusgang = {
-  sieger: 'sieger',
-  verlierer: 'verlierer',
+  sieger: "sieger",
+  verlierer: "verlierer",
 } as const;
 
 /**
@@ -2789,7 +2748,7 @@ export interface FLSpielQuelleSpiel {
   ausgang: FLSpielQuelleSpielAusgang;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
-  type: 'spiel';
+  type: "spiel";
 }
 
 /**
@@ -2815,19 +2774,18 @@ export interface FLBracketFaultSlot {
  * naming one club pass. The fixture keeps its stored sides.
  */
 export interface FLBracketFaultSpiel {
-  reason: 'same_team';
+  reason: "same_team";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
 }
 
-export type FLBracketFaultSpieltagSide = typeof FLBracketFaultSpieltagSide[keyof typeof FLBracketFaultSpieltagSide];
-
+export type FLBracketFaultSpieltagSide = (typeof FLBracketFaultSpieltagSide)[keyof typeof FLBracketFaultSpieltagSide];
 
 export const FLBracketFaultSpieltagSide = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -2837,7 +2795,7 @@ export const FLBracketFaultSpieltagSide = {
  * counts in -- never deduplicated, because which to correct is a competition decision.
  */
 export interface FLBracketFaultSpieltag {
-  reason: 'fielded_twice';
+  reason: "fielded_twice";
   side: FLBracketFaultSpieltagSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -2856,31 +2814,31 @@ export interface FLBracketFaultSpieltag {
  */
 export interface FLEinladungAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLEinladungAnsichtResponseErlaubteStufenItem = typeof FLEinladungAnsichtResponseErlaubteStufenItem[keyof typeof FLEinladungAnsichtResponseErlaubteStufenItem];
-
+export type FLEinladungAnsichtResponseErlaubteStufenItem =
+  (typeof FLEinladungAnsichtResponseErlaubteStufenItem)[keyof typeof FLEinladungAnsichtResponseErlaubteStufenItem];
 
 export const FLEinladungAnsichtResponseErlaubteStufenItem = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
-export type FLEinladungAnsichtResponseSaisonStatus = typeof FLEinladungAnsichtResponseSaisonStatus[keyof typeof FLEinladungAnsichtResponseSaisonStatus];
-
+export type FLEinladungAnsichtResponseSaisonStatus =
+  (typeof FLEinladungAnsichtResponseSaisonStatus)[keyof typeof FLEinladungAnsichtResponseSaisonStatus];
 
 export const FLEinladungAnsichtResponseSaisonStatus = {
-  past: 'past',
-  active: 'active',
-  future: 'future',
+  past: "past",
+  active: "active",
+  future: "future",
 } as const;
 
 /**
@@ -2903,13 +2861,12 @@ export interface FLEinladungAnsichtResponse {
   team_eingetragen: boolean;
 }
 
-export type FLEinladungEmpfaengerRolle = typeof FLEinladungEmpfaengerRolle[keyof typeof FLEinladungEmpfaengerRolle];
-
+export type FLEinladungEmpfaengerRolle = (typeof FLEinladungEmpfaengerRolle)[keyof typeof FLEinladungEmpfaengerRolle];
 
 export const FLEinladungEmpfaengerRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -2990,17 +2947,17 @@ export interface FLEinladungVersandPayload {
   erneut?: boolean;
 }
 
-export type FLEinladungVersandZeileUebersprungen = typeof FLEinladungVersandZeileUebersprungen[keyof typeof FLEinladungVersandZeileUebersprungen] | null;
-
+export type FLEinladungVersandZeileUebersprungen =
+  (typeof FLEinladungVersandZeileUebersprungen)[keyof typeof FLEinladungVersandZeileUebersprungen] | null;
 
 export const FLEinladungVersandZeileUebersprungen = {
-  austritt_eingetragen: 'austritt_eingetragen',
-  erzeugung_fehlgeschlagen: 'erzeugung_fehlgeschlagen',
-  erzeugung_ungewiss: 'erzeugung_ungewiss',
-  kein_kontaktblock: 'kein_kontaktblock',
-  keine_bestaetigte_kontaktperson: 'keine_bestaetigte_kontaktperson',
-  kontakte_gesperrt: 'kontakte_gesperrt',
-  bereits_gesendet: 'bereits_gesendet',
+  austritt_eingetragen: "austritt_eingetragen",
+  erzeugung_fehlgeschlagen: "erzeugung_fehlgeschlagen",
+  erzeugung_ungewiss: "erzeugung_ungewiss",
+  kein_kontaktblock: "kein_kontaktblock",
+  keine_bestaetigte_kontaktperson: "keine_bestaetigte_kontaktperson",
+  kontakte_gesperrt: "kontakte_gesperrt",
+  bereits_gesendet: "bereits_gesendet",
 } as const;
 
 /**
@@ -3028,17 +2985,17 @@ export interface FLEinladungVersandResponse {
   zeilen: FLEinladungVersandZeile[];
 }
 
-export type FLEinladungVersandVorschauZeileUebersprungen = typeof FLEinladungVersandVorschauZeileUebersprungen[keyof typeof FLEinladungVersandVorschauZeileUebersprungen] | null;
-
+export type FLEinladungVersandVorschauZeileUebersprungen =
+  (typeof FLEinladungVersandVorschauZeileUebersprungen)[keyof typeof FLEinladungVersandVorschauZeileUebersprungen] | null;
 
 export const FLEinladungVersandVorschauZeileUebersprungen = {
-  austritt_eingetragen: 'austritt_eingetragen',
-  erzeugung_fehlgeschlagen: 'erzeugung_fehlgeschlagen',
-  erzeugung_ungewiss: 'erzeugung_ungewiss',
-  kein_kontaktblock: 'kein_kontaktblock',
-  keine_bestaetigte_kontaktperson: 'keine_bestaetigte_kontaktperson',
-  kontakte_gesperrt: 'kontakte_gesperrt',
-  bereits_gesendet: 'bereits_gesendet',
+  austritt_eingetragen: "austritt_eingetragen",
+  erzeugung_fehlgeschlagen: "erzeugung_fehlgeschlagen",
+  erzeugung_ungewiss: "erzeugung_ungewiss",
+  kein_kontaktblock: "kein_kontaktblock",
+  keine_bestaetigte_kontaktperson: "keine_bestaetigte_kontaktperson",
+  kontakte_gesperrt: "kontakte_gesperrt",
+  bereits_gesendet: "bereits_gesendet",
 } as const;
 
 /**
@@ -3075,12 +3032,11 @@ export interface FLEinladungWriteResponse {
   team_id: string;
 }
 
-export type FLEinwilligungUmfang = typeof FLEinwilligungUmfang[keyof typeof FLEinwilligungUmfang];
-
+export type FLEinwilligungUmfang = (typeof FLEinwilligungUmfang)[keyof typeof FLEinwilligungUmfang];
 
 export const FLEinwilligungUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -3099,9 +3055,9 @@ export interface FLEinwilligung {
   umfang: FLEinwilligungUmfang;
 }
 
-export type FLEinwilligungFassungAbsaetzeNachSchluessel = {[key: string]: string} | null;
+export type FLEinwilligungFassungAbsaetzeNachSchluessel = { [key: string]: string } | null;
 
-export type FLEinwilligungFassungBedienelemente = {[key: string]: string};
+export type FLEinwilligungFassungBedienelemente = { [key: string]: string };
 
 /**
  * The words one consent label names, as the person stamping it was shown them.
@@ -3124,7 +3080,7 @@ export interface FLEinwilligungFassungResponse {
   fassung: FLEinwilligungFassung;
 }
 
-export type FLEinwilligungSeitenResponseLaufendeFassungen = {[key: string]: string};
+export type FLEinwilligungSeitenResponseLaufendeFassungen = { [key: string]: string };
 
 /**
  * The label each page stamps on a new acceptance today, which a deploy moves: never cached by a reader.
@@ -3133,12 +3089,12 @@ export interface FLEinwilligungSeitenResponse {
   laufende_fassungen: FLEinwilligungSeitenResponseLaufendeFassungen;
 }
 
-export type FLErasureAnsichtAdresswechselEinsehbarVerwehrt = typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt[keyof typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt] | null;
-
+export type FLErasureAnsichtAdresswechselEinsehbarVerwehrt =
+  (typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt)[keyof typeof FLErasureAnsichtAdresswechselEinsehbarVerwehrt] | null;
 
 export const FLErasureAnsichtAdresswechselEinsehbarVerwehrt = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
 /**
@@ -3150,20 +3106,18 @@ export interface FLErasureAnsichtAdresswechsel {
   einsehbar_verwehrt: FLErasureAnsichtAdresswechselEinsehbarVerwehrt;
 }
 
-export type FLErasureAnsichtAntragRolle = typeof FLErasureAnsichtAntragRolle[keyof typeof FLErasureAnsichtAntragRolle];
-
+export type FLErasureAnsichtAntragRolle = (typeof FLErasureAnsichtAntragRolle)[keyof typeof FLErasureAnsichtAntragRolle];
 
 export const FLErasureAnsichtAntragRolle = {
-  betroffen: 'betroffen',
-  gestellt: 'gestellt',
+  betroffen: "betroffen",
+  gestellt: "gestellt",
 } as const;
 
-export type FLErasureAnsichtAntragVerwaltung = typeof FLErasureAnsichtAntragVerwaltung[keyof typeof FLErasureAnsichtAntragVerwaltung];
-
+export type FLErasureAnsichtAntragVerwaltung = (typeof FLErasureAnsichtAntragVerwaltung)[keyof typeof FLErasureAnsichtAntragVerwaltung];
 
 export const FLErasureAnsichtAntragVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -3176,13 +3130,12 @@ export interface FLErasureAnsichtAntrag {
   verwaltung: FLErasureAnsichtAntragVerwaltung;
 }
 
-export type FLErasureAnsichtBewerbungRolle = typeof FLErasureAnsichtBewerbungRolle[keyof typeof FLErasureAnsichtBewerbungRolle];
-
+export type FLErasureAnsichtBewerbungRolle = (typeof FLErasureAnsichtBewerbungRolle)[keyof typeof FLErasureAnsichtBewerbungRolle];
 
 export const FLErasureAnsichtBewerbungRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 export interface FLErasureAnsichtBewerbung {
@@ -3218,18 +3171,18 @@ export interface FLErasureAnsichtKader {
  */
 export interface FLErasureAnsichtPayload {
   /**
-     * @maxLength 254
-     * @pattern @
-     */
+   * @maxLength 254
+   * @pattern @
+   */
   email: string;
 }
 
-export type FLErasureAnsichtRegistrierungStatus = typeof FLErasureAnsichtRegistrierungStatus[keyof typeof FLErasureAnsichtRegistrierungStatus];
-
+export type FLErasureAnsichtRegistrierungStatus =
+  (typeof FLErasureAnsichtRegistrierungStatus)[keyof typeof FLErasureAnsichtRegistrierungStatus];
 
 export const FLErasureAnsichtRegistrierungStatus = {
-  eingereicht: 'eingereicht',
-  abgelehnt: 'abgelehnt',
+  eingereicht: "eingereicht",
+  abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLErasureAnsichtRegistrierung {
@@ -3244,12 +3197,12 @@ export interface FLErasureAnsichtRegistrierung {
   vorname: string;
 }
 
-export type FLErasureAnsichtResponseVerwaltung = typeof FLErasureAnsichtResponseVerwaltung[keyof typeof FLErasureAnsichtResponseVerwaltung] | null;
-
+export type FLErasureAnsichtResponseVerwaltung =
+  (typeof FLErasureAnsichtResponseVerwaltung)[keyof typeof FLErasureAnsichtResponseVerwaltung] | null;
 
 export const FLErasureAnsichtResponseVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 export interface FLErasureAnsichtSchiedsrichter {
@@ -3260,13 +3213,12 @@ export interface FLErasureAnsichtSchiedsrichter {
   spiele_ohne_ergebnis_saison_ids: string[];
 }
 
-export type FLErasureAnsichtSitzRolle = typeof FLErasureAnsichtSitzRolle[keyof typeof FLErasureAnsichtSitzRolle];
-
+export type FLErasureAnsichtSitzRolle = (typeof FLErasureAnsichtSitzRolle)[keyof typeof FLErasureAnsichtSitzRolle];
 
 export const FLErasureAnsichtSitzRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 export interface FLErasureAnsichtSitz {
@@ -3305,15 +3257,15 @@ export interface FLErasureAnsichtResponse {
  */
 export interface FLErasurePayload {
   /**
-     * @minLength 1
-     * @maxLength 200
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   anlass: string;
   /**
-     * @maxLength 254
-     * @pattern @
-     */
+   * @maxLength 254
+   * @pattern @
+   */
   email: string;
 }
 
@@ -3353,16 +3305,16 @@ export interface FLFailureBody {
  */
 export interface FLSpielplanShape {
   /**
-     * @maximum 16
-     * @exclusiveMinimum 0
-     */
+   * @maximum 16
+   * @exclusiveMinimum 0
+   */
   number_of_groups: number;
   /** @exclusiveMinimum 0 */
   qualifiers_per_group: number;
   /**
-     * @minimum 2
-     * @maximum 16
-     */
+   * @minimum 2
+   * @maximum 16
+   */
   teams_per_group: number;
 }
 
@@ -3391,9 +3343,9 @@ export interface FLGenerateSpielplanResponse {
   /** @minimum 0 */
   removed_spieltage: number;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   /** @minimum 0 */
   spiele: number;
@@ -3406,9 +3358,9 @@ export interface FLGenerateSpielplanResponse {
  */
 export interface FLGesperrtPayload {
   /**
-     * @maxLength 254
-     * @pattern @
-     */
+   * @maxLength 254
+   * @pattern @
+   */
   email: string;
 }
 
@@ -3419,12 +3371,11 @@ export interface FLGesperrtResponse {
   gesperrt: boolean;
 }
 
-export type FLGruppenTeamAustrittType = typeof FLGruppenTeamAustrittType[keyof typeof FLGruppenTeamAustrittType] | null;
-
+export type FLGruppenTeamAustrittType = (typeof FLGruppenTeamAustrittType)[keyof typeof FLGruppenTeamAustrittType] | null;
 
 export const FLGruppenTeamAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
 export interface FLTeamStatistik {
@@ -3471,48 +3422,46 @@ export interface FLGruppenTeam {
  * Built by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak
  * chain, whose head-to-head criterion reads the season's matches.
  */
-export type FLGruppen = Partial<Record<'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P', FLGruppenTeam[]>>;
+export type FLGruppen = Partial<
+  Record<"A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P", FLGruppenTeam[]>
+>;
 
-export type FLKaderResponseErlaubteStufenItem = typeof FLKaderResponseErlaubteStufenItem[keyof typeof FLKaderResponseErlaubteStufenItem];
-
+export type FLKaderResponseErlaubteStufenItem = (typeof FLKaderResponseErlaubteStufenItem)[keyof typeof FLKaderResponseErlaubteStufenItem];
 
 export const FLKaderResponseErlaubteStufenItem = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
-export type FLKaderZeilePosition = typeof FLKaderZeilePosition[keyof typeof FLKaderZeilePosition] | null;
-
+export type FLKaderZeilePosition = (typeof FLKaderZeilePosition)[keyof typeof FLKaderZeilePosition] | null;
 
 export const FLKaderZeilePosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLKaderZeileRolle = typeof FLKaderZeileRolle[keyof typeof FLKaderZeileRolle] | null;
-
+export type FLKaderZeileRolle = (typeof FLKaderZeileRolle)[keyof typeof FLKaderZeileRolle] | null;
 
 export const FLKaderZeileRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLKaderZeileStufe = typeof FLKaderZeileStufe[keyof typeof FLKaderZeileStufe] | null;
-
+export type FLKaderZeileStufe = (typeof FLKaderZeileStufe)[keyof typeof FLKaderZeileStufe] | null;
 
 export const FLKaderZeileStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -3548,34 +3497,31 @@ export interface FLKaderResponse {
   team_id: string;
 }
 
-export type FLKaderZeileResponsePosition = typeof FLKaderZeileResponsePosition[keyof typeof FLKaderZeileResponsePosition] | null;
-
+export type FLKaderZeileResponsePosition = (typeof FLKaderZeileResponsePosition)[keyof typeof FLKaderZeileResponsePosition] | null;
 
 export const FLKaderZeileResponsePosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLKaderZeileResponseRolle = typeof FLKaderZeileResponseRolle[keyof typeof FLKaderZeileResponseRolle] | null;
-
+export type FLKaderZeileResponseRolle = (typeof FLKaderZeileResponseRolle)[keyof typeof FLKaderZeileResponseRolle] | null;
 
 export const FLKaderZeileResponseRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLKaderZeileResponseStufe = typeof FLKaderZeileResponseStufe[keyof typeof FLKaderZeileResponseStufe] | null;
-
+export type FLKaderZeileResponseStufe = (typeof FLKaderZeileResponseStufe)[keyof typeof FLKaderZeileResponseStufe] | null;
 
 export const FLKaderZeileResponseStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -3601,22 +3547,20 @@ export interface FLKontakt {
   telefon: string | null;
 }
 
-export type FLKontaktAbgangBleibtAlsItem = typeof FLKontaktAbgangBleibtAlsItem[keyof typeof FLKontaktAbgangBleibtAlsItem];
-
+export type FLKontaktAbgangBleibtAlsItem = (typeof FLKontaktAbgangBleibtAlsItem)[keyof typeof FLKontaktAbgangBleibtAlsItem];
 
 export const FLKontaktAbgangBleibtAlsItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLKontaktAbgangRollenItem = typeof FLKontaktAbgangRollenItem[keyof typeof FLKontaktAbgangRollenItem];
-
+export type FLKontaktAbgangRollenItem = (typeof FLKontaktAbgangRollenItem)[keyof typeof FLKontaktAbgangRollenItem];
 
 export const FLKontaktAbgangRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -3629,22 +3573,20 @@ export interface FLKontaktAbgang {
   schule: string;
 }
 
-export type FLKontaktMintRollenItem = typeof FLKontaktMintRollenItem[keyof typeof FLKontaktMintRollenItem];
-
+export type FLKontaktMintRollenItem = (typeof FLKontaktMintRollenItem)[keyof typeof FLKontaktMintRollenItem];
 
 export const FLKontaktMintRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLKontaktMintZeile = typeof FLKontaktMintZeile[keyof typeof FLKontaktMintZeile];
-
+export type FLKontaktMintZeile = (typeof FLKontaktMintZeile)[keyof typeof FLKontaktMintZeile];
 
 export const FLKontaktMintZeile = {
-  offen: 'offen',
-  saison_vorbei: 'saison_vorbei',
-  ausgetreten: 'ausgetreten',
+  offen: "offen",
+  saison_vorbei: "saison_vorbei",
+  ausgetreten: "ausgetreten",
 } as const;
 
 /**
@@ -3676,11 +3618,11 @@ export interface FLKontaktKenntnisnahmePayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
-  umfang: 'kontaktdaten';
+  umfang: "kontaktdaten";
 }
 
 export interface FLKontaktPayload {
@@ -3694,18 +3636,18 @@ export interface FLKontaktpersonPayload {
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   nachname: string;
   /** @pattern ^([+]?[ 0-9\-().]{2,19}[0-9])$ */
   telefon: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   vorname: string;
 }
 
@@ -3744,23 +3686,21 @@ export interface FLKontoAdresswechselMintResponse {
   vorname: string;
 }
 
-export type FLKontoAdresswechselOffenWartetAuf = typeof FLKontoAdresswechselOffenWartetAuf[keyof typeof FLKontoAdresswechselOffenWartetAuf];
-
+export type FLKontoAdresswechselOffenWartetAuf = (typeof FLKontoAdresswechselOffenWartetAuf)[keyof typeof FLKontoAdresswechselOffenWartetAuf];
 
 export const FLKontoAdresswechselOffenWartetAuf = {
-  freigabe: 'freigabe',
-  neue_adresse: 'neue_adresse',
-  genehmigung: 'genehmigung',
-  wartezeit: 'wartezeit',
+  freigabe: "freigabe",
+  neue_adresse: "neue_adresse",
+  genehmigung: "genehmigung",
+  wartezeit: "wartezeit",
 } as const;
 
-export type FLKontoAdresswechselOffenWeg = typeof FLKontoAdresswechselOffenWeg[keyof typeof FLKontoAdresswechselOffenWeg];
-
+export type FLKontoAdresswechselOffenWeg = (typeof FLKontoAdresswechselOffenWeg)[keyof typeof FLKontoAdresswechselOffenWeg];
 
 export const FLKontoAdresswechselOffenWeg = {
-  konto: 'konto',
-  freigabe: 'freigabe',
-  wartezeit: 'wartezeit',
+  konto: "konto",
+  freigabe: "freigabe",
+  wartezeit: "wartezeit",
 } as const;
 
 /**
@@ -3791,21 +3731,21 @@ export interface FLKontoAdresswechselResponse {
   offen: FLKontoAdresswechselOffen | null;
 }
 
-export type FLKontoBewerbungSitzEinwilligungRollenItem = typeof FLKontoBewerbungSitzEinwilligungRollenItem[keyof typeof FLKontoBewerbungSitzEinwilligungRollenItem];
-
+export type FLKontoBewerbungSitzEinwilligungRollenItem =
+  (typeof FLKontoBewerbungSitzEinwilligungRollenItem)[keyof typeof FLKontoBewerbungSitzEinwilligungRollenItem];
 
 export const FLKontoBewerbungSitzEinwilligungRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLKontoBewerbungSitzEinwilligungUmfang = typeof FLKontoBewerbungSitzEinwilligungUmfang[keyof typeof FLKontoBewerbungSitzEinwilligungUmfang];
-
+export type FLKontoBewerbungSitzEinwilligungUmfang =
+  (typeof FLKontoBewerbungSitzEinwilligungUmfang)[keyof typeof FLKontoBewerbungSitzEinwilligungUmfang];
 
 export const FLKontoBewerbungSitzEinwilligungUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 /**
@@ -3818,13 +3758,12 @@ export interface FLSitzKontext {
   vorname: string | null;
 }
 
-export type FLSitzBestaetigtRollenItem = typeof FLSitzBestaetigtRollenItem[keyof typeof FLSitzBestaetigtRollenItem];
-
+export type FLSitzBestaetigtRollenItem = (typeof FLSitzBestaetigtRollenItem)[keyof typeof FLSitzBestaetigtRollenItem];
 
 export const FLSitzBestaetigtRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -3871,34 +3810,34 @@ export interface FLSpielerKontext {
   team: string | null;
 }
 
-export type FLKontoRegistrierungEinwilligungPosition = typeof FLKontoRegistrierungEinwilligungPosition[keyof typeof FLKontoRegistrierungEinwilligungPosition] | null;
-
+export type FLKontoRegistrierungEinwilligungPosition =
+  (typeof FLKontoRegistrierungEinwilligungPosition)[keyof typeof FLKontoRegistrierungEinwilligungPosition] | null;
 
 export const FLKontoRegistrierungEinwilligungPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLKontoRegistrierungEinwilligungStufe = typeof FLKontoRegistrierungEinwilligungStufe[keyof typeof FLKontoRegistrierungEinwilligungStufe] | null;
-
+export type FLKontoRegistrierungEinwilligungStufe =
+  (typeof FLKontoRegistrierungEinwilligungStufe)[keyof typeof FLKontoRegistrierungEinwilligungStufe] | null;
 
 export const FLKontoRegistrierungEinwilligungStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
-export type FLKontoRegistrierungEinwilligungUmfang = typeof FLKontoRegistrierungEinwilligungUmfang[keyof typeof FLKontoRegistrierungEinwilligungUmfang] | null;
-
+export type FLKontoRegistrierungEinwilligungUmfang =
+  (typeof FLKontoRegistrierungEinwilligungUmfang)[keyof typeof FLKontoRegistrierungEinwilligungUmfang] | null;
 
 export const FLKontoRegistrierungEinwilligungUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -3950,21 +3889,19 @@ export interface FLKontoSchiedsrichterEinwilligung {
   schule: string | null;
 }
 
-export type FLKontoSitzEinwilligungRollenItem = typeof FLKontoSitzEinwilligungRollenItem[keyof typeof FLKontoSitzEinwilligungRollenItem];
-
+export type FLKontoSitzEinwilligungRollenItem = (typeof FLKontoSitzEinwilligungRollenItem)[keyof typeof FLKontoSitzEinwilligungRollenItem];
 
 export const FLKontoSitzEinwilligungRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLKontoSitzEinwilligungUmfang = typeof FLKontoSitzEinwilligungUmfang[keyof typeof FLKontoSitzEinwilligungUmfang];
-
+export type FLKontoSitzEinwilligungUmfang = (typeof FLKontoSitzEinwilligungUmfang)[keyof typeof FLKontoSitzEinwilligungUmfang];
 
 export const FLKontoSitzEinwilligungUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 /**
@@ -3990,34 +3927,32 @@ export interface FLKontoSitzEinwilligung {
   umfang: FLKontoSitzEinwilligungUmfang;
 }
 
-export type FLSpielerSelbstKaderZeilePosition = typeof FLSpielerSelbstKaderZeilePosition[keyof typeof FLSpielerSelbstKaderZeilePosition] | null;
-
+export type FLSpielerSelbstKaderZeilePosition =
+  (typeof FLSpielerSelbstKaderZeilePosition)[keyof typeof FLSpielerSelbstKaderZeilePosition] | null;
 
 export const FLSpielerSelbstKaderZeilePosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLSpielerSelbstKaderZeileRolle = typeof FLSpielerSelbstKaderZeileRolle[keyof typeof FLSpielerSelbstKaderZeileRolle] | null;
-
+export type FLSpielerSelbstKaderZeileRolle = (typeof FLSpielerSelbstKaderZeileRolle)[keyof typeof FLSpielerSelbstKaderZeileRolle] | null;
 
 export const FLSpielerSelbstKaderZeileRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLSpielerSelbstKaderZeileStufe = typeof FLSpielerSelbstKaderZeileStufe[keyof typeof FLSpielerSelbstKaderZeileStufe] | null;
-
+export type FLSpielerSelbstKaderZeileStufe = (typeof FLSpielerSelbstKaderZeileStufe)[keyof typeof FLSpielerSelbstKaderZeileStufe] | null;
 
 export const FLSpielerSelbstKaderZeileStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4095,26 +4030,24 @@ export interface FLLoeschungVorschauResponse {
   spieler: number;
 }
 
-export type FLOffeneRegistrierungPosition = typeof FLOffeneRegistrierungPosition[keyof typeof FLOffeneRegistrierungPosition] | null;
-
+export type FLOffeneRegistrierungPosition = (typeof FLOffeneRegistrierungPosition)[keyof typeof FLOffeneRegistrierungPosition] | null;
 
 export const FLOffeneRegistrierungPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLOffeneRegistrierungStufe = typeof FLOffeneRegistrierungStufe[keyof typeof FLOffeneRegistrierungStufe] | null;
-
+export type FLOffeneRegistrierungStufe = (typeof FLOffeneRegistrierungStufe)[keyof typeof FLOffeneRegistrierungStufe] | null;
 
 export const FLOffeneRegistrierungStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4160,46 +4093,43 @@ export interface FLOffeneRegistrierungenResponse {
   vollstaendig: boolean;
 }
 
-export type FLPatchBerechtigungPayloadVerwaltung = typeof FLPatchBerechtigungPayloadVerwaltung[keyof typeof FLPatchBerechtigungPayloadVerwaltung];
-
+export type FLPatchBerechtigungPayloadVerwaltung =
+  (typeof FLPatchBerechtigungPayloadVerwaltung)[keyof typeof FLPatchBerechtigungPayloadVerwaltung];
 
 export const FLPatchBerechtigungPayloadVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 export interface FLPatchBerechtigungPayload {
   verwaltung: FLPatchBerechtigungPayloadVerwaltung;
 }
 
-export type FLPatchKaderZeilePayloadPosition = typeof FLPatchKaderZeilePayloadPosition[keyof typeof FLPatchKaderZeilePayloadPosition] | null;
-
+export type FLPatchKaderZeilePayloadPosition = (typeof FLPatchKaderZeilePayloadPosition)[keyof typeof FLPatchKaderZeilePayloadPosition] | null;
 
 export const FLPatchKaderZeilePayloadPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLPatchKaderZeilePayloadRolle = typeof FLPatchKaderZeilePayloadRolle[keyof typeof FLPatchKaderZeilePayloadRolle] | null;
-
+export type FLPatchKaderZeilePayloadRolle = (typeof FLPatchKaderZeilePayloadRolle)[keyof typeof FLPatchKaderZeilePayloadRolle] | null;
 
 export const FLPatchKaderZeilePayloadRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLPatchKaderZeilePayloadStufe = typeof FLPatchKaderZeilePayloadStufe[keyof typeof FLPatchKaderZeilePayloadStufe] | null;
-
+export type FLPatchKaderZeilePayloadStufe = (typeof FLPatchKaderZeilePayloadStufe)[keyof typeof FLPatchKaderZeilePayloadStufe] | null;
 
 export const FLPatchKaderZeilePayloadStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4229,34 +4159,32 @@ export interface FLPatchSaisonResponse {
   updated_document: FLSaison;
 }
 
-export type FLPatchSaisonSpielerPayloadPosition = typeof FLPatchSaisonSpielerPayloadPosition[keyof typeof FLPatchSaisonSpielerPayloadPosition] | null;
-
+export type FLPatchSaisonSpielerPayloadPosition =
+  (typeof FLPatchSaisonSpielerPayloadPosition)[keyof typeof FLPatchSaisonSpielerPayloadPosition] | null;
 
 export const FLPatchSaisonSpielerPayloadPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLPatchSaisonSpielerPayloadRolle = typeof FLPatchSaisonSpielerPayloadRolle[keyof typeof FLPatchSaisonSpielerPayloadRolle] | null;
-
+export type FLPatchSaisonSpielerPayloadRolle = (typeof FLPatchSaisonSpielerPayloadRolle)[keyof typeof FLPatchSaisonSpielerPayloadRolle] | null;
 
 export const FLPatchSaisonSpielerPayloadRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLPatchSaisonSpielerPayloadStufe = typeof FLPatchSaisonSpielerPayloadStufe[keyof typeof FLPatchSaisonSpielerPayloadStufe] | null;
-
+export type FLPatchSaisonSpielerPayloadStufe = (typeof FLPatchSaisonSpielerPayloadStufe)[keyof typeof FLPatchSaisonSpielerPayloadStufe] | null;
 
 export const FLPatchSaisonSpielerPayloadStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4273,12 +4201,12 @@ export interface FLPatchSaisonSpielerPayload {
   team_id: string;
 }
 
-export type FLSaisonTeamKontaktePayloadTrainerIstZugleich = typeof FLSaisonTeamKontaktePayloadTrainerIstZugleich[keyof typeof FLSaisonTeamKontaktePayloadTrainerIstZugleich] | null;
-
+export type FLSaisonTeamKontaktePayloadTrainerIstZugleich =
+  (typeof FLSaisonTeamKontaktePayloadTrainerIstZugleich)[keyof typeof FLSaisonTeamKontaktePayloadTrainerIstZugleich] | null;
 
 export const FLSaisonTeamKontaktePayloadTrainerIstZugleich = {
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -4324,56 +4252,55 @@ export interface FLPatchSaisonTeamKontakteResponse {
   team_id: string;
 }
 
-export type FLPatchSaisonTeamPayloadGruppe = typeof FLPatchSaisonTeamPayloadGruppe[keyof typeof FLPatchSaisonTeamPayloadGruppe];
-
+export type FLPatchSaisonTeamPayloadGruppe = (typeof FLPatchSaisonTeamPayloadGruppe)[keyof typeof FLPatchSaisonTeamPayloadGruppe];
 
 export const FLPatchSaisonTeamPayloadGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLPatchSaisonTeamPayloadTrikotFarbe = typeof FLPatchSaisonTeamPayloadTrikotFarbe[keyof typeof FLPatchSaisonTeamPayloadTrikotFarbe] | null;
-
+export type FLPatchSaisonTeamPayloadTrikotFarbe =
+  (typeof FLPatchSaisonTeamPayloadTrikotFarbe)[keyof typeof FLPatchSaisonTeamPayloadTrikotFarbe] | null;
 
 export const FLPatchSaisonTeamPayloadTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -4393,10 +4320,10 @@ export interface FLPatchSchiedsrichterPayload {
   default_payment: number;
   kontakt: FLKontaktPayload;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   name: string;
   schule: string | null;
 }
@@ -4450,15 +4377,15 @@ export interface FLPatchSchiedsrichterResponse {
   updated_document: FLSchiedsrichter;
 }
 
-export type FLPatchSpielDataPayloadSonderereignis = typeof FLPatchSpielDataPayloadSonderereignis[keyof typeof FLPatchSpielDataPayloadSonderereignis] | null;
-
+export type FLPatchSpielDataPayloadSonderereignis =
+  (typeof FLPatchSpielDataPayloadSonderereignis)[keyof typeof FLPatchSpielDataPayloadSonderereignis] | null;
 
 export const FLPatchSpielDataPayloadSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 /**
@@ -4522,15 +4449,15 @@ export interface FLPatchSpielDataPayload {
   uhrzeit: string | null;
 }
 
-export type FLSpielAdvancementVoidedSonderereignis = typeof FLSpielAdvancementVoidedSonderereignis[keyof typeof FLSpielAdvancementVoidedSonderereignis] | null;
-
+export type FLSpielAdvancementVoidedSonderereignis =
+  (typeof FLSpielAdvancementVoidedSonderereignis)[keyof typeof FLSpielAdvancementVoidedSonderereignis] | null;
 
 export const FLSpielAdvancementVoidedSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 /**
@@ -4549,23 +4476,22 @@ export interface FLSpielAdvancement {
   voided_sonderereignis: FLSpielAdvancementVoidedSonderereignis;
 }
 
-export type FLSpielReleasedSideSide = typeof FLSpielReleasedSideSide[keyof typeof FLSpielReleasedSideSide];
-
+export type FLSpielReleasedSideSide = (typeof FLSpielReleasedSideSide)[keyof typeof FLSpielReleasedSideSide];
 
 export const FLSpielReleasedSideSide = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
-export type FLSpielReleasedSideVoidedSonderereignis = typeof FLSpielReleasedSideVoidedSonderereignis[keyof typeof FLSpielReleasedSideVoidedSonderereignis] | null;
-
+export type FLSpielReleasedSideVoidedSonderereignis =
+  (typeof FLSpielReleasedSideVoidedSonderereignis)[keyof typeof FLSpielReleasedSideVoidedSonderereignis] | null;
 
 export const FLSpielReleasedSideVoidedSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 /**
@@ -4594,7 +4520,16 @@ export interface FLSpielReleasedSide {
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
-  bracket_faults: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
+  bracket_faults: (
+    | FLBracketFaultGruppe
+    | FLBracketFaultQuelle
+    | FLBracketFaultSpiel
+    | FLBracketFaultSlot
+    | FLBracketFaultOccupant
+    | FLBracketFaultSpieltag
+    | FLBracketFaultBooking
+    | FLBracketFaultClash
+  )[];
   released_sides: FLSpielReleasedSide[];
 }
 
@@ -4609,10 +4544,10 @@ export interface FLPatchSpielerPayload {
   geburtsdatum: string;
   nachname: string | null;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   vorname: string;
 }
 
@@ -4649,16 +4584,15 @@ export interface FLPatchSpieltagPayload {
   ende: string;
 }
 
-export type FLPatchTeamPayloadSchulform = typeof FLPatchTeamPayloadSchulform[keyof typeof FLPatchTeamPayloadSchulform] | null;
-
+export type FLPatchTeamPayloadSchulform = (typeof FLPatchTeamPayloadSchulform)[keyof typeof FLPatchTeamPayloadSchulform] | null;
 
 export const FLPatchTeamPayloadSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 export interface FLPatchTeamPayload {
@@ -4666,16 +4600,16 @@ export interface FLPatchTeamPayload {
   /** @maxLength 4096 */
   description: string;
   /**
-     * @minLength 1
-     * @maxLength 120
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   full_name: string;
   /**
-     * @minLength 1
-     * @maxLength 60
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   name: string;
   schulform: FLPatchTeamPayloadSchulform;
   /** @pattern ^\s*[A-Za-z]{3}\s*$ */
@@ -4683,16 +4617,15 @@ export interface FLPatchTeamPayload {
   website_url: string | null;
 }
 
-export type FLTeamRecordSchulform = typeof FLTeamRecordSchulform[keyof typeof FLTeamRecordSchulform] | null;
-
+export type FLTeamRecordSchulform = (typeof FLTeamRecordSchulform)[keyof typeof FLTeamRecordSchulform] | null;
 
 export const FLTeamRecordSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 /**
@@ -4745,15 +4678,15 @@ export interface FLPostBewerbungPayload {
   kader: FLBewerbungKaderPayload;
   kontakte: FLBewerbungKontaktePayload;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   schule: FLBewerbungSchulePayload | null;
   /**
-     * @minimum 1
-     * @maximum 999
-     */
+   * @minimum 1
+   * @maximum 999
+   */
   stufengroesse: number;
   team_id: string | null;
   trikot: FLBewerbungTrikotPayload;
@@ -4777,26 +4710,25 @@ export interface FLPostBewerbungResponse {
   saison_id: string;
 }
 
-export type FLPostRegistrierungPayloadPosition = typeof FLPostRegistrierungPayloadPosition[keyof typeof FLPostRegistrierungPayloadPosition] | null;
-
+export type FLPostRegistrierungPayloadPosition =
+  (typeof FLPostRegistrierungPayloadPosition)[keyof typeof FLPostRegistrierungPayloadPosition] | null;
 
 export const FLPostRegistrierungPayloadPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLPostRegistrierungPayloadStufe = typeof FLPostRegistrierungPayloadStufe[keyof typeof FLPostRegistrierungPayloadStufe] | null;
-
+export type FLPostRegistrierungPayloadStufe = (typeof FLPostRegistrierungPayloadStufe)[keyof typeof FLPostRegistrierungPayloadStufe] | null;
 
 export const FLPostRegistrierungPayloadStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4809,24 +4741,24 @@ export interface FLPostRegistrierungPayload {
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   nachname: string;
   nummer: string | null;
   position: FLPostRegistrierungPayloadPosition;
   stufe: FLPostRegistrierungPayloadStufe;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   vorname: string;
 }
 
@@ -4854,10 +4786,10 @@ export interface FLPostSaisonPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
   /**
-     * @minLength 4
-     * @maxLength 4
-     * @pattern ^[0-9]+$
-     */
+   * @minLength 4
+   * @maxLength 4
+   * @pattern ^[0-9]+$
+   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
@@ -4869,34 +4801,32 @@ export interface FLPostSaisonResponse {
   created_id: string;
 }
 
-export type FLPostSaisonSpielerPayloadPosition = typeof FLPostSaisonSpielerPayloadPosition[keyof typeof FLPostSaisonSpielerPayloadPosition] | null;
-
+export type FLPostSaisonSpielerPayloadPosition =
+  (typeof FLPostSaisonSpielerPayloadPosition)[keyof typeof FLPostSaisonSpielerPayloadPosition] | null;
 
 export const FLPostSaisonSpielerPayloadPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLPostSaisonSpielerPayloadRolle = typeof FLPostSaisonSpielerPayloadRolle[keyof typeof FLPostSaisonSpielerPayloadRolle] | null;
-
+export type FLPostSaisonSpielerPayloadRolle = (typeof FLPostSaisonSpielerPayloadRolle)[keyof typeof FLPostSaisonSpielerPayloadRolle] | null;
 
 export const FLPostSaisonSpielerPayloadRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLPostSaisonSpielerPayloadStufe = typeof FLPostSaisonSpielerPayloadStufe[keyof typeof FLPostSaisonSpielerPayloadStufe] | null;
-
+export type FLPostSaisonSpielerPayloadStufe = (typeof FLPostSaisonSpielerPayloadStufe)[keyof typeof FLPostSaisonSpielerPayloadStufe] | null;
 
 export const FLPostSaisonSpielerPayloadStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -4910,35 +4840,34 @@ export interface FLPostSaisonSpielerPayload {
   position: FLPostSaisonSpielerPayloadPosition;
   rolle: FLPostSaisonSpielerPayloadRolle;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   stufe: FLPostSaisonSpielerPayloadStufe;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
 
-export type FLPostSaisonTeamPayloadGruppe = typeof FLPostSaisonTeamPayloadGruppe[keyof typeof FLPostSaisonTeamPayloadGruppe];
-
+export type FLPostSaisonTeamPayloadGruppe = (typeof FLPostSaisonTeamPayloadGruppe)[keyof typeof FLPostSaisonTeamPayloadGruppe];
 
 export const FLPostSaisonTeamPayloadGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
 /**
@@ -4947,9 +4876,9 @@ export const FLPostSaisonTeamPayloadGruppe = {
 export interface FLPostSaisonTeamPayload {
   gruppe: FLPostSaisonTeamPayloadGruppe;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
 }
 
@@ -4958,10 +4887,10 @@ export interface FLPostSchiedsrichterPayload {
   default_payment: number;
   kontakt: FLKontaktPayload;
   /**
-     * @minLength 1
-     * @maxLength 80
-     * @pattern ^\p{L}[\p{L}\-' ]*$
-     */
+   * @minLength 1
+   * @maxLength 80
+   * @pattern ^\p{L}[\p{L}\-' ]*$
+   */
   name: string;
   schule: string | null;
 }
@@ -4976,10 +4905,10 @@ export interface FLPostSperrlistePayload {
   /** @maxLength 254 */
   email: string;
   /**
-     * @minLength 1
-     * @maxLength 500
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 500
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   grund: string;
 }
 
@@ -4990,9 +4919,9 @@ export interface FLPostSperrlisteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   gesperrt_bis_saison_id: string;
 }
 
@@ -5009,16 +4938,15 @@ export interface FLPostSpielortResponse {
   created_id: string;
 }
 
-export type FLPostTeamPayloadSchulform = typeof FLPostTeamPayloadSchulform[keyof typeof FLPostTeamPayloadSchulform] | null;
-
+export type FLPostTeamPayloadSchulform = (typeof FLPostTeamPayloadSchulform)[keyof typeof FLPostTeamPayloadSchulform] | null;
 
 export const FLPostTeamPayloadSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 export interface FLPostTeamPayload {
@@ -5026,16 +4954,16 @@ export interface FLPostTeamPayload {
   /** @maxLength 4096 */
   description: string;
   /**
-     * @minLength 1
-     * @maxLength 120
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   full_name: string;
   /**
-     * @minLength 1
-     * @maxLength 60
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 60
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   name: string;
   schulform: FLPostTeamPayloadSchulform;
   /** @pattern ^\s*[A-Za-z]{3}\s*$ */
@@ -5053,9 +4981,9 @@ export interface FLPostTeamResponse {
  */
 export interface FLReferenzenPayload {
   /**
-     * @minItems 1
-     * @maxItems 250
-     */
+   * @minItems 1
+   * @maxItems 250
+   */
   identifiers: string[];
 }
 
@@ -5066,15 +4994,14 @@ export interface FLReferenzenResponse {
   unreferenziert: string[];
 }
 
-export type FLRefusedFieldIn = typeof FLRefusedFieldIn[keyof typeof FLRefusedFieldIn];
-
+export type FLRefusedFieldIn = (typeof FLRefusedFieldIn)[keyof typeof FLRefusedFieldIn];
 
 export const FLRefusedFieldIn = {
-  body: 'body',
-  query: 'query',
-  path: 'path',
-  header: 'header',
-  cookie: 'cookie',
+  body: "body",
+  query: "query",
+  path: "path",
+  header: "header",
+  cookie: "cookie",
 } as const;
 
 export interface FLRefusedField {
@@ -5089,34 +5016,31 @@ export interface FLRefusedPayloadBody {
   trace_id: string;
 }
 
-export type FLRegistrierungPosition = typeof FLRegistrierungPosition[keyof typeof FLRegistrierungPosition] | null;
-
+export type FLRegistrierungPosition = (typeof FLRegistrierungPosition)[keyof typeof FLRegistrierungPosition] | null;
 
 export const FLRegistrierungPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLRegistrierungStatus = typeof FLRegistrierungStatus[keyof typeof FLRegistrierungStatus];
-
+export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];
 
 export const FLRegistrierungStatus = {
-  eingereicht: 'eingereicht',
-  abgelehnt: 'abgelehnt',
+  eingereicht: "eingereicht",
+  abgelehnt: "abgelehnt",
 } as const;
 
-export type FLRegistrierungStufe = typeof FLRegistrierungStufe[keyof typeof FLRegistrierungStufe] | null;
-
+export type FLRegistrierungStufe = (typeof FLRegistrierungStufe)[keyof typeof FLRegistrierungStufe] | null;
 
 export const FLRegistrierungStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -5134,12 +5058,12 @@ export interface FLRegistrierungBestaetigung {
   zustellung?: FLBewerbungZustellung | null;
 }
 
-export type FLRegistrierungEinwilligungUmfang = typeof FLRegistrierungEinwilligungUmfang[keyof typeof FLRegistrierungEinwilligungUmfang] | null;
-
+export type FLRegistrierungEinwilligungUmfang =
+  (typeof FLRegistrierungEinwilligungUmfang)[keyof typeof FLRegistrierungEinwilligungUmfang] | null;
 
 export const FLRegistrierungEinwilligungUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -5204,7 +5128,7 @@ export interface FLRegistrierung {
  * Why the team declines, from a closed set or not at all.
  */
 export interface FLRegistrierungAblehnenPayload {
-  grund: 'andere_person' | null;
+  grund: "andere_person" | null;
 }
 
 /**
@@ -5214,7 +5138,7 @@ export interface FLRegistrierungAblehnungResponse {
   bestaetigt: boolean;
   /** @minLength 1 */
   email: string;
-  grund: 'andere_person' | null;
+  grund: "andere_person" | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   saison_id: string;
@@ -5226,26 +5150,26 @@ export interface FLRegistrierungAblehnungResponse {
   vorname: string;
 }
 
-export type FLRegistrierungAufnahmeResponsePosition = typeof FLRegistrierungAufnahmeResponsePosition[keyof typeof FLRegistrierungAufnahmeResponsePosition] | null;
-
+export type FLRegistrierungAufnahmeResponsePosition =
+  (typeof FLRegistrierungAufnahmeResponsePosition)[keyof typeof FLRegistrierungAufnahmeResponsePosition] | null;
 
 export const FLRegistrierungAufnahmeResponsePosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLRegistrierungAufnahmeResponseStufe = typeof FLRegistrierungAufnahmeResponseStufe[keyof typeof FLRegistrierungAufnahmeResponseStufe] | null;
-
+export type FLRegistrierungAufnahmeResponseStufe =
+  (typeof FLRegistrierungAufnahmeResponseStufe)[keyof typeof FLRegistrierungAufnahmeResponseStufe] | null;
 
 export const FLRegistrierungAufnahmeResponseStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -5281,28 +5205,28 @@ export interface FLRegistrierungAufnehmenPayload {
  */
 export interface FLRegistrierungBestaetigungAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLRegistrierungBestaetigungAnsichtResponseSeite = typeof FLRegistrierungBestaetigungAnsichtResponseSeite[keyof typeof FLRegistrierungBestaetigungAnsichtResponseSeite];
-
+export type FLRegistrierungBestaetigungAnsichtResponseSeite =
+  (typeof FLRegistrierungBestaetigungAnsichtResponseSeite)[keyof typeof FLRegistrierungBestaetigungAnsichtResponseSeite];
 
 export const FLRegistrierungBestaetigungAnsichtResponseSeite = {
-  bestaetigung_spieler: 'bestaetigung_spieler',
-  bestaetigung_spieler_wiederkehrend: 'bestaetigung_spieler_wiederkehrend',
+  bestaetigung_spieler: "bestaetigung_spieler",
+  bestaetigung_spieler_wiederkehrend: "bestaetigung_spieler_wiederkehrend",
 } as const;
 
-export type FLRegistrierungBestaetigungAnsichtResponseZustand = typeof FLRegistrierungBestaetigungAnsichtResponseZustand[keyof typeof FLRegistrierungBestaetigungAnsichtResponseZustand];
-
+export type FLRegistrierungBestaetigungAnsichtResponseZustand =
+  (typeof FLRegistrierungBestaetigungAnsichtResponseZustand)[keyof typeof FLRegistrierungBestaetigungAnsichtResponseZustand];
 
 export const FLRegistrierungBestaetigungAnsichtResponseZustand = {
-  gueltig: 'gueltig',
-  bestaetigt: 'bestaetigt',
-  abgelaufen: 'abgelaufen',
-  gesperrt: 'gesperrt',
+  gueltig: "gueltig",
+  bestaetigt: "bestaetigt",
+  abgelaufen: "abgelaufen",
+  gesperrt: "gesperrt",
 } as const;
 
 /**
@@ -5321,12 +5245,12 @@ export interface FLRegistrierungBestaetigungAnsichtResponse {
   zustand: FLRegistrierungBestaetigungAnsichtResponseZustand;
 }
 
-export type FLRegistrierungBestaetigungPayloadUmfang = typeof FLRegistrierungBestaetigungPayloadUmfang[keyof typeof FLRegistrierungBestaetigungPayloadUmfang] | null;
-
+export type FLRegistrierungBestaetigungPayloadUmfang =
+  (typeof FLRegistrierungBestaetigungPayloadUmfang)[keyof typeof FLRegistrierungBestaetigungPayloadUmfang] | null;
 
 export const FLRegistrierungBestaetigungPayloadUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -5336,42 +5260,42 @@ export interface FLRegistrierungBestaetigungPayload {
   geburtsdatum: string | null;
   medien: boolean | null;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
   umfang: FLRegistrierungBestaetigungPayloadUmfang;
 }
 
-export type FLRegistrierungBestaetigungResponseUmfang = typeof FLRegistrierungBestaetigungResponseUmfang[keyof typeof FLRegistrierungBestaetigungResponseUmfang] | null;
-
+export type FLRegistrierungBestaetigungResponseUmfang =
+  (typeof FLRegistrierungBestaetigungResponseUmfang)[keyof typeof FLRegistrierungBestaetigungResponseUmfang] | null;
 
 export const FLRegistrierungBestaetigungResponseUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
  * What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.
  */
 export interface FLRegistrierungBestaetigungResponse {
-  ergebnis: 'bestaetigt';
+  ergebnis: "bestaetigt";
   geburtsdatum: string | null;
   medien: boolean | null;
   umfang: FLRegistrierungBestaetigungResponseUmfang;
 }
 
-export type FLRegistrierungSelbstEinwilligungPayloadUmfang = typeof FLRegistrierungSelbstEinwilligungPayloadUmfang[keyof typeof FLRegistrierungSelbstEinwilligungPayloadUmfang];
-
+export type FLRegistrierungSelbstEinwilligungPayloadUmfang =
+  (typeof FLRegistrierungSelbstEinwilligungPayloadUmfang)[keyof typeof FLRegistrierungSelbstEinwilligungPayloadUmfang];
 
 export const FLRegistrierungSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -5381,9 +5305,9 @@ export interface FLRegistrierungSelbstEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   umfang: FLRegistrierungSelbstEinwilligungPayloadUmfang;
 }
@@ -5460,56 +5384,55 @@ export interface FLReplaceSaisonTeamPayload {
   incoming_team_id: string;
 }
 
-export type FLReplaceSaisonTeamResponseGruppe = typeof FLReplaceSaisonTeamResponseGruppe[keyof typeof FLReplaceSaisonTeamResponseGruppe];
-
+export type FLReplaceSaisonTeamResponseGruppe = (typeof FLReplaceSaisonTeamResponseGruppe)[keyof typeof FLReplaceSaisonTeamResponseGruppe];
 
 export const FLReplaceSaisonTeamResponseGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLReplaceSaisonTeamResponseTrikotFarbe = typeof FLReplaceSaisonTeamResponseTrikotFarbe[keyof typeof FLReplaceSaisonTeamResponseTrikotFarbe] | null;
-
+export type FLReplaceSaisonTeamResponseTrikotFarbe =
+  (typeof FLReplaceSaisonTeamResponseTrikotFarbe)[keyof typeof FLReplaceSaisonTeamResponseTrikotFarbe] | null;
 
 export const FLReplaceSaisonTeamResponseTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -5534,34 +5457,31 @@ export interface FLReplaceSaisonTeamResponse {
   trikot_farbe: FLReplaceSaisonTeamResponseTrikotFarbe;
 }
 
-export type FLSaisonSpielerResponsePosition = typeof FLSaisonSpielerResponsePosition[keyof typeof FLSaisonSpielerResponsePosition] | null;
-
+export type FLSaisonSpielerResponsePosition = (typeof FLSaisonSpielerResponsePosition)[keyof typeof FLSaisonSpielerResponsePosition] | null;
 
 export const FLSaisonSpielerResponsePosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLSaisonSpielerResponseRolle = typeof FLSaisonSpielerResponseRolle[keyof typeof FLSaisonSpielerResponseRolle] | null;
-
+export type FLSaisonSpielerResponseRolle = (typeof FLSaisonSpielerResponseRolle)[keyof typeof FLSaisonSpielerResponseRolle] | null;
 
 export const FLSaisonSpielerResponseRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLSaisonSpielerResponseStufe = typeof FLSaisonSpielerResponseStufe[keyof typeof FLSaisonSpielerResponseStufe] | null;
-
+export type FLSaisonSpielerResponseStufe = (typeof FLSaisonSpielerResponseStufe)[keyof typeof FLSaisonSpielerResponseStufe] | null;
 
 export const FLSaisonSpielerResponseStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -5581,28 +5501,28 @@ export interface FLSaisonSpielerResponse {
   team_id: string;
 }
 
-export type FLSaisonTeamAdresswechselVerwehrtAnsprechperson = typeof FLSaisonTeamAdresswechselVerwehrtAnsprechperson[keyof typeof FLSaisonTeamAdresswechselVerwehrtAnsprechperson] | null;
-
+export type FLSaisonTeamAdresswechselVerwehrtAnsprechperson =
+  (typeof FLSaisonTeamAdresswechselVerwehrtAnsprechperson)[keyof typeof FLSaisonTeamAdresswechselVerwehrtAnsprechperson] | null;
 
 export const FLSaisonTeamAdresswechselVerwehrtAnsprechperson = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
-export type FLSaisonTeamAdresswechselVerwehrtStellvertretung = typeof FLSaisonTeamAdresswechselVerwehrtStellvertretung[keyof typeof FLSaisonTeamAdresswechselVerwehrtStellvertretung] | null;
-
+export type FLSaisonTeamAdresswechselVerwehrtStellvertretung =
+  (typeof FLSaisonTeamAdresswechselVerwehrtStellvertretung)[keyof typeof FLSaisonTeamAdresswechselVerwehrtStellvertretung] | null;
 
 export const FLSaisonTeamAdresswechselVerwehrtStellvertretung = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
-export type FLSaisonTeamAdresswechselVerwehrtTrainer = typeof FLSaisonTeamAdresswechselVerwehrtTrainer[keyof typeof FLSaisonTeamAdresswechselVerwehrtTrainer] | null;
-
+export type FLSaisonTeamAdresswechselVerwehrtTrainer =
+  (typeof FLSaisonTeamAdresswechselVerwehrtTrainer)[keyof typeof FLSaisonTeamAdresswechselVerwehrtTrainer] | null;
 
 export const FLSaisonTeamAdresswechselVerwehrtTrainer = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
 export interface FLSaisonTeamAdresswechselVerwehrt {
@@ -5642,12 +5562,12 @@ export interface FLSaisonTeamBestaetigungenAnsicht {
   trainer: FLSaisonTeamBestaetigungAnsicht | null;
 }
 
-export type FLSaisonTeamEinwilligungAntwortResponseErgebnis = typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis[keyof typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis];
-
+export type FLSaisonTeamEinwilligungAntwortResponseErgebnis =
+  (typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis)[keyof typeof FLSaisonTeamEinwilligungAntwortResponseErgebnis];
 
 export const FLSaisonTeamEinwilligungAntwortResponseErgebnis = {
-  bestaetigt: 'bestaetigt',
-  abgelehnt: 'abgelehnt',
+  bestaetigt: "bestaetigt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 /**
@@ -5659,44 +5579,44 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
   ergebnis: FLSaisonTeamEinwilligungAntwortResponseErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
-  quelle: 'saison';
+  quelle: "saison";
   whatsapp: boolean;
 }
 
-export type FLSaisonTeamPersonEinwilligungPayloadUmfang = typeof FLSaisonTeamPersonEinwilligungPayloadUmfang[keyof typeof FLSaisonTeamPersonEinwilligungPayloadUmfang];
-
+export type FLSaisonTeamPersonEinwilligungPayloadUmfang =
+  (typeof FLSaisonTeamPersonEinwilligungPayloadUmfang)[keyof typeof FLSaisonTeamPersonEinwilligungPayloadUmfang];
 
 export const FLSaisonTeamPersonEinwilligungPayloadUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 export interface FLSaisonTeamPersonEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   umfang: FLSaisonTeamPersonEinwilligungPayloadUmfang;
 }
 
-export type FLSaisonTeamPersonEinwilligungResponseRollenItem = typeof FLSaisonTeamPersonEinwilligungResponseRollenItem[keyof typeof FLSaisonTeamPersonEinwilligungResponseRollenItem];
-
+export type FLSaisonTeamPersonEinwilligungResponseRollenItem =
+  (typeof FLSaisonTeamPersonEinwilligungResponseRollenItem)[keyof typeof FLSaisonTeamPersonEinwilligungResponseRollenItem];
 
 export const FLSaisonTeamPersonEinwilligungResponseRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLSaisonTeamPersonEinwilligungResponseUmfang = typeof FLSaisonTeamPersonEinwilligungResponseUmfang[keyof typeof FLSaisonTeamPersonEinwilligungResponseUmfang];
-
+export type FLSaisonTeamPersonEinwilligungResponseUmfang =
+  (typeof FLSaisonTeamPersonEinwilligungResponseUmfang)[keyof typeof FLSaisonTeamPersonEinwilligungResponseUmfang];
 
 export const FLSaisonTeamPersonEinwilligungResponseUmfang = {
-  kontaktdaten: 'kontaktdaten',
-  kontaktdaten_whatsapp: 'kontaktdaten_whatsapp',
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
 } as const;
 
 /**
@@ -5712,56 +5632,54 @@ export interface FLSaisonTeamPersonEinwilligungResponse {
   umfang: FLSaisonTeamPersonEinwilligungResponseUmfang;
 }
 
-export type FLSaisonTeamResponseGruppe = typeof FLSaisonTeamResponseGruppe[keyof typeof FLSaisonTeamResponseGruppe];
-
+export type FLSaisonTeamResponseGruppe = (typeof FLSaisonTeamResponseGruppe)[keyof typeof FLSaisonTeamResponseGruppe];
 
 export const FLSaisonTeamResponseGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLSaisonTeamResponseTrikotFarbe = typeof FLSaisonTeamResponseTrikotFarbe[keyof typeof FLSaisonTeamResponseTrikotFarbe] | null;
-
+export type FLSaisonTeamResponseTrikotFarbe = (typeof FLSaisonTeamResponseTrikotFarbe)[keyof typeof FLSaisonTeamResponseTrikotFarbe] | null;
 
 export const FLSaisonTeamResponseTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -5782,31 +5700,31 @@ export interface FLSaisonTeamResponse {
 }
 
 export interface FLSaisonsListResponse {
-  format: 'list';
+  format: "list";
   saisons: FLSaison[];
 }
 
 export interface FLSaisonsSingleResponse {
-  format: 'single';
+  format: "single";
   saison: FLSaison;
 }
 
 export interface FLSchiedsrichterBestaetigungAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLSchiedsrichterBestaetigungAnsichtResponseZustand = typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand[keyof typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand];
-
+export type FLSchiedsrichterBestaetigungAnsichtResponseZustand =
+  (typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand)[keyof typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand];
 
 export const FLSchiedsrichterBestaetigungAnsichtResponseZustand = {
-  gueltig: 'gueltig',
-  bestaetigt: 'bestaetigt',
-  abgelaufen: 'abgelaufen',
-  gesperrt: 'gesperrt',
+  gueltig: "gueltig",
+  bestaetigt: "bestaetigt",
+  abgelaufen: "abgelaufen",
+  gesperrt: "gesperrt",
 } as const;
 
 /**
@@ -5823,12 +5741,12 @@ export interface FLSchiedsrichterBestaetigungAnsichtResponse {
   zustand: FLSchiedsrichterBestaetigungAnsichtResponseZustand;
 }
 
-export type FLSchiedsrichterBestaetigungPayloadUmfang = typeof FLSchiedsrichterBestaetigungPayloadUmfang[keyof typeof FLSchiedsrichterBestaetigungPayloadUmfang];
-
+export type FLSchiedsrichterBestaetigungPayloadUmfang =
+  (typeof FLSchiedsrichterBestaetigungPayloadUmfang)[keyof typeof FLSchiedsrichterBestaetigungPayloadUmfang];
 
 export const FLSchiedsrichterBestaetigungPayloadUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 export interface FLSchiedsrichterBestaetigungPayload {
@@ -5836,24 +5754,24 @@ export interface FLSchiedsrichterBestaetigungPayload {
   geburtsdatum: string;
   medien: boolean;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
   umfang: FLSchiedsrichterBestaetigungPayloadUmfang;
 }
 
-export type FLSchiedsrichterBestaetigungResponseUmfang = typeof FLSchiedsrichterBestaetigungResponseUmfang[keyof typeof FLSchiedsrichterBestaetigungResponseUmfang];
-
+export type FLSchiedsrichterBestaetigungResponseUmfang =
+  (typeof FLSchiedsrichterBestaetigungResponseUmfang)[keyof typeof FLSchiedsrichterBestaetigungResponseUmfang];
 
 export const FLSchiedsrichterBestaetigungResponseUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 /**
@@ -5904,21 +5822,21 @@ export interface FLSchiedsrichterSelbst {
   schule: string | null;
 }
 
-export type FLSchiedsrichterSelbstEinwilligungPayloadUmfang = typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang[keyof typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang];
-
+export type FLSchiedsrichterSelbstEinwilligungPayloadUmfang =
+  (typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang)[keyof typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang];
 
 export const FLSchiedsrichterSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 export interface FLSchiedsrichterSelbstEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   umfang: FLSchiedsrichterSelbstEinwilligungPayloadUmfang;
 }
@@ -5940,12 +5858,13 @@ export interface FLSchiedsrichterSelbstResponse {
   schiedsrichter: FLSchiedsrichterSelbst[];
 }
 
-export type FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt = typeof FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt[keyof typeof FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt] | null;
-
+export type FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt =
+  | (typeof FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt)[keyof typeof FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt]
+  | null;
 
 export const FLSchiedsrichterSingleResponseAdresswechselEinsehbarVerwehrt = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
 export interface FLSchiedsrichterSingleResponse {
@@ -5962,21 +5881,20 @@ export interface FLSchiedsrichterWriteResponse {
   updated_document: FLSchiedsrichter;
 }
 
-export type FLSelbstErasureAnsichtResponseVerwaltung = typeof FLSelbstErasureAnsichtResponseVerwaltung[keyof typeof FLSelbstErasureAnsichtResponseVerwaltung] | null;
-
+export type FLSelbstErasureAnsichtResponseVerwaltung =
+  (typeof FLSelbstErasureAnsichtResponseVerwaltung)[keyof typeof FLSelbstErasureAnsichtResponseVerwaltung] | null;
 
 export const FLSelbstErasureAnsichtResponseVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
-export type FLSelbstErasureBewerbungRolle = typeof FLSelbstErasureBewerbungRolle[keyof typeof FLSelbstErasureBewerbungRolle];
-
+export type FLSelbstErasureBewerbungRolle = (typeof FLSelbstErasureBewerbungRolle)[keyof typeof FLSelbstErasureBewerbungRolle];
 
 export const FLSelbstErasureBewerbungRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -6003,13 +5921,12 @@ export interface FLSelbstErasureSchiedsrichter {
   name: string | null;
 }
 
-export type FLSelbstErasureSitzRolle = typeof FLSelbstErasureSitzRolle[keyof typeof FLSelbstErasureSitzRolle];
-
+export type FLSelbstErasureSitzRolle = (typeof FLSelbstErasureSitzRolle)[keyof typeof FLSelbstErasureSitzRolle];
 
 export const FLSelbstErasureSitzRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -6049,9 +5966,9 @@ export interface FLSperrlisteZeile {
   erstellt_von: string | null;
   erstellt_von_gesperrt: boolean;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   gesperrt_bis_saison_id: string;
   /** @minLength 1 */
   grund: string;
@@ -6079,26 +5996,24 @@ export interface FLSperrlisteWriteResponse {
   sperrliste_id: string;
 }
 
-export type FLSpielJoinedSaisonPhase = typeof FLSpielJoinedSaisonPhase[keyof typeof FLSpielJoinedSaisonPhase];
-
+export type FLSpielJoinedSaisonPhase = (typeof FLSpielJoinedSaisonPhase)[keyof typeof FLSpielJoinedSaisonPhase];
 
 export const FLSpielJoinedSaisonPhase = {
-  gruppenphase: 'gruppenphase',
-  achtelfinale: 'achtelfinale',
-  viertelfinale: 'viertelfinale',
-  halbfinale: 'halbfinale',
-  finale: 'finale',
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 } as const;
 
-export type FLSpielJoinedSonderereignis = typeof FLSpielJoinedSonderereignis[keyof typeof FLSpielJoinedSonderereignis] | null;
-
+export type FLSpielJoinedSonderereignis = (typeof FLSpielJoinedSonderereignis)[keyof typeof FLSpielJoinedSonderereignis] | null;
 
 export const FLSpielJoinedSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 /**
@@ -6125,12 +6040,12 @@ export interface FLSpielSchiedsrichterFieldPublic {
   name_is_public?: boolean;
 }
 
-export type FLSpielTeamFieldJoinedAustrittType = typeof FLSpielTeamFieldJoinedAustrittType[keyof typeof FLSpielTeamFieldJoinedAustrittType] | null;
-
+export type FLSpielTeamFieldJoinedAustrittType =
+  (typeof FLSpielTeamFieldJoinedAustrittType)[keyof typeof FLSpielTeamFieldJoinedAustrittType] | null;
 
 export const FLSpielTeamFieldJoinedAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
 /**
@@ -6166,9 +6081,9 @@ export interface FLSpielJoined {
   notiz?: string | null;
   ort: FLSpielOrtFieldPublic | null;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   saison_phase: FLSpielJoinedSaisonPhase;
   schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
@@ -6184,26 +6099,24 @@ export interface FLSpielJoined {
   uhrzeit: string | null;
 }
 
-export type FLSpielJoinedAdminSaisonPhase = typeof FLSpielJoinedAdminSaisonPhase[keyof typeof FLSpielJoinedAdminSaisonPhase];
-
+export type FLSpielJoinedAdminSaisonPhase = (typeof FLSpielJoinedAdminSaisonPhase)[keyof typeof FLSpielJoinedAdminSaisonPhase];
 
 export const FLSpielJoinedAdminSaisonPhase = {
-  gruppenphase: 'gruppenphase',
-  achtelfinale: 'achtelfinale',
-  viertelfinale: 'viertelfinale',
-  halbfinale: 'halbfinale',
-  finale: 'finale',
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 } as const;
 
-export type FLSpielJoinedAdminSonderereignis = typeof FLSpielJoinedAdminSonderereignis[keyof typeof FLSpielJoinedAdminSonderereignis] | null;
-
+export type FLSpielJoinedAdminSonderereignis = (typeof FLSpielJoinedAdminSonderereignis)[keyof typeof FLSpielJoinedAdminSonderereignis] | null;
 
 export const FLSpielJoinedAdminSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 /**
@@ -6247,9 +6160,9 @@ export interface FLSpielJoinedAdmin {
   notiz?: string | null;
   ort: FLSpielOrtField | null;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   saison_phase: FLSpielJoinedAdminSaisonPhase;
   schiedsrichter: FLSpielSchiedsrichterField | null;
@@ -6265,27 +6178,27 @@ export interface FLSpielJoinedAdmin {
   uhrzeit: string | null;
 }
 
-export type FLSpielberichtAdminResponseSeitenGeaendertItem = typeof FLSpielberichtAdminResponseSeitenGeaendertItem[keyof typeof FLSpielberichtAdminResponseSeitenGeaendertItem];
-
+export type FLSpielberichtAdminResponseSeitenGeaendertItem =
+  (typeof FLSpielberichtAdminResponseSeitenGeaendertItem)[keyof typeof FLSpielberichtAdminResponseSeitenGeaendertItem];
 
 export const FLSpielberichtAdminResponseSeitenGeaendertItem = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
-export type FLSpielberichtAdminResponseZustand = typeof FLSpielberichtAdminResponseZustand[keyof typeof FLSpielberichtAdminResponseZustand] | null;
-
+export type FLSpielberichtAdminResponseZustand =
+  (typeof FLSpielberichtAdminResponseZustand)[keyof typeof FLSpielberichtAdminResponseZustand] | null;
 
 export const FLSpielberichtAdminResponseZustand = {
-  vorgeschlagen: 'vorgeschlagen',
-  uebernommen: 'uebernommen',
-  abweichend: 'abweichend',
-  abgesagt: 'abgesagt',
-  teams_geaendert: 'teams_geaendert',
+  vorgeschlagen: "vorgeschlagen",
+  uebernommen: "uebernommen",
+  abweichend: "abweichend",
+  abgesagt: "abgesagt",
+  teams_geaendert: "teams_geaendert",
 } as const;
 
 export interface FLSpielberichtVonSchiedsrichter {
-  art: 'schiedsrichter';
+  art: "schiedsrichter";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
 }
@@ -6294,17 +6207,17 @@ export interface FLSpielberichtVonSchiedsrichter {
  * An administrator who wrote the block first, naming nobody, as an administrator's settle does.
  */
 export const FLSpielberichtVonAdminValue = {
-  art: 'admin',
+  art: "admin",
 } as const;
 export type FLSpielberichtVonAdmin = typeof FLSpielberichtVonAdminValue;
 
-export type FLSpielberichtVorschlagSonderereignis = typeof FLSpielberichtVorschlagSonderereignis[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
-
+export type FLSpielberichtVorschlagSonderereignis =
+  (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
 
 export const FLSpielberichtVorschlagSonderereignis = {
-  abgebrochen: 'abgebrochen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
+  abgebrochen: "abgebrochen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
 } as const;
 
 /**
@@ -6320,37 +6233,34 @@ export interface FLSpielberichtVorschlag {
   team2_tore: number | null;
 }
 
-export type FLSpielberichtKarteFarbe = typeof FLSpielberichtKarteFarbe[keyof typeof FLSpielberichtKarteFarbe];
-
+export type FLSpielberichtKarteFarbe = (typeof FLSpielberichtKarteFarbe)[keyof typeof FLSpielberichtKarteFarbe];
 
 export const FLSpielberichtKarteFarbe = {
-  gelb: 'gelb',
-  gelb_rot: 'gelb_rot',
-  rot: 'rot',
+  gelb: "gelb",
+  gelb_rot: "gelb_rot",
+  rot: "rot",
 } as const;
 
-export type FLSpielberichtKarteGrund = typeof FLSpielberichtKarteGrund[keyof typeof FLSpielberichtKarteGrund] | null;
-
+export type FLSpielberichtKarteGrund = (typeof FLSpielberichtKarteGrund)[keyof typeof FLSpielberichtKarteGrund] | null;
 
 export const FLSpielberichtKarteGrund = {
-  foulspiel: 'foulspiel',
-  unsportlichkeit: 'unsportlichkeit',
-  handspiel: 'handspiel',
-  meckern: 'meckern',
-  spielverzoegerung: 'spielverzoegerung',
-  wiederholtes_foulspiel: 'wiederholtes_foulspiel',
-  grobes_foulspiel: 'grobes_foulspiel',
-  taetlichkeit: 'taetlichkeit',
-  beleidigung: 'beleidigung',
-  notbremse: 'notbremse',
+  foulspiel: "foulspiel",
+  unsportlichkeit: "unsportlichkeit",
+  handspiel: "handspiel",
+  meckern: "meckern",
+  spielverzoegerung: "spielverzoegerung",
+  wiederholtes_foulspiel: "wiederholtes_foulspiel",
+  grobes_foulspiel: "grobes_foulspiel",
+  taetlichkeit: "taetlichkeit",
+  beleidigung: "beleidigung",
+  notbremse: "notbremse",
 } as const;
 
-export type FLSpielberichtKarteSeite = typeof FLSpielberichtKarteSeite[keyof typeof FLSpielberichtKarteSeite];
-
+export type FLSpielberichtKarteSeite = (typeof FLSpielberichtKarteSeite)[keyof typeof FLSpielberichtKarteSeite];
 
 export const FLSpielberichtKarteSeite = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -6376,12 +6286,11 @@ export interface FLSpielberichtSeiten {
   team2: string | null;
 }
 
-export type FLSpielberichtTorschuetzeSeite = typeof FLSpielberichtTorschuetzeSeite[keyof typeof FLSpielberichtTorschuetzeSeite];
-
+export type FLSpielberichtTorschuetzeSeite = (typeof FLSpielberichtTorschuetzeSeite)[keyof typeof FLSpielberichtTorschuetzeSeite];
 
 export const FLSpielberichtTorschuetzeSeite = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -6396,7 +6305,7 @@ export interface FLSpielberichtTorschuetze {
 }
 
 export const FLSpielberichtUebernommenVonValue = {
-  art: 'admin',
+  art: "admin",
 } as const;
 export type FLSpielberichtUebernommenVon = typeof FLSpielberichtUebernommenVonValue;
 
@@ -6440,26 +6349,25 @@ export interface FLSpielberichtKader {
   team2: FLSpielberichtSpieler[];
 }
 
-export type FLSpielberichtSpielSaisonPhase = typeof FLSpielberichtSpielSaisonPhase[keyof typeof FLSpielberichtSpielSaisonPhase];
-
+export type FLSpielberichtSpielSaisonPhase = (typeof FLSpielberichtSpielSaisonPhase)[keyof typeof FLSpielberichtSpielSaisonPhase];
 
 export const FLSpielberichtSpielSaisonPhase = {
-  gruppenphase: 'gruppenphase',
-  achtelfinale: 'achtelfinale',
-  viertelfinale: 'viertelfinale',
-  halbfinale: 'halbfinale',
-  finale: 'finale',
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 } as const;
 
-export type FLSpielberichtSpielSonderereignis = typeof FLSpielberichtSpielSonderereignis[keyof typeof FLSpielberichtSpielSonderereignis] | null;
-
+export type FLSpielberichtSpielSonderereignis =
+  (typeof FLSpielberichtSpielSonderereignis)[keyof typeof FLSpielberichtSpielSonderereignis] | null;
 
 export const FLSpielberichtSpielSonderereignis = {
-  ausgefallen: 'ausgefallen',
-  nichtantreten_team1: 'nichtantreten_team1',
-  nichtantreten_team2: 'nichtantreten_team2',
-  abgebrochen: 'abgebrochen',
-  annulliert: 'annulliert',
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
 } as const;
 
 export interface FLSpielberichtTeam {
@@ -6497,37 +6405,34 @@ export interface FLSpielberichtAdminResponse {
   zustand: FLSpielberichtAdminResponseZustand;
 }
 
-export type FLSpielberichtKartePayloadFarbe = typeof FLSpielberichtKartePayloadFarbe[keyof typeof FLSpielberichtKartePayloadFarbe];
-
+export type FLSpielberichtKartePayloadFarbe = (typeof FLSpielberichtKartePayloadFarbe)[keyof typeof FLSpielberichtKartePayloadFarbe];
 
 export const FLSpielberichtKartePayloadFarbe = {
-  gelb: 'gelb',
-  gelb_rot: 'gelb_rot',
-  rot: 'rot',
+  gelb: "gelb",
+  gelb_rot: "gelb_rot",
+  rot: "rot",
 } as const;
 
-export type FLSpielberichtKartePayloadGrund = typeof FLSpielberichtKartePayloadGrund[keyof typeof FLSpielberichtKartePayloadGrund] | null;
-
+export type FLSpielberichtKartePayloadGrund = (typeof FLSpielberichtKartePayloadGrund)[keyof typeof FLSpielberichtKartePayloadGrund] | null;
 
 export const FLSpielberichtKartePayloadGrund = {
-  foulspiel: 'foulspiel',
-  unsportlichkeit: 'unsportlichkeit',
-  handspiel: 'handspiel',
-  meckern: 'meckern',
-  spielverzoegerung: 'spielverzoegerung',
-  wiederholtes_foulspiel: 'wiederholtes_foulspiel',
-  grobes_foulspiel: 'grobes_foulspiel',
-  taetlichkeit: 'taetlichkeit',
-  beleidigung: 'beleidigung',
-  notbremse: 'notbremse',
+  foulspiel: "foulspiel",
+  unsportlichkeit: "unsportlichkeit",
+  handspiel: "handspiel",
+  meckern: "meckern",
+  spielverzoegerung: "spielverzoegerung",
+  wiederholtes_foulspiel: "wiederholtes_foulspiel",
+  grobes_foulspiel: "grobes_foulspiel",
+  taetlichkeit: "taetlichkeit",
+  beleidigung: "beleidigung",
+  notbremse: "notbremse",
 } as const;
 
-export type FLSpielberichtKartePayloadSeite = typeof FLSpielberichtKartePayloadSeite[keyof typeof FLSpielberichtKartePayloadSeite];
-
+export type FLSpielberichtKartePayloadSeite = (typeof FLSpielberichtKartePayloadSeite)[keyof typeof FLSpielberichtKartePayloadSeite];
 
 export const FLSpielberichtKartePayloadSeite = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -6590,12 +6495,12 @@ export interface FLSpielberichtPersonFruehererEintrag {
   uhrzeit: string | null;
 }
 
-export type FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem = typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem[keyof typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem];
-
+export type FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem =
+  (typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem)[keyof typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem];
 
 export const FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
 /**
@@ -6610,15 +6515,15 @@ export interface FLSpielberichtSchiedsrichterResponse {
   spiel: FLSpielberichtSpiel;
 }
 
-export type FLSpielberichtZustandEintragZustand = typeof FLSpielberichtZustandEintragZustand[keyof typeof FLSpielberichtZustandEintragZustand];
-
+export type FLSpielberichtZustandEintragZustand =
+  (typeof FLSpielberichtZustandEintragZustand)[keyof typeof FLSpielberichtZustandEintragZustand];
 
 export const FLSpielberichtZustandEintragZustand = {
-  vorgeschlagen: 'vorgeschlagen',
-  uebernommen: 'uebernommen',
-  abweichend: 'abweichend',
-  abgesagt: 'abgesagt',
-  teams_geaendert: 'teams_geaendert',
+  vorgeschlagen: "vorgeschlagen",
+  uebernommen: "uebernommen",
+  abweichend: "abweichend",
+  abgesagt: "abgesagt",
+  teams_geaendert: "teams_geaendert",
 } as const;
 
 /**
@@ -6665,28 +6570,26 @@ export interface FLSpielbestaetigungAnsetzung {
   uhrzeit: string;
 }
 
-export type FLSpielbestaetigungAntwortArt = typeof FLSpielbestaetigungAntwortArt[keyof typeof FLSpielbestaetigungAntwortArt];
-
+export type FLSpielbestaetigungAntwortArt = (typeof FLSpielbestaetigungAntwortArt)[keyof typeof FLSpielbestaetigungAntwortArt];
 
 export const FLSpielbestaetigungAntwortArt = {
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
 } as const;
 
-export type FLSpielbestaetigungVonKontaktRolle = typeof FLSpielbestaetigungVonKontaktRolle[keyof typeof FLSpielbestaetigungVonKontaktRolle];
-
+export type FLSpielbestaetigungVonKontaktRolle = (typeof FLSpielbestaetigungVonKontaktRolle)[keyof typeof FLSpielbestaetigungVonKontaktRolle];
 
 export const FLSpielbestaetigungVonKontaktRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
  * The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.
  */
 export interface FLSpielbestaetigungVonKontakt {
-  art: 'kontakt';
+  art: "kontakt";
   rolle: FLSpielbestaetigungVonKontaktRolle;
 }
 
@@ -6694,12 +6597,12 @@ export interface FLSpielbestaetigungVonKontakt {
  * An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.
  */
 export const FLSpielbestaetigungVonAdminValue = {
-  art: 'admin',
+  art: "admin",
 } as const;
 export type FLSpielbestaetigungVonAdmin = typeof FLSpielbestaetigungVonAdminValue;
 
 export const FLSpielbestaetigungVonSchiedsrichterValue = {
-  art: 'schiedsrichter',
+  art: "schiedsrichter",
 } as const;
 export type FLSpielbestaetigungVonSchiedsrichter = typeof FLSpielbestaetigungVonSchiedsrichterValue;
 
@@ -6725,18 +6628,18 @@ export interface FLSpielbestaetigungAntwort {
   vorschlag: FLSpielbestaetigungTermin | null;
 }
 
-export type FLSpielbestaetigungGeschlossenGrund = typeof FLSpielbestaetigungGeschlossenGrund[keyof typeof FLSpielbestaetigungGeschlossenGrund];
-
+export type FLSpielbestaetigungGeschlossenGrund =
+  (typeof FLSpielbestaetigungGeschlossenGrund)[keyof typeof FLSpielbestaetigungGeschlossenGrund];
 
 export const FLSpielbestaetigungGeschlossenGrund = {
-  ansetzung_geaendert: 'ansetzung_geaendert',
-  austritt: 'austritt',
-  spiel_entschieden: 'spiel_entschieden',
-  abgesagt: 'abgesagt',
-  schiedsrichter_gewechselt: 'schiedsrichter_gewechselt',
-  schiedsrichter_abgelehnt: 'schiedsrichter_abgelehnt',
-  verworfen: 'verworfen',
-  spiel_vergangen: 'spiel_vergangen',
+  ansetzung_geaendert: "ansetzung_geaendert",
+  austritt: "austritt",
+  spiel_entschieden: "spiel_entschieden",
+  abgesagt: "abgesagt",
+  schiedsrichter_gewechselt: "schiedsrichter_gewechselt",
+  schiedsrichter_abgelehnt: "schiedsrichter_abgelehnt",
+  verworfen: "verworfen",
+  spiel_vergangen: "spiel_vergangen",
 } as const;
 
 export interface FLSpielbestaetigungGeschlossen {
@@ -6765,13 +6668,13 @@ export interface FLSpielbestaetigungKontakte {
 }
 
 export interface FLSpielbestaetigungParteiTeam {
-  art: 'team';
+  art: "team";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
 
 export interface FLSpielbestaetigungParteiSchiedsrichter {
-  art: 'schiedsrichter';
+  art: "schiedsrichter";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   schiedsrichter_id: string;
 }
@@ -6820,33 +6723,33 @@ export interface FLSpielbestaetigungAnsichtAnsetzung {
  */
 export interface FLSpielbestaetigungAnsichtPayload {
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
 }
 
-export type FLSpielbestaetigungAnsichtResponseSeite = typeof FLSpielbestaetigungAnsichtResponseSeite[keyof typeof FLSpielbestaetigungAnsichtResponseSeite];
-
+export type FLSpielbestaetigungAnsichtResponseSeite =
+  (typeof FLSpielbestaetigungAnsichtResponseSeite)[keyof typeof FLSpielbestaetigungAnsichtResponseSeite];
 
 export const FLSpielbestaetigungAnsichtResponseSeite = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
-export type FLSpielbestaetigungAnsichtResponseZustand = typeof FLSpielbestaetigungAnsichtResponseZustand[keyof typeof FLSpielbestaetigungAnsichtResponseZustand];
-
+export type FLSpielbestaetigungAnsichtResponseZustand =
+  (typeof FLSpielbestaetigungAnsichtResponseZustand)[keyof typeof FLSpielbestaetigungAnsichtResponseZustand];
 
 export const FLSpielbestaetigungAnsichtResponseZustand = {
-  gueltig: 'gueltig',
-  vorschlag: 'vorschlag',
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
-  verworfen: 'verworfen',
-  abgelaufen: 'abgelaufen',
-  ungueltig: 'ungueltig',
-  abgesagt: 'abgesagt',
-  gesperrt: 'gesperrt',
+  gueltig: "gueltig",
+  vorschlag: "vorschlag",
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
+  verworfen: "verworfen",
+  abgelaufen: "abgelaufen",
+  ungueltig: "ungueltig",
+  abgesagt: "abgesagt",
+  gesperrt: "gesperrt",
 } as const;
 
 /**
@@ -6862,12 +6765,12 @@ export interface FLSpielbestaetigungAnsichtResponse {
   zustand: FLSpielbestaetigungAnsichtResponseZustand;
 }
 
-export type FLSpielbestaetigungAntwortPayloadAntwort = typeof FLSpielbestaetigungAntwortPayloadAntwort[keyof typeof FLSpielbestaetigungAntwortPayloadAntwort];
-
+export type FLSpielbestaetigungAntwortPayloadAntwort =
+  (typeof FLSpielbestaetigungAntwortPayloadAntwort)[keyof typeof FLSpielbestaetigungAntwortPayloadAntwort];
 
 export const FLSpielbestaetigungAntwortPayloadAntwort = {
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLSpielbestaetigungVorschlagPayload {
@@ -6884,19 +6787,19 @@ export interface FLSpielbestaetigungAntwortPayload {
   antwort: FLSpielbestaetigungAntwortPayloadAntwort;
   begruendung: string | null;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   token: string;
   vorschlag: FLSpielbestaetigungVorschlagPayload | null;
 }
 
-export type FLSpielbestaetigungAntwortResponseZustand = typeof FLSpielbestaetigungAntwortResponseZustand[keyof typeof FLSpielbestaetigungAntwortResponseZustand];
-
+export type FLSpielbestaetigungAntwortResponseZustand =
+  (typeof FLSpielbestaetigungAntwortResponseZustand)[keyof typeof FLSpielbestaetigungAntwortResponseZustand];
 
 export const FLSpielbestaetigungAntwortResponseZustand = {
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 /**
@@ -6917,10 +6820,10 @@ export interface FLSpielbestaetigungAntwortResponse {
  */
 export interface FLSpielbestaetigungEintragenPayload {
   /**
-     * @minLength 1
-     * @maxLength 500
-     * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-     */
+   * @minLength 1
+   * @maxLength 500
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
   begruendung: string;
 }
 
@@ -6928,12 +6831,12 @@ export interface FLSpielbestaetigungEintragenResponse {
   updated_document: FLSpielbestaetigung;
 }
 
-export type FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort = typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort];
-
+export type FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort =
+  (typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort)[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort];
 
 export const FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort = {
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 /**
@@ -6944,12 +6847,12 @@ export interface FLSpielbestaetigungSchiedsrichterAntwortPayload {
   begruendung: string | null;
 }
 
-export type FLSpielbestaetigungSchiedsrichterAntwortResponseZustand = typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand];
-
+export type FLSpielbestaetigungSchiedsrichterAntwortResponseZustand =
+  (typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand)[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand];
 
 export const FLSpielbestaetigungSchiedsrichterAntwortResponseZustand = {
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLSpielbestaetigungSchiedsrichterAntwortResponse {
@@ -6958,16 +6861,15 @@ export interface FLSpielbestaetigungSchiedsrichterAntwortResponse {
   zustand: FLSpielbestaetigungSchiedsrichterAntwortResponseZustand;
 }
 
-export type FLSpielbestaetigungSelbstZustand = typeof FLSpielbestaetigungSelbstZustand[keyof typeof FLSpielbestaetigungSelbstZustand];
-
+export type FLSpielbestaetigungSelbstZustand = (typeof FLSpielbestaetigungSelbstZustand)[keyof typeof FLSpielbestaetigungSelbstZustand];
 
 export const FLSpielbestaetigungSelbstZustand = {
-  gueltig: 'gueltig',
-  zugesagt: 'zugesagt',
-  abgelehnt: 'abgelehnt',
-  abgelaufen: 'abgelaufen',
-  ungueltig: 'ungueltig',
-  abgesagt: 'abgesagt',
+  gueltig: "gueltig",
+  zugesagt: "zugesagt",
+  abgelehnt: "abgelehnt",
+  abgelaufen: "abgelaufen",
+  ungueltig: "ungueltig",
+  abgesagt: "abgesagt",
 } as const;
 
 /**
@@ -6987,21 +6889,21 @@ export interface FLSpielbestaetigungSelbst {
   zustand: FLSpielbestaetigungSelbstZustand;
 }
 
-export type FLSpielbestaetigungSweepAnfrageSeite = typeof FLSpielbestaetigungSweepAnfrageSeite[keyof typeof FLSpielbestaetigungSweepAnfrageSeite];
-
+export type FLSpielbestaetigungSweepAnfrageSeite =
+  (typeof FLSpielbestaetigungSweepAnfrageSeite)[keyof typeof FLSpielbestaetigungSweepAnfrageSeite];
 
 export const FLSpielbestaetigungSweepAnfrageSeite = {
-  team1: 'team1',
-  team2: 'team2',
+  team1: "team1",
+  team2: "team2",
 } as const;
 
-export type FLSpielbestaetigungSweepLinkRollenItem = typeof FLSpielbestaetigungSweepLinkRollenItem[keyof typeof FLSpielbestaetigungSweepLinkRollenItem];
-
+export type FLSpielbestaetigungSweepLinkRollenItem =
+  (typeof FLSpielbestaetigungSweepLinkRollenItem)[keyof typeof FLSpielbestaetigungSweepLinkRollenItem];
 
 export const FLSpielbestaetigungSweepLinkRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -7035,9 +6937,9 @@ export interface FLSpielbestaetigungSweepAnfrage {
  */
 export interface FLSpielbestaetigungSweepAngefragtPayload {
   /**
-     * @maxItems 83
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @maxItems 83
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   spielbestaetigung_ids: string[];
 }
 
@@ -7047,12 +6949,12 @@ export interface FLSpielbestaetigungSweepAngefragtResponse {
   saison_id: string;
 }
 
-export type FLSpielbestaetigungSweepAufgegebenPartei = typeof FLSpielbestaetigungSweepAufgegebenPartei[keyof typeof FLSpielbestaetigungSweepAufgegebenPartei];
-
+export type FLSpielbestaetigungSweepAufgegebenPartei =
+  (typeof FLSpielbestaetigungSweepAufgegebenPartei)[keyof typeof FLSpielbestaetigungSweepAufgegebenPartei];
 
 export const FLSpielbestaetigungSweepAufgegebenPartei = {
-  team: 'team',
-  schiedsrichter: 'schiedsrichter',
+  team: "team",
+  schiedsrichter: "schiedsrichter",
 } as const;
 
 /**
@@ -7078,13 +6980,13 @@ export interface FLSpielbestaetigungSweepEinteilung {
   spielbestaetigung_id: string;
 }
 
-export type FLSpielbestaetigungSweepEmpfaengerRollenItem = typeof FLSpielbestaetigungSweepEmpfaengerRollenItem[keyof typeof FLSpielbestaetigungSweepEmpfaengerRollenItem];
-
+export type FLSpielbestaetigungSweepEmpfaengerRollenItem =
+  (typeof FLSpielbestaetigungSweepEmpfaengerRollenItem)[keyof typeof FLSpielbestaetigungSweepEmpfaengerRollenItem];
 
 export const FLSpielbestaetigungSweepEmpfaengerRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -7100,9 +7002,9 @@ export interface FLSpielbestaetigungSweepEmpfaenger {
  */
 export interface FLSpielbestaetigungSweepMitgeteiltPayload {
   /**
-     * @maxItems 25
-     * @items.pattern ^[0-9a-fA-F]{24}$
-     */
+   * @maxItems 25
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
   spielbestaetigung_ids: string[];
 }
 
@@ -7246,7 +7148,16 @@ export interface FLSpielbestaetigungenSelbstResponse {
  * match a fault or an open report names.
  */
 export interface FLSpieleActionRequiredResponse {
-  bracket_faults: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
+  bracket_faults: (
+    | FLBracketFaultGruppe
+    | FLBracketFaultQuelle
+    | FLBracketFaultSpiel
+    | FLBracketFaultSlot
+    | FLBracketFaultOccupant
+    | FLBracketFaultSpieltag
+    | FLBracketFaultBooking
+    | FLBracketFaultClash
+  )[];
   spielberichte: FLSpielberichtZustandEintrag[];
   spiele: FLSpielJoinedAdmin[];
 }
@@ -7291,14 +7202,13 @@ export interface FLSpielerAdminSingleResponse {
   vorname: string;
 }
 
-export type FLSpielerPublicPosition = typeof FLSpielerPublicPosition[keyof typeof FLSpielerPublicPosition] | null;
-
+export type FLSpielerPublicPosition = (typeof FLSpielerPublicPosition)[keyof typeof FLSpielerPublicPosition] | null;
 
 export const FLSpielerPublicPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
 /**
@@ -7318,34 +7228,31 @@ export interface FLSpielerListResponse {
   spieler: FLSpielerPublic[];
 }
 
-export type FLSpielerMembershipPosition = typeof FLSpielerMembershipPosition[keyof typeof FLSpielerMembershipPosition] | null;
-
+export type FLSpielerMembershipPosition = (typeof FLSpielerMembershipPosition)[keyof typeof FLSpielerMembershipPosition] | null;
 
 export const FLSpielerMembershipPosition = {
-  Tor: 'Tor',
-  Abwehr: 'Abwehr',
-  Mittelfeld: 'Mittelfeld',
-  Angriff: 'Angriff',
+  Tor: "Tor",
+  Abwehr: "Abwehr",
+  Mittelfeld: "Mittelfeld",
+  Angriff: "Angriff",
 } as const;
 
-export type FLSpielerMembershipRolle = typeof FLSpielerMembershipRolle[keyof typeof FLSpielerMembershipRolle] | null;
-
+export type FLSpielerMembershipRolle = (typeof FLSpielerMembershipRolle)[keyof typeof FLSpielerMembershipRolle] | null;
 
 export const FLSpielerMembershipRolle = {
-  kapitaen: 'kapitaen',
-  co_kapitaen: 'co_kapitaen',
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLSpielerMembershipStufe = typeof FLSpielerMembershipStufe[keyof typeof FLSpielerMembershipStufe] | null;
-
+export type FLSpielerMembershipStufe = (typeof FLSpielerMembershipStufe)[keyof typeof FLSpielerMembershipStufe] | null;
 
 export const FLSpielerMembershipStufe = {
-  E1: 'E1',
-  E2: 'E2',
-  Q1: 'Q1',
-  Q2: 'Q2',
-  Q3: 'Q3',
-  Q4: 'Q4',
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
 } as const;
 
 /**
@@ -7366,12 +7273,12 @@ export interface FLSpielerMembership {
   team_id: string;
 }
 
-export type FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt = typeof FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt[keyof typeof FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt] | null;
-
+export type FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt =
+  (typeof FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt)[keyof typeof FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt] | null;
 
 export const FLSpielerWithMembershipsAdresswechselEinsehbarVerwehrt = {
-  eigene: 'eigene',
-  verwaltung: 'verwaltung',
+  eigene: "eigene",
+  verwaltung: "verwaltung",
 } as const;
 
 /**
@@ -7427,21 +7334,21 @@ export interface FLSpielerSelbst {
   vorname: string;
 }
 
-export type FLSpielerSelbstEinwilligungPayloadUmfang = typeof FLSpielerSelbstEinwilligungPayloadUmfang[keyof typeof FLSpielerSelbstEinwilligungPayloadUmfang];
-
+export type FLSpielerSelbstEinwilligungPayloadUmfang =
+  (typeof FLSpielerSelbstEinwilligungPayloadUmfang)[keyof typeof FLSpielerSelbstEinwilligungPayloadUmfang];
 
 export const FLSpielerSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: 'kader_oeffentlich',
-  intern: 'intern',
+  kader_oeffentlich: "kader_oeffentlich",
+  intern: "intern",
 } as const;
 
 export interface FLSpielerSelbstEinwilligungPayload {
   medien: boolean;
   nachweis_stand: FLEinwilligungStandPayload;
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   text_version: string;
   umfang: FLSpielerSelbstEinwilligungPayloadUmfang;
 }
@@ -7491,15 +7398,14 @@ export interface FLSpielorteSingleResponse {
   spielort: FLSpielort;
 }
 
-export type FLSpieltagSaisonPhase = typeof FLSpieltagSaisonPhase[keyof typeof FLSpieltagSaisonPhase];
-
+export type FLSpieltagSaisonPhase = (typeof FLSpieltagSaisonPhase)[keyof typeof FLSpieltagSaisonPhase];
 
 export const FLSpieltagSaisonPhase = {
-  gruppenphase: 'gruppenphase',
-  achtelfinale: 'achtelfinale',
-  viertelfinale: 'viertelfinale',
-  halbfinale: 'halbfinale',
-  finale: 'finale',
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
 } as const;
 
 export interface FLSpieltag {
@@ -7512,9 +7418,9 @@ export interface FLSpieltag {
   /** @minimum 1 */
   position: number;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   saison_phase: FLSpieltagSaisonPhase;
 }
@@ -7541,12 +7447,11 @@ export interface FLSubjektPayload {
   email: string;
 }
 
-export type FLSubjektResponseVerwaltung = typeof FLSubjektResponseVerwaltung[keyof typeof FLSubjektResponseVerwaltung] | null;
-
+export type FLSubjektResponseVerwaltung = (typeof FLSubjektResponseVerwaltung)[keyof typeof FLSubjektResponseVerwaltung] | null;
 
 export const FLSubjektResponseVerwaltung = {
-  owner: 'owner',
-  administration: 'administration',
+  owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -7557,22 +7462,20 @@ export interface FLSubjektSchiedsrichter {
   schiedsrichter_id: string;
 }
 
-export type FLSubjektSitzRolle = typeof FLSubjektSitzRolle[keyof typeof FLSubjektSitzRolle];
-
+export type FLSubjektSitzRolle = (typeof FLSubjektSitzRolle)[keyof typeof FLSubjektSitzRolle];
 
 export const FLSubjektSitzRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLSubjektSitzSaisonStatus = typeof FLSubjektSitzSaisonStatus[keyof typeof FLSubjektSitzSaisonStatus];
-
+export type FLSubjektSitzSaisonStatus = (typeof FLSubjektSitzSaisonStatus)[keyof typeof FLSubjektSitzSaisonStatus];
 
 export const FLSubjektSitzSaisonStatus = {
-  past: 'past',
-  active: 'active',
-  future: 'future',
+  past: "past",
+  active: "active",
+  future: "future",
 } as const;
 
 /**
@@ -7630,48 +7533,46 @@ export interface FLSwapGruppenPayload {
   team2_id: string;
 }
 
-export type FLSwapGruppenResponseTeam1Gruppe = typeof FLSwapGruppenResponseTeam1Gruppe[keyof typeof FLSwapGruppenResponseTeam1Gruppe];
-
+export type FLSwapGruppenResponseTeam1Gruppe = (typeof FLSwapGruppenResponseTeam1Gruppe)[keyof typeof FLSwapGruppenResponseTeam1Gruppe];
 
 export const FLSwapGruppenResponseTeam1Gruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLSwapGruppenResponseTeam2Gruppe = typeof FLSwapGruppenResponseTeam2Gruppe[keyof typeof FLSwapGruppenResponseTeam2Gruppe];
-
+export type FLSwapGruppenResponseTeam2Gruppe = (typeof FLSwapGruppenResponseTeam2Gruppe)[keyof typeof FLSwapGruppenResponseTeam2Gruppe];
 
 export const FLSwapGruppenResponseTeam2Gruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
 /**
@@ -7680,9 +7581,9 @@ export const FLSwapGruppenResponseTeam2Gruppe = {
 export interface FLSwapGruppenResponse {
   rewritten_spiele: number;
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   team1_gruppe: FLSwapGruppenResponseTeam1Gruppe;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -7692,38 +7593,36 @@ export interface FLSwapGruppenResponse {
   team2_id: string;
 }
 
-export type FLTeamGruppe = typeof FLTeamGruppe[keyof typeof FLTeamGruppe];
-
+export type FLTeamGruppe = (typeof FLTeamGruppe)[keyof typeof FLTeamGruppe];
 
 export const FLTeamGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLTeamSchulform = typeof FLTeamSchulform[keyof typeof FLTeamSchulform] | null;
-
+export type FLTeamSchulform = (typeof FLTeamSchulform)[keyof typeof FLTeamSchulform] | null;
 
 export const FLTeamSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 export interface FLTeam {
@@ -7746,56 +7645,54 @@ export interface FLTeam {
   website_url: string | null;
 }
 
-export type FLTeamMembershipGruppe = typeof FLTeamMembershipGruppe[keyof typeof FLTeamMembershipGruppe];
-
+export type FLTeamMembershipGruppe = (typeof FLTeamMembershipGruppe)[keyof typeof FLTeamMembershipGruppe];
 
 export const FLTeamMembershipGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type FLTeamMembershipTrikotFarbe = typeof FLTeamMembershipTrikotFarbe[keyof typeof FLTeamMembershipTrikotFarbe] | null;
-
+export type FLTeamMembershipTrikotFarbe = (typeof FLTeamMembershipTrikotFarbe)[keyof typeof FLTeamMembershipTrikotFarbe] | null;
 
 export const FLTeamMembershipTrikotFarbe = {
-  schwarz: 'schwarz',
-  weiss: 'weiss',
-  grau: 'grau',
-  braun: 'braun',
-  bordeaux: 'bordeaux',
-  rot: 'rot',
-  koralle: 'koralle',
-  orange: 'orange',
-  gold: 'gold',
-  gelb: 'gelb',
-  limette: 'limette',
-  hellgruen: 'hellgruen',
-  gruen: 'gruen',
-  smaragd: 'smaragd',
-  tuerkis: 'tuerkis',
-  cyan: 'cyan',
-  hellblau: 'hellblau',
-  meerblau: 'meerblau',
-  blau: 'blau',
-  dunkelblau: 'dunkelblau',
-  flieder: 'flieder',
-  violett: 'violett',
-  magenta: 'magenta',
-  rosa: 'rosa',
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
 } as const;
 
 /**
@@ -7813,13 +7710,12 @@ export interface FLTeamMembership {
   trikot_farbe: FLTeamMembershipTrikotFarbe;
 }
 
-export type FLTeamSitzRolle = typeof FLTeamSitzRolle[keyof typeof FLTeamSitzRolle];
-
+export type FLTeamSitzRolle = (typeof FLTeamSitzRolle)[keyof typeof FLTeamSitzRolle];
 
 export const FLTeamSitzRolle = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -7844,16 +7740,15 @@ export interface FLTeamSitzeResponse {
   team_id: string;
 }
 
-export type FLTeamWithMembershipsSchulform = typeof FLTeamWithMembershipsSchulform[keyof typeof FLTeamWithMembershipsSchulform] | null;
-
+export type FLTeamWithMembershipsSchulform = (typeof FLTeamWithMembershipsSchulform)[keyof typeof FLTeamWithMembershipsSchulform] | null;
 
 export const FLTeamWithMembershipsSchulform = {
-  gymnasium_g8: 'gymnasium_g8',
-  gymnasium_g9: 'gymnasium_g9',
-  gesamtschule: 'gesamtschule',
-  privatschule_g8: 'privatschule_g8',
-  privatschule_g9: 'privatschule_g9',
-  oberstufengymnasium: 'oberstufengymnasium',
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
 } as const;
 
 /**
@@ -7894,14 +7789,14 @@ export interface FLTeamWriteResponse {
  * cutoff drawn from a different season than the table it marks.
  */
 export interface FLTeamsGroupedResponse {
-  format: 'grouped';
+  format: "grouped";
   gruppen: FLGruppen;
   /** @exclusiveMinimum 0 */
   qualifiers_per_group: number;
 }
 
 export interface FLTeamsListResponse {
-  format: 'list';
+  format: "list";
   teams: FLTeam[];
 }
 
@@ -7918,7 +7813,7 @@ export interface FLTeamsMembershipsResponse {
  * Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
  */
 export interface FLTeamsSingleResponse {
-  format: 'single';
+  format: "single";
   team: FLTeam;
 }
 
@@ -7930,9 +7825,9 @@ export interface FLTeamsSingleResponse {
  */
 export interface FLUndrawSpielplanResponse {
   /**
-     * @minLength 4
-     * @maxLength 4
-     */
+   * @minLength 4
+   * @maxLength 4
+   */
   saison_id: string;
   /** @minimum 0 */
   spiele: number;
@@ -7941,25 +7836,24 @@ export interface FLUndrawSpielplanResponse {
   watermark_cleared: boolean;
 }
 
-export type FLZustellungAbgewiesenPayloadRollenItem = typeof FLZustellungAbgewiesenPayloadRollenItem[keyof typeof FLZustellungAbgewiesenPayloadRollenItem];
-
+export type FLZustellungAbgewiesenPayloadRollenItem =
+  (typeof FLZustellungAbgewiesenPayloadRollenItem)[keyof typeof FLZustellungAbgewiesenPayloadRollenItem];
 
 export const FLZustellungAbgewiesenPayloadRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLZustellungAbgewiesenPayloadZiel = typeof FLZustellungAbgewiesenPayloadZiel[keyof typeof FLZustellungAbgewiesenPayloadZiel];
-
+export type FLZustellungAbgewiesenPayloadZiel = (typeof FLZustellungAbgewiesenPayloadZiel)[keyof typeof FLZustellungAbgewiesenPayloadZiel];
 
 export const FLZustellungAbgewiesenPayloadZiel = {
-  schiedsrichter: 'schiedsrichter',
-  einladung: 'einladung',
-  registrierung: 'registrierung',
-  kontakt: 'kontakt',
-  adresswechsel: 'adresswechsel',
-  spielbestaetigung: 'spielbestaetigung',
+  schiedsrichter: "schiedsrichter",
+  einladung: "einladung",
+  registrierung: "registrierung",
+  kontakt: "kontakt",
+  adresswechsel: "adresswechsel",
+  spielbestaetigung: "spielbestaetigung",
 } as const;
 
 /**
@@ -7967,9 +7861,9 @@ export const FLZustellungAbgewiesenPayloadZiel = {
  */
 export interface FLZustellungAbgewiesenPayload {
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   am: string;
   grund: string | null;
   rollen: FLZustellungAbgewiesenPayloadRollenItem[];
@@ -7978,25 +7872,24 @@ export interface FLZustellungAbgewiesenPayload {
   ziel_id: string;
 }
 
-export type FLZustellungAngenommenPayloadRollenItem = typeof FLZustellungAngenommenPayloadRollenItem[keyof typeof FLZustellungAngenommenPayloadRollenItem];
-
+export type FLZustellungAngenommenPayloadRollenItem =
+  (typeof FLZustellungAngenommenPayloadRollenItem)[keyof typeof FLZustellungAngenommenPayloadRollenItem];
 
 export const FLZustellungAngenommenPayloadRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLZustellungAngenommenPayloadZiel = typeof FLZustellungAngenommenPayloadZiel[keyof typeof FLZustellungAngenommenPayloadZiel];
-
+export type FLZustellungAngenommenPayloadZiel = (typeof FLZustellungAngenommenPayloadZiel)[keyof typeof FLZustellungAngenommenPayloadZiel];
 
 export const FLZustellungAngenommenPayloadZiel = {
-  schiedsrichter: 'schiedsrichter',
-  einladung: 'einladung',
-  registrierung: 'registrierung',
-  kontakt: 'kontakt',
-  adresswechsel: 'adresswechsel',
-  spielbestaetigung: 'spielbestaetigung',
+  schiedsrichter: "schiedsrichter",
+  einladung: "einladung",
+  registrierung: "registrierung",
+  kontakt: "kontakt",
+  adresswechsel: "adresswechsel",
+  spielbestaetigung: "spielbestaetigung",
 } as const;
 
 /**
@@ -8004,14 +7897,14 @@ export const FLZustellungAngenommenPayloadZiel = {
  */
 export interface FLZustellungAngenommenPayload {
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   am: string;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   nachricht_id: string;
   rollen: FLZustellungAngenommenPayloadRollenItem[];
   ziel: FLZustellungAngenommenPayloadZiel;
@@ -8019,36 +7912,34 @@ export interface FLZustellungAngenommenPayload {
   ziel_id: string;
 }
 
-export type FLZustellungEreignisPayloadRollenItem = typeof FLZustellungEreignisPayloadRollenItem[keyof typeof FLZustellungEreignisPayloadRollenItem];
-
+export type FLZustellungEreignisPayloadRollenItem =
+  (typeof FLZustellungEreignisPayloadRollenItem)[keyof typeof FLZustellungEreignisPayloadRollenItem];
 
 export const FLZustellungEreignisPayloadRollenItem = {
-  trainer: 'trainer',
-  ansprechperson: 'ansprechperson',
-  stellvertretung: 'stellvertretung',
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
-export type FLZustellungEreignisPayloadStand = typeof FLZustellungEreignisPayloadStand[keyof typeof FLZustellungEreignisPayloadStand];
-
+export type FLZustellungEreignisPayloadStand = (typeof FLZustellungEreignisPayloadStand)[keyof typeof FLZustellungEreignisPayloadStand];
 
 export const FLZustellungEreignisPayloadStand = {
-  zugestellt: 'zugestellt',
-  verzoegert: 'verzoegert',
-  unzustellbar: 'unzustellbar',
-  unterdrueckt: 'unterdrueckt',
-  beschwerde: 'beschwerde',
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
 } as const;
 
-export type FLZustellungEreignisPayloadZiel = typeof FLZustellungEreignisPayloadZiel[keyof typeof FLZustellungEreignisPayloadZiel];
-
+export type FLZustellungEreignisPayloadZiel = (typeof FLZustellungEreignisPayloadZiel)[keyof typeof FLZustellungEreignisPayloadZiel];
 
 export const FLZustellungEreignisPayloadZiel = {
-  schiedsrichter: 'schiedsrichter',
-  einladung: 'einladung',
-  registrierung: 'registrierung',
-  kontakt: 'kontakt',
-  adresswechsel: 'adresswechsel',
-  spielbestaetigung: 'spielbestaetigung',
+  schiedsrichter: "schiedsrichter",
+  einladung: "einladung",
+  registrierung: "registrierung",
+  kontakt: "kontakt",
+  adresswechsel: "adresswechsel",
+  spielbestaetigung: "spielbestaetigung",
 } as const;
 
 /**
@@ -8056,15 +7947,15 @@ export const FLZustellungEreignisPayloadZiel = {
  */
 export interface FLZustellungEreignisPayload {
   /**
-     * @minLength 1
-     * @maxLength 64
-     */
+   * @minLength 1
+   * @maxLength 64
+   */
   am: string;
   grund: string | null;
   /**
-     * @minLength 1
-     * @maxLength 128
-     */
+   * @minLength 1
+   * @maxLength 128
+   */
   nachricht_id: string;
   rollen: FLZustellungEreignisPayloadRollenItem[];
   stand: FLZustellungEreignisPayloadStand;
@@ -8134,571 +8025,544 @@ export type N500Response = FLFailureBody;
 export type N503Response = FLFailureBody;
 
 export type AdresswechselSweepAdresswechselParams = {
-nach?: string | null;
+  nach?: string | null;
 };
 
 export type AktionenGetAktionenParams = {
-collection?: string;
-operation?: string;
-herkunft?: string;
-trace_id?: string | null;
-document_id?: string | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-order?: AktionenGetAktionenOrder;
+  collection?: string;
+  operation?: string;
+  herkunft?: string;
+  trace_id?: string | null;
+  document_id?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  order?: AktionenGetAktionenOrder;
 };
 
-export type AktionenGetAktionenOrder = typeof AktionenGetAktionenOrder[keyof typeof AktionenGetAktionenOrder];
-
+export type AktionenGetAktionenOrder = (typeof AktionenGetAktionenOrder)[keyof typeof AktionenGetAktionenOrder];
 
 export const AktionenGetAktionenOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type BewerbungenGetBewerbungenParams = {
-saison_id?: string | null;
-saisonbezug?: string;
-status?: string;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: 'eingereicht_am';
-order?: BewerbungenGetBewerbungenOrder;
+  saison_id?: string | null;
+  saisonbezug?: string;
+  status?: string;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: "eingereicht_am";
+  order?: BewerbungenGetBewerbungenOrder;
 };
 
-export type BewerbungenGetBewerbungenOrder = typeof BewerbungenGetBewerbungenOrder[keyof typeof BewerbungenGetBewerbungenOrder];
-
+export type BewerbungenGetBewerbungenOrder = (typeof BewerbungenGetBewerbungenOrder)[keyof typeof BewerbungenGetBewerbungenOrder];
 
 export const BewerbungenGetBewerbungenOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type IdentitaetPostLoeschungLaufParams = {
-nach?: string | null;
+  nach?: string | null;
 };
 
 export type RegistrierungenGetRegistrierungenParams = {
-saison_id?: string | null;
-team_id?: string | null;
-status?: RegistrierungenGetRegistrierungenStatus;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: 'eingereicht_am';
-order?: RegistrierungenGetRegistrierungenOrder;
+  saison_id?: string | null;
+  team_id?: string | null;
+  status?: RegistrierungenGetRegistrierungenStatus;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: "eingereicht_am";
+  order?: RegistrierungenGetRegistrierungenOrder;
 };
 
-export type RegistrierungenGetRegistrierungenStatus = typeof RegistrierungenGetRegistrierungenStatus[keyof typeof RegistrierungenGetRegistrierungenStatus] | null;
-
+export type RegistrierungenGetRegistrierungenStatus =
+  (typeof RegistrierungenGetRegistrierungenStatus)[keyof typeof RegistrierungenGetRegistrierungenStatus] | null;
 
 export const RegistrierungenGetRegistrierungenStatus = {
-  eingereicht: 'eingereicht',
-  abgelehnt: 'abgelehnt',
+  eingereicht: "eingereicht",
+  abgelehnt: "abgelehnt",
 } as const;
 
-export type RegistrierungenGetRegistrierungenOrder = typeof RegistrierungenGetRegistrierungenOrder[keyof typeof RegistrierungenGetRegistrierungenOrder];
-
+export type RegistrierungenGetRegistrierungenOrder =
+  (typeof RegistrierungenGetRegistrierungenOrder)[keyof typeof RegistrierungenGetRegistrierungenOrder];
 
 export const RegistrierungenGetRegistrierungenOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type RegistrierungenGetOffeneRegistrierungenParams = {
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-order?: RegistrierungenGetOffeneRegistrierungenOrder;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  order?: RegistrierungenGetOffeneRegistrierungenOrder;
 };
 
-export type RegistrierungenGetOffeneRegistrierungenOrder = typeof RegistrierungenGetOffeneRegistrierungenOrder[keyof typeof RegistrierungenGetOffeneRegistrierungenOrder];
-
+export type RegistrierungenGetOffeneRegistrierungenOrder =
+  (typeof RegistrierungenGetOffeneRegistrierungenOrder)[keyof typeof RegistrierungenGetOffeneRegistrierungenOrder];
 
 export const RegistrierungenGetOffeneRegistrierungenOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SaisonsGetSaisonsParams = {
-status?: SaisonsGetSaisonsStatus;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SaisonsGetSaisonsSortBy;
-order?: SaisonsGetSaisonsOrder;
+  status?: SaisonsGetSaisonsStatus;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SaisonsGetSaisonsSortBy;
+  order?: SaisonsGetSaisonsOrder;
 };
 
-export type SaisonsGetSaisonsStatus = typeof SaisonsGetSaisonsStatus[keyof typeof SaisonsGetSaisonsStatus] | null;
-
+export type SaisonsGetSaisonsStatus = (typeof SaisonsGetSaisonsStatus)[keyof typeof SaisonsGetSaisonsStatus] | null;
 
 export const SaisonsGetSaisonsStatus = {
-  past: 'past',
-  active: 'active',
-  future: 'future',
+  past: "past",
+  active: "active",
+  future: "future",
 } as const;
 
-export type SaisonsGetSaisonsSortBy = typeof SaisonsGetSaisonsSortBy[keyof typeof SaisonsGetSaisonsSortBy];
-
+export type SaisonsGetSaisonsSortBy = (typeof SaisonsGetSaisonsSortBy)[keyof typeof SaisonsGetSaisonsSortBy];
 
 export const SaisonsGetSaisonsSortBy = {
-  _id: '_id',
-  start_date: 'start_date',
-  end_date: 'end_date',
+  _id: "_id",
+  start_date: "start_date",
+  end_date: "end_date",
 } as const;
 
-export type SaisonsGetSaisonsOrder = typeof SaisonsGetSaisonsOrder[keyof typeof SaisonsGetSaisonsOrder];
-
+export type SaisonsGetSaisonsOrder = (typeof SaisonsGetSaisonsOrder)[keyof typeof SaisonsGetSaisonsOrder];
 
 export const SaisonsGetSaisonsOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SaisonsGetSaisonsForAdminParams = {
-status?: SaisonsGetSaisonsForAdminStatus;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SaisonsGetSaisonsForAdminSortBy;
-order?: SaisonsGetSaisonsForAdminOrder;
+  status?: SaisonsGetSaisonsForAdminStatus;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SaisonsGetSaisonsForAdminSortBy;
+  order?: SaisonsGetSaisonsForAdminOrder;
 };
 
-export type SaisonsGetSaisonsForAdminStatus = typeof SaisonsGetSaisonsForAdminStatus[keyof typeof SaisonsGetSaisonsForAdminStatus] | null;
-
+export type SaisonsGetSaisonsForAdminStatus = (typeof SaisonsGetSaisonsForAdminStatus)[keyof typeof SaisonsGetSaisonsForAdminStatus] | null;
 
 export const SaisonsGetSaisonsForAdminStatus = {
-  past: 'past',
-  active: 'active',
-  future: 'future',
+  past: "past",
+  active: "active",
+  future: "future",
 } as const;
 
-export type SaisonsGetSaisonsForAdminSortBy = typeof SaisonsGetSaisonsForAdminSortBy[keyof typeof SaisonsGetSaisonsForAdminSortBy];
-
+export type SaisonsGetSaisonsForAdminSortBy = (typeof SaisonsGetSaisonsForAdminSortBy)[keyof typeof SaisonsGetSaisonsForAdminSortBy];
 
 export const SaisonsGetSaisonsForAdminSortBy = {
-  _id: '_id',
-  start_date: 'start_date',
-  end_date: 'end_date',
+  _id: "_id",
+  start_date: "start_date",
+  end_date: "end_date",
 } as const;
 
-export type SaisonsGetSaisonsForAdminOrder = typeof SaisonsGetSaisonsForAdminOrder[keyof typeof SaisonsGetSaisonsForAdminOrder];
-
+export type SaisonsGetSaisonsForAdminOrder = (typeof SaisonsGetSaisonsForAdminOrder)[keyof typeof SaisonsGetSaisonsForAdminOrder];
 
 export const SaisonsGetSaisonsForAdminOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SaisonsPreviewEinladungenVersandParams = {
-erneut?: boolean;
+  erneut?: boolean;
 };
 
 export type SchiedsrichterGetSchiedsrichterParams = {
-default_payment?: number | null;
-include_inactive?: boolean;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SchiedsrichterGetSchiedsrichterSortBy;
-order?: SchiedsrichterGetSchiedsrichterOrder;
+  default_payment?: number | null;
+  include_inactive?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SchiedsrichterGetSchiedsrichterSortBy;
+  order?: SchiedsrichterGetSchiedsrichterOrder;
 };
 
-export type SchiedsrichterGetSchiedsrichterSortBy = typeof SchiedsrichterGetSchiedsrichterSortBy[keyof typeof SchiedsrichterGetSchiedsrichterSortBy];
-
+export type SchiedsrichterGetSchiedsrichterSortBy =
+  (typeof SchiedsrichterGetSchiedsrichterSortBy)[keyof typeof SchiedsrichterGetSchiedsrichterSortBy];
 
 export const SchiedsrichterGetSchiedsrichterSortBy = {
-  name: 'name',
-  default_payment: 'default_payment',
+  name: "name",
+  default_payment: "default_payment",
 } as const;
 
-export type SchiedsrichterGetSchiedsrichterOrder = typeof SchiedsrichterGetSchiedsrichterOrder[keyof typeof SchiedsrichterGetSchiedsrichterOrder];
-
+export type SchiedsrichterGetSchiedsrichterOrder =
+  (typeof SchiedsrichterGetSchiedsrichterOrder)[keyof typeof SchiedsrichterGetSchiedsrichterOrder];
 
 export const SchiedsrichterGetSchiedsrichterOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpielberichteGetSpielberichteParams = {
-saison_id?: string | null;
+  saison_id?: string | null;
 };
 
 export type SpielberichteGetSpielberichtAdminParams = {
-/**
- * Serve both clubs' live squads of the season, for a form picking from them
- */
-kader?: boolean;
+  /**
+   * Serve both clubs' live squads of the season, for a form picking from them
+   */
+  kader?: boolean;
 };
 
 export type SpielbestaetigungenGetSpielbestaetigungenParams = {
-saison_id: string;
-spiel_id?: string | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
+  saison_id: string;
+  spiel_id?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
 };
 
 export type SpieleGetSpieleParams = {
-saison_id?: string | null;
-saison_phase?: 'playoffs' | 'gruppenphase' | 'achtelfinale' | 'viertelfinale' | 'halbfinale' | 'finale' | null;
-spiel_status?: SpieleGetSpieleSpielStatus;
-team_id?: string | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SpieleGetSpieleSortBy;
-order?: SpieleGetSpieleOrder;
+  saison_id?: string | null;
+  saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
+  spiel_status?: SpieleGetSpieleSpielStatus;
+  team_id?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SpieleGetSpieleSortBy;
+  order?: SpieleGetSpieleOrder;
 };
 
-export type SpieleGetSpieleSpielStatus = typeof SpieleGetSpieleSpielStatus[keyof typeof SpieleGetSpieleSpielStatus] | null;
-
+export type SpieleGetSpieleSpielStatus = (typeof SpieleGetSpieleSpielStatus)[keyof typeof SpieleGetSpieleSpielStatus] | null;
 
 export const SpieleGetSpieleSpielStatus = {
-  ausstehend: 'ausstehend',
-  vergangen: 'vergangen',
-  heute: 'heute',
-  abgesagt: 'abgesagt',
-  unbekannt: 'unbekannt',
+  ausstehend: "ausstehend",
+  vergangen: "vergangen",
+  heute: "heute",
+  abgesagt: "abgesagt",
+  unbekannt: "unbekannt",
 } as const;
 
-export type SpieleGetSpieleSortBy = typeof SpieleGetSpieleSortBy[keyof typeof SpieleGetSpieleSortBy];
-
+export type SpieleGetSpieleSortBy = (typeof SpieleGetSpieleSortBy)[keyof typeof SpieleGetSpieleSortBy];
 
 export const SpieleGetSpieleSortBy = {
-  datum: 'datum',
-  uhrzeit: 'uhrzeit',
-  spiel_nr: 'spiel_nr',
-  saison_phase: 'saison_phase',
+  datum: "datum",
+  uhrzeit: "uhrzeit",
+  spiel_nr: "spiel_nr",
+  saison_phase: "saison_phase",
 } as const;
 
-export type SpieleGetSpieleOrder = typeof SpieleGetSpieleOrder[keyof typeof SpieleGetSpieleOrder];
-
+export type SpieleGetSpieleOrder = (typeof SpieleGetSpieleOrder)[keyof typeof SpieleGetSpieleOrder];
 
 export const SpieleGetSpieleOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpieleGetSpieleActionRequiredParams = {
-saison_id?: string | null;
+  saison_id?: string | null;
 };
 
 export type SpieleGetSpieleForAdminParams = {
-saison_id?: string | null;
-saison_phase?: 'playoffs' | 'gruppenphase' | 'achtelfinale' | 'viertelfinale' | 'halbfinale' | 'finale' | null;
-spiel_status?: SpieleGetSpieleForAdminSpielStatus;
-team_id?: string | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SpieleGetSpieleForAdminSortBy;
-order?: SpieleGetSpieleForAdminOrder;
+  saison_id?: string | null;
+  saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
+  spiel_status?: SpieleGetSpieleForAdminSpielStatus;
+  team_id?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SpieleGetSpieleForAdminSortBy;
+  order?: SpieleGetSpieleForAdminOrder;
 };
 
-export type SpieleGetSpieleForAdminSpielStatus = typeof SpieleGetSpieleForAdminSpielStatus[keyof typeof SpieleGetSpieleForAdminSpielStatus] | null;
-
+export type SpieleGetSpieleForAdminSpielStatus =
+  (typeof SpieleGetSpieleForAdminSpielStatus)[keyof typeof SpieleGetSpieleForAdminSpielStatus] | null;
 
 export const SpieleGetSpieleForAdminSpielStatus = {
-  ausstehend: 'ausstehend',
-  vergangen: 'vergangen',
-  heute: 'heute',
-  abgesagt: 'abgesagt',
-  unbekannt: 'unbekannt',
+  ausstehend: "ausstehend",
+  vergangen: "vergangen",
+  heute: "heute",
+  abgesagt: "abgesagt",
+  unbekannt: "unbekannt",
 } as const;
 
-export type SpieleGetSpieleForAdminSortBy = typeof SpieleGetSpieleForAdminSortBy[keyof typeof SpieleGetSpieleForAdminSortBy];
-
+export type SpieleGetSpieleForAdminSortBy = (typeof SpieleGetSpieleForAdminSortBy)[keyof typeof SpieleGetSpieleForAdminSortBy];
 
 export const SpieleGetSpieleForAdminSortBy = {
-  datum: 'datum',
-  uhrzeit: 'uhrzeit',
-  spiel_nr: 'spiel_nr',
-  saison_phase: 'saison_phase',
+  datum: "datum",
+  uhrzeit: "uhrzeit",
+  spiel_nr: "spiel_nr",
+  saison_phase: "saison_phase",
 } as const;
 
-export type SpieleGetSpieleForAdminOrder = typeof SpieleGetSpieleForAdminOrder[keyof typeof SpieleGetSpieleForAdminOrder];
-
+export type SpieleGetSpieleForAdminOrder = (typeof SpieleGetSpieleForAdminOrder)[keyof typeof SpieleGetSpieleForAdminOrder];
 
 export const SpieleGetSpieleForAdminOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpielePatchSpielDataParams = {
-/**
- * The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted
- */
-uebernimmt_bericht?: number | null;
-/**
- * Report what this payload would move and destroy, and write nothing
- */
-dry_run?: boolean;
+  /**
+   * The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted
+   */
+  uebernimmt_bericht?: number | null;
+  /**
+   * Report what this payload would move and destroy, and write nothing
+   */
+  dry_run?: boolean;
 };
 
 export type SpielerGetSpielerParams = {
-team_id?: string | null;
-saison_id?: string | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SpielerGetSpielerSortBy;
-order?: SpielerGetSpielerOrder;
+  team_id?: string | null;
+  saison_id?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SpielerGetSpielerSortBy;
+  order?: SpielerGetSpielerOrder;
 };
 
-export type SpielerGetSpielerSortBy = typeof SpielerGetSpielerSortBy[keyof typeof SpielerGetSpielerSortBy];
-
+export type SpielerGetSpielerSortBy = (typeof SpielerGetSpielerSortBy)[keyof typeof SpielerGetSpielerSortBy];
 
 export const SpielerGetSpielerSortBy = {
-  vorname: 'vorname',
-  nummer: 'nummer',
-  position: 'position',
+  vorname: "vorname",
+  nummer: "nummer",
+  position: "position",
 } as const;
 
-export type SpielerGetSpielerOrder = typeof SpielerGetSpielerOrder[keyof typeof SpielerGetSpielerOrder];
-
+export type SpielerGetSpielerOrder = (typeof SpielerGetSpielerOrder)[keyof typeof SpielerGetSpielerOrder];
 
 export const SpielerGetSpielerOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpielorteGetSpielorteParams = {
-include_inactive?: boolean;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: 'name';
-order?: SpielorteGetSpielorteOrder;
+  include_inactive?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: "name";
+  order?: SpielorteGetSpielorteOrder;
 };
 
-export type SpielorteGetSpielorteOrder = typeof SpielorteGetSpielorteOrder[keyof typeof SpielorteGetSpielorteOrder];
-
+export type SpielorteGetSpielorteOrder = (typeof SpielorteGetSpielorteOrder)[keyof typeof SpielorteGetSpielorteOrder];
 
 export const SpielorteGetSpielorteOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpieltageGetSpieltageParams = {
-saison_id?: string | null;
-saison_phase?: 'playoffs' | 'gruppenphase' | 'achtelfinale' | 'viertelfinale' | 'halbfinale' | 'finale' | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SpieltageGetSpieltageSortBy;
-order?: SpieltageGetSpieltageOrder;
+  saison_id?: string | null;
+  saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SpieltageGetSpieltageSortBy;
+  order?: SpieltageGetSpieltageOrder;
 };
 
-export type SpieltageGetSpieltageSortBy = typeof SpieltageGetSpieltageSortBy[keyof typeof SpieltageGetSpieltageSortBy];
-
+export type SpieltageGetSpieltageSortBy = (typeof SpieltageGetSpieltageSortBy)[keyof typeof SpieltageGetSpieltageSortBy];
 
 export const SpieltageGetSpieltageSortBy = {
-  natural: 'natural',
-  beginn: 'beginn',
-  ende: 'ende',
+  natural: "natural",
+  beginn: "beginn",
+  ende: "ende",
 } as const;
 
-export type SpieltageGetSpieltageOrder = typeof SpieltageGetSpieltageOrder[keyof typeof SpieltageGetSpieltageOrder];
-
+export type SpieltageGetSpieltageOrder = (typeof SpieltageGetSpieltageOrder)[keyof typeof SpieltageGetSpieltageOrder];
 
 export const SpieltageGetSpieltageOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type SpieltageGetSpieltageForAdminParams = {
-saison_id?: string | null;
-saison_phase?: 'playoffs' | 'gruppenphase' | 'achtelfinale' | 'viertelfinale' | 'halbfinale' | 'finale' | null;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: SpieltageGetSpieltageForAdminSortBy;
-order?: SpieltageGetSpieltageForAdminOrder;
+  saison_id?: string | null;
+  saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: SpieltageGetSpieltageForAdminSortBy;
+  order?: SpieltageGetSpieltageForAdminOrder;
 };
 
-export type SpieltageGetSpieltageForAdminSortBy = typeof SpieltageGetSpieltageForAdminSortBy[keyof typeof SpieltageGetSpieltageForAdminSortBy];
-
+export type SpieltageGetSpieltageForAdminSortBy =
+  (typeof SpieltageGetSpieltageForAdminSortBy)[keyof typeof SpieltageGetSpieltageForAdminSortBy];
 
 export const SpieltageGetSpieltageForAdminSortBy = {
-  natural: 'natural',
-  beginn: 'beginn',
-  ende: 'ende',
+  natural: "natural",
+  beginn: "beginn",
+  ende: "ende",
 } as const;
 
-export type SpieltageGetSpieltageForAdminOrder = typeof SpieltageGetSpieltageForAdminOrder[keyof typeof SpieltageGetSpieltageForAdminOrder];
-
+export type SpieltageGetSpieltageForAdminOrder = (typeof SpieltageGetSpieltageForAdminOrder)[keyof typeof SpieltageGetSpieltageForAdminOrder];
 
 export const SpieltageGetSpieltageForAdminOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type TeamsGetTeamsParams = {
-saison_id?: string | null;
-gruppe?: TeamsGetTeamsGruppe;
-has_austritt?: boolean | null;
-austritt_type?: TeamsGetTeamsAustrittType;
-in_gruppen?: boolean | null;
-statistik_scope?: TeamsGetTeamsStatistikScope;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: 'name';
-order?: TeamsGetTeamsOrder;
+  saison_id?: string | null;
+  gruppe?: TeamsGetTeamsGruppe;
+  has_austritt?: boolean | null;
+  austritt_type?: TeamsGetTeamsAustrittType;
+  in_gruppen?: boolean | null;
+  statistik_scope?: TeamsGetTeamsStatistikScope;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: "name";
+  order?: TeamsGetTeamsOrder;
 };
 
-export type TeamsGetTeamsGruppe = typeof TeamsGetTeamsGruppe[keyof typeof TeamsGetTeamsGruppe] | null;
-
+export type TeamsGetTeamsGruppe = (typeof TeamsGetTeamsGruppe)[keyof typeof TeamsGetTeamsGruppe] | null;
 
 export const TeamsGetTeamsGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type TeamsGetTeamsAustrittType = typeof TeamsGetTeamsAustrittType[keyof typeof TeamsGetTeamsAustrittType] | null;
-
+export type TeamsGetTeamsAustrittType = (typeof TeamsGetTeamsAustrittType)[keyof typeof TeamsGetTeamsAustrittType] | null;
 
 export const TeamsGetTeamsAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
-export type TeamsGetTeamsStatistikScope = typeof TeamsGetTeamsStatistikScope[keyof typeof TeamsGetTeamsStatistikScope];
-
+export type TeamsGetTeamsStatistikScope = (typeof TeamsGetTeamsStatistikScope)[keyof typeof TeamsGetTeamsStatistikScope];
 
 export const TeamsGetTeamsStatistikScope = {
-  gruppenphase: 'gruppenphase',
-  gesamt: 'gesamt',
+  gruppenphase: "gruppenphase",
+  gesamt: "gesamt",
 } as const;
 
-export type TeamsGetTeamsOrder = typeof TeamsGetTeamsOrder[keyof typeof TeamsGetTeamsOrder];
-
+export type TeamsGetTeamsOrder = (typeof TeamsGetTeamsOrder)[keyof typeof TeamsGetTeamsOrder];
 
 export const TeamsGetTeamsOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type TeamsGetTeamsForAdminParams = {
-saison_id?: string | null;
-gruppe?: TeamsGetTeamsForAdminGruppe;
-has_austritt?: boolean | null;
-austritt_type?: TeamsGetTeamsForAdminAustrittType;
-in_gruppen?: boolean | null;
-statistik_scope?: TeamsGetTeamsForAdminStatistikScope;
-/**
- * @minimum 1
- * @maximum 1024
- */
-limit?: number;
-sort_by?: 'name';
-order?: TeamsGetTeamsForAdminOrder;
-include_inactive?: boolean;
+  saison_id?: string | null;
+  gruppe?: TeamsGetTeamsForAdminGruppe;
+  has_austritt?: boolean | null;
+  austritt_type?: TeamsGetTeamsForAdminAustrittType;
+  in_gruppen?: boolean | null;
+  statistik_scope?: TeamsGetTeamsForAdminStatistikScope;
+  /**
+   * @minimum 1
+   * @maximum 1024
+   */
+  limit?: number;
+  sort_by?: "name";
+  order?: TeamsGetTeamsForAdminOrder;
+  include_inactive?: boolean;
 };
 
-export type TeamsGetTeamsForAdminGruppe = typeof TeamsGetTeamsForAdminGruppe[keyof typeof TeamsGetTeamsForAdminGruppe] | null;
-
+export type TeamsGetTeamsForAdminGruppe = (typeof TeamsGetTeamsForAdminGruppe)[keyof typeof TeamsGetTeamsForAdminGruppe] | null;
 
 export const TeamsGetTeamsForAdminGruppe = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  D: 'D',
-  E: 'E',
-  F: 'F',
-  G: 'G',
-  H: 'H',
-  I: 'I',
-  J: 'J',
-  K: 'K',
-  L: 'L',
-  M: 'M',
-  N: 'N',
-  O: 'O',
-  P: 'P',
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
+  F: "F",
+  G: "G",
+  H: "H",
+  I: "I",
+  J: "J",
+  K: "K",
+  L: "L",
+  M: "M",
+  N: "N",
+  O: "O",
+  P: "P",
 } as const;
 
-export type TeamsGetTeamsForAdminAustrittType = typeof TeamsGetTeamsForAdminAustrittType[keyof typeof TeamsGetTeamsForAdminAustrittType] | null;
-
+export type TeamsGetTeamsForAdminAustrittType =
+  (typeof TeamsGetTeamsForAdminAustrittType)[keyof typeof TeamsGetTeamsForAdminAustrittType] | null;
 
 export const TeamsGetTeamsForAdminAustrittType = {
-  disqualifikation: 'disqualifikation',
-  rueckzug: 'rueckzug',
+  disqualifikation: "disqualifikation",
+  rueckzug: "rueckzug",
 } as const;
 
-export type TeamsGetTeamsForAdminStatistikScope = typeof TeamsGetTeamsForAdminStatistikScope[keyof typeof TeamsGetTeamsForAdminStatistikScope];
-
+export type TeamsGetTeamsForAdminStatistikScope =
+  (typeof TeamsGetTeamsForAdminStatistikScope)[keyof typeof TeamsGetTeamsForAdminStatistikScope];
 
 export const TeamsGetTeamsForAdminStatistikScope = {
-  gruppenphase: 'gruppenphase',
-  gesamt: 'gesamt',
+  gruppenphase: "gruppenphase",
+  gesamt: "gesamt",
 } as const;
 
-export type TeamsGetTeamsForAdminOrder = typeof TeamsGetTeamsForAdminOrder[keyof typeof TeamsGetTeamsForAdminOrder];
-
+export type TeamsGetTeamsForAdminOrder = (typeof TeamsGetTeamsForAdminOrder)[keyof typeof TeamsGetTeamsForAdminOrder];
 
 export const TeamsGetTeamsForAdminOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type TeamsGetTeamParams = {
-saison_id?: string | null;
-statistik_scope?: TeamsGetTeamStatistikScope;
+  saison_id?: string | null;
+  statistik_scope?: TeamsGetTeamStatistikScope;
 };
 
-export type TeamsGetTeamStatistikScope = typeof TeamsGetTeamStatistikScope[keyof typeof TeamsGetTeamStatistikScope];
-
+export type TeamsGetTeamStatistikScope = (typeof TeamsGetTeamStatistikScope)[keyof typeof TeamsGetTeamStatistikScope];
 
 export const TeamsGetTeamStatistikScope = {
-  gruppenphase: 'gruppenphase',
-  gesamt: 'gesamt',
+  gruppenphase: "gruppenphase",
+  gesamt: "gesamt",
 } as const;
-
