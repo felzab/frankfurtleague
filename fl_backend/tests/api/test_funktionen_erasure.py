@@ -46,12 +46,12 @@ from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
-from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_hash
+from app.core.security import PASSKEY_FACTOR, akteur_pseudonym, loeschung_journal_hash
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
 from tests import documents
-from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
+from tests.actor_tokens import SignedActor, actor_headers
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
@@ -763,11 +763,9 @@ def as_person(email: str) -> SignedActor:
 
 
 def by_passkey(email: str) -> dict[str, str]:
-    """A person who confirmed with their passkey a second before the token, as the page's prompt leaves them: signed when called."""
+    """A person who confirmed with their passkey a second before the request, as the page's prompt leaves them."""
 
-    claims = {**actor_claims(email, lane="person", signed_in_before_s=1), "amr": [ACTOR_TOKEN_CONTRACT["admin_factor"]]}
-
-    return {**ADMIN_KEY, ACTOR_HEADER: sign(claims)}
+    return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=1, factor=PASSKEY_FACTOR)}
 
 
 async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:

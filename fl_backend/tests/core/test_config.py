@@ -32,7 +32,6 @@ from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
-from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
 from tests.core.app_source import api_routes
 from tests.worker import worker_database
 
@@ -56,7 +55,6 @@ REQUIRED = {
     "API_TRUSTED_HOSTS": "testserver,localhost",
     "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
     "DB_BASE_NAME": "frankfurtleague_test",
-    "ACTOR_TOKEN_PUBLIC_KEY": ACTOR_TOKEN_PUBLIC_KEY,
 }
 
 # Named as the secrets directory names them, each holding what a deployment's file would.
@@ -93,7 +91,6 @@ WELL_FORMED: dict[str, Any] = {
     "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
     "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
     "sperrliste_schluessel": SecretStr(BAN_LIST_KEY),
-    "actor_token_public_key": ACTOR_TOKEN_PUBLIC_KEY,
 }
 
 
@@ -552,48 +549,6 @@ class TestALineASecretFileReplaced:
         (tmp_path / ".env").write_bytes(b"MONGODB_URL=mongodb://typo.example\n")
 
         assert refusal(monkeypatch, tmp_path) == "Undeclared environment variables on 1 line(s): 1"
-
-
-class TestTheActorTokenPublicKey:
-    def test_an_environment_carrying_none_refuses_the_boot_naming_the_variable(self, monkeypatch, tmp_path):
-        """Without it no admin-tier request could be attributed, so the boot refuses rather than every request."""
-        an_environment(monkeypatch, tmp_path)
-        monkeypatch.delenv("ACTOR_TOKEN_PUBLIC_KEY")
-
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
-
-        assert str(raised.value) == "Invalid environment variables: ACTOR_TOKEN_PUBLIC_KEY"
-
-    @pytest.mark.parametrize(
-        "value",
-        [
-            pytest.param(ACTOR_TOKEN_PUBLIC_KEY + "=", id="padded"),
-            pytest.param(ACTOR_TOKEN_PUBLIC_KEY[:-1], id="one character short"),
-            pytest.param(ACTOR_TOKEN_PUBLIC_KEY + "A", id="one character long"),
-            pytest.param(ACTOR_TOKEN_PUBLIC_KEY[:-1] + "+", id="standard base64 rather than base64url"),
-            # 43 characters carry 258 bits, so the last one's low two bits are padding: a set one spells
-            # a second, non-canonical form of some key, which the decoder alone would accept.
-            pytest.param(ACTOR_TOKEN_PUBLIC_KEY[:-1] + "B", id="a non-canonical last character"),
-            pytest.param(" " + ACTOR_TOKEN_PUBLIC_KEY[1:], id="a character the decoder would drop"),
-            pytest.param(base64.urlsafe_b64encode(bytes(48)).decode("ascii"), id="a 48-byte value"),
-        ],
-    )
-    def test_anything_but_the_canonical_spelling_of_32_bytes_refuses_the_boot(self, value: str):
-        with pytest.raises(ValidationError):
-            build(actor_token_public_key=value)
-
-    def test_the_public_half_of_a_generated_pair_boots(self):
-        """The control: every refusal above would pass on a validator refusing everything."""
-        assert build().actor_token_public_key == ACTOR_TOKEN_PUBLIC_KEY
-
-    def test_a_refusal_names_the_variable_and_never_the_value(self, monkeypatch, tmp_path):
-        malformed = ACTOR_TOKEN_PUBLIC_KEY[:-1]
-
-        refused = refusal(monkeypatch, tmp_path, ACTOR_TOKEN_PUBLIC_KEY=malformed)
-
-        assert refused == "Invalid environment variables: ACTOR_TOKEN_PUBLIC_KEY"
-        assert malformed not in refused
 
 
 class TestTheNamesOnlyErrorPath:
