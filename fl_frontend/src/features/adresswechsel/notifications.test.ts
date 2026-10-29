@@ -95,9 +95,7 @@ describe("a change taking effect, as its caller's server finishes it", () => {
       assert.ok(kontoAn(NEU)?.sessionsEndedAt instanceof Date, "the carried account's sessions were never ended");
       assert.ok(!store.session.some(({ id }) => id === row.id), "a session of the replaced address outlives the carry");
       expect(store.passkey[0]?.userId, "the passkey left the account it was set up on").toBe(konto?.id);
-      expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
-        [BISHER, "Deine E-Mail-Adresse bei der Frankfurt League wurde geändert"],
-      ]);
+      expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([[BISHER, "Deine E-Mail-Adresse wurde geändert"]]);
     });
   }
 
@@ -169,9 +167,7 @@ describe("the notice of a due change the pass refused", () => {
     mail.answerWith(() => "barred");
     const gesperrt = await mailAdresswechselNichtWirksam({ operation: "test", email: NEU });
 
-    expect(mail.sent.map(({ to, subject }) => [to, subject]).slice(0, 1)).toStrictEqual([
-      [NEU, "Deine E-Mail-Adresse bei der Frankfurt League wurde nicht geändert"],
-    ]);
+    expect(mail.sent.map(({ to, subject }) => [to, subject]).slice(0, 1)).toStrictEqual([[NEU, "Deine E-Mail-Adresse wurde nicht geändert"]]);
     // Both done with: a barred address is never mailed, however often the outbox claims its row.
     expect([gesendet, gesperrt]).toStrictEqual([true, true]);
   });

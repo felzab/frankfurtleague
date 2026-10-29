@@ -48,7 +48,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 
 /**
  * Resolves nothing itself — a top-level await ties the FALLBACK-params App Shell to one URL, and
- * every match write invalidates the `teams` tag this route rides. `generateMetadata` above keeps
+ * every write clears the cache tag this route's reads carry. `generateMetadata` above keeps
  * its own await: it is not part of the shell.
  */
 export default function TeamDetailsPage(props: NextPageProps<{ team_id: string }>) {

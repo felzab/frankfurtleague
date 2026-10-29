@@ -1,11 +1,11 @@
 import "server-only";
 
 import { frontend_config } from "@/core/config";
+import { renderMail } from "@/core/emailShell";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
-import { revalidateOverLoopback } from "@/core/revalidation";
 import {
   buildSpielAbgesagtEmail,
   buildSpielAnfrageEmail,
@@ -30,7 +30,8 @@ import {
   postSpielbestaetigungSweepMitgeteilt,
 } from "./mutations";
 
-import type { SpielAnsetzungText, SpielEmail } from "@/core/spielEmail";
+import type { Mail } from "@/core/emailShell";
+import type { SpielAnsetzungText } from "@/core/spielEmail";
 import type { VersandAusfall } from "@/core/versandAusfall";
 import type {
   FLSpielbestaetigungAnsichtAnsetzung,
@@ -85,7 +86,8 @@ export function armSpielSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every season the listing answers, then the fixtures cache's drop.
+ * One pass over every season the listing answers. The fixture pages show what it closed within the `minutes`
+ * lifetime their cached read keeps.
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -101,8 +103,6 @@ export async function runSpielSweep(): Promise<void> {
   try {
     await sweepAlleSaisons();
   } finally {
-    // On every armed pass, one whose listing failed included.
-    await revalidateOverLoopback(["spiele"]);
     laeuft = false;
   }
 }
@@ -292,7 +292,7 @@ async function mailTeamHinweis(
     datum: formatSpielDatum(hinweis.alt.datum),
     uhrzeit: formatUhrzeit(hinweis.alt.uhrzeit),
   };
-  const bauen = (): SpielEmail => {
+  const bauen = (): Mail => {
     const { origin, team1, team2, datum, uhrzeit } = fakten;
     if (anlass === "vorschlag_verworfen")
       return buildSpielVorschlagVerworfenEmail({ origin, team1, team2, datumText: datum, uhrzeitText: uhrzeit });
@@ -384,11 +384,11 @@ async function mailEinteilung(einteilung: FLSpielbestaetigungSweepEinteilung): P
 }
 
 /** One message to a referee, on the lane no record holds (`fl_frontend/src/core/spielleitungTag.ts :: SPIELLEITUNG_TAG`). */
-async function mailSpielleitung(address: string, scope: readonly string[], bauen: () => SpielEmail): Promise<"gesendet" | VersandAusfall> {
+async function mailSpielleitung(address: string, scope: readonly string[], bauen: () => Mail): Promise<"gesendet" | VersandAusfall> {
   try {
     await sendMail({
       to: address,
-      ...bauen(),
+      ...renderMail(bauen()),
       tags: { [SPIELLEITUNG_TAG]: SPIELLEITUNG_HINWEIS },
       // The day in the key: the body carries no token and cannot change inside the provider's window.
       idempotencyKey: mailIdempotencyKey([...scope, getGermanTodayStr()], address),

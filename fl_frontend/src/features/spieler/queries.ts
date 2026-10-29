@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
@@ -25,13 +26,8 @@ import type { FLSpielerFilterParams } from "./types";
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
 
-  // Base tag only — the squad page reads the running season by naming none, so a season tag would miss
-  // the entry a squad save most often has to clear.
-  cacheTag("spieler");
-
-  // The consent record is an input here (`READ-PUPIL-003`) and no `spieler` write touches it: a
-  // writer of a pupil's consent that drops no tag leaves a withdrawn name published for days.
-  cacheLife("days");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {
     params: filters,

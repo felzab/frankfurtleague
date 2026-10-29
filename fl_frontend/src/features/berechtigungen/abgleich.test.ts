@@ -338,9 +338,7 @@ describe("one pass over the claimed changes", () => {
 
     await runBerechtigungenAbgleich();
 
-    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
-      ["anna@schule.de", "Antrag auf Zugang zur Verwaltung der Frankfurt League"],
-    ]);
+    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([["anna@schule.de", "Antrag auf Zugang zur Verwaltung"]]);
     assert.ok(mail.sent[0]?.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de wurde abgelehnt."));
     expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });

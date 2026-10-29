@@ -3,7 +3,6 @@ import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/quer
 import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
 import { mapAnsetzungRefusal } from "@/features/spielbestaetigungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
-import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -31,9 +30,6 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: ROUTE_NAME,
     run: async () => {
-      // Ahead of the first await: an answer moves the confirmation verdict the cached fixture list serves,
-      // so the list is dropped wherever the answer may stand, and nowhere a write was not sent.
-      invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
 
       const parsed = FLSpielbestaetigungAntwortPayloadSchema.safeParse(body);

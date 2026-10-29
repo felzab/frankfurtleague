@@ -3,6 +3,7 @@ import { inspect } from "node:util";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Mail } from "@/core/emailShell.ts";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung.ts";
 import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { ZielAuftrag } from "./notifications.ts";
@@ -77,11 +78,12 @@ const sitzAuftrag = {
   rollen: ["ansprechperson", "trainer"],
 } as const satisfies ZielAuftrag;
 
-const buildMail = (address: string) => ({
-  art: "schiedsrichter_bestaetigung" as const,
-  subject: "Bitte bestätige Deine Angaben",
-  html: `<p>${address}</p>`,
-  text: `Hallo ${address}`,
+const buildMail = (address: string): Mail => ({
+  art: "mitteilung",
+  betreff: "Bitte bestätige Deine Angaben",
+  origin: "https://example.com",
+  vorname: "",
+  absaetze: [[address]],
 });
 
 beforeEach(() => {

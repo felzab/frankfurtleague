@@ -12,15 +12,16 @@ from typing import Any, NamedTuple
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 
-EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
-EINLADUNG_SAISON_VORBEI = "REQ-EINLADUNG-002"
+EINLADUNG_TEAM_NICHT_EINGETRAGEN = Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN
+EINLADUNG_SAISON_VORBEI = Code.EINLADUNG_SAISON_VORBEI
 # One code for a link nobody minted and one an administrator replaced, for the reason
 # `REQ-BEWERBUNG-009` gives: nothing tells a stranger's guess from a spent link, and naming which
 # would say more than the guess knew.
-EINLADUNG_UNBEKANNT = "REQ-EINLADUNG-003"
+EINLADUNG_UNBEKANNT = Code.EINLADUNG_UNBEKANNT
 
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything

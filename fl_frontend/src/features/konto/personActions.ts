@@ -12,7 +12,7 @@ import { mailAdresswechsel } from "@/features/adresswechsel/notifications";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
 import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { invalidatesOnWrite, refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
+import { refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -46,9 +46,6 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
   const answer = await runPersonRecordMutation("loescheKontoAction", async (subject) => {
     // A server action's argument is whatever a caller posted, and this one reaches the sign-in store.
     if (typeof token !== "string" || token === "") return { success: false, error: VALIDATION_FAILED };
-
-    // Unconditional: the erasure reaches a squad and a fixture whatever this person turns out to hold.
-    invalidatesOnWrite("spieler", "spiele");
 
     // Refused before the library spends the link, so the same link completes once another owner is made;
     // the backend refuses two owners at once. Read for an owner alone,

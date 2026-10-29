@@ -7,7 +7,7 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { MailOutcome, SentMail } from "@/test-support/mailDouble.ts";
 
 /** One thing that happened, in the order it happened: the stamp's order against the mail is what this slice owes. */
-type Ereignis = { art: "api"; endpoint: string; body: unknown } | { art: "mail"; mail: SentMail } | { art: "drop"; tags: readonly string[] };
+type Ereignis = { art: "api"; endpoint: string; body: unknown } | { art: "mail"; mail: SentMail };
 
 const ereignisse: Ereignis[] = [];
 
@@ -154,9 +154,6 @@ const CONFIG_DOUBLE = {
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
-vi.doMock("@/core/revalidation.ts", () => ({
-  revalidateOverLoopback: async (tags: readonly string[]) => void ereignisse.push({ art: "drop", tags: tags }),
-}));
 
 const { register } = await import("../../instrumentation.ts");
 const { runSpielSweep } = await import("./sweep.ts");
@@ -166,10 +163,9 @@ const MINUTE_MS = 60 * SEKUNDE_MS;
 const HOUR_MS = 60 * MINUTE_MS;
 
 const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
-const drops = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "drop" }> => ereignis.art === "drop");
 const gesendet = () => mail.sent;
-/** The sentence a notice to one person carries, and a notice to a club's mailboxes never. */
-const NUR_AN_DICH = "Diese E-Mail geht nur an Dich.";
+/** The words a notice to a referee carries, and a notice to a club's mailboxes never. */
+const NUR_SCHIEDSRICHTER = "Deine Einteilung zu";
 /** The ids the stamp was handed, over every stamp call of the pass. */
 const gestempelt = () =>
   apiCalls()
@@ -386,47 +382,6 @@ describe("which first requests the pass stamps", () => {
   });
 });
 
-/* A mint or a close moves the verdict a public fixture card reads, and a call whose
-   answer was lost may have done either where no count shows it. */
-describe("the fixtures cache's drop", () => {
-  const PASSES = [
-    ["that asked nobody", () => undefined],
-    [
-      "that mailed requests",
-      () => {
-        passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "a@schule.de")] });
-      },
-    ],
-    [
-      "whose season's call threw",
-      () => {
-        passAnswer = () => {
-          throw new Error("the pass was refused");
-        };
-      },
-    ],
-    [
-      "whose season listing failed",
-      () => {
-        listeAnswer = () => {
-          throw new Error("the listing was refused");
-        };
-      },
-    ],
-  ] as const;
-
-  for (const [was, vorbereiten] of PASSES) {
-    it(`asks for spiele once, after the pass's last call, on a pass ${was}`, async () => {
-      vorbereiten();
-
-      await runSpielSweep();
-
-      expect(drops().map(({ tags }) => tags)).toStrictEqual([["spiele"]]);
-      expect(ereignisse.at(-1)?.art, "a call or a message followed the drop").toBe("drop");
-    });
-  }
-});
-
 describe("what one pass mails", () => {
   /* The void notice first: a mailbox that read a fresh request before it would take the void one for the newer. */
   it("tells the parties of a moved fixture before it mails a fresh request", async () => {
@@ -468,7 +423,7 @@ describe("what one pass mails", () => {
     expect(schiri?.tags).toStrictEqual({ spielleitung: "hinweis" });
     // One subject for both readers, so only the body tells the referee's notice from the club's.
     expect(
-      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_AN_DICH)),
+      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_SCHIEDSRICHTER)),
       "a notice is worded for the other reader",
     ).toStrictEqual([false, true]);
     // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
@@ -577,7 +532,7 @@ describe("what one pass mails", () => {
     ]);
     // One subject for both readers, so only the body tells the referee's notice from the club's.
     expect(
-      gesendet().map(({ text }) => text.includes(NUR_AN_DICH)),
+      gesendet().map(({ text }) => text.includes(NUR_SCHIEDSRICHTER)),
       "a notice is worded for the other reader",
     ).toStrictEqual([false, true]);
     assert.ok(
@@ -586,9 +541,13 @@ describe("what one pass mails", () => {
     );
     expect(mitgeteilt()).toStrictEqual([id(5), id(6)]);
     // Stamped after both went: stamped first, a crash between would leave a party told by nobody and owed nothing.
-    expect(
-      ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
-    ).toStrictEqual([LISTE, PASS("2627"), "team@schule.de", "schiri@schule.de", MITGETEILT("2627"), "drop"]);
+    expect(ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.mail.to))).toStrictEqual([
+      LISTE,
+      PASS("2627"),
+      "team@schule.de",
+      "schiri@schule.de",
+      MITGETEILT("2627"),
+    ]);
   });
 
   /* Its decline said the league decides; this is the word that it has, which nothing else sends. */
@@ -672,9 +631,15 @@ describe("what one pass mails", () => {
 
     await runSpielSweep();
 
-    expect(
-      ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
-    ).toStrictEqual([LISTE, PASS("2627"), "2627@schule.de", ANGEFRAGT("2627"), PASS("2728"), "2728@schule.de", ANGEFRAGT("2728"), "drop"]);
+    expect(ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.mail.to))).toStrictEqual([
+      LISTE,
+      PASS("2627"),
+      "2627@schule.de",
+      ANGEFRAGT("2627"),
+      PASS("2728"),
+      "2728@schule.de",
+      ANGEFRAGT("2728"),
+    ]);
   });
 });
 

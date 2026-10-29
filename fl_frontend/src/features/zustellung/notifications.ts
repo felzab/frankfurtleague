@@ -1,5 +1,6 @@
 import "server-only";
 
+import { renderMail } from "@/core/emailShell";
 import { MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, sendMail } from "@/core/mail";
@@ -10,7 +11,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 
-import type { OutboundMail } from "@/core/mail";
+import type { Mail } from "@/core/emailShell";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
@@ -68,7 +69,7 @@ export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOu
 }
 
 /** One message as its builder composed it, without the envelope the fan-out fills in. */
-export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
+export type ZielMail = Mail;
 
 /**
  * What the provider echoes back on every event about this message, and the only thing that routes
@@ -184,7 +185,7 @@ export async function sendZielMail({
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
     // failure for a written decision.
     recipients.map(async (address) => {
-      const mail = buildMail(address);
+      const mail = renderMail(buildMail(address));
 
       return sendMail({
         to: address,

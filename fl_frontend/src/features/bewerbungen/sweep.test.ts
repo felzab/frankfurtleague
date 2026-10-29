@@ -150,7 +150,6 @@ vi.doMock("@/core/authIndexes.ts", () => INDEXES_DOUBLE);
 const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
 const { FLBewerbungSweepLoeschungSchema } = await import("./schemas.ts");
-const { mailIdempotencyKey } = await import("@/core/mailIdempotencyKey.ts");
 
 /** One hour and one minute, as the arming spells them. */
 const HOUR_MS = 60 * 60 * 1000;
@@ -187,13 +186,11 @@ function sweepAnswers({
   erinnerungen = {},
   loeschungen = {},
   registrierungErinnerungen = {},
-  benachrichtigt = {},
 }: {
   saisonIds?: string[];
   erinnerungen?: Record<string, unknown[]>;
   loeschungen?: Record<string, unknown[]>;
   registrierungErinnerungen?: Record<string, unknown[]>;
-  benachrichtigt?: Record<string, unknown[]>;
 }): void {
   answerWith((call) => {
     const saisonId = saisonOf(call);
@@ -210,7 +207,7 @@ function sweepAnswers({
         acknowledged: 1,
         saison_id: saisonId,
         erinnerungen: registrierungErinnerungen[saisonId] ?? [],
-        benachrichtigt: benachrichtigt[saisonId] ?? [],
+        benachrichtigt: [],
         geloescht_unbestaetigt: 0,
         geloescht_ohne_entscheidung: 0,
         geloescht_abgelehnt: 0,
@@ -718,8 +715,6 @@ describe("the line a failed call files", () => {
 
 /** Registration ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
 const ID_PUPIL = `${"d".repeat(23)}4`;
-const ID_UNDECIDED = `${"e".repeat(23)}5`;
-const ID_BARRED = `${"f".repeat(23)}6`;
 
 const reminder = (registrierungId: string, email: string, token: string) => ({
   registrierung_id: registrierungId,
@@ -728,32 +723,6 @@ const reminder = (registrierungId: string, email: string, token: string) => ({
   email: email,
   token: token,
 });
-
-const notice = (registrierungId: string, email: string) => ({
-  registrierung_id: registrierungId,
-  saison_id: "2627",
-  team: "Adler",
-  vorname: "Quillhilde",
-  email: email,
-});
-
-/** A delivery report about a note's row answered as the backend answers one whose row is gone: 404 `DB-COMMON-001`. */
-function answeringAnErasedRow(): void {
-  const answer = apiAnswer;
-  answerWith((call) => {
-    if (!call.endpoint.startsWith("/zustellung/")) return answer(call);
-    throw new APIBadStatusError({
-      message: "The backend failed the request.",
-      url: `http://backend:8000/api/v0${call.endpoint}`,
-      endpoint: call.endpoint,
-      method: "POST",
-      readOnly: false,
-      statusCode: 404,
-      serverErrorCode: "DB-COMMON-001",
-      traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-    });
-  });
-}
 
 describe("the registration half of one pass", () => {
   /* The detail the shape invites getting wrong: the application half returns early where it has
@@ -800,59 +769,6 @@ describe("the registration half of one pass", () => {
     assert.ok(chase?.text.includes("7 Tagen"), "the reminder states the window the first message named");
     expect(chase?.idempotencyKey, "a fresh token in the body makes a reused key a refusal rather than a collapse").toBe(undefined);
     expect(chase?.tags).toStrictEqual({ ziel: "registrierung", ziel_id: ID_PUPIL, anlass: "erinnerung" });
-  });
-
-  /* No pre-notice and one note after: the row is erased by the call that answered this list, so the
-     message reports rather than asks, and its body cannot change inside the provider's window. */
-  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async ({ onTestFinished }) => {
-    // Noon in Frankfurt, so the day the key carries is one this case names rather than reads off the clock.
-    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2027-06-15T10:00:00Z") });
-    onTestFinished(() => void vi.useRealTimers());
-    sweepAnswers({ saisonIds: ["2627"], benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de")] } });
-    answeringAnErasedRow();
-
-    await runBewerbungSweep();
-
-    expect(events.map((event) => event.kind)).toStrictEqual(["api", "api", "api", "mail", "api"]);
-    const note = events.find((event) => event.kind === "mail");
-    // Whole: a key losing the row or the day is shared by two pupils behind one mailbox, or by two days,
-    // and the provider refuses the second body under it rather than sending it.
-    expect(note?.idempotencyKey).toBe(mailIdempotencyKey(["loeschung", "registrierung", ID_UNDECIDED, "2027-06-15"], "quillhilde@schule.de"));
-    expect(note?.tags).toStrictEqual({ saisonende: "notiz" });
-    expect(
-      lines.filter(({ level }) => level !== "info"),
-      "a note sent as it should be wrote a warning or an error",
-    ).toStrictEqual([]);
-  });
-
-  /* The mailer's own line names neither the message nor the pass, and a refusal reported against the
-     erased row would be answered as a missing record. A withheld or a barred note is the mailer's line alone. */
-  it("files a refused note as one failure line, reported against no record, and a withheld or a barred one as none", async () => {
-    sweepAnswers({
-      saisonIds: ["2627"],
-      benachrichtigt: {
-        "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de"), notice(ID_PUPIL, "zurueck@schule.de"), notice(ID_BARRED, "gesperrt@schule.de")],
-      },
-    });
-    answeringAnErasedRow();
-    refused.add("quillhilde@schule.de");
-    withheld.add("zurueck@schule.de");
-    barred.add("gesperrt@schule.de");
-
-    await runBewerbungSweep();
-
-    // Every note reached the mailer, so the lines below are what its three answers left behind.
-    expect(events.flatMap((event) => (event.kind === "mail" ? [event.to] : []))).toStrictEqual([
-      "quillhilde@schule.de",
-      "zurueck@schule.de",
-      "gesperrt@schule.de",
-    ]);
-    expect(apiCalls().filter((call) => call.endpoint.startsWith("/zustellung/"))).toStrictEqual([]);
-    expect(
-      lines
-        .filter(({ level }) => level !== "info")
-        .map(({ level, event, fields }) => [level, event, (fields as { error_code?: string }).error_code]),
-    ).toStrictEqual([["error", "registrierung.saisonende_notiz_failed", "FE-MAIL-002"]]);
   });
 
   /* `docs/ops/runbooks.md` section 9 reads one call for both dates: a fresh one beside a stale one

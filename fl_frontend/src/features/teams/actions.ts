@@ -3,7 +3,7 @@
 import z from "zod";
 
 import { toActionErrorResult } from "@/shared/utils/actionError";
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -44,11 +44,6 @@ import type {
 } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
-/** Both cache layers for one resource and one season: the base tag serves the default reads. */
-function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string): void {
-  invalidatesOnWrite(resource, `${resource}:saison_id:${saisonId}`);
-}
-
 export async function postTeamAction(
   // The DRAFT shape: an untouched picker submits `gruppe: null`, and the schema below is what turns
   // that into a field error rather than a type error.
@@ -64,9 +59,6 @@ export async function postTeamAction(
     }
 
     const { saison_id, gruppe, ...clubFields } = validated.data;
-    // Ahead of both writes: the club that stands after a refused entry is a `partial` answer, which
-    // the spine drops these for as it does a landed or a lost one.
-    invalidateSeasonScoped("teams", saison_id);
 
     // Caught here rather than left to the generic conflict mapping: a club's only unique key is its
     // shorthand, so a 409 from this request IS the shorthand.
@@ -120,10 +112,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Base tags only: the rename and its fan-out into the embedded match copies touch EVERY season's
-    // entries, and no granular tag names them all.
-    invalidatesOnWrite("teams", "spiele");
-
     // The same 409 as the create: the patch replaces the shorthand wholesale, so it can collide with
     // another club's, retired ones included.
     let patchOperation;
@@ -156,10 +144,6 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Base tag only: every list and by-id read of the club serves its `inactive_since`, whichever season
-    // it names. `spiele` is untouched — a match keeps its embedded copies.
-    invalidatesOnWrite("teams");
-
     // The backend refuses retiring a club entered in a running or planned season
     // (`REQ-RETIRE-001`); the German answer names the rule rather than a generic conflict.
     let deleteOperation;
@@ -190,7 +174,6 @@ export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidatesOnWrite("teams");
     const reactivateOperation = await reactivateTeam(validated.data);
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
@@ -214,10 +197,6 @@ export async function postSaisonTeamAction(
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
-
-    // The `teams` pair only: the row is seeded with `austritt: null` and the match join reads
-    // nothing else from it, so no match changes.
-    invalidateSeasonScoped("teams", validated.data.saison_id);
 
     // A 409 here is one of `mapEntryRefusal`'s, or the unique index saying "already entered" — each
     // deserves its own words rather than the generic conflict message.
@@ -254,11 +233,6 @@ export async function patchSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // BOTH pairs: every match side joins this row's `austritt` at read time,
-    // so `teams` alone leaves a card showing a badge the league table has stopped showing.
-    invalidateSeasonScoped("teams", validated.data.saison_id);
-    invalidateSeasonScoped("spiele", validated.data.saison_id);
-
     // Addressed by its natural key, so a 409 here is an entry refusal and never a unique index. The
     // shared fallback would name no reason, and it hides this page's swap control.
     let saisonTeam;
@@ -294,15 +268,6 @@ export async function replaceSaisonTeamAction(
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
-
-    // BOTH pairs, as the group swap invalidates them: the league table now names another club, and
-    // the same transaction rewrote that club's side of every fixture the season holds for it.
-    invalidateSeasonScoped("teams", validated.data.saison_id);
-    invalidateSeasonScoped("spiele", validated.data.saison_id);
-    // The third read this write moves: the same transaction retired the outgoing club's squad, and
-    // the public squad read matches on `inactive_since`. Base tag only, for the reason
-    // `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives.
-    invalidatesOnWrite("spieler");
 
     // A 409 the mapper does not claim is the unique index on the junction's natural key, which the
     // generic conflict message already describes correctly.
@@ -359,12 +324,6 @@ export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUnd
     const validated = TeamUndoSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
     const { club, saison } = validated.data;
-
-    invalidatesOnWrite("teams", "spiele");
-    if (saison !== undefined) {
-      invalidateSeasonScoped("teams", saison.saison_id);
-      invalidateSeasonScoped("spiele", saison.saison_id);
-    }
 
     if (club !== undefined) {
       let operation;

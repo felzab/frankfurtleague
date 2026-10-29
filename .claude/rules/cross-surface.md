@@ -14,12 +14,10 @@ paths:
 
 Each fails silently. The ratified decisions for the seams are in `docs/decisions.md`.
 
-- A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
-  and its code; a mapper in the feature slice words it for the save, and where the replayed
-  endpoint declares refusals the undo action words it again in its own replay table. The frontend
-  reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
-  code either path leaves unmapped falls through, at any status, to the shared fallback in
+- A backend refusal and its German are two sites. `fl_backend/app/core/codes.py :: Code` spells the
+  code, and a mapper in the feature slice words it for the save. The frontend reads a refusal by its
+  code, and the backend answers it at the status its check chose, so a code the mapper leaves
+  unmapped falls through, at any status, to the shared fallback in
   `fl_frontend/src/shared/utils/actionError.ts`, which names no reason, and on a save sends the admin
-  to a retry the same rule refuses again. A slice's test asks its mapper about every refusal code
-  `fl_backend/openapi.json` publishes on that endpoint, through
-  `fl_frontend/src/test-support/publishedRefusals.ts`.
+  to a retry the same rule refuses again. `fl_backend/openapi.json` lists every code once and names
+  none per endpoint, so which codes an endpoint answers is read from the service that raises them.

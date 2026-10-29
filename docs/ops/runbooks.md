@@ -28,7 +28,7 @@ and renumbering what stands would repoint every citation of it, the scripts' own
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
 | [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and the one call that drops it |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and for how long               |
 
 ---
 
@@ -1374,10 +1374,7 @@ needs nothing from you, and its message tells the administrator the hourly pass 
 out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
 can still be deleting once the press has answered only where it outlasted the backend's own deadline
 and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page until the next hourly pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
-error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
-the error's name: the next pass drops it again, and
-[section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
+page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1464,8 +1461,7 @@ Each notice given up writes a `spielbestaetigung.mitteilung_aufgegeben` warning 
 `spiel_id` and its `partei`, a club's contacts or the referee nobody told: open that fixture's
 confirmations panel in the match editor and tell them by hand. The line is written before the
 notice's stamp, so it repeats every hour until a stamp lands. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
-that failed files that line and no pass line, its cache drop still running and filing
-`cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
+that failed files that line and no pass line. A request or an Einteilung whose stamp never landed
 is asked again on every pass until one does or the row stops taking an answer (a club's after its
 deadline, a referee's after the fixture's day), each address whose last
 mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
@@ -1847,11 +1843,9 @@ mailing before it erases.
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Last, once every step above is done, run [section 20](#20-after-a-hand-edit-in-mongodb)'s call.** A
-restore drops no cache tag, so the public pages go on serving what they cached before it, the people
-erased again and the publication consents withdrawn again above among them, until each entry
-expires. A drop made before the erasures and the replay refills the caches from the rows they are
-about to take.
+**Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
+what they cached before it, the people erased again and the publication consents withdrawn again
+above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
 ## 14. The `auth` database's indexes
 
@@ -2128,29 +2122,8 @@ lower its threshold below 4 GB times the documents' share of documents and index
 
 ## 20. After a hand edit in MongoDB
 
-**A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
-them until a visit refreshes each entry once its day has passed, which may be any time up to its
-week. **One call drops them,
-from inside the frontend container**, which reads the system key there, so the key never passes
-through your shell or its history. It prints `204`:
-
-```bash
-docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
-```
-
-**It names every tag whatever the edit touched**: one costs a cold read on the next visit to each
-page carrying it, where naming fewer means working out which reads the edited document reaches, and
-a season reaches all of them.
-
-**After a season edit, wait out the backend's own season cache first**
-(`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`): dropped sooner, the frontend
-refills from the season the backend still holds, and serves that until a visit past another day
-refreshes it.
-
-**Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
-`secrets/internal_api_key_system` is read once, as the container starts
-([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the server inside the
-container, which the call reaches without passing nginx, answering a route its image predates:
-deploy the running build again by the tag `./scripts/ops/deploy.sh --status` names, which starts a
-new frontend holding no cached entry, its cache living in the server's memory
-([section 1](#1-the-server) names the builds never to deploy by tag).
+**A hand edit reaches the site within Next's `minutes` lifetime**, and nothing needs running. Every
+cached league read keeps that lifetime: the first visit a minute or more after an entry was filled
+still gets the entry and refills it behind its answer, and an entry nobody visits for an hour
+expires, so the next visit waits for a fresh read. A save made on the site clears every
+cached entry at once; a hand edit, a restore and the hourly passes clear none.

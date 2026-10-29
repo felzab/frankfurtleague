@@ -223,7 +223,6 @@ async def post_sperrliste_eintrag(
             post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)
 
     return FLPostSperrlisteResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
         gesperrt_bis_saison_id=gesperrt_bis_saison_id,
     )

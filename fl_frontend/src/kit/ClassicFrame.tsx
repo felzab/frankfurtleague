@@ -1,10 +1,11 @@
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import Image from "next/image";
 import NextLink from "next/link";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import { Brand } from "./Brand";
 import { HeaderLinks } from "./FrameNav";
@@ -22,6 +23,7 @@ export type FooterSponsor = { name: string; logo: string; href: string };
 /** The year the © line names, read once a day rather than on every request. */
 async function Jahr() {
   "use cache";
+  cacheTag(SITE_CACHE_TAG);
   cacheLife("days");
   return COPY.vorlage.copyright(now().getFullYear(), COPY.marke.name);
 }
