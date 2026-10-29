@@ -15125,15 +15125,6 @@
     "schemas": {
       "CheckIsLiveResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "status": {
             "type": "string",
             "const": "ok",
@@ -15385,15 +15376,6 @@
       },
       "FLAblehnenBewerbungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLBewerbung"
           }
@@ -15422,32 +15404,13 @@
         "description": "The mailbox whose every session the page ends next, looked up as the erasure looks one up."
       },
       "FLAbmeldungResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          }
-        },
+        "properties": {},
         "type": "object",
         "title": "FLAbmeldungResponse",
         "description": "The envelope alone: the log row it filed names no address to answer with."
       },
       "FLActivateSaisonResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSaison"
           },
@@ -15578,15 +15541,6 @@
       },
       "FLAdresswechselAdresseResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "email": {
             "anyOf": [
               {
@@ -15799,15 +15753,6 @@
       },
       "FLAdresswechselAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "ansicht": {
             "oneOf": [
               {
@@ -15873,15 +15818,6 @@
       },
       "FLAdresswechselAntwortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "antwort": {
             "type": "string",
             "enum": [
@@ -15923,15 +15859,6 @@
       },
       "FLAdresswechselGenehmigungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15980,15 +15907,6 @@
       },
       "FLAdresswechselIdResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16003,15 +15921,6 @@
       },
       "FLAdresswechselPostausgangResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "beanspruchung": {
             "anyOf": [
               {
@@ -16145,15 +16054,6 @@
       },
       "FLAdresswechselStoppResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "gestoppt": {
             "type": "boolean",
             "const": true,
@@ -16168,15 +16068,6 @@
       },
       "FLAdresswechselSweepResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "entfernt": {
             "type": "integer",
             "title": "Entfernt"
@@ -16254,15 +16145,6 @@
       },
       "FLAdresswechselVerwaltungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "adresse": {
             "type": "string",
             "title": "Adresse"
@@ -16388,15 +16270,6 @@
       },
       "FLAdresswechselVerwaltungMintResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16684,15 +16557,6 @@
       },
       "FLAdresswechselZugestelltResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "zugestellt": {
             "type": "integer",
             "minimum": 0.0,
@@ -17037,15 +16901,6 @@
       },
       "FLAktionSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "aktion": {
             "$ref": "#/components/schemas/FLAktionMitStand"
           }
@@ -17058,15 +16913,6 @@
       },
       "FLAktionenListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "aktionen": {
             "items": {
               "$ref": "#/components/schemas/FLAktion"
@@ -17178,15 +17024,6 @@
       },
       "FLAnmeldungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "unbestaetigt": {
             "type": "boolean",
             "title": "Unbestaetigt"
@@ -17298,15 +17135,6 @@
       },
       "FLAnnehmenBewerbungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLBewerbung"
           },
@@ -17427,15 +17255,6 @@
       },
       "FLBerechtigungAbgleichResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "beanspruchung": {
             "anyOf": [
               {
@@ -17759,15 +17578,6 @@
       },
       "FLBerechtigungAngekuendigtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "angekuendigt": {
             "type": "integer",
             "minimum": 0.0,
@@ -17788,15 +17598,6 @@
       },
       "FLBerechtigungAntragAbgelehntResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "antrag_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17812,15 +17613,6 @@
       },
       "FLBerechtigungAntragGenehmigtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "berechtigung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17972,15 +17764,6 @@
       },
       "FLBerechtigungStufeResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "berechtigung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18001,15 +17784,6 @@
       },
       "FLBerechtigungWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "berechtigung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18100,15 +17874,6 @@
       },
       "FLBerechtigungenListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "berechtigungen": {
             "items": {
               "$ref": "#/components/schemas/FLBerechtigungZeile"
@@ -18428,15 +18193,6 @@
       },
       "FLBewerbungEinwilligungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "quelle": {
             "type": "string",
             "enum": [
@@ -18594,15 +18350,6 @@
       },
       "FLBewerbungEinwilligungAntwortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "quelle": {
             "type": "string",
             "const": "bewerbung",
@@ -18720,15 +18467,6 @@
       },
       "FLBewerbungEinwilligungErneutResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "token": {
             "type": "string",
             "title": "Token"
@@ -18844,15 +18582,6 @@
       },
       "FLBewerbungFensterResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -18936,15 +18665,6 @@
       },
       "FLBewerbungKeinFensterResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -18988,15 +18708,6 @@
       },
       "FLBewerbungKontaktEmailResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "email": {
             "type": "string",
             "title": "Email"
@@ -19093,15 +18804,6 @@
       },
       "FLBewerbungKontaktSitzResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "email": {
             "type": "string",
             "title": "Email"
@@ -19221,15 +18923,6 @@
       },
       "FLBewerbungKuerzelResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "shorthand": {
             "type": "string",
             "title": "Shorthand"
@@ -19284,15 +18977,6 @@
       },
       "FLBewerbungPersonEinwilligungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "bewerbung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -19487,15 +19171,6 @@
       },
       "FLBewerbungSchulenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "schulen": {
             "items": {
               "$ref": "#/components/schemas/FLBewerbungSchuleOption"
@@ -19512,15 +19187,6 @@
       },
       "FLBewerbungSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
           },
@@ -19558,15 +19224,6 @@
       },
       "FLBewerbungSweepAngekuendigtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -19685,15 +19342,6 @@
       },
       "FLBewerbungSweepLoeschenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -19791,15 +19439,6 @@
       },
       "FLBewerbungSweepResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -19860,15 +19499,6 @@
       },
       "FLBewerbungSweepSaisonsResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_ids": {
             "items": {
               "type": "string"
@@ -19989,15 +19619,6 @@
       },
       "FLBewerbungTrikotFarbenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -20248,15 +19869,6 @@
       },
       "FLBewerbungZustellungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "angewendet": {
             "items": {
               "type": "string",
@@ -20279,15 +19891,6 @@
       },
       "FLBewerbungenListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "bewerbungen": {
             "items": {
               "$ref": "#/components/schemas/FLBewerbung"
@@ -20820,15 +20423,6 @@
       },
       "FLEinladungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team": {
             "type": "string",
             "minLength": 1,
@@ -20932,15 +20526,6 @@
       },
       "FLEinladungMintResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "minLength": 1,
@@ -20986,15 +20571,6 @@
       },
       "FLEinladungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "minLength": 1,
@@ -21061,15 +20637,6 @@
       },
       "FLEinladungVersandResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "minLength": 1,
@@ -21093,15 +20660,6 @@
       },
       "FLEinladungVersandVorschauResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "minLength": 1,
@@ -21272,15 +20830,6 @@
       },
       "FLEinladungWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "minLength": 1,
@@ -21521,15 +21070,6 @@
       },
       "FLEinwilligungFassungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "fassung": {
             "$ref": "#/components/schemas/FLEinwilligungFassung"
           }
@@ -21598,15 +21138,6 @@
       },
       "FLEinwilligungSeitenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "laufende_fassungen": {
             "additionalProperties": {
               "type": "string"
@@ -21926,15 +21457,6 @@
       },
       "FLErasureAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "items": {
               "$ref": "#/components/schemas/FLErasureAnsichtSpieler"
@@ -22186,15 +21708,6 @@
       },
       "FLErasureResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "type": "integer",
             "minimum": 0.0,
@@ -22303,15 +21816,6 @@
       },
       "FLGenerateSpielplanResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "maxLength": 4,
@@ -22375,15 +21879,6 @@
       },
       "FLGesperrtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "gesperrt": {
             "type": "boolean",
             "title": "Gesperrt"
@@ -22483,15 +21978,6 @@
       },
       "FLKaderResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -22659,15 +22145,6 @@
       },
       "FLKaderZeileResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -22867,15 +22344,6 @@
       },
       "FLKontaktEinladenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -23181,15 +22649,6 @@
       },
       "FLKontoAdresswechselFreigabeResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -23221,15 +22680,6 @@
       },
       "FLKontoAdresswechselMintResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -23381,15 +22831,6 @@
       },
       "FLKontoAdresswechselResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "moeglich": {
             "type": "boolean",
             "title": "Moeglich"
@@ -23487,15 +22928,6 @@
       },
       "FLKontoEinwilligungenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "anyOf": [
               {
@@ -23992,15 +23424,6 @@
       },
       "FLLoeschungLaufResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "abgeschlossene_saison_id": {
             "anyOf": [
               {
@@ -24065,15 +23488,6 @@
       },
       "FLLoeschungVorschauResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "abgeschlossene_saison_id": {
             "anyOf": [
               {
@@ -24204,15 +23618,6 @@
       },
       "FLOffeneRegistrierungenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -24388,15 +23793,6 @@
       },
       "FLPatchSaisonResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSaison"
           }
@@ -24518,15 +23914,6 @@
       },
       "FLPatchSaisonTeamKontakteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -24708,15 +24095,6 @@
       },
       "FLPatchSchiedsrichterResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
           },
@@ -24931,15 +24309,6 @@
       },
       "FLPatchSpielDataResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "advanced_to": {
             "items": {
               "$ref": "#/components/schemas/FLSpielAdvancement"
@@ -25140,15 +24509,6 @@
       },
       "FLPatchSpielePaarungenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "advanced_to": {
             "items": {
               "$ref": "#/components/schemas/FLSpielAdvancement"
@@ -25286,15 +24646,6 @@
       },
       "FLPatchSpielortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSpielort"
           },
@@ -25408,15 +24759,6 @@
       },
       "FLPatchTeamResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLTeamRecord"
           },
@@ -25455,15 +24797,6 @@
       },
       "FLPostBerechtigungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -25556,15 +24889,6 @@
       },
       "FLPostBewerbungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -25699,15 +25023,6 @@
       },
       "FLPostRegistrierungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "registrierung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -25814,15 +25129,6 @@
       },
       "FLPostSaisonResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "title": "Created Id"
@@ -26005,15 +25311,6 @@
       },
       "FLPostSchiedsrichterResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "bestaetigung": {
             "$ref": "#/components/schemas/FLSchiedsrichterMint"
           },
@@ -26056,15 +25353,6 @@
       },
       "FLPostSperrlisteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26112,15 +25400,6 @@
       },
       "FLPostSpielortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26210,15 +25489,6 @@
       },
       "FLPostTeamResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "created_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26253,15 +25523,6 @@
       },
       "FLReferenzenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "unreferenziert": {
             "items": {
               "type": "string"
@@ -26533,15 +25794,6 @@
       },
       "FLRegistrierungAblehnungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "registrierung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26604,15 +25856,6 @@
       },
       "FLRegistrierungAufnahmeResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "registrierung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -26796,15 +26039,6 @@
       },
       "FLRegistrierungBestaetigungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "zustand": {
             "type": "string",
             "enum": [
@@ -26927,15 +26161,6 @@
       },
       "FLRegistrierungBestaetigungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "ergebnis": {
             "type": "string",
             "const": "bestaetigt",
@@ -27178,15 +26403,6 @@
       },
       "FLRegistrierungSelbstEinwilligungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "registrierung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -27284,15 +26500,6 @@
       },
       "FLRegistrierungSweepResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -27348,15 +26555,6 @@
       },
       "FLRegistrierungenListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLRegistrierung"
@@ -27395,15 +26593,6 @@
       },
       "FLReplaceSaisonTeamResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -27788,15 +26977,6 @@
       },
       "FLSaisonSpielerResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -28132,15 +27312,6 @@
       },
       "FLSaisonTeamEinwilligungAntwortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "quelle": {
             "type": "string",
             "const": "saison",
@@ -28339,15 +27510,6 @@
       },
       "FLSaisonTeamPersonEinwilligungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -28399,15 +27561,6 @@
       },
       "FLSaisonTeamResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -28524,15 +27677,6 @@
       },
       "FLSaisonsListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "format": {
             "type": "string",
             "const": "list",
@@ -28555,15 +27699,6 @@
       },
       "FLSaisonsSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "format": {
             "type": "string",
             "const": "single",
@@ -28736,15 +27871,6 @@
       },
       "FLSchiedsrichterBestaetigungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "zustand": {
             "type": "string",
             "enum": [
@@ -28825,15 +27951,6 @@
       },
       "FLSchiedsrichterBestaetigungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -28863,15 +27980,6 @@
       },
       "FLSchiedsrichterListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "schiedsrichter": {
             "items": {
               "$ref": "#/components/schemas/FLSchiedsrichter"
@@ -28914,15 +28022,6 @@
       },
       "FLSchiedsrichterMintResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "bestaetigung": {
             "$ref": "#/components/schemas/FLSchiedsrichterMint"
           }
@@ -28936,15 +28035,6 @@
       },
       "FLSchiedsrichterReactivateResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
           },
@@ -29056,15 +28146,6 @@
       },
       "FLSchiedsrichterSelbstEinwilligungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "schiedsrichter_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -29088,15 +28169,6 @@
       },
       "FLSchiedsrichterSelbstResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "schiedsrichter": {
             "items": {
               "$ref": "#/components/schemas/FLSchiedsrichterSelbst"
@@ -29114,15 +28186,6 @@
       },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "schiedsrichter": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
           },
@@ -29169,15 +28232,6 @@
       },
       "FLSchiedsrichterWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
           }
@@ -29191,15 +28245,6 @@
       },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "items": {
               "$ref": "#/components/schemas/FLSelbstErasureSpieler"
@@ -29522,15 +28567,6 @@
       },
       "FLSperrlisteListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "sperrliste": {
             "items": {
               "$ref": "#/components/schemas/FLSperrlisteZeile"
@@ -29554,15 +28590,6 @@
       },
       "FLSperrlisteWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "sperrliste_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -30918,15 +29945,6 @@
       },
       "FLSpielberichtAdminResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielberichtSpiel"
           },
@@ -31486,15 +30504,6 @@
       },
       "FLSpielberichtSchiedsrichterResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielberichtSpiel"
           },
@@ -31937,15 +30946,6 @@
       },
       "FLSpielberichtePersonResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiele": {
             "items": {
               "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
@@ -31971,15 +30971,6 @@
       },
       "FLSpielberichteSaisonResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielberichte": {
             "items": {
               "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
@@ -32217,15 +31208,6 @@
       },
       "FLSpielbestaetigungAnsichtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "zustand": {
             "type": "string",
             "enum": [
@@ -32434,15 +31416,6 @@
       },
       "FLSpielbestaetigungAntwortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "zustand": {
             "type": "string",
             "enum": [
@@ -32513,15 +31486,6 @@
       },
       "FLSpielbestaetigungEintragenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSpielbestaetigung"
           }
@@ -32679,15 +31643,6 @@
       },
       "FLSpielbestaetigungSchiedsrichterAntwortResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielbestaetigung_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -32863,15 +31818,6 @@
       },
       "FLSpielbestaetigungSweepAngefragtResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -33034,15 +31980,6 @@
       },
       "FLSpielbestaetigungSweepMitgeteiltResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -33104,15 +32041,6 @@
       },
       "FLSpielbestaetigungSweepResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -33217,15 +32145,6 @@
       },
       "FLSpielbestaetigungSweepSaisonsResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_ids": {
             "items": {
               "type": "string"
@@ -33483,15 +32402,6 @@
       },
       "FLSpielbestaetigungVerwerfenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSpielbestaetigung"
           }
@@ -33579,15 +32489,6 @@
       },
       "FLSpielbestaetigungenListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielbestaetigungen": {
             "items": {
               "$ref": "#/components/schemas/FLSpielbestaetigung"
@@ -33623,15 +32524,6 @@
       },
       "FLSpielbestaetigungenSelbstResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielbestaetigungen": {
             "items": {
               "$ref": "#/components/schemas/FLSpielbestaetigungSelbst"
@@ -33648,15 +32540,6 @@
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiele": {
             "items": {
               "$ref": "#/components/schemas/FLSpielJoinedAdmin"
@@ -33734,15 +32617,6 @@
       },
       "FLSpieleAdminListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiele": {
             "items": {
               "$ref": "#/components/schemas/FLSpielJoinedAdmin"
@@ -33760,15 +32634,6 @@
       },
       "FLSpieleAdminSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoinedAdmin"
           }
@@ -33782,15 +32647,6 @@
       },
       "FLSpieleListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiele": {
             "items": {
               "$ref": "#/components/schemas/FLSpielJoined"
@@ -33807,15 +32663,6 @@
       },
       "FLSpieleSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielJoined"
           }
@@ -33828,15 +32675,6 @@
       },
       "FLSpielerAdminSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -33928,15 +32766,6 @@
       },
       "FLSpielerListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerPublic"
@@ -34057,15 +32886,6 @@
       },
       "FLSpielerMembershipsResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerWithMemberships"
@@ -34083,15 +32903,6 @@
       },
       "FLSpielerNachnominierungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "title": "Saison Id"
@@ -34252,15 +33063,6 @@
       },
       "FLSpielerSelbstEinwilligungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -34393,15 +33195,6 @@
       },
       "FLSpielerSelbstResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler": {
             "$ref": "#/components/schemas/FLSpielerSelbst"
           }
@@ -34415,15 +33208,6 @@
       },
       "FLSpielerSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieler_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -34610,15 +33394,6 @@
       },
       "FLSpielortWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLSpielort"
           }
@@ -34632,15 +33407,6 @@
       },
       "FLSpielorteListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielorte": {
             "items": {
               "$ref": "#/components/schemas/FLSpielort"
@@ -34657,15 +33423,6 @@
       },
       "FLSpielorteSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spielort": {
             "$ref": "#/components/schemas/FLSpielort"
           }
@@ -34779,15 +33536,6 @@
       },
       "FLSpieltagWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieltag_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -34806,15 +33554,6 @@
       },
       "FLSpieltageListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieltage": {
             "items": {
               "$ref": "#/components/schemas/FLSpieltag"
@@ -34831,15 +33570,6 @@
       },
       "FLSpieltageSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "spieltag": {
             "$ref": "#/components/schemas/FLSpieltag"
           }
@@ -34869,15 +33599,6 @@
       },
       "FLSubjektResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "sitze": {
             "items": {
               "$ref": "#/components/schemas/FLSubjektSitz"
@@ -35060,15 +33781,6 @@
       },
       "FLSwapGruppenResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "maxLength": 4,
@@ -35524,15 +34236,6 @@
       },
       "FLTeamSitzeResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "team_id": {
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -35712,15 +34415,6 @@
       },
       "FLTeamWriteResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "updated_document": {
             "$ref": "#/components/schemas/FLTeamRecord"
           }
@@ -35734,15 +34428,6 @@
       },
       "FLTeamsGroupedResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "format": {
             "type": "string",
             "const": "grouped",
@@ -35768,15 +34453,6 @@
       },
       "FLTeamsListResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "format": {
             "type": "string",
             "const": "list",
@@ -35799,15 +34475,6 @@
       },
       "FLTeamsMembershipsResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "teams": {
             "items": {
               "$ref": "#/components/schemas/FLTeamWithMemberships"
@@ -35825,15 +34492,6 @@
       },
       "FLTeamsSingleResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "format": {
             "type": "string",
             "const": "single",
@@ -35853,15 +34511,6 @@
       },
       "FLUndrawSpielplanResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "saison_id": {
             "type": "string",
             "maxLength": 4,
@@ -36096,15 +34745,6 @@
       },
       "FLZustellungResponse": {
         "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
           "angewendet": {
             "type": "boolean",
             "title": "Angewendet"

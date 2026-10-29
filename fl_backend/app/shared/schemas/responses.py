@@ -5,10 +5,9 @@ from pydantic import BaseModel, Field
 from app.core.codes import Code
 
 
+# Session 2: the sweep moves every response model onto BaseModel and deletes this.
 class BaseAPIResponse(BaseModel):
-    # On every response model, so a client tells a successful empty result from a failure without
-    # reading the status code.
-    acknowledged: Literal[0, 1] = 1
+    pass
 
 
 # The failure bodies as published, never as built: `app/core/exception_handlers.py :: error_response`

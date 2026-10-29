@@ -19,7 +19,7 @@ async def check_is_live() -> JSONResponse:
     Unauthenticated, and it does not touch the database: it must not fail for reasons a restart
     cannot fix.
     """
-    return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
+    return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)
 
 
 # The published prose is the decorator's rather than the docstring's: a docstring cannot
