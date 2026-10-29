@@ -17,7 +17,7 @@ sessions, and why this service sets no cache headers of its own.
 | `app/shared/`      | Schemas and helpers more than one slice needs                                                              |
 | `app/api/<slice>/` | One slice per entity or concern — its routers, `schemas.py`, `services.py` and `crud.py`, as it needs them |
 | `tests/`           | The test suite, in two tiers (below)                                                                       |
-| `openapi.json`     | The published contract, generated from the application and committed                                       |
+| `openapi.json`     | The published contract, which `app/openapi_document.py` writes from the routes, committed                  |
 
 A slice carries only the files it needs. **A router declares one access tier**, so a slice reached at
 two tiers has two routers: `router.py` for its reads, at the tier its readers need, `admin_router.py`
