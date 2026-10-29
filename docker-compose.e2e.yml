@@ -33,12 +33,8 @@ services:
   backend:
     # Named for the same reason as the frontend's.
     image: frankfurtleague-e2e-backend
-    # The start's own file, holding the one setting a start generates: the public half of the actor
-    # key pair it generated beside it. Optional, so a stop needs no start before it; a backend booting
-    # without it refuses, naming ACTOR_TOKEN_PUBLIC_KEY.
-    env_file: !override
-      - path: ./.tmp-e2e/backend.env
-        required: false
+    # The developer's `fl_backend/.env` stays the local stack's: every setting this stack takes is below.
+    env_file: !reset null
     environment:
       # The frontend reaches the backend by its service name, and each container's healthcheck by loopback.
       - API_TRUSTED_HOSTS=backend,localhost,127.0.0.1
@@ -70,10 +66,8 @@ networks:
         - subnet: 172.30.1.0/24
           gateway: 172.30.1.1
 
-# The local stack's six files, each one this stack's start generated.
+# The local stack's five files, each one this stack's start generated.
 secrets: !override
-  fl_actor_signing_key:
-    file: ./.tmp-e2e/secrets/fl_actor_signing_key
   auth_secret:
     file: ./.tmp-e2e/secrets/auth_secret
   sperrliste_schluessel:

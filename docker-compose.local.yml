@@ -48,7 +48,6 @@ services:
     # this stack mails nothing, is sent no provider event, and verifies the bot check with Cloudflare's
     # published secret. The login is the config below.
     secrets: !override
-      - fl_actor_signing_key
       - auth_secret
       - internal_api_key_base
       - internal_api_key_system
@@ -167,8 +166,6 @@ services:
 # This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
 # starts.
 secrets: !override
-  fl_actor_signing_key:
-    file: ./secrets/fl_actor_signing_key
   auth_secret:
     file: ./secrets/auth_secret
   sperrliste_schluessel:

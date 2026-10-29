@@ -264,20 +264,6 @@ here says whether the backend accepts what it holds. Its own answer is above."
   fi
 }
 
-# Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
-# another account can read passes every check here, while any login on this host could mint an actor.
-signing_key_mode_advisory() {
-  local mode=""
-  if ! mode="$(stat -c '%a' "$SIGNING_KEY_FILE" 2>/dev/null)" || [[ ! "$mode" =~ ^[0-7]+$ ]]; then
-    warn "the mode of ${SIGNING_KEY_FILE} could not be read, so nothing here says whether another account on this host can read it."
-  # A warning rather than a refusal: the stack runs either way, and the exposure is already there.
-  elif (( 8#$mode & 8#077 )); then
-    warn "${SIGNING_KEY_FILE} has mode ${mode}, so an account other than its owner can reach it, and with it mint
-any actor the backend trusts. Give it to the frontend's user alone (docs/ops/runbooks.md §16):
-  sudo chown 1001:1001 ${SIGNING_KEY_FILE} && sudo chmod 400 ${SIGNING_KEY_FILE}"
-  fi
-}
-
 # nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is.
 edge_control() {
   docker compose -f "$COMPOSE" exec -T nginx curl -sS --max-time 30 --unix-socket "$EDGE_CONTROL_SOCKET" "$@"
@@ -875,8 +861,6 @@ require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the
 require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
-require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
-signing_key_mode_advisory
 # Each file once, the two services sharing the internal keys.
 for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
@@ -1141,10 +1125,6 @@ check_frontend_boot_config "NOTHING has been recreated, and the site is untouche
 check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
 
-step "The actor token's key pair"
-# After the frontend's boot, which has refused a key it cannot read where its environment points it.
-check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
