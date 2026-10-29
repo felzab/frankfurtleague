@@ -42,7 +42,6 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
@@ -228,12 +227,10 @@ async def annehmen_bewerbung(
             trikot_farbe=annahme_data.trikot_farbe,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
-        # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-        async with transaction_session(db) as session:
-            accepted = await session.with_transaction(accept_and_enter_the_school)
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
+    async with transaction_session(db) as session:
+        accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
 

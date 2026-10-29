@@ -64,7 +64,7 @@ def bewerbung_document(**overrides: Any) -> dict[str, Any]:
         kontakte=paired_kontakte(),
         eingereicht_am="2026-03-20",
         bestaetigungsfrist="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 

@@ -158,13 +158,13 @@ YOUNG_SEAT_STAND = nachweis_stand_of(bloecke=[_seat(YOUNG, geburtsdatum=YOUNG_BI
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
     await database[Collection.SAISONS].insert_one(saison_document(ACTIVE_SAISON, "active"))
-    await database[Collection.TEAMS].insert_one(team_document(TEAM_A, "Adler", "AD"))
+    await database[Collection.TEAMS].insert_one(team_document(TEAM_A, "Adler", "ADX"))
     await database[Collection.SAISON_TEAMS].insert_one(
         saison_team_document(
             ACTIVE_SAISON,
             TEAM_A,
             "Adler",
-            "AD",
+            "ADX",
             kontakte={
                 "trainer": _seat(OTHER_SEAT),
                 "ansprechperson": _seat(PERSON),

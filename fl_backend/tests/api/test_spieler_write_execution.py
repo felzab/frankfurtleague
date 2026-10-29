@@ -72,8 +72,8 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "AD"),
-                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
+                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "ADX"),
+                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BIX", gruppe="B"),
                 ]
             )
             # The one person `enter` names: the create reads them, and an id nobody holds is a 404 there.

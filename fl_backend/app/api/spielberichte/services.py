@@ -441,8 +441,8 @@ BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtZustand]] = frozenset({"v
 def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtZustand:
     """The state a report reads in, from the fixture, the adoption and the block's version.
 
-    No result reads `vorgeschlagen` however the report was stamped, as after an undone adoption or on an abandonment
-    still owing its result.
+    No result reads `vorgeschlagen` however the report was stamped, as after a later save emptied the result or on an
+    abandonment still owing its result.
     """
 
     if ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis")):

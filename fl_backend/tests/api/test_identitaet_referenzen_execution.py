@@ -150,13 +150,13 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
             _row(
                 TEAM_OIDS[0],
                 PAST_SAISON,
-                "SV",
+                "SVX",
                 kontakte=kontakte_document(
                     trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, bestaetigt_am=None)
                 ),
             ),
-            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SO", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
-            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SW", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
+            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SOX", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
+            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SWX", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -167,7 +167,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
             kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, bestaetigt_am=None)),
             eingereicht_am="2026-01-01",
             bestaetigungsfrist="2026-01-15",
-            schule=neue_schule_document("Bewerberschule", "BW"),
+            schule=neue_schule_document("Bewerberschule", "BWX"),
         )
     )
     await database[Collection.SPIELER].insert_many(

@@ -88,7 +88,7 @@ ALPHA = ObjectId("6890a1b2c3d4e5f607750001")
 BETA = ObjectId("6890a1b2c3d4e5f607750002")
 # A club no season row names, so a fixture fielding it is one the pass cannot answer.
 GAMMA = ObjectId("6890a1b2c3d4e5f607750003")
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX")}
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a1")
 PAST_SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a2")
 SPIELORT = ObjectId("6890a1b2c3d4e5f6077500b1")
@@ -1658,7 +1658,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
 
         def club_side(position: int) -> dict[str, Any]:
-            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VE", "tore": None}
+            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VEX", "tore": None}
 
         def seats(position: int) -> dict[str, Any]:
             return {
@@ -1716,7 +1716,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             for spiel in refereed_alone
         ]
         junctions = [
-            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VE", kontakte=seats(position))
+            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VEX", kontakte=seats(position))
             for position in range(2 * count)
         ]
 

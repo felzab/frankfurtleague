@@ -137,7 +137,7 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
         kontakte=kontakte(),
         eingereicht_am=MAILED_ON_THE_MARK,
         bestaetigungsfrist="2026-04-12",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}
@@ -171,7 +171,7 @@ def season(saison_id: str, status: str) -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "AD", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
+    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "ADX", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -186,7 +186,7 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
             await database[Collection.SAISONS].insert_many(seasons)
-            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row())
             await database[Collection.BEWERBUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its people.

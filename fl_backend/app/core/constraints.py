@@ -24,7 +24,6 @@ from app.shared.schemas.bounds import (
     AKTION_RETENTION_SECONDS,
     SAISON_ID_LENGTH,
     TEAM_DESCRIPTION_MAX_LENGTH,
-    TEAM_SHORTHAND_LENGTH,
 )
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -32,6 +31,7 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
+    CustomShorthand,
     CustomSpielNr,
     CustomTimeString,
 )
@@ -894,7 +894,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # A stored null reads as a school form nobody has recorded.
                 "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
-                # so its two letters stay reserved.
+                # so its three letters stay reserved.
                 "inactive_since": _INACTIVE_SINCE,
             },
         )
@@ -2282,7 +2282,7 @@ _DAYS = TypeAdapter(list[CustomDateString])
 _ERGEBNIS_OR_NULL = TypeAdapter(CustomErgebnisString | None)
 _OPTIONAL_URL = TypeAdapter(CustomOptionalExternalUrl)
 _SAISON_ID = TypeAdapter(Annotated[str, StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)])
-_SHORTHAND = TypeAdapter(Annotated[str, StringConstraints(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)])
+_SHORTHAND = TypeAdapter(CustomShorthand)
 _HAUSNUMMER = TypeAdapter(Annotated[str, StringConstraints(pattern=HAUSNUMMER_PATTERN)])
 # Restated: `app/shared/schemas/addresses.py :: FLAddress` spells its pattern inline.
 _PLZ = TypeAdapter(Annotated[str, StringConstraints(pattern=r"^[0-9]{5}$")])

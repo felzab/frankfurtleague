@@ -77,7 +77,7 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
             saison_id=saison_id,
             spiel_nr=1,
             spieltag_id=SPIELTAG_ID,
-            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
         )
     )
 

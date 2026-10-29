@@ -14,16 +14,11 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
-    FLSpielPriorOtherFields,
-    FLSpielPriorPaarung,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
-    FLSpielRestorableField,
     FLSpielSlotHolder,
     FLSpielSlotHolderListAdapter,
     FLSpielTeamField,
-    FLSpielTeamFieldPayload,
-    other_fields_of,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -47,7 +42,6 @@ from app.api.spiele.services import (
     reopens,
     resolve_bracket,
     slots_booked_against,
-    stored_in_slice,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
@@ -542,70 +536,6 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
     )
-
-
-def _payload_side(side: FLSpielTeamField | None) -> FLSpielTeamFieldPayload | None:
-    """One stored side as a payload names it. The display copies stay behind: the server composes them."""
-
-    return None if side is None else FLSpielTeamFieldPayload(team_id=side.team_id, tore=side.tore)
-
-
-def _prior_paarung(stored: FLSpiel, other_fields: FLSpielPriorOtherFields | None) -> FLSpielPriorPaarung:
-    return FLSpielPriorPaarung(
-        spiel_id=stored.id,
-        team1=_payload_side(stored.team1),
-        team2=_payload_side(stored.team2),
-        elfmeterschiessen=stored.elfmeterschiessen,
-        sonderereignis=stored.sonderereignis,
-        other_fields=other_fields,
-    )
-
-
-def _fields_this_write_replaced(stored: FLSpiel, patched: FLSpiel) -> FLSpielPriorOtherFields | None:
-    """The stored value of every field outside the Paarung this write overwrote, `None` where it overwrote none.
-
-    Only the fixture the request named can have any: a bracket resolution reaches the Paarung alone.
-    """
-
-    before = other_fields_of(stored)
-    after = other_fields_of(patched)
-    # Annotated, or pyright widens the mapping's `Literal` key to `str` and the model refuses the list.
-    replaced: list[FLSpielRestorableField] = [field for field, value in before.items() if value != after[field]]
-
-    return None if not replaced else FLSpielPriorOtherFields(replaced=replaced, **before)
-
-
-def report_prior_paarungen(
-    edited: CustomObjectId,
-    season: Sequence[FLSpiel],
-    patched: FLSpiel,
-    advanced_to: Sequence[FLSpielAdvancement],
-    released_sides: Sequence[FLSpielReleasedSide],
-) -> list[FLSpielPriorPaarung]:
-    """Every fixture this write changed, off the slice it was judged on.
-
-    Not either report's own view: the releases land before the resolution reads, so a fixture both
-    name would report an occupant one write out of date.
-    """
-
-    # `edited` is dropped from the set and prepended below instead: the resolution can advance the
-    # fixture the request named, and two entries for it would write that fixture twice on one undo.
-    moved = {report.spiel_id for report in (*advanced_to, *released_sides)} - {edited}
-    stored = sorted((spiel for spiel in season if spiel.id in moved), key=lambda spiel: spiel.spiel_nr)
-
-    # The rule's reading: a restore silently short of one fixture leaves it
-    # holding exactly what the admin asked to undo.
-    if len(stored) != len(moved):
-        raise ValueError(f"the season slice does not hold every fixture this write moved, so no restore over it can be trusted: {moved}")
-
-    named = stored_in_slice(edited, season)
-
-    # LEADING, because a restore replays this list in order: putting the named fixture back frees the
-    # occupants the resolution then hands to the moved ones, where the reverse order overwrites them.
-    return [
-        _prior_paarung(named, _fields_this_write_replaced(named, patched)),
-        *(_prior_paarung(spiel, None) for spiel in stored),
-    ]
 
 
 def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:

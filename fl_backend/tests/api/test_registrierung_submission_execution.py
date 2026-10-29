@@ -28,7 +28,6 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -101,7 +100,7 @@ RULES: Mapping[str, Any] = documents.rules_document(
 
 def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
     # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
-    return documents.team_document(team_id, name, name[:2].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
+    return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
 def einladung_document(
@@ -144,7 +143,7 @@ def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str
 
 
 def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
+    return documents.saison_team_document(saison_id, team_id, name, name[:3].upper())
 
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
@@ -173,10 +172,6 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # A case calling this twice reseeds the league inside one test, where the conftest's
-            # `uncached_saisons` drops nothing: the season the first call cached would judge the second.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))

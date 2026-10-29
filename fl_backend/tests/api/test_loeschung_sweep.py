@@ -154,7 +154,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
-            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LS"))
+            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
             await database[Collection.SPIELER].insert_one(build_ghost_spieler())
             await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
 
@@ -371,7 +371,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
                 "2026",
                 TEAM_OID,
                 "Lindenschule",
-                "LS",
+                "LSX",
                 kontakte=kontakte_document(
                     ansprechperson=kontaktperson_document("Quirinus", bestaetigt_am="2026-03-01", nachname="Sitzsloot", email=ADDRESS)
                 ),
@@ -627,7 +627,7 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].update_one(
         {"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}}}
     )
-    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LS"))
+    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
     await database[Collection.EINLADUNGEN].insert_one(
         {
             "_id": EINLADUNG,
@@ -662,7 +662,7 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             await a_running_season_open_to_its_team(database)
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(JUST_ENDED, TEAM_OID, "Lindenschule", "LS"))
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(JUST_ENDED, TEAM_OID, "Lindenschule", "LSX"))
             seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], lambda: rival(database, client))
             answer = await run(database, client, saisons_collection=seasons)
 

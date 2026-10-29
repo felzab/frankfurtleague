@@ -70,15 +70,17 @@ def team_document(index: int) -> dict[str, Any]:
     return documents.team_document(
         oid(index),
         f"Schule {index}",
-        # Two characters, which is what `FLSaisonTeamResponse` holds a shorthand to.
-        f"{index:02d}",
+        # Three letters, which is what `FLSaisonTeamResponse` holds a shorthand to.
+        f"S{chr(65 + index // 26)}{chr(65 + index % 26)}",
         full_name=f"Schule {index} Gesamtschule",
         website_url="https://example.de",
     )
 
 
 def junction_document(index: int, gruppe: str) -> dict[str, Any]:
-    return documents.saison_team_document(SAISON, oid(index), f"Schule {index}", f"{index:02d}", _id=oid(1000 + index), gruppe=gruppe)
+    return documents.saison_team_document(
+        SAISON, oid(index), f"Schule {index}", f"S{chr(65 + index // 26)}{chr(65 + index % 26)}", _id=oid(1000 + index), gruppe=gruppe
+    )
 
 
 def spieler_document(index: int) -> dict[str, Any]:

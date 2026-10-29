@@ -84,9 +84,9 @@ class TestTheKuerzelCheck:
     @pytest.mark.parametrize(
         ("shorthand", "vergeben"),
         [
-            pytest.param("ZE", True, id="a live club's"),
-            pytest.param("VE", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
-            pytest.param("QQ", False, id="one nobody holds"),
+            pytest.param("ZEX", True, id="a live club's"),
+            pytest.param("VEX", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
+            pytest.param("QQX", False, id="one nobody holds"),
         ],
     )
     def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, vergeben: bool):

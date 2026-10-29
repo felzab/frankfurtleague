@@ -119,7 +119,7 @@ def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1
 
     sides = {
         f"team{position}": {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
-        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "AD"), (OTHER_TEAM_OID, "Falken", "FA")), start=1)
+        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "ADX"), (OTHER_TEAM_OID, "Falken", "FAX")), start=1)
     }
 
     return documents.spiel_document(
@@ -169,7 +169,11 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, saison_status))
             # The season after, ended, which is what lets the sweep clear this one's blocks.
             await database[Collection.SAISONS].insert_one(documents.saison_document(LATER_SAISON_ID, "past"))
-            for team_id, name, shorthand in ((TEAM_OID, "Adler", "AD"), (OTHER_TEAM_OID, "Falken", "FA"), (INCOMING_TEAM_OID, "Eulen", "EU")):
+            for team_id, name, shorthand in (
+                (TEAM_OID, "Adler", "ADX"),
+                (OTHER_TEAM_OID, "Falken", "FAX"),
+                (INCOMING_TEAM_OID, "Eulen", "EUX"),
+            ):
                 await database[Collection.TEAMS].insert_one(
                     documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
                 )
@@ -181,7 +185,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             SAISON_ID,
                             TEAM_OID,
                             "Adler",
-                            "AD",
+                            "ADX",
                             kontakte=STORED,
                             bestaetigungen={
                                 seat: compose_kontakt_bestaetigung(token_hash=hash_token(row_link(seat)), today=TODAY)
@@ -189,7 +193,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             },
                         ),
                     },
-                    {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FA", kontakte=None)},
+                    {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
                 ]
             )
             await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in FIXTURES])

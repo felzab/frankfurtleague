@@ -124,7 +124,7 @@ def schule(**overrides: Any) -> dict[str, Any]:
     return {
         "team_name": "Zorbanax",
         "full_name": "Zorbanax-Gymnasium",
-        "shorthand": "ZX",
+        "shorthand": "ZXX",
         "schulform": "gymnasium_g9",
         "address": dict(ADDRESS),
         "website_url": "https://zorbanax.example.de",
@@ -518,13 +518,13 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert len(FLBewerbungTrikot.model_validate(stored).vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
 
-    def test_a_padded_kuerzel_is_trimmed_to_fit_rather_than_refused(self):
-        """The strip runs before the width is counted, as it does on every payload string carrying a floor."""
+    def test_a_padded_lower_case_kuerzel_is_folded_to_fit_rather_than_refused(self):
+        """The strip and the upper-casing run before the pattern judges it, so the code is stored as every comparison reads it."""
 
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" ZX ")))
+        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" zXx ")))
 
         assert parsed.schule is not None
-        assert parsed.schule.shorthand == "ZX"
+        assert parsed.schule.shorthand == "ZXX"
 
 
 # Every ceiling this branch put on the PUBLIC payload, as (label, the field's path, the bound). One

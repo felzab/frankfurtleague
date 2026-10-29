@@ -96,8 +96,8 @@ def stored_document() -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "ALX", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BEX", "tore": 1},
         datum="2026-03-15",
         uhrzeit="14:00:00",
         ort={"spielort_id": SPIELORT_ID, "name": SPIELORT_NAME, "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
@@ -131,7 +131,7 @@ def team_document() -> dict[str, Any]:
     return {
         "_id": AWAY,
         "name": "Beta",
-        "shorthand": "BE",
+        "shorthand": "BEX",
         "full_name": "Beta-Schule Frankfurt",
         "description": "",
         "website_url": "https://beta.example.org",
@@ -145,7 +145,7 @@ def team_document() -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
+    return saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT))
 
 
 def keys_anywhere(payload: Any) -> set[str]:

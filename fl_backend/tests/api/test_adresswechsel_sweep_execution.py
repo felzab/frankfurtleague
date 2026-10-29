@@ -28,7 +28,6 @@ from app.api.adresswechsel.sweep_router import (
 )
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.bewerbungen.services import hash_token
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
@@ -642,7 +641,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             for position in range(ADRESSWECHSEL_PER_PASS + 1):
                 await a_due_person(database, position)
-            invalidate_saison_cache()
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 

@@ -26,7 +26,7 @@ BIEBER = ObjectId("6890a1b2c3d4e5f607250002")
 CRONBERG = ObjectId("6890a1b2c3d4e5f607250003")
 ABSENT = ObjectId("6890a1b2c3d4e5f607250009")
 
-CLUB_NAMES = {ADLER: ("Adler", "AD"), BIEBER: ("Bieber", "BI"), CRONBERG: ("Cronberg", "CR")}
+CLUB_NAMES = {ADLER: ("Adler", "ADX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
 # Two groups of two: "C" is a group the season does not run, and one extra row fills a group.
 NUMBER_OF_GROUPS = 2
@@ -37,7 +37,7 @@ RULES = rules_document(number_of_groups=NUMBER_OF_GROUPS, teams_per_group=TEAMS_
 
 # The season's copy of the identity is deliberately NOT the club's current one: the echo reads the
 # junction row, so a value taken from `teams` instead would show up as the club's name here.
-PLAYED_AS = {ADLER: ("Adler-Schule", "AS"), BIEBER: ("Bieber", "BI"), CRONBERG: ("Cronberg", "CR")}
+PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
 EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 
@@ -66,7 +66,7 @@ def fixture_document(team_id: ObjectId) -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "AS", "tore": None},
+        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "ASX", "tore": None},
     )
 
 

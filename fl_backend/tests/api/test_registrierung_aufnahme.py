@@ -35,7 +35,6 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_UNBESTAETIGT,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
 from app.core.collections import Collection
@@ -131,11 +130,9 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many(
-                [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]
+                [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
@@ -143,12 +140,12 @@ def on_a_league(
                         SAISON_ID,
                         TEAM_OID,
                         "Zorbanax",
-                        "ZO",
+                        "ZOX",
                         kontakte=kontakte(
                             ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", bestaetigt=stellvertretung_bestaetigt
                         ),
                     ),
-                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QU", kontakte=kontakte(ansprechperson="Otto")),
+                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QUX", kontakte=kontakte(ansprechperson="Otto")),
                 ]
             )
             await database[Collection.SAISONS].insert_many(
@@ -160,9 +157,9 @@ def on_a_league(
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     documents.saison_team_document(
-                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
+                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
                     ),
-                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Paula")),
+                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Paula")),
                 ]
             )
 

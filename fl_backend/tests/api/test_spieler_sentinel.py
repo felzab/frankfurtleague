@@ -54,7 +54,7 @@ def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=documents.rules_document()))
-            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZO"))
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZOX"))
             await database[Collection.SPIELER].insert_many(
                 [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)]
             )

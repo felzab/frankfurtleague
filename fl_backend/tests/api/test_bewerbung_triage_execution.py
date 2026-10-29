@@ -105,11 +105,11 @@ UNUSABLE_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920007")
 # An XSS sink once React renders it into the club page's href, and a value `FLTeam` refuses on read.
 UNUSABLE_URL = "javascript:alert(1)"
 
-EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "AD"
-RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BI"
+EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "ADX"
+RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 
 # The club the new school proposes. Its two letters are free, unlike `CLASHING_BEWERBUNG`'s.
-NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZX"
+NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZXX"
 
 # Two groups of two, so one seeded pair fills `A` and `REQ-ENTER-003` is reachable without twenty rows.
 RULES: Mapping[str, Any] = rules_document(number_of_groups=2, teams_per_group=2)
@@ -516,7 +516,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
 # The two shapes `REQ-BEWERBUNG-002` refuses, each stored as a hand edit could leave it.
 UNRESOLVED = [
-    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt", "DP"), id="both a club and a school"),
+    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt", "DPX"), id="both a club and a school"),
     pytest.param(NEITHER_BEWERBUNG, None, None, id="neither a club nor a school"),
 ]
 
@@ -644,7 +644,7 @@ async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]
     """
 
     await database[Collection.BEWERBUNGEN].insert_one(
-        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam", "SK"), "website_url": UNUSABLE_URL})
+        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam", "SKX"), "website_url": UNUSABLE_URL})
     )
 
     return await stored_bewerbung(database, UNUSABLE_BEWERBUNG)
@@ -1146,7 +1146,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 # submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
 DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
-DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WK"
+DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WKX"
 
 
 def without_the_id(document: Mapping[str, Any]) -> dict[str, Any]:

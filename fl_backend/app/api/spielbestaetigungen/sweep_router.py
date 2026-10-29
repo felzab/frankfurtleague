@@ -11,7 +11,6 @@ from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import SWEEP_PAGE, group_seats_by_mailbox, mint_token, seat_is_unreachable
 from app.api.registrierungen.services import link_is_unreachable
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
@@ -1025,33 +1024,31 @@ async def sweep_spielbestaetigungen(
             inserted=[row_id for answered in minted[0] for row_id in answered.inserted],
             fresh={row_id: seats for answered in minted[0] for row_id, seats in answered.fresh.items()},
         )
-        # The run's day is a season write, which the cache serves.
-        with dropping_the_saison_cache():
-            reminded = await after_what_is_owed(
-                lambda: run_isolated(
-                    db=db,
-                    batch=reminder_share,
-                    attempt=lambda session, batch: session.with_transaction(remind, batch),
-                    moved=len,
-                    owes=True,
-                    what=WHAT,
-                    clock="reminder",
-                ),
+        reminded = await after_what_is_owed(
+            lambda: run_isolated(
+                db=db,
+                batch=reminder_share,
+                attempt=lambda session, batch: session.with_transaction(remind, batch),
+                moved=len,
+                owes=True,
+                what=WHAT,
                 clock="reminder",
-                may_stand=taken_by(reminder_share, "reminders of confirmation(s)"),
-            )
-            if reminded is not None:
-                fehlgeschlagen += len(reminded[1])
-                # A team row's message beside whether its first request was recorded as sent: a reminder of one that may
-                # never have arrived would point at a link nobody holds, so it goes out worded as the request.
-                owed_now = [owed for answered in reminded[0] for _, owed in answered]
-                erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
-                anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
-                einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
-                # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
-                # contract as every step after a message is owed.
-                if not reminded[0]:
-                    await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
+            ),
+            clock="reminder",
+            may_stand=taken_by(reminder_share, "reminders of confirmation(s)"),
+        )
+        if reminded is not None:
+            fehlgeschlagen += len(reminded[1])
+            # A team row's message beside whether its first request was recorded as sent: a reminder of one that may
+            # never have arrived would point at a link nobody holds, so it goes out worded as the request.
+            owed_now = [owed for answered in reminded[0] for _, owed in answered]
+            erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
+            anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
+            einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
+            # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
+            # contract as every step after a message is owed.
+            if not reminded[0]:
+                await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
 
     # After the commits, so a retried transaction writes no second line. A count and never an id: a line
     # naming the row would tie its club to the ban for as long as the log is kept.

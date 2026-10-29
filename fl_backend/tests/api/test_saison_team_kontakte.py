@@ -54,7 +54,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607240002")
 
 TEAM_NAME = "Adler"
-TEAM_SHORTHAND = "AD"
+TEAM_SHORTHAND = "ADX"
 
 # The three fields this endpoint must not reach, each seeded to a value entry never writes: a `$set`
 # carrying the whole payload would answer with `None` for all three.

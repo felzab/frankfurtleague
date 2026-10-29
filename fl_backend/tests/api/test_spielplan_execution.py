@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
@@ -132,7 +131,7 @@ def entry_rows(
                 saison_id,
                 ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
                 f"{gruppe}{seat + 1}-Schule",
-                f"{gruppe}{seat + 1}",
+                f"{gruppe}S{chr(65 + seat)}",
                 _id=ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
                 gruppe=gruppe,
             )
@@ -704,7 +703,6 @@ class AbortedDraw:
     spiele: int
     watermark: Any
     log: int
-    cached: dict[str, Any] | None
 
 
 class TestAFailedDrawLeavesNothingBehind:
@@ -721,7 +719,6 @@ class TestAFailedDrawLeavesNothingBehind:
         self, mongo_replica_set_url: str, narrowed: Collection, refused_field: str
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database.command("collMod", str(narrowed), validator=NARROWED_VALIDATORS[narrowed], validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
@@ -737,7 +734,6 @@ class TestAFailedDrawLeavesNothingBehind:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -752,9 +748,6 @@ class TestAFailedDrawLeavesNothingBehind:
         # `record_write` runs in-session, so the log is part of what the abort takes back rather than
         # a standing record of writes that never happened.
         assert aborted.log == 0, "the action log kept a row for a write that was rolled back"
-        # Dropped however the draw ended: from here a refusal and a commit whose answer was lost look
-        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
-        assert aborted.cached is None
 
 
 # Planted beside the shipped indexes: two matchdays of one phase share this key, so the draw's own
@@ -821,32 +814,6 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
         assert "this endpoint did not write" not in message
         # Nothing doubled: the second call is refused before it writes.
         assert counts == (first.spieltage, first.spiele)
-
-
-class TestTheSeasonCacheIsDroppedHoweverTheDrawEnds:
-    """A draw that raised may still have landed, so no outcome leaves the cached season standing."""
-
-    def test_a_committed_draw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await call_draw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
-
-    def test_a_refused_draw_drops_it_too(self, mongo_replica_set_url: str):
-        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-
-            with pytest.raises(WriteRefusalException):
-                await call_draw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is None
 
 
 # The replace's own day, so a watermark the first draw left behind reads as one rather than passing
@@ -949,8 +916,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
         datum="2026-05-01",
         uhrzeit="18:00:00",
     )
@@ -1429,7 +1396,6 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)

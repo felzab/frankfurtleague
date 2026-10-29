@@ -35,7 +35,6 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
-    TEAM_SHORTHAND_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
@@ -44,6 +43,7 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
+    CustomShorthand,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -141,7 +141,7 @@ class FLBewerbungSchule(BaseModel):
     # a block called `schule` would read as the school's own.
     team_name: CustomNonEmptyString
     full_name: CustomNonEmptyString
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
     schulform: FLSchulform | None
     address: FLAddress
     # A plain string, unlike `_TeamWritable.website_url`: stored values are typed only,
@@ -449,7 +449,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     full_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
-    shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
+    shorthand: CustomShorthand
     # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
     # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.
     schulform: FLSchulform

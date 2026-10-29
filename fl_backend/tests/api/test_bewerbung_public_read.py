@@ -44,14 +44,14 @@ RETIRED_OID = ObjectId("6890a1b2c3d4e5f607950002")
 
 # Neither alphabetical nor reverse-alphabetical by `_id`, so a sort key swapped for the id fails.
 CLUBS = (
-    ("Zetteltal", "ZE", OPEN_OID),
-    ("Adlerhorst", "AD", ObjectId("6890a1b2c3d4e5f607950003")),
-    ("Mittelbach", "MI", ObjectId("6890a1b2c3d4e5f607950004")),
+    ("Zetteltal", "ZEX", OPEN_OID),
+    ("Adlerhorst", "ADX", ObjectId("6890a1b2c3d4e5f607950003")),
+    ("Mittelbach", "MIX", ObjectId("6890a1b2c3d4e5f607950004")),
 )
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
 # A club that has left, which the picker may not offer; its row still holds the season it left.
-RETIRED_CLUB = ("Verlassen", "VE", RETIRED_OID)
+RETIRED_CLUB = ("Verlassen", "VEX", RETIRED_OID)
 AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"}
 
 OPEN_SAISON = "2026"

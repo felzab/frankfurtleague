@@ -10,7 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
@@ -117,7 +116,7 @@ def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GRO
             saison_id,
             ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
             f"{gruppe}{seat + 1}-Schule",
-            f"{gruppe}{seat + 1}",
+            f"{gruppe}S{chr(65 + seat)}",
             _id=ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
             gruppe=gruppe,
         )
@@ -131,7 +130,7 @@ class Seed:
 
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
-    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NE")])
+    teams: list[dict[str, Any]] = field(default_factory=lambda: [team_document(NEWCOMER_OID, "NEX")])
     #: Seeded only by a case about what a removal must NOT reach: a database holding one season
     #: answers the same whether the removal was scoped or took the collection.
     neighbour: dict[str, Any] | None = None
@@ -384,7 +383,6 @@ class AbortedUndraw:
     spiele: int
     watermark: Any
     log: int
-    cached: dict[str, Any] | None
 
 
 class TestAnAbortedUndrawLeavesAllThreeStanding:
@@ -395,8 +393,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
             drawn = await call_draw(database, client)
-            # Stored AFTER the draw, which drops the cache on its own commit.
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
             # Narrowed after the draw, so what falls is the `$unset` itself -- by which point both
             # removals have run.
@@ -414,7 +410,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -426,9 +421,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # The draw's three rows and nothing else: the removals record in-session, so the abort takes
         # their rows back too.
         assert aborted.log == 3
-        # Dropped however the undraw ended: from here a refusal and a commit whose answer was lost look
-        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
-        assert aborted.cached is None
 
     def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
         """Drop `session=` from the watermark clear and this fails.
@@ -456,7 +448,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -566,8 +557,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
         datum="2026-05-01",
         uhrzeit="18:00:00",
     )
@@ -914,35 +905,6 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
         assert (undrawn.response.spieltage, undrawn.response.spiele) == (0, 0)
         assert undrawn.response.watermark_cleared is True
         assert undrawn.watermark is None
-
-
-class TestTheSeasonCacheIsDroppedHoweverTheUndrawEnds:
-    """An undraw that raised may still have landed, so no outcome leaves the cached season standing."""
-
-    def test_a_committed_undraw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await call_undraw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
-
-    def test_a_refused_undraw_drops_it_too(self, mongo_replica_set_url: str):
-        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
-
-            with pytest.raises(WriteRefusalException):
-                await call_undraw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
 
 
 @dataclass(frozen=True)

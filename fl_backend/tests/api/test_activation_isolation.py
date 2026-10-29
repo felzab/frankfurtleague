@@ -84,7 +84,7 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
             # after year. Only the junction row is the season's own.
             ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
             f"{gruppe}{seat + 1}-Schule",
-            f"{gruppe}{seat + 1}",
+            f"{gruppe}S{chr(65 + seat)}",
             _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
             gruppe=gruppe,
         )

@@ -47,7 +47,7 @@ class TestTheResponseModel:
                     {
                         "_id": "69ea37a048b415de4f59417b",
                         "name": "Muster",
-                        "shorthand": "MU",
+                        "shorthand": "MUX",
                         "description": "",
                         "full_name": "Musterschule",
                         "website_url": "https://example.org",
@@ -75,13 +75,13 @@ def read_the_links(
 
     async def run() -> Any:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Muster", "MU"))
+            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Muster", "MUX"))
             await database[Collection.SAISON_TEAMS].insert_one(
                 saison_team_document(
                     "2026",
                     TEAM_OID,
                     "Muster",
-                    "MU",
+                    "MUX",
                     kontakte={
                         "trainer": kontaktperson_document("Anke"),
                         "ansprechperson": kontaktperson_document("Bert"),

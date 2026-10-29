@@ -153,7 +153,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         eingereicht_am="2026-09-01",
         bestaetigungsfrist="2026-09-15",
-        schule=neue_schule_document(f"Schule {oid}", "SW"),
+        schule=neue_schule_document(f"Schule {oid}", "SWX"),
     )
 
 
@@ -185,7 +185,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
 
 
 async def _seed(database: AsyncDatabase) -> None:
-    await database[Collection.TEAMS].insert_many([team_document(team_id, f"Schule{n}", f"S{n}") for n, team_id in enumerate(TEAMS)])
+    await database[Collection.TEAMS].insert_many([team_document(team_id, f"Schule{n}", f"S{chr(65 + n)}N") for n, team_id in enumerate(TEAMS)])
     await database[Collection.SAISONS].insert_many([saison_document(PAST, "past"), saison_document(ACTIVE, "active")])
     await database[Collection.SPIELER].insert_one(
         spieler_document(PUPIL, "Wiltrudis", "Ehrenpreis", email=WILTRUDIS, geburtsdatum="2008-05-09", einwilligung=_einwilligung())
@@ -202,17 +202,17 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            saison_team_document(PAST, TEAMS[0], "Schule0", "S0", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
+            saison_team_document(PAST, TEAMS[0], "Schule0", "SAN", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
             saison_team_document(
                 ACTIVE,
                 TEAMS[1],
                 "Schule1",
-                "S1",
+                "SBN",
                 kontakte=_kontakte(trainer=_seat(WILTRUDIS), ansprechperson=_seat(WILTRUDIS), trainer_ist_zugleich="ansprechperson"),
             ),
             # A withdrawn team's seat: its consent stands, so it stays the person's to withdraw.
-            saison_team_document(ACTIVE, TEAMS[2], "Schule2", "S2", austritt=dict(AUSTRITT), kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
-            saison_team_document(ACTIVE, TEAMS[4], "Schule4", "S4", kontakte=_kontakte(trainer=_seat(WILTRUDIS, bestaetigt_am=None))),
+            saison_team_document(ACTIVE, TEAMS[2], "Schule2", "SCN", austritt=dict(AUSTRITT), kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
+            saison_team_document(ACTIVE, TEAMS[4], "Schule4", "SEN", kontakte=_kontakte(trainer=_seat(WILTRUDIS, bestaetigt_am=None))),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_many(

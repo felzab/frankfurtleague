@@ -84,7 +84,7 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
         "einwilligung": None,
         "entscheidung": None,
     },
-    "kontakt": {"_id": ZIEL_OID, **saison_team_document("2026", ObjectId("6890a1b2c3d4e5f607970002"), "Adler", "AD")},
+    "kontakt": {"_id": ZIEL_OID, **saison_team_document("2026", ObjectId("6890a1b2c3d4e5f607970002"), "Adler", "ADX")},
     # An address's live change, its carrier null until a link to the new mailbox is minted.
     "adresswechsel": {
         **documents.adresswechsel_document(

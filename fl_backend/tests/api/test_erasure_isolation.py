@@ -123,8 +123,8 @@ async def a_league(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(
         saison_document(SAISON_ID, "active", registrierung=dict(OPEN_WINDOW), bewerbung=dict(OPEN_WINDOW))
     )
-    await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LS"))
-    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LS", kontakte=None))
+    await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
+    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
     await database[Collection.EINLADUNGEN].insert_one(
         {
             "_id": EINLADUNG_OID,
@@ -149,7 +149,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             eingereicht_am="2026-03-10",
             bestaetigungsfrist="2026-04-10",
-            schule=neue_schule_document("Neue", "NE"),
+            schule=neue_schule_document("Neue", "NEX"),
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -164,7 +164,7 @@ async def a_league(database: AsyncDatabase) -> None:
             ),
             eingereicht_am="2026-03-10",
             bestaetigungsfrist="2026-04-10",
-            schule=neue_schule_document("Ander", "AN"),
+            schule=neue_schule_document("Ander", "ANX"),
         )
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
@@ -270,7 +270,7 @@ async def an_application(database: AsyncDatabase, client: AsyncMongoClient) -> A
             {
                 "saison_id": SAISON_ID,
                 "team_id": None,
-                "schule": neue_schule_document("Zorbanax", "ZQ", schulform="gesamtschule"),
+                "schule": neue_schule_document("Zorbanax", "ZQX", schulform="gesamtschule"),
                 "kontakte": {
                     "trainer": _applying("Wigbert", "wigbert@example.com", "+49 69 5550101"),
                     "ansprechperson": _applying("Zorbanax", TYPED, TELEFON),

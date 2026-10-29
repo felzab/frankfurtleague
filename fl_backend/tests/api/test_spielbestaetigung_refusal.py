@@ -59,8 +59,8 @@ def spiel(**overrides: Any) -> dict[str, Any]:
         "uhrzeit": "18:30:00",
         "ort": {"spielort_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "mietpreis": 40},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": REFEREE, "payment": 20},
-        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "AD", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BI", "tore": None},
+        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
+        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
         "team1_quelle": None,
         "team2_quelle": None,
         "ergebnis": None,
@@ -402,7 +402,7 @@ class TestWhatTheViewStatesOfTheFixture:
         """Its season row went to the incoming club, which a replacement also seats in the fixture: only `teams` names the club that left."""
 
         replaced = AnsetzungLage(
-            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DA", "tore": None}), vereine=[verein(TEAM1)]
+            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DAX", "tore": None}), vereine=[verein(TEAM1)]
         )
 
         assert clubs_without_a_season_row(spielbestaetigung_raw=zeile(), lage=replaced) == [TEAM2]

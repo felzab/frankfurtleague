@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.services import find_eigener_eintrag_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -351,10 +350,8 @@ async def put_spielbericht_bericht(
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
-    # A first write anchors the season, a season write the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            answer, angelegt = await session.with_transaction(write_the_report)
+    async with transaction_session(db) as session:
+        answer, angelegt = await session.with_transaction(write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if angelegt:

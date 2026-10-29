@@ -160,7 +160,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "teams": {
             "_id": TEAM_OID,
             "name": "Lessing",
-            "shorthand": "LE",
+            "shorthand": "LEX",
             "description": "",
             "full_name": "Lessing-Gymnasium",
             "website_url": "https://lessing-gymnasium.example.de",
@@ -178,7 +178,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "trikot_farbe": None,
             "kontakte": None,
             "name": "Lessing",
-            "shorthand": "LE",
+            "shorthand": "LEX",
         },
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
@@ -193,8 +193,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "inactive_since": None,
         },
         "spiele": {
-            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LE"},
-            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"},
+            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LEX"},
+            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"},
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -245,7 +245,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "schule": {
                 "team_name": "Lessing",
                 "full_name": "Lessing-Gymnasium",
-                "shorthand": "LE",
+                "shorthand": "LEX",
                 "schulform": "gymnasium_g9",
                 "address": dict(ADDRESS),
                 "website_url": "https://lessing-gymnasium.example.de",
@@ -370,8 +370,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 saison_id=SAISON_ID,
                 spiel_nr=1,
                 spieltag_id=SPIELTAG_OID,
-                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LE", "tore": None},
-                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HE", "tore": None},
+                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX", "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HEX", "tore": None},
                 datum="2026-03-15",
                 uhrzeit="18:00:00",
                 ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
@@ -532,7 +532,7 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
         ("spiele", valid_document("spiele", saison_phase="playoffs"), "a query alias stored as a phase"),
         (
             "spiele",
-            valid_document("spiele", team1={"team_id": TEAM_OID, "name": "Lessing", "tore": "2", "shorthand": "LE"}),
+            valid_document("spiele", team1={"team_id": TEAM_OID, "name": "Lessing", "tore": "2", "shorthand": "LEX"}),
             "goals as a string",
         ),
         # The shoot-out has no variants, so the validator covers all of it: both counts required, both typed.
@@ -1160,8 +1160,8 @@ def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_
                     "spiele",
                     spiel_nr=2,
                     ergebnis=None,
-                    team1={"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LE"},
-                    team2={"team_id": OTHER_TEAM_OID, "name": "Goethe", "tore": None, "shorthand": "GO"},
+                    team1={"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LEX"},
+                    team2={"team_id": OTHER_TEAM_OID, "name": "Goethe", "tore": None, "shorthand": "GOX"},
                 ),
             ]
         )
@@ -1170,7 +1170,7 @@ def test_the_cross_document_rules_find_what_no_validator_and_no_index_can(mongo_
         await database.saison_teams.insert_many(
             [
                 valid_documents()["saison_teams"],
-                valid_document("saison_teams", gruppe="B", team_id=ORPHAN_TEAM_OID, name="Nowhere", shorthand="NW"),
+                valid_document("saison_teams", gruppe="B", team_id=ORPHAN_TEAM_OID, name="Nowhere", shorthand="NWX"),
             ]
         )
 
@@ -1200,7 +1200,7 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
     """`n`, not the size of `spiele`: the two sides collapse to one `spiel_nr`, and counting those would miss it."""
 
     async def body(database: AsyncDatabase) -> tuple[int, list[Any]]:
-        side = {"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LE"}
+        side = {"team_id": TEAM_OID, "name": "Lessing", "tore": None, "shorthand": "LEX"}
         await database.spiele.insert_one(valid_document("spiele", ergebnis=None, team1=dict(side), team2=dict(side)))
 
         report = next(report for report in await report_relations(database) if report.rule == SPIELTAG_OCCUPANCY_RULE)
@@ -1707,7 +1707,7 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 async def the_report_squads(database: AsyncDatabase) -> Issued:
     await database[Collection.SPIELE].insert_one(
-        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"})
+        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
     )
 
     return await sent_by(

@@ -52,17 +52,17 @@ SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
 def team_document(team_id: ObjectId) -> dict[str, Any]:
     name = NAMES[team_id]
 
-    return documents.team_document(team_id, name, name[:2].upper())
+    return documents.team_document(team_id, name, name[:3].upper())
 
 
 def junction(team_id: ObjectId) -> dict[str, Any]:
     name = NAMES[team_id]
 
-    return documents.saison_team_document(SAISON_ID, team_id, name, name[:2].upper())
+    return documents.saison_team_document(SAISON_ID, team_id, name, name[:3].upper())
 
 
 def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
-    return {"team_id": team_id, "name": NAMES[team_id], "shorthand": NAMES[team_id][:2].upper(), "tore": tore}
+    return {"team_id": team_id, "name": NAMES[team_id], "shorthand": NAMES[team_id][:3].upper(), "tore": tore}
 
 
 def spiel_document(

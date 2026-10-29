@@ -21,7 +21,6 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungAnsichtPayload,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
@@ -58,13 +57,13 @@ Reader = Callable[[AsyncDatabase, AsyncMongoClient, ObjectId], Awaitable[Any]]
 
 async def seed(database: AsyncDatabase) -> ObjectId:
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-    await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZO"))
+    await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZOX"))
     await database[Collection.SAISON_TEAMS].insert_one(
         documents.saison_team_document(
             SAISON_ID,
             TEAM_OID,
             "Zorbanax",
-            "ZO",
+            "ZOX",
             kontakte={
                 "trainer": None,
                 "ansprechperson": documents.kontaktperson_document("Anna", bestaetigt_am="2026-03-21"),
@@ -270,7 +269,6 @@ def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, li
 
     async def _run() -> tuple[Any, ObjectId, list[str]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            invalidate_saison_cache()
             registrierung_id = await seed(database)
             answer, plans = await plans_of_sent_reads(
                 url,

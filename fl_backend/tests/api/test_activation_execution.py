@@ -40,7 +40,7 @@ def fixture(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=SPIELTAG_ID,
-        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "ALX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="18:00:00",
         ergebnis=ergebnis,

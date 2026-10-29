@@ -374,14 +374,14 @@ async def their_confirmations(database: AsyncDatabase) -> None:
 async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_many(
-        [team_document(HOME_TEAM_OID, "Heim-Schule", "HS"), team_document(OTHER_TEAM_OID, "Gast-Schule", "GS")]
+        [team_document(HOME_TEAM_OID, "Heim-Schule", "HSX"), team_document(OTHER_TEAM_OID, "Gast-Schule", "GSX")]
     )
     await database[Collection.SAISON_TEAMS].insert_one(
         saison_team_document(
             SAISON_ID,
             HOME_TEAM_OID,
             "Heim-Schule",
-            "HS",
+            "HSX",
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
                 stellvertretung=kontaktperson_document("Quillhilde", bestaetigt_am="2126-03-21"),
@@ -401,7 +401,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             ),
             eingereicht_am="2126-03-10",
             bestaetigungsfrist="2126-04-10",
-            schule=neue_schule_document("Neue", "NE"),
+            schule=neue_schule_document("Neue", "NEX"),
             idempotenz_fingerabdruck=THEIR_DIGEST,
         )
     )
@@ -412,7 +412,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "eingereicht",
             kontakte=kontakte_document(ansprechperson=their_seat()),
             eingereicht_am="2126-02-10",
-            schule=neue_schule_document("Alte", "AL"),
+            schule=neue_schule_document("Alte", "ALX"),
             idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
         )
     )
@@ -610,7 +610,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             SAISON_ID,
             OTHER_TEAM_OID,
             "Gast-Schule",
-            "GS",
+            "GSX",
             _id=ELSEWHERE_SEAT_ROW_OID,
             kontakte=kontakte_document(
                 ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2126-03-21", nachname="Anderswo", email=ELSEWHERE)
@@ -706,7 +706,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             "abgelehnt",
             kontakte=kontakte_document(),
             eingereicht_am="2126-03-01",
-            schule=neue_schule_document("Abgelehnt", "AB"),
+            schule=neue_schule_document("Abgelehnt", "ABX"),
             entscheidung={"getroffen_am": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
@@ -1400,13 +1400,13 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
     """The person holds nothing but a registration their team's seat holder can admit: the admission is what makes them a pupil."""
 
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-    await database[Collection.TEAMS].insert_one(team_document(HOME_TEAM_OID, "Heim-Schule", "HS"))
+    await database[Collection.TEAMS].insert_one(team_document(HOME_TEAM_OID, "Heim-Schule", "HSX"))
     await database[Collection.SAISON_TEAMS].insert_one(
         saison_team_document(
             SAISON_ID,
             HOME_TEAM_OID,
             "Heim-Schule",
-            "HS",
+            "HSX",
             kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", bestaetigt_am="2126-03-21")),
         )
     )
@@ -1497,7 +1497,7 @@ class TestAPersonHoldingNoFunktion:
                         "eingereicht",
                         kontakte=kontakte_document(trainer=their_seat(), ansprechperson=kontaktperson_document("Quillhilde")),
                         eingereicht_am="2126-03-10",
-                        schule=neue_schule_document("Neue", "NE"),
+                        schule=neue_schule_document("Neue", "NEX"),
                     )
                 )
             else:

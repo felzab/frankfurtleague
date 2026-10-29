@@ -99,7 +99,7 @@ PEOPLE = {
     TEAM1: {"trainer": ("Ida", "Albers"), "ansprechperson": ("Jonas", "Brandt"), "stellvertretung": ("Klara", "Cordes")},
     TEAM2: {"trainer": ("Lea", "Dietz"), "ansprechperson": ("Mats", "Ernst"), "stellvertretung": ("Nora", "Funke")},
 }
-NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
+NAMES = {TEAM1: ("Adler", "ADX"), TEAM2: ("Biber", "BIX")}
 REFEREE = "Otto Gruber"
 
 # Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, keyed under the
@@ -872,7 +872,7 @@ class TestALinkToAReplacedClubsFixture:
         incoming = ObjectId("6890a1b2c3d4e5f607d50003")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.TEAMS].insert_one(documents.team_document(incoming, "Dachs", "DA"))
+            await database[Collection.TEAMS].insert_one(documents.team_document(incoming, "Dachs", "DAX"))
             await replace_saison_team(
                 team_id=TEAM2,
                 saison_id=SAISON_ID,
