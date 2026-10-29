@@ -35,7 +35,6 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSpieler", args: filters },
   });
 }
 
