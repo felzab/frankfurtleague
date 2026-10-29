@@ -96,9 +96,9 @@ scripts/checks/check_public_routes.py` for a route handler, a page or `nginx/sha
   coordinator's checkout, over the finished branch, so never a whole suite, a whole test tree,
   `./scripts/gate/verify.sh` in any form or `./scripts/ops/local.sh`: on a machine every agent
   shares, each slows every other agent's checks. A blast radius your set cannot reach goes in (d).
-- **Where your change moves `fl_backend/openapi.json` or `fl_backend/einwilligung.json`, regenerate
-  it and commit it with the change**: the landing merges your branch whole, and answers a conflict
-  in either document by regenerating it from the merged code.
+- **Where your change moves `fl_backend/openapi.json`, regenerate it and the generated client with
+  `pnpm run contract` in `fl_frontend`, and commit them with the change**: the landing merges your
+  branch whole, and answers a conflict in either by regenerating it from the merged code.
 - `.claude/CLAUDE.md` §2's finished task -- branch pushed, draft pull request open, every check
   concluded -- is the coordinator's. You are finished when your commits are made and your report
   lands.
