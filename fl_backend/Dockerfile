@@ -67,10 +67,10 @@ EXPOSE 8000
 # logging, so uvicorn's default handlers install after the app's and print plain text into the JSON
 # stream.
 
-# --no-access-log because TraceContextMiddleware writes the per-request line, carrying the trace
-# and span ids uvicorn's could not; --log-config routes what uvicorn still logs through the app's
-# own handler.
+# --no-access-log because TraceContextMiddleware writes the request's one line, carrying the trace id
+# and a refusal's code uvicorn's could not. Importing the app takes uvicorn's own handlers off
+# (`app/core/logging.py :: setup_logging`), so what uvicorn still logs reaches the app's.
 
 # --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
 # stop cancels no request still inside it; unset, uvicorn waits without limit.
-CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json", "--timeout-graceful-shutdown", "11"]
+CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--timeout-graceful-shutdown", "11"]
