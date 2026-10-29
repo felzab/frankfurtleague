@@ -1,4 +1,3 @@
-// Redesign: goes with its last importer.
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
@@ -32,6 +31,8 @@ interface RequestScope {
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
   deadlineAt: number;
+  // Redesign: the three flags below go with the write-outcome functions further down, and so do the lines that
+  // seed them in each scope and set one in `boundCall`.
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
   outcomeUnknown: boolean;
   // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
@@ -145,6 +146,10 @@ export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () 
 
   return { signal: controller.signal, clear: () => clearTimeout(handle) };
 }
+
+// Redesign: the write-outcome functions below go with their last importers, the old write path's spines and the
+// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` clears the site's tag whatever a
+// body came to and reads none of them.
 
 /**
  * For a call whose failure a caller settles rather than throws, where it may still have landed: a mail
