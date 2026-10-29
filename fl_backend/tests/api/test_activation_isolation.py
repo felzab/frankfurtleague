@@ -19,7 +19,7 @@ from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_WITHOUT_A_RES
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
@@ -222,7 +222,7 @@ async def rollover_under(database: AsyncDatabase, client: AsyncMongoClient, hook
     try:
         await call_activate(database, client, TARGET, saisons_collection=seasons)
         outcome = COMMITTED
-    except WriteRefusalException as refusal:
+    except APIError as refusal:
         outcome = refusal.error_code
 
     return outcome, seasons.season_reads
@@ -505,7 +505,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], abandon_between)
 
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, seasons.season_reads, await tiebreak_now(database), await abandoned_knockouts_now(database)
@@ -552,7 +552,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, promoted[0], seasons.season_reads, await tiebreak_now(database), await statuses_now(database)

@@ -195,7 +195,6 @@ def find_nicht_geleitet_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_
     return WriteRefusal(
         error_code=Code.BERICHT_NICHT_GELEITET,
         status=HTTPStatus.FORBIDDEN,
-        message="the signed-in person is not the referee this fixture is booked to",
     )
 
 
@@ -216,7 +215,6 @@ def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusa
     return WriteRefusal(
         error_code=Code.BERICHT_NICHT_GESPIELT,
         status=HTTPStatus.CONFLICT,
-        message="the fixture is undated or its day is still to come",
     )
 
 
@@ -229,7 +227,6 @@ def find_abgesagt_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERICHT_ABGESAGT,
         status=HTTPStatus.CONFLICT,
-        message="the fixture is called off or struck out, and carries no report",
     )
 
 
@@ -248,7 +245,6 @@ def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.BERICHT_SAISON_BEENDET,
         status=HTTPStatus.CONFLICT,
-        message="the fixture's season has ended, and its referee's report only reads",
     )
 
 
@@ -261,7 +257,6 @@ def find_elfmeter_in_der_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload
     return WriteRefusal(
         error_code=Code.BERICHT_ELFMETER_IN_DER_GRUPPE,
         status=HTTPStatus.CONFLICT,
-        message="a group-phase fixture keeps no shoot-out, and its report proposes none",
     )
 
 
@@ -290,7 +285,6 @@ def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, A
     return WriteRefusal(
         error_code=Code.BERICHT_INZWISCHEN_GEAENDERT,
         status=HTTPStatus.CONFLICT,
-        message="the report changed since this write was composed; re-read it and send the change again",
     )
 
 
@@ -303,7 +297,6 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielberich
             return WriteRefusal(
                 error_code=Code.BERICHT_NICHT_IM_KADER,
                 status=HTTPStatus.CONFLICT,
-                message="a pupil the report newly names is not in that side's live squad of the season",
             )
 
     return None
@@ -333,7 +326,6 @@ def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeiche
         return WriteRefusal(
             error_code=Code.BERICHT_GRUND_FEHLT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            message="a yellow or a second yellow card the stored report does not hold names no reason",
             # The list, a refusal's field being a literal: the form refuses the card itself before any press.
             fields=(("bericht", "karten"),),
         )
@@ -375,7 +367,6 @@ def find_name_in_bemerkungen_refusal(*, bemerkungen: str | None, names: Iterable
     return WriteRefusal(
         error_code=Code.BERICHT_NAME_IN_BEMERKUNGEN,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the remarks name a person of this fixture's clubs, squads or referee",
         fields=(("bericht", "bemerkungen"),),
     )
 

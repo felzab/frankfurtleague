@@ -96,8 +96,6 @@ def find_spieltag_span_refusal(
         return WriteRefusal(
             error_code=Code.SPIELTAG_OUTSIDE_SAISON,
             status=HTTPStatus.CONFLICT,
-            message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
-            "a matchday is a block of that season's fixtures",
         )
 
     outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
@@ -105,8 +103,6 @@ def find_spieltag_span_refusal(
         return WriteRefusal(
             error_code=Code.SPIELTAG_SPAN_BELOW_FIXTURES,
             status=HTTPStatus.CONFLICT,
-            message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
-            "widen the span or move those fixtures",
         )
 
     return None
@@ -144,7 +140,6 @@ def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | 
 def find_spieltag_order_refusal(
     *,
     beginn: str,
-    ende: str,
     stored_beginn: str | None,
     previous: DatedNeighbour | None,
     following: DatedNeighbour | None,
@@ -163,39 +158,15 @@ def find_spieltag_order_refusal(
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
     if previous is not None and moved_earlier and beginn < previous.beginn:
-        # A stored `beginn` already below the predecessor's is the floor the STEP leaves: the rule
-        # takes it back unchanged, so naming the predecessor's day would refuse ground it gives.
-        floor = (
-            f"its `beginn` cannot go earlier than the {stored_beginn} it already stands on"
-            if stored_beginn is not None and stored_beginn < previous.beginn
-            else "its `beginn` cannot go earlier than that"
-        )
-
         return WriteRefusal(
             error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            # Below the floor the goal is reachable at fixture level alone: the predecessor's own
-            # matches move into the later days, and no `beginn` moves at all.
-            message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
-            f"{floor}; to play this one first, widen position {previous.position}'s `ende` "
-            "and move that matchday's own fixtures into the later days",
         )
 
     if following is not None and moved_later and following.beginn < beginn:
-        # `ende` is never below `beginn` on the payload (`FLPatchSpieltagPayload`), so a span reaching
-        # here already runs past the follower and asking for a wider one would name a step taken.
-        opening = (
-            f"to postpone this one, restore its `beginn` of {stored_beginn}"
-            if stored_beginn is not None
-            else f"it holds no `beginn` to keep, so date it at or before {following.beginn}"
-        )
-
         return WriteRefusal(
             error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
-            f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
-            "then re-date its fixtures inside that span",
         )
 
     return None

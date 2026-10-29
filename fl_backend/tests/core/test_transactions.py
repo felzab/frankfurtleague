@@ -7,6 +7,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any, cast, get_args, get_type_hints
 
@@ -25,7 +26,7 @@ from app.core import security
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
-from app.core.exceptions import ActorForbiddenException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
@@ -442,10 +443,10 @@ class TestARowFailingAloneIsPassedOver:
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
         """A judge's, which every half meets too: halved, the call would answer 200 for an actor it refuses."""
 
-        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
         rows = _Rows(PAGE + 1, lambda read: refusal)
 
-        with pytest.raises(ActorForbiddenException):
+        with pytest.raises(APIError):
             _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
@@ -550,7 +551,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
-        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
         def raises(read: list[int]) -> Exception | None:
             if read == [0, 1, 2, 3]:

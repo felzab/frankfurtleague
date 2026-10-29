@@ -20,7 +20,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -475,7 +475,7 @@ class TestTheRuleOfOneLiveInvitation:
 class TestWhatAMintRefuses:
     def test_a_team_the_season_does_not_hold_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"team_id": NOT_ENTERED})
@@ -487,7 +487,7 @@ class TestWhatAMintRefuses:
 
     def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, TWO_SEATS)
 
             # The team the refused mint named: the seeded league holds an invitation of its own,
@@ -503,7 +503,7 @@ class TestWhatAMintRefuses:
         """A team the season never held would refuse too, and entering it into a season that has ended repairs nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code
@@ -512,7 +512,7 @@ class TestWhatAMintRefuses:
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await mint(database, TWO_SEATS, saison_id=OTHER_SAISON_ID)
 
             # The season the refused mint named, never the whole collection, which the seed fills.
@@ -550,7 +550,7 @@ class TestRevokingALink:
         """A revoke answering 200 over nothing tells an administrator a link is dead that still opens."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await revoke(database, TWO_SEATS)
 
             return None
@@ -564,7 +564,7 @@ class TestRevokingALink:
             await mint(database, TWO_SEATS)
             await revoke(database, TWO_SEATS)
 
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await revoke(database, TWO_SEATS)
 
             return await live_count(database, TWO_SEATS)
@@ -943,7 +943,7 @@ class TestTheSeasonWidePress:
 
     def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await press(database)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"widerrufen_am": None})

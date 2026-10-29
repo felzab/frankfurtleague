@@ -50,7 +50,7 @@ from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saiso
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
@@ -324,7 +324,7 @@ async def refusal_of(database: AsyncDatabase, client: AsyncMongoClient, token: s
 
     try:
         await antworten(database, client, token)
-    except WriteRefusalException as refusal:
+    except APIError as refusal:
         return refusal.error_code
 
     return None

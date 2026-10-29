@@ -43,7 +43,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.db import NO_OWNER
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import PASSKEY_FACTOR, akteur_pseudonym, loeschung_journal_hash
@@ -1091,7 +1091,7 @@ class TestTheSentinelIsNobodyToErase:
                     session=session,
                 )
 
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 async with transaction_session(client) as session:
                     await session.with_transaction(erase)
 

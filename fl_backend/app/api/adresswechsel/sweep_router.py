@@ -59,7 +59,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
@@ -119,7 +119,7 @@ async def _end_the_lapsed_change(
     now: datetime,
     stamp: str,
 ) -> None:
-    """One change in a transaction of its own, judged again there: `DocumentNotFoundException` where it has not lapsed.
+    """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed.
 
     Unjournalled: restored, a lapsed change lapses again at the next pass.
     """
@@ -175,7 +175,7 @@ async def _make_the_due_change_take_effect(
 ) -> FLAdresswechselPostausgangArt | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
-    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundException` where stopped,
+    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundError` where stopped,
     discarded or replaced since the page was read.
     """
 
@@ -366,7 +366,7 @@ async def sweep_adresswechsel(
                     now=germany_now,
                     stamp=stamp,
                 )
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.
             uebersprungen += 1
             continue

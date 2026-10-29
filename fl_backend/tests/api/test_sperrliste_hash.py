@@ -195,11 +195,3 @@ class TestWhatTheCheckAnswers:
         """The control: a check refusing everything would pass the case above and stop every sign-up."""
 
         assert find_sperrliste_refusal(gesperrt=False) is None
-
-    def test_the_refusal_quotes_no_address(self):
-        """The detail reaches a log line and an admin's screen, and the address is the one value this feature exists not to keep."""
-
-        refusal = find_sperrliste_refusal(gesperrt=True)
-
-        assert refusal is not None
-        assert "@" not in refusal.message

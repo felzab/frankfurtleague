@@ -21,7 +21,7 @@ from app.api.registrierungen.services import (
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
@@ -268,7 +268,7 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
@@ -445,7 +445,7 @@ class TestWhatAConfirmationWrites:
         """The stored date is judged as a typed one is: taken as given, it is never taken unchecked."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
 
             return refused.value.error_code, await stored(database)
@@ -460,7 +460,7 @@ class TestWhatAConfirmationWrites:
         """Only a hand edit leaves a person undated, and the page has no field to fill: a refusal reopening the link would loop."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
 
             return (refused.value.error_code, refused.value.status_code), await stored(database)
@@ -500,7 +500,7 @@ class TestTheLabelAPressNames:
         """The stored record's own label among them: the press is a new acceptance, never one the person already holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, umfang=None, medien=None, text_version=genannt)
 
             return conflict.value, await ansicht(database, RAW), await stored(database), await log_rows(database)
@@ -531,7 +531,7 @@ class TestTheLabelAPressNames:
         """The press resolves the page in its own transaction, so a body for the other page is refused rather than stored under it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, text_version=gezeigt, **wahlen)
 
             return conflict.value.error_code, await stored(database)
@@ -569,7 +569,7 @@ class TestTheChoicesThePageAsks:
         self, mongo_replica_set_url: str, held: list[dict[str, Any]], label: str, wahlen: dict[str, Any]
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, text_version=label, **wahlen)
 
             return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
@@ -588,7 +588,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
 
             return conflict.value.error_code, await stored(database), await ansicht(database, RAW)
@@ -603,7 +603,7 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field, and a link voided by one has no remedy but registering again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code, await ansicht(database, RAW), await stored(database), await log_rows(database)
@@ -626,7 +626,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code, await stored(database)
@@ -643,7 +643,7 @@ class TestTheLinkIsSpentByTheStamp:
         declined = registrierung_document(status="abgelehnt", entscheidung=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code
@@ -656,7 +656,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -669,7 +669,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -678,7 +678,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, "a-stranger's-guess")
 
             return conflict.value.error_code, await stored(database)
@@ -702,7 +702,7 @@ class TestTheMediaAge:
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
@@ -732,7 +732,7 @@ class TestALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW)
 
             return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
@@ -758,7 +758,7 @@ class TestALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, FOLDED_EMAIL)
-            with pytest.raises(WriteRefusalException):
+            with pytest.raises(APIError):
                 await answer(database, client, RAW)
             await database[Collection.SPERRLISTE].delete_many({})
 
@@ -784,7 +784,7 @@ class TestALinkToABarredAddress:
             await answer(database, client, RAW)
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW)
 
             return refused.value.error_code
@@ -797,7 +797,7 @@ class TestALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return refused.value.error_code

@@ -47,7 +47,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
@@ -413,7 +413,7 @@ class TestTheReminderClock:
             # own copy -- the one a re-send writing a single entry leaves open.
             tot = []
             for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(WriteRefusalException) as conflict:
+                with pytest.raises(APIError) as conflict:
                     await ansicht(database, gone)
                 tot.append(conflict.value.error_code)
 
@@ -1250,9 +1250,9 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
 class TestASeasonNobodyHas:
     def test_either_call_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await sweep(database, client, saison_id="1999")
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await erase(database, client, [DELETE_OID], saison_id="1999")
 
             return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)

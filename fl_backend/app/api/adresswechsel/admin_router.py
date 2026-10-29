@@ -63,7 +63,6 @@ from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal, holds_a_name
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
-from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -87,7 +86,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
@@ -143,7 +142,7 @@ async def _pull_the_change(
 
     record = await adresswechsel_collection.find_one({"_id": adresswechsel_id}, session=session)
     if record is None:
-        raise DocumentNotFoundException(filter={"_id": adresswechsel_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
     refuse(find_beendet_refusal(offen=record.get("beendet") is None))
 
     return record

@@ -1,4 +1,3 @@
-import re
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
@@ -140,23 +139,6 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     """A unique index refused the write. 409, not a 500, and the index's name is never returned: it names a collection and its fields."""
 
     return error_response(status.HTTP_409_CONFLICT, Code.DUPLICATE_KEY)
-
-
-# Session 2: the sweep moves its two tests off this and deletes it with `refused_index_of`.
-_INDEX_NAME = re.compile(r"index: (\S+) dup key")
-
-
-# Session 2: the sweep moves its two tests off this and deletes it with `_INDEX_NAME`.
-def refused_index_of(exc: DuplicateKeyError) -> str | None:
-    """The name of the unique index that refused, and nothing else of the server's report.
-
-    `errmsg` embeds the duplicate key as a document -- the field AND the value that collided -- so
-    it is parsed for the one token the line may carry rather than logged.
-    """
-
-    match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
-
-    return match.group(1) if match else None
 
 
 # Every failure status an operation answers; the 405 of a method no operation serves is none of them.

@@ -115,7 +115,6 @@ async def _refuse_an_out_of_order_beginn(
     saisons_collection: AsyncCollection,
     stored_raw: Mapping[str, Any],
     beginn: str,
-    ende: str,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
@@ -149,7 +148,6 @@ async def _refuse_an_out_of_order_beginn(
     refuse(
         find_spieltag_order_refusal(
             beginn=beginn,
-            ende=ende,
             # The read its neighbours go through as well, so what an undated row means is decided in
             # one place rather than at each side of the comparison.
             stored_beginn=dated_beginn(stored_raw),
@@ -211,7 +209,6 @@ async def patch_spieltag(
             saisons_collection=saisons_collection,
             stored_raw=stored_raw,
             beginn=spieltag_data.beginn,
-            ende=spieltag_data.ende,
             session=session,
         )
 

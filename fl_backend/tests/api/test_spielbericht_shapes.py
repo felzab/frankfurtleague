@@ -30,7 +30,7 @@ from app.api.spielberichte.services import (
     neu_genannt,
 )
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -400,7 +400,7 @@ class TestAGroupFixtureTakesNoShootOut:
         keine: dict[FLSpielberichtSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
 
         # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
         judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
 

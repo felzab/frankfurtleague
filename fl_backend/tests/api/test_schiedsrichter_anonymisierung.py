@@ -45,7 +45,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
@@ -311,30 +311,12 @@ class TestTheGhostTakesNoNewFixture:
         assert refusal is not None
         assert refusal.error_code == Code.BOOKING_UNKNOWN_RESOURCE
 
-    def test_the_refusal_names_no_null_where_there_is_no_name(self):
-        """The message interpolates the row's name, so a nameless row would read „Schiedsrichter None retired on ...“."""
-
-        refusal = booking_refusal(THE_GHOST, GHOST_SCHIEDSRICHTER_ID)
-
-        assert refusal is not None
-        assert "None" not in refusal.message, refusal.message
-
     def test_the_refusal_offers_the_ghost_no_reactivation(self):
         """The reactivation endpoint answers 404 for this id, so naming it here sends an administrator nowhere."""
 
         refusal = booking_refusal(THE_GHOST, GHOST_SCHIEDSRICHTER_ID)
 
         assert refusal is not None
-        assert "reactivate" not in refusal.message
-
-    def test_an_ordinarily_retired_referee_is_still_told_to_reactivate_them(self):
-        """The control on the case above: a message that dropped the route back for every retired row would pass it."""
-
-        refusal = booking_refusal(A_RETIRED_REFEREE, SCHIEDSRICHTER_OID)
-
-        assert refusal is not None
-        assert REFEREE_NAMES[SCHIEDSRICHTER_OID] in refusal.message
-        assert "reactivate it or pick another" in refusal.message
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -603,7 +585,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                     auth_time=int(time.time()),
                 )
                 answers.append("answered")
-            except DocumentNotFoundException:
+            except DocumentNotFoundError:
                 answers.append("not found")
 
         return answers
@@ -627,7 +609,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
         # row and the 404 below would never be reached.
         await database[Collection.SPIELE].update_one({"_id": UNPLAYED_SPIEL_OID}, {"$set": {"ergebnis": None}})
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             if press == "patch":
                 await patch_schiedsrichter(
                     schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID,

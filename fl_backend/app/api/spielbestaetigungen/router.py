@@ -52,7 +52,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 
@@ -259,10 +259,10 @@ async def post_spielbestaetigung(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
             # the filter repeats that judgement on the write.
-            refuse(first_press_refusal(schiedsrichter=False))
+            refuse(first_press_refusal())
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.

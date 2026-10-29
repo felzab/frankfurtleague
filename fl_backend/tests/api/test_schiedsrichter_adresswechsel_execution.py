@@ -26,7 +26,7 @@ from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchie
 from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -169,7 +169,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refused:
+    with pytest.raises(APIError) as refused:
         await call
 
     return refused.value.error_code

@@ -83,7 +83,6 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
     return WriteRefusal(
         error_code=Code.SPERRLISTE_KEINE_SAISON,
         status=HTTPStatus.CONFLICT,
-        message="a ban lapses after five seasons and no season is running, so there is no season to count them from",
     )
 
 
@@ -120,7 +119,6 @@ def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefus
     return WriteRefusal(
         error_code=Code.SPERRLISTE_VERWALTUNG,
         status=HTTPStatus.CONFLICT,
-        message="this email address holds access to the administration; revoke that access before banning it",
     )
 
 
@@ -136,5 +134,4 @@ def find_sperrliste_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.SPERRLISTE_ADRESSE_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this email address is already on the ban list; lift the entry that holds it rather than adding a second",
     )

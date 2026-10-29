@@ -765,11 +765,10 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
     """That the order rule is handed one phase at a time, and that the phases it would have to compare hold one matchday each."""
 
     def test_the_refusal_is_handed_no_phase_at_all(self):
-        """Its whole input: the span this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
+        """Its whole input: the `beginn` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
 
         assert set(inspect.signature(find_spieltag_order_refusal).parameters) == {
             "beginn",
-            "ende",
             "stored_beginn",
             "previous",
             "following",

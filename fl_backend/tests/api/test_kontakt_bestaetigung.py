@@ -39,7 +39,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import collection_dependency
-from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, get_step_up_check
 from app.main import create_app
@@ -397,7 +397,7 @@ async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[s
 
 
 async def refused(call: Awaitable[Any]) -> str:
-    with pytest.raises((WriteRefusalException, ActorConfirmationRequiredException)) as refusal:
+    with pytest.raises((APIError, APIError)) as refusal:
         await call
 
     return refusal.value.error_code
@@ -495,7 +495,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
             old_token = next(mint.token for mint in first.bestaetigungen if mint.rollen == ["ansprechperson"])
 
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await ansicht(database, old_token)
 
             return handed, refusal.value.error_code, await ansicht(database, handed.bestaetigungen[0].token)
@@ -666,7 +666,7 @@ class TestTheResend:
 
     def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await resend(database, "kapitaen")
 
             return None

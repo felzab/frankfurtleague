@@ -14,19 +14,14 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         self,
         *,
         beginn: str,
-        ende: str | None = None,
         stored: str | None = "2026-05-10",
         previous: str | None = None,
         following: str | None = None,
     ):
-        """The neighbours as bare dates, at fixed positions: every case below turns on the dates alone.
-
-        `ende` defaults to a one-day matchday, which is the shortest span the payload validator leaves.
-        """
+        """The neighbours as bare dates, at fixed positions: every case below turns on the dates alone."""
 
         return find_spieltag_order_refusal(
             beginn=beginn,
-            ende=beginn if ende is None else ende,
             stored_beginn=stored,
             previous=None if previous is None else DatedNeighbour(position=2, beginn=previous),
             following=None if following is None else DatedNeighbour(position=4, beginn=following),
@@ -84,40 +79,6 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         assert self.order(beginn="2026-05-15", stored="2026-05-10", previous="2026-05-20") is None
         assert self.order(beginn="2026-05-07", stored="2026-05-10", following="2026-05-05") is None
-
-    def test_the_predecessor_arm_names_the_move_that_reaches_the_goal(self):
-        """Widening the predecessor is accepted; resubmitting this patch behind it is not, so a promised retry lands here again."""
-
-        refusal = self.order(beginn="2026-05-04", previous="2026-05-05")
-
-        assert refusal is not None
-        assert "its `beginn` cannot go earlier than that" in refusal.message
-        assert "widen position 2's `ende` and move that matchday's own fixtures into the later days" in refusal.message
-
-    def test_the_predecessor_arm_names_the_day_the_matchday_already_stands_on(self):
-        """A stored `beginn` below the predecessor's is the floor, and the absolute form would name a bound the same call permits."""
-
-        refusal = self.order(beginn="2026-05-08", stored="2026-05-10", previous="2026-05-20")
-
-        assert refusal is not None
-        assert "its `beginn` cannot go earlier than the 2026-05-10 it already stands on" in refusal.message
-
-    def test_the_follower_arm_names_the_ende_the_request_already_carries(self):
-        """`ende` is never below `beginn` on the payload, so a refusal here always carries a span running past the follower already."""
-
-        refusal = self.order(beginn="2026-05-21", ende="2026-05-22", following="2026-05-20")
-
-        assert refusal is not None
-        assert "restore its `beginn` of 2026-05-10" in refusal.message
-        assert "this `ende` of 2026-05-22, which already runs past that day" in refusal.message
-
-    def test_a_first_dating_is_told_to_pick_a_beginn_rather_than_keep_one(self):
-        """An undated matchday holds none to keep, and naming one sends an admin looking for a value that is not there."""
-
-        refusal = self.order(beginn="2026-05-21", ende="2026-05-22", stored=None, following="2026-05-20")
-
-        assert refusal is not None
-        assert "it holds no `beginn` to keep, so date it at or before 2026-05-20" in refusal.message
 
 
 class TestWhatCountsAsADatedNeighbour:

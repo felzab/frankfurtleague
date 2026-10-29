@@ -103,7 +103,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
 from app.core.security import (
     StepUpCheck,
@@ -196,7 +196,7 @@ async def _rewrite_gruppenphase_sides(
     # Raising here aborts the transaction rather than writing half an exchange.
     for team_id in team_ids:
         if team_id not in identity_of:
-            raise DocumentNotFoundException(filter={"_id": team_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -369,15 +369,9 @@ async def patch_saison(
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
             phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
-        # `RECORDED_FACT_FIELDS` beside `spieltag_id`, so ONE read answers `REQ-RULES-011`'s freeze
-        # and weighs the window its repair runs in: counted apart, the two could disagree about the
-        # same season and compose a repair for a window that is shut.
         per_spieltag: dict[Any, int] = {}
-        recorded_fixtures = 0
-        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id", *RECORDED_FACT_FIELDS], session=session):
+        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id"], session=session):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-            if holds_a_recorded_fact(spiel):
-                recorded_fixtures += 1
 
         # Every fixture, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the draw, and
         # one on another season's matchday came out of this season's rules too. Only a draw or an
@@ -452,7 +446,6 @@ async def patch_saison(
                     largest_squad=figures.largest_squad,
                     attached_by_phase=attached_by_phase,
                     drawn_fixtures=drawn_fixtures,
-                    recorded_fixtures=recorded_fixtures,
                     played_knockout_fixtures=figures.played_knockout,
                 )
             )
@@ -878,7 +871,6 @@ async def generate_spielplan(
                 saison_status=str(saison_raw["status"]),
                 fixtures_drawn=len(stored_spiele),
                 spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
-                watermark=saison_raw.get("spielplan"),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,

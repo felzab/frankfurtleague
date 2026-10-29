@@ -139,7 +139,6 @@ def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ERTEILUNG_NICHT_ZUGELASSEN,
         status=HTTPStatus.FORBIDDEN,
-        message="this record takes a withdrawal alone: no grant is admitted on it here",
     )
 
 
@@ -156,7 +155,6 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.FUNKTION_NICHT_GEHALTEN,
         status=HTTPStatus.FORBIDDEN,
-        message="the signed-in person holds no confirmed record here that this operation may read or change",
     )
 
 
@@ -173,7 +171,6 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
     return WriteRefusal(
         error_code=Code.EINWILLIGUNG_STAND_VERALTET,
         status=HTTPStatus.CONFLICT,
-        message="this consent has moved since the page was served; reload it and press again",
     )
 
 

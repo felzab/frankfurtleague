@@ -29,10 +29,10 @@ from app.api.spieler.services import build_real_spieler_filter, build_spieler_me
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
+from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
-from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -393,7 +393,7 @@ class TestTheSeasonASquadIsReadFor:
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
 
-        with pytest.raises(DocumentNotFoundException) as refused:
+        with pytest.raises(DocumentNotFoundError) as refused:
             asyncio.run(
                 get_spieler(
                     spieler_collection=cast(AsyncCollection, object()),

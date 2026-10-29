@@ -2,7 +2,7 @@
 CORE · database access, the query one list read runs, and the conventions a write keeps
 
 One contract across the module, so no caller needs a `None` branch to reach a 404: a `*_one_*`
-helper raises `DocumentNotFoundException` on a miss and never returns `None`, and a `*_many_*`
+helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
 
 Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
@@ -27,8 +27,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
-from app.core.codes import Code
-from app.core.exceptions import DocumentNotFoundException, WriteRefusal, WriteRefusalException
+from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.recording import record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -81,7 +80,7 @@ async def pull_one_from_db(
 
     doc = await collection.find_one(filter=db_filter, projection=projection or {}, session=session)
     if doc is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return doc
 
@@ -128,13 +127,13 @@ async def patch_one_in_db(
     # update's own is taken with the write.
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
     replaced_id = before["_id"]
 
     async def read_back() -> Mapping[str, Any]:
         stored = await collection.find_one(filter={"_id": replaced_id}, projection=None, session=session)
         if stored is None:
-            raise DocumentNotFoundException(filter=db_filter, error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         return stored
 
@@ -483,7 +482,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise WriteRefusalException(refusal)
+        raise refusal.error()
 
 
 async def set_inactive_since(

@@ -17,11 +17,10 @@ from app.api.teams.schemas import (
     FLTeamsSingleResponse,
 )
 from app.api.teams.services import build_gruppen, build_team_pipeline
-from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -116,6 +115,6 @@ async def get_team(
         collation=GERMAN_COLLATION,
     )
     if not teams_raw:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=Code.DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return FLTeamsSingleResponse(team=FLTeam.model_validate(teams_raw[0]))

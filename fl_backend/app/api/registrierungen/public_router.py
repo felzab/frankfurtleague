@@ -46,7 +46,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
@@ -191,7 +191,7 @@ async def _answer_as_the_first(
                 return_document=ReturnDocument.BEFORE,
             )
             raw = fresh
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # The filter is the judgement: a row whose state holds its link back matches nothing, and
             # this answer hands none.
             raw = None

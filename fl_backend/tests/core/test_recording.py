@@ -16,7 +16,7 @@ from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 from app.api.aktionen.schemas import FLAktionRecord
 from app.core.collections import Collection
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import trace_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, build_image_redactions, log_stamp, record_write, request_var
 
@@ -177,7 +177,7 @@ class TestWhatEachWriteRecords:
         """A row for a write that never landed is a restore the page would offer over a document nobody touched."""
         target, log = build(before=None, after=None)
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(
                 patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
             )

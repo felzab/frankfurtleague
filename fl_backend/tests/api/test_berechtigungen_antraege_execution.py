@@ -45,7 +45,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var, log_stamp
 from app.core.security import admin_judge
@@ -203,10 +203,10 @@ async def outcome(call: Awaitable[Any]) -> str:
 
     try:
         await call
-    except WriteRefusalException as refusal:
-        return str(refusal.error_code)
-    except DocumentNotFoundException:
+    except DocumentNotFoundError:
         return NOT_FOUND
+    except APIError as refusal:
+        return str(refusal.error_code)
 
     return COMMITTED
 

@@ -30,7 +30,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
@@ -500,7 +500,7 @@ class TestTheSubmissionKey:
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await submit(database, schluessel=SCHLUESSEL, stufengroesse=91)
 
             return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
@@ -570,7 +570,7 @@ class TestTheSubmissionKey:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
             stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return stored, refused.value.error_code
@@ -653,11 +653,11 @@ class TestTheSubmissionKey:
         assert (len(ids), stored) == (1, 1)
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> WriteRefusalException:
+def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
     """One submission expected to be refused, with the exception it raised."""
 
-    async def body(database: AsyncDatabase) -> WriteRefusalException:
-        with pytest.raises(WriteRefusalException) as failure:
+    async def body(database: AsyncDatabase) -> APIError:
+        with pytest.raises(APIError) as failure:
             await submit(database, **overrides)
 
         # Nothing was written: a refusal that stored the row anyway would be a 409 the applicant
@@ -692,7 +692,7 @@ class TestTheRefusalsTheWritePathAnswers:
         """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""
 
         async def body(database: AsyncDatabase) -> None:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await submit(database, saison_id="1999")
 
         on_a_league(mongo_replica_set_url, body)
@@ -982,7 +982,7 @@ class TestABannedContactAddress:
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
             await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await submit(database)
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
@@ -999,7 +999,7 @@ class TestABannedContactAddress:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return failure.value.error_code, before, await database[Collection.BEWERBUNGEN].find({}).to_list()

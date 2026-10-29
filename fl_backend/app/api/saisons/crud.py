@@ -6,7 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.core.crud import pull_one_from_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 
 CURRENT_SAISON_FILTER = {"status": "active"}
 
@@ -36,7 +36,7 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
 
     try:
         running = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"], session=session)
-    except DocumentNotFoundException:
+    except DocumentNotFoundError:
         # Never the newest `past` season instead: after the first activation no route leaves the
         # league without a running one, and a ban counted from a
         # guessed season bars a person for the wrong five.

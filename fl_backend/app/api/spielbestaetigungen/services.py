@@ -269,7 +269,6 @@ def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_TOKEN_UNKNOWN,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no fixture confirmation; it may have been replaced when its seat changed hands",
     )
 
 
@@ -282,43 +281,24 @@ def find_gesperrt_link_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ANSETZUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it answers nothing",
     )
 
 
-def _is_referees(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
-    """Whose row: each message below is worded for the reader it reaches, a club's link or a referee signed in."""
-
-    return bool((spielbestaetigung_raw.get("partei") or {}).get("art") == "schiedsrichter")
-
-
-def first_press_refusal(*, schiedsrichter: bool) -> WriteRefusal:
+def first_press_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-002`, built here alone: by the spent-link judgement and by the answer whose filtered write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_BEANTWORTET,
         status=HTTPStatus.GONE,
-        # The league's Zusage answers a referee's row too, so the sentence names both answerers.
-        message=(
-            "this booking has already been answered, by you or by the league on your behalf"
-            if schiedsrichter
-            else "this club has already answered about this fixture, from this link or another of its seats"
-        ),
     )
 
 
-def ansetzung_verlassen_refusal(*, schiedsrichter: bool) -> WriteRefusal:
+def ansetzung_verlassen_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-004`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_GEAENDERT,
         status=HTTPStatus.GONE,
-        # Never "asked afresh" to a referee: the fixture may book somebody else now, or nobody.
-        message=(
-            "the fixture's date, time, ground, sides or referee changed since this booking asked about it, so it takes no answer"
-            if schiedsrichter
-            else "the fixture's date, time, ground, sides or referee changed since this row asked about it; the new Ansetzung is asked afresh"
-        ),
     )
 
 
@@ -328,51 +308,37 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
     An answered row whose Ansetzung moved answers `-002` and reads `ungueltig`: the page re-reads the view on `-002`.
     """
 
-    schiedsrichter = _is_referees(spielbestaetigung_raw)
-
     if spielbestaetigung_raw.get("antwort") is not None:
-        return first_press_refusal(schiedsrichter=schiedsrichter)
+        return first_press_refusal()
 
     if spielbestaetigung_raw.get("geschlossen") is not None:
         return WriteRefusal(
             error_code=Code.ANSETZUNG_GESCHLOSSEN,
             status=HTTPStatus.GONE,
-            message=(
-                "this booking was closed before you answered; a fresh request is a new row on your panel"
-                if schiedsrichter
-                else "this confirmation was closed before anybody answered; a fresh request is a new link"
-            ),
         )
 
     grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
     if grund in GRUENDE_UNGUELTIG:
-        return ansetzung_verlassen_refusal(schiedsrichter=schiedsrichter)
+        return ansetzung_verlassen_refusal()
 
     # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
     if grund is not None and grund != "spiel_vergangen":
         return WriteRefusal(
             error_code=Code.ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
-            message=(
-                "this fixture has been decided, called off or lost a club since this booking asked about it"
-                if schiedsrichter
-                else "this fixture has been decided, called off or lost a club since this link was sent"
-            ),
         )
 
     if grund is not None:
         return WriteRefusal(
             error_code=Code.ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
-            message="this fixture's day has passed, and the date is the administrator's now",
         )
 
     if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return WriteRefusal(
             error_code=Code.ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
-            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
         )
 
     return None
@@ -387,7 +353,6 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
     return WriteRefusal(
         error_code=Code.ANSETZUNG_VORSCHLAG_VERGANGEN,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message=f"the proposed date {vorschlag.datum} lies before today",
         # The date box the form holds the proposal in, so it is marked where the reader typed the day.
         fields=(("vorschlag", "datum"),),
     )
@@ -549,7 +514,6 @@ def eintragen_refusal() -> WriteRefusal:
     return WriteRefusal(
         error_code=Code.ANSETZUNG_NICHT_EINTRAGBAR,
         status=HTTPStatus.CONFLICT,
-        message="this confirmation is already answered or closed, so it takes no administrator's answer",
     )
 
 
@@ -583,7 +547,6 @@ def verwerfen_refusal() -> WriteRefusal:
     return WriteRefusal(
         error_code=Code.ANSETZUNG_NICHT_VERWERFBAR,
         status=HTTPStatus.CONFLICT,
-        message="only an open club decline carrying a proposed date, about the fixture's current Ansetzung, can be discarded",
     )
 
 
@@ -640,7 +603,6 @@ def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None
     return WriteRefusal(
         error_code=Code.ANSETZUNG_FREMDE_ZEILE,
         status=HTTPStatus.FORBIDDEN,
-        message="this confirmation names none of the referee records the signed-in address holds",
     )
 
 

@@ -9,7 +9,7 @@ from app.api.teams.admin_router import patch_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import bestaetigte_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
@@ -200,7 +200,7 @@ class TestMovingAClubBetweenGroups:
         """`REQ-ENTER`'s move lock through the route: the group phase is a round robin, so a move after the draw strands every fixture."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
@@ -214,7 +214,7 @@ class TestMovingAClubBetweenGroups:
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
@@ -226,7 +226,7 @@ class TestMovingAClubBetweenGroups:
 
     def test_a_group_the_season_does_not_run_refuses_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe=UNOFFERED_GRUPPE)
 
             return conflict.value.error_code
@@ -237,7 +237,7 @@ class TestMovingAClubBetweenGroups:
         """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_patch(database, ABSENT, gruppe="B")
 
             return await database[Collection.SAISON_TEAMS].count_documents({})

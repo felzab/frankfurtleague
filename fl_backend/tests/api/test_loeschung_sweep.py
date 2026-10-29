@@ -40,7 +40,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
 from app.main import create_app
 from tests.app_client import app_client
@@ -1070,7 +1070,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
 
     def test_an_unknown_season_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await preview_loeschung(
                     saison_id="2099",
                     saisons_collection=database[Collection.SAISONS],

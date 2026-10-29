@@ -70,15 +70,6 @@ class TestAFixtureSitsInsideItsMatchday:
 
         assert find_fixture_date_refusal(datum=None, spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08") is None
 
-    def test_the_refusal_names_the_span_and_not_only_the_date(self):
-        """The repair is a choice between two edits, so the admin needs both numbers to make it."""
-
-        refusal = find_fixture_date_refusal(datum="2026-03-20", spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08")
-
-        assert refusal is not None
-        assert "2026-03-07" in refusal.message
-        assert "2026-03-08" in refusal.message
-
 
 class TestAMatchdaySitsInsideItsSeason:
     def test_a_span_inside_the_season_passes(self):
@@ -159,20 +150,6 @@ class TestASeasonKeepsCoveringItsMatchdays:
             is None
         )
 
-    def test_the_refusal_counts_them_and_names_the_first(self):
-        """The count says how much work the repair is; the dates say where to start looking."""
-
-        refusal = find_saison_span_refusal(
-            start_date="2026-04-01",
-            end_date="2026-09-30",
-            rules=SAISON_RULES,
-            spieltag_spans=[("2026-03-20", "2026-03-21"), ("2026-03-07", "2026-03-09")],
-        )
-
-        assert refusal is not None
-        assert "2" in refusal.message
-        assert "2026-03-07" in refusal.message
-
     def test_a_season_with_no_matchdays_passes_this_half(self):
         """The create calls this for `REQ-DATE-005`, and an empty `spieltag_spans` is what makes the containment half pass there."""
 
@@ -205,15 +182,6 @@ class TestASeasonIsLongEnoughForItsSchedule:
 
         assert refusal is not None
         assert refusal.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE
-
-    def test_the_refusal_names_both_numbers(self):
-        """The repair is a choice — widen the span or narrow the rules — so both sides have to be named."""
-
-        refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-02", rules=SAISON_RULES, spieltag_spans=[])
-
-        assert refusal is not None
-        assert "2 day(s)" in refusal.message
-        assert f"{IMPLIED_MATCHDAYS} matchday(s)" in refusal.message
 
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
         """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
@@ -254,18 +222,6 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_FIXTURES
-
-    def test_the_refusal_counts_them_and_names_the_first(self):
-        refusal = find_spieltag_span_refusal(
-            beginn="2026-03-07",
-            ende="2026-03-08",
-            fixture_dates=["2026-03-25", "2026-03-20"],
-            **SPAN,
-        )
-
-        assert refusal is not None
-        assert "2" in refusal.message
-        assert "2026-03-20" in refusal.message
 
     def test_the_season_rule_is_reported_first(self):
         """Widening to cover a stray fixture is pointless advice if the widened span still falls outside the season."""
@@ -324,19 +280,6 @@ class TestOneVenueAndOneRefereeAtATime:
 
         assert find_clash_refusal(datum=datum, uhrzeit=uhrzeit, booked=[self.slot("18:00:00")]) is None
 
-    def test_the_refusal_names_the_resource_and_the_other_fixture(self):
-        refusal = find_clash_refusal(
-            datum="2026-03-07",
-            uhrzeit="19:00:00",
-            booked=[self.slot("18:00:00", resource="Schiedsrichter", nr=11)],
-        )
-
-        assert refusal is not None
-        assert "Schiedsrichter" in refusal.message
-        assert "11" in refusal.message
-        # The season too: the other fixture can sit in any, and its number is unique within one alone.
-        assert OTHER_SAISON in refusal.message
-
 
 class TestRetiringAVenueOrAReferee:
     def test_nothing_upcoming_permits_it(self):
@@ -361,7 +304,6 @@ class TestRetiringAVenueOrAReferee:
         refusal = find_venue_retire_refusal(upcoming_spiel_nrs=list(range(1, 12)))
 
         assert refusal is not None
-        assert "and 6 more" in refusal.message
 
     def test_the_unplayed_booking_filter_spells_the_definition_once(self):
         """The venue twin of `app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`, so neither seam narrows alone."""
@@ -407,14 +349,6 @@ class TestASquadCap:
 
         assert refusal is not None
         assert refusal.error_code == Code.SQUAD_FULL
-
-    def test_the_message_names_both_figures(self):
-        """The admin's next action is either to retire a row or to raise the season's rule, and neither is choosable without both numbers."""
-
-        refusal = find_squad_capacity_refusal(squad_size=18, max_kadergroesse=18)
-
-        assert refusal is not None
-        assert "18/18" in refusal.message
 
     def test_the_count_is_of_live_rows_only(self):
         """A retired row is a place given back; the unique index still spans it, which answers a repeat entry rather than capacity."""
@@ -466,14 +400,6 @@ class TestASquadRolle:
 
         assert refusal is not None
         assert refusal.error_code == Code.SQUAD_ROLLE_TAKEN
-
-    def test_the_message_names_the_role_that_was_refused(self):
-        """The two roles are refused by one code, so the log line is the only place saying which was asked for."""
-
-        refusal = find_squad_rolle_refusal(rolle="co_kapitaen", taken=True)
-
-        assert refusal is not None
-        assert "co_kapitaen" in refusal.message
 
     def test_the_two_roles_never_answer_for_each_other(self):
         """The rule is per role: a squad with a Kapitaen still has its Co-Kapitaen to give."""

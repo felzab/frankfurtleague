@@ -64,7 +64,6 @@ from app.api.konto.services import (
 from app.api.schiedsrichter.services import build_selbst_referee_pipeline
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.api.spieler.services import build_selbst_pupil_pipeline
-from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -85,7 +84,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import adresswechsel_gedrosselt
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
@@ -432,9 +431,7 @@ async def post_adresswechsel_freigabe(
                 {"_id": adresswechsel_id, "beendet": {"$type": "object"}}, {"_id": 1}, session=session
             )
             refuse(find_beendet_refusal(offen=ended is None))
-            raise DocumentNotFoundException(
-                filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=Code.DOCUMENT_NOT_FOUND
-            )
+            raise DocumentNotFoundError()
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
         # As the start: the press lets a link go that hands over any grant the address holds at the effect.
         if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
@@ -485,7 +482,7 @@ async def delete_adresswechsel(
     async def stop_the_change(session: AsyncClientSession) -> FLKontoAdresswechselResponse:
         live = await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
-            raise DocumentNotFoundException(filter=dict(LIVE_TERMS), error_code=Code.DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         stored = await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,

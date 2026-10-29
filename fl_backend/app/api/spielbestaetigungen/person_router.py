@@ -50,7 +50,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.drosselung import gedrosselt
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -247,8 +247,8 @@ async def post_schiedsrichter_antwort(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        except DocumentNotFoundException:
-            refuse(first_press_refusal(schiedsrichter=True))
+        except DocumentNotFoundError:
+            refuse(first_press_refusal())
 
         if antwort_data.antwort == "abgelehnt":
             # Never `PATCH /spiele/{spiel_id}`, which re-resolves the season's bracket: a person's press moves this one
@@ -261,10 +261,10 @@ async def post_schiedsrichter_antwort(
                     session=session,
                     return_document=ReturnDocument.BEFORE,
                 )
-            except DocumentNotFoundException:
+            except DocumentNotFoundError:
                 # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
                 # Mapped to that judgement's refusal, so no `DB-COMMON-001` is published for a miss no caller meets.
-                refuse(ansetzung_verlassen_refusal(schiedsrichter=True))
+                refuse(ansetzung_verlassen_refusal())
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
             # raises no conflict: all judged again outside it before answering.

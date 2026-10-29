@@ -29,7 +29,7 @@ from app.api.spielbestaetigungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -120,8 +120,8 @@ async def eintragen_spielbestaetigung(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
-        except DocumentNotFoundException as miss:
-            raise WriteRefusalException(eintragen_refusal()) from miss
+        except DocumentNotFoundError as miss:
+            raise eintragen_refusal().error() from miss
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(settle_for_the_party)
@@ -177,8 +177,8 @@ async def verwerfen_spielbestaetigung(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
-        except DocumentNotFoundException as miss:
-            raise WriteRefusalException(verwerfen_refusal()) from miss
+        except DocumentNotFoundError as miss:
+            raise verwerfen_refusal().error() from miss
 
         # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
         # again outside it before answering.

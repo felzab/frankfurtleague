@@ -16,7 +16,7 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, team_document
 from tests.worker import worker_database
@@ -88,13 +88,6 @@ class TestWhetherTheClubIsStillInTheLeague:
         assert refusal is not None
         assert refusal.error_code == Code.CLUB_RETIRED
 
-    def test_the_refusal_names_the_day_it_left(self):
-        """The message is what an admin acts on: `reactivate` is one click, but only if the state is legible."""
-        refusal = find_club_entry_refusal(inactive_since="2026-03-01")
-
-        assert refusal is not None
-        assert "2026-03-01" in refusal.message
-
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
@@ -148,7 +141,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, RETIRED_OID)
 
             return conflict.value.error_code, await junction_rows(database)
@@ -163,7 +156,7 @@ class TestEnteringAClubThroughTheEndpoint:
         """A group the season does not run would refuse too; naming it sends an admin to fix the wrong thing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, RETIRED_OID, gruppe="D")
 
             return conflict.value.error_code
@@ -174,7 +167,7 @@ class TestEnteringAClubThroughTheEndpoint:
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await enter(database, ABSENT_OID)
 
             return await junction_rows(database)
@@ -201,7 +194,7 @@ class TestEnteringAClubThroughTheEndpoint:
         """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, LIVE_OID)
 
             return conflict.value.error_code

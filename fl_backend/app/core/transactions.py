@@ -21,7 +21,7 @@ from app.core.exception_handlers import (
     refused_properties_of,
     rejected_fields_of,
 )
-from app.core.exceptions import BaseAPIException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import actor_var
@@ -250,7 +250,7 @@ def carried_by_a_row(failure: Exception) -> bool:
     answers -- a judge's among them -- is the request's.
     """
 
-    return not isinstance(failure, (StalledPage, BaseAPIException)) and not (isinstance(failure, PyMongoError) and failure.timeout)
+    return not isinstance(failure, (StalledPage, APIError)) and not (isinstance(failure, PyMongoError) and failure.timeout)
 
 
 def diagnosis_of(failure: Exception) -> tuple[str, str]:
