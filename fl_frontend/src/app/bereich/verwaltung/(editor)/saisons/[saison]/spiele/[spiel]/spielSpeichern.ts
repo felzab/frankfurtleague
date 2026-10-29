@@ -130,7 +130,7 @@ export const spielSpeichern = action({
     if (gespeichert === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
 
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
-    const folgen = describeMovedSpiele(geschrieben.advanced_to ?? [], geschrieben.bracket_faults ?? [], geschrieben.released_sides ?? []);
+    const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
     const value = spielStateKey(gespeichert.spiel);
     return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) };
   },
