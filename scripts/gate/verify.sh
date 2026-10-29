@@ -534,7 +534,7 @@ scope_db() {
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   step "db · the contract and its generated client match the code they are built from"
   check "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  uv run --directory fl_backend --frozen python -m app.openapi_document && (cd fl_frontend && pnpm exec orval)  -- then commit both." \
+Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
     contract_check \
     && ok "the contract and the client are current"
 
