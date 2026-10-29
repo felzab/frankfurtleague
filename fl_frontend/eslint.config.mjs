@@ -274,6 +274,18 @@ const IMPORT_BANS = [
   importBan(ACTOR_SIGNING, PRODUCTION, { allow: ["src/core/subject.ts", "src/core/auth.ts"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.entries(SECRET_READERS).map(([owner, entry]) => importBan(entry, PRODUCTION, { allow: [owner] })),
+  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
+  // secret reader past the bans above. The boot alone loads the settings by `import()`: their validation throws
+  // while the module loads, and the boot turns that rejection into its refusal.
+  ban(
+    "no-restricted-syntax",
+    syntax(
+      `ImportExpression[source.value=/${CONFIG_MODULE}/]`,
+      "Import fl_frontend/src/core/config.ts statically: lint holds each secret reader to its one owner through the static import alone.",
+    ),
+    PRODUCTION,
+    { allow: ["src/instrumentation-node.ts"] },
+  ),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(SPERRE_NOTICE, PRODUCTION, { allow: ["src/features/sperrliste/actions.ts"] }),
