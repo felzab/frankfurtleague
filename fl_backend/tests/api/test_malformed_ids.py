@@ -12,7 +12,7 @@ from pydantic import TypeAdapter
 
 from app.core.exception_handlers import DATABASE_FAILED, NO_ROUTE, PAYLOAD_REFUSED
 from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX, ObjectIdConvertor
-from app.main import create_app, document_routes
+from app.main import create_app
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.core.app_source import api_routes, application
@@ -114,9 +114,9 @@ def test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id():
     """The case above passes a `str` there, its pattern published off the convertor, and every lookup by that id then misses."""
 
     reached: list[tuple[str, str, type]] = []
-    for route in document_routes(application()):
+    for route in api_routes(application()):
         fields = _path_fields(route.dependant)
-        for name, convertor in route.convertors.items():
+        for name, convertor in route.param_convertors.items():
             if isinstance(convertor, ObjectIdConvertor):
                 info = fields[name].field_info
                 # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.

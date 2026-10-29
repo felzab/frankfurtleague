@@ -19,6 +19,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, FLGenehmigungVerwehrt, as_utc
 from app.api.berechtigungen.services import compose_postausgang, haelt_seit
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, post_many_to_db, refuse
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal
@@ -26,13 +27,13 @@ from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
 
-BERECHTIGUNG_ANTRAG_OFFEN = "REQ-BERECHTIGUNG-008"
+BERECHTIGUNG_ANTRAG_OFFEN = Code.BERECHTIGUNG_ANTRAG_OFFEN
 # 403, as the address change's approval refusals: about who asks, and another administrator's press lifts it.
-BERECHTIGUNG_GENEHMIGUNG_VERWEHRT = "REQ-BERECHTIGUNG-009"
-BERECHTIGUNG_GENEHMIGUNG_INHABER = "REQ-BERECHTIGUNG-010"
-BERECHTIGUNG_GENEHMIGUNG_JUENGER = "REQ-BERECHTIGUNG-011"
+BERECHTIGUNG_GENEHMIGUNG_VERWEHRT = Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT
+BERECHTIGUNG_GENEHMIGUNG_INHABER = Code.BERECHTIGUNG_GENEHMIGUNG_INHABER
+BERECHTIGUNG_GENEHMIGUNG_JUENGER = Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER
 # 409: the request's own state, which no approver lifts; a new request does.
-BERECHTIGUNG_ANTRAG_VERFALLEN = "REQ-BERECHTIGUNG-012"
+BERECHTIGUNG_ANTRAG_VERFALLEN = Code.BERECHTIGUNG_ANTRAG_VERFALLEN
 
 # The outbox kinds telling a requester how their request ended, each mailed to them alone.
 ANTRAG_ENDEN: Final = frozenset(get_args(FLBerechtigungAntragEndeArt))

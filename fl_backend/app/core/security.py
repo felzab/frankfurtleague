@@ -4,6 +4,7 @@ import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
 from bson import ObjectId
@@ -26,6 +27,7 @@ from app.core.actor_token import (
     verify_actor_token,
 )
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
@@ -34,8 +36,8 @@ from app.core.exceptions import (
     ActorConfirmationRequiredException,
     ActorForbiddenException,
     ActorTokenRefusedException,
+    APIError,
     MalformedRequestException,
-    RequestAuthorizationException,
 )
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.core.transactions import ActorJudge, actor_judge_var
@@ -45,23 +47,13 @@ from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
 # than a copy a rename leaves behind.
-MISSING_TOKEN = "REQ-AUTH-001"
-WRONG_BASE_KEY = "REQ-AUTH-002"
-WRONG_SYSTEM_KEY = "REQ-AUTH-003"
-WRONG_ADMIN_KEY = "REQ-AUTH-004"
+MISSING_TOKEN = Code.MISSING_TOKEN
+WRONG_BASE_KEY = Code.WRONG_BASE_KEY
+WRONG_SYSTEM_KEY = Code.WRONG_SYSTEM_KEY
+WRONG_ADMIN_KEY = Code.WRONG_ADMIN_KEY
 
-# `auto_error=False` so a missing header reaches `get_token` and answers `MISSING_TOKEN`; FastAPI's
-# own 403 would carry none of the error-code contract.
-bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def get_token(
-    credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
-) -> str:
-    if credentials is None:
-        raise RequestAuthorizationException(error_code=MISSING_TOKEN)
-
-    return credentials.credentials
+# RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
+BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
 
 
 # A lookup on the settings, not the value: taking the `SecretStr` out only inside `dependency`
@@ -69,29 +61,35 @@ def get_token(
 KeySelector = Callable[[BackendConfig], SecretStr]
 
 
-def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
+def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: str) -> Callable:
     """Build a guard that compares the bearer token against one configured key.
 
     The key is selected PER REQUEST: capturing its value here would read the environment at import
     time, the side effect `app/asgi.py` exists to confine.
     """
 
+    # A scheme per tier, so each operation's published `security` names the key it takes.
+    # `auto_error=False` so a missing header answers `MISSING_TOKEN`, where FastAPI's own 403 carries no code.
+    scheme = HTTPBearer(scheme_name=scheme_name, auto_error=False)
+
     def dependency(
-        token: Annotated[str, Security(get_token)],
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Security(scheme)],
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
-        if not secrets.compare_digest(token, select_key(config).get_secret_value()):
-            raise RequestAuthorizationException(error_code=error_code)
-        return token
+        if credentials is None:
+            raise APIError(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN, headers=BEARER_CHALLENGE)
+        if not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
+            raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
+        return credentials.credentials
 
     return dependency
 
 
 # Module-level objects, so a router declares the same callable every time and a test can compare
 # guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=WRONG_BASE_KEY)
-verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=WRONG_SYSTEM_KEY)
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=WRONG_ADMIN_KEY)
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=WRONG_BASE_KEY, scheme_name="BaseKey")
+verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=WRONG_SYSTEM_KEY, scheme_name="SystemKey")
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=WRONG_ADMIN_KEY, scheme_name="AdminKey")
 
 
 def get_actor_email() -> str:
@@ -112,11 +110,11 @@ def get_actor_email() -> str:
 
 ACTOR_HEADER = "X-FL-Actor"
 
-MISSING_ACTOR = "REQ-AUTH-005"
-ACTOR_NOT_ADMIN = "REQ-AUTH-006"
-ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
-PERSON_BARRED = "REQ-AUTH-008"
-CONFIRMATION_REQUIRED = "REQ-AUTH-009"
+MISSING_ACTOR = Code.MISSING_ACTOR
+ACTOR_NOT_ADMIN = Code.ACTOR_NOT_ADMIN
+ACTOR_TOKEN_REFUSED = Code.ACTOR_TOKEN_REFUSED
+PERSON_BARRED = Code.PERSON_BARRED
+CONFIRMATION_REQUIRED = Code.CONFIRMATION_REQUIRED
 
 
 def get_actor_token_key(request: Request) -> ActorTokenKey:
@@ -276,10 +274,7 @@ def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admi
 
 
 def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
-    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant.
-
-    A dependency for `get_step_up_check`'s reason: the document derives the refusal from the operations running it.
-    """
+    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant."""
 
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, ENROLMENT_WINDOW_S):
@@ -304,11 +299,7 @@ StepUpCheck = Callable[[], None]
 
 
 def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> StepUpCheck:
-    """The step-up of a write stepped up on some calls alone.
-
-    A dependency rather than a raise in the handler, so the document derives the refusal from the
-    operations running it (`app/main.py :: DEPENDENCY_REFUSALS`).
-    """
+    """The step-up of a write stepped up on some calls alone."""
 
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, STEP_UP_WINDOW_S):

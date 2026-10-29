@@ -19,6 +19,7 @@ from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, h
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
@@ -34,8 +35,8 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 # The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
 _FASSUNG_ORT: Final = "einwilligung"
 
-EINWILLIGUNG_STAND_VERALTET: Final = "REQ-EINWILLIGUNG-003"
-ERTEILUNG_NICHT_ZUGELASSEN: Final = "REQ-EINWILLIGUNG-004"
+EINWILLIGUNG_STAND_VERALTET: Final = Code.EINWILLIGUNG_STAND_VERALTET
+ERTEILUNG_NICHT_ZUGELASSEN: Final = Code.ERTEILUNG_NICHT_ZUGELASSEN
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:

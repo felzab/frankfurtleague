@@ -7,6 +7,7 @@ from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
@@ -78,10 +79,9 @@ def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
     return isinstance(beginn, str) and beginn <= today
 
 
-# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
+SPIELTAG_OUTSIDE_SAISON = Code.SPIELTAG_OUTSIDE_SAISON
 # `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
-SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"
+SPIELTAG_SPAN_BELOW_FIXTURES = Code.SPIELTAG_SPAN_BELOW_FIXTURES
 
 
 def find_spieltag_span_refusal(
@@ -120,7 +120,7 @@ def find_spieltag_span_refusal(
 # `position` and `beginn` order a phase independently, so nothing else stops a season from showing
 # its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
 # postponement takes, and the message names it.
-SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
+SPIELTAG_BEGINN_OUT_OF_ORDER = Code.SPIELTAG_BEGINN_OUT_OF_ORDER
 
 
 @dataclass(frozen=True)
