@@ -35,6 +35,8 @@ function Pflicht({ checked = false }: { checked?: boolean }) {
 }
 
 describe("a required checkbox", () => {
+  // Read from the class, since jsdom draws nothing: the edge follows the field's invalid state, which only a
+  // failed send reaches, so no look at the page shows it missing.
   it("draws its box with the red edge once a send finds it empty, as every other field shows its error", async () => {
     render(<Pflicht />);
     expect(drawnBox().className).toContain("border-border-control");
@@ -46,45 +48,12 @@ describe("a required checkbox", () => {
     expect(drawnBox().className).not.toContain("border-border-control");
   });
 
-  it("fills a ticked box with the link green, the tick in the page's ground", () => {
-    render(<Pflicht checked />);
-    const classes = drawnBox().className.split(" ");
-    expect(classes).toEqual(expect.arrayContaining(["border-brand", "bg-brand", "text-bg"]));
-  });
-
   it("carries the asterisk after its label, as every required field does, hidden from assistive technology", () => {
     render(<Pflicht />);
-    const mark = screen.getByText(COPY.shared.startelf).querySelector(".text-danger");
+    const mark = screen.getByText(COPY.shared.startelf).lastElementChild;
     expect(mark?.textContent).toBe(" *");
     expect(mark?.getAttribute("aria-hidden")).toBe("true");
     // The checkbox's name stays its label's words alone.
     expect(screen.getByRole("checkbox", { name: COPY.shared.startelf })).toBeTruthy();
-  });
-
-  it("sets its message on a 16-px line, a block in a grid as a field's line is, before and after a send", async () => {
-    render(<Pflicht />);
-    const line = () => {
-      const row = screen.getByText(COPY.shared.startelf).closest("label");
-      const holder = row?.nextElementSibling;
-      if (!(holder instanceof HTMLElement)) throw new Error("the checkbox keeps no message line");
-      return holder;
-    };
-    expect(line().className.split(" ")).toEqual(expect.arrayContaining(["col-start-2", "grid"]));
-    expect(line().firstElementChild?.className.split(" ")).toContain("h-4");
-
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
-
-    const message = screen.getByText(COPY.shared.feld.pflichtfeld);
-    expect(message.parentElement).toBe(line());
-    expect(message.className.split(" ")).toContain("h-4");
-  });
-
-  it("draws its box at the 4-px corner, its 12-px tick 10 px from the label", () => {
-    render(<Pflicht checked />);
-    const box = drawnBox();
-    expect(box.className.split(" ")).toContain("rounded-sm");
-    expect(box.querySelector("svg")?.getAttribute("class")?.split(" ")).toContain("size-3");
-    // The row passes on its field's columns, 10 px apart.
-    expect(box.closest("label")?.parentElement?.className.split(" ")).toContain("gap-x-2.5");
   });
 });

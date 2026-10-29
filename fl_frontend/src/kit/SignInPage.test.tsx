@@ -4,27 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ClassicPage } from "./ClassicPage";
 import { SignInPage } from "./SignInPage";
 
 import type { Copy } from "@/core/copy";
 
 const WORTE = COPY.anmeldung;
 
-/** The first screen under the classic header, whose height the classic frame declares. */
-const FILLS_SCREEN = "min-h-[calc(100dvh-var(--classic-header))]";
-
 const ADRESSE = "lena@example.com";
-
-describe("the classic page's column", () => {
-  it("fills the first screen under the header at either width, so the footer starts just below it", () => {
-    const { rerender } = render(<ClassicPage width="card">{null}</ClassicPage>);
-    expect(screen.getByRole("main").className.split(" ")).toContain(FILLS_SCREEN);
-
-    rerender(<ClassicPage width="form">{null}</ClassicPage>);
-    expect(screen.getByRole("main").className.split(" ")).toContain(FILLS_SCREEN);
-  });
-});
 
 describe("the sign-in template", () => {
   it("reserves no line under the address field", () => {

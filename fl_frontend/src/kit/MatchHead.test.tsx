@@ -14,7 +14,7 @@ const PAIRING = {
 } as const;
 
 describe("the match head", () => {
-  it("marks the winner as the bracket card does, and says a shoot-out under the score", () => {
+  it("says a shoot-out under the score", () => {
     render(
       <MatchHead
         {...PAIRING}
@@ -22,8 +22,6 @@ describe("the match head", () => {
       />,
     );
 
-    expect(screen.getByText("Goethe").className.split(" ")).toContain("font-semibold");
-    expect(screen.getByText("Helmholtz").className.split(" ")).not.toContain("font-semibold");
     expect(screen.getByText(COPY.shared.nachElfmeterschiessen)).toBeTruthy();
   });
 

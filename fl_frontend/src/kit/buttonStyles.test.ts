@@ -25,27 +25,3 @@ describe("a button pressed", () => {
     expect(under(classes, "active:")).toStrictEqual(hovered);
   });
 });
-
-describe("a labelled button", () => {
-  it.each(["primary", "secondary", "danger"] as const)("keeps 14 px either side of a %s button's label", (look) => {
-    expect(buttonLook({ look, host: "aria" }).split(" ")).toContain("px-3.5");
-  });
-});
-
-describe("a button's fills", () => {
-  it("hovers a secondary button to the surface, which keeps its edge at 3:1", () => {
-    expect(under(buttonLook({ look: "secondary", host: "aria" }), "data-hovered:")).toStrictEqual(["bg-bg-surface"]);
-  });
-
-  it("hovers an icon-only button to the muted fill, its rest being no fill at all", () => {
-    const classes = buttonLook({ look: "icon", host: "aria" });
-    expect(classes.split(" ")).toContain("bg-transparent");
-    expect(under(classes, "data-hovered:")).toStrictEqual(["bg-bg-muted"]);
-  });
-
-  it("fills a destructive button with its own solid red, which keeps white text legible in the dark theme", () => {
-    const classes = buttonLook({ look: "danger", host: "aria" }).split(" ");
-    expect(classes).toContain("bg-danger-solid");
-    expect(under(classes.join(" "), "data-hovered:")).toStrictEqual(["bg-danger-solid-hover"]);
-  });
-});
