@@ -17,13 +17,14 @@ sessions, and why this service sets no cache headers of its own.
 | `app/shared/`      | Schemas and helpers more than one slice needs                                                              |
 | `app/api/<slice>/` | One slice per entity or concern — its routers, `schemas.py`, `services.py` and `crud.py`, as it needs them |
 | `tests/`           | The test suite, in two tiers (below)                                                                       |
-| `openapi.json`     | The published contract, generated from the application and committed                                       |
+| `openapi.json`     | The published contract, which `app/openapi_document.py` writes from the routes, committed                  |
 
 A slice carries only the files it needs. **A router declares one access tier**, so a slice reached at
 two tiers has two routers: `router.py` for its reads, at the tier its readers need, `admin_router.py`
 for the administration, and further routers named for their caller, such as
 `bewerbungen/public_router.py` for the public application form or a `sweep_router.py` for a
-retention pass. `app/main.py` mounts them all.
+retention pass. `app/main.py` mounts them all, each under its slice's tag, which with the handler's
+name makes the operation's id in `openapi.json`.
 
 ## Authorization
 
@@ -35,14 +36,16 @@ being written in the wrong file. `fl_backend/app/core/security.py` holds the gua
   address against a stored grant (`Berechtigung`) on every request; a signed-in person's router binds
   the record that admits them (their `Funktion`) instead.
 - **`system`** — the frontend process's own calls: the retention sweeps, the mail delivery events and
-  the subject lookup, plus diagnostics.
+  the subject lookup.
+
+Each guard presents its key as a bearer scheme of its own, `BaseKey`, `AdminKey` or `SystemKey`, so
+an operation's `security` in `openapi.json` names the tier it takes.
 
 The actor token travels in the `X-FL-Actor` header: the frontend signs it for the person behind a
 request, and the backend verifies it against `ACTOR_TOKEN_PUBLIC_KEY`
-(`fl_backend/app/core/actor_token.py`). **`system/router.py` is the one router with no guard of its
-own**, because `/system/is_live` is both the container healthcheck and the public uptime probe, and
-a probe that needs a secret fails for the wrong reasons; every other endpoint there declares the
-system key itself.
+(`fl_backend/app/core/actor_token.py`). **`system/router.py` holds the two routes with no guard**:
+`/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
+needs a secret fails for the wrong reasons, and the service's root `/`.
 
 ## Data access
 
@@ -61,21 +64,23 @@ anchor (`fl_backend/app/core/crud.py :: anchor_in_db` and `:: anchor_by_id_in_db
 nothing a reader sees, records what it replaced or removed on the action log (`Aktion`,
 `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
 
-**The domain's relations are declared once**, in `fl_backend/app/core/domain.py`: the aggregates,
-the references between collections and what each write owes them, which fields may change when, and
-every rule a write can be refused under (`RULES`). The league table is computed from the matches on
-each read of `GET /teams` and stored nowhere. The one cache kept here is a process-local read of
+**The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
+rules it is refused under where it writes. The league table is computed from the matches on each
+read of `GET /teams` and stored nowhere. The one cache kept here is a process-local read of
 season documents with a TTL (`fl_backend/app/api/saisons/cache.py`), dropped whole on the write path.
 
 ## Errors
 
 **Every failure answers `{error_code, trace_id}`**, a refused payload adding which field each
 refusal sits on, and never the submitted value or a stack trace. A code names one failure rather
-than a status class: a domain rule's is declared in `RULES` with the status it answers, and
-`fl_backend/openapi.json` publishes each code an operation can refuse with, at its status. The status
+than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling:
+`fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
+response each status refers to, and never per operation. The status
 follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
 contradicts itself, 404 where what it names does not exist, 403 only where the caller's own
-authority or standing does. The handlers are `fl_backend/app/core/exception_handlers.py`.
+authority or standing does. Every refusal is one `APIError(status, code)`
+(`fl_backend/app/core/exceptions.py`), and the handlers are
+`fl_backend/app/core/exception_handlers.py`.
 
 ## Time
 

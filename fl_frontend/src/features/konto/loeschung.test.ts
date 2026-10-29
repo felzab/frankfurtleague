@@ -12,6 +12,8 @@ import {
 import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
+import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
+
 import type { SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -142,8 +144,10 @@ const heldOf = (userId: string) => ({
 });
 
 describe("a person's own account deletion, from the account page's press to the interstitial's", () => {
-  it("erases the records under the person's actor, then deletes the account, and drops both base tags", async () => {
+  it("erases the records under the person's actor, then deletes the account, and clears the site's cache tag", async () => {
     const { row, token } = await mitLink("ganz-weg@example.org");
+    // The link's own press cleared it too, mailing being a write.
+    cacheCalls.length = 0;
 
     const answer = await loescheKontoAction(token);
 
@@ -153,7 +157,7 @@ describe("a person's own account deletion, from the account page's press to the 
       "the erasure was not sent once, as a write naming its person",
     ).toStrictEqual([["POST", true]]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
-    expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual(["spieler", "spiele"]);
+    expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
   });
 
   /* Asked and refused: a case passing where the hook never ran would leave the same rows standing. */

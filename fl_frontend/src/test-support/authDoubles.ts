@@ -64,8 +64,6 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, 
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
-    LOG_LEVEL: "ERROR",
-    LOG_FORMAT: "json",
     ...overrides,
   };
   // An override of `undefined` takes the name out, as an unset variable is absent from the real config.

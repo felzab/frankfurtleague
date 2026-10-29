@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
@@ -8,10 +8,9 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneSt
 
 # Every address payload's type but the erasure's lookup.
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
-# domain. The ceiling and the format are stated so the published schema carries both.
-CustomEmail = Annotated[
-    str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address), Field(json_schema_extra={"format": "email"})
-]
+# domain. The published schema states the ceiling and no `format`: a generated `z.email()` would
+# refuse an umlaut domain `league_address` accepts, and this check is the one authority.
+CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
 
 # A person's name, or one part of one: what the public application form takes, and every payload
 # held to refuse what that form refuses, a referee's whole name among them.

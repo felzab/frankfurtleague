@@ -57,11 +57,11 @@ from app.core.security import (
     verify_person_actor,
     verify_step_up,
 )
-from app.main import _dependency_calls, create_app, document_routes
+from app.main import create_app
 from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, protected_header, sign
 from tests.config import ADMIN_KEY, build_test_config
-from tests.core.app_source import api_routes, application
+from tests.core.app_source import api_routes, application, dependency_calls
 from tests.grants import admit
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
@@ -823,9 +823,9 @@ class TestTheStepUpOverAServedRequest:
 
         declared = {
             operation
-            for route in document_routes(application())
-            if verify_step_up in set(_dependency_calls(route.dependant))
-            for operation in route.operations
+            for route in api_routes(application())
+            if verify_step_up in set(dependency_calls(route.dependant))
+            for operation in [(route.path_format, method.lower()) for method in route.methods or ()]
         }
 
         assert declared == {(param.values[1], param.values[0]) for param in STEP_UP_WRITES}

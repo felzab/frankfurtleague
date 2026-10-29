@@ -258,7 +258,6 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/bestaetigung/spiel`           | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`        |
 | `= /api/mail/zustellung`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                              |
 | the `/` twins                         | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                              |
-| `= /api/revalidate` and its `/` twin  | none            | Answered `404` at the edge: the league caches' invalidation, a Next route handler this server alone calls over loopback                                                                                  |
 | `= /api/v0/system/is_live`            | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                      |
 | `= /signin`                           | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                                  |
 | `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                    |
@@ -273,7 +272,7 @@ address, and nginx asks Docker's embedded DNS again once its cached answer lapse
 answer lapses, a worker that cached the old address still sends requests there, and each waits out
 nginx's connect timeout and answers 504 (measured 2026-10-18 on Docker Desktop's engine).
 
-**Every `/api/...` path but the liveness probe and the refused invalidation reaches Next** — some
+**Every `/api/...` path but the liveness probe reaches Next** — some
 through a block naming it, the rest through the catch-all, which answers Next's HTML 404 where
 nothing routes the path (§3). The
 liveness location is exact-match precisely so that nothing can join it there; nothing in the
@@ -283,13 +282,8 @@ what meets it.
 
 **Every route handler in the App Router tree is accounted for against these locations, public or
 not**: an exact-match location carrying `limit_req`, a prefix location covering it with a reason
-recorded at `scripts/checks/check_public_routes.py :: REASONS`, `/api/auth` for the sign-in
-library's catch-all, or, for a handler `scripts/checks/check_public_routes.py :: INTERNAL` records
-as this server's alone, an exact match and its twin refusing it with a bare client error. **That
-row and the refusal hold each other**: a recorded handler some location forwards is a finding, and
-so is a refused one no row records, a public route refused by mistake answering every visitor 404.
-`nginx/edge_test.sh` posts each refused path as its caller would, under a double slash, a dot
-segment, a percent-encoded letter and a query, and fails any that reaches Next. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
+recorded at `scripts/checks/check_public_routes.py :: REASONS`, or `/api/auth` for the sign-in
+library's catch-all. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
 URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`. A
@@ -690,21 +684,14 @@ container as variables (`scripts/ops/deploy.sh :: check_env_names`): it is mount
 throwaway container with no network, as the whole of what compose hands the service. A name the
 backend does not declare, a value it will not accept and a required variable the file omits all
 refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
-advisory ([`runbooks.md`](runbooks.md) §1). Either image's refusal keeps one
-rule: an undeclared name goes by the number of each line declaring it, with a count
-(`fl_backend/app/core/config.py :: read_environment`,
-`fl_frontend/scripts/check-environment-names.mjs :: undeclaredLines`).
+advisory ([`runbooks.md`](runbooks.md) §1). The backend's refusal gives an undeclared name by the
+number of each line declaring it, with a count (`fl_backend/app/core/config.py :: read_environment`).
 
-**The pulled frontend image is asked the same of `fl_frontend/.env`, and answers about names
-alone**
-(`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
-rather than the schema, emitted at build from
-`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
-so a name it does not declare, by line number, and a required name the file omits each refuse at exit 2
-with nothing recreated while every value, an empty one included, stays the boot gate's. **The omitted half is the one
-no reader over the file's own names can reach**: an undeclared line is one somebody wrote, a missing
-one is a line nobody did, so without it a release that makes a new name required deploys green and
-the recreated container refuses to boot behind an edge already answering 502. **What
+**`fl_frontend/.env` is judged by the frontend's own boot, in the step after**
+(`scripts/lib/_lib.sh :: check_frontend_boot_config`): a variable the schema
+(`fl_frontend/src/core/config.ts`) declares with no default refuses the boot where the file
+misspells or omits it, so that boot, run before anything is recreated, refuses a release that makes
+a new name required on a host nobody edited, and no shipped value serves in its place. **What
 `APP_ENV=production` alone demands is a file and never a variable**
 (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
 value to decide: the mail provider's sending key, its webhook's signing key and the bot check's
@@ -716,20 +703,10 @@ value from the shell that ran it, and failing that from compose's own `.env` bes
 file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's
 shell holds none and the server's checkout carries no such file, so a pass-through there is never
 resolved and is dropped from the container's environment altogether —
-which is worse than the empty value, arriving as an empty string; `scripts/lib/_lib.sh :: check_env_spellings` refuses the line before this
-reader runs. **3 is each reader's own answer
-for a refusal, and the one code each of the three arms grades as one**; the deploy's own exit is
-§1.7's 2, and a reader ending any other way leaves the deploy where it stood. Its reader takes
-the lines `check_env_spellings` admits and no other (`fl_frontend/scripts/check-environment-names.mjs :: STRICT_LINE`, held to
-`scripts/lib/_lib.sh :: ENV_LINE_RE` line for line by `scripts/tests/test_deploy_streams.py`), and
-**an unreadable line is an advisory rather than a refusal**, the names it did read being a guess
-about the rest.
-
-**The declared set is the whole of what the undeclared half judges**, and not what the container
-looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of their own, and
-`fl_frontend/src/core/config.ts` reads `SKIP_ENV_VALIDATION`, none of them declared there. So an undeclared name in the file is a line to delete, a spelling to
-correct, or a name to declare in the schema — the same three the backend's arm offers for its
-settings class.
+which is worse than the empty value, arriving as an empty string; `scripts/lib/_lib.sh :: check_env_spellings` refuses the line before either
+image is asked. **3 is each reader's own answer
+for a refusal, and the one code each arm grades as one**; the deploy's own exit is
+§1.7's 2, and a reader ending any other way leaves the deploy where it stood.
 
 **What that check accepts is what the container receives.** The preflight parses each package's
 file as python-dotenv does, and the running container gets it parsed as Compose does; `check_env_spellings` has
@@ -1106,7 +1083,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A startup refusal names the failing variables or secret files, an undeclared name by line number, or a failure type, and never a value                                     | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `:: TestTheSecretFiles` assert no value appears; the frontend's is unenforced |
 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 what `read_environment` rejects, missing ones included; an undeclared one by line number | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                            |
 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision      | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                               |
-| The frontend image refuses `fl_frontend/.env` at exit 2 for a missing required name, or an undeclared one by line number alone; values are the boot's                      | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py` and `fl_frontend/scripts/check-environment-names.test.mjs`                                    |
 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                   | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                                     |
 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)          | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                                  |
 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest                                                               | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's image to the backend's                                                               |
@@ -1167,7 +1143,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A page a mailed link opens answers `429` with „Zu viele Aufrufe“                                                                                                                   | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                         | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                                                                                                                 | The error page streams after headers, so the edge status is 200                                                                               | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                                                                                                                          | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own        | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
-| Reference data stale after a hand edit: the first visit past its read's revalidate time still gets it, up to its expiry, a week at most (`cacheLife` in each slice's `queries.ts`) | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                         | Drop the five league tags ([`runbooks.md`](runbooks.md) §20); waiting takes a day, plus one stale answer to the visit refreshing each entry                                                                          |
+| Reference data stale after a hand edit: the first visit a minute past an entry's fill still gets that entry, and one nobody visits expires after one hour (`cacheLife("minutes")`) | Working as intended — a change no save makes clears no cached entry                                                                           | Nothing: wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                                                                                                                    |
 | League table or fixtures stale after a season edit                                                                                                                                 | Same cause — a season decides the default season and the points                                                                               | Same remedy, once the backend's own season cache has expired: dropped sooner, the frontend refills from it                                                                                                           |
 
 ## 4. Known-open

@@ -1,5 +1,5 @@
-// Loaded by `--import` in `package.json`'s `environment-names` script, which runs in the image's
-// builder; `next build`, `tsc`, ESLint and Vitest never load it.
+// Loaded by `--import` into a plain `node` process that imports a module through the `@/` alias, as
+// `fl_frontend/src/core/db.db.test.ts` spawns one; `next build`, `tsc`, ESLint and Vitest never load it.
 import { statSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";

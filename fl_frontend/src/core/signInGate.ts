@@ -89,7 +89,6 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     // cannot tell this from an unknown address, so the line is the only signal, carrying the name alone.
     const refused = failed instanceof APIBadStatusError && failed.serverErrorCode === PAYLOAD_REFUSED;
     logger.error(refused ? "auth.sign_in_gate_address_refused" : "auth.sign_in_gate_failed", undefined, {
-      error_code: "FE-AUTH-002",
       name: failed instanceof Error ? failed.name : "unknown",
     });
     return "failed";

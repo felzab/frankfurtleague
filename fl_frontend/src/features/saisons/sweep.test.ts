@@ -69,7 +69,6 @@ const CONFIG_DOUBLE = {
     throw new Error("the doubled config refuses no environment");
   },
   frontend_config: {
-    LOG_FORMAT: "console",
     // The boot reads the signing key before it arms anything.
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     get BEWERBUNG_SWEEP() {
@@ -81,15 +80,9 @@ const CONFIG_DOUBLE = {
   },
 };
 
-/** Each loopback drop a pass asked for, with how many deletion calls had run by then. */
-const drops: { tags: readonly string[]; laufCalls: number }[] = [];
-
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
-vi.doMock("@/core/revalidation.ts", () => ({
-  revalidateOverLoopback: async (tags: readonly string[]) => void drops.push({ tags: tags, laufCalls: laufCalls.length }),
-}));
 
 const { register } = await import("../../instrumentation.ts");
 const { runLoeschungSweep } = await import("./sweep.ts");
@@ -113,7 +106,6 @@ const passLines = () => lines.filter(({ event }) => event.startsWith("loeschung.
 beforeEach(() => {
   lines.length = 0;
   laufCalls.length = 0;
-  drops.length = 0;
   loeschungSwitch = "on";
   bewerbungSwitch = "off";
   laufAnswer = () => gelaufen(0, 0);
@@ -148,7 +140,7 @@ describe("what register arms for the pupils' deletion", () => {
   }
 
   /* The press deletes under this switch and promises the next hourly pass deletes the rest: behind the application
-     sweep's switch too, turning that one off would break the promise and leave the squad cache undropped. */
+     sweep's switch too, turning that one off would break the promise. */
   it("waits its minute after a production boot reading on, then runs hourly, the application sweep's switch off", async () => {
     const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
 
@@ -184,29 +176,6 @@ describe("one pass of the pupils' deletion", () => {
     expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
   });
 
-  /* A press's call its deadline cut deletes after the press dropped the tag, and no count shows those pupils, so the
-     drop follows the pass's last call whatever the pass did. */
-  const PASSES = [
-    ["that deleted nobody", () => gelaufen(0, 0)],
-    ["that deleted pupils", () => gelaufen(3, 0)],
-    [
-      "whose call threw",
-      () => {
-        throw new Error("the deletion was refused");
-      },
-    ],
-  ] as const;
-
-  for (const [what, answer] of PASSES) {
-    it(`drops the squad cache once, after the last deletion call, on a pass ${what}`, async () => {
-      laufAnswer = answer;
-
-      await runLoeschungSweep();
-
-      expect(drops).toStrictEqual([{ tags: ["spieler"], laufCalls: 1 }]);
-    });
-  }
-
   /** Answers a call carrying no place with the failing front, and the call carrying `ORT` with the due pupil behind it. */
   const vorneDann = <T>(vorne: T, dahinter: T, ende: T) => {
     let ohneOrt = 0;
@@ -227,7 +196,6 @@ describe("one pass of the pupils' deletion", () => {
         level: "warn",
         event: "loeschung.sweep_pass",
         fields: {
-          error_code: "FE-SWEEP-001",
           abgeschlossene_saison_id: "2526",
           spieler: 1,
           saison_spieler: 1,
@@ -254,7 +222,6 @@ describe("one pass of the pupils' deletion", () => {
         level: "warn",
         event: "loeschung.sweep_pass",
         fields: {
-          error_code: "FE-SWEEP-001",
           abgeschlossene_saison_id: "2526",
           spieler: 3,
           saison_spieler: 3,
@@ -263,7 +230,7 @@ describe("one pass of the pupils' deletion", () => {
           fehlgeschlagen: 2,
         },
       },
-      { level: "error", event: "loeschung.sweep_failed", fields: { error_code: "FE-SWEEP-001", name: "Error" } },
+      { level: "error", event: "loeschung.sweep_failed", fields: { name: "Error" } },
     ]);
   });
 
@@ -285,7 +252,7 @@ describe("one pass of the pupils' deletion", () => {
           event: "loeschung.sweep_pass",
           fields: { abgeschlossene_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 0 },
         },
-        { level: "error", event: "loeschung.sweep_failed", fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError" } },
+        { level: "error", event: "loeschung.sweep_failed", fields: { name: "ContractBreakError" } },
       ]);
     });
   }

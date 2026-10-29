@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLLoeschungVorschauResponseSchema, FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
@@ -13,13 +14,11 @@ import type { FLSaisonsFilterParams } from "./types";
 export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
   "use cache";
 
-  // Base tag only: this read spans every season, so nothing narrower describes it.
-  cacheTag("saisons");
-  cacheLife("days");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
   return apiClient<FLSaisonsListResponse>("/saisons", FLSaisonsListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSaisons", args: filters },
   });
 }
 
@@ -52,12 +51,10 @@ export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschun
 export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
   "use cache";
 
-  cacheTag("saisons");
-  cacheLife("days");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
-    cacheFill: { name: "getCurrentSaisonOrNull", args: {} },
-  }).catch((error: unknown) => {
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema).catch((error: unknown) => {
     // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
     // so a catch at the call site cannot recognise it
     // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).

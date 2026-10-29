@@ -5,7 +5,7 @@ import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
-import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -34,7 +34,6 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
   } catch (failed) {
     // The NAME alone: a failure in the sign-in store routinely carries the address.
     logger.error("funktionen.erasure_account_not_deleted", undefined, {
-      error_code: "FE-AUTH-012",
       name: failed instanceof Error ? failed.name : "unknown",
     });
     // A rollback leaves the account standing; any other failure may be its commit's, landed or not.
@@ -102,10 +101,6 @@ export async function eraseAufAnfrageAction(
   rawPayload: FLErasurePayload,
 ): Promise<ActionResult<{ konto: KontoNachLoeschung; gespeichert: boolean }>> {
   return runAdminMutation("eraseAufAnfrageAction", { stepUp: true }, async (session) => {
-    // Before anything is awaited, and whatever the address turns out to hold: an erased pupil or referee leaves two
-    // cached public reads, and the spine drops a tag declared before the write even where its answer is lost.
-    invalidatesOnWrite("spieler", "spiele");
-
     const validated = FLErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -181,7 +176,6 @@ export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Prom
     } catch (failed) {
       // The NAME alone, as the ban's own sign-out logs it: the address must reach no line.
       logger.error("funktionen.sessions_not_ended", undefined, {
-        error_code: "FE-AUTH-006",
         name: failed instanceof Error ? failed.name : "unknown",
       });
       return { success: false, error: ANMELDUNGEN_NICHT_BEENDET };

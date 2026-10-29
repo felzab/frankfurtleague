@@ -240,6 +240,7 @@ const {
   requestAccountDeletion,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
+const { renderMail } = await import("./emailShell.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
@@ -881,7 +882,7 @@ describe("a grant the backend cannot answer for", () => {
     expect(await getSignInDestination()).toBe("/bereich");
     expect(await getPasskeyStep()).toBe(null);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
-      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { error_code: "FE-AUTH-010", name: "APINetworkError" }]),
+      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { name: "APINetworkError" }]),
     );
   });
 
@@ -2148,9 +2149,7 @@ describe("which session a new sign-in replaces", () => {
       internalAdapter.deleteSession = deleteSession;
     }
 
-    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.session_rotation_failed", { error_code: "FE-AUTH-006", name: "Error" }],
-    ]);
+    expect(logged.map((line) => [line.message, line.meta])).toStrictEqual([["auth.session_rotation_failed", { name: "Error" }]]);
     expect(writtenSince(before).length, "the sign-in did not mint its session").toBe(1);
     assert.ok(store.session.includes(row));
   });
@@ -2266,9 +2265,7 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
-    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([
-      ["auth.ended_sessions_not_deleted", { error_code: "FE-AUTH-006", name: "Error" }],
-    ]);
+    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
   });
 
   /* The case a one-shot deletion lost: its failure told, the browser never back during the ban, and the
@@ -2354,10 +2351,9 @@ describe("what the library's own log stream reaches this application as", () => 
     for (const line of logged) {
       expect(line.message).toBe("auth.origin_refused");
       expect(line.error).toBe(undefined);
-      expect(line.meta.error_code).toBe("FE-AUTH-003");
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
       assert.ok(!JSON.stringify(line).includes("fremde-seite"), "the submitted origin reached the stream");
     }
   });
@@ -2378,7 +2374,7 @@ describe("what the library's own log stream reaches this application as", () => 
       // The error object itself, which the writer serialises with its message and its stack: this
       // is the arm the library really hands one, so the drop is proven here or nowhere.
       expect(line.error, "the library's own error object reached the writer").toBe(undefined);
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["error_code", "name"]);
+      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
     }
   });
 
@@ -2396,14 +2392,11 @@ describe("what the library's own log stream reaches this application as", () => 
       adapterCalls.refusing = undefined;
     }
 
-    expect([logged.map((line) => [line.message, line.meta.error_code, line.meta.name]), warned]).toStrictEqual([
-      [["auth.library_failed", "FE-AUTH-003", "Error"]],
-      [],
-    ]);
+    expect([logged.map((line) => [line.message, line.meta.name]), warned]).toStrictEqual([[["auth.library_failed", "Error"]], []]);
   });
 });
 
-/* A filed message is the mailer's own `FE-MAIL-004` line alone: a failure line beside it reads every
+/* A filed message is the mailer's own `mail.withheld` line alone: a failure line beside it reads every
    local sign-in and enrolment as a message that never left. */
 describe("a send this deployment withheld", () => {
   const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
@@ -2417,7 +2410,7 @@ describe("a send this deployment withheld", () => {
 
     answerMail(() => "refused");
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ error_code: "FE-AUTH-002", name: "MailSendError" }]);
+    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "MailSendError" }]);
   });
 
   it("logs no failed passkey notice", async () => {
@@ -2439,7 +2432,7 @@ describe("a send this deployment withheld", () => {
 
     expect((await enrolPasskey(cookie)).status).toBe(200);
 
-    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ error_code: "FE-AUTH-004", name: "MailSendError" }]);
+    expect(failedLines("auth.passkey_notice_failed")).toStrictEqual([{ name: "MailSendError" }]);
   });
 });
 
@@ -2595,7 +2588,7 @@ describe("what the code costs an address holding nothing", () => {
   });
 
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
-    const { text, html } = buildCodeEmail("123456", "http://localhost:3000");
+    const { text, html } = renderMail(buildCodeEmail("123456", "http://localhost:3000"));
 
     assert.ok(text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
     assert.ok(html.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
@@ -3114,9 +3107,7 @@ describe("which addresses the send gate mails", () => {
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
 
     const lines = logged.slice(loggedBefore);
-    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.sign_in_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }],
-    ]);
+    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
   });
 
   /* A refused payload is the backend answering, so its line says so rather than reading as an outage. */
@@ -3126,7 +3117,7 @@ describe("which addresses the send gate mails", () => {
 
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
     expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual([
-      ["auth.sign_in_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }],
+      ["auth.sign_in_gate_address_refused", { name: "APIBadStatusError" }],
     ]);
   });
 
@@ -3355,7 +3346,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
@@ -3373,7 +3364,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
@@ -3463,7 +3454,6 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      spanId: `${"0".repeat(15)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
       actor: { email: email, lane: "person", token: "doubled-person-token-not-a-credential" },
     },
@@ -3789,8 +3779,7 @@ describe("a person's own account deletion", () => {
   it("logs no failure for a send this deployment withheld or the ban list kept, and the library's own line for a refused one", async () => {
     const { cookie } = await signIn("versand-loeschung@example.org");
     const headers = new Headers({ ...ORIGIN, cookie });
-    const failures = () =>
-      logged.filter((line) => line.message === "auth.library_failed").map((line) => [line.meta.error_code, line.meta.name]);
+    const failures = () => logged.filter((line) => line.message === "auth.library_failed").map((line) => line.meta.name);
 
     for (const outcome of ["withheld", "barred"] as const) {
       answerMail(() => outcome);
@@ -3805,7 +3794,7 @@ describe("a person's own account deletion", () => {
     answerMail(() => "refused");
     logged.length = 0;
     expect((await requestAccountDeletion(headers)).success).toBe(true);
-    expect(failures()).toStrictEqual([["FE-AUTH-003", "MailSendError"]]);
+    expect(failures()).toStrictEqual(["MailSendError"]);
   });
 });
 
@@ -3851,5 +3840,27 @@ describe("an account deleted for its address, and the list of every account", ()
     const listed = new Set(await listAccounts());
 
     expect(addresses.filter((email) => !listed.has(email))).toStrictEqual([]);
+  });
+});
+
+/* Who signed in is recorded nowhere else, and the edge's line the trace joins holds where from: the two lines carry the
+   account's id and the trace, and never the address typed. */
+describe("the sign-in's own lines", () => {
+  const TRACE = "5".repeat(32);
+  const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
+
+  it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
+    informed.length = 0;
+    await signInByCode(auth, ADMIN_EMAIL, TRACED);
+    const userId = store.session.at(-1)?.userId;
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
+
+    const lines = informed.filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
+    expect(lines.map(({ message, meta }) => [message, meta])).toStrictEqual([
+      ["auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
+      ["auth.code_refused", { trace_id: TRACE }],
+    ]);
+    assert.ok(userId !== undefined && !JSON.stringify(lines).includes(ADMIN_EMAIL), "the address reached a sign-in line");
   });
 });

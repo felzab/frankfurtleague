@@ -8,7 +8,7 @@ import { FLPatchSpielDataPayloadSchema, FLSonderereignisSchema } from "@/feature
 import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spiele/utils";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { isRefusal } from "@/shared/utils/actionError";
-import { FORBIDDEN_BY_REFUSAL, invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { FORBIDDEN_BY_REFUSAL, runAdminMutation } from "@/shared/utils/adminMutation";
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
@@ -105,7 +105,7 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Partial<SpielWerte>): { p
 /**
  * Saves the match editor's changes. The fingerprint is the stored fixture the editor was read from: where
  * the fixture has changed since, the save is refused as stale rather than writing over it. Otherwise the
- * changes go over the fixture as it stands, through today's match write, its guard, its cache tags and its
+ * changes go over the fixture as it stands, through today's match write, its guard and its
  * refusals.
  */
 export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<ActionAnswer> {
@@ -120,8 +120,6 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
   };
 
   const result = await runAdminMutation("spielSpeichern", { stepUp: false, turnedAway }, async (): Promise<Antwort> => {
-    // The tags every match list carries, declared ahead of the read; the season's own follow once it names the season.
-    invalidatesOnWrite("spiele", "teams");
     const gelesen = await getAdminSpiel(id.data);
     if (gelesen === null || spielStateKey(gelesen.spiel) !== change.fingerprint) {
       return abgelehnt({ ok: false, reason: COPY.shared.fehler.veraltet });
@@ -133,8 +131,6 @@ export async function spielSpeichern(change: EditorSave<SpielWerte>): Promise<Ac
     const payload = FLPatchSpielDataPayloadSchema.safeParse(gebaut.payload);
     if (!payload.success) return abgelehnt({ ok: false });
 
-    const saison = gelesen.spiel.saison_id;
-    invalidatesOnWrite(`spiele:saison_id:${saison}`, `teams:saison_id:${saison}`);
     try {
       const geschrieben = await patchAdminSpielData(payload.data, null);
       if (!geschrieben.acknowledged) return abgelehnt({ ok: false });

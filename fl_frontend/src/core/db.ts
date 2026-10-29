@@ -57,7 +57,7 @@ class SignInStoreClient extends MongoClient {
           // that never succeeds must not hold open a process that would otherwise exit.
           await pause(this.options.minHeartbeatFrequencyMS, undefined, { ref: false });
           if (this.#closed) return;
-          // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
+          // Unlogged: each session read meanwhile logs the same failure.
           await this.connect().catch(() => undefined);
         }
         // A close landing while an attempt resolves a `mongodb+srv` host finds none of that attempt's

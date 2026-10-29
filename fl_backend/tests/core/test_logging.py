@@ -1,323 +1,51 @@
-import ast
 import json
 import logging
 import re
 import sys
 
 import pytest
-from pydantic import SecretStr
+import uvicorn.config
+from starlette.applications import Starlette
+from starlette.responses import Response
+from starlette.routing import Route
+from starlette.testclient import TestClient
 
-from app.core import logging as app_logging
-from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
-from app.core.exceptions import DUPLICATE_KEY
-from app.core.logging import (
-    FL_LOGGER_NAME,
-    FORWARDED_FAILURE_CODE,
-    ForwardedFailureFilter,
-    JSONFormatter,
-    LevelAwareFormatter,
-    fl_logger,
-    span_id_var,
-    trace_id_var,
-)
-from app.core.middlewares import mint_span_id, resolve_trace_id
-from app.core.security import MISSING_TOKEN
-from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
-from tests.core.app_source import APP_ROOT, parsed
-
-TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
-
-# The one console line shape both surfaces implement, read after the
-# level word's colour is stripped. The frontend suite holds the same expression.
-CONSOLE_SHAPE = re.compile(r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL) {1,5}\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \S+ - ")
-ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
+from app.core.logging import JSONFormatter, fl_logger, setup_logging
+from app.core.middlewares import TraceContextMiddleware, record_error_code, resolve_trace_id
 
 TRACE = "a" * 32
-SPAN = "b" * 16
-WELL_FORMED = f"00-{TRACE}-{SPAN}-01"
+PARENT = "b" * 16
+WELL_FORMED = f"00-{TRACE}-{PARENT}-01"
 
 
-def make_record(message: str = "hello", level: int = logging.INFO, logger_name: str = FL_LOGGER_NAME, **attrs) -> logging.LogRecord:
-    record = logging.LogRecord(name=logger_name, level=level, pathname=__file__, lineno=1, msg=message, args=(), exc_info=None)
-    for key, value in attrs.items():
-        setattr(record, key, value)
-    return record
-
-
-def record_with_exception(level: int = logging.ERROR, **attrs) -> logging.LogRecord:
+def a_failure_record(message: str, **fields: object) -> logging.LogRecord:
     try:
-        raise ValueError("boom")
+        raise ValueError("refused anna.beispiel@example.org")
     except ValueError:
-        record = make_record(level=level, **attrs)
-        record.exc_info = sys.exc_info()
+        record = fl_logger.makeRecord(fl_logger.name, logging.ERROR, __file__, 1, message, (), sys.exc_info(), extra=fields)
     return record
 
 
-def plain(line: str) -> str:
-    return ANSI_SGR.sub("", line)
-
-
-class TestJSONFormatter:
-    def test_emits_one_parseable_document_with_the_shared_field_set(self):
-        line = JSONFormatter().format(make_record(trace_id=TRACE, span_id=SPAN))
+class TestTheProductionLine:
+    def test_is_one_json_document_carrying_each_field_and_the_error(self):
+        line = JSONFormatter().format(a_failure_record("mail.send_failed", saison_id="2027", status=502))
 
         document = json.loads(line)
         assert "\n" not in line
-        assert document["level"] == "INFO"
-        assert document["service"] == "fl_backend"
-        assert document["trace_id"] == TRACE
-        assert document["span_id"] == SPAN
-        assert document["message"] == "hello"
-        assert TIMESTAMP_SHAPE.fullmatch(document["timestamp"]), document["timestamp"]
-
-    def test_the_field_order_is_the_envelope_s(self):
-        """The ORDER, not only the set: the frontend suite asserts the same list, which is what makes one parser read both."""
-        document = json.loads(JSONFormatter().format(make_record(trace_id=TRACE, span_id=SPAN)))
-
-        assert list(document) == ["timestamp", "level", "service", "trace_id", "span_id", "message", "module", "line"]
-
-    def test_a_record_outside_any_request_carries_the_sentinel_on_both_ids(self):
-        document = json.loads(JSONFormatter().format(make_record()))
-
-        assert document["trace_id"] == "SYSTEM"
-        assert document["span_id"] == "SYSTEM"
-
-    def test_structured_extras_travel_as_fields_after_the_head_and_before_the_error(self):
-        record = record_with_exception(error_code=MISSING_TOKEN, method="GET", path="/api/v0/spiele", status=401, duration_ms=1.2)
-
-        document = json.loads(JSONFormatter().format(record))
-
-        assert document["error_code"] == MISSING_TOKEN
-        assert document["method"] == "GET"
-        assert document["path"] == "/api/v0/spiele"
-        assert document["status"] == 401
-        assert document["duration_ms"] == 1.2
-        assert list(document)[8:] == ["error_code", "method", "path", "status", "duration_ms", "error"]
-
-    def test_an_exception_serialises_as_the_shared_error_object(self):
-        document = json.loads(JSONFormatter().format(record_with_exception()))
-
-        # The same three keys the frontend logger writes for an Error, so one parser reads both.
+        assert (document["message"], document["saison_id"], document["status"]) == ("mail.send_failed", "2027", 502)
         assert document["error"]["name"] == "ValueError"
-        assert document["error"]["message"] == "boom"
         assert "Traceback" in document["error"]["stack"]
 
+    def test_carries_no_address_in_its_message_its_fields_or_its_stack(self):
+        line = JSONFormatter().format(a_failure_record("refused for anna.beispiel@example.org", adresse="b.c+d@schule.example.de"))
 
-class TestForwardedFailureFilter:
-    @pytest.mark.parametrize("logger_name", ["uvicorn.error", "pymongo.topology", "watchfiles.main"])
-    @pytest.mark.parametrize("level", [logging.WARNING, logging.ERROR, logging.CRITICAL])
-    def test_a_failure_record_from_another_library_takes_the_forwarded_code(self, logger_name, level):
-        """The lifespan refusal's `uvicorn.error` line is the one an operator meets; the others share its shape."""
-        record = make_record(level=level, logger_name=logger_name)
-
-        ForwardedFailureFilter().filter(record)
-
-        assert getattr(record, "error_code", None) == FORWARDED_FAILURE_CODE
-
-    @pytest.mark.parametrize("level", [logging.DEBUG, logging.INFO])
-    def test_a_record_below_warning_takes_no_code(self, level):
-        record = make_record(level=level, logger_name="uvicorn.error")
-
-        ForwardedFailureFilter().filter(record)
-
-        assert getattr(record, "error_code", None) is None
-
-    @pytest.mark.parametrize("logger_name", [FL_LOGGER_NAME, f"{FL_LOGGER_NAME}.db"])
-    def test_an_application_record_is_left_uncoded(self, logger_name):
-        """The filter is not a default: a writer of ours that forgot a code stays visible as an uncoded line."""
-        record = make_record(level=logging.ERROR, logger_name=logger_name)
-
-        ForwardedFailureFilter().filter(record)
-
-        assert getattr(record, "error_code", None) is None
-
-    def test_a_code_a_record_already_carries_survives(self):
-        record = make_record(level=logging.ERROR, logger_name="uvicorn.error", error_code="SRV-BOOT-004")
-
-        ForwardedFailureFilter().filter(record)
-
-        assert getattr(record, "error_code", None) == "SRV-BOOT-004"
-
-    def test_the_record_still_reaches_the_handler(self):
-        assert ForwardedFailureFilter().filter(make_record(level=logging.ERROR, logger_name="uvicorn.error")) is True
-
-
-# What makes a logger in `logging` itself, each called under any name a module binds it to. A logger's
-# own `getChild` makes one too, read separately below because its receiver decides the name.
-LOGGER_FACTORIES = ("getLogger", "Logger")
-
-# The variable `app/core/logging.py` binds the application's logger to, the one receiver whose child is
-# named under `FL_LOGGER_NAME`.
-FL_LOGGER_VARIABLE = "fl_logger"
-assert getattr(app_logging, FL_LOGGER_VARIABLE) is fl_logger, f"app/core/logging.py no longer binds {FL_LOGGER_VARIABLE}"
-
-
-def _reaches(node: ast.expr, factory: str, names: set[str]) -> bool:
-    return (isinstance(node, ast.Attribute) and node.attr == factory) or (isinstance(node, ast.Name) and node.id in names)
-
-
-def _factory_names(tree: ast.AST, factory: str) -> set[str]:
-    """Every bare name one module can reach `logging.<factory>` through: the plain import's, an `as` alias, and a name assigned from either.
-
-    Repeated until the set stops growing, so a name assigned from an alias binds the way the alias did.
-    """
-
-    names = {factory}
-    while True:
-        found = set(names)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "logging":
-                found |= {alias.asname or alias.name for alias in node.names if alias.name == factory}
-            elif isinstance(node, ast.Assign) and _reaches(node.value, factory, found):
-                found |= {target.id for target in node.targets if isinstance(target, ast.Name)}
-
-        if found == names:
-            return names
-        names = found
-
-
-def _logger_calls(tree: ast.AST) -> list[ast.Call]:
-    """Every call one module makes that creates a logger, under whichever of its own names it spells the call."""
-
-    names = {factory: _factory_names(tree, factory) for factory in LOGGER_FACTORIES}
-
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and (
-            any(_reaches(node.func, factory, bound) for factory, bound in names.items())
-            or (isinstance(node.func, ast.Attribute) and node.func.attr == "getChild")
-        )
-    ]
-
-
-def _a_child_of_ours(call: ast.Call) -> bool:
-    return isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name) and call.func.value.id == FL_LOGGER_VARIABLE
-
-
-class TestTheApplicationsOneLogger:
-    def test_every_logger_the_application_creates_is_named_under_its_own(self):
-        """`ForwardedFailureFilter` decides by a record's logger NAME, so a logger under `app/` named otherwise is coded as a library's.
-
-        A child of another receiver, or a `Logger` built outside the hierarchy, carries a name of its own.
-        """
-        calls = [
-            (path.relative_to(APP_ROOT.parent).as_posix(), call)
-            for path in sorted(APP_ROOT.rglob("*.py"))
-            for call in _logger_calls(parsed(path))
-        ]
-
-        assert [(where, ast.unparse(call)) for where, call in calls if not _a_child_of_ours(call)] == [
-            ("app/core/logging.py", "logging.getLogger(FL_LOGGER_NAME)")
-        ]
-
-    @pytest.mark.parametrize(
-        ("source", "found"),
-        [
-            ("import logging\nlogging.getLogger('x')\n", 1),
-            ("from logging import getLogger\ngetLogger('x')\n", 1),
-            ("from logging import getLogger as g\ng('x')\n", 1),
-            ("import logging\nmint = logging.getLogger\nmint('x')\n", 1),
-            ("from logging import getLogger as g\nmint = g\nmint('x')\n", 1),
-            ("import logging\nlogging.root.getChild('x')\n", 1),
-            ("import logging\nlogging.Logger('x')\n", 1),
-            ("from logging import Logger as L\nL('x')\n", 1),
-            ("import logging\nlogging.info('x')\n", 0),
-        ],
-    )
-    def test_the_walk_reads_a_logger_made_under_every_spelling(self, source, found):
-        """A spelling the walk passes over is a logger the case above then reports nothing about."""
-        assert len(_logger_calls(ast.parse(source))) == found
-
-    def test_that_logger_is_the_one_the_filter_treats_as_ours(self):
-        assert fl_logger.name == FL_LOGGER_NAME
-
-
-class TestConsoleFormatter:
-    @pytest.mark.parametrize("level", [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL])
-    def test_every_level_opens_the_one_shape(self, level):
-        line = plain(LevelAwareFormatter().format(make_record(level=level, trace_id=TRACE, span_id=SPAN)))
-
-        assert CONSOLE_SHAPE.match(line), line
-
-    def test_the_origin_is_module_and_line(self):
-        line = plain(LevelAwareFormatter().format(make_record(trace_id=TRACE, span_id=SPAN)))
-
-        assert " test_logging:1 - hello trace_id=" in line
-
-    def test_the_colour_wraps_the_level_word_alone(self):
-        line = LevelAwareFormatter().format(make_record(level=logging.WARNING, trace_id=TRACE, span_id=SPAN))
-
-        assert re.match(r"\x1b\[[0-9;]+mWARNING\x1b\[0m {2}\d{4}-", line), line
-
-    def test_the_ids_lead_the_tail_and_the_extras_follow_in_envelope_order(self):
-        record = make_record(
-            trace_id=TRACE, span_id=SPAN, error_code=DUPLICATE_KEY, method="GET", path="/api/v0/spiele", status=409, duration_ms=1.2
-        )
-
-        line = plain(LevelAwareFormatter().format(record))
-
-        assert line.endswith(
-            f" - hello trace_id={TRACE} span_id={SPAN} error_code={DUPLICATE_KEY} method=GET path=/api/v0/spiele status=409 duration_ms=1.2"
-        )
-
-    def test_the_sentinel_is_written_outside_a_request(self):
-        line = plain(LevelAwareFormatter().format(make_record()))
-
-        assert line.endswith(" - hello trace_id=SYSTEM span_id=SYSTEM")
-
-    @pytest.mark.parametrize(
-        "value,rendered",
-        [
-            ("/api/v0/spiele?limit=5", '"/api/v0/spiele?limit=5"'),  # `=`
-            ("two words", '"two words"'),
-            ('say "hi"', '"say \\"hi\\""'),
-            ("it's", '"it\'s"'),
-            ("", '""'),
-            ("plain", "plain"),
-            (True, "true"),
-            (409, "409"),
-            (1.5, "1.5"),
-        ],
-    )
-    def test_a_value_is_bare_only_where_bare_is_unambiguous(self, value, rendered):
-        """The frontend renders the same table: a value that could split into two pairs is quoted as JSON, and a non-string is its JSON."""
-        line = plain(LevelAwareFormatter().format(make_record(path=value)))
-
-        assert line.endswith(f" path={rendered}"), line
-
-    @pytest.mark.parametrize("code_point", [0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xA0, 0x2028, 0x2029, 0x3000, 0xFEFF])
-    def test_a_value_carrying_any_code_point_the_quoting_class_names_is_quoted(self, code_point):
-        """Six of these `str.isspace()` and JS `\\s` disagree over; `fl_frontend/src/core/logFormat.test.ts` runs the same ten."""
-        value = "a" + chr(code_point) + "b"
-        inner = "a" + (f"\\u{code_point:04x}" if code_point < 0x20 else chr(code_point)) + "b"
-
-        line = plain(LevelAwareFormatter().format(make_record(path=value)))
-
-        assert line.endswith(f' path="{inner}"'), line
-
-    def test_a_non_ascii_value_is_written_as_itself_rather_than_escaped(self):
-        """`json.dumps` escapes it by default and `JSON.stringify` never does, which is the difference between one shape and one line."""
-        line = plain(LevelAwareFormatter().format(make_record(path="/teams?name=S" + chr(0xFC) + "d")))
-
-        assert line.endswith(' path="/teams?name=S' + chr(0xFC) + 'd"'), line
-
-    def test_an_exception_s_stack_follows_on_indented_lines(self):
-        line = plain(LevelAwareFormatter().format(record_with_exception(trace_id=TRACE, span_id=SPAN)))
-
-        head, *stack = line.split("\n")
-        assert CONSOLE_SHAPE.match(head)
-        assert head.endswith(f"trace_id={TRACE} span_id={SPAN}")
-        assert stack[0] == "    Traceback (most recent call last):"
-        assert all(entry.startswith("    ") for entry in stack), stack
-        assert stack[-1] == "    ValueError: boom"
+        assert "@" not in line, line
 
 
 class TestResolveTraceId:
     @pytest.mark.parametrize("flags", ["01", "00"])
     def test_a_well_formed_traceparent_yields_its_trace_id(self, flags):
-        assert resolve_trace_id(f"00-{TRACE}-{SPAN}-{flags}") == TRACE
+        assert resolve_trace_id(f"00-{TRACE}-{PARENT}-{flags}") == TRACE
 
     @pytest.mark.parametrize(
         "hostile",
@@ -325,21 +53,21 @@ class TestResolveTraceId:
             None,
             "",
             "PROBE-AAA",
-            "c0ffee00" * 4,  # yesterday's bare 32-hex id is not a traceparent
+            "c0ffee00" * 4,  # a bare 32-hex id is not a traceparent
             WELL_FORMED.upper(),
-            f"01-{TRACE}-{SPAN}-01",  # a version this validator does not read
-            f"00-{'0' * 32}-{SPAN}-01",  # all-zero trace id
-            f"00-{TRACE}-{'0' * 16}-01",  # all-zero span id
-            f"00-{TRACE[:31]}-{SPAN}-01",
-            f"00-{TRACE}-{SPAN[:15]}-01",
-            f"00-{TRACE}-{SPAN}-1",
-            f"00-{TRACE}-{SPAN}",  # no flags segment
-            f"00-{TRACE}-{SPAN}-01-extra",
-            f"00-{'x' * 65}-{SPAN}-01",
-            f" 00-{TRACE}-{SPAN}-01",
-            f"00-{TRACE}-{SPAN}-01\n",
-            f"00-{TRACE}-{SPAN}-01\ndef",
-            f'00-{TRACE}-{SPAN}-01","injected":"line',  # log-injection attempt
+            f"01-{TRACE}-{PARENT}-01",  # a version this validator does not read
+            f"00-{'0' * 32}-{PARENT}-01",  # all-zero trace id
+            f"00-{TRACE}-{'0' * 16}-01",  # all-zero parent id
+            f"00-{TRACE[:31]}-{PARENT}-01",
+            f"00-{TRACE}-{PARENT[:15]}-01",
+            f"00-{TRACE}-{PARENT}-1",
+            f"00-{TRACE}-{PARENT}",  # no flags segment
+            f"00-{TRACE}-{PARENT}-01-extra",
+            f"00-{'x' * 65}-{PARENT}-01",
+            f" 00-{TRACE}-{PARENT}-01",
+            f"00-{TRACE}-{PARENT}-01\n",
+            f"00-{TRACE}-{PARENT}-01\ndef",
+            f'00-{TRACE}-{PARENT}-01","injected":"line',  # log-injection attempt
             "abc\ndef",
         ],
     )
@@ -347,43 +75,35 @@ class TestResolveTraceId:
         """Mirrored entry for entry by `fl_frontend/src/core/trace.test.ts`: a hop admitting what the other refuses admits injected text."""
         resolved = resolve_trace_id(hostile)
 
-        assert resolved != TRACE
-        assert resolved != hostile
+        # Nothing the header carried, an all-zero id included: a fresh mint shares no 32 characters with it.
+        assert resolved not in (hostile or "")
         assert re.fullmatch(r"[a-f0-9]{32}", resolved)
 
 
-def test_a_span_is_sixteen_hex_and_fresh_each_time():
-    assert re.fullmatch(r"[a-f0-9]{16}", mint_span_id())
-    assert mint_span_id() != mint_span_id()
+async def refused(request):
+    record_error_code("REQ-PROBE-001")
+    return Response(status_code=409)
 
 
-class TestLoggingSettings:
-    def make(self, **overrides) -> BackendConfig:
-        return BackendConfig(
-            api_trusted_hosts="testserver",
-            api_cors_allowed_origins="http://localhost:3000",
-            mongodb_uri=SecretStr("mongodb://localhost:27017/t"),
-            db_base_name="t",
-            internal_api_key_base=SecretStr("b" * INTERNAL_API_KEY_LENGTH),
-            internal_api_key_system=SecretStr("s" * INTERNAL_API_KEY_LENGTH),
-            internal_api_key_admin=SecretStr("a" * INTERNAL_API_KEY_LENGTH),
-            sperrliste_schluessel=SecretStr("k" * SPERRLISTE_KEY_MIN_LENGTH),
-            actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
-            **overrides,
-        )
+def test_the_access_line_carries_the_code_the_request_was_refused_with(caplog):
+    """The refusal's one line: no handler writes another, so a code missing here is a refusal no log records."""
+    app = TraceContextMiddleware(Starlette(routes=[Route("/refused", refused)]))
 
-    def test_the_default_format_is_json(self):
-        assert self.make().log_format == "json"
+    with caplog.at_level(logging.INFO, logger=fl_logger.name):
+        TestClient(app).get("/refused", headers={"traceparent": WELL_FORMED})
 
-    @pytest.mark.parametrize("value,expected", [("JSON", "json"), ("Console", "console")])
-    def test_format_case_is_normalised(self, value, expected):
-        assert self.make(log_format=value).log_format == expected
-
-    @pytest.mark.parametrize("value,expected", [("critical", "CRITICAL"), ("Info", "INFO")])
-    def test_level_case_is_normalised(self, value, expected):
-        assert self.make(log_level_app=value).log_level_app == expected
+    assert [
+        (record.getMessage(), record.status, record.error_code, record.trace_id) for record in caplog.records if record.name == fl_logger.name
+    ] == [("http.answered", 409, "REQ-PROBE-001", TRACE)]
 
 
-def test_both_context_vars_default_to_the_sentinel():
-    assert trace_id_var.get() == "SYSTEM"
-    assert span_id_var.get() == "SYSTEM"
+def test_uvicorn_s_own_handlers_are_taken_off_so_its_lines_reach_the_service_s():
+    """What lets the image run uvicorn on its default configuration: a handler of its own left on would print plain text beside the JSON."""
+    # Its configuration as the image runs it: the default, with the access log off.
+    uvicorn.config.Config("app.asgi:app", access_log=False)
+
+    setup_logging()
+
+    assert [logging.getLogger(name).handlers for name in ("uvicorn", "uvicorn.error", "uvicorn.access")] == [[], [], []]
+    assert logging.getLogger("uvicorn.error").propagate and logging.getLogger("uvicorn").propagate
+    assert not logging.getLogger("uvicorn.access").propagate

@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
@@ -13,16 +14,11 @@ import type { FLSpieleFilterParams } from "./types";
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
   "use cache";
 
-  // The only granular tag, and `actions.ts` declares its matching `invalidatesOnWrite`. None by phase or status:
-  // a result edit changes a match's status, so both the old and new value would have to invalidate.
-  const tags: string[] = ["spiele"];
-  if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
-  cacheTag(...tags);
-  cacheLife("hours");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
   return apiClient("/spiele", FLSpieleListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSpiele", args: filters },
   });
 }
 

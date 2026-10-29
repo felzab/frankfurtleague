@@ -40,9 +40,8 @@ export async function POST(request: NextRequest) {
   // The ingest request's own trace, not the crashed request's -- the browser cannot read that one.
   const incoming = readTraceparent(request.headers.get(TRACEPARENT_HEADER));
 
-  logger.error("Client-side crash reported", undefined, {
-    error_code: "FE-CLIENT-001",
-    trace_id: incoming?.traceId,
+  logger.error("client.crash_reported", undefined, {
+    trace_id: incoming,
     route: report.data.path,
     client_message: report.data.message,
     client_stack: report.data.stack,

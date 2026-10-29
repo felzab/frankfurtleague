@@ -1,7 +1,7 @@
 "use server";
 
 import { isFreshlySignedIn } from "@/core/auth";
-import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -113,8 +113,6 @@ export async function patchSchiedsrichterAction(
       };
     }
 
-    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
-    invalidatesOnWrite("spiele");
     // A save minting a new link is a step-up write and any other save is not, so the stored row
     // decides; read only for a session past the window, the one it can refuse.
     const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(validated.data.id);
@@ -178,8 +176,6 @@ export async function undoAdminSchiedsrichterEditAction(
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
     const payload = validated.data;
 
-    // `spiele` alone: the rename fans out into cached fixtures embedding this row.
-    invalidatesOnWrite("spiele");
     // The replay is a save, its mint judged as the save's own action judges one: without this the undo
     // is a second door to that save with no step-up.
     const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(payload.id);

@@ -33,10 +33,7 @@ from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
 # this tool: the backend's virtualenv, which `uv run --project fl_backend` selects.
-GENERATED: Final = (
-    ("tests.openapi_document", "fl_backend/openapi.json"),
-    ("tests.einwilligung_document", "fl_backend/einwilligung.json"),
-)
+GENERATED: Final = (("app.openapi_document", "fl_backend/openapi.json"),)
 REGENERATED_FROM: Final = "fl_backend/"
 # Run where the merge touches the package: two branches can merge clean as text and still fail
 # together, one cutting an import the other's new case uses. The frontend's runs `next typegen` first.

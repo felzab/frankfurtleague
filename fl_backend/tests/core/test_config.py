@@ -25,12 +25,13 @@ from app.core.config import (
     BackendSecrets,
     EnvironmentValidationError,
     get_app_config,
-    get_config,  # noqa: TID251
+    get_config,
     read_environment,
 )
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
-from app.main import KEY_TIERS, create_app
+from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.main import create_app
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
 from tests.core.app_source import api_routes
 from tests.worker import worker_database
@@ -805,7 +806,7 @@ class TestEveryRequestReadsTheSettingsTheApplicationWasBuiltWith:
         reached = {
             f"{sorted(route.methods or ())} {route.path_format}": set(_reached(route.dependant)) for route in api_routes(create_app(build()))
         }
-        guarded = {name for name, calls in reached.items() if calls & KEY_TIERS.keys()}
+        guarded = {name for name, calls in reached.items() if calls & {verify_access_base, verify_access_admin, verify_access_system}}
 
         assert sorted(name for name, calls in reached.items() if get_config in calls) == []
         # The control: each guard reads the key two levels down, so a walk stopping short fails here.

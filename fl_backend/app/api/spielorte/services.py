@@ -3,10 +3,11 @@ from http import HTTPStatus
 from typing import Any
 
 from app.api.spiele.schemas import unplayed_filter
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 
 # A played fixture never blocks: its `ort` is an embedded record.
-VENUE_STILL_BOOKED = "REQ-RETIRE-003"
+VENUE_STILL_BOOKED = Code.VENUE_STILL_BOOKED
 
 
 def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:

@@ -9,9 +9,6 @@
 *.tsbuildinfo
 next-env.d.ts
 
-# The key set `emit-environment-names.mjs` writes for the image; a tracked copy would be a second
-# artefact to keep current with the schema.
-/environment-names.json
 
 # eslint's default cache, which a hand-run `eslint --cache` writes. The gate's own sits under
 # node_modules, where an uncached run cannot delete it (`docs/ops/spec.md`).

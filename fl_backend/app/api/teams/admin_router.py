@@ -294,7 +294,6 @@ async def post_team(
         post_operation = await session.with_transaction(found_the_club)
 
     return FLPostTeamResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
     )
 

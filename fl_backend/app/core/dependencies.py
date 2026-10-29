@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from fastapi import Depends
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core import clock
 from app.core.collections import Collection
 from app.core.db import collection_dependency, get_database, get_db_client
 
@@ -65,7 +65,7 @@ BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(collection
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.
 def get_germany_now() -> datetime:
-    return datetime.now(ZoneInfo("Europe/Berlin"))
+    return clock.now()
 
 
 def get_german_date_str(germany_now: datetime = Depends(get_germany_now)) -> str:

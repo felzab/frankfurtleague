@@ -2,6 +2,7 @@ import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
+import type { Mail } from "@/core/emailShell.ts";
 import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
@@ -33,7 +34,7 @@ const MUTATIONS_DOUBLE = {
   },
 };
 
-// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
+// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logging.ts`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
 const LOGGING_DOUBLE = {
@@ -63,16 +64,18 @@ const {
   zustellungIdempotenzSchluessel,
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
+const { renderMail } = await import("../../core/emailShell.ts");
 const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
-const buildMail = (rollenText: string) => ({
-  art: "bewerbung_zusage" as const,
-  subject: "Zusage: Frankfurt League, Saison 2627",
-  html: `<p>${rollenText}</p>`,
-  text: `Zusage für ${rollenText}`,
+const buildMail = (rollenText: string): Mail => ({
+  art: "mitteilung",
+  betreff: "Willkommen in der Saison 2627",
+  origin: "https://example.com",
+  vorname: "",
+  absaetze: [[`Zusage für ${rollenText}`]],
 });
 
 /** An address as a fan-out takes it. The seat wording is immaterial to every test but the ones reading it. */
@@ -193,7 +196,7 @@ describe("who a decision is sent to", () => {
       buildMail: buildMail,
     });
 
-    expect(sent.map((mail) => mail.text)).toStrictEqual([
+    expect(sent.map((mail) => /Zusage für [^\n]*/.exec(mail.text)?.[0])).toStrictEqual([
       "Zusage für Ansprechperson",
       "Zusage für Stellvertretung",
       "Zusage für Trainerin oder Trainer",
@@ -287,13 +290,15 @@ describe("which mailbox is sent which link", () => {
 
     expect(gepaart?.seats).toStrictEqual([{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: ownLink2 }]);
 
-    const mail = buildBewerbungBestaetigungEmail({
-      saisonId: "2627",
-      origin: origin,
-      schule: "Lessing-Kolleg",
-      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: ownLink2 }],
-      fristText: "30.09.2026",
-    });
+    const mail = renderMail(
+      buildBewerbungBestaetigungEmail({
+        saisonId: "2627",
+        origin: origin,
+        schule: "Lessing-Kolleg",
+        seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: ownLink2 }],
+        fristText: "30.09.2026",
+      }),
+    );
 
     // Both branches: a reader whose client draws no HTML meets the same one link in the text.
     for (const half of [mail.html, mail.text]) {
@@ -406,7 +411,7 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     outcomes.set("zweite@schule.de", "lost");
 
-    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const settled = await sendBewerbungMail({
         operation: "annehmenBewerbungAction",
         recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
@@ -426,7 +431,7 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     outcomes.set("zweite@schule.de", "unsent");
 
-    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const settled = await sendBewerbungMail({
         operation: "annehmenBewerbungAction",
         recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
@@ -474,20 +479,17 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.ok(!JSON.stringify(logged[0]).includes("zweite@schule.de"), "the recipient travels on the log line");
   });
 
-  /* Every frontend failure line carries one, and this one is not
-     `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same trace id. */
-  it("carries its own error code and the error's name, and no error object", async () => {
+  it("carries the error's name, and no error object", async () => {
     reset();
     outcomes.set("erste@schule.de", "refused");
 
     await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [empfaenger("erste@schule.de")], buildMail: buildMail });
 
-    expect(logged[0]?.meta.error_code).toBe("FE-MAIL-002");
     expect(logged[0]?.meta.name, "the line no longer names the error class").toBe("MailSendError");
     expect(logged[0]?.error, "the error object reaches the stream, and its message and stack with it").toBe(undefined);
   });
 
-  /* The mailer's own line records a filed message (`FE-MAIL-004`), and
+  /* The mailer's own line records a filed message (`mail.withheld`), and
      a second, failing one per address would read every local decision as a failed send. */
   it("lists a withheld send apart and logs no failure for it", async () => {
     reset();
@@ -627,7 +629,6 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     const failedLines = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
     expect(failedLines.length).toBe(1);
-    expect(failedLines[0]?.meta.error_code).toBe("FE-MAIL-002");
     /* The address stays off the stream, as it does for a refused send. */
     assert.ok(!JSON.stringify(failedLines[0]).includes("erste@schule.de"));
   });
@@ -761,7 +762,7 @@ describe("what an accepted send records about itself", () => {
 
     expect(outcome).toStrictEqual({ delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
-    expect(unreportedLine?.meta.error_code).toBe("FE-MAIL-003");
+    assert.ok(unreportedLine !== undefined, "the unrecorded delivery wrote no line");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
   });
 });

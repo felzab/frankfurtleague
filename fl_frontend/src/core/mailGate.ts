@@ -31,7 +31,6 @@ export async function mayReceiveMail(to: string): Promise<MailVerdict> {
     // Closed: a send past a failed read would defeat the ban. The name alone, an error on this path
     // carrying the address it was asked about.
     logger.error("mail.gate_failed", undefined, {
-      error_code: "FE-MAIL-012",
       name: failed instanceof Error ? failed.name : "unknown",
       is_timeout: failed instanceof APINetworkError ? failed.isTimeout : undefined,
     });

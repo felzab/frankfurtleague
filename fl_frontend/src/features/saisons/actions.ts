@@ -5,7 +5,7 @@ import { ApiUnsentError, requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
-import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -50,30 +50,6 @@ import type {
   FLUndrawSpielplanResponse,
 } from "./schemas";
 
-/** `teams` too: the league table is scored from `rules` on read, so an edit moves every standing. */
-function invalidateSaisonAndTable(): void {
-  invalidatesOnWrite("saisons", "teams");
-}
-
-/**
- * Every read that omits `saison_id` answers differently after this, and its cache entry carries no
- * season id to invalidate more narrowly by.
- */
-function invalidateRollover(): void {
-  // `spieler`: a squad read naming a club and no season answers for the running one.
-  invalidatesOnWrite("saisons", "spiele", "spieltage", "teams", "spieler");
-}
-
-/**
- * `teams` too, for a reason no fixture count shows: a drawn season has fixtures still to play, which
- * `fl_backend/app/api/teams/services.py :: _may_hold_a_platz` reads when it breaks a tie, so the
- * group order moves without a single result being entered.
- */
-function invalidateSpielplan(saisonId: string): void {
-  // `spieltage` as its base tag alone, `getSpieltage` declaring no granular one.
-  invalidatesOnWrite("saisons", "spieltage", "spiele", `spiele:saison_id:${saisonId}`, "teams", `teams:saison_id:${saisonId}`);
-}
-
 export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
   // field error rather than a type error.
@@ -86,8 +62,6 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // A create lands `future`, so nothing resolving the current season moves. Only the list does.
-    invalidatesOnWrite("saisons");
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);
@@ -123,7 +97,6 @@ export async function patchSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSaisonAndTable();
     // Every rules refusal has to reach the editor rather than the error page: the panel the admin is
     // looking at is where the wrong value still sits.
     let patchOperation;
@@ -152,7 +125,6 @@ export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    invalidateSaisonAndTable();
     let operation;
     try {
       operation = await patchSaison(validated.data);
@@ -180,7 +152,6 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateRollover();
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
@@ -213,8 +184,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 }
 
 /**
- * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
- * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week.
+ * AWAITED inside the action's body, so the spine clears the site's cache tag after the last deletion: a run behind the
+ * answer lands after that clear, and a squad page names deleted pupils until the `minutes` lifetime has passed.
  */
 async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
@@ -233,7 +204,7 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
 
   if (lauf.abgebrochen) {
     // The name and the request's facts, as the hourly pass logs its own: no person reaches this line.
-    const felder = { error_code: "FE-SWEEP-001", name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined, ...requestOf(lauf.fehler) };
+    const felder = { name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined, ...requestOf(lauf.fehler) };
     // Below error: wherever more pupils are due than the deadline reaches, its end of the run, a call it left unsent
     // or one it cut, is the expected one, and the hourly pass finishes them with nothing to repair.
     if (vonDerFristBeendet || lauf.fehler instanceof ApiUnsentError) logger.warn("loeschung.umstellung_cut_short", felder);
@@ -267,9 +238,8 @@ function loeschungsSaetze(lauf: LoeschungLauf): string[] {
 }
 
 /**
- * Two clubs exchange groups. **`spiele` is invalidated as well as `teams`**: the same transaction
- * rewrites every drawn Gruppenphase fixture fielding either club, so a cached schedule would name the
- * club that used to play there.
+ * Two clubs exchange groups. The same transaction rewrites every drawn Gruppenphase fixture fielding
+ * either club.
  */
 export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
   return runAdminMutation("swapGruppenAction", async () => {
@@ -279,9 +249,6 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // Both layers.
-    const saisonId = validated.data.saison_id;
-    invalidatesOnWrite("teams", `teams:saison_id:${saisonId}`, "spiele", `spiele:saison_id:${saisonId}`);
     let swapOperation;
     try {
       swapOperation = await swapGruppen(validated.data);
@@ -325,7 +292,6 @@ export async function generateSpielplanAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpielplan(validated.data.id);
     // The replacing draw alone is a step-up write: a first draw the undraw removes whole.
     const unconfirmed = validated.data.replace === true ? refuseUnconfirmed(session) : null;
     if (unconfirmed !== null) return unconfirmed;
@@ -378,8 +344,6 @@ export async function undrawSpielplanAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The draw's tag set, this removing exactly what that write created.
-    invalidateSpielplan(validated.data.id);
     let undrawOperation;
     try {
       undrawOperation = await undrawSpielplan(validated.data);

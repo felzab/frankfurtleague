@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
@@ -13,14 +14,11 @@ import type { FLSpieltageFilterParams } from "./types";
 export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
   "use cache";
 
-  // Base tag only: one matchday write moves both the season-scoped admin list and the public
-  // Spielplan's default-season entry, so no granular tag describes it.
-  cacheTag("spieltage");
-  cacheLife("days");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
   return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSpieltage", args: filters },
   });
 }
 

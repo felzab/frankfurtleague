@@ -6,6 +6,7 @@ import { buildAdresswechselGenehmigungEmail } from "@/core/adresswechselEmail";
 import { buildAntragEndeEmail, buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
+import { renderMail } from "@/core/emailShell";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, sendMail } from "@/core/mail";
@@ -14,7 +15,8 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
-import type { BerechtigungEmail, Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Mail } from "@/core/emailShell";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
@@ -84,7 +86,7 @@ async function abgleichen(): Promise<void> {
   }
 
   if (claim.uebersprungen > gewarntUebersprungen) {
-    logger.warn("berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: claim.uebersprungen });
+    logger.warn("berechtigung.abgleich_uebersprungen", { anzahl: claim.uebersprungen });
   }
   // Down as well as up, so a row repaired and another made dead later is warned of again.
   gewarntUebersprungen = claim.uebersprungen;
@@ -125,7 +127,6 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   if (aenderung.aufgegeben) {
     offen.delete(aenderung.id);
     logger.error("berechtigung.notice_abandoned", undefined, {
-      error_code: "FE-MAIL-011",
       art: aenderung.art,
       // Every recipient where this process holds no pass of the row's, a restart among the reasons.
       nicht_erreicht: adressen.filter((adresse) => !erreicht.has(adresse)).length,
@@ -133,7 +134,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  const message = nachricht(aenderung);
+  const message = renderMail(nachricht(aenderung));
   // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
   // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
   const fassung = createHash("sha256")
@@ -164,7 +165,6 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
       if (!(error instanceof MailRecipientError)) alleErledigt = false;
       // The name alone: a failure on this path routinely carries the address.
       logger.error("berechtigung.notice_failed", undefined, {
-        error_code: "FE-MAIL-009",
         name: error instanceof Error ? error.name : "unknown",
       });
     }
@@ -182,7 +182,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
 }
 
 /** The message one claimed row sends, by its kind. */
-function nachricht(aenderung: FLBerechtigungAenderung): BerechtigungEmail {
+function nachricht(aenderung: FLBerechtigungAenderung): Mail {
   const { art } = aenderung;
   switch (art) {
     case "adresswechsel":
@@ -226,5 +226,5 @@ function urheber(aenderung: FLBerechtigungAenderung): Urheber {
 
 /** Which half stopped, the error's name and what the call says of its request, never a person. */
 function logAbgleichFailure(event: "berechtigung.abgleich_failed" | "berechtigung.stempel_failed", error: unknown): void {
-  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
+  logger.error(event, undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
 }

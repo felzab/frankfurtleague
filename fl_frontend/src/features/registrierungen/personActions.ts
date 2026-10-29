@@ -8,7 +8,7 @@ import { runAnsweringOwnCut } from "@/core/requestScope";
 import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
-import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
+import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -40,7 +40,7 @@ const AblehnenAktion = RegistrierungAdresse.extend(FLRegistrierungAblehnenPayloa
 
 /**
  * Admits one registration into the team's squad, into the person its address or the seat holder's
- * answer names. The public squad read is cached for days, so the pupil joining it drops its tag.
+ * answer names.
  */
 export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdresse & FLRegistrierungAufnehmenPayload): Promise<ActionResult> {
   return runPersonMutation("aufnehmenRegistrierungAction", rawPayload, async () => {
@@ -48,7 +48,6 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     const { registrierung_id, spieler_id } = validated.data;
-    invalidatesOnWrite("spieler");
     let aufnahme;
     try {
       aufnahme = await postRegistrierungAufnehmen(registrierung_id, { spieler_id: spieler_id });

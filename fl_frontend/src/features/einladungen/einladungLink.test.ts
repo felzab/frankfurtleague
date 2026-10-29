@@ -158,6 +158,9 @@ describe("the single press's write", () => {
     const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
 
     expect(result.success, "the press mailed nothing, so its write is judged on nothing").toBe(true);
-    expect(cacheCalls, "a press whose writes were its message left the panel standing").toStrictEqual([{ name: "refresh", args: [] }]);
+    expect(
+      cacheCalls.filter(({ name }) => name === "refresh"),
+      "a press whose writes were its message left the panel standing",
+    ).toStrictEqual([{ name: "refresh", args: [] }]);
   });
 });

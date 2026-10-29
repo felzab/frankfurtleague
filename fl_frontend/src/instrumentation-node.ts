@@ -73,12 +73,6 @@ async function passBootGates() {
   // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
   if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
 
-  // Installed before the first request can error, so Next's own multi-line console dumps still
-  // reach the log as one JSON document per line; the shim itself stands down under the console
-  // format, at the line that would otherwise recurse.
-  const { installConsoleShim } = await import("./core/consoleShim");
-  installConsoleShim();
-
   // Before anything is served, as the environment gate is: without the key no guard can name an actor,
   // so a missing file would otherwise surface as every signed-in page failing.
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");

@@ -1,12 +1,10 @@
 import "server-only";
 
-import { timingSafeEqual } from "node:crypto";
-
 import z from "zod";
 
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
-import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, serverPort } from "./config";
+import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import {
   APIBadStatusError,
   APIMalformedDataError,
@@ -15,10 +13,9 @@ import {
   mayHaveWritten,
   UnattributedAdminCallError,
 } from "./errors";
-import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, requestTimeLeft } from "./requestScope";
+import { boundCall, getRequestActor, getRequestTraceId, requestTimeLeft } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
-import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+import { ACTOR_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { SentRequest } from "./errors";
 
@@ -49,11 +46,6 @@ export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>;
-  /**
-   * Read on the minting branch alone: a fill has no page request to join to, so this is the only
-   * record of which function asked for it.
-   */
-  cacheFill?: { name: string; args: unknown };
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
    * a dry run: its timeout is a read that failed, never a write of unknown outcome.
@@ -138,22 +130,9 @@ const handleFetchResponse = async ({
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
   // the ids reach the header and the errors, never the returned value.
-  const scopedTraceId = getRequestTraceId();
-  const traceId = scopedTraceId ?? mintTraceId();
-  const spanId = getRequestSpanId() ?? mintSpanId();
+  const traceId = getRequestTraceId() ?? mintTraceId();
 
-  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, readOnly, ...customOptions } = options;
-
-  // INFO rather than DEBUG: a fill is rare beside requests, and the default `LOG_LEVEL` must show
-  // the join between a fill and what asked for it. The arguments are cache-key filters, never a
-  // submitted value.
-  if (cacheFill && scopedTraceId === undefined) {
-    logger.info("cache fill", {
-      cache_fill: { name: cacheFill.name, args: JSON.stringify(cacheFill.args) },
-      trace_id: traceId,
-      span_id: spanId,
-    });
-  }
+  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, readOnly, ...customOptions } = options;
 
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
@@ -163,9 +142,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // make the call.
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
-  // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
-  // of its own.
-  headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
+  // The edge's trace, which the backend reads off it and writes on its own lines.
+  headers.set(TRACEPARENT_HEADER, formatTraceparent(traceId));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.
@@ -279,38 +257,3 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   return validated.data;
 };
-
-const BEARER = "Bearer ";
-
-/**
- * Whether a caller presents the system key: the guard of `fl_frontend/src/app/api/revalidate/route.ts`, which this
- * server alone calls.
- */
-export function presentsSystemKey(authorization: string | null): boolean {
-  const presented = Buffer.from(authorization?.startsWith(BEARER) ? authorization.slice(BEARER.length) : "", "utf8");
-  const expected = Buffer.from(internalApiKeySystem(), "utf8");
-
-  // `timingSafeEqual` throws on unequal byte lengths. Checked first, an unequal length tells a caller the key's length
-  // alone, which `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` fixes, as `secrets.compare_digest` does backend-side.
-  return presented.length === expected.length && timingSafeEqual(presented, expected);
-}
-
-/** A drop is a few writes inside this process, so a call this slow has stalled rather than queued. */
-const REVALIDATION_TIMEOUT_MS = 10000;
-
-/**
- * Asks this server's own revalidation route to drop `tags`, answering the route's status. Over loopback because Next
- * drops a tag only inside a request, and a timer's call throws.
- */
-export async function postRevalidation(tags: readonly string[]): Promise<number> {
-  const response = await fetch(`http://127.0.0.1:${String(serverPort())}/api/revalidate`, {
-    method: "POST",
-    headers: getFetchHeaders("system"),
-    body: JSON.stringify({ tags: tags }),
-    signal: AbortSignal.timeout(REVALIDATION_TIMEOUT_MS),
-  });
-  // Released unread: the route answers no body, and anything else answering is judged by its status alone.
-  await response.body?.cancel();
-
-  return response.status;
-}

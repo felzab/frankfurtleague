@@ -19,7 +19,6 @@ import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRef
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -54,10 +53,10 @@ const ORIGIN = "http://localhost:3000";
 const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
 /** The fields of each line the acceptance's read of the colliding application wrote. */
-const collisionReadLines = (): { error_code?: unknown }[] =>
+const collisionReadLines = (): { name?: unknown }[] =>
   logged
     .filter(([message]) => message === "An application's collision read failed and its refusal takes the shared words")
-    .map(([, , meta]) => meta as { error_code?: unknown });
+    .map(([, , meta]) => meta as { name?: unknown });
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
@@ -103,7 +102,6 @@ const {
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -222,7 +220,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     readWith(() => Promise.reject(new TypeError("Cannot read properties of undefined (reading 'bewerbung')")));
 
     expect(errorOf(await annehmenBewerbungAction(ANNAHME))).toBe(toActionErrorResult(collision).error);
-    expect(collisionReadLines().map((meta) => meta.error_code)).toStrictEqual(["FE-ACT-001"]);
+    expect(collisionReadLines().map((meta) => meta.name)).toStrictEqual(["TypeError"]);
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields
@@ -376,14 +374,14 @@ const erneutGeschrieben = (overrides: object = {}) => ({
   ...overrides,
 });
 
-/** What the correction's write answers where it lands: by default over an address the fold calls the same mailbox. */
-const korrigiert = (abgangEmail: string | null = null) => ({
+/** What the correction's write answers where it lands. */
+const korrigiert = () => ({
   acknowledged: 1,
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
   token: "token-korrektur",
   bestaetigungsfrist: "2026-09-18",
-  abgang_email: abgangEmail,
+  abgang_email: null,
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
@@ -397,9 +395,6 @@ const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
 
 /** A success's report, or the refusal's sentence where the action failed. */
 const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
-
-/** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
-const REFRESH_ALONE = [{ name: "refresh", args: [] }];
 
 describe("the application's writes", () => {
   it("reach each published path and method, the id and the seat in the path and the fields alone in the body", async () => {
@@ -448,47 +443,15 @@ describe("the application's writes", () => {
   });
 });
 
-describe("what each decision moves", () => {
-  /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
-     or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
-     leaves every unscoped read stale. */
-  it("invalidates the club reads the acceptance wrote into", async () => {
-    const [acceptance] = DECISIONS;
-    answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
-
-    expect((await acceptance.press()).success, "the acceptance never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the acceptance clears other than the club reads it wrote into").toStrictEqual([
-      { name: "updateTag", args: ["teams"] },
-      { name: "updateTag", args: ["teams:saison_id:2026"] },
-      ...REFRESH_ALONE,
-    ]);
-  });
-
-  /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag on a decline", async () => {
-    const [, decline] = DECISIONS;
-    answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
-
-    expect((await decline.press()).success, "the decline never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the decline clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
-});
-
 describe("the message that follows a decision", () => {
-  /* `core` may not read the colour sheet, so the action renders the label and the hex; and the sender
-     name the builder sets has to survive the fan-out's spread into the send. */
-  it("hands the acceptance mail the assigned colour's name and hex, and a signed season's sender", async () => {
+  /* `core` may not read the colour sheet, so the action renders the label and the hex. */
+  it("hands the acceptance mail the assigned colour's name and hex", async () => {
     const [acceptance] = DECISIONS;
     answerWith(() => Promise.resolve({ ...acceptance.landed(ENTSCHIEDEN), saison_id: "2027", trikot_farbe: "hellgruen" }));
 
     expect((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, "the acceptance never landed").toBe(true);
     const [mail] = mailed;
     assert.ok(mail?.text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
-    expect(mail?.absender, "the sender line or the reply address never reached the send").toStrictEqual({
-      name: "Jonathan Kroh, Frankfurt League",
-      antwortAn: "kontakt@frankfurtleague.de",
-    });
   });
 
   /* After the write in both, and the write is what the report is about: a message sent first would
@@ -1070,16 +1033,6 @@ describe("the re-sent confirmation link", () => {
     for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
     for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
   });
-
-  /* This moves the application's own confirmation block and its deadline, and no cached read holds an
-     application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the re-send clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
-  });
 });
 
 describe("the corrected contact address", () => {
@@ -1136,69 +1089,6 @@ describe("the corrected contact address", () => {
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
-  });
-
-  /* The old link may have reached its mailbox and opened until the write, so that mailbox is told it now opens nothing, on
-     the leaving notice's lane; the browser gets nothing naming it. */
-  it("tells the mailbox the write took the link from, nameless, and hands the browser none of its address", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
-    expect(notice?.tags, "the mailbox the link left was not told on its lane").toStrictEqual({ kontakt_abgang: "hinweis" });
-    expect(notice?.text ?? "").toMatch(new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
-    // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
-    expect(notice?.text ?? "", "the application's seat is told of fixture links it never held").not.toMatch(/Spielterminen/);
-    expect(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, "the notice names the person").not.toMatch(new RegExp(PERSON.vorname));
-    expect(mailed.map(({ to }) => to).sort(), "the correction mailed someone beyond the two mailboxes it moved the link between").toStrictEqual(
-      ["anna.alt@example.de", KORREKTUR.email].sort(),
-    );
-    expect(JSON.stringify(result)).not.toMatch(/anna\.alt@/);
-  });
-
-  /* The correction is stored before either message, so the request's deadline cutting the leaving notice alone leaves
-     that notice in doubt and the correction answered by its own link. */
-  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async ({ onTestFinished }) => {
-    // The request's clock, which its deadline was set on as the press began.
-    let clock = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => clock);
-    onTestFinished(() => void now.mockRestore());
-    answerMailWith(async ({ to }): Promise<MailOutcome> => {
-      if (to !== "anna.alt@example.de") return "accepted";
-      // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
-      clock = REQUEST_DEADLINE_MS - 1;
-      const bound = boundCall(REQUEST_DEADLINE_MS);
-      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
-      bound.clear();
-      return "lost";
-    });
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(result).toStrictEqual({ success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
-  });
-
-  it("tells nobody where the corrected address is the same mailbox", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert(null)));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email]);
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    expect((await kontaktEmailKorrigierenAction(KORREKTUR)).success, "the correction never landed, so its tags are judged on nothing").toBe(
-      true,
-    );
-    expect(cacheCalls, "the correction clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 
@@ -1276,14 +1166,6 @@ describe("the person seated where one stepped out", () => {
     expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
     // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
     expect(answerOf(result), "a refused send is reported as something other than the reseat's own").toBe(BESETZUNG_OHNE_LINK);
-  });
-
-  it("moves no tag", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt()));
-
-    expect((await besetzeKontaktSitzAction(SITZ)).success, "the reseat never landed, so its tags are judged on nothing").toBe(true);
-    expect(cacheCalls, "the reseat clears a cached read its endpoint does not move").toStrictEqual(REFRESH_ALONE);
   });
 });
 

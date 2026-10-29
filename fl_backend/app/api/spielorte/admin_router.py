@@ -58,7 +58,6 @@ async def post_spielort(
         post_operation = await session.with_transaction(enter_the_venue)
 
     return FLPostSpielortResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
     )
 

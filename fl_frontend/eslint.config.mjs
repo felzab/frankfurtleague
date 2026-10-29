@@ -403,20 +403,8 @@ const TRANSITION_REWRAP = syntax(
   "An update after an `await` in a transition commits outside it: wrap it in another `startTransition` or the hook's own start function.",
 );
 
-/** A call declaring a write's cache tags: `invalidatesOnWrite`, or a slice's helper over it (`invalidateSpieler`). */
-const DECLARES_TAGS = "CallExpression[callee.name=/^invalidates?[A-Z]/]";
-
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
-
-/**
- * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
- * failure on the sign-in or the mail path routinely carries the submitted address.
- */
-const LOGGED_ERROR = syntax(
-  'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
-  "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-);
 
 /** The names the image's builder stage sets, which a module may read while it loads. */
 const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
@@ -441,15 +429,6 @@ const LOAD_TIME_ENVIRONMENT = [
 const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, reach, options);
 
 const SOURCE_BANS = [
-  syntaxBan(LOGGED_ERROR, SOURCE, {
-    allow: [
-      // Next's hook for a crash no code caught, whose stack is the only account of it.
-      "src/core/instrumentation.ts",
-      // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form: its
-      // logging helper is private, and an action's or a route's failure logs through `actionFailure.ts`, under this ban.
-      "src/shared/utils/degradedRead.ts",
-    ],
-  }),
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
   syntaxBan(
@@ -516,38 +495,52 @@ const SOURCE_BANS = [
     SOURCE,
   ),
   syntaxBan(
-    // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
-    // never reached by a write whose answer was lost.
+    // The spine alone clears the tag, wherever a write may stand: a clear after an awaited write is never
+    // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included.",
+      "fl_frontend/src/shared/utils/adminMutation.ts clears the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
     { allow: ["src/shared/utils/adminMutation.ts"] },
   ),
   syntaxBan(
-    // The FIRST declaration in a block, after an awaited statement of that block: a write awaited before
-    // it never has its tags dropped. A later one stays free, a tag known only from the answer.
+    // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
     syntax(
-      `BlockStatement > :has(AwaitExpression) ~ :has(${DECLARES_TAGS}):not(BlockStatement > :has(${DECLARES_TAGS}) ~ *)`,
-      "Declare a write's first cache tags before the body's first `await`: a write awaited ahead of the declaration whose answer is lost drops nothing.",
+      `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
+      "fl_frontend/src/shared/utils/publicRoute.ts clears the site's cache tag after a route's write: a route clears nothing itself.",
+    ),
+    SOURCE,
+    { allow: ["src/shared/utils/publicRoute.ts"] },
+  ),
+  syntaxBan(
+    // Per function, where its lifetime stands beside it; a module-wide directive caches every export unseen.
+    syntax(
+      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
+      'Open each cached function with `"use cache"` and tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts: an untagged entry outlives every save.',
     ),
     SOURCE,
   ),
   syntaxBan(
-    // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
-    // write may stand, where a drop of its own after the answer misses a lost one.
     syntax(
-      `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
+      'CallExpression[callee.name="cacheTag"]:not([arguments.length=1][arguments.0.name="SITE_CACHE_TAG"])',
+      "The site has one cache tag, `SITE_CACHE_TAG` from fl_frontend/src/core/siteCache.ts, which every save clears: a tag of its own is cleared by none.",
+    ),
+    SOURCE,
+  ),
+  syntaxBan(
+    // Bounds what a change no save makes stays stale: a background deletion waits at most this long.
+    syntax(
+      'CallExpression[callee.name="cacheLife"]:not([arguments.0.value="minutes"])',
+      'A league read keeps Next\'s `"minutes"` lifetime: the hourly passes and a hand edit clear no tag, so a longer one serves what they changed, a deleted person among it, for longer.',
     ),
     SOURCE,
     {
       allow: [
-        "src/shared/utils/publicRoute.ts",
-        // The drop is its whole work, made after the write it answers for landed elsewhere, so no write of its own can
-        // lose an answer ahead of it.
-        "src/app/api/revalidate/route.ts",
+        // A label's words never change, so nothing outside a save reaches them.
+        "src/core/einwilligung.ts",
+        // The footer's year, which no record holds.
+        "src/kit/ClassicFrame.tsx",
       ],
     },
   ),

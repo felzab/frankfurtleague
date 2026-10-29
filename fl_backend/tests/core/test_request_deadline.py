@@ -43,23 +43,20 @@ from app.core.crud import (
 from app.core.db import collection_dependency
 from app.core.exception_handlers import (
     DATABASE_FAILED,
-    STORES_NOTHING_WHEN,
     UNHANDLED_CRASH,
     UNKNOWN_OUTCOME,
     db_exception_handler,
-    stores_nothing,
 )
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
-from app.main import STORES_NOTHING_EXTENSION, create_app
+from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, DRIVER_WRITES, api_routes, app_calls, callee, parsed
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, DRIVER_WRITES, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
-from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
@@ -595,50 +592,6 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
         assert [record.getMessage().split(" (")[0] for record in caplog.records if getattr(record, "error_code", None)] == [
             "Database deadline passed"
         ]
-
-
-def _declared() -> dict[str, bool | str]:
-    """What each route declares, read off its dependencies rather than off the document it is compared to."""
-
-    declared: dict[str, bool | str] = {}
-    for route in api_routes(create_app(build_test_config())):
-        calls = {guard.call for guard in route.dependant.dependencies if guard.call is not None}
-        flags = [STORES_NOTHING_WHEN[call] for call in calls if call in STORES_NOTHING_WHEN]
-        for method in route.methods or ():
-            if stores_nothing in calls or flags:
-                declared[f"{method} {route.path_format}"] = True if stores_nothing in calls else flags[0]
-    return declared
-
-
-def _published() -> dict[str, dict[str, Any]]:
-    return {
-        f"{method.upper()} {path}": operation
-        for path, operations in build_document()["paths"].items()
-        for method, operation in operations.items()
-    }
-
-
-class TestTheDeclarationIsPublished:
-    """The frontend marks its calls against the document, never against a copy."""
-
-    def test_every_declaration_reaches_the_document_and_nothing_else_does(self):
-        published = {
-            name: operation[STORES_NOTHING_EXTENSION] for name, operation in _published().items() if STORES_NOTHING_EXTENSION in operation
-        }
-
-        assert published == _declared()
-        # Both kinds, so the equality cannot hold over two empty listings or over one kind alone.
-        assert True in published.values() and any(isinstance(value, str) for value in published.values())
-
-    def test_a_conditional_declaration_names_a_boolean_query_flag_the_operation_takes(self):
-        operations = _published()
-        conditional = {name: value for name, value in _declared().items() if isinstance(value, str)}
-
-        assert conditional
-        for name, flag in conditional.items():
-            assert [
-                (parameter["in"], parameter["schema"]["type"]) for parameter in operations[name]["parameters"] if parameter["name"] == flag
-            ] == [("query", "boolean")], name
 
 
 # The shape `with_transaction` hands on when a commit went out and no answer came back within the deadline.

@@ -1,6 +1,5 @@
 import asyncio
 import re
-from copy import deepcopy
 from http import HTTPStatus
 from typing import Any
 
@@ -14,8 +13,6 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.einwilligung_document import DOCUMENT_PATH, DRIFT_REPAIR, REGENERATE, build_document, read_document
-from tests.openapi_document import describe_drift
 
 # A label of the application form the running one superseded, and one of another page altogether.
 FRUEHERE = "2026-09-bestaetigung-4"
@@ -138,24 +135,3 @@ class TestTheReadsOverHttp:
 
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {"acknowledged": 1, "laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}
-
-
-class TestTheCommittedDocument:
-    def test_the_committed_document_is_the_one_the_registry_builds(self):
-        """The frontend's tests read the words from it: a stale document passes them while the two sides say different things."""
-
-        assert DOCUMENT_PATH.exists(), f"{DOCUMENT_PATH.name} is missing. Create it with:  {REGENERATE}"
-
-        committed = read_document()
-        built = build_document()
-
-        assert committed == built, f"{DOCUMENT_PATH.name} has drifted.\n{describe_drift(committed, built)}\n{DRIFT_REPAIR}"
-
-    def test_a_word_changed_in_the_document_alone_is_named_as_drift(self):
-        built = build_document()
-        edited = deepcopy(built)
-        label = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
-        edited["fassungen"][label]["schalter"] += "!"
-
-        assert edited != built
-        assert f"fassungen['{label}'].schalter" in describe_drift(edited, built)

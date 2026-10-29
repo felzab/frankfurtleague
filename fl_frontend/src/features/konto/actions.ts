@@ -74,7 +74,7 @@ export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
       await sendSignInCode(asSignInIdentifier(served.user.email), await headers());
     } catch (failed) {
       // The NAME alone: an error on this path routinely carries the address.
-      logger.error("auth.sign_in_failed", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
+      logger.error("auth.sign_in_failed", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
       return { success: false, error: VERSUCHE_ES_ERNEUT_SATZ };
     }
 

@@ -497,7 +497,7 @@ describe("POST /api/mail/zustellung", () => {
     expect(calls).toStrictEqual([]);
     expect(zielCalls).toStrictEqual([]);
     expect(logs.length).toBe(1);
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-006");
+    expect(logs[0]?.message).toBe("mail.zustellung_unplatzierbar");
     expect(logs[0]?.meta?.["grund"]).toBe("ziel_id_unlesbar");
     expect(logs[0]?.meta?.["ziel"]).toBe("schiedsrichter");
   });
@@ -534,7 +534,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.anmeldecode_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-007");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
@@ -571,30 +570,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.berechtigungshinweis_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-010");
-    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
-    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
-    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
-  });
-
-  /* A pupil's season-end note goes after their registration is erased, so a pupil it missed is a line or nothing. */
-  it("writes one line for a season-end note that did not arrive, and none for one that did", async () => {
-    const notiz = (type: string) => eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { saisonende: "notiz" } });
-
-    const zugestellt = await answerTo(signed(JSON.stringify(notiz("email.delivered"))));
-    expect(logs.length, "a delivered note wrote a line").toBe(0);
-
-    const { status, body } = await answerTo(signed(JSON.stringify(notiz("email.bounced"))));
-
-    expect(zugestellt.status).toBe(200);
-    expect(status).toBe(200);
-    expect(body).toStrictEqual({ angewendet: [] });
-    expect(calls, "the note's lane reached the application's endpoint").toStrictEqual([]);
-    expect(zielCalls, "the note's lane reached the generic endpoint").toStrictEqual([]);
-    expect(logs.length).toBe(1);
-    expect(logs[0]?.level).toBe("warn");
-    expect(logs[0]?.message).toBe("mail.saisonendenotiz_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-013");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
@@ -619,32 +594,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.spielleitung_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-014");
-    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
-    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
-    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
-  });
-
-  /* The seat a contacts save took a mailbox off holds its next person's delivery record, or none, so a leaving
-     notice that missed its reader is a line or nothing. */
-  it("writes one line for a leaving notice that did not arrive, and none for one that did", async () => {
-    const hinweis = (type: string) =>
-      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { kontakt_abgang: "hinweis" } });
-
-    const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
-    expect(logs.length, "a delivered notice wrote a line").toBe(0);
-
-    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
-
-    expect(zugestellt.status).toBe(200);
-    expect(status).toBe(200);
-    expect(body).toStrictEqual({ angewendet: [] });
-    expect(calls, "the leaving notice's lane reached the application's endpoint").toStrictEqual([]);
-    expect(zielCalls, "the leaving notice's lane reached the generic endpoint").toStrictEqual([]);
-    expect(logs.length).toBe(1);
-    expect(logs[0]?.level).toBe("warn");
-    expect(logs[0]?.message).toBe("mail.kontakt_abgang_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-015");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
@@ -715,7 +664,7 @@ describe("POST /api/mail/zustellung", () => {
       heldSecret = webhookSecret;
     }
     expect(calls).toStrictEqual([]);
-    expect(logs.map(({ message, meta }) => [message, meta?.error_code])).toStrictEqual([["mail.zustellung_unsigniert", "FE-MAIL-003"]]);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.zustellung_unsigniert"]);
   });
 
   it("answers 400 with any one of the three signing headers missing", async () => {
@@ -766,9 +715,7 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     expect(status).toBe(200);
-    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
-      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
-    ]);
+    expect(logs.map(({ level, message }) => [level, message])).toStrictEqual([["error", "mail.zustellung_ungeschrieben"]]);
   });
 
   it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
@@ -781,9 +728,7 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(tagged)));
 
     expect(status).toBe(200);
-    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
-      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
-    ]);
+    expect(logs.map(({ level, message }) => [level, message])).toStrictEqual([["error", "mail.zustellung_ungeschrieben"]]);
   });
 
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
@@ -887,6 +832,5 @@ describe("POST /api/mail/zustellung", () => {
     const written = inspect(logs, { depth: null });
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(BEWERBUNG_ID), "an application id reached the stream");
-    for (const line of logs) expect(line.meta?.["error_code"]).toBe("FE-MAIL-003");
   });
 });

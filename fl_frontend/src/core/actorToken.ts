@@ -8,7 +8,7 @@ import { calculateJwkThumbprint, SignJWT } from "jose";
 import { BootRefusal } from "./bootRefusal";
 import { frontend_config } from "./config";
 import { asSignInIdentifier } from "./emailAddress";
-import { formatLogLine } from "./logFormat";
+import { logger } from "./logging";
 
 import type { KeyObject } from "node:crypto";
 import type { ActorLane, RequestActor } from "./requestScope";
@@ -139,12 +139,10 @@ export async function loadActorSigningKeyAtBoot(): Promise<void> {
   try {
     await actorSigningKey();
   } catch (error) {
-    const meta = {
-      error_code: "FE-BOOT-003",
+    logger.critical("system.signing_key_refused", {
       path: frontend_config.ACTOR_SIGNING_KEY_FILE,
       reason: error instanceof ActorSigningKeyError ? error.reason : "could not be loaded",
-    };
-    process.stdout.write(formatLogLine(frontend_config.LOG_FORMAT, "CRITICAL", "The actor signing key could not be loaded", meta) + "\n");
+    });
 
     // A file the key cannot be read from is a refusal of what the container was handed; anything else
     // failing here is a fault of the build, which the deploy's preflight must not report as the host's.

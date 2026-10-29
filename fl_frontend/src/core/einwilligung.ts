@@ -1,11 +1,12 @@
 import "server-only";
 
 import { cache } from "react";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "./api";
 import { APIMalformedDataError, ContractBreakError, isRecordMissing } from "./errors";
 import { FLEinwilligungFassungResponseSchema, FLEinwilligungSeitenResponseSchema } from "./schemas";
+import { SITE_CACHE_TAG } from "./siteCache";
 
 import type { EinwilligungSeite } from "./einwilligungSeiten";
 import type { FLEinwilligungFassung } from "./schemas";
@@ -27,12 +28,13 @@ export async function getEinwilligungFassung(textVersion: string): Promise<FLEin
 async function leseEinwilligungFassung(textVersion: string): Promise<GeleseneFassung> {
   "use cache";
 
+  cacheTag(SITE_CACHE_TAG);
+
   try {
     const antwort = await apiClient(`/einwilligung/fassungen/${encodeURIComponent(textVersion)}`, FLEinwilligungFassungResponseSchema, {
       authType: "base",
-      cacheFill: { name: "getEinwilligungFassung", args: textVersion },
     });
-    // Untagged and at the longest life: a label's words never change, so nothing has a reason to drop it.
+    // The longest life: a label's words never change, so no change outside a save can reach them.
     cacheLife("max");
     return { fassung: antwort.fassung };
   } catch (error) {

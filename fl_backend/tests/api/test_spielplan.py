@@ -49,6 +49,7 @@ from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, c
 from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSaisonPhase, FLSonderereignis, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
@@ -1379,13 +1380,13 @@ class TestASideMovedOffTheDrawClosesTheWindow:
         assert holds_a_recorded_fact(no_phase) is True
 
 
-def shared(code: str) -> WriteRefusal:
+def shared(code: Code) -> WriteRefusal:
     """A refusal as the season's own write answers it, which the draw then re-codes."""
 
     return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT, message="the shared check's detail")
 
 
-def on_the_draw(code: str, *, shape_stated: bool) -> tuple[str, HTTPStatus] | None:
+def on_the_draw(code: Code, *, shape_stated: bool) -> tuple[Code, HTTPStatus] | None:
     answered = as_the_draw_answers(shared(code), shape_stated=shape_stated)
 
     return None if answered is None else (answered.error_code, answered.status)
@@ -1408,13 +1409,13 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
         assert on_the_draw(SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
 
     @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
-    def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: str):
+    def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: Code):
         """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""
 
         assert on_the_draw(code, shape_stated=True) == (code, HTTPStatus.UNPROCESSABLE_CONTENT)
 
     @pytest.mark.parametrize("code", sorted(set(DRAW_TWINS) - SHAPE_ONLY_CODES))
-    def test_a_stated_shape_still_twins_a_rule_reading_a_stored_value(self, code: str):
+    def test_a_stated_shape_still_twins_a_rule_reading_a_stored_value(self, code: Code):
         """The points, the forfeit award and the dates are no part of a shape, so they are the season's stored ones."""
 
         assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)

@@ -216,8 +216,7 @@ export const FLSpielSchema = z.object({
   // `null` is the ordinary fixture, played or not yet, so no read site has to spell one out.
   sonderereignis: FLSonderereignisSchema.nullable(),
   saison_phase: FLSaisonPhaseSchema,
-  // Declared because zod's default strip mode discards an undeclared field silently, which is how
-  // the patch action once lost the season id its granular cache tag needs.
+  // Declared because zod's default strip mode discards an undeclared field silently.
   saison_id: z.string().length(SAISON_ID_LENGTH),
 
   // Nullable but never absent: a stored document may lack the key, but the backend fills its

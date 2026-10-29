@@ -28,7 +28,7 @@ and renumbering what stands would repoint every citation of it, the scripts' own
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
 | [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and the one call that drops it |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and for how long               |
 
 ---
 
@@ -85,17 +85,6 @@ the machine is outside the repository. What it does tell you:
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
   the check judges it; a line the two parsers
   could read differently was refused before either image was asked.
-- **The pulled frontend image is asked the same of `fl_frontend/.env`**
-  (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
-  frontend does not declare, given by its line number, and a name it requires that the file omits,
-  given by name, each refuse the deploy at exit 2 with nothing recreated**. The remedy differs by
-  kind — open a numbered line, then delete it, correct its spelling, or declare the name in the
-  schema, nothing in that schema reading an undeclared one;
-  **write a missing required one into the file with its value**. That is where a release adding a
-  required name meets a host nobody edited. Every VALUE, an empty one included, is the frontend's own
-  boot's to judge, in the step below. It does catch the misspelling whose value is EMPTY that the
-  backend's reader drops, and a line its reader cannot take at all is an advisory rather than a
-  refusal ([`spec.md`](spec.md) §1.5).
 - **Each application service's own boot then judges its settings and secret files, before anything
   is recreated**, in a one-off container started as the stack starts the service, so with its
   variables, as its own user and in its own group. The frontend's runs the image's own server, which
@@ -615,7 +604,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends, unless the new address holds an account of its own (`FE-AUTH-013` at `WARN`), where the
+  it ends, unless the new address holds an account of its own (`adresswechsel.konto_nicht_umgezogen` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
@@ -1149,7 +1138,7 @@ and the absence of log lines is not.
 
 **A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
 runs the two halves of each season independently, and each files its own failure line —
-`bewerbung.sweep_failed` and `registrierung.sweep_failed`, both under `FE-SWEEP-001` — so the event name is what names the
+`bewerbung.sweep_failed` and `registrierung.sweep_failed` — so the event name is what names the
 half, and the date alone is not: the application's endpoint stamps its day before the calls that
 follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
 one just as a failed registration call would.
@@ -1171,7 +1160,7 @@ tries again.
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
 so this count is the only sign of it. Each pass writes one line for each half, its `fehlgeschlagen`
 summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
-under `FE-SWEEP-001` above it. The backend's lines then name each row, as above:
+above it. The backend's lines then name each row, as above:
 
 ```bash
 docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
@@ -1190,16 +1179,15 @@ report.
 ending the address changes whose step lapsed and making the due ones take effect, then draining the
 outbox those ends wrote: each replaced address gets its completion notice and the new address of a
 confirmed change refused at its due time or lapsed unapproved a notice naming nobody. It writes one line per pass holding its
-counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, which a
-`LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due; a half that threw files
-`adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
+counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, and as a
+warning where it left rows due; a half that threw files `adresswechsel.sweep_failed` besides.
 
 **A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
 next confirmation or approval, or after the next pass — once its lease
 (`fl_backend/app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`) lapses. A drain that failed
-files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed to carry
-`FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After the hand-outs
-`:: VERSUCHE_HOECHSTENS` allows, the notice is given up under `FE-MAIL-016`, the account left at the
+files `adresswechsel.postausgang_failed`; a refused send a line of its own; a sign-in account the store failed to carry
+`adresswechsel.konto_nicht_umgezogen`, at `ERROR`, and its completion notice waits for the carry. After the hand-outs
+`:: VERSUCHE_HOECHSTENS` allows, the notice is given up as `adresswechsel.notice_abandoned`, the account left at the
 replaced address, and nobody can be named afterwards, so repair the refusal while those lines stand:
 
 ```bash
@@ -1215,7 +1203,7 @@ minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` rea
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
 and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
 where it left pupils it failed or passed over; a pass whose call threw files `loeschung.sweep_failed`
-under `FE-SWEEP-001` besides. A `loeschung.sweep_skipped` line says a tick found the previous pass
+besides. A `loeschung.sweep_skipped` line says a tick found the previous pass
 still running, and one in every hour says that pass is stuck, which recreating the frontend service
 ends:
 
@@ -1228,14 +1216,11 @@ press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST
 press sends no deletion call it could not wait out to its answer. Wherever more pupils are due than
 that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
-`loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
+`loeschung.umstellung_failed`, an error, is a call that failed rather than ran
 out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
 can still be deleting once the press has answered only where it outlasted the backend's own deadline
 and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
-page until the next hourly pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
-error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
-the error's name: the next pass drops it again, and
-[section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
+page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1314,7 +1299,7 @@ with the switch on, and null where none ever has. Each pass that could list the 
 `spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
 it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
 went, the notices it stamped out, told or given up, the notices given up and the rows it passed over, at `INFO`,
-and as a warning under `FE-SWEEP-004` where it passed rows over or gave a notice up. A notice of a
+and as a warning where it passed rows over or gave a notice up. A notice of a
 move, a referee taken off or a call-off is answered on every pass until its stamp lands, and given
 up after the attempts `fl_backend/app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
 allows or once its day has passed, a move's once both the slot it left and the fixture's new one have.
@@ -1322,8 +1307,7 @@ Each notice given up writes a `spielbestaetigung.mitteilung_aufgegeben` warning 
 `spiel_id` and its `partei`, a club's contacts or the referee nobody told: open that fixture's
 confirmations panel in the match editor and tell them by hand. The line is written before the
 notice's stamp, so it repeats every hour until a stamp lands. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
-that failed files that line and no pass line, its cache drop still running and filing
-`cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
+that failed files that line and no pass line. A request or an Einteilung whose stamp never landed
 is asked again on every pass until one does or the row stops taking an answer (a club's after its
 deadline, a referee's after the fixture's day), each address whose last
 mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
@@ -1370,14 +1354,12 @@ docker compose logs --since 2h frontend | grep konto.sweep_
 reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
 
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `LOG_LEVEL` above `INFO` drops it where no failure left an account for the next
-pass, the line then being `INFO`, while a pass leaving one warns; otherwise `KONTO_SWEEP` is
+unwritten.** Otherwise `KONTO_SWEEP` is
 off, the build is not a production one, or the timer stopped, which recreating the frontend service
 re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
 `konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
-says that pass is stuck, which recreating the service ends too. Every failure inside a pass is an
-`FE-SWEEP-003` line, and the next pass
-asks again.
+says that pass is stuck, which recreating the service ends too. Every failure inside a pass is a line of
+its own, and the next pass asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
@@ -1611,7 +1593,7 @@ review`, the restored database holding no change to move: ask the person to star
   sign-in store comes back with the cluster** (the last bullet below), so the account and its
   passkeys stand at the replaced address again beside the records: the person signs in there to
   start again, and the new change's effect moves the account with the records, as a replayed one does,
-  unless the new address holds records or an account of its own ( `FE-AUTH-013`). A
+  unless the new address holds records or an account of its own (`adresswechsel.konto_nicht_umgezogen`). A
   grant holder's effect whose approval came after the snapshot also reads `left for review`: the
   restored change waits on an approval again, and where its week is past an approval is refused
   (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
@@ -1687,24 +1669,22 @@ mailing before it erases.
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
 
-**Last, once every step above is done, run [section 20](#20-after-a-hand-edit-in-mongodb)'s call.** A
-restore drops no cache tag, so the public pages go on serving what they cached before it, the people
-erased again and the publication consents withdrawn again above among them, until each entry
-expires. A drop made before the erasures and the replay refills the caches from the rows they are
-about to take.
+**Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
+what they cached before it, the people erased again and the publication consents withdrawn again
+above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
 
 ## 14. The `auth` database's indexes
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An
-index the boot could not build is one `FE-AUTH-011` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that code after every deploy:
+index the boot could not build is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that event after every deploy:
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
 | `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
 | `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
-| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `FE-AUTH-011` again for any still refused                                                       |
+| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `auth.index_unbuilt` again for any still refused                                                |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
@@ -1741,13 +1721,13 @@ them before it ships; the repair is the list's entry taking the library's name.
 whether a code went or not, so the frontend's log is the only record, and no line on this path
 carries the address. Ask when they tried and read that window:
 
-- `auth.sign_in_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend
+- `auth.sign_in_gate_failed`: the send gate could not read what the backend
   holds for the address, its ban included, so it sent nothing — the backend unreachable, failing,
   or answering unreadably.
-- `auth.sign_in_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none
+- `auth.sign_in_gate_address_refused`: the backend refused the address as none
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
-- `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
-  address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
+- `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
+  address, and the send or the library call around it failed; `mail.send_failed` under the same trace id
   is the provider refusing the message.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,
@@ -1757,7 +1737,7 @@ carries the address. Ask when they tried and read that window:
   deletion link past their address's five mails of the hour, codes and links counted together
   (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
   press read as sent. A link they already hold stands for its day.
-- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
+- `auth.code_mail_total_capped`: a hundred codes had been mailed across every
   address inside the hour, so nobody was sent one; a code a
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
@@ -1908,8 +1888,8 @@ every row whose `identifier` starts with `sign-in-mail-`, which gives every addr
 **Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
 hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
 hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
-while the total is full nobody is mailed a code, and a passkey still signs its holder in. Lines
-under `FE-AUTH-008` that come back hour after hour, or soon after a sweep, are that case rather
+while the total is full nobody is mailed a code, and a passkey still signs its holder in. `auth.code_mail_total_capped` lines
+that come back hour after hour, or soon after a sweep, are that case rather
 than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
 it clears the per-address rows too; while it recurs, point the people who sign in by code at a
 passkey, and repeat the sweep when it closes again.
@@ -1968,29 +1948,8 @@ lower its threshold below 4 GB times the documents' share of documents and index
 
 ## 20. After a hand edit in MongoDB
 
-**A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
-them until a visit refreshes each entry once its day has passed, which may be any time up to its
-week. **One call drops them,
-from inside the frontend container**, which reads the system key there, so the key never passes
-through your shell or its history. It prints `204`:
-
-```bash
-docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
-```
-
-**It names every tag whatever the edit touched**: one costs a cold read on the next visit to each
-page carrying it, where naming fewer means working out which reads the edited document reaches, and
-a season reaches all of them.
-
-**After a season edit, wait out the backend's own season cache first**
-(`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`): dropped sooner, the frontend
-refills from the season the backend still holds, and serves that until a visit past another day
-refreshes it.
-
-**Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
-`secrets/internal_api_key_system` is read once, as the container starts
-([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the server inside the
-container, which the call reaches without passing nginx, answering a route its image predates:
-deploy the running build again by the tag `./scripts/ops/deploy.sh --status` names, which starts a
-new frontend holding no cached entry, its cache living in the server's memory
-([section 1](#1-the-server) names the builds never to deploy by tag).
+**A hand edit reaches the site within Next's `minutes` lifetime**, and nothing needs running. Every
+cached league read keeps that lifetime: the first visit a minute or more after an entry was filled
+still gets the entry and refills it behind its answer, and an entry nobody visits for an hour
+expires, so the next visit waits for a fresh read. A save made on the site clears every
+cached entry at once; a hand edit, a restore and the hourly passes clear none.

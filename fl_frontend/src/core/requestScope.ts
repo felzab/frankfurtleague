@@ -2,8 +2,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-import { mintSpanId } from "./trace";
-
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
 // times each gap between reads, not the response.
@@ -26,9 +24,6 @@ export type RequestActor = { readonly email: string; readonly lane: ActorLane; r
 
 interface RequestScope {
   traceId: string;
-  // This service's own span, minted per request: each hop mints one locally and only the trace id
-  // travels end to end.
-  spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
@@ -40,8 +35,6 @@ interface RequestScope {
   writeSent: boolean;
   // Set before a write that may end the session the request carries: the spine then renders no page again.
   endsOwnSession: boolean;
-  // The cache tags this request's writes feed, declared before each write so a lost answer still drops them.
-  writeTags: Set<string>;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
   // `runAnsweringOwnCut` derives shares it.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
@@ -54,7 +47,7 @@ const storage = new AsyncLocalStorage<RequestScope>();
 // its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "spanId" | "actor">, fn: () => Promise<T>): Promise<T> {
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "actor">, fn: () => Promise<T>): Promise<T> {
   // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
   // own there would restart the deadline and drop the actor the guard recorded.
   if (storage.getStore() !== undefined) return fn();
@@ -66,7 +59,6 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
     outcomeUnknown: false,
     writeSent: false,
     endsOwnSession: false,
-    writeTags: new Set(),
     memo: new Map(),
   };
 
@@ -98,12 +90,10 @@ export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
 export function runBehindTheResponse(traceId: string, work: () => Promise<void>): Promise<void> {
   const scope: RequestScope = {
     traceId,
-    spanId: mintSpanId(),
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
     endsOwnSession: false,
-    writeTags: new Set(),
     memo: new Map(),
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -212,23 +202,8 @@ export function requestEndsOwnSession(): boolean {
   return storage.getStore()?.endsOwnSession === true;
 }
 
-/** Adds cache tags a write of this request feeds, for the spine to drop. A no-op outside a scope. */
-export function declareWriteTags(tags: readonly string[]): void {
-  const store = storage.getStore();
-  for (const tag of tags) store?.writeTags.add(tag);
-}
-
-/** The cache tags this request's writes declared, in declaration order. Empty outside a scope. */
-export function requestWriteTags(): readonly string[] {
-  return [...(storage.getStore()?.writeTags ?? [])];
-}
-
 export function getRequestTraceId(): string | undefined {
   return storage.getStore()?.traceId;
-}
-
-export function getRequestSpanId(): string | undefined {
-  return storage.getStore()?.spanId;
 }
 
 export function getRequestActor(): RequestActor | undefined {

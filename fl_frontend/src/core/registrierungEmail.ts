@@ -1,27 +1,8 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
-import {
-  ANTWORT_SATZ_HTML,
-  ANTWORT_SATZ_TEXT,
-  art21Satz,
-  ASIDE_TEXT,
-  BRAND_NAME,
-  brandPhrase,
-  einzeilig,
-  escapeHtml,
-  FALLBACK_SATZ,
-  fallbackBloecke,
-  link,
-  mailOrigin,
-  paragraph,
-  renderKarte,
-  strong,
-  stuffSignatureDelimiter,
-  textFooter,
-} from "./emailShell";
+import { BRAND_NAME, mailOrigin } from "./emailShell";
 
-import type { Aktion } from "./emailShell";
+import type { Mail } from "./emailShell";
 
 const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
@@ -37,11 +18,8 @@ function spielerBestaetigungsLink(origin: string, token: string): string {
   return `${origin}${SPIELER_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
 }
 
-/** One message as this slice builds it, in the two parts every message here carries. */
-export type RegistrierungEmail = { subject: string; html: string; text: string };
-
 /**
- * What the two link messages are addressed with. No name, unlike the notes, which reach a confirmed
+ * What the two link messages are addressed with. No name, unlike the decline, which reaches a confirmed
  * address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
  */
 export interface RegistrierungLinkEmailData {
@@ -57,72 +35,19 @@ export interface RegistrierungLinkEmailData {
 }
 
 /**
- * What the season-end note is addressed with. It carries no confirmation link, only the league's
- * landing, the record it is about being gone.
- */
-export interface RegistrierungNotizEmailData {
-  readonly vorname: string;
-  readonly teamName: string;
-  readonly saisonId: string;
-  readonly origin: string;
-}
-
-/**
  * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
  * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
  */
 type RegistrierungAbsageGrund = "andere_person" | null;
 
-/**
- * What the decline note is addressed with. Like the season-end note it carries no confirmation link,
- * only the league's landing: the decision is the team's and stands.
- */
-export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailData {
+/** What the decline note is addressed with. It carries no confirmation link, only the league's landing: the decision is the team's and stands. */
+export interface RegistrierungAbsageEmailData {
+  readonly vorname: string;
+  readonly teamName: string;
+  readonly saisonId: string;
+  readonly origin: string;
   readonly grund: RegistrierungAbsageGrund;
 }
-
-/**
- * Every value a link message prints, folded once before either part or the subject reads it: no
- * column of facts folds them on the way to the prose.
- */
-function linkDaten(data: RegistrierungLinkEmailData): RegistrierungLinkEmailData {
-  return { ...data, teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
-}
-
-/** A note's values, folded for the same reason. A decline's `grund` is a fixed choice and prints no caller text. */
-function notizDaten<Data extends RegistrierungNotizEmailData>(data: Data): Data {
-  return { ...data, vorname: einzeilig(data.vorname), teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
-}
-
-/**
- * One control, as the sign-in message carries one (`fl_frontend/src/core/authEmail.ts :: aktionen`):
- * the message exists for this link alone, and a second destination competes with the one press a
- * reader came for.
- */
-function aktionen(url: string): readonly Aktion[] {
-  return [{ href: url, label: "Registrierung bestätigen", ton: "primary" }];
-}
-
-/**
- * For the reader who registered for nothing: a pupil's address can be typed by whoever holds the
- * team's invite. What ignoring costs differs from the referee's — here the entry goes by itself.
- */
-const ignorierSatz = (fristTage: number, kontakt: string): string =>
-  `Du weißt nichts von einer Registrierung bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung wird die Registrierung nach ${String(fristTage)} Tagen von selbst gelöscht. Soll sie sofort weg, schreib uns an ${kontakt}.`;
-
-function linkBloecke(url: string, fristTage: number): readonly string[] {
-  return [
-    ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
-    // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
-    paragraph(ignorierSatz(fristTage, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
-  ];
-}
-
-const bestaetigungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
-  "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf. Erst danach kann Dein Team Dich in den Kader aufnehmen.",
-  `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben. Du kannst Dich dann über den Link Deines Teams neu registrieren.`,
-];
 
 /**
  * The link a submission mints, named for the deadline the sweep deletes on.
@@ -130,64 +55,33 @@ const bestaetigungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLink
  * **The number is the mirrored constant's, never a word here**: the mail and the page would
  * otherwise state two deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
-  const data = linkDaten(eingang);
+export function buildRegistrierungBestaetigungEmail({ teamName, saisonId, origin, token, fristTage }: RegistrierungLinkEmailData): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
-  const site = mailOrigin(data.origin);
-  const url = spielerBestaetigungsLink(site, data.token);
-  const [anrede, worum, frist] = bestaetigungSaetze(data);
+  const site = mailOrigin(origin);
 
   return {
+    art: "erstkontakt",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
-    subject: `Registrierung für ${data.teamName} bestätigen: ${BRAND_NAME}, Saison ${data.saisonId}`,
-    html: renderKarte({
-      titel: `${BRAND_NAME}: Registrierung für ${data.teamName} bestätigen`,
-      ueberschrift: escapeHtml("Registrierung bestätigen"),
-      bloecke: [
-        paragraph(
-          `Hallo, Du hast Dich für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} registriert.`,
-        ),
-        paragraph(escapeHtml(worum ?? "")),
-        paragraph(escapeHtml(frist ?? "")),
-        // The address as a marked link: one a reader has to select and paste is not a route.
-        paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
-        ...linkBloecke(url, data.fristTage),
+    betreff: `Registrierung für ${teamName} bestätigen`,
+    origin: site,
+    vorname: "",
+    absaetze: [
+      [["Du hast Dich für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
+      [
+        "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf.",
+        "Erst danach kann Dein Team Dich in den Kader aufnehmen.",
       ],
-      aktionen: aktionen(url),
-      fuss: ANTWORT_SATZ_HTML,
-      origin: site,
-    }),
-    text: [
-      stuffSignatureDelimiter(
-        [
-          `${BRAND_NAME}: Registrierung bestätigen`,
-          "",
-          anrede ?? "",
-          "",
-          worum ?? "",
-          "",
-          url,
-          "",
-          frist ?? "",
-          "",
-          art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
-          "",
-          ignorierSatz(data.fristTage, KONTAKT_EMAIL),
-        ].join("\n"),
-      ),
-      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
-    ].join("\n"),
+      [
+        `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben.`,
+        "Du kannst Dich dann über den Link Deines Teams neu registrieren.",
+      ],
+    ],
+    aktion: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
   };
 }
-
-const erinnerungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
-  `Die Frist von ${String(fristTage)} Tagen läuft weiter. Diese Erinnerung verschiebt sie nicht. Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.`,
-  "Der Link aus der ersten E-Mail funktioniert weiterhin. Dieser hier funktioniert genauso.",
-];
 
 /**
  * The sweep's one reminder.
@@ -195,91 +89,24 @@ const erinnerungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEm
  * It says that the deadline has not moved, because a reminder that merely repeats the request reads
  * as a fresh clock — and the row is erased on the day the first message named.
  */
-export function buildRegistrierungErinnerungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
-  const data = linkDaten(eingang);
-  const site = mailOrigin(data.origin);
-  const url = spielerBestaetigungsLink(site, data.token);
-  const [anrede, frist, zweiLinks] = erinnerungSaetze(data);
+export function buildRegistrierungErinnerungEmail({ teamName, saisonId, origin, token, fristTage }: RegistrierungLinkEmailData): Mail {
+  const site = mailOrigin(origin);
 
   return {
-    subject: `Erinnerung: Registrierung für ${data.teamName} bestätigen`,
-    html: renderKarte({
-      titel: `${BRAND_NAME}: Erinnerung an Deine Registrierung`,
-      ueberschrift: escapeHtml("Erinnerung"),
-      bloecke: [
-        paragraph(
-          `Hallo, Deine Registrierung für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist noch nicht bestätigt.`,
-        ),
-        paragraph(escapeHtml(frist ?? "")),
-        paragraph(escapeHtml(zweiLinks ?? ""), "0 0 16px", ASIDE_TEXT),
-        ...linkBloecke(url, data.fristTage),
+    art: "erstkontakt",
+    betreff: `Erinnerung: Registrierung für ${teamName} bestätigen`,
+    origin: site,
+    vorname: "",
+    absaetze: [
+      [["Deine Registrierung für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
+      [
+        `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
+        "Diese Erinnerung verschiebt sie nicht.",
+        "Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.",
       ],
-      aktionen: aktionen(url),
-      fuss: ANTWORT_SATZ_HTML,
-      origin: site,
-    }),
-    text: [
-      stuffSignatureDelimiter(
-        [
-          `${BRAND_NAME}: Erinnerung`,
-          "",
-          anrede ?? "",
-          "",
-          frist ?? "",
-          "",
-          url,
-          "",
-          zweiLinks ?? "",
-          "",
-          ignorierSatz(data.fristTage, KONTAKT_EMAIL),
-        ].join("\n"),
-      ),
-      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
-    ].join("\n"),
-  };
-}
-
-const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEmailData): readonly string[] => [
-  `Hallo ${vorname}, die Saison ${saisonId} der ${BRAND_NAME} ist vorbei.`,
-  `Über Deine Registrierung für ${teamName} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams erneut registrieren.",
-];
-
-/**
- * The one note after a confirmed but undecided registration is erased.
- *
- * **After the fact and never before it**: a pre-notice would ask a reader to act on a deadline
- * they have no control over.
- */
-export function buildRegistrierungSaisonendeEmail(eingang: RegistrierungNotizEmailData): RegistrierungEmail {
-  const data = notizDaten(eingang);
-  const site = mailOrigin(data.origin);
-  const [anrede, geloescht, naechste] = saisonendeSaetze(data);
-
-  return {
-    subject: `Deine Registrierung für ${data.teamName} wurde gelöscht`,
-    html: renderKarte({
-      titel: `${BRAND_NAME}: Registrierung gelöscht`,
-      ueberschrift: escapeHtml("Registrierung gelöscht"),
-      bloecke: [
-        paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist vorbei.`,
-        ),
-        paragraph(
-          `Über Deine Registrierung für ${strong(escapeHtml(data.teamName))} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-        ),
-        paragraph(escapeHtml(naechste ?? ""), "0", ASIDE_TEXT),
-      ],
-      // The league's own landing, because this message names no record to press on: a control
-      // pointing at a deleted row would answer its reader with a dead link.
-      aktionen: [{ href: site, label: "Zur Frankfurt League", ton: "outline" }],
-      fuss: ANTWORT_SATZ_HTML,
-      origin: site,
-    }),
-    text: [
-      stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung gelöscht`, "", anrede ?? "", "", geloescht ?? "", "", naechste ?? ""].join("\n")),
-      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
-    ].join("\n"),
+      ["Der Link aus der ersten E-Mail funktioniert weiterhin.", "Dieser hier funktioniert genauso."],
+    ],
+    aktion: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
   };
 }
 
@@ -287,17 +114,13 @@ export function buildRegistrierungSaisonendeEmail(eingang: RegistrierungNotizEma
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", string>> = {
-  andere_person:
-    "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen. Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
-  keiner: "Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team.",
+const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", readonly [string, ...string[]]>> = {
+  andere_person: [
+    "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen.",
+    "Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
+  ],
+  keiner: ["Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team."],
 };
-
-const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsageEmailData): readonly string[] => [
-  `Hallo ${vorname}, ${teamName} hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`,
-  ABSAGE_WEITER[grund ?? "keiner"],
-  "Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung.",
-];
 
 /**
  * The one note after a team declines a registration.
@@ -305,31 +128,20 @@ const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsag
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail(eingang: RegistrierungAbsageEmailData): RegistrierungEmail {
-  const data = notizDaten(eingang);
-  const site = mailOrigin(data.origin);
-  const [anrede, weiter, loeschung] = absageSaetze(data);
+export function buildRegistrierungAbsageEmail({ vorname, teamName, saisonId, origin, grund }: RegistrierungAbsageEmailData): Mail {
+  const site = mailOrigin(origin);
 
   return {
-    subject: `Deine Registrierung für ${data.teamName}`,
-    html: renderKarte({
-      titel: `${BRAND_NAME}: Registrierung abgelehnt`,
-      ueberschrift: escapeHtml("Registrierung abgelehnt"),
-      bloecke: [
-        paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, ${strong(escapeHtml(data.teamName))} hat Deine Registrierung für die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} abgelehnt.`,
-        ),
-        paragraph(escapeHtml(weiter ?? "")),
-        paragraph(escapeHtml(loeschung ?? ""), "0", ASIDE_TEXT),
-      ],
-      // The league's landing, as the season-end note's: no record is left to press on.
-      aktionen: [{ href: site, label: "Zur Frankfurt League", ton: "outline" }],
-      fuss: ANTWORT_SATZ_HTML,
-      origin: site,
-    }),
-    text: [
-      stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung abgelehnt`, "", anrede ?? "", "", weiter ?? "", "", loeschung ?? ""].join("\n")),
-      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
-    ].join("\n"),
+    art: "mitteilung",
+    betreff: `Deine Registrierung für ${teamName}`,
+    origin: site,
+    vorname: vorname,
+    absaetze: [
+      [[{ stark: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
+      ABSAGE_WEITER[grund ?? "keiner"],
+      ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
+    ],
+    // The league's landing: no record is left to press on.
+    aktion: { label: `Zur ${BRAND_NAME}`, href: site },
   };
 }

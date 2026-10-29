@@ -174,7 +174,7 @@ describe("an activation whose deletion would outrun the request's deadline", () 
       {
         level: "warn",
         message: "loeschung.umstellung_cut_short",
-        meta: { error_code: "FE-SWEEP-001", name: "ApiUnsentError", trace_id: false },
+        meta: { name: "ApiUnsentError", trace_id: false },
       },
     ]);
   });
@@ -208,7 +208,7 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
       {
         level: "warn",
         message: "loeschung.umstellung_cut_short",
-        meta: { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: true },
+        meta: { name: "APINetworkError", trace_id: true },
       },
     ]);
   });

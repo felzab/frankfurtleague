@@ -1,6 +1,6 @@
 "use server";
 
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -62,8 +62,6 @@ export async function patchSpielortAction(
       };
     }
 
-    // A rename fans into every match embedding this venue, which is the one cached read it reaches.
-    invalidatesOnWrite("spiele");
     // The refusal belongs on the box that holds the name, not on the error page.
     let patchOperation;
     try {
@@ -155,8 +153,6 @@ export async function undoAdminSpielortEditAction(rawPayload: FLPatchSpielortPay
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    // `spiele` alone: the rename fans out into cached fixtures embedding this row.
-    invalidatesOnWrite("spiele");
     let operation;
     try {
       operation = await patchSpielort(validated.data);

@@ -75,7 +75,7 @@ async function zustellenEine(mitteilung: FLAdresswechselPostausgangZeile): Promi
   // Given up by the backend's count: stamped undelivered rather than claimed for ever,
   // and this line is all that says who was never told, by its kind and never by address.
   if (mitteilung.aufgegeben) {
-    logger.error("adresswechsel.notice_abandoned", undefined, { error_code: "FE-MAIL-016", art: mitteilung.art });
+    logger.error("adresswechsel.notice_abandoned", undefined, { art: mitteilung.art });
     return true;
   }
 
@@ -88,5 +88,5 @@ async function zustellenEine(mitteilung: FLAdresswechselPostausgangZeile): Promi
 
 /** Which half stopped, the error's name and what the call says of its request, never a person. */
 function logPostausgangFailure(event: "adresswechsel.postausgang_failed" | "adresswechsel.stempel_failed", error: unknown): void {
-  logger.error(event, undefined, { error_code: "FE-SWEEP-005", name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
+  logger.error(event, undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
 }

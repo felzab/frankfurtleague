@@ -9,6 +9,7 @@ import {
 } from "@/core/adresswechselEmail";
 import { carryAccount } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { renderMail } from "@/core/emailShell";
 import { formatZeitpunkt } from "@/core/format";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
@@ -17,7 +18,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 
-import type { AdresswechselEmail } from "@/core/adresswechselEmail";
+import type { Mail } from "@/core/emailShell";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { AdresswechselVersand, HinweisVersand } from "@/shared/utils/linkVersand";
 import type { FLAdresswechselPostausgangZeile, FLAdresswechselVerwaltungMintResponse } from "./schemas";
@@ -97,11 +98,10 @@ export async function adresswechselWirksam({
   if (traegt) {
     try {
       const umzug = await carryAccount(bisherige, mitteilung.email);
-      if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });
+      if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { grund: "belegt", operation });
     } catch (error) {
       // Name only, never the error, which carries an address.
       logger.error("adresswechsel.konto_nicht_umgezogen", undefined, {
-        error_code: "FE-AUTH-013",
         name: error instanceof Error ? error.name : undefined,
         operation: operation,
       });
@@ -135,12 +135,12 @@ export async function mailAdresswechselNichtWirksam({ operation, email }: { oper
   return versand !== "fehlgeschlagen";
 }
 
-async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis: string, operation: string): Promise<HinweisVersand> {
+async function sendeHinweis(adresse: string, mail: Mail, ereignis: string, operation: string): Promise<HinweisVersand> {
   try {
     // Through the ban list like every message (`fl_frontend/src/core/mail.ts :: sendMail`), and
     // untagged: a delivery event about it is acknowledged and recorded nowhere. A cut or a lost answer here
     // is its own doubt, never the request's.
-    await runAnsweringOwnCut(() => sendMail({ to: adresse, ...mail }));
+    await runAnsweringOwnCut(() => sendMail({ to: adresse, ...renderMail(mail) }));
     return "gesendet";
   } catch (error) {
     // The fan-out's own reading, so this lone send ends in the words a link mail's do.
@@ -148,7 +148,6 @@ async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis:
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
     // Name only, never the error, which carries the address.
     logger.error(ereignis, undefined, {
-      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });

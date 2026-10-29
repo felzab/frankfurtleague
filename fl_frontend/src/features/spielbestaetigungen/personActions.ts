@@ -1,7 +1,7 @@
 "use server";
 
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
-import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
+import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -22,9 +22,6 @@ async function antworten<Z extends "zugesagt" | "abgelehnt">(
   zustand: Z,
   message: string,
 ): Promise<ActionResult<{ zustand: Z }>> {
-  // An acceptance is what makes the fixture's referee servable at all, and a decline empties the slot: either left to
-  // the fixtures read's hours-long cache would hide a referee who agreed, or show one who declined.
-  invalidatesOnWrite("spiele");
   try {
     await sende();
   } catch (error) {

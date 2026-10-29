@@ -5,6 +5,7 @@ from typing import Any, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -269,14 +270,13 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
 
 
 # The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
-SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
+SQUAD_TEAM_NOT_IN_SAISON = Code.SQUAD_TEAM_NOT_IN_SAISON
 
-# What every code here refuses is `fl_backend/app/core/domain.py :: RULES`.
-SQUAD_FULL = "REQ-SQUAD-003"
+SQUAD_FULL = Code.SQUAD_FULL
 
 # One code for both roles, as `REQ-BOOKING-001` covers a venue and a referee: this is one rule read
 # against two values rather than two failure modes.
-SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
+SQUAD_ROLLE_TAKEN = Code.SQUAD_ROLLE_TAKEN
 
 
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
@@ -431,7 +431,7 @@ def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any
 
 # A representative's edit is held to the season's list, where the administrator's form is trusted to
 # offer it.
-KADER_STUFE_NICHT_ERLAUBT = "REQ-SQUAD-005"
+KADER_STUFE_NICHT_ERLAUBT = Code.KADER_STUFE_NICHT_ERLAUBT
 
 
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
