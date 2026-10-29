@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { authResendKey, frontend_config } from "./config";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
+import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
 import { mayReceiveMail } from "./mailGate";
@@ -135,10 +136,7 @@ function sinkFileStem(subject: string, at: Date): string {
   return slug === "" ? stamp : `${stamp}-${slug}`;
 }
 
-/**
- * A comment terminator and nothing else: a text part's `-- ` signature delimiter
- * (`fl_frontend/src/core/emailShell.ts :: stuffSignatureDelimiter`) has to survive byte for byte.
- */
+/** A comment terminator and nothing else: the rest of the text part has to survive byte for byte. */
 function forComment(value: string): string {
   return value.replaceAll("-->", "--&gt;").replaceAll("--!>", "--!&gt;");
 }
@@ -251,7 +249,10 @@ export async function sendSperreNotice({
   gesperrtBisSaisonId,
   origin,
 }: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
-  return deliver({ to: recipientOf(to), ...buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin }) });
+  return deliver({
+    to: recipientOf(to),
+    ...renderMail(buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin })),
+  });
 }
 
 /**

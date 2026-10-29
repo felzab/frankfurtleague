@@ -474,19 +474,14 @@ describe("what each decision moves", () => {
 });
 
 describe("the message that follows a decision", () => {
-  /* `core` may not read the colour sheet, so the action renders the label and the hex; and the sender
-     name the builder sets has to survive the fan-out's spread into the send. */
-  it("hands the acceptance mail the assigned colour's name and hex, and a signed season's sender", async () => {
+  /* `core` may not read the colour sheet, so the action renders the label and the hex. */
+  it("hands the acceptance mail the assigned colour's name and hex", async () => {
     const [acceptance] = DECISIONS;
     answerWith(() => Promise.resolve({ ...acceptance.landed(ENTSCHIEDEN), saison_id: "2027", trikot_farbe: "hellgruen" }));
 
     expect((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, "the acceptance never landed").toBe(true);
     const [mail] = mailed;
     assert.ok(mail?.text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
-    expect(mail?.absender, "the sender line or the reply address never reached the send").toStrictEqual({
-      name: "Jonathan Kroh, Frankfurt League",
-      antwortAn: "kontakt@frankfurtleague.de",
-    });
   });
 
   /* After the write in both, and the write is what the report is about: a message sent first would

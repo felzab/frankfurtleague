@@ -1,151 +1,59 @@
 import "server-only";
 
-import { KONTAKT_EMAIL } from "./brand";
-import {
-  ANTWORT_SATZ_HTML,
-  ANTWORT_SATZ_TEXT,
-  art21Satz,
-  ASIDE_TEXT,
-  BRAND_COLOR,
-  BRAND_MAIL_CLASS,
-  BRAND_NAME,
-  brandPhrase,
-  einzeilig,
-  escapeHtml,
-  escapeHtmlLines,
-  EYEBROW_TEXT,
-  FALLBACK_SATZ,
-  fallbackBloecke,
-  GHOST_MAIL_CLASS,
-  HEAD_MAIL_CLASS,
-  HEADING_COLOR,
-  LABEL_TEXT,
-  link,
-  mailOrigin,
-  PANEL_MAIL_CLASS,
-  paragraph,
-  renderKarte,
-  RULE_COLOR,
-  RULE_MAIL_CLASS,
-  strong,
-  stuffSignatureDelimiter,
-  SURFACE_COLOR,
-  TABLE_ATTRS,
-  TEXT_COLOR,
-  TEXT_MAIL_CLASS,
-  textFooter,
-} from "./emailShell";
+import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { joinUnd } from "./joinUnd";
 
-import type { Aktion, Fallback } from "./emailShell";
+import type { Absatz, Fakt, Mail } from "./emailShell";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
  * (`REQ-ENTER-001`), and `future` is the one status the public tier is refused
  * (`fl_backend/app/api/saisons/services.py :: WITHHELD_FROM_BASE_TIER`).
  */
-const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ", nach: ", sobald die Saison startet." } as const;
+const websiteSatz = (site: string): Absatz => [
+  ["Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ", { url: site }, ", sobald die Saison startet."],
+];
 
 /**
  * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
- * can be met, and „wir versuchen“ would promise a result of a draw that has not run (my wording).
+ * can be met, and „wir versuchen“ would promise a result of a draw that has not run.
  */
-const wunschgegnerSatz = (gegner: string): string =>
-  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
+const wunschgegnerAbsatz = (gegner: string): Absatz => [
+  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert.`,
+  "Über die Paarungen entscheidet der Spielplan.",
+];
 
 /**
  * The league's dictated wording and its policy towards schools, kept over the rule
  * against calling a performed operation impossible: an administrator's group swap and colour edit are the
  * league's own corrections.
  */
-const einteilungSatz = (gruppe: string, farbe: string | null): string =>
+const einteilungAbsatz = (gruppe: string, farbe: string | null): Absatz =>
   farbe === null
-    ? `Wir haben Euch in Gruppe ${gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`
-    : `Wir haben Euch in Gruppe ${gruppe} untergebracht und Euch die Trikotfarbe ${farbe} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
-
-const EINTEILUNG_TITEL = "Eure Einteilung";
-
-/**
- * For the reader who never applied: anybody can type any address into a public form. Last in the
- * body and above the buttons, never in the grey close a reader skims -- and in `renderHtml`, so
- * no application message can ship without it.
- */
-const IGNORIER_VOR = `Du weißt nichts von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun`;
-const IGNORIER_SATZ = `${IGNORIER_VOR}.`;
-/* What ignoring costs: a contact can end their seat through the link, the submitter can only wait,
-   and after the deletion nothing is left to promise. One wording for all three offers a route
-   somebody has not got. */
-/* Dated, not counted: the reminder and the decline notice go out inside the window, where a day
-   count read from the message at hand is already wrong by however long it has run. */
-/* „mit ihr“ over „die Bewerbung“ and „Deine Angaben“ leaves the next sentence's „sie“ pointing at
-   either; the noun spelled out settles which of the two the deletion takes. */
-const ignorierSatzEintrag = (frist: string): string =>
-  `${IGNORIER_VOR}: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir Deine Angaben zusammen mit der Bewerbung. Oder widersprich dem Eintrag über den Link, dann entfernen wir sie sofort.`;
-/* Its own wording rather than the singular one over two links: „den Link“ names one of the two the
-   message carries, and the reader cannot tell which of them is being offered. */
-const ignorierSatzEintragMehrere = (frist: string): string =>
-  `Weiß hier niemand von einer Bewerbung bei der ${BRAND_NAME}? Dann ignoriert diese E-Mail einfach. Für Euch ist nichts zu tun: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links, dann entfernen wir sie sofort.`;
-const ignorierSatzBewerbung = (frist: string): string => `${IGNORIER_VOR}: Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie.`;
-/* Unconditional, unlike the sentence above it: a Widerspruch empties a seat, so completion is out
-   of reach and the condition the other notes state is settled before the reader meets it. */
-const ignorierSatzWiderspruch = (frist: string): string => `${IGNORIER_VOR}: Am ${frist} löschen wir die Bewerbung.`;
-const IGNORIER_SATZ_GELOESCHT = `${IGNORIER_VOR}: Die Bewerbung wird jetzt gelöscht.`;
-
-/**
- * Who a message reached, in the words its close states it in. Per message and not one line for all
- * of them: a sentence naming who ELSE read this has to be true of the message it stands under.
- */
-const EMPFAENGER_SATZ = {
-  kontaktpersonen: "Diese E-Mail geht an die Kontaktpersonen der Bewerbung.",
-  eintrag: "Diese E-Mail geht nur an Dich.",
-  // Says why a message about other people reached this reader: on a shared school inbox the other
-  // reading is that the league mailed somebody their colleagues' details by mistake.
-  postfach: "Diese E-Mail geht an dieses Postfach, weil dort mehrere Einträge hängen.",
-  einreichende: "Diese E-Mail geht nur an die Person, die die Bewerbung eingereicht hat.",
-} as const;
-
-type Empfaengerkreis = keyof typeof EMPFAENGER_SATZ;
+    ? [
+        `Wir haben Euch in Gruppe ${gruppe} untergebracht.`,
+        "Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar.",
+        "Eure Trikotfarbe teilen wir Euch noch mit.",
+      ]
+    : [
+        `Wir haben Euch in Gruppe ${gruppe} untergebracht und Euch die Trikotfarbe ${farbe} zugewiesen.`,
+        "Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.",
+      ];
 
 /**
  * The one page every reader who is waiting on the league can use, named as
  * `BewerbungView.tsx :: KOPF_LINKS` names it.
  */
-function ligaAktion(origin: string): { readonly label: string; readonly href: string } {
-  return { label: "Laufende Saison", href: `${origin}/dashboard` };
-}
-
-/** The way to a person, offered wherever the message leaves the reader with a question. */
-const FRAGE_AKTION = { label: "Frage stellen", href: `mailto:${KONTAKT_EMAIL}` } as const;
-
-/** The pair the two decisions and the completion notice carry, in the landing page's own order: the offered action first, the way on beside it. */
-function aktionenPaar(origin: string): readonly Aktion[] {
-  const liga = ligaAktion(origin);
-
-  return [
-    { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "primary" },
-    { href: liga.href, label: liga.label, ton: "outline" },
-  ];
-}
-
-/** That pair as lines. The contact address is the close's already, so only the page is listed. */
-function textAktionenPaar(origin: string): readonly string[] {
-  const liga = ligaAktion(origin);
-
-  return [`${liga.label}: ${liga.href}`];
-}
+const ligaAktion = (origin: string) => ({ label: "Laufende Saison", href: `${origin}/dashboard` });
 
 /**
  * Where a school starts again. The id is percent-encoded rather than interpolated raw: it lands in
  * an href, and `escapeHtml` guards an HTML context rather than a URL's own syntax.
  */
-function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
-  return { href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
-}
-
-/** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
-const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
-
-export type BewerbungEmail = { subject: string; html: string; text: string };
+const neuBewerbenAktion = (origin: string, saisonId: string) => ({
+  label: "Neu bewerben",
+  href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`,
+});
 
 /**
  * What an accepted application is told. `gruppe`, `trikotFarbeLabel`, `trikotFarbeHex` and `rollenText` arrive rendered
@@ -183,307 +91,79 @@ export interface BewerbungAbsageData {
   grund: string;
 }
 
-/** The indent a stacked value's own lines carry, so none of them begins where a label does. */
-const FORTSETZUNG = "  ";
+/** A fill named by its hex, in this shape alone: no supplier could match any other. */
+const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
-/**
- * A stacked value keeps its breaks -- a stated reason is a paragraph -- and gives up column 0, which
- * is the only thing that made its lines readable as further facts.
- */
-function eingerueckt(value: string): string {
-  return value.replace(/\r\n|\r|\n/g, `\n${FORTSETZUNG}`);
-}
-
-/**
- * One stated fact, raw. Both branches render from the same list, which is what stops the markup half
- * carrying a fact the text half lost; only the markup half escapes.
- */
-interface Fakt {
-  readonly label: string;
-  readonly value: string;
-  /** The season, whose year carries the brand colour in the panel as the whole phrase does in the heading. */
-  readonly akzent?: boolean;
-  /** Free text: its own full-width row, and no emphasis grade -- a stated reason runs to 1000 characters. */
-  readonly gestapelt?: boolean;
-  readonly farbfeld?: string;
-}
-
-/**
- * A fill lands inside a style attribute, where `escapeHtml` keeps the attribute closed but cannot keep a
- * second declaration out, so `farbfeld` draws nothing of any other shape.
- */
-const FARBFELD_HEX = /^#[0-9a-f]{6}$/i;
-
-/**
- * The border is what keeps Weiß visible on the light panel, whose fill it shares. Hooked as the site's
- * swatches' `border-border` is, so its ring darkens with the panel's.
- */
-function farbfeld(hex: string | undefined): string {
-  if (hex === undefined || !FARBFELD_HEX.test(hex)) return "";
-
-  return `<span class="${GHOST_MAIL_CLASS}" style="display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border:1px solid ${RULE_COLOR};border-radius:3px;background-color:${hex};"></span>`;
-}
-
-/** One message as both branches read it, everything raw: the render helpers are the only place values are escaped. */
-interface Nachricht {
-  /** The heading up to the season, which every heading ends on and which `saisonPhrase` colours. */
-  readonly headingVor: string;
-  readonly saisonId: string;
-  /** Already through `emailShell.ts :: mailOrigin`, which each builder calls once for its own links and this one's close. */
-  readonly origin: string;
-  readonly empfaenger: Empfaengerkreis;
-  readonly fakten: readonly Fakt[];
-  /* Stated per message and never defaulted: a message inheriting another's controls sends its
-     reader to a page its own copy has just made wrong. */
-  readonly aktionen: readonly Aktion[];
-  /** The same controls as lines, a button being nothing the text branch can draw. */
-  readonly textAktionen: readonly string[];
-  /* Stated per message, because what ignoring costs differs. Defaulted, it would tell a contact
-     whose own seat is holding the application open that there is nothing to do. */
-  readonly ignorierSatz: string;
-}
-
-/** The brand colour on „Saison NNNN“ wherever it stands whole, which is the phrase every message turns on. */
-function saisonPhrase(saisonId: string): string {
-  return brandPhrase(`Saison ${escapeHtml(saisonId)}`);
-}
-
-/** The plain heading, which the text branch opens on and the markup branch splits at the season. */
-function ueberschrift({ headingVor, saisonId }: Nachricht): string {
-  return `${headingVor} Saison ${saisonId}`;
-}
-
-/** One row of the panel. Padding is per cell because the panel's inset is its own first and last row. */
-function faktZeile(fakt: Fakt, oben: number, unten: number): string {
-  const label = escapeHtml(fakt.label);
-
-  /* The category name is set like „Verein“ or „Kürzel“ whatever it names, so the brand colour marks
-     one thing in the panel: the value it belongs to. */
-  const labelStil = `${LABEL_TEXT}color:${TEXT_COLOR};`;
-  const akzent = fakt.akzent === true;
-
-  /* Its own full-width pair of rows, and its value left OUT of the value column: a thousand
-     characters in the 35% that is left would set one or two words to the line. */
-  if (fakt.gestapelt === true) {
-    return `<tr><td colspan="2" class="${TEXT_MAIL_CLASS}" style="padding:${oben}px 18px 2px;${labelStil}">${label}:</td></tr>
-                        <tr><td colspan="2" class="${HEAD_MAIL_CLASS}" style="padding:0 18px ${unten}px;${LABEL_TEXT}color:${HEADING_COLOR};">${escapeHtmlLines(fakt.value)}</td></tr>`;
-  }
-
-  return `<tr>
-                          <td width="35%" valign="top" class="${TEXT_MAIL_CLASS}" style="padding:${oben}px 12px ${unten}px 18px;${labelStil}">${label}:</td>
-                          <td valign="top" class="${akzent ? BRAND_MAIL_CLASS : HEAD_MAIL_CLASS}" style="padding:${oben}px 18px ${unten}px 0;${LABEL_TEXT}color:${akzent ? BRAND_COLOR : HEADING_COLOR};font-weight:700;">${farbfeld(fakt.farbfeld)}${escapeHtml(fakt.value)}</td>
-                        </tr>`;
-}
-
-/**
- * The facts a reader must not have to hunt for, panelled where the message sets them; the prose restates
- * one only to say something about it.
- */
-function renderFakten(fakten: readonly Fakt[], titel?: string): string {
-  const letzte = fakten.length - 1;
-  const zeilen = fakten.map((fakt, index) => faktZeile(fakt, index === 0 ? 14 : 5, index === letzte ? 14 : 5));
-  // A panel among the prose is titled, where the one above it needs none: the heading already names it.
-  const kopf = titel === undefined ? "" : `<h2 class="${TEXT_MAIL_CLASS}" style="margin:0 0 8px;${EYEBROW_TEXT}">${escapeHtml(titel)}</h2>`;
-
-  // The gap below is the wrapper cell's padding: Outlook honours that where it ignores a table's margin.
-
-  return `<table ${TABLE_ATTRS} width="100%">
-                  <tr>
-                    <td style="padding:0 0 20px;">
-                      ${kopf}
-                      <table ${TABLE_ATTRS} width="100%" class="${PANEL_MAIL_CLASS}" style="background-color:${SURFACE_COLOR};border:1px solid ${RULE_COLOR};border-radius:8px;">
-                        ${zeilen.join("\n                        ")}
-                      </table>
-                    </td>
-                  </tr>
-                </table>`;
-}
-
-/** The shell's card, filled with this message: its panel where it has one above the prose, the prose, and the note every reader may need. */
-function renderHtml(nachricht: Nachricht, bloecke: readonly string[]): string {
-  const { headingVor, saisonId, origin, empfaenger, fakten, aktionen, ignorierSatz } = nachricht;
-
-  return renderKarte({
-    titel: ueberschrift(nachricht),
-    ueberschrift: `${escapeHtml(headingVor)} ${saisonPhrase(saisonId)}`,
-    bloecke: [...(fakten.length === 0 ? [] : [renderFakten(fakten)]), ...bloecke, paragraph(escapeHtml(ignorierSatz), "0", ASIDE_TEXT)],
-    aktionen: aktionen,
-    fuss: `${EMPFAENGER_SATZ[empfaenger]} ${ANTWORT_SATZ_HTML}`,
-    origin: origin,
-  });
-}
-
-/** A panel's facts as lines, wherever the text branch sets them. */
-function textFakten(fakten: readonly Fakt[]): string[] {
-  // A blank line before a stacked fact, so the lines it wraps onto do not read as further facts.
-  // Both shapes are normalised here rather than trusted from the payload.
-  const zeile = (fakt: Fakt): string =>
-    fakt.gestapelt === true ? `${fakt.label}: ${eingerueckt(fakt.value)}` : `${fakt.label}: ${einzeilig(fakt.value)}`;
-  // Blank on both sides, so a stacked value's wrapped lines read as neither the fact above nor the
-  // one below. The closing blank is dropped where nothing follows, which would double the one
-  // the caller puts after the panel.
-  const letzte = fakten.length - 1;
-
-  return fakten.flatMap((fakt, index) => (fakt.gestapelt === true ? ["", zeile(fakt), ...(index === letzte ? [] : [""])] : [zeile(fakt)]));
-}
-
-/**
- * The text branch of one message: the heading, the facts it panels above the prose, the body, then the note and
- * the controls as lines. Stuffed WHOLE rather than per value, so no field is left out of the guard.
- */
-function renderText(nachricht: Nachricht, body: readonly string[]): string {
-  const fakten = nachricht.fakten.length === 0 ? [] : [...textFakten(nachricht.fakten), ""];
-  const oben = [`${BRAND_NAME}: ${ueberschrift(nachricht)}`, "", ...fakten, ...body];
-  // The note closes the body here as it closes the card there, and a message whose links all stand
-  // in its prose lists nothing under it rather than closing on a blank line.
-  const unten = [nachricht.ignorierSatz, ...(nachricht.textAktionen.length === 0 ? [] : ["", ...nachricht.textAktionen])];
-  const fuss = textFooter(nachricht.origin, [EMPFAENGER_SATZ[nachricht.empfaenger], ANTWORT_SATZ_TEXT]);
-
-  return [stuffSignatureDelimiter(oben.join("\n")), "", ...unten, ...fuss].join("\n");
-}
-
-/**
- * **The two parts state the same facts.** A mail client renders one or the other, so anything only the
- * text half carried would reach only the readers whose client refuses HTML.
- */
 export function buildBewerbungZusageEmail({
   teamName,
-  saisonId: saisonIdRoh,
+  saisonId,
   origin,
   rollenText,
   gruppe,
   trikotFarbeLabel,
   trikotFarbeHex,
   wunschgegner,
-}: BewerbungZusageData): BewerbungEmail {
+}: BewerbungZusageData): Mail {
   const site = mailOrigin(origin);
-  // Folded before anything prints it: the heading, the prose and the subject state the season, and
-  // `textFakten` folds the column of facts alone.
-  const saisonId = einzeilig(saisonIdRoh);
-  // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
-  // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: textFakten` folds the
-  // facts it prints and nothing else.
-  const team = einzeilig(teamName);
-  // Folded for a reason `textFakten` cannot cover: this one stands in the prose ALONE, so no fact line
-  // it prints would ever reach it. Blank counts as unnamed, so the silence rests on no payload's trim.
-  const gegner = einzeilig(wunschgegner ?? "").trim();
-  // Folded here as well as in `textFakten`, as the name is: both stand in the prose too.
-  const gruppeText = einzeilig(gruppe);
-  const farbe = trikotFarbeLabel === null ? null : einzeilig(trikotFarbeLabel);
-  const einteilung = einteilungSatz(gruppeText, farbe);
-  // In the panel only: the prose keeps the league's wording. As text beside the square, because classic
-  // Outlook on Windows draws none; and never in any other shape, which no supplier could match.
-  const hex = farbe !== null && trikotFarbeHex !== null && FARBFELD_HEX.test(trikotFarbeHex) ? trikotFarbeHex : null;
+  // Blank counts as unnamed, so the silence rests on no payload's trim.
+  const gegner = (wunschgegner ?? "").trim();
+  const hex = trikotFarbeLabel !== null && trikotFarbeHex !== null && FARBE_HEX.test(trikotFarbeHex) ? trikotFarbeHex : null;
 
-  // No row for the decision or the season: the heading states both.
-  const einteilungFakten: readonly Fakt[] = [
-    { label: "Team", value: team },
-    { label: "Gruppe", value: gruppeText },
-    // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
-    // reader has to be able to find in the same place as a named one.
-    hex === null
-      ? { label: "Trikotfarbe", value: farbe ?? "noch nicht festgelegt" }
-      : { label: "Trikotfarbe", value: `${farbe} (${hex})`, farbfeld: hex },
-    // The one row that differs per reader: three people get this message and each is told the seat
-    // they were entered for.
-    { label: "Eingetragen als", value: rollenText },
-  ];
-
-  const nachricht: Nachricht = {
-    headingVor: "Willkommen in der",
-    saisonId: saisonId,
+  return {
+    art: "mitteilung",
+    betreff: `Willkommen in der Saison ${saisonId}`,
     origin: site,
-    empfaenger: "kontaktpersonen",
-    // Each panel stands in the body under its own title, the meeting's first.
-    fakten: [],
-    aktionen: aktionenPaar(site),
-    textAktionen: textAktionenPaar(site),
-    ignorierSatz: IGNORIER_SATZ,
+    vorname: "",
+    absaetze: [
+      [
+        `Vielen Dank für Eure Bewerbung für die Saison ${saisonId} der ${BRAND_NAME}.`,
+        "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
+        [{ stark: teamName }, ` ist für die Saison ${saisonId} aufgenommen. Herzlich willkommen!`],
+      ],
+    ],
+    // No row for the decision or the season: the heading states both.
+    block: {
+      fakten: [
+        { label: "Team", wert: teamName },
+        { label: "Gruppe", wert: gruppe },
+        // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
+        // reader has to be able to find in the same place as a named one.
+        { label: "Trikotfarbe", wert: hex === null ? (trikotFarbeLabel ?? "noch nicht festgelegt") : `${trikotFarbeLabel ?? ""} (${hex})` },
+        // The one row that differs per reader: three people get this message and each is told the seat
+        // they were entered for.
+        { label: "Eingetragen als", wert: rollenText },
+      ],
+    },
+    nachBlock: [einteilungAbsatz(gruppe, trikotFarbeLabel), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
+    aktion: ligaAktion(site),
   };
-
-  const html = renderHtml(nachricht, [
-    // Wording the league dictated, written to the team as „ihr“ rather than to the one contact reading
-    // it: where it and the register rule part, the wording wins.
-    paragraph("Liebe Freundinnen und Freunde,"),
-    // One paragraph, so the decision does not lead: the meeting and the team's details are what the school acts on.
-    paragraph(
-      `vielen Dank für Eure Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME}. Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war. ${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} aufgenommen. Herzlich willkommen!`,
-    ),
-    renderFakten(einteilungFakten, EINTEILUNG_TITEL),
-    paragraph(escapeHtml(einteilung)),
-    // Unemphasised, unlike the name above it: a school skims the bold, and a club set in it would read
-    // as the fixture the draw has not drawn.
-    ...(gegner === "" ? [] : [paragraph(wunschgegnerSatz(escapeHtml(gegner)))]),
-    paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
-  ]);
-
-  const text = renderText(nachricht, [
-    "Liebe Freundinnen und Freunde,",
-    "",
-    `vielen Dank für Eure Bewerbung für die Saison ${saisonId} der ${BRAND_NAME}.`,
-    "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
-    `${team} ist für die Saison ${saisonId} aufgenommen. Herzlich willkommen!`,
-    "",
-    EINTEILUNG_TITEL,
-    ...textFakten(einteilungFakten),
-    "",
-    einteilung,
-    // The separating blank line rides WITH the sentence, so an unnamed opponent leaves no gap behind.
-    ...(gegner === "" ? [] : ["", wunschgegnerSatz(gegner)]),
-    "",
-    `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
-  ]);
-
-  return { subject: `Willkommen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
-/**
- * **The two parts state the same facts**, as in the acceptance above. The message states the decision
- * and the reason it was given, and says that it covers this application rather than the school.
- */
-export function buildBewerbungAbsageEmail({ teamName, saisonId: saisonIdRoh, origin, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
-  const site = mailOrigin(origin);
-  // Folded before anything prints it, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
-  // Folded once, as on the acceptance and for the same reason.
-  const team = einzeilig(teamName);
-
-  const nachricht: Nachricht = {
-    headingVor: "Absage für die",
-    saisonId: saisonId,
-    origin: site,
-    empfaenger: "kontaktpersonen",
-    fakten: [
-      { label: "Entscheidung", value: "Absage" },
-      { label: "Team", value: team },
-      { label: "Saison", value: saisonId, akzent: true },
-      // Last of the facts, as on the acceptance, and identification rather than a verdict: it says why
-      // the message reached this reader, and never what they were down for.
-      { label: "Eingetragen als", value: rollenText },
-      // Unabridged and last, where the panel can give it the full width: it is the one thing the
-      // message exists to hand over, and a reader who skims the rest still has to arrive at it.
-      { label: "Angegebener Grund", value: grund, gestapelt: true },
+/** The message states the decision and the reason it was given, and says that it covers this application rather than the school. */
+export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenText, grund }: BewerbungAbsageData): Mail {
+  return {
+    art: "mitteilung",
+    betreff: `Absage für die Saison ${saisonId}`,
+    origin: mailOrigin(origin),
+    vorname: "",
+    absaetze: [
+      [
+        ["Danke, dass ", { stark: teamName }, ` sich für die Saison ${saisonId} der ${BRAND_NAME} beworben hat.`],
+        "Für diese Saison können wir das Team nicht aufnehmen.",
+      ],
+      ["Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."],
     ],
-    aktionen: aktionenPaar(site),
-    textAktionen: textAktionenPaar(site),
-    ignorierSatz: IGNORIER_SATZ,
+    block: {
+      fakten: [
+        { label: "Team", wert: teamName },
+        { label: "Saison", wert: saisonId },
+        // Identification rather than a verdict: it says why the message reached this reader.
+        { label: "Eingetragen als", wert: rollenText },
+        // Unabridged and last: it is the one thing the message exists to hand over.
+        { label: "Angegebener Grund", wert: grund },
+      ],
+    },
   };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      `Danke, dass ${strong(escapeHtml(team))} sich für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} beworben hat. Für diese Saison können wir das Team nicht aufnehmen.`,
-    ),
-    paragraph("Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."),
-  ]);
-
-  const text = renderText(nachricht, [
-    `Danke, dass ${team} sich für die Saison ${saisonId} der ${BRAND_NAME} beworben hat.`,
-    "Für diese Saison können wir das Team nicht aufnehmen.",
-    "",
-    "Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter.",
-  ]);
-
-  return { subject: `Absage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /** One seat, as a message names it to somebody who is not sitting in it. */
@@ -513,8 +193,7 @@ export interface BewerbungBestaetigungData {
   saisonId: string;
   origin: string;
   schule: string;
-  /* At least one, in the type: an empty list renders an empty fact row, a control row with no
-     control in it, and the sentence offering an address over nothing. */
+  /* At least one, in the type: an empty list renders an empty fact row and no link to answer with. */
   seats: readonly [BewerbungLinkSeat, ...BewerbungLinkSeat[]];
   /**
    * The deadline as a German date, rendered by the caller for the reason `rollenText` is:
@@ -525,33 +204,21 @@ export interface BewerbungBestaetigungData {
 
 /** „{vorname} ({rolle})“, which is how every message naming somebody else's seat names it. */
 function seatName({ vorname, rolleText }: BewerbungSeat): string {
-  return `${einzeilig(vorname)} (${einzeilig(rolleText)})`;
+  return `${vorname} (${rolleText})`;
 }
 
 /** The plural form names whose each row is; the singular one has nobody to tell its reader apart from. */
 function seatFakten(seats: BewerbungBestaetigungData["seats"]): Fakt[] {
-  if (seats.length < 2) return [{ label: "Eingetragen als", value: einzeilig(seats[0].rolleText) }];
+  if (seats.length < 2) return [{ label: "Eingetragen als", wert: seats[0].rolleText }];
 
-  return seats.map((seat) => ({ label: "Eingetragen als", value: seatName(seat) }));
+  return seats.map((seat) => ({ label: "Eingetragen als", wert: seatName(seat) }));
 }
 
-/** One control per entry, which `fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox` makes one per link rather than one per seat. */
-function seatAktionen(seats: readonly BewerbungLinkSeat[]): Aktion[] {
-  return seats.map((seat) => ({
-    href: einzeilig(seat.link),
-    label: seats.length < 2 ? "Eintrag bestätigen" : `Eintrag bestätigen: ${seatName(seat)}`,
-    ton: "primary",
-  }));
-}
+/** One seat's link is the button; several share no button, each link printed under its seat's name. */
+function seatAktion(seats: BewerbungBestaetigungData["seats"]): NonNullable<Mail["aktion"]> {
+  if (seats.length < 2) return { label: "Eintrag bestätigen", href: seats[0].link };
 
-/** Named only in the plural: an unlabelled second URL is a link nobody can place. */
-function seatFallbacks(seats: readonly BewerbungLinkSeat[]): Fallback[] {
-  return seats.map((seat) => ({ label: seats.length < 2 ? "" : seatName(seat), url: einzeilig(seat.link) }));
-}
-
-/** The same addresses as lines. A label shares no line with its URL: that is what stops a client linkifying both as one. */
-function fallbackZeilen(adressen: readonly Fallback[]): string[] {
-  return adressen.flatMap(({ label, url }, index) => [...(index === 0 ? [] : [""]), ...(label === "" ? [] : [`${label}:`]), url]);
+  return { links: seats.map((seat) => ({ name: seatName(seat), href: seat.link })) };
 }
 
 /**
@@ -561,176 +228,98 @@ function fallbackZeilen(adressen: readonly Fallback[]): string[] {
 const ALTERS_SATZ =
   "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist. Ansprechperson oder Stellvertretung kann sein, wer mindestens 18 Jahre alt ist.";
 
-/** Both link messages open on this, and only the school and the season in it are theirs to differ on. */
-function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean): string {
-  const schule = markup ? strong(escapeHtml(schuleText)) : schuleText;
-  const saison = markup ? saisonPhrase(saisonId) : `Saison ${saisonId}`;
-
-  return `Für die Schule ${schule} wurde eine Bewerbung zur ${saison} der ${BRAND_NAME} eingereicht.`;
-}
-
-/** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungBestaetigungEmail({
-  saisonId: saisonIdRoh,
-  origin,
-  schule,
-  seats,
-  fristText,
-}: BewerbungBestaetigungData): BewerbungEmail {
-  const site = mailOrigin(origin);
-  // Folded before anything prints it, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
+export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): Mail {
   const mehrere = seats.length > 1;
-  const schuleText = einzeilig(schule);
-  const frist = einzeilig(fristText);
-  const rollen = einzeilig(seats[0].rolleText);
-  const offen = joinUnd(seats.map(seatName));
 
-  const nachricht: Nachricht = {
-    headingVor: mehrere ? "Eure Einträge für die" : "Dein Eintrag für die",
-    saisonId: saisonId,
-    origin: site,
-    empfaenger: mehrere ? "postfach" : "eintrag",
-    fakten: [
-      // Named here and in no message to the submitter: a contact who never heard of the application
-      // has nothing else to tell whose it is, and cannot answer a link they cannot place.
-      { label: "Schule", value: schuleText },
-      { label: "Saison", value: saisonId, akzent: true },
-      ...seatFakten(seats),
-      { label: mehrere ? "Links gültig bis" : "Link gültig bis", value: frist },
+  return {
+    art: "erstkontakt",
+    betreff: mehrere ? `Eure Einträge für die Saison ${saisonId}` : `Dein Eintrag für die Saison ${saisonId}`,
+    origin: mailOrigin(origin),
+    vorname: "",
+    absaetze: [
+      [
+        ["Für die Schule ", { stark: schule }, ` wurde eine Bewerbung zur Saison ${saisonId} der ${BRAND_NAME} eingereicht.`],
+        mehrere
+          ? `Mit dieser E-Mail-Adresse sind darin ${joinUnd(seats.map(seatName))} eingetragen.`
+          : `Darin bist Du als ${seats[0].rolleText} eingetragen.`,
+        mehrere
+          ? [{ stark: "Bitte bestätigt jeden Eintrag einzeln" }, ": Erst dann führt die Liga Euch als Kontaktpersonen."]
+          : [{ stark: "Bitte bestätige, dass das stimmt" }, ": Erst dann führt die Liga Dich als Kontaktperson."],
+      ],
+      [
+        // Links, not buttons, where several seats share the mailbox: the shell draws one button at most.
+        mehrere
+          ? `Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ}`
+          : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ}`,
+        mehrere ? "Jedem Eintrag lässt sich auch widersprechen." : "Du kannst dem Eintrag auch widersprechen.",
+        [mehrere ? "Jeder Link ist bis zum " : "Der Link ist bis zum ", { stark: fristText }, " gültig und funktioniert nur einmal."],
+      ],
+      [
+        mehrere ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig." : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
+        mehrere ? "Nach drei Tagen erinnern wir Euch einmal." : "Nach drei Tagen erinnern wir Dich einmal.",
+        `Ist die Bewerbung vierzehn Tage nach dem Versand ${mehrere ? "dieser Links" : "dieses Links"} noch unvollständig, löschen wir sie mit allen Angaben.`,
+        "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn.",
+        "Eine Erinnerung verschiebt sie nicht.",
+      ],
     ],
-    aktionen: seatAktionen(seats),
-    // Nothing under the note: every link this message offers already stands in its body, where the
-    // text branch's reader has met it in the prose.
-    textAktionen: [],
-    ignorierSatz: mehrere ? ignorierSatzEintragMehrere(frist) : ignorierSatzEintrag(frist),
+    block: {
+      fakten: [
+        // Named here and in no message to the submitter: a contact who never heard of the application
+        // has nothing else to tell whose it is, and cannot answer a link they cannot place.
+        { label: "Schule", wert: schule },
+        { label: "Saison", wert: saisonId },
+        ...seatFakten(seats),
+        { label: mehrere ? "Links gültig bis" : "Link gültig bis", wert: fristText },
+      ],
+    },
+    aktion: seatAktion(seats),
   };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      mehrere
-        ? `${eingereichtSatz(schuleText, saisonId, true)} Mit dieser E-Mail-Adresse sind darin ${escapeHtml(offen)} eingetragen. ${strong("Bitte bestätigt jeden Eintrag einzeln")}: Erst dann führt die Liga Euch als Kontaktpersonen.`
-        : `${eingereichtSatz(schuleText, saisonId, true)} Darin bist Du als ${escapeHtml(rollen)} eingetragen. ${strong("Bitte bestätige, dass das stimmt")}: Erst dann führt die Liga Dich als Kontaktperson.`,
-    ),
-    paragraph(
-      mehrere
-        ? `Klickt auf die Buttons und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen. Jeder Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`
-        : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Du kannst dem Eintrag auch widersprechen. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal.`,
-    ),
-    paragraph(
-      mehrere
-        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht."
-        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
-    ),
-    // The address as a marked link, as every address standing in this card's prose is.
-    // Its own paragraph, never beside the sentence offering to contradict the entry: that `Widerspruch` is a different door.
-    paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { mehrere })),
-    ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
-  ]);
-
-  const text = renderText(nachricht, [
-    eingereichtSatz(schuleText, saisonId, false),
-    mehrere ? `Mit dieser E-Mail-Adresse sind darin ${offen} eingetragen.` : `Darin bist Du als ${rollen} eingetragen.`,
-    mehrere
-      ? "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen."
-      : "Bitte bestätige, dass das stimmt: Erst dann führt die Liga Dich als Kontaktperson.",
-    "",
-    mehrere
-      ? `Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen.`
-      : `Öffne diesen Link. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ} Du kannst dem Eintrag auch widersprechen.`,
-    mehrere
-      ? `Jeder Link ist bis zum ${frist} gültig und funktioniert nur einmal.`
-      : `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
-    "",
-    ...fallbackZeilen(seatFallbacks(seats)),
-    "",
-    mehrere
-      ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal."
-      : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal.",
-    mehrere
-      ? "Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben."
-      : "Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
-    "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
-    "",
-    art21Satz(KONTAKT_EMAIL, { mehrere }),
-  ]);
-
-  return { subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
-/** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungErinnerungEmail({
-  saisonId: saisonIdRoh,
-  origin,
-  schule,
-  seats,
-  fristText,
-}: BewerbungBestaetigungData): BewerbungEmail {
-  const site = mailOrigin(origin);
-  // Folded before anything prints it, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
+export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): Mail {
   const mehrere = seats.length > 1;
-  const schuleText = einzeilig(schule);
-  const frist = einzeilig(fristText);
-  const rollen = einzeilig(seats[0].rolleText);
-  const offen = joinUnd(seats.map(seatName));
 
-  const nachricht: Nachricht = {
-    headingVor: mehrere ? "Erinnerung: Eure Einträge für die" : "Erinnerung: Dein Eintrag für die",
-    saisonId: saisonId,
-    origin: site,
-    empfaenger: mehrere ? "postfach" : "eintrag",
-    fakten: [
-      { label: "Schule", value: schuleText },
-      { label: "Saison", value: saisonId, akzent: true },
-      ...seatFakten(seats),
-      // The deadline the first message gave. The erasure runs the day AFTER it
-      // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
-      // deletion date would name a day the clock does not act on.
-      { label: "Bestätigen bis", value: frist },
+  return {
+    art: "erstkontakt",
+    betreff: mehrere ? `Erinnerung: Eure Einträge für die Saison ${saisonId}` : `Erinnerung: Dein Eintrag für die Saison ${saisonId}`,
+    origin: mailOrigin(origin),
+    vorname: "",
+    absaetze: [
+      [
+        mehrere
+          ? "Vor drei Tagen haben wir Euch gebeten, Eure Einträge zu bestätigen:"
+          : "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
+        mehrere
+          ? [
+              "In der Bewerbung der Schule ",
+              { stark: schule },
+              ` zur Saison ${saisonId} sind mit dieser E-Mail-Adresse ${joinUnd(seats.map(seatName))} eingetragen.`,
+            ]
+          : ["In der Bewerbung der Schule ", { stark: schule }, ` zur Saison ${saisonId} bist Du als ${seats[0].rolleText} eingetragen.`],
+        [{ stark: mehrere ? "Bis jetzt fehlt Eure Antwort." : "Bis jetzt fehlt Deine Antwort." }],
+      ],
+      [
+        mehrere
+          ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen."
+          : "Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
+        ["Ist die Bewerbung am ", { stark: fristText }, " noch unvollständig, löschen wir sie mit allen Angaben."],
+      ],
     ],
+    block: {
+      fakten: [
+        { label: "Schule", wert: schule },
+        { label: "Saison", wert: saisonId },
+        ...seatFakten(seats),
+        // The deadline the first message gave. The erasure runs the day AFTER it
+        // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
+        // deletion date would name a day the clock does not act on.
+        { label: "Bestätigen bis", wert: fristText },
+      ],
+    },
     // Fresh links, minted beside the first ones rather than in place of them: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    aktionen: seatAktionen(seats),
-    textAktionen: [],
-    ignorierSatz: mehrere ? ignorierSatzEintragMehrere(frist) : ignorierSatzEintrag(frist),
+    aktion: seatAktion(seats),
   };
-
-  const gebeten = mehrere
-    ? "Vor drei Tagen haben wir Euch gebeten, Eure Einträge zu bestätigen:"
-    : "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:";
-  const fehlt = mehrere ? "Bis jetzt fehlt Eure Antwort." : "Bis jetzt fehlt Deine Antwort.";
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      mehrere
-        ? `${gebeten} In der Bewerbung der Schule ${strong(escapeHtml(schuleText))} zur ${saisonPhrase(saisonId)} sind mit dieser E-Mail-Adresse ${escapeHtml(offen)} eingetragen. ${strong(fehlt)}`
-        : `${gebeten} In der Bewerbung der Schule ${strong(escapeHtml(schuleText))} zur ${saisonPhrase(saisonId)} bist Du als ${escapeHtml(rollen)} eingetragen. ${strong(fehlt)}`,
-    ),
-    paragraph(
-      mehrere
-        ? `Klickt auf die Buttons, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`
-        : `Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben.`,
-    ),
-    ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
-  ]);
-
-  const text = renderText(nachricht, [
-    gebeten,
-    mehrere
-      ? `In der Bewerbung der Schule ${schuleText} zur Saison ${saisonId} sind mit dieser E-Mail-Adresse ${offen} eingetragen.`
-      : `In der Bewerbung der Schule ${schuleText} zur Saison ${saisonId} bist Du als ${rollen} eingetragen.`,
-    fehlt,
-    "",
-    mehrere
-      ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen."
-      : "Öffne diesen Link, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
-    `Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie mit allen Angaben.`,
-    "",
-    ...fallbackZeilen(seatFallbacks(seats)),
-  ]);
-
-  return { subject: `Erinnerung: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -748,91 +337,47 @@ export interface BewerbungEingangOffenData {
   link: string;
 }
 
-/** The list of seats still waiting, as both branches print it. */
-function offeneListe(ausstehend: readonly BewerbungSeat[]): string {
-  return joinUnd(ausstehend.map(seatName));
-}
-
-/** The pair a message offers when the reader may want to start over: the way forward, then the way to a person. */
-function neuBewerbenAktionen(origin: string, saisonId: string): readonly Aktion[] {
-  return [neuBewerbenAktion(origin, saisonId), { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "outline" }];
-}
-
-/** Those two as lines. The address is spelled bare rather than as a `mailto:`, which is markup a text branch has no reader for. */
-function neuBewerbenZeilen(origin: string, saisonId: string): readonly string[] {
-  const neu = neuBewerbenAktion(origin, saisonId);
-
-  return [`${neu.label}: ${neu.href}`, `${FRAGE_AKTION.label}: ${KONTAKT_EMAIL}`];
-}
-
-/** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungEingangOffenEmail({
-  saisonId: saisonIdRoh,
+  saisonId,
   origin,
   rollenText,
   ausstehend,
   fristText,
-  link: bestaetigungsLink,
-}: BewerbungEingangOffenData): BewerbungEmail {
-  const site = mailOrigin(origin);
-  // Folded before anything prints it, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
-  const frist = einzeilig(fristText);
-  const url = einzeilig(bestaetigungsLink);
-  const offen = offeneListe(ausstehend);
-
-  const nachricht: Nachricht = {
-    headingVor: "Bewerbung für die",
-    saisonId: saisonId,
-    origin: site,
-    empfaenger: "einreichende",
+  link,
+}: BewerbungEingangOffenData): Mail {
+  return {
+    art: "mitteilung",
+    betreff: `Bewerbung eingegangen: Saison ${saisonId}`,
+    origin: mailOrigin(origin),
+    vorname: "",
+    absaetze: [
+      [
+        [`Deine Bewerbung für die Saison ${saisonId} der ${BRAND_NAME} ist `, { stark: "bei uns eingegangen" }, "."],
+        "Danke für die Anmeldung Deines Teams.",
+      ],
+      [
+        "Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat.",
+        ["Dazu hat jede von ihnen einen eigenen Link per E-Mail bekommen, Du auch: ", { stark: "Deinen findest Du unten." }],
+      ],
+      [
+        "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
+        ["Ist die Bewerbung am ", { stark: fristText }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
+        "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
+      ],
+    ],
     // The other contacts by first name and role, and no school: a mistyped submitter address then
     // hands a stranger two first names and two roles with nothing to attach them to.
-    fakten: [
-      { label: "Status", value: "Eingegangen, Bestätigungen offen" },
-      { label: "Saison", value: saisonId, akzent: true },
-      { label: "Eingetragen als", value: rollenText },
-      // Full width: the list runs to two people with their roles, which in the value column would
-      // set one or two words to the line.
-      { label: "Noch offen", value: offen, gestapelt: true },
-      { label: "Frist", value: frist },
-    ],
-    aktionen: [
-      { href: url, label: "Meinen Eintrag bestätigen", ton: "primary" },
-      { href: FRAGE_AKTION.href, label: FRAGE_AKTION.label, ton: "outline" },
-    ],
-    textAktionen: [`${FRAGE_AKTION.label}: ${KONTAKT_EMAIL}`],
-    ignorierSatz: ignorierSatzBewerbung(frist),
+    block: {
+      fakten: [
+        { label: "Status", wert: "Eingegangen, Bestätigungen offen" },
+        { label: "Saison", wert: saisonId },
+        { label: "Eingetragen als", wert: rollenText },
+        { label: "Noch offen", wert: joinUnd(ausstehend.map(seatName)) },
+        { label: "Frist", wert: fristText },
+      ],
+    },
+    aktion: { label: "Meinen Eintrag bestätigen", href: link },
   };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      `Deine Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} ist ${strong("bei uns eingegangen")}. Danke für die Anmeldung Deines Teams.`,
-    ),
-    paragraph(
-      `Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat. Dazu hat jede von ihnen einen eigenen Link per E-Mail bekommen, Du auch: ${strong("Deinen findest Du unten.")}`,
-    ),
-    paragraph(
-      `Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben. Ist die Bewerbung am ${strong(escapeHtml(frist))} noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.`,
-    ),
-    ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
-  ]);
-
-  const text = renderText(nachricht, [
-    `Deine Bewerbung für die Saison ${saisonId} der ${BRAND_NAME} ist bei uns eingegangen.`,
-    "Danke für die Anmeldung Deines Teams.",
-    "",
-    "Vollständig ist sie, sobald jede Kontaktperson ihren Eintrag selbst bestätigt hat.",
-    "Dazu hat jede von ihnen einen eigenen Link per E-Mail bekommen, Du auch. Deinen findest Du hier:",
-    "",
-    url,
-    "",
-    "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
-    `Ist die Bewerbung am ${frist} noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid.`,
-    "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
-  ]);
-
-  return { subject: `Bewerbung eingegangen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -846,54 +391,36 @@ export interface BewerbungGeloeschtData {
   ausstehend: readonly BewerbungSeat[];
 }
 
-/** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungGeloeschtEmail({
-  saisonId: saisonIdRoh,
-  origin,
-  rollenText,
-  ausstehend,
-}: BewerbungGeloeschtData): BewerbungEmail {
+export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, ausstehend }: BewerbungGeloeschtData): Mail {
   const site = mailOrigin(origin);
-  // Folded before anything prints it, the restart link's path included, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
-  const offen = offeneListe(ausstehend);
 
-  const nachricht: Nachricht = {
-    headingVor: "Wir löschen die Bewerbung für die",
-    saisonId: saisonId,
+  return {
+    art: "mitteilung",
+    betreff: `Bewerbung wird gelöscht: Saison ${saisonId}`,
     origin: site,
-    empfaenger: "einreichende",
-    fakten: [
-      { label: "Status", value: "Wird gelöscht, nicht vollständig geworden" },
-      { label: "Saison", value: saisonId, akzent: true },
-      { label: "Eingetragen als", value: rollenText },
-      // The one thing a school needs before applying again: told only that the application lapsed,
-      // they collect the same people and land here a second time.
-      { label: "Nicht bestätigt", value: offen, gestapelt: true },
+    vorname: "",
+    absaetze: [
+      [
+        "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
+        [`Deshalb löschen wir Deine Bewerbung für die Saison ${saisonId} jetzt `, { stark: "mit allen Angaben" }, ", wie angekündigt."],
+      ],
+      [
+        "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
+        "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
+      ],
     ],
-    aktionen: neuBewerbenAktionen(site, saisonId),
-    textAktionen: neuBewerbenZeilen(site, saisonId),
-    ignorierSatz: IGNORIER_SATZ_GELOESCHT,
+    block: {
+      fakten: [
+        { label: "Status", wert: "Wird gelöscht, nicht vollständig geworden" },
+        { label: "Saison", wert: saisonId },
+        { label: "Eingetragen als", wert: rollenText },
+        // The one thing a school needs before applying again: told only that the application lapsed,
+        // they collect the same people and land here a second time.
+        { label: "Nicht bestätigt", wert: joinUnd(ausstehend.map(seatName)) },
+      ],
+    },
+    aktion: neuBewerbenAktion(site, saisonId),
   };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      `Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt. Deshalb löschen wir Deine Bewerbung für die ${saisonPhrase(saisonId)} jetzt ${strong("mit allen Angaben")}, wie angekündigt.`,
-    ),
-    paragraph(
-      "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben. Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
-    ),
-  ]);
-
-  const text = renderText(nachricht, [
-    "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
-    `Deshalb löschen wir Deine Bewerbung für die Saison ${saisonId} jetzt mit allen Angaben, wie angekündigt.`,
-    "",
-    "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
-    "Frag die Kontaktpersonen am besten vorher, dann klappt es beim zweiten Mal schneller.",
-  ]);
-
-  return { subject: `Bewerbung wird gelöscht: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
 /**
@@ -908,53 +435,33 @@ export interface BewerbungWiderspruchData {
   fristText: string;
 }
 
-/** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungWiderspruchEmail({
-  saisonId: saisonIdRoh,
-  origin,
-  rollenText,
-  abgelehnt,
-  fristText,
-}: BewerbungWiderspruchData): BewerbungEmail {
+export function buildBewerbungWiderspruchEmail({ saisonId, origin, rollenText, abgelehnt, fristText }: BewerbungWiderspruchData): Mail {
   const site = mailOrigin(origin);
-  // Folded before anything prints it, the restart link's path included, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
-  const frist = einzeilig(fristText);
   const wer = seatName(abgelehnt);
 
-  const nachricht: Nachricht = {
-    headingVor: "Widerspruch: Eintrag für die",
-    saisonId: saisonId,
+  return {
+    art: "mitteilung",
+    betreff: `Widerspruch zum Eintrag: Saison ${saisonId}`,
     origin: site,
-    empfaenger: "einreichende",
-    fakten: [
-      { label: "Status", value: "Nicht vollständig, eine Bestätigung fehlt" },
-      { label: "Saison", value: saisonId, akzent: true },
-      { label: "Eingetragen als", value: rollenText },
-      { label: "Widerspruch von", value: wer },
+    vorname: "",
+    absaetze: [
+      // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for every name.
+      [[{ stark: `${wer} hat dem Eintrag als Kontaktperson widersprochen.` }], "Diese Angaben haben wir aus der Bewerbung entfernt."],
+      [
+        "So kann die Bewerbung nicht vollständig werden.",
+        ["Am ", { stark: fristText }, " löschen wir sie."],
+        "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle.",
+        "Frag sie vorher.",
+      ],
     ],
-    aktionen: neuBewerbenAktionen(site, saisonId),
-    textAktionen: neuBewerbenZeilen(site, saisonId),
-    ignorierSatz: ignorierSatzWiderspruch(frist),
+    block: {
+      fakten: [
+        { label: "Status", wert: "Nicht vollständig, eine Bestätigung fehlt" },
+        { label: "Saison", wert: saisonId },
+        { label: "Eingetragen als", wert: rollenText },
+        { label: "Widerspruch von", wert: wer },
+      ],
+    },
+    aktion: neuBewerbenAktion(site, saisonId),
   };
-
-  const html = renderHtml(nachricht, [
-    // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for
-    // every name.
-    paragraph(
-      `${strong(`${escapeHtml(wer)} hat dem Eintrag als Kontaktperson widersprochen.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
-    ),
-    paragraph(
-      `So kann die Bewerbung nicht vollständig werden. Am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.`,
-    ),
-  ]);
-
-  const text = renderText(nachricht, [
-    `${wer} hat dem Eintrag als Kontaktperson widersprochen. Diese Angaben haben wir aus der Bewerbung entfernt.`,
-    "",
-    `So kann die Bewerbung nicht vollständig werden. Am ${frist} löschen wir sie.`,
-    "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
-  ]);
-
-  return { subject: `Widerspruch zum Eintrag: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }

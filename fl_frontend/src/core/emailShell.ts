@@ -11,7 +11,7 @@ export const BRAND_NAME: string = COPY.marke.name;
  * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
  * else typed, or anything else.
  */
-export type MailArt = "anmeldung" | "sicherheit" | "erstkontakt" | "mitteilung";
+type MailArt = "anmeldung" | "sicherheit" | "erstkontakt" | "mitteilung";
 
 /** The two sending addresses (`fl_frontend/src/core/mail.ts :: ABSENDER`). */
 export type MailVon = "anmeldung" | "liga";
@@ -37,13 +37,13 @@ export interface Fakt {
 }
 
 /** The one button, its link printed below it. */
-export interface Knopf {
+interface Knopf {
   readonly label: string;
   readonly href: string;
 }
 
 /** A link printed under the name it answers for, where one mail carries several and so no button. */
-export interface BenannterLink {
+interface BenannterLink {
   readonly name: string;
   readonly href: string;
 }
@@ -131,12 +131,12 @@ const TELEFON_STYLE = `<style>
     </style>`;
 
 /** The one interpolation guard: no value is trusted, and each lands inside markup no framework is watching. */
-export function escapeHtml(value: string): string {
+function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
 /** One line, whatever was typed: a value carrying a break would render a line the reader cannot tell from the mail's own. */
-export function einzeilig(value: string): string {
+function einzeilig(value: string): string {
   return value.replace(/[\r\n]+/g, " ");
 }
 
@@ -186,7 +186,7 @@ const wertText = (wert: string): string => wert.replace(/\r\n|\r|\n/g, "\n  ");
 const wertHtml = (wert: string): string => escapeHtml(wert).replace(/\r\n?|\n/g, "<br />");
 
 /** The mail's hidden preview: the first sentence of its first paragraph. */
-export function vorschauVon(mail: Mail): string {
+function vorschauVon(mail: Mail): string {
   return satzText(mail.absaetze[0][0]);
 }
 

@@ -33,7 +33,7 @@ import {
 } from "./schemas";
 import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
-import type { BewerbungEmail } from "@/core/bewerbungEmail";
+import type { Mail } from "@/core/emailShell";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
@@ -79,7 +79,7 @@ async function notifyBewerbung({
    * Composed from the club's name, resolved once here rather than at each call site, and from the
    * seats the reader in hand holds — the one part of a decision's message that differs per recipient.
    */
-  buildMail: (teamName: string, rollenText: string) => BewerbungEmail;
+  buildMail: (teamName: string, rollenText: string) => Mail;
 }): Promise<string> {
   let teamName: string | null;
 

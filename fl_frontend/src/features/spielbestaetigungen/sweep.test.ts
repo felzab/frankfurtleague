@@ -168,8 +168,8 @@ const HOUR_MS = 60 * MINUTE_MS;
 const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
 const drops = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "drop" }> => ereignis.art === "drop");
 const gesendet = () => mail.sent;
-/** The sentence a notice to one person carries, and a notice to a club's mailboxes never. */
-const NUR_AN_DICH = "Diese E-Mail geht nur an Dich.";
+/** The words a notice to a referee carries, and a notice to a club's mailboxes never. */
+const NUR_SCHIEDSRICHTER = "Deine Einteilung zu";
 /** The ids the stamp was handed, over every stamp call of the pass. */
 const gestempelt = () =>
   apiCalls()
@@ -468,7 +468,7 @@ describe("what one pass mails", () => {
     expect(schiri?.tags).toStrictEqual({ spielleitung: "hinweis" });
     // One subject for both readers, so only the body tells the referee's notice from the club's.
     expect(
-      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_AN_DICH)),
+      [team, schiri].map((nachricht) => nachricht?.text.includes(NUR_SCHIEDSRICHTER)),
       "a notice is worded for the other reader",
     ).toStrictEqual([false, true]);
     // Keyed where the body cannot change inside the provider's window, and never over a fresh token.
@@ -577,7 +577,7 @@ describe("what one pass mails", () => {
     ]);
     // One subject for both readers, so only the body tells the referee's notice from the club's.
     expect(
-      gesendet().map(({ text }) => text.includes(NUR_AN_DICH)),
+      gesendet().map(({ text }) => text.includes(NUR_SCHIEDSRICHTER)),
       "a notice is worded for the other reader",
     ).toStrictEqual([false, true]);
     assert.ok(

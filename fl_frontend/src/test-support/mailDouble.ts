@@ -118,7 +118,8 @@ export function doubleSendMail(): { sent: SentMail[]; notices: SentMail[]; answe
   // Composed by the real builder, as the real sender composes it: a case reads the notice's words.
   const sendSperreNotice = async ({ to, ...facts }: SperreFacts): Promise<{ id: string | null }> => {
     const { buildSperreEmail } = await import("@/core/sperrlisteEmail.ts");
-    const notice = { to: to, ...buildSperreEmail(facts) };
+    const { renderMail } = await import("@/core/emailShell.ts");
+    const notice = { to: to, ...renderMail(buildSperreEmail(facts)) };
     sent.push(notice);
     notices.push(notice);
     return settle(notice);

@@ -1,4 +1,4 @@
-import { doubleActionRequest, loggedLines } from "@/test-support/actionDoubles.ts";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";

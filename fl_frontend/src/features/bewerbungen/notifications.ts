@@ -1,6 +1,7 @@
 import "server-only";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
+import { renderMail } from "@/core/emailShell";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
@@ -13,7 +14,8 @@ import { BEWERBUNG_SEATS } from "./constants";
 import { meldeZustellungAngenommen } from "./mutations";
 import { zustellungTags } from "./zustellung";
 
-import type { BewerbungBestaetigungData, BewerbungEmail, BewerbungLinkSeat } from "@/core/bewerbungEmail";
+import type { BewerbungBestaetigungData, BewerbungLinkSeat } from "@/core/bewerbungEmail";
+import type { Mail } from "@/core/emailShell";
 import type { ZustellAnlass, ZustellSendung } from "./zustellung";
 
 /**
@@ -243,7 +245,7 @@ export async function sendBewerbungMail({
   auftrag?: BewerbungMailAuftrag;
   recipients: readonly BewerbungEmpfaenger[];
   /** Composed per recipient, because each is told the seat they hold; the rest of the message is one text. */
-  buildMail: (rollenText: string) => BewerbungEmail;
+  buildMail: (rollenText: string) => Mail;
 }): Promise<BewerbungMailOutcome> {
   return settleFanOut(operation, auftrag, recipients, ({ rollenText }) => buildMail(rollenText));
 }
@@ -263,7 +265,7 @@ export async function sendBewerbungLinkMail({
   operation: string;
   auftrag?: BewerbungMailAuftrag;
   recipients: readonly BewerbungLinkEmpfaenger[];
-  buildMail: (seats: BewerbungLinkEmpfaenger["seats"]) => BewerbungEmail;
+  buildMail: (seats: BewerbungLinkEmpfaenger["seats"]) => Mail;
 }): Promise<BewerbungMailOutcome> {
   return settleFanOut(operation, auftrag, recipients, ({ seats }) => buildMail(seats));
 }
@@ -311,14 +313,14 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
   operation: string,
   auftrag: BewerbungMailAuftrag | undefined,
   recipients: readonly T[],
-  buildMail: (recipient: T) => BewerbungEmail,
+  buildMail: (recipient: T) => Mail,
 ): Promise<BewerbungMailOutcome> {
   const settled = await Promise.allSettled(
     // `async`, so a compose that throws is inside the settled boundary too: without it the throw
     // escapes `.map()` before `allSettled` wraps anything and rejects the whole fan-out, reporting a
     // failure for a written decision.
     recipients.map(async (recipient) => {
-      const mail = buildMail(recipient);
+      const mail = renderMail(buildMail(recipient));
       const sendung =
         auftrag === undefined ? undefined : { bewerbungId: auftrag.bewerbungId, rollen: recipient.rollen, anlass: auftrag.anlass };
 

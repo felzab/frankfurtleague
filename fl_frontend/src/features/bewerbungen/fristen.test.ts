@@ -8,6 +8,7 @@ import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./
 
 import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
 import type { EinwilligungSeite } from "@/core/einwilligungSeiten.ts";
+import type { Mail } from "@/core/emailShell.ts";
 
 const {
   buildBewerbungBestaetigungEmail,
@@ -17,6 +18,7 @@ const {
   buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
 const { readEinwilligungDocument } = await import("@/test-support/einwilligungDocument.ts");
+const { renderMail } = await import("@/core/emailShell.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -108,7 +110,10 @@ function daysIn(text: string): (number | null)[] {
   });
 }
 
-const readLink = (mail: { html: string; text: string }): (number | null)[] => daysIn(`${mail.html} ${mail.text}`);
+const readLink = (mail: Mail): (number | null)[] => {
+  const { html, text } = renderMail(mail);
+  return daysIn(`${html} ${text}`);
+};
 
 describe("the two clocks the workflow messages state", () => {
   /* First: a set of messages naming no day at all would leave every case below passing over nothing,
