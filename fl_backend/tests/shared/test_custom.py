@@ -1,12 +1,25 @@
 import ast
 import json
-from typing import Annotated
+import re
+from typing import Annotated, Any
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, StringConstraints, ValidationError
+from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
-from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString, parse_object_id
+from app.shared.schemas.custom import (
+    PHONE_REGEX,
+    SHORTHAND_PATTERN,
+    CustomDateString,
+    CustomExternalUrl,
+    CustomObjectId,
+    CustomOptionalDateString,
+    CustomOptionalPhoneString,
+    CustomOptionalTimeString,
+    CustomShorthand,
+    CustomTimeString,
+    parse_object_id,
+)
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, parsed
 
 
@@ -303,3 +316,36 @@ def test_parse_object_id_is_the_one_site_building_an_object_id_from_a_value():
     ]
 
     assert built == ["app/shared/schemas/custom.py :: parse_object_id"]
+
+
+# Each type folding its input before judging it, with values it accepts that its folded shape does not.
+FOLDED_INPUTS = [
+    pytest.param(CustomShorthand, "goe", id="a code in lower case"),
+    pytest.param(CustomShorthand, " GoE ", id="a padded code in mixed case"),
+    pytest.param(CustomOptionalDateString, "", id="an empty date"),
+    pytest.param(CustomOptionalTimeString, "  ", id="a blank time"),
+    pytest.param(CustomOptionalPhoneString, "", id="an empty phone number"),
+]
+
+
+def _admits(schema: dict[str, Any], value: str) -> bool:
+    """Whether a string meets a published schema of strings, nulls and patterns, as a generated client would judge it."""
+
+    if "anyOf" in schema:
+        return any(_admits(alternative, value) for alternative in schema["anyOf"])
+
+    return schema.get("type") == "string" and re.search(schema.get("pattern", ""), value) is not None
+
+
+@pytest.mark.parametrize(("folding", "typed"), FOLDED_INPUTS)
+def test_the_request_side_schema_admits_what_the_fold_accepts(folding: Any, typed: str):
+    """A client generated from the document would otherwise refuse, before sending it, a value the backend takes."""
+
+    adapter = TypeAdapter(folding)
+    adapter.validate_python(typed)
+
+    assert _admits(adapter.json_schema(mode="validation"), typed)
+
+
+def test_the_response_side_schema_keeps_the_folded_code():
+    assert TypeAdapter(CustomShorthand).json_schema(mode="serialization") == {"type": "string", "pattern": SHORTHAND_PATTERN}

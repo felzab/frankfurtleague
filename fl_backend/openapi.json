@@ -3308,6 +3308,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Geburtsdatum"
@@ -4125,7 +4129,7 @@
             "type": "string"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -7520,6 +7524,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Telefon"
@@ -9121,6 +9129,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Datum"
@@ -9275,6 +9287,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Uhrzeit"
@@ -9522,7 +9538,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -10248,7 +10264,7 @@
             "title": "Schulform"
           },
           "shorthand": {
-            "pattern": "^[A-Z]{3}$",
+            "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
           },
@@ -10896,6 +10912,10 @@
               },
               {
                 "type": "null"
+              },
+              {
+                "pattern": "^\\s*$",
+                "type": "string"
               }
             ],
             "title": "Geburtsdatum"
