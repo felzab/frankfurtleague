@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute, iter_route_contexts
 from starlette.routing import Host, Mount
 
@@ -455,6 +456,15 @@ def application() -> FastAPI:
     """
 
     return create_app(build_test_config())
+
+
+def dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
+    """Every dependency an operation runs, a dependency's own among them."""
+
+    for dependency in dependant.dependencies:
+        if dependency.call is not None:
+            yield dependency.call
+        yield from dependency_calls(dependency)
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
