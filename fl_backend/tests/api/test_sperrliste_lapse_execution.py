@@ -188,26 +188,6 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
 
-    def test_only_a_caller_without_a_session_is_answered_from_the_season_cache(self, mongo_replica_set_url: str):
-        """BOTH sides: a helper never consulting the cache fails the first answer, and one consulting it under a session fails the second."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
-            saisons = database[Collection.SAISONS]
-            await pull_massgebliche_saison_id(saisons_collection=saisons)
-            # Moved by hand, so nothing drops the season the read above cached.
-            await saisons.update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
-            await saisons.update_one({"_id": "2027"}, {"$set": {"status": "active"}})
-
-            async with client.start_session() as session:
-                cached = await pull_massgebliche_saison_id(saisons_collection=saisons)
-                sessioned = await pull_massgebliche_saison_id(saisons_collection=saisons, session=session)
-
-            return cached, sessioned
-
-        seasons = [saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
-
-        assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
-
     def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 

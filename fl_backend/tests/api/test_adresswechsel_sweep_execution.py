@@ -604,8 +604,6 @@ class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
 
                 return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
-            # One call first, so the running season the ban list asks is cached for both counted ones alike.
-            await counted(1)
             (_, few), (answer, twice) = await counted(FEW), await counted(2 * FEW)
 
             return answer, (twice.total() - few.total()) / FEW
