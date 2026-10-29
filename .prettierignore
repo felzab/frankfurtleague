@@ -26,8 +26,10 @@ fl_backend/einwilligung.json
 fl_frontend/eslint-suppressions.json
 pnpm-lock.yaml
 
-# Each nested worktree is another branch's whole tree, with its own installs; the fixtures are what
-# a gate run leaves when Ctrl-C skips its EXIT trap.
+# Each nested worktree is another branch's whole tree, with its own installs and builds; the fixtures
+# are what a gate run leaves when Ctrl-C skips its EXIT trap. Prettier lists every file before it reads
+# this file, so the worktrees are also a negated pattern in `fl_frontend/package.json`'s two format
+# scripts, which keeps its walk out of them: listing dozens of them ran it out of heap.
 .claude/worktrees/
 .tmp-*/
 
