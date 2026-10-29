@@ -3,6 +3,8 @@ import { beforeEach, vi } from "vitest";
 import { APINetworkError, MailSendError } from "@/core/errors.ts";
 import { recordWriteSent } from "@/core/requestScope.ts";
 
+import type { MailVon } from "@/core/emailShell.ts";
+
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
 export type SentMail = {
   to: string;
@@ -11,7 +13,7 @@ export type SentMail = {
   text: string;
   tags?: Record<string, string>;
   idempotencyKey?: string;
-  absender?: { readonly name: string; readonly antwortAn: string };
+  von: MailVon;
 };
 
 /** What `fl_frontend/src/core/mail.ts :: sendSperreNotice` is handed: the address and the ban's own facts. */

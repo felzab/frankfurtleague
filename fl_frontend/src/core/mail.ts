@@ -3,7 +3,9 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { KONTAKT_EMAIL } from "./brand";
 import { authResendKey, frontend_config } from "./config";
+import { COPY } from "./copy";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
@@ -13,12 +15,25 @@ import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { buildSperreEmail } from "./sperrlisteEmail";
 import { mintTraceId } from "./trace";
 
+import type { MailVon } from "./emailShell";
+
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
-// One sender for every message the league sends. Splitting per stream isolates sending
-// reputation, which two low-volume transactional streams do not need, and costs a second address
-// to keep verified with the provider.
-const MAIL_FROM = "no-reply@frankfurtleague.de";
+// Two senders: sign-in codes and security notices from one address, everything else from the
+// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailVon`). Each address
+// needs its own routing rule and its sender alignment at the provider.
+const ABSENDER: Readonly<Record<MailVon, string>> = {
+  anmeldung: "anmeldung@frankfurtleague.de",
+  liga: "liga@frankfurtleague.de",
+};
+
+/** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
+function absenderZeile(von: MailVon): string {
+  return `${COPY.marke.name} <${ABSENDER[von]}>`;
+}
+
+/** Every reply reaches the league's mailbox, whichever address sent the mail. */
+const ANTWORT_AN = KONTAKT_EMAIL;
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` bounds a
 // backend call: a per-attempt budget would multiply by the attempts below, and the application-form
@@ -45,6 +60,8 @@ export interface OutboundMail {
   subject: string;
   html: string;
   text: string;
+  /** Which of the two senders, read off the mail's kind by `fl_frontend/src/core/emailShell.ts :: renderMail`. */
+  von: MailVon;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
    * the record it belongs to. Each name and value must be ASCII letters, digits, `_` or `-`.
@@ -141,10 +158,11 @@ function forComment(value: string): string {
   return value.replaceAll("-->", "--&gt;").replaceAll("--!>", "--!&gt;");
 }
 
-function sinkDocument({ to, subject, html, text, tags }: OutboundMail, traceId: string): string {
+function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, traceId: string): string {
   const pairs = Object.entries(tags ?? {}).map(([name, value]) => `${name}=${value}`);
   const header = [
-    `From: ${MAIL_FROM}`,
+    `From: ${absenderZeile(von)}`,
+    `Reply-To: ${ANTWORT_AN}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     ...(pairs.length === 0 ? [] : [`Tags: ${pairs.join("; ")}`]),
@@ -260,7 +278,7 @@ export async function sendSperreNotice({
  * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
  * takes the stable `name` field instead.
  */
-async function deliver({ to, subject, html, text, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
@@ -270,7 +288,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags }, traceId);
+    const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, von, tags }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
     // stayed behind and where to read it, and the logging rule keeps the person off the line.
@@ -319,7 +337,8 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
   if (idempotencyKey !== undefined) headers["Idempotency-Key"] = idempotencyKey;
 
   const body = JSON.stringify({
-    from: MAIL_FROM,
+    from: absenderZeile(von),
+    reply_to: ANTWORT_AN,
     to: to,
     subject,
     html,
