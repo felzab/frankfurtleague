@@ -1113,7 +1113,6 @@
           "adresse": {
             "anyOf": [
               {
-                "format": "email",
                 "maxLength": 254,
                 "type": "string"
               },
@@ -1491,13 +1490,11 @@
         "description": "The address a change starts on, the address it goes to, and the reason where the address on file is gone.",
         "properties": {
           "adresse": {
-            "format": "email",
             "maxLength": 254,
             "title": "Adresse",
             "type": "string"
           },
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -3683,13 +3680,11 @@
         "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten.",
         "properties": {
           "bisherige_email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Bisherige Email",
             "type": "string"
           },
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -3757,7 +3752,6 @@
         "description": "The person seated where a contact person stepped out, carrying no `einwilligung` block.\n\n`FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to\nnothing: their own link is what asks them.",
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -3882,7 +3876,6 @@
             "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
           },
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -7512,7 +7505,6 @@
         "additionalProperties": false,
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -7592,7 +7584,6 @@
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmePayload"
           },
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -7813,7 +7804,6 @@
         "additionalProperties": false,
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -9779,7 +9769,6 @@
         "additionalProperties": false,
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -9931,7 +9920,6 @@
         "description": "One pupil registering through a team's link.\n\nThe league's own fields -- the team, the season, the state, the deadline and the confirmation\nlink -- are taken off the invite and the clock, never off this body.",
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -10327,7 +10315,6 @@
         "additionalProperties": false,
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
@@ -18581,7 +18568,6 @@
         "description": "Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.",
         "properties": {
           "email": {
-            "format": "email",
             "maxLength": 254,
             "title": "Email",
             "type": "string"
