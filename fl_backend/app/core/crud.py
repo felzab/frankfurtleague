@@ -498,13 +498,27 @@ async def set_inactive_since(
     log row land outside the transaction.
     """
 
-    return await patch_one_in_db(
-        collection=collection,
-        db_filter=db_filter,
-        update={"$set": {"inactive_since": when}},
-        session=session,
-        return_document=ReturnDocument.AFTER,
-    )
+    if when is None:
+        return await patch_one_in_db(
+            collection=collection,
+            db_filter=db_filter,
+            update={"$set": {"inactive_since": None}},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+
+    # A retire matches a current row alone: the stamp is the day the row left, so a second retire, from
+    # a second open tab say, keeps it and answers the row as it stands.
+    try:
+        return await patch_one_in_db(
+            collection=collection,
+            db_filter={**db_filter, "inactive_since": None},
+            update={"$set": {"inactive_since": when}},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+    except DocumentNotFoundError:
+        return await pull_one_from_db(collection=collection, db_filter=db_filter, session=session)
 
 
 async def insert_live(
