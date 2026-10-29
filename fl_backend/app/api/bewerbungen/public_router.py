@@ -60,6 +60,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.custom import fold_shorthand
 
 # Base-tier at a prefix whose other two routers are admin: a member of the public applies here, and
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).
@@ -213,11 +214,12 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
     naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
     """
 
-    # No length constraint on the parameter: the width is the submission payload's rule, and a 422
-    # here would be the malformed-path answer this application does not give.
-    taken = await teams_collection.count_documents({"shorthand": shorthand}, limit=1)
+    # Folded as the submission folds it, so the answer is the one the submission will meet; no pattern
+    # on the parameter, a 422 here being the malformed-path answer this application does not give.
+    folded: str = fold_shorthand(shorthand)
+    taken = await teams_collection.count_documents({"shorthand": folded}, limit=1)
 
-    return FLBewerbungKuerzelResponse(shorthand=shorthand, vergeben=taken > 0)
+    return FLBewerbungKuerzelResponse(shorthand=folded, vergeben=taken > 0)
 
 
 @router.get(

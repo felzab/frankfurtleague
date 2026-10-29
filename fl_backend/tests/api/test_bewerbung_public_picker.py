@@ -85,6 +85,7 @@ class TestTheKuerzelCheck:
         ("shorthand", "vergeben"),
         [
             pytest.param("ZEX", True, id="a live club's"),
+            pytest.param("zex", True, id="a live club's asked in lower case, folded as a submission folds it"),
             pytest.param("VEX", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
             pytest.param("QQX", False, id="one nobody holds"),
         ],
@@ -111,7 +112,7 @@ PUBLIC_PATHS = [
     f"{PREFIX}/fenster",
     f"{PREFIX}/fenster/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
-    f"{PREFIX}/kuerzel/ZE",
+    f"{PREFIX}/kuerzel/ZEX",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
 ]
 
