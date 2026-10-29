@@ -533,8 +533,8 @@ describe("the actor a person's lane states", () => {
     });
   });
 
-  /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one
-     it did not prove is the lie the token exists to prevent. */
+  /* A row stamped by no factor this league mints cannot be stated as a factor, and an actor claiming one
+     it did not prove is the lie the backend's factor check believes. */
   it("answers a session made by an unknown factor no session, and records no actor for it", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     row.authFactor = "link";
@@ -610,7 +610,7 @@ describe("the guard across one render pass", () => {
   });
 
   /* The counts above pass with this guard's own memo gone, the session read's and the lookup's memos
-     holding them; what it alone saves is a second judgement and a second signed actor. */
+     holding them; what it alone saves is a second judgement and a second actor. */
   it("hands every guard of one render pass the one subject it judged", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);

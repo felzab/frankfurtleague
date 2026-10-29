@@ -197,8 +197,8 @@ REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
 MEDIEN_MIN_AGE_YEARS: Final = 18
 
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):
-# the backend refuses an actor token whose sign-in is older, as a looser backend honours a session the
-# frontend believes gone.
+# the backend refuses an administrator's session whose sign-in is older, as a looser backend honours a
+# session the frontend believes gone.
 ADMIN_WINDOW_HOURS: Final = 24
 
 # The frontend ends a person's session this long after its sign-in however recently it was used, and

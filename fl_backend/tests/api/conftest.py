@@ -259,10 +259,6 @@ def league(mongo_database: Database) -> SeededLeague:
 # A floor rather than the exact count: an endpoint added is covered by the parametrisation in each
 # module without editing anything, so pinning the number would ask for a bump and prove nothing.
 
-# One constant rather than one per module: `test_admin_guard.py` walks the published surface and
-# `test_actor_binding.py` the mounted routes, and a floor raised for one leaves the other standing
-# under a tree it has outgrown.
-
 # Set under the inventory by less than the largest router holds, so that router dropping out of the
 # mount lands below the floor.
 MINIMUM_EXPECTED_MUTATIONS = 30
