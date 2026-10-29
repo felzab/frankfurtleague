@@ -2,6 +2,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
 
 import type { Kalendertag, Paar, Uhrzeit } from "./format";
+import type { Code } from "./generated/client/types";
 
 declare const copyMarke: unique symbol;
 
@@ -48,6 +49,9 @@ const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNERWARTET = "Etwas ist schiefgelaufen";
 
+// A unique index's refusal: a field's message, and the words its code is answered in.
+const SCHON_VERGEBEN = "Schon vergeben";
+
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const NACH_ELFMETERSCHIESSEN = "n. E.";
 
@@ -77,7 +81,7 @@ export const COPY = katalog({
       zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
       fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
       spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,
-      schonVergeben: "Schon vergeben",
+      schonVergeben: SCHON_VERGEBEN,
     },
 
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
@@ -87,7 +91,37 @@ export const COPY = katalog({
       abgelaufen: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
       /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
       zuVieleVersuche: "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+      /** An administrator's grant is gone or was never held: no sign-in and no retry repairs it. */
+      zugangWeg: "Dein Zugang zur Verwaltung besteht nicht mehr.",
+      /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
+      zugangUngeprueft: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
     },
+
+    /**
+     * A refusal's own words, by the backend's code, for a code a person causes knowingly from a screen; every other
+     * code answers one of the shared failure lines above. A form places a code on the field it names, where the
+     * words are a field's phrase; anywhere else they are the status line's reason and its repair.
+     */
+    ablehnung: {
+      "DB-COMMON-002": SCHON_VERGEBEN,
+      "REQ-DATE-001": "Außerhalb des Spieltags",
+      "REQ-STATE-002": "Nur ohne eingetragene Tore",
+      "REQ-STATE-003": "Nur mit beiden Teams",
+      "REQ-BOOKING-001":
+        "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
+      "REQ-BOOKING-002":
+        "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt. Teile jemand anderen ein, oder warte auf die Bestätigung.",
+      "REQ-CLASH-001":
+        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
+      "REQ-RESULT-001":
+        "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
+      "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel. Wähle ein anderes Team oder einen anderen Tag.",
+      "REQ-SPIELTAG-002":
+        "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
+      "REQ-ELIGIBILITY-001":
+        "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein. Wähle einen Tag vor dem Austritt oder ein anderes Team.",
+      "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil. Wähle ein Team dieser Saison.",
+    } satisfies Partial<Record<Code, string>>,
 
     /** Beside the save button once the record is stored. */
     gespeichert: "Gespeichert",
@@ -370,8 +404,10 @@ export const COPY = katalog({
       /** What a new venue's city starts as: the league plays in one city. */
       stadtVorgabe: "Frankfurt am Main",
       mietpreis: "Mietpreis",
-      /** The example a figure's message line shows. */
+      /** The examples each box's message line shows where its value is off its pattern. */
       mietpreisBeispiel: "60",
+      plzBeispiel: "60438",
+      hausnummerBeispiel: "12a",
       stillgelegt: "Stillgelegt",
       /** The venue list's last entry, which opens the create dialog with the name typed so far. */
       anlegenEintrag: "Spielort anlegen …",
@@ -399,25 +435,6 @@ export const COPY = katalog({
       beideSeitenNoetig: "beide Seiten nötig",
       /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
       gespeichertMitFolgen: (folgen: string) => `Gespeichert. ${folgen}`,
-
-      /** The save's refusals, by the rule the backend names, in the words today's editor shows. */
-      abgelehnt: {
-        datumAusserhalb: "Dieses Datum liegt außerhalb des Spieltags.",
-        unbestaetigt: "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
-        teamMitErgebnis:
-          "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
-        stillgelegt:
-          "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
-        zeitgleich:
-          "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
-        doppeltAmSpieltag:
-          "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
-        ausgeschieden: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
-        nichtInSaison: "Dieses Team nimmt nicht an dieser Saison teil.",
-        ohneWertung: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-        beideTeamsNoetig: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
-        schonAmSpieltag: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
-      },
     },
   },
 
