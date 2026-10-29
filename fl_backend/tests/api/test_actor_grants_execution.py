@@ -7,6 +7,7 @@ it; this proves the read itself.
 """
 
 import asyncio
+from collections.abc import Iterator
 
 import pytest
 from pymongo import MongoClient
@@ -32,26 +33,32 @@ CONFIG = config_for(DATABASE_NAME)
 READ_PATH = "/api/v0/spielorte"
 
 
+@pytest.fixture(scope="module")
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+    client = MongoClient(mongo_replica_set_url)
+    try:
+        a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+
+        yield mongo_replica_set_url
+    finally:
+        client.close()
+
+
 def answered(url: str, actor: str) -> tuple[int, str | None]:
     async def _answered() -> tuple[int, str | None]:
-        client = MongoClient(url)
-        try:
-            a_clean_database_sync(client, url, DATABASE_NAME)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
-        finally:
-            client.close()
         async with app_client(url, app=create_app(CONFIG)) as http:
             response = await http.get(READ_PATH, headers=SignedActor(actor, ADMIN_KEY))
 
-        return response.status_code, response.json().get("error_code") if response.status_code != 200 else None
+        return response.status_code, None if response.status_code == 200 else response.json().get("error_code")
 
     return asyncio.run(_answered())
 
 
-def test_an_actor_holding_no_grant_is_refused_by_the_real_read(mongo_replica_set_url: str):
-    assert answered(mongo_replica_set_url, "schueler@example.com") == (403, ACTOR_NOT_ADMIN)
+def test_an_actor_holding_no_grant_is_refused_by_the_real_read(seeded_url: str):
+    assert answered(seeded_url, "schueler@example.com") == (403, ACTOR_NOT_ADMIN)
 
 
-def test_an_actor_holding_a_grant_passes_the_real_read(mongo_replica_set_url: str):
+def test_an_actor_holding_a_grant_passes_the_real_read(seeded_url: str):
     """The control: a read refusing everybody passes the case above. Spelled in capitals, as the stored grant is folded."""
 
-    assert answered(mongo_replica_set_url, grants_for_the_suite()[1]["adresse"].upper()) == (200, None)
+    assert answered(seeded_url, grants_for_the_suite()[1]["adresse"].upper()) == (200, None)
