@@ -1168,7 +1168,8 @@ const eslintConfig = defineConfig([
     rules: { "tokens/contrast": "error" },
   },
 
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
+  // `src/core/generated/` is Orval's output, rewritten whole by every generation.
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/", "src/core/generated/"]),
 ]);
 
 export default eslintConfig;
