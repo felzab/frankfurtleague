@@ -10,11 +10,6 @@ bracket, which runs to a final. **Almost none of that shape is fixed in code** �
 how many qualify, what a win is worth, which figure separates two clubs level on points — so a number that
 reads like a constant of this league is nearly always one some season chose for itself.
 
-**The authority is `fl_backend/app/core/domain.py`, not this page.** It states the model as data — the
-aggregates, the references, the field policies, the refusal rules and the deliberate absences — and
-`fl_backend/tests/core/test_domain.py` checks it against the code on every test run. Read it for what the
-model holds; read this for the shape those tables are stating.
-
 | Section                                                             | Answers                                                        |
 | ------------------------------------------------------------------- | -------------------------------------------------------------- |
 | [The entities](#the-entities-and-what-holds-them-together)          | What there is, where a fact belongs, and what is held together |
@@ -23,7 +18,7 @@ model holds; read this for the shape those tables are stating.
 | [Stored and computed](#what-is-stored-and-what-is-computed)         | Which facts a document holds and which follow from the matches |
 | [What a write is checked against](#what-a-write-is-checked-against) | Why a rule lives in the validator, the model or the endpoint   |
 | [Where the German misleads](#where-the-german-misleads)             | The trap that belongs to no single term                        |
-| [Keeping the model honest](#keeping-the-model-honest)               | Permitted states, and what a model change owes                 |
+| [What the model permits](#what-the-model-permits-on-purpose)        | The states no write refuses, and why refusing would be wrong   |
 
 ---
 
@@ -57,7 +52,7 @@ documents.
 ### What is held true together
 
 An **aggregate** is a consistency boundary: the collections some rule holds true _together_.
-`domain.py :: AGGREGATES` is the list, each entry stating the invariant that binds it. Membership never turns
+Membership never turns
 on whether one document points at another — a reference is not a boundary — and three of the boundaries read
 wrong at first.
 
@@ -134,8 +129,7 @@ venue or referee is assigned to no fixture that does not already hold it, nor ke
 again (`REQ-BOOKING-001`). Both judge the reference being made — and reopening a fixture makes its references
 again — rather than one merely stored, which is what lets a venue retire while played or called-off fixtures
 still name it. A bracket resolution, or a side emptied for a Spieltag clash, reopening such a fixture is no save and refuses nothing: the retired row stays booked and is reported, the ghost every erased referee's fixtures point at being one such
-retired row. The `REQ-RETIRE-*` rows of `domain.py :: RULES` are every
-refusal a retirement meets.
+retired row. The `REQ-RETIRE-*` codes are every refusal a retirement meets.
 
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
@@ -239,8 +233,6 @@ figure with a price nobody agreed to.
 **A field the server composes is still stored; a derived one is on no document at all.** A match's result
 string is stored, composed from the two goal counts so the string cannot disagree with them; a matchday's
 match count follows from the season's rules and is held nowhere.
-`fl_backend/tests/core/test_domain.py :: test_a_derived_field_is_on_no_document` holds that difference
-against the database validators, so a field declared derived cannot quietly acquire a stored copy.
 
 ---
 
@@ -260,9 +252,9 @@ replace the refusal** — the entry form disables a group it can see is full, an
 entry, because a stale form and a direct request each reach it, and on a public page the direct request is
 anyone's.
 
-Every refusal reaches a client as a **code** rather than as a message, the English text beside it going only
-to the log; `fl_backend/openapi.json` publishes each code an operation refuses with at the status it
-answers.
+Every refusal reaches a client as a **code** and never as a message, the frontend writing every word a person
+reads; `fl_backend/app/core/codes.py :: Code` is each code's one spelling, and `fl_backend/openapi.json` lists
+them all once, as the failure body's `error_code`.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
@@ -290,36 +282,54 @@ matches is evidence about nothing.
 
 ---
 
-## Keeping the model honest
+## What the model permits on purpose
 
-**An absence looks identical to an omission**, so every state the system permits on purpose is declared:
-`domain.py :: UNENFORCED` names the state, says why refusing it would be wrong, and names the page that
-reports it where one does. What selects the set is that refusing would block a legitimate act rather than a
-mistake — a season being set up passes through several of these on its way to being complete. **Where a state
-is reported, the report is a page and never a stored flag**, so nothing about these states is queryable and
-no later feature can quietly come to depend on one.
+**Each state below is reachable and refused by no write, because refusing it would block a legitimate act
+rather than a mistake.** Where a page reports one, the report is computed on the read and never stored, so
+no later feature can come to depend on a flag.
 
-A reason a reader nods at is not evidence, so each entry is checked: the refusal codes it claims to
-sit near must exist, a state sitting near none surprising nobody; the class of
-`fl_backend/tests/core/test_unenforced.py` it pairs with must execute the state, exactly and in **both**
-directions, so an entry nothing runs fails and a test class no entry claims fails with it.
-`fl_backend/tests/core/test_domain.py` holds those claims. The surface an entry names and the addresses its
-reason argues from are not checked, so a page or a rule renamed away leaves the reason reading as evidence it
-no longer is.
-
-Two obligations are not caught, because no check can see a row nobody wrote:
-
-- **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
-  direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks
-  inward from a validator, so an id field nobody declared is invisible. A match report's scorer and card
-  ids declare none, an accepted gap: a pupil's erasure leaves their id in the report.
-- **A field that is not plainly editable** owes a `FieldPolicy`. The one place this closes mechanically is
-  `inactive_since`, which every collection whose validator declares it must account for; where the
-  editability is a judgement, nothing can do the same.
-
-**No write path under `app/` may import `domain.py`**: `app/main.py :: declared_refusals` alone reads it, to
-publish each operation's refusals, and `test_domain.py` holds that importer set exact. The moment a write
-reads these tables they stop being a declaration and become an engine a write can forget to consult.
+- **A matchday whose fixtures differ from the count its phase implies.** The draw writes every phase at that
+  count and `REQ-RULES-011` holds the shape to the fixtures drawn from it, so only a stored row no current
+  write produces holds the gap; refusing it on the rules patch would latch such a season shut, its dates
+  included. The matchday editor names both counts.
+- **Two players of one squad wearing the same number.** A number is worn rather than assigned, and a squad
+  fields several keepers wearing 1. The two squad reads a team's representative is served report it, comparing
+  the number as typed, because `07` is a printed shirt and not `7`.
+- **A bracket slot the resolution filled with a club that later left.** `REQ-ELIGIBILITY-001` judges a side a
+  request fields; a slot no request touched is reported as a fault, since only a person chooses between a
+  forfeit and a replacement.
+- **A fixture still to be played booked onto a retired venue or referee.** `REQ-BOOKING-001` judges what a save
+  books, and a bracket resolution reopening a fixture books nothing; refusing it would refuse the correction
+  upstream. The booking is reported as a fault, the ghost an erased referee leaves among them.
+- **One venue or referee claimed by two fixtures under four hours apart.** `REQ-CLASH-001` refuses only a claim
+  a save newly makes. A lifted no-show reclaiming its slot is reported, because which fixture moves is a
+  competition call.
+- **A Spieltag on which a club already stands twice.** The swap, `REQ-SPIELTAG-001` and `REQ-SPIELTAG-002`
+  refuse only a pair the write would create, since refusing over a standing fault would block its repair;
+  each standing appearance is reported.
+- **A departed club holding drawn fixtures.** It keeps its group place and its opponents need a fixture to
+  record the walkover on; `REQ-ELIGIBILITY-001` refuses only a request disturbing one.
+- **A group phase in which every club qualifies.** A seeding-only group stage is a real format, so
+  `REQ-RULES-007` bounds the qualifiers from above alone.
+- **A matchday of a later phase dated before one of an earlier phase.** `REQ-DATE-008` finds its neighbour on
+  the indexed `(saison_id, saison_phase, position)`, and no stored key orders the phases. The matchday list
+  sections a season by phase in played order, so such dates read as running backwards.
+- **A `future` season holding recorded results.** Binding a result to the status would make the one-way
+  activation a precondition for recording a match already played, so both windows that destroy a draw judge
+  the recorded count and the status apart.
+- **An abandoned fixture carrying any result, or none.** An abandonment has two lawful outcomes, the score
+  awarded or the match replayed, and this competition names no rule between them; the editor warns that a
+  decided score counts for the table.
+- **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
+  (`REQ-REGISTRIERUNG-007`); entering, moving or bringing back a squad row judges none.
+- **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
+  by a database edit, and `GET /spieler/memberships` serves such a person with an empty list, which is the
+  surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
+  they played in to be emptied, and the list badges both.
+- **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired
+  and never when it may go; every admin list badges the day it retired.
+- **A stored action-log image no current model accepts.** An image is what a document looked like when it was
+  written, so validating it against today's models would make every row older than a migration unreadable.
 
 ---
 

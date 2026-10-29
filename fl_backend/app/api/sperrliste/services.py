@@ -13,6 +13,7 @@ from typing import Final
 
 from pydantic import SecretStr
 
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
@@ -20,11 +21,11 @@ from app.shared.sub_keys import derive_sub_key
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
 # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
-SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
+SPERRLISTE_ADRESSE_GESPERRT = Code.SPERRLISTE_ADRESSE_GESPERRT
 
-SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
+SPERRLISTE_KEINE_SAISON = Code.SPERRLISTE_KEINE_SAISON
 
-SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"
+SPERRLISTE_VERWALTUNG = Code.SPERRLISTE_VERWALTUNG
 
 # One label per purpose: the same master keys the action log's pseudonyms
 # (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.

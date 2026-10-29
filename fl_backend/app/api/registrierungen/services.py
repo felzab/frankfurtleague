@@ -27,6 +27,7 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.sperrliste.services import withheld_actor
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
@@ -48,15 +49,14 @@ from app.shared.schemas.bounds import (
 # team's decline.
 SUBMITTED = "eingereicht"
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-REGISTRIERUNG_FENSTER_GESCHLOSSEN = "REQ-REGISTRIERUNG-001"
-REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN = "REQ-REGISTRIERUNG-002"
-REGISTRIERUNG_STUFE_NICHT_ERLAUBT = "REQ-REGISTRIERUNG-003"
-REGISTRIERUNG_KADER_VOLL = "REQ-REGISTRIERUNG-008"
+REGISTRIERUNG_FENSTER_GESCHLOSSEN = Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN
+REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN = Code.REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN
+REGISTRIERUNG_STUFE_NICHT_ERLAUBT = Code.REGISTRIERUNG_STUFE_NICHT_ERLAUBT
+REGISTRIERUNG_KADER_VOLL = Code.REGISTRIERUNG_KADER_VOLL
 # Its own code beside the ban list's own `REQ-SPERRLISTE-001`, which words an administrator's
 # duplicate ban: the prefix names the flow that refuses rather than the collection consulted, and
 # one rule keeps one code and one German sentence.
-REGISTRIERUNG_ADRESSE_GESPERRT = "REQ-REGISTRIERUNG-009"
+REGISTRIERUNG_ADRESSE_GESPERRT = Code.REGISTRIERUNG_ADRESSE_GESPERRT
 
 
 def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any, today: str) -> bool:
@@ -213,7 +213,7 @@ def compose_bestaetigung(*, token_hash: str, today: str, frist: str) -> dict[str
 # --- The SUBMISSION KEY, as the application's submission keeps it
 # (`app/api/bewerbungen/services.py :: payload_fingerabdruck`).
 
-REGISTRIERUNG_SCHLUESSEL_ABWEICHEND = "REQ-REGISTRIERUNG-011"
+REGISTRIERUNG_SCHLUESSEL_ABWEICHEND = Code.REGISTRIERUNG_SCHLUESSEL_ABWEICHEND
 
 
 def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
@@ -301,15 +301,14 @@ def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, i
 # --- The CONFIRMATION. Every predicate below reads a missing `bestaetigung` block as "nothing to
 # confirm".
 
-# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-REGISTRIERUNG_TOKEN_UNKNOWN = "REQ-REGISTRIERUNG-004"
-REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
-REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
-REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
-REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
-REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
-REGISTRIERUNG_WAHLEN_UNPASSEND = "REQ-REGISTRIERUNG-017"
-REGISTRIERUNG_OHNE_GEBURTSDATUM = "REQ-REGISTRIERUNG-019"
+REGISTRIERUNG_TOKEN_UNKNOWN = Code.REGISTRIERUNG_TOKEN_UNKNOWN
+REGISTRIERUNG_TOKEN_EXPIRED = Code.REGISTRIERUNG_TOKEN_EXPIRED
+REGISTRIERUNG_ALREADY_CONFIRMED = Code.REGISTRIERUNG_ALREADY_CONFIRMED
+REGISTRIERUNG_ALTER = Code.REGISTRIERUNG_ALTER
+REGISTRIERUNG_MEDIEN_ALTER = Code.REGISTRIERUNG_MEDIEN_ALTER
+REGISTRIERUNG_BESTAETIGUNG_GESPERRT = Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT
+REGISTRIERUNG_WAHLEN_UNPASSEND = Code.REGISTRIERUNG_WAHLEN_UNPASSEND
+REGISTRIERUNG_OHNE_GEBURTSDATUM = Code.REGISTRIERUNG_OHNE_GEBURTSDATUM
 
 # The two pages one link opens, each with its running label (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
 SEITE_NEU: Final[FLRegistrierungSeite] = "bestaetigung_spieler"
@@ -814,11 +813,11 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
 
 # --- The TEAM's decision: the pending read, the admission and the decline a seat holder makes.
 
-REGISTRIERUNG_UNBESTAETIGT = "REQ-REGISTRIERUNG-013"
-REGISTRIERUNG_PERSON_NICHT_BENANNT = "REQ-REGISTRIERUNG-014"
-REGISTRIERUNG_SCHON_IM_KADER = "REQ-REGISTRIERUNG-015"
-REGISTRIERUNG_SCHON_AUFGENOMMEN = "REQ-REGISTRIERUNG-016"
-REGISTRIERUNG_PERSON_FEHLT = "REQ-REGISTRIERUNG-018"
+REGISTRIERUNG_UNBESTAETIGT = Code.REGISTRIERUNG_UNBESTAETIGT
+REGISTRIERUNG_PERSON_NICHT_BENANNT = Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
+REGISTRIERUNG_SCHON_IM_KADER = Code.REGISTRIERUNG_SCHON_IM_KADER
+REGISTRIERUNG_SCHON_AUFGENOMMEN = Code.REGISTRIERUNG_SCHON_AUFGENOMMEN
+REGISTRIERUNG_PERSON_FEHLT = Code.REGISTRIERUNG_PERSON_FEHLT
 
 
 def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:

@@ -47,6 +47,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
+from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -1010,8 +1011,8 @@ def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSp
     return stored
 
 
-STATE_RESULT_ON_A_NON_EVENT = "REQ-STATE-002"
-STATE_NO_SHOW_WITHOUT_TWO_SIDES = "REQ-STATE-003"
+STATE_RESULT_ON_A_NON_EVENT = Code.STATE_RESULT_ON_A_NON_EVENT
+STATE_NO_SHOW_WITHOUT_TWO_SIDES = Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES
 
 
 def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
@@ -1046,15 +1047,15 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     return None
 
 
-ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
-ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
-SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
-RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
+ELIGIBILITY_DISQUALIFIED = Code.ELIGIBILITY_DISQUALIFIED
+ELIGIBILITY_NO_MEMBERSHIP = Code.ELIGIBILITY_NO_MEMBERSHIP
+SPIELTAG_OCCUPIED = Code.SPIELTAG_OCCUPIED
+RESULT_SIDE_EMPTIED = Code.RESULT_SIDE_EMPTIED
 
 # Its own code beside `SPIELTAG_OCCUPIED`, because the repair differs and no side of this save named
 # the club: a resend answers the same, and the way out is the wiring the resolution followed or a
 # result that changes who advances.
-SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = "REQ-SPIELTAG-002"
+SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
 
 def find_eligibility_refusal(
@@ -1124,20 +1125,20 @@ def find_eligibility_refusal(
     return None
 
 
-FIXTURE_OUTSIDE_SPIELTAG = "REQ-DATE-001"
-FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
+FIXTURE_OUTSIDE_SPIELTAG = Code.FIXTURE_OUTSIDE_SPIELTAG
+FIXTURE_DOUBLE_BOOKED = Code.FIXTURE_DOUBLE_BOOKED
 
 # Judged on a reference the save moves, or keeps on a fixture it reopens: `REQ-RETIRE-003` lets a venue
 # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
-BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
+BOOKING_UNKNOWN_RESOURCE = Code.BOOKING_UNKNOWN_RESOURCE
 
 # Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
 # address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
-BOOKING_UNCONFIRMED_REFEREE = "REQ-BOOKING-002"
+BOOKING_UNCONFIRMED_REFEREE = Code.BOOKING_UNCONFIRMED_REFEREE
 
 # A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
 # keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
-BOOKING_REFEREE_MOVED = "REQ-BOOKING-003"
+BOOKING_REFEREE_MOVED = Code.BOOKING_REFEREE_MOVED
 
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
@@ -1762,15 +1763,15 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     return ("gruppe", quelle.gruppe, quelle.platz)
 
 
-WIRING_UNSUPPORTED = "REQ-WIRING-001"
+WIRING_UNSUPPORTED = Code.WIRING_UNSUPPORTED
 
 # Its own code because the repair differs from `_wiring_refusal`'s: nothing moves a fixture's round,
 # so a resend answers the same. The way out is a different source on that side, or a hand-set team.
-WIRING_SEED_PAST_THE_OPENING_ROUND = "REQ-WIRING-002"
+WIRING_SEED_PAST_THE_OPENING_ROUND = Code.WIRING_SEED_PAST_THE_OPENING_ROUND
 
 # Its own code again: the picker offers only the season's groups, so this arriving means the season
 # was redrawn narrower under the open form, and the repair is a reload rather than another source.
-WIRING_GRUPPE_NOT_RUN = "REQ-WIRING-003"
+WIRING_GRUPPE_NOT_RUN = Code.WIRING_GRUPPE_NOT_RUN
 
 
 def _wiring_refusal(message: str) -> WriteRefusal:
