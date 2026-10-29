@@ -173,6 +173,49 @@ class FLSpielbestaetigung(BaseModel):
     geschlossen: FLSpielbestaetigungGeschlossen | None
 
 
+class FLSpielbestaetigungSitzRecord(FLSpielbestaetigungSitz):
+    """One seat as `spielbestaetigungen` stores it: every link the seat was mailed, by its hash."""
+
+    token_hashes: list[str]
+
+
+class FLSpielbestaetigungKontakteRecord(FLSpielbestaetigungKontakte):
+    trainer: FLSpielbestaetigungSitzRecord | None
+    ansprechperson: FLSpielbestaetigungSitzRecord | None
+    stellvertretung: FLSpielbestaetigungSitzRecord | None
+
+
+class FLSpielbestaetigungVonKontaktRecord(FLSpielbestaetigungVonKontakt):
+    """The pressed seat as stored: the digest of its holder's address, kept for that person's erasure."""
+
+    halter: str | None = None
+
+
+class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
+    von: Annotated[
+        FLSpielbestaetigungVonKontaktRecord | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+        Field(discriminator="art"),
+    ]
+
+
+class FLSpielbestaetigungMitteilung(BaseModel):
+    """A moved fixture's notice still owed, and how many passes have tried to send it."""
+
+    versuche: int
+
+
+class FLSpielbestaetigungGeschlossenRecord(FLSpielbestaetigungGeschlossen):
+    mitteilung: FLSpielbestaetigungMitteilung | None = None
+
+
+class FLSpielbestaetigungRecord(FLSpielbestaetigung):
+    """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
+
+    kontakte: FLSpielbestaetigungKontakteRecord | None
+    antwort: FLSpielbestaetigungAntwortRecord | None
+    geschlossen: FLSpielbestaetigungGeschlossenRecord | None
+
+
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
 
 

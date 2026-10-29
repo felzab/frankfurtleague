@@ -13,18 +13,10 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
-from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
+from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
-    BEWERBUNG_ADRESSE_GESPERRT,
-    BEWERBUNG_FENSTER_GESCHLOSSEN,
-    BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
-    BEWERBUNG_PICKED_CLUB_UNUSABLE,
-    BEWERBUNG_SCHLUESSEL_ABWEICHEND,
-    BEWERBUNG_SHORTHAND_TAKEN,
-    BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     bestaetigungsfrist_from,
     build_schluessel_filter,
     compose_bestaetigungen,
@@ -33,13 +25,12 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.einwilligung import services as einwilligung_services
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import PAYLOAD_REFUSED
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
@@ -48,7 +39,7 @@ from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
@@ -309,7 +300,6 @@ class TestWhatASubmissionStores:
         response = on_a_league(mongo_replica_set_url, lambda database: submit(database))
 
         assert set(response.model_dump()) == {
-            "acknowledged",
             "created_id",
             "saison_id",
             "eingereicht_am",
@@ -509,12 +499,12 @@ class TestTheSubmissionKey:
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await submit(database, schluessel=SCHLUESSEL, stufengroesse=91)
 
             return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_SCHLUESSEL_ABWEICHEND, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND, 1)
 
     @pytest.mark.parametrize("moved", LINK_MAY_BE_OUT)
     def test_a_replay_hands_no_link_once_one_may_be_out(self, mongo_replica_set_url: str, moved: Mapping[str, Any]):
@@ -579,7 +569,7 @@ class TestTheSubmissionKey:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
             stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return stored, refused.value.error_code
@@ -587,7 +577,7 @@ class TestTheSubmissionKey:
         stored, code = on_a_league(mongo_replica_set_url, body)
 
         assert "idempotenz_fingerabdruck" not in stored
-        assert code == BEWERBUNG_SCHLUESSEL_ABWEICHEND
+        assert code == Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND
 
     def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""
@@ -662,11 +652,11 @@ class TestTheSubmissionKey:
         assert (len(ids), stored) == (1, 1)
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> WriteRefusalException:
+def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
     """One submission expected to be refused, with the exception it raised."""
 
-    async def body(database: AsyncDatabase) -> WriteRefusalException:
-        with pytest.raises(WriteRefusalException) as failure:
+    async def body(database: AsyncDatabase) -> APIError:
+        with pytest.raises(APIError) as failure:
             await submit(database, **overrides)
 
         # Nothing was written: a refusal that stored the row anyway would be a 409 the applicant
@@ -690,18 +680,18 @@ class TestTheRefusalsTheWritePathAnswers:
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
-        assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+        assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == Code.BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_that_has_ended_refuses_while_its_window_still_runs(self, mongo_replica_set_url: str):
         """The payload names the season, so a `past` one whose stored window still runs is reachable by the form's own request."""
 
-        assert refused(mongo_replica_set_url, saison_status="past").error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+        assert refused(mongo_replica_set_url, saison_status="past").error_code == Code.BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""
 
         async def body(database: AsyncDatabase) -> None:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await submit(database, saison_id="1999")
 
         on_a_league(mongo_replica_set_url, body)
@@ -716,7 +706,7 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_submission_naming_no_single_applicant_refuses(self, mongo_replica_set_url: str, team_id: Any, schule: Any):
         failure = refused(mongo_replica_set_url, team_id=team_id, schule=schule)
 
-        assert failure.error_code == BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
+        assert failure.error_code == Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
 
     @pytest.mark.parametrize(
         "team_id",
@@ -728,22 +718,22 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
         """The same code for both, so a client sending an id it was never given learns nothing about which."""
 
-        assert refused(mongo_replica_set_url, team_id=team_id).error_code == BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert refused(mongo_replica_set_url, team_id=team_id).error_code == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
+        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
 
     def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
         """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
 
-        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == FASSUNG_UNZULAESSIG
+        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == Code.FASSUNG_UNZULAESSIG
 
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""
 
         failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=EXISTING_SHORTHAND))
 
-        assert failure.error_code == BEWERBUNG_SHORTHAND_TAKEN
+        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
 
     def test_a_picked_club_is_not_refused_for_holding_its_own_kuerzel(self, mongo_replica_set_url: str):
         """The control for the case above: a shorthand check reaching both branches would make applying impossible."""
@@ -881,7 +871,7 @@ class TestASubmissionMadeOverTheWire:
         shared = dict(KONTAKTE["ansprechperson"], telefon=KONTAKTE["trainer"]["telefon"])
         submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
 
-        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
         assert submitted.stored == 0
 
     @pytest.mark.parametrize(
@@ -915,7 +905,7 @@ class TestASubmissionMadeOverTheWire:
         submitted = through_the_app(mongo_replica_set_url, payload(team_id=str(UNKNOWN_OID)))
 
         assert submitted.response.status_code == 409
-        assert submitted.response.json()["error_code"] == BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
 
 
 # The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
@@ -951,95 +941,6 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
     }
 
 
-def _stored_with(database: AsyncDatabase, kader: Mapping[str, Any]) -> Awaitable[str]:
-    """One application inserted straight past the models, so only the `$jsonSchema` can be refusing it."""
-
-    async def _insert() -> str:
-        document = _stored_application(kader=dict(kader))
-        try:
-            await database[Collection.BEWERBUNGEN].insert_one(document)
-        except OperationFailure as failure:
-            assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-            return "rejected"
-        return "accepted"
-
-    return _insert()
-
-
-class TestTheDatabaseRefusesACountItCannotHold:
-    """The half no model can prove: `gute_spieler` is non-nullable in the `$jsonSchema` too.
-
-    Without it the validator could drift back to `int|null` with every Python test still green.
-    """
-
-    def test_a_null_count_is_refused_by_the_validator(self, mongo_replica_set_url: str):
-        null_count = {"voraussichtliche_groesse": 14, "gute_spieler": None}
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, null_count)) == "rejected"
-
-    def test_an_omitted_count_is_refused_too(self, mongo_replica_set_url: str):
-        """`required` names the key, so an absent one is a rejection rather than a stored null."""
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, {"voraussichtliche_groesse": 14})) == "rejected"
-
-    def test_a_real_count_is_stored(self, mongo_replica_set_url: str):
-        """The control: without it both cases above would pass on a validator that refuses every kader."""
-
-        real_count = {"voraussichtliche_groesse": 14, "gute_spieler": 0}
-
-        assert on_a_league(mongo_replica_set_url, lambda database: _stored_with(database, real_count)) == "accepted"
-
-
-class TestTheDatabaseHoldsAClubWithNoWebsite:
-    """The half no model can prove: `website_url` is nullable in BOTH `$jsonSchema`s too.
-
-    A model relaxed while a validator stayed `bsonType: "string"` refuses the write at the driver,
-    which is the direction that ships silently.
-    """
-
-    def test_an_application_naming_no_website_is_stored(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            response = await submit(database, team_id=None, schule=schule_block(website_url=None))
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
-
-            assert stored is not None
-            # Parsed through the read model too: storing it and being unable to read it back would
-            # 500 the triage list over the one row an administrator has to decide.
-            return FLBewerbung(**stored).schule
-
-        schule_read = on_a_league(mongo_replica_set_url, body)
-
-        assert schule_read is not None
-        assert schule_read.website_url is None
-
-    def test_a_club_naming_no_website_is_stored(self, mongo_replica_set_url: str):
-        """`teams` carries its own validator, and acceptance is what writes a club from an application."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.TEAMS].insert_one(club_document(UNKNOWN_OID, "Ohnesite", "OSX") | {"website_url": None})
-            stored = await database[Collection.TEAMS].find_one({"_id": UNKNOWN_OID})
-
-            assert stored is not None
-            return stored["website_url"]
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
-    def test_the_key_is_still_required_even_when_null(self, mongo_replica_set_url: str):
-        """Nullable, not optional: `required` names the key, so an omitted one is still a rejection."""
-
-        async def body(database: AsyncDatabase) -> str:
-            document = club_document(UNKNOWN_OID, "Ohneschluessel", "OKX")
-            del document["website_url"]
-            try:
-                await database[Collection.TEAMS].insert_one(document)
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "rejected"
-
-
 class TestAKuerzelARetiredClubStillHolds:
     """The write path's lookup spans retired clubs, because `uniq_shorthand` does.
 
@@ -1055,7 +956,7 @@ class TestAKuerzelARetiredClubStillHolds:
 
         failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=RETIRED_SHORTHAND))
 
-        assert failure.error_code == BEWERBUNG_SHORTHAND_TAKEN
+        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
 
     def test_a_kuerzel_no_club_holds_is_still_accepted(self, mongo_replica_set_url: str):
         """The control: a lookup matching everything would refuse this too, and applying would be impossible."""
@@ -1080,12 +981,12 @@ class TestABannedContactAddress:
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
             await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await submit(database)
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_ADRESSE_GESPERRT, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADRESSE_GESPERRT, 0)
 
     def test_a_replay_after_an_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
         """The first press left nothing on record, the one state a replay mints in.
@@ -1097,12 +998,12 @@ class TestABannedContactAddress:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return failure.value.error_code, before, await database[Collection.BEWERBUNGEN].find({}).to_list()
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ADRESSE_GESPERRT
+        assert code == Code.BEWERBUNG_ADRESSE_GESPERRT
         assert after == [before]

@@ -30,9 +30,10 @@ from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHS
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
@@ -141,9 +142,9 @@ async def a_due_person(database: AsyncDatabase, position: int) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
@@ -201,8 +202,14 @@ async def live(database: AsyncDatabase) -> list[ObjectId]:
     return await database[Collection.ADRESSWECHSEL].distinct("_id", {"beendet": None})
 
 
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+
+
 def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2126-04-01T00:00:00+00:00",
@@ -416,13 +423,16 @@ class TestOneChangeHoldsBackNoOther:
 
         assert counts == (1, 1, None)
         assert standing == [numbered(1)]
-        failures = [
-            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
-        ]
+        [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
+        assert (failure.levelname, failure.getMessage()) == ("ERROR", "adresswechsel.sweep_row_failed")
+        assert (getattr(failure, "art", None), getattr(failure, "schritt", None), getattr(failure, "adresswechsel_id", None)) == (
+            "lapsed",
+            "end",
+            str(numbered(1)),
+        )
         # Located by the frame that raised it, and never by its message, which can quote a value.
-        [(level, line)] = failures
-        ended = rf"The lapsed address change {numbered(1)} saw no end: NotTheDatabases in find_one_and_update at .+\.py:\d+"
-        assert (level, re.fullmatch(ended, line) is not None) == ("ERROR", True), line
+        diagnosis = getattr(failure, "diagnosis", "")
+        assert re.fullmatch(r"NotTheDatabases in find_one_and_update at .+\.py:\d+", diagnosis) is not None, diagnosis
 
     def test_a_refused_end_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image refusing the redaction's update. Remove the catch and the call fails."""
@@ -430,20 +440,22 @@ class TestOneChangeHoldsBackNoOther:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first, second = a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_YESTERDAY)
             await database[Collection.ADRESSWECHSEL].insert_many([first, second])
-            await database[Collection.AKTIONEN].insert_one(
-                refusing_its_redaction(Collection.ADRESSWECHSEL, first), bypass_document_validation=True
-            )
+            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(Collection.ADRESSWECHSEL, first))
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
             answer = await sweep(database, client)
 
             return (answer.entfernt, answer.verbleibend), await live(database)
 
         with caplog.at_level("ERROR"):
-            counts, standing = on_a_league(mongo_replica_set_url, body)
+            counts, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert counts == (1, 1)
         assert standing == [numbered(1)]
-        failures = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED]
-        assert [str(numbered(1)) in message and pending(1) not in message for message in failures] == [True]
+        failures = [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED]
+        assert [
+            getattr(record, "adresswechsel_id", None) == str(numbered(1)) and pending(1) not in JSONFormatter().format(record)
+            for record in failures
+        ] == [True]
 
     def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
         """Restart each call at the lowest id and the same share fails every call, the last change never reached."""
@@ -454,15 +466,14 @@ class TestOneChangeHoldsBackNoOther:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             changes = [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in failing]
             await database[Collection.ADRESSWECHSEL].insert_many(changes)
-            await database[Collection.AKTIONEN].insert_many(
-                [refusing_its_redaction(Collection.ADRESSWECHSEL, change) for change in changes], bypass_document_validation=True
-            )
+            await database[Collection.AKTIONEN].insert_many([refusing_its_redaction(Collection.ADRESSWECHSEL, change) for change in changes])
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
             await database[Collection.ADRESSWECHSEL].insert_one(a_change(last, minted=MINTED_TO_LAPSE_YESTERDAY))
             answers = await a_pass(database, client)
 
             return [answer.entfernt for answer in answers], numbered(last) in await live(database)
 
-        ended, standing = on_a_league(mongo_replica_set_url, body)
+        ended, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (ended, standing) == ([0, 1], False)
 
@@ -509,13 +520,11 @@ class TestTheDeadlineStopsTheCall:
         assert counts == (1, 2, numbered(2))
         assert standing == [numbered(2), numbered(3)]
         lines = [
-            (record.levelname, record.getMessage())
+            (record.levelname, record.getMessage(), getattr(record, "adresswechsel_id", None), getattr(record, "unanswered", None))
             for record in caplog.records
-            if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+            if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
-        assert lines == [
-            ("WARNING", f"Database deadline passed at the lapsed address change {numbered(2)}: the call stops, and the rest stay due")
-        ]
+        assert lines == [("WARNING", "adresswechsel.sweep_cut", str(numbered(2)), None)]
 
     def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
         """Nothing bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
@@ -604,8 +613,6 @@ class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
 
                 return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
-            # One call first, so the running season the ban list asks is cached for both counted ones alike.
-            await counted(1)
             (_, few), (answer, twice) = await counted(FEW), await counted(2 * FEW)
 
             return answer, (twice.total() - few.total()) / FEW

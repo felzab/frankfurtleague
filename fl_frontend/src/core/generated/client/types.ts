@@ -1877,7 +1877,7 @@ export interface FLBewerbungEinwilligungAntwortResponse {
   ergebnis: FLBewerbungEinwilligungAntwortResponseErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
-  quelle?: 'bewerbung';
+  quelle: 'bewerbung';
   rolle: FLBewerbungEinwilligungAntwortResponseRolle;
   saison_id: string;
   vorname: string;
@@ -2218,7 +2218,7 @@ export interface FLBewerbungSchulePayload {
      */
   full_name: string;
   schulform: FLBewerbungSchulePayloadSchulform;
-  /** @pattern ^[A-Z]{3}$ */
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
   /**
      * @minLength 1
@@ -2682,7 +2682,7 @@ export const FLBracketFaultOccupantSide = {
  * One fixture fielding a team that left the season.
  *
  * The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
- * (`fl_backend/app/core/domain.py :: UNENFORCED`).
+ * (`docs/domain.md`'s what the model permits on purpose).
  */
 export interface FLBracketFaultOccupant {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3387,9 +3387,9 @@ export interface FLGenerateSpielplanResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   generiert_am: string;
   /** @minimum 0 */
-  removed_spiele?: number;
+  removed_spiele: number;
   /** @minimum 0 */
-  removed_spieltage?: number;
+  removed_spieltage: number;
   /**
      * @minLength 4
      * @maxLength 4
@@ -4445,7 +4445,7 @@ export interface FLSchiedsrichter {
 }
 
 export interface FLPatchSchiedsrichterResponse {
-  bestaetigung?: FLSchiedsrichterMint | null;
+  bestaetigung: FLSchiedsrichterMint | null;
   fanned_out_to_spiele: number;
   updated_document: FLSchiedsrichter;
 }
@@ -4593,9 +4593,9 @@ export interface FLSpielReleasedSide {
  * Both lists report writes the caller did not ask for, each carrying the result it destroyed.
  */
 export interface FLPatchSpielDataResponse {
-  advanced_to?: FLSpielAdvancement[];
-  bracket_faults?: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
-  released_sides?: FLSpielReleasedSide[];
+  advanced_to: FLSpielAdvancement[];
+  bracket_faults: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
+  released_sides: FLSpielReleasedSide[];
 }
 
 /**
@@ -4678,7 +4678,7 @@ export interface FLPatchTeamPayload {
      */
   name: string;
   schulform: FLPatchTeamPayloadSchulform;
-  /** @pattern ^[A-Z]{3}$ */
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
   website_url: string | null;
 }
@@ -5038,7 +5038,7 @@ export interface FLPostTeamPayload {
      */
   name: string;
   schulform: FLPostTeamPayloadSchulform;
-  /** @pattern ^[A-Z]{3}$ */
+  /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
   website_url: string | null;
 }
@@ -5659,7 +5659,7 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
   ergebnis: FLSaisonTeamEinwilligungAntwortResponseErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
-  quelle?: 'saison';
+  quelle: 'saison';
   whatsapp: boolean;
 }
 
@@ -5782,12 +5782,12 @@ export interface FLSaisonTeamResponse {
 }
 
 export interface FLSaisonsListResponse {
-  format?: 'list';
+  format: 'list';
   saisons: FLSaison[];
 }
 
 export interface FLSaisonsSingleResponse {
-  format?: 'single';
+  format: 'single';
   saison: FLSaison;
 }
 
@@ -5884,7 +5884,7 @@ export interface FLSchiedsrichterMintResponse {
  * The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint.
  */
 export interface FLSchiedsrichterReactivateResponse {
-  bestaetigung?: FLSchiedsrichterMint | null;
+  bestaetigung: FLSchiedsrichterMint | null;
   updated_document: FLSchiedsrichter;
 }
 
@@ -7246,7 +7246,7 @@ export interface FLSpielbestaetigungenSelbstResponse {
  * match a fault or an open report names.
  */
 export interface FLSpieleActionRequiredResponse {
-  bracket_faults?: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
+  bracket_faults: (FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultSlot | FLBracketFaultOccupant | FLBracketFaultSpieltag | FLBracketFaultBooking | FLBracketFaultClash)[];
   spielberichte: FLSpielberichtZustandEintrag[];
   spiele: FLSpielJoinedAdmin[];
 }
@@ -7894,14 +7894,14 @@ export interface FLTeamWriteResponse {
  * cutoff drawn from a different season than the table it marks.
  */
 export interface FLTeamsGroupedResponse {
-  format?: 'grouped';
+  format: 'grouped';
   gruppen: FLGruppen;
   /** @exclusiveMinimum 0 */
   qualifiers_per_group: number;
 }
 
 export interface FLTeamsListResponse {
-  format?: 'list';
+  format: 'list';
   teams: FLTeam[];
 }
 
@@ -7918,7 +7918,7 @@ export interface FLTeamsMembershipsResponse {
  * Not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can return.
  */
 export interface FLTeamsSingleResponse {
-  format?: 'single';
+  format: 'single';
   team: FLTeam;
 }
 

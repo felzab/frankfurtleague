@@ -1,4 +1,3 @@
-import { publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -8,9 +7,8 @@ import { spielStateKey } from "@/features/spiele/utils";
 import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
-import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielAdmin } from "@/features/spiele/schemas";
-
-const SPEICHERN = "PATCH /spiele/{spiel_id}";
+import type { Code, FLPatchSpielDataPayload, FLPatchSpielDataResponse } from "@/core/generated/client/types";
+import type { FLSpielAdmin } from "@/features/spiele/schemas";
 
 const SPIEL_ID = "64b000000000000000000001";
 
@@ -36,52 +34,49 @@ const GESPEICHERT: FLSpielAdmin = {
   ansetzung_bestaetigt: null,
 };
 
+/** The fixture once the write stored the new time. */
+const NACHHER: FLSpielAdmin = { ...GESPEICHERT, uhrzeit: "18:00:00" };
+
 /** The write's answer where it moved no other fixture. */
 const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
-  acknowledged: 1,
   advanced_to: [],
   released_sides: [],
   bracket_faults: [],
-  prior_paarungen: [],
-  prior_bericht: null,
 };
 
-/** The fixture the save reads afresh, every payload it sends to the write, and what the write answers. */
+/** The fixture the save reads before and after its write, every payload it sends, and what the write answers. */
 const stand = vi.hoisted(() => ({
   gelesen: null as unknown,
+  /** The fixture as the write stored it, read again for its fingerprint. */
+  gespeichert: null as unknown,
   gesendet: [] as unknown[],
+  /** The save's write landed, so its next read is of the stored fixture. */
+  geschrieben: false,
   ablehnung: null as unknown,
   antwort: null as unknown,
-  /** Why the guard turns the save away, or `null` where it admits it. */
-  abgewiesen: null as string | null,
-  /** The spine found that a write it sent may stand, whatever the body made of it. */
-  unklar: false,
 }));
+
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => (stand.gelesen === null ? null : { spiel: stand.gelesen }),
+  getAdminSpiel: async () => {
+    const spiel = stand.geschrieben ? stand.gespeichert : stand.gelesen;
+    return spiel === null ? null : { spiel };
+  },
 }));
 
-vi.mock("@/features/spiele/mutations", () => ({
-  patchAdminSpielData: async (payload: unknown) => {
+vi.mock("@/core/generated/client/sdk", () => ({
+  spielePatchSpielData: async (_id: string, payload: unknown) => {
     stand.gesendet.push(payload);
     if (stand.ablehnung !== null) throw stand.ablehnung;
+    stand.geschrieben = true;
     return stand.antwort;
   },
 }));
 
-// The guard's spine: it turns a session away with the save's own `turnedAway`, or runs the body and answers
-// its own unclear outcome where the write it sent may stand.
-vi.mock("@/shared/utils/adminMutation", () => ({
-  runAdminMutation: async (_name: string, declared: { turnedAway: (grund: string) => string }, body: () => Promise<unknown>) => {
-    if (stand.abgewiesen !== null) return { success: false, error: declared.turnedAway(stand.abgewiesen) };
-    const answer = await body();
-    return stand.unklar ? { success: false, error: "Ob gespeichert wurde, ist unklar.", outcome: "unknown" } : answer;
-  },
-  FORBIDDEN_BY_REFUSAL: { signIn: "abgelaufen", noGrant: "kein Zugang", grantGone: "kein Zugang", unread: "ungelesen" },
-}));
-
-const refusal = (serverErrorCode: string) =>
+const refusal = (serverErrorCode: Code) =>
   new APIBadStatusError({
     message: "refused",
     url: `http://backend/api/v0/spiele/${SPIEL_ID}`,
@@ -95,23 +90,22 @@ const refusal = (serverErrorCode: string) =>
 
 beforeEach(() => {
   stand.gelesen = GESPEICHERT;
+  stand.gespeichert = NACHHER;
   stand.gesendet = [];
+  stand.geschrieben = false;
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
-  stand.abgewiesen = null;
-  stand.unklar = false;
 });
 
 const FINGERPRINT = spielStateKey(GESPEICHERT);
 
 describe("the match editor's save", () => {
-  it("sends the changes over every field the editor does not show, as stored", async () => {
+  it("sends the changes over every field the editor does not show, as stored, answering the stored fixture's fingerprint", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: true, value: undefined });
+    expect(answer).toEqual({ ok: true, value: spielStateKey(NACHHER) });
     expect(stand.gesendet).toEqual([
       {
-        spiel_id: SPIEL_ID,
         datum: "2027-03-14",
         uhrzeit: "18:00:00",
         ort: { spielort_id: "64b000000000000000000005", mietpreis: 60 },
@@ -146,7 +140,7 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: true,
-      value: undefined,
+      value: spielStateKey(NACHHER),
       note: COPY.verwaltung.spiel.gespeichertMitFolgen(
         "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
       ),
@@ -177,17 +171,19 @@ describe("the match editor's save", () => {
       elfmeterschiessen: null,
       sonderereignis: "nichtantreten_team2",
     };
-    stand.gelesen = nichtangetreten;
     const fingerprint = spielStateKey(nichtangetreten);
 
-    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: KEIN_SONDEREREIGNIS } });
-    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: "annulliert" } });
-    // Still a no-show, the other side's: the write composes the award afresh, whatever goals it is sent.
-    await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis: "nichtantreten_team1" } });
+    stand.gelesen = nichtangetreten;
+    for (const sonderereignis of [KEIN_SONDEREREIGNIS, "annulliert", "nichtantreten_team1"]) {
+      // Each save is made on the no-show as stored.
+      stand.geschrieben = false;
+      await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis } });
+    }
 
     expect(stand.gesendet).toMatchObject([
       { sonderereignis: null, team1: { tore: null }, team2: { tore: null } },
       { sonderereignis: "annulliert", team1: { tore: null }, team2: { tore: null } },
+      // Still a no-show, the other side's: the write composes the award afresh, whatever goals it is sent.
       { sonderereignis: "nichtantreten_team1", team1: { tore: 3 }, team2: { tore: 0 } },
     ]);
   });
@@ -208,62 +204,27 @@ describe("the match editor's save", () => {
     expect(stand.gesendet).toEqual([]);
   });
 
-  it("places the write's refusal on the field that caused it, or in the status line", async () => {
-    stand.ablehnung = refusal("REQ-DATE-001");
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } })).toEqual({
-      ok: false,
-      fieldErrors: { datum: COPY.verwaltung.spiel.abgelehnt.datumAusserhalb },
-    });
+  it("asks for a price while a venue is chosen, writing nothing", async () => {
+    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { mietpreis: "" } });
 
-    stand.ablehnung = refusal("REQ-BOOKING-003");
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } })).toEqual({
-      ok: false,
-      reason: COPY.shared.fehler.veraltet,
-    });
-  });
-
-  it("answers every refusal the match write publishes in words of its own", async () => {
-    // A rule's code reaches the editor whatever status the backend answers it at.
-    for (const code of publishedRefusals(SPEICHERN)) {
-      for (const status of [409, 422]) {
-        stand.ablehnung = refusedOn(SPEICHERN, code, status);
-        const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
-        expect(answer, `${code} at ${String(status)} reaches the admin as the unexpected failure`).not.toEqual({ ok: false });
-      }
-    }
-  });
-
-  it("sends a fixture deleted since the read to reload the page", async () => {
-    stand.ablehnung = refusedOn(SPEICHERN, "DB-COMMON-001");
-
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
-      ok: false,
-      reason: COPY.shared.fehler.veraltet,
-    });
-  });
-
-  it("sends a session the guard found ended to sign in again, writing nothing", async () => {
-    stand.abgewiesen = "signIn";
-
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
-      ok: false,
-      reason: COPY.shared.fehler.abgelaufen,
-    });
+    expect(answer).toEqual({ ok: false, fieldErrors: { mietpreis: COPY.shared.feld.pflichtfeld } });
     expect(stand.gesendet).toEqual([]);
   });
 
-  it("answers a grant the guard found gone as the unexpected failure, which no sign-in repairs", async () => {
-    stand.abgewiesen = "grantGone";
+  it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
+    const save = { id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } } as const;
 
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({ ok: false });
-  });
-
-  it("sends a save nobody can tell landed to reload the page, never to press again", async () => {
-    stand.unklar = true;
-
-    expect(await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } })).toEqual({
+    stand.ablehnung = refusal("REQ-DATE-001");
+    expect(await spielSpeichern(save)).toEqual({
       ok: false,
-      reason: COPY.shared.fehler.veraltet,
+      errorCode: "REQ-DATE-001",
+      fieldErrors: { datum: COPY.shared.ablehnung["REQ-DATE-001"] },
     });
+
+    stand.ablehnung = refusal("REQ-CLASH-001");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "REQ-CLASH-001", reason: COPY.shared.ablehnung["REQ-CLASH-001"] });
+
+    stand.ablehnung = refusal("REQ-BOOKING-003");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "REQ-BOOKING-003", reason: COPY.shared.fehler.veraltet });
   });
 });

@@ -32,15 +32,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungEreignisPayload,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_ALREADY_DECIDED,
-    BEWERBUNG_KONTAKT_EMAIL_TAKEN,
-    BEWERBUNG_KONTAKT_GESPERRT,
-    BEWERBUNG_KONTAKTE_UNCONFIRMED,
-    BEWERBUNG_SCHULE_UNUSABLE,
-    BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_SITZ_ANDERS_BESETZT,
-    BEWERBUNG_SUBJECT_UNRESOLVED,
-    BEWERBUNG_TOKEN_UNKNOWN,
     bestaetigungsfrist_from,
     bewerbung_kontakt_seite,
     compose_bestaetigungen,
@@ -49,14 +40,13 @@ from app.api.bewerbungen.services import (
     seat_zustellung,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
-from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -422,7 +412,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
             return (
@@ -434,7 +424,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"])
 
-        assert code == ENTRY_GRUPPE_FULL
+        assert code == Code.ENTRY_GRUPPE_FULL
         assert (clubs, rows, status) == (SEEDED_CLUBS, RULES["teams_per_group"], "eingereicht")
 
     def test_the_group_beside_the_full_one_still_takes_the_school(self, mongo_replica_set_url: str):
@@ -451,14 +441,14 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """`REQ-ENTER-005`: a club that left the league is reactivated first, and the season's row is not the route to it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG)
 
             return conflict.value.error_code, await junction_rows(database), (await stored_bewerbung(database, RETIRED_BEWERBUNG))["status"]
 
         code, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
         assert (rows, status) == ([], "eingereicht")
 
     # A group the season does not run and a group already full: the two faults `find_entry_refusal`
@@ -471,12 +461,12 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """A group fault refuses too, and naming it sends an administrator to fix the wrong thing: no group repairs a retirement."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, RETIRED_BEWERBUNG, gruppe=gruppe)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=occupied) == CLUB_RETIRED
+        assert on_a_league(mongo_replica_set_url, body, occupied=occupied) == Code.CLUB_RETIRED
 
     def test_the_full_group_is_reported_before_the_club_is_written(self, mongo_replica_set_url: str):
         """The order pinned on a WRITE that fails differently: the rollback hides an early insert.
@@ -486,19 +476,19 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, CLASHING_BEWERBUNG)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == ENTRY_GRUPPE_FULL
+        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == Code.ENTRY_GRUPPE_FULL
 
     @pytest.mark.parametrize("saison_status", ["active", "past"])
     def test_a_season_that_is_not_future_is_refused(self, mongo_replica_set_url: str, saison_status: str):
         """`REQ-ENTER-001`, read in-session: `activate_saison` moves `status` in a transaction of its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, NEW_SCHOOL_BEWERBUNG)
 
             return (
@@ -510,7 +500,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body, saison_status=saison_status)
 
-        assert code == ENTRY_SAISON_NOT_FUTURE
+        assert code == Code.ENTRY_SAISON_NOT_FUTURE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
@@ -537,7 +527,7 @@ class TestAnApplicationResolvingToNoOneClub:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(bewerbung_id, team_id=team_id, schule=schule))
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, bewerbung_id)
 
             return (
@@ -549,7 +539,7 @@ class TestAnApplicationResolvingToNoOneClub:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SUBJECT_UNRESOLVED
+        assert code == Code.BEWERBUNG_SUBJECT_UNRESOLVED
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
@@ -594,20 +584,18 @@ class TestAcceptanceWaitsForEverySeat:
                 )
             )
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, UNCONFIRMED_BEWERBUNG)
 
             return (
                 conflict.value.error_code,
-                conflict.value.detail,
                 await junction_rows(database),
                 (await stored_bewerbung(database, UNCONFIRMED_BEWERBUNG))["status"],
             )
 
-        code, detail, rows, status = on_a_league(mongo_replica_set_url, body)
+        code, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKTE_UNCONFIRMED
-        assert "ansprechperson" in str(detail)
+        assert code == Code.BEWERBUNG_KONTAKTE_UNCONFIRMED
         assert (rows, status) == ([], "eingereicht")
 
     def test_every_seat_confirmed_is_accepted_and_the_junction_row_carries_the_stamps(self, mongo_replica_set_url: str):
@@ -662,7 +650,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = await seed_the_unusable_school(database)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, UNUSABLE_BEWERBUNG)
 
             return (
@@ -676,7 +664,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         code, stored_url, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
         assert stored_url == UNUSABLE_URL, "the validator refused the value, so the refusal below proves nothing"
-        assert code == BEWERBUNG_SCHULE_UNUSABLE
+        assert code == Code.BEWERBUNG_SCHULE_UNUSABLE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
     def test_the_school_is_judged_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
@@ -685,12 +673,12 @@ class TestASchoolNoClubCanBeCreatedFrom:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_unusable_school(database)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await accept(database, client, UNUSABLE_BEWERBUNG)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == BEWERBUNG_SCHULE_UNUSABLE
+        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == Code.BEWERBUNG_SCHULE_UNUSABLE
 
 
 @pytest.mark.db
@@ -752,7 +740,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
 
         status_code, payload, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert (status_code, payload["error_code"]) == (409, DUPLICATE_KEY)
+        assert (status_code, payload["error_code"]) == (409, Code.DUPLICATE_KEY)
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
@@ -964,14 +952,14 @@ class TestADecisionIsNotTakenTwice:
             await take_decision(first, database, client, PICKED_BEWERBUNG)
             after_first = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await take_decision(second, database, client, PICKED_BEWERBUNG)
 
             return conflict.value.error_code, after_first, await stored_bewerbung(database, PICKED_BEWERBUNG), await junction_rows(database)
 
         code, after_first, after_second, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the refused second decision still changed the application"
         assert (after_second["status"], len(rows)) == (expected_status, expected_rows)
 
@@ -1012,7 +1000,7 @@ class TestTwoDeclinesAtOnce:
                 first.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
             racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_first_decline)
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await ablehnen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     ablehnung_data=FLAblehnenBewerbungPayload(grund=OTHER_GRUND),
@@ -1028,7 +1016,7 @@ class TestTwoDeclinesAtOnce:
 
         code, after_first, after_second = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
         assert after_first["entscheidung"]["grund"] == GRUND
 
@@ -1036,7 +1024,7 @@ class TestTwoDeclinesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_one({"_id": PICKED_BEWERBUNG})
 
-            with pytest.raises(DocumentNotFoundException) as missing:
+            with pytest.raises(DocumentNotFoundError) as missing:
                 await ablehnen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     ablehnung_data=FLAblehnenBewerbungPayload(grund=OTHER_GRUND),
@@ -1213,7 +1201,7 @@ class TestADeclineLandingInsideAnAcceptance:
                 declined.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
             racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_decline)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await annehmen_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
                     annahme_data=FLAnnehmenBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
@@ -1232,7 +1220,7 @@ class TestADeclineLandingInsideAnAcceptance:
 
         code, after_decline, after_acceptance, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_acceptance == after_decline, "the acceptance overwrote the decision the applicants were sent"
         assert rows == [], "the school was entered into the season its own application was declined for"
 
@@ -1457,14 +1445,14 @@ class TestCorrectingOneContactAddress:
             await seed_a_bounced_application(database, client)
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await correct(database, client, "ansprechperson", email=before["kontakte"]["stellvertretung"]["email"])
 
             return conflict.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
         assert after == before
 
     def test_a_seat_that_has_already_answered_takes_no_correction(self, mongo_replica_set_url: str):
@@ -1473,14 +1461,14 @@ class TestCorrectingOneContactAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await correct(database, client, "trainer")
 
             return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert stored["kontakte"]["trainer"]["email"] != CORRECTED_EMAIL
 
     def test_a_decided_application_takes_no_correction(self, mongo_replica_set_url: str):
@@ -1488,21 +1476,21 @@ class TestCorrectingOneContactAddress:
             await seed_a_bounced_application(database, client)
             await decline(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await correct(database, client, "ansprechperson")
 
             return conflict.value.error_code, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert stored["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
 
     def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
 
-            with pytest.raises(DocumentNotFoundException) as missing:
+            with pytest.raises(DocumentNotFoundError) as missing:
                 await correct(database, client, "hausmeister")
 
             return missing.value.status_code
@@ -1516,14 +1504,14 @@ class TestCorrectingOneContactAddress:
             await seed_a_pair_whose_seats_diverge(database, CORRECTION_BEWERBUNG, open_seat="ansprechperson")
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await correct(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
 
@@ -1648,7 +1636,7 @@ class TestAResendRacingAnAnswer:
                 landed.append(await stored_bewerbung(database, ERNEUT_BEWERBUNG))
 
             racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_landing)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
             # Serially the read itself meets the landing and refuses: one read. Inside, the write misses and the re-read refuses: two.
             racing.assert_landed_inside(serially=1)
@@ -1657,7 +1645,7 @@ class TestAResendRacingAnAnswer:
 
         code, landed, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == landed
 
     def test_a_correction_landing_after_the_read_is_where_the_fresh_link_goes(self, mongo_replica_set_url: str):
@@ -1715,14 +1703,14 @@ class TestAResendRacingAnAnswer:
             async def ban() -> None:
                 await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN], meanwhile=ban))
 
             return refused.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
@@ -1748,14 +1736,14 @@ class TestAResendRacingAnAnswer:
             await seed_a_pair_whose_seats_diverge(database, ERNEUT_BEWERBUNG, open_seat="ansprechperson")
             before = await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await resend(database, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
 
@@ -1915,7 +1903,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await reseat(database, client, "ansprechperson")
             reseated = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await correct(database, client, "ansprechperson", bewerbung_id=RESEAT_BEWERBUNG, bisherige_email=LEFT_THE_SEAT)
 
             return refused.value.error_code, reseated, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -1923,7 +1911,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, reseated, after = on_a_league(mongo_replica_set_url, body)
 
         assert reseated["kontakte"]["ansprechperson"]["email"] == RESEAT_PERSON["email"], "the reseat this case races never landed"
-        assert code == BEWERBUNG_SITZ_ANDERS_BESETZT
+        assert code == Code.BEWERBUNG_SITZ_ANDERS_BESETZT
         assert after == reseated
 
     def test_a_correction_composed_against_the_person_seated_since_lands(self, mongo_replica_set_url: str):
@@ -1945,12 +1933,12 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             await reseat(database, client, "ansprechperson")
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer_for(database, client, "ansprechperson")
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_TOKEN_UNKNOWN
 
     def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
         """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `paired_seat`.
@@ -1977,14 +1965,14 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "stellvertretung")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
     def test_a_seat_erased_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
@@ -1995,7 +1983,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "stellvertretung")
 
             return refused.value.error_code, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -2003,7 +1991,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, emptied, after = on_a_league(mongo_replica_set_url, body)
 
         assert emptied["bestaetigungen"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == emptied
 
     def test_an_address_another_contact_person_holds_is_refused(self, mongo_replica_set_url: str):
@@ -2013,14 +2001,14 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "ansprechperson", email=before["kontakte"]["trainer"]["email"])
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
         assert after == before
 
     def test_a_decided_application_takes_no_reseat(self, mongo_replica_set_url: str):
@@ -2031,21 +2019,21 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await decline(database, RESEAT_BEWERBUNG)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after == before
 
     def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
 
-            with pytest.raises(DocumentNotFoundException) as missing:
+            with pytest.raises(DocumentNotFoundError) as missing:
                 await reseat(database, client, "hausmeister")
 
             return missing.value.status_code
@@ -2059,7 +2047,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_a_pair_whose_seats_diverge(database, RESEAT_BEWERBUNG, open_seat="ansprechperson", stepped_out=True)
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "ansprechperson")
 
             return refused.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
@@ -2067,7 +2055,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
         assert before["kontakte"]["ansprechperson"] is None, "the seeded pair does not diverge, so nothing here is about the mirror"
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after["kontakte"]["trainer"] == before["kontakte"]["trainer"]
         assert after == before
 
@@ -2104,14 +2092,14 @@ class TestTheLabelAReseatNames:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await reseat(database, client, "ansprechperson", text_version=genannt)
 
             return refused.value, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         refusal, emptied, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert (refusal.error_code, refusal.status_code) == (Code.FASSUNG_UNZULAESSIG, 409)
         assert stored == emptied
 
 
@@ -2125,14 +2113,14 @@ class TestABannedContactAddress:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await seed_an_open_ansprechperson_seat(database)
             await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"]), bis=STANDING))
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await resend(database, "ansprechperson")
 
             return failure.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_resend_to_an_address_the_ban_list_does_not_hold_still_mints(self, mongo_replica_set_url: str):
@@ -2164,14 +2152,14 @@ class TestABannedContactAddress:
             await seed_a_bounced_application(database, client)
             await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL, bis=STANDING))
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await correct(database, client, "ansprechperson")
 
             return failure.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
@@ -2179,12 +2167,12 @@ class TestABannedContactAddress:
             await seed_an_application_a_seat_was_declined_on(database, client)
             await database[Collection.SPERRLISTE].insert_one(ban_document(RESEAT_PERSON["email"], bis=STANDING))
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
-            with pytest.raises(WriteRefusalException) as failure:
+            with pytest.raises(APIError) as failure:
                 await reseat(database, client, "ansprechperson")
 
             return failure.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before

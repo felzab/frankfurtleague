@@ -20,7 +20,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, gesperrte_hashes
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import BackendConfig, get_app_config
-from app.core.db import get_saisons_collection, get_sperrliste_collection
+from app.core.dependencies import SaisonsCollection, SperrlisteCollection
 
 
 class RunningSeason:
@@ -108,8 +108,8 @@ async def hashes_gesperrt(
 
 
 def get_ban_list(
-    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
-    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""

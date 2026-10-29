@@ -47,7 +47,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -1011,10 +1011,6 @@ def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSp
     return stored
 
 
-STATE_RESULT_ON_A_NON_EVENT = Code.STATE_RESULT_ON_A_NON_EVENT
-STATE_NO_SHOW_WITHOUT_TWO_SIDES = Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES
-
-
 def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     """Why this patch's SONDEREREIGNIS must be refused, or `None`.
 
@@ -1028,34 +1024,19 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     # them without saying so is how a real result disappears.
     if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
         return WriteRefusal(
-            error_code=STATE_RESULT_ON_A_NON_EVENT,
+            error_code=Code.STATE_RESULT_ON_A_NON_EVENT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            message=(
-                f"a fixture recorded as {payload.sonderereignis} awards nothing and cannot carry a result; clear the goals before setting it"
-            ),
         )
 
     # An unresolved slot has nobody who could have failed to appear, and the award below would have
     # no side to land on.
     if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
         return WriteRefusal(
-            error_code=STATE_NO_SHOW_WITHOUT_TWO_SIDES,
+            error_code=Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            message="a no-show names the side that stayed away; this fixture still holds an unresolved slot",
         )
 
     return None
-
-
-ELIGIBILITY_DISQUALIFIED = Code.ELIGIBILITY_DISQUALIFIED
-ELIGIBILITY_NO_MEMBERSHIP = Code.ELIGIBILITY_NO_MEMBERSHIP
-SPIELTAG_OCCUPIED = Code.SPIELTAG_OCCUPIED
-RESULT_SIDE_EMPTIED = Code.RESULT_SIDE_EMPTIED
-
-# Its own code beside `SPIELTAG_OCCUPIED`, because the repair differs and no side of this save named
-# the club: a resend answers the same, and the way out is the wiring the resolution followed or a
-# result that changes who advances.
-SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
 
 def find_eligibility_refusal(
@@ -1079,11 +1060,8 @@ def find_eligibility_refusal(
         # this very fixture, and refusing every save of it would trap that correction.
         if not stays and member is None:
             return WriteRefusal(
-                error_code=ELIGIBILITY_NO_MEMBERSHIP,
+                error_code=Code.ELIGIBILITY_NO_MEMBERSHIP,
                 status=HTTPStatus.CONFLICT,
-                # The id rather than a name: the payload carries none, and having no junction row is
-                # exactly why there is nowhere to read one from. A stored side names the club leaving.
-                message=f"{label}: team {submitted.team_id} has no saison_teams row for season {stored.saison_id}",
             )
 
         # Every input the predicate reads, not just the side: the date and the event both decide its
@@ -1095,50 +1073,18 @@ def find_eligibility_refusal(
         if member is None or member.departed_from is None:
             continue
 
-        in_the_gruppenphase = stored.saison_phase == "gruppenphase"
-
         absence_recorded = records_an_absence(side=label, sonderereignis=payload.sonderereignis, saison_phase=stored.saison_phase)
 
         if absence_recorded or (payload.datum is not None and payload.datum < member.departed_from):
             continue
 
-        played_on = payload.datum or "no date"
-
-        # Named because no admin finds the carve-out unprompted, and the knockout half names its
-        # precondition: `REQ-STATE-003` refuses a no-show while a slot is unresolved, so an admin
-        # told only to record one would be sent into a second refusal.
-        escape = (
-            "; cancel it or record the walkover first"
-            if in_the_gruppenphase
-            else "; record the walkover first, which needs both sides resolved"
-        )
-
         return WriteRefusal(
-            error_code=ELIGIBILITY_DISQUALIFIED,
+            error_code=Code.ELIGIBILITY_DISQUALIFIED,
             status=HTTPStatus.CONFLICT,
-            message=(
-                f"{label}: {member.name} left season {stored.saison_id} as of {member.departed_from} "
-                f"and this fixture is dated {played_on}{escape}"
-            ),
         )
 
     return None
 
-
-FIXTURE_OUTSIDE_SPIELTAG = Code.FIXTURE_OUTSIDE_SPIELTAG
-FIXTURE_DOUBLE_BOOKED = Code.FIXTURE_DOUBLE_BOOKED
-
-# Judged on a reference the save moves, or keeps on a fixture it reopens: `REQ-RETIRE-003` lets a venue
-# retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
-BOOKING_UNKNOWN_RESOURCE = Code.BOOKING_UNKNOWN_RESOURCE
-
-# Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
-# address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
-BOOKING_UNCONFIRMED_REFEREE = Code.BOOKING_UNCONFIRMED_REFEREE
-
-# A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
-# keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
-BOOKING_REFEREE_MOVED = Code.BOOKING_REFEREE_MOVED
 
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
@@ -1185,12 +1131,8 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None,
         return None
 
     return WriteRefusal(
-        error_code=FIXTURE_OUTSIDE_SPIELTAG,
+        error_code=Code.FIXTURE_OUTSIDE_SPIELTAG,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"the fixture is dated {datum} and its matchday runs {spieltag_beginn} to {spieltag_ende}; "
-            "move the fixture inside that span or widen the matchday"
-        ),
     )
 
 
@@ -1240,9 +1182,8 @@ def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload
         return None
 
     return WriteRefusal(
-        error_code=BOOKING_REFEREE_MOVED,
+        error_code=Code.BOOKING_REFEREE_MOVED,
         status=HTTPStatus.CONFLICT,
-        message="the fixture's referee changed since this save was composed; re-read the fixture and send the change again",
     )
 
 
@@ -1258,47 +1199,29 @@ def find_booking_refusal(
     stored = stored_in_slice(spiel_id, season)
     new = find_new_bookings(stored, payload, rules)
 
-    references = (
-        ("Spielort", new.spielort_id, resolved.ort),
-        ("Schiedsrichter", new.schiedsrichter_id, resolved.schiedsrichter),
-    )
+    references = ((new.spielort_id, resolved.ort), (new.schiedsrichter_id, resolved.schiedsrichter))
 
-    for resource, chosen, row in references:
+    for chosen, row in references:
         if chosen is None:
             continue
 
         if row is None:
             return WriteRefusal(
-                error_code=BOOKING_UNKNOWN_RESOURCE,
+                error_code=Code.BOOKING_UNKNOWN_RESOURCE,
                 status=HTTPStatus.CONFLICT,
-                message=f"{resource} {chosen} is not in the league's records; pick one the list offers",
             )
 
         if row.inactive_since is not None:
-            # The ghost is the one row here with no name to print, and it is never brought back, so
-            # the sentence offering a reactivation is for a named row alone
-            # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
-            named = f"the {resource} chosen" if row.name is None else f"{resource} {row.name}"
-            way_back = "pick another" if row.name is None else "reactivate it or pick another"
-
             return WriteRefusal(
-                error_code=BOOKING_UNKNOWN_RESOURCE,
+                error_code=Code.BOOKING_UNKNOWN_RESOURCE,
                 status=HTTPStatus.CONFLICT,
-                message=(
-                    f"{named} retired on {row.inactive_since} and takes no new fixture, nor one put back among those still to be played; "
-                    f"{way_back}"
-                ),
             )
 
     # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
     if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.bestaetigt:
         return WriteRefusal(
-            error_code=BOOKING_UNCONFIRMED_REFEREE,
+            error_code=Code.BOOKING_UNCONFIRMED_REFEREE,
             status=HTTPStatus.CONFLICT,
-            message=(
-                f"Schiedsrichter {new.schiedsrichter_id} has not confirmed their own entry yet, and takes no new fixture, nor one put back "
-                "among those still to be played; pick another or wait for the confirmation"
-            ),
         )
 
     return None
@@ -1431,12 +1354,8 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
     slot, gap = clash
 
     return WriteRefusal(
-        error_code=FIXTURE_DOUBLE_BOOKED,
+        error_code=Code.FIXTURE_DOUBLE_BOOKED,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} of season {slot.saison_id} at {slot.uhrzeit} on {slot.datum}, "
-            f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them"
-        ),
     )
 
 
@@ -1457,17 +1376,13 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
 
     stored = stored_in_slice(spiel_id, season)
 
-    for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
+    for submitted, stored_side in ((payload.team1, stored.team1), (payload.team2, stored.team2)):
         if submitted is not None or stored_side is None or stored_side.tore is None:
             continue
 
         return WriteRefusal(
-            error_code=RESULT_SIDE_EMPTIED,
+            error_code=Code.RESULT_SIDE_EMPTIED,
             status=HTTPStatus.CONFLICT,
-            message=(
-                f"{label}: {stored_side.name} carries {stored_side.tore} goal(s) on a played fixture and cannot be removed; "
-                "name a different team to correct it, or clear the result first"
-            ),
         )
 
     return None
@@ -1661,9 +1576,8 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
     if payload.team1 is not None and payload.team2 is not None and payload.team1.team_id == payload.team2.team_id:
         return SpieltagVerdict(
             refusal=WriteRefusal(
-                error_code=SPIELTAG_OCCUPIED,
+                error_code=Code.SPIELTAG_OCCUPIED,
                 status=HTTPStatus.CONFLICT,
-                message=f"one club is fielded on both sides of Spiel {stored.spiel_nr}",
             ),
             releases=[],
         )
@@ -1687,12 +1601,8 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
             if quelle is not None:
                 return SpieltagVerdict(
                     refusal=WriteRefusal(
-                        error_code=SPIELTAG_OCCUPIED,
+                        error_code=Code.SPIELTAG_OCCUPIED,
                         status=HTTPStatus.CONFLICT,
-                        message=(
-                            f"{occupant.name} already plays Spiel {other.spiel_nr} on this Spieltag, "
-                            f"on a side maintained by its quelle -- clear that quelle to move the team"
-                        ),
                     ),
                     releases=[],
                 )
@@ -1745,13 +1655,8 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
         return None
 
     return WriteRefusal(
-        error_code=SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
+        error_code=Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"resolving the bracket would field {appearances[0].team_name} on Spiele "
-            f"{', '.join(str(fault.spiel_nr) for fault in appearances)}, which share a Spieltag; "
-            "clear the side that was set by hand, or wire the other slot to a different outcome"
-        ),
     )
 
 
@@ -1763,21 +1668,10 @@ def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
     return ("gruppe", quelle.gruppe, quelle.platz)
 
 
-WIRING_UNSUPPORTED = Code.WIRING_UNSUPPORTED
-
-# Its own code because the repair differs from `_wiring_refusal`'s: nothing moves a fixture's round,
-# so a resend answers the same. The way out is a different source on that side, or a hand-set team.
-WIRING_SEED_PAST_THE_OPENING_ROUND = Code.WIRING_SEED_PAST_THE_OPENING_ROUND
-
-# Its own code again: the picker offers only the season's groups, so this arriving means the season
-# was redrawn narrower under the open form, and the repair is a reload rather than another source.
-WIRING_GRUPPE_NOT_RUN = Code.WIRING_GRUPPE_NOT_RUN
-
-
-def _wiring_refusal(message: str) -> WriteRefusal:
+def _wiring_refusal() -> WriteRefusal:
     """One code for every shape with the same repair -- the season moved under the page, so reload."""
 
-    return WriteRefusal(error_code=WIRING_UNSUPPORTED, status=HTTPStatus.CONFLICT, message=message)
+    return WriteRefusal(error_code=Code.WIRING_UNSUPPORTED, status=HTTPStatus.CONFLICT)
 
 
 def find_wiring_refusal(
@@ -1814,51 +1708,41 @@ def find_wiring_refusal(
 
     opening_round_rank = _opening_round_rank(season)
 
-    for label, _, quelle, stored_quelle in sides:
+    for _, _, quelle, stored_quelle in sides:
         # The payload replaces the fixture wholesale, so a rule reading it alone would latch every
         # later edit of a fixture already wired this way.
         if quelle is None or quelle == stored_quelle:
             continue
 
         if stored.saison_phase == "gruppenphase":
-            return _wiring_refusal(f"{label}_quelle: a Gruppenphase fixture carries no wiring; its sides are drawn by the schedule")
+            return _wiring_refusal()
 
         if isinstance(quelle, FLSpielQuelleSpiel):
             source = by_nr.get(quelle.spiel_nr)
             if source is None:
-                return _wiring_refusal(f"{label}_quelle names Spiel {quelle.spiel_nr}, and this season has no such match")
+                return _wiring_refusal()
             if source.saison_phase == "gruppenphase":
-                return _wiring_refusal(
-                    f"{label}_quelle names Spiel {quelle.spiel_nr}, a Gruppenphase match; a bracket slot is never fed by one"
-                )
+                return _wiring_refusal()
             if PHASE_RANK[source.saison_phase] >= PHASE_RANK[stored.saison_phase]:
-                return _wiring_refusal(
-                    f"{label}_quelle names Spiel {quelle.spiel_nr} ({source.saison_phase}), "
-                    f"which is not played before this fixture ({stored.saison_phase})"
-                )
+                return _wiring_refusal()
 
         # Before the round check, as a dangling `spiel_nr` is judged before its phase: whether the
         # season runs the group at all comes first, whichever round the slot is in.
         if isinstance(quelle, FLSpielQuelleGruppe) and quelle.gruppe not in offered_gruppen(number_of_groups):
             return WriteRefusal(
-                error_code=WIRING_GRUPPE_NOT_RUN,
+                error_code=Code.WIRING_GRUPPE_NOT_RUN,
                 status=HTTPStatus.CONFLICT,
-                message=f"{label}_quelle names Gruppe {quelle.gruppe}, a group this season does not run",
             )
 
         if isinstance(quelle, FLSpielQuelleGruppe) and opening_round_rank is not None and opening_round_rank < PHASE_RANK[stored.saison_phase]:
             return WriteRefusal(
-                error_code=WIRING_SEED_PAST_THE_OPENING_ROUND,
+                error_code=Code.WIRING_SEED_PAST_THE_OPENING_ROUND,
                 status=HTTPStatus.CONFLICT,
-                message=(
-                    f"{label}_quelle seeds from a group placing, and only the round this season's bracket opens on is fed by one; "
-                    f"a {stored.saison_phase} slot is fed by an earlier match"
-                ),
             )
 
         key = _quelle_key(quelle)
         if key in used:
-            return _wiring_refusal(f"{label}_quelle: this source already feeds another slot of the season")
+            return _wiring_refusal()
         used.add(key)
 
     for label, team, quelle, _ in sides:
@@ -1869,6 +1753,6 @@ def find_wiring_refusal(
         stored_id = stored_team.team_id if stored_team is not None else None
         submitted_id = team.team_id if team is not None else None
         if stored_id != submitted_id:
-            return _wiring_refusal(f"{label} is maintained by its quelle and cannot be set by hand; clear the quelle to take the slot over")
+            return _wiring_refusal()
 
     return None

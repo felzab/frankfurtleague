@@ -435,7 +435,6 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [
             {
                 "saison_id": PAST_SAISON,
@@ -477,7 +476,6 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],
@@ -497,7 +495,6 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],
@@ -509,8 +506,9 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
     }
 
 
-# Every collection a person's records sit in, each read by the address alone.
-ADDRESS_READS = frozenset(str(name) for name in (Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER))
+# Every collection a person's records sit in, each read by the address alone, but the referees', whose
+# few rows a scan answers.
+ADDRESS_READS = frozenset(str(name) for name in (Collection.SAISON_TEAMS, Collection.SPIELER))
 GATE_READS = frozenset(str(name) for name in (Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN))
 
 
@@ -549,7 +547,7 @@ class TestEveryAddressReadWalksAnIndex:
         # The premise: a read the handlers never sent would pass the next line vacuously.
         assert {collection for collection, _ in plans} == ADDRESS_READS | GATE_READS, plans
         assert [(collection, plan) for collection, plan in plans if "IXSCAN" not in plan or "COLLSCAN" in plan] == []
-        # The lookup's, on an address key: the referee read's id term alone would walk the `_id` index end to end. The
+        # The lookup's, on an address key: a read's id term alone would walk the `_id` index end to end. The
         # gate's status term may take the planner to the status index instead, which a sign-in attempt can afford.
         assert [(collection, plan) for collection, plan in plans if collection in ADDRESS_READS and "email" not in plan] == []
 

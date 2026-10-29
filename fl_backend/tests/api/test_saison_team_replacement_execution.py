@@ -12,16 +12,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
-from app.api.teams.services import (
-    CLUB_RETIRED,
-    REPLACE_INCOMING_ALREADY_ENTERED,
-    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
-    REPLACE_OUTGOING_HAS_A_RECORD,
-    REPLACE_SAISON_FINISHED,
-)
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bestaetigte_kenntnisnahme,
@@ -36,10 +30,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_replacement_test")
-
-# Its own name rather than a second schema under `DATABASE_NAME`: the constrained and unconstrained
-# cases enforce different things, and a shared name rebuilds whichever the last call did not ask for.
-UNCONSTRAINED_DATABASE_NAME = worker_database("fl_replacement_unconstrained_test")
 
 SAISON_ID = "2026"
 PRIOR_SAISON_ID = "2025"
@@ -251,19 +241,11 @@ def on_a_seeded_season(
     spiele: Sequence[dict[str, Any]] | None = None,
     saison_status: str = "active",
     junctions: Sequence[dict[str, Any]] | None = None,
-    constrained: bool = True,
 ) -> Any:
-    """`active` by default: a mid-season withdrawal is what this endpoint is for.
-
-    The SHIPPED validators too, `constrained=False` being the case whose subject is a row they forbid.
-    """
-
-    # `spiele` by hand where no validator is installed: a transaction cannot create a collection.
-    collections = () if constrained else (Collection.SPIELE,)
-    database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
+    """`active` by default: a mid-season withdrawal is what this endpoint is for."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
                 [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
@@ -352,7 +334,7 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(WriteRefusalException) as refusal:
+    with pytest.raises(APIError) as refusal:
         await call_replace(database, client, incoming_team_id=incoming)
 
     return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)
@@ -584,14 +566,8 @@ class TestTheOutgoingClubsSquadIsRetired:
                 await call_replace(database, client)
             return await squad_now(database)
 
-        # UNCONSTRAINED, alone in this file: `Z` is no group the shipped validator admits, and the
-        # defence under test is the endpoint's own guard against a stored one that got past it.
-        squad = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")],
-            constrained=False,
-        )
+        # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
+        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 
@@ -675,7 +651,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 
@@ -703,7 +679,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, tore=(1, None))],
         )
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
 
     def test_a_stored_shoot_out_refuses_it(self, mongo_replica_set_url: str):
@@ -713,7 +689,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, _refused, spiele=[decided])
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
 
 
@@ -723,7 +699,7 @@ class TestTheSeasonGateOnTheRoute:
 
         code, row, spiele = on_a_seeded_season(mongo_replica_set_url, _refused, saison_status="past")
 
-        assert code == REPLACE_SAISON_FINISHED
+        assert code == Code.REPLACE_SAISON_FINISHED
         assert row is not None
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
@@ -744,7 +720,7 @@ class TestWhoMayArrive:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=ENTERED))
 
-        assert code == REPLACE_INCOMING_ALREADY_ENTERED
+        assert code == Code.REPLACE_INCOMING_ALREADY_ENTERED
         assert row is not None
 
     def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
@@ -752,7 +728,7 @@ class TestWhoMayArrive:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert code == Code.REPLACE_ONE_CLUB_ON_BOTH_ENDS
         assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
@@ -760,13 +736,13 @@ class TestWhoMayArrive:
 
         code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RETIRED))
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
 
     def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, incoming_team_id=ABSENT)
             return await row_of(database, WITHDRAWN)
 
@@ -780,7 +756,7 @@ class TestWhatIsAddressed:
         """A replacement addresses a junction row, not a club: `RETIRED` holds a `teams` document and no row here."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, team_id=RETIRED)
             return await spiele_now(database)
 
@@ -790,7 +766,7 @@ class TestWhatIsAddressed:
 
     def test_an_unknown_season_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_replace(database, client, saison_id="1999")
             return await row_of(database, WITHDRAWN)
 

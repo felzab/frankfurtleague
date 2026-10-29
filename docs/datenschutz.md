@@ -98,8 +98,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A pupil's birthdate is required, and the pupil's own registration is what supplies it.** Ruled
   2026-09-08: required from the sign-up flow on, so that nobody invents the one field whose purpose
   is the age floor. The admission carries the date the pupil typed onto their record, and the
-  person's validator requires the key, which only the erased pupils' sentinel holds null
-  (`fl_backend/app/core/constraints.py`). **What the field is FOR is checking an age when a question
+  person's record model requires the key, which only the erased pupils' sentinel holds null
+  (`fl_backend/app/api/spieler/schemas.py :: FLSpielerRecord`). **What the field is FOR is checking an age when a question
   about one arises.** On a pupil's own row it gates no read and no publication and nothing
   judges it; the date a pupil types on their confirmation page is judged against the floor before
   anything is written (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`),
@@ -221,7 +221,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 - **There is no guardian workflow.** No code composes a consent on a guardian's word: a pupil's own
   registration is what records one, and the record holds no field naming anyone else as its source
-  (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG`).
+  (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
@@ -230,7 +230,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   record id, which would link every season's row of a pupil whose name is withheld
   (`:: READ-PUPIL-005`). **The gate fails closed**, so a
   record nobody confirmed withholds the name rather than publishing it — the state
-  `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
+  `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` admits by taking a null `bestaetigt_am`, and
   the one a scope read on its own would publish. The board's full names in the Impressum stand
   outside this rule, published because § 18 (1) MStV and, where it reaches this site, § 5 DDG
   require them (`fl_frontend/src/core/brand.ts :: VORSTAND`, [section 11](#11-open-and-owed-a-decision)).
@@ -782,8 +782,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A pending address change stands until it takes effect, its new mailbox declines it, the
   address on file stops it, a later change of the address replaces it, an administrator discards it,
-  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**
-  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the address
+  the person is erased with it or the new mailbox's holder's own erasure ends it alone, and it ends within the hour after the step it waits on lapses**: the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
   (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN`) and a re-send
   restarts it, the stop link lasting as long as the change stands; a change an administrator
@@ -1057,7 +1056,6 @@ Each row cites where the decision now lives.
 
 | Entry | Decision                                                                                                                                                                                                            |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| —     | Narrow the refusal's sentence to the window in which the undraw it recommends is possible (`fl_backend/app/core/domain.py :: RULES` on `REQ-RULES-011`)                                                             |
 | —     | The player editor shows the stored consent, read-only; it never gates publication (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormEinwilligungSection.tsx :: FormEinwilligungSection`) |
 | —     | The toast clause stands in `docs/decisions.md`; a toast's appearance is built in `fl_frontend/src/core/providers/AppToaster.tsx`                                                                                    |
 | —     | Announcing that a season rollover is due stays deferred until one is actually missed                                                                                                                                |

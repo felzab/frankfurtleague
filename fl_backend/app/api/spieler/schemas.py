@@ -117,21 +117,16 @@ class FLSpielerPublic(_SpielerPerson):
     position: FLSpielerPosition | None = None
 
 
-class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
-    """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
-
-    `fl_backend/tests/core/test_constraints.py` mirrors the `spieler` validator against it, and
-    `GET /spieler` answers with `FLSpielerPublic` instead.
-    """
+class FLSpielerRecord(_SpielerPerson):
+    """The person as `spieler` stores it, with none of the squad row's fields."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # Widened on this declared shape alone, as the validator is, for the erased pupils' sentinel
+    # Widened on this stored shape alone, for the erased pupils' sentinel
     # (`app/core/sentinels.py :: GHOST_SPIELER_ID`). Every served model keeps the forename required:
     # no read serves the sentinel, so a null reaching one is that exclusion failing.
     vorname: CustomNonEmptyString | None
 
-    ist_nachnominiert: bool
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
@@ -144,6 +139,15 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
+
+
+class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
+    """The person as STORED, flattened against one season. A declared shape: NO endpoint returns it.
+
+    `GET /spieler` answers with `FLSpielerPublic` instead.
+    """
+
+    ist_nachnominiert: bool
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
@@ -165,6 +169,13 @@ class FLSaisonSpielerRow(BaseModel):
     nummer: str | None
     # The day this SQUAD ROW was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
+
+
+class FLSaisonSpielerRecord(FLSaisonSpielerRow):
+    """A squad row as `saison_spieler` stores it: an admitted registration's submission key and digest, which no read serves."""
+
+    idempotenz_schluessel: str | None = None
+    idempotenz_fingerabdruck: str | None = None
 
 
 class FLSpielerFilterParams(BaseModel):

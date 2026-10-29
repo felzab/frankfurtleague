@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";

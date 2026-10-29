@@ -65,6 +65,7 @@ from app.api.spielbestaetigungen.services import (
     void_notice_held,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -76,7 +77,6 @@ from app.core.dependencies import (
     SpieleCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
@@ -348,7 +348,6 @@ async def get_spiel_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSp
     "/{saison_id}",
     response_model=FLSpielbestaetigungSweepResponse,
     summary="Run one season's fixture confirmation pass",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_spielbestaetigungen(
     saison_id: str,
@@ -940,18 +939,14 @@ async def sweep_spielbestaetigungen(
                 raise
             # The label, as `app/core/transactions.py :: _log_stopped` reads it: a lost answer may hide a commit.
             if isinstance(stop, PyMongoError) and stop.has_error_label(UNKNOWN_COMMIT_RESULT):
+                # Those rows may have been written with nobody told; the call answers what else committed.
                 fl_logger.warning(
-                    f"The {clock} clock's commit went unanswered after the call committed messages it owes: {may_stand()} may have "
-                    "been written with nobody told, the call answers what else committed, and the rest stay due",
-                    extra={"error_code": UNKNOWN_OUTCOME},
+                    "spielbestaetigungen.clock_commit_unanswered",
+                    extra={"error_code": Code.UNKNOWN_OUTCOME, "clock": clock, "may_stand": may_stand()},
                 )
                 return None
             code, diagnosis = diagnosis_of(stop)
-            fl_logger.warning(
-                f"The {clock} clock stopped at a failure ({diagnosis}) after the call committed messages it owes: "
-                "the call answers what committed, and the rest stay due",
-                extra={"error_code": code},
-            )
+            fl_logger.warning("spielbestaetigungen.clock_stopped", extra={"error_code": code, "clock": clock, "diagnosis": diagnosis})
             return None
 
     def taken_by(batch: Batch, noun: str) -> Callable[[], str]:
@@ -1054,8 +1049,8 @@ async def sweep_spielbestaetigungen(
     # naming the row would tie its club to the ban for as long as the log is kept.
     if mint_share.withheld or reminder_share.withheld:
         fl_logger.info(
-            f"Links withheld from barred addresses in season {saison_id}: {mint_share.withheld} seat(s) unminted, "
-            f"{reminder_share.withheld} seat(s) unreminded"
+            "spielbestaetigungen.links_withheld",
+            extra={"saison_id": saison_id, "unminted": mint_share.withheld, "unreminded": reminder_share.withheld},
         )
 
     return FLSpielbestaetigungSweepResponse(
@@ -1079,7 +1074,6 @@ async def sweep_spielbestaetigungen(
     "/{saison_id}/angefragt",
     response_model=FLSpielbestaetigungSweepAngefragtResponse,
     summary="Stamp the confirmations whose first message went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def angefragt_spielbestaetigungen(
     saison_id: str,
@@ -1142,7 +1136,6 @@ async def angefragt_spielbestaetigungen(
     "/{saison_id}/mitgeteilt",
     response_model=FLSpielbestaetigungSweepMitgeteiltResponse,
     summary="Stamp the confirmations whose notice went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def mitgeteilt_spielbestaetigungen(
     saison_id: str,

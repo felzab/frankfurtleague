@@ -5,7 +5,7 @@ from bson import ObjectId
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
-from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, SignedActor
+from tests.actor_tokens import SignedActor
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -68,7 +68,6 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
-        actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
     )
 
 

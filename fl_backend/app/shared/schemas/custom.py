@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from datetime import date
 from typing import Annotated, Any
 from urllib.parse import urlsplit
@@ -14,7 +15,7 @@ from pydantic import (
     SerializationInfo,
     StringConstraints,
 )
-from pydantic.json_schema import JsonSchemaValue
+from pydantic.json_schema import JsonSchemaValue, WithJsonSchema
 from pydantic_core import CoreSchema, core_schema
 
 from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
@@ -110,16 +111,53 @@ def parse_empty_string_to_none(value: Any) -> Any:
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
 
+# What a blank input is before `parse_empty_string_to_none` reads it as absent.
+BLANK_PATTERN = r"^\s*$"
+
+
+@dataclass(frozen=True)
+class AdmitsOnInput:
+    """The request-side schema also admits what a before-validator folds away.
+
+    The document describes a value after its fold, and a client generated from it refuses what the
+    backend accepts unless the request side says so; the response side keeps the folded shape.
+    """
+
+    admitted: JsonSchemaValue
+
+    def __get_pydantic_json_schema__(self, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        schema = handler(core_schema)
+        if handler.mode != "validation":
+            return schema
+
+        # Flattened where the type is already a union, the optional ones being one.
+        alternatives = schema["anyOf"] if set(schema) == {"anyOf"} else [schema]
+
+        return {"anyOf": [*alternatives, self.admitted]}
+
+
+BLANK_ADMITTED = AdmitsOnInput({"type": "string", "pattern": BLANK_PATTERN})
+
+
 def fold_shorthand(value: Any) -> Any:
     return value.strip().upper() if isinstance(value, str) else value
 
 
 SHORTHAND_PATTERN = rf"^[A-Z]{{{TEAM_SHORTHAND_LENGTH}}}$"
 
+# What the fold turns into `SHORTHAND_PATTERN`: either case, and padding the strip takes off.
+SHORTHAND_INPUT_PATTERN = rf"^\s*[A-Za-z]{{{TEAM_SHORTHAND_LENGTH}}}\s*$"
+
 # Folded before the pattern judges it, on every model carrying a club's code: `uniq_shorthand` and
 # every comparison of codes are byte for byte, so `abc` and `ABC` would otherwise be two clubs. The
-# fold sits outermost, after the constraint, so it runs first and the document still publishes the pattern.
-CustomShorthand = Annotated[str, StringConstraints(pattern=SHORTHAND_PATTERN), BeforeValidator(fold_shorthand)]
+# fold sits outermost, after the constraint, so it runs first; the request side publishes what the
+# fold accepts, the response side the folded code.
+CustomShorthand = Annotated[
+    str,
+    StringConstraints(pattern=SHORTHAND_PATTERN),
+    BeforeValidator(fold_shorthand),
+    WithJsonSchema({"type": "string", "pattern": SHORTHAND_INPUT_PATTERN}, mode="validation"),
+]
 
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
@@ -179,13 +217,14 @@ def refuse_reversed_span(*, start: str, end: str, start_label: str, end_label: s
         raise ValueError(f"{end_label} darf nicht vor {start_label} liegen.")
 
 
-CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
-CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]
+CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]
+CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none), BLANK_ADMITTED]
 
 # Empty string coerces to None first, so "" is stored as absent rather than failing the pattern.
 CustomOptionalPhoneString = Annotated[
     Annotated[str, StringConstraints(pattern=PHONE_REGEX)] | None,
     BeforeValidator(parse_empty_string_to_none),
+    BLANK_ADMITTED,
 ]
 
 

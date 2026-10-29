@@ -23,9 +23,10 @@ from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, patch_s
 from app.api.schiedsrichter.bestaetigung_router import post_bestaetigung
 from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
-from app.api.schiedsrichter.services import BESTAETIGUNG_FELD, SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -168,7 +169,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refused:
+    with pytest.raises(APIError) as refused:
         await call
 
     return refused.value.error_code
@@ -188,7 +189,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+        assert code == Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
         assert row == before
 
     def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):

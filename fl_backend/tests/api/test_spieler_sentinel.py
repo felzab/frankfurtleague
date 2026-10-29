@@ -14,9 +14,8 @@ from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
-from app.core.constraints import NAMELESS_PERSON_RULE, report_nameless_persons
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
 from tests.config import ADMINISTRATORS
@@ -38,12 +37,9 @@ RETIRED_ON = "2026-02-01"
 
 SIGN_IN = "quillhilde@example.com"
 
-# Seeded by the cases needing a row the `$in` below does not name, or a person a paste emptied.
+# Seeded by the cases needing a row the `$in` below does not name.
 OTHER_PERSON_OID = ObjectId("6890a1b2c3d4e5f608310003")
 REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f608310004"), ObjectId("6890a1b2c3d4e5f608310005"))
-NAMELESS_OID = ObjectId("6890a1b2c3d4e5f608310006")
-RECORDLESS_OID = ObjectId("6890a1b2c3d4e5f608310007")
-UNDATED_OID = ObjectId("6890a1b2c3d4e5f608310008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -122,7 +118,7 @@ def test_every_route_by_id_answers_not_found_for_the_sentinel_and_writes_nothing
     """Each route composes the exclusion itself, so one missing it is the defect no other case shows."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, route, GHOST_SPIELER_ID)
 
         return await stored(database, GHOST_SPIELER_ID), await database[Collection.SAISON_SPIELER].count_documents({})
@@ -147,7 +143,7 @@ def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
     """A squad row naming nobody resolves to no person on any read of the squad, and nothing would ever remove it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, "squad entry", ObjectId())
 
         return await database[Collection.SAISON_SPIELER].count_documents({})
@@ -225,30 +221,6 @@ def test_each_exclusion_keeps_the_callers_own_id_term(
         return [row["_id"] async for row in database[collection].find(exclusion({"_id": {"$in": named}})).sort("_id", 1)]
 
     assert on_a_league(mongo_replica_set_url, body) == found
-
-
-def test_the_constraints_check_names_a_nameless_person_and_never_the_sentinel(mongo_replica_set_url: str):
-    """`python -m app.core.constraints --check` reads after a paste; the sentinel holds both nulls by design and is no offender.
-
-    The clean read comes first, over a league holding the sentinel: a report counting it would fail there.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        clean = await report_nameless_persons(database)
-        await database[Collection.SPIELER].insert_many(
-            [
-                {**documents.spieler_document(NAMELESS_OID, "Lysander", "Quell"), "vorname": None},
-                documents.spieler_document(RECORDLESS_OID, "Ottilie", "Brandt", einwilligung=None),
-                documents.spieler_document(UNDATED_OID, "Hartwig", "Kranz", geburtsdatum=None),
-            ]
-        )
-
-        return clean, await report_nameless_persons(database)
-
-    clean, found = on_a_league(mongo_replica_set_url, body)
-
-    assert (clean.rule, clean.groups, clean.examples) == (NAMELESS_PERSON_RULE, 0, [])
-    assert (found.groups, sorted(found.examples)) == (3, sorted([NAMELESS_OID, RECORDLESS_OID, UNDATED_OID]))
 
 
 def test_the_sign_in_lookup_never_resolves_the_sentinel_whatever_a_hand_edit_gives_it(mongo_replica_set_url: str):

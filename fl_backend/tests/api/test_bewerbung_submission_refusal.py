@@ -32,7 +32,7 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
     normalise_telefon,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -949,7 +949,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
 
-        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}
+        assert set(response.model_dump()) == {"saison_id", "vergeben"}
 
     @pytest.mark.parametrize(
         "bewerbung",
@@ -965,7 +965,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         collection = _DistinctCollection(["rot"])
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(_colours_for(collection, bewerbung=bewerbung))
 
         assert collection.key == "the read never ran"
@@ -973,7 +973,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
     def test_a_season_that_has_ended_never_reaches_the_junction_while_its_window_still_runs(self):
         collection = _DistinctCollection(["rot"])
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW), status="past"))
 
         assert collection.key == "the read never ran"

@@ -130,7 +130,7 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
         season = season_of(shape)
 
         refused = [
-            (raw["spiel_nr"], refusal.message)
+            (raw["spiel_nr"], refusal.error_code)
             for raw in drawn(shape).spiele
             if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_groups=groups))
             is not None

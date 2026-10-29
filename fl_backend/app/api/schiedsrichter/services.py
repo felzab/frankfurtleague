@@ -5,7 +5,7 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
@@ -20,9 +20,6 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
-
-# A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
-REFEREE_STILL_ASSIGNED = Code.REFEREE_STILL_ASSIGNED
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -148,34 +145,15 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     if not upcoming_spiel_nrs:
         return None
 
-    named = ", ".join(str(nr) for nr in upcoming_spiel_nrs[:5])
-    rest = f" and {len(upcoming_spiel_nrs) - 5} more" if len(upcoming_spiel_nrs) > 5 else ""
-
     return WriteRefusal(
-        error_code=REFEREE_STILL_ASSIGNED,
+        error_code=Code.REFEREE_STILL_ASSIGNED,
         status=HTTPStatus.CONFLICT,
-        message=(
-            f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are assigned to them (spiel_nr {named}{rest}); "
-            "reassign or cancel those fixtures first"
-        ),
     )
 
 
 # --- The CONFIRMATION LINK. Every predicate below reads a missing `bestaetigung` block as "nothing
 # was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
 
-SCHIEDSRICHTER_RETIRED = Code.SCHIEDSRICHTER_RETIRED
-SCHIEDSRICHTER_TOKEN_UNKNOWN = Code.SCHIEDSRICHTER_TOKEN_UNKNOWN
-SCHIEDSRICHTER_TOKEN_EXPIRED = Code.SCHIEDSRICHTER_TOKEN_EXPIRED
-SCHIEDSRICHTER_ALREADY_CONFIRMED = Code.SCHIEDSRICHTER_ALREADY_CONFIRMED
-SCHIEDSRICHTER_ALTER = Code.SCHIEDSRICHTER_ALTER
-SCHIEDSRICHTER_KEINE_ADRESSE = Code.SCHIEDSRICHTER_KEINE_ADRESSE
-# Its own code and never `app/api/sperrliste/services.py :: SPERRLISTE_ADRESSE_GESPERRT`, which a
-# client already maps to a second ban of one address: two conditions under one code are two a
-# frontend cannot part.
-SCHIEDSRICHTER_ADRESSE_GESPERRT = Code.SCHIEDSRICHTER_ADRESSE_GESPERRT
-SCHIEDSRICHTER_MEDIEN_ALTER = Code.SCHIEDSRICHTER_MEDIEN_ALTER
-SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = Code.SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -296,9 +274,8 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_TOKEN_UNKNOWN,
+        error_code=Code.SCHIEDSRICHTER_TOKEN_UNKNOWN,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 
 
@@ -309,9 +286,8 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
+        error_code=Code.SCHIEDSRICHTER_TOKEN_EXPIRED,
         status=HTTPStatus.GONE,
-        message="this link has expired; the administration can send a fresh one",
     )
 
 
@@ -323,9 +299,8 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
+        error_code=Code.SCHIEDSRICHTER_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
-        message="this entry has already been confirmed; an answer is given once",
     )
 
 
@@ -338,9 +313,8 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     # 403 where the editor's `-007` is 409: this caller is the barred person, holding the mailbox the
     # token was sent to, where the editor's is an administrator writing about an entry.
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+        error_code=Code.SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -351,18 +325,16 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
 
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
-            error_code=SCHIEDSRICHTER_ALTER,
+            error_code=Code.SCHIEDSRICHTER_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
-            error_code=SCHIEDSRICHTER_ALTER,
+            error_code=Code.SCHIEDSRICHTER_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
-            message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
     return None
@@ -379,10 +351,9 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
+        error_code=Code.SCHIEDSRICHTER_MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
 
@@ -397,9 +368,8 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_RETIRED,
+        error_code=Code.SCHIEDSRICHTER_RETIRED,
         status=HTTPStatus.CONFLICT,
-        message="this referee is retired and takes no new fixtures, so there is nothing left to collect a consent for; reactivate them first",
     )
 
 
@@ -421,9 +391,8 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
             return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_KEINE_ADRESSE,
+        error_code=Code.SCHIEDSRICHTER_KEINE_ADRESSE,
         status=HTTPStatus.CONFLICT,
-        message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
 
@@ -434,9 +403,8 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ADRESSE_GESPERRT,
+        error_code=Code.SCHIEDSRICHTER_ADRESSE_GESPERRT,
         status=HTTPStatus.CONFLICT,
-        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
 
 
@@ -459,9 +427,6 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     return _address_moves(stored=stored, payload_email=payload_email)
 
 
-SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
-
-
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
     """`REQ-SCHIEDSRICHTER-011`: a save moving a CONFIRMED referee's address, on which their sign-in is keyed: only an address change moves it.
 
@@ -472,9 +437,8 @@ def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email
         return None
 
     return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL,
+        error_code=Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL,
         status=HTTPStatus.CONFLICT,
-        message="this referee has confirmed their entry, so their address moves only through an address change; keep the stored one here",
     )
 
 

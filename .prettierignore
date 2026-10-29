@@ -22,7 +22,6 @@ next-env.d.ts
 # Generated: formatting one only guarantees it drifts again on the next regeneration, and the
 # reformat would bury the change its diff carries.
 fl_backend/openapi.json
-fl_backend/einwilligung.json
 fl_frontend/eslint-suppressions.json
 fl_frontend/src/core/generated/
 pnpm-lock.yaml

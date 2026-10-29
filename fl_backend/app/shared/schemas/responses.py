@@ -1,13 +1,18 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.codes import Code
 
 
-# Session 2: the sweep moves every response model onto BaseModel and deletes this.
 class BaseAPIResponse(BaseModel):
-    pass
+    """Every response model's base, so a field the answer always carries is published as required.
+
+    Pydantic publishes a field with a default as optional unless this is set, and a client generated
+    from the document would then guard against an absence the answer never has.
+    """
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
 # The failure bodies as published, never as built: `app/core/exception_handlers.py :: error_response`

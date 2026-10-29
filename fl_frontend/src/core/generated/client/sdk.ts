@@ -5752,7 +5752,7 @@ export const getSpielerPatchSaisonSpielerUrl = (spielerId: string,
  * Update a player's squad entry for that season.
  *
  * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+ * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
  * (`REQ-SQUAD-004`).
  * @summary Update a squad entry
  */

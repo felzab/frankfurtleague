@@ -3,9 +3,10 @@ import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated, Final, get_args
+from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
 from fastapi import Depends, Request, Security
@@ -17,40 +18,19 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.crud import anchor_the_actors_grant, live_unbarred_grant_in, live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, get_ban_list
-from app.core.actor_token import (
-    ACTOR_TOKEN_MAX_LENGTH,
-    COMPACT_JWS_PATTERN,
-    PASSKEY_FACTOR,
-    ActorClaims,
-    ActorTokenKey,
-    ActorTokenRefusal,
-    verify_actor_token,
-)
+from app.core import clock
 from app.core.adressanker import anchor_the_addresses
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
-from app.core.db import get_berechtigungen_collection
-from app.core.exceptions import (
-    ActorConfirmationRequiredException,
-    ActorForbiddenException,
-    ActorTokenRefusedException,
-    APIError,
-    MalformedRequestException,
-)
+from app.core.dependencies import BerechtigungenCollection
+from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.core.transactions import ActorJudge, actor_judge_var
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES, STEP_UP_WINDOW_HOURS
+from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
-
-# Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
-# than a copy a rename leaves behind.
-MISSING_TOKEN = Code.MISSING_TOKEN
-WRONG_BASE_KEY = Code.WRONG_BASE_KEY
-WRONG_SYSTEM_KEY = Code.WRONG_SYSTEM_KEY
-WRONG_ADMIN_KEY = Code.WRONG_ADMIN_KEY
 
 # RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
 BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
@@ -77,7 +57,7 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
         if credentials is None:
-            raise APIError(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN, headers=BEARER_CHALLENGE)
+            raise APIError(HTTPStatus.UNAUTHORIZED, Code.MISSING_TOKEN, headers=BEARER_CHALLENGE)
         if not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
             raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
         return credentials.credentials
@@ -87,9 +67,9 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
 
 # Module-level objects, so a router declares the same callable every time and a test can compare
 # guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=WRONG_BASE_KEY, scheme_name="BaseKey")
-verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=WRONG_SYSTEM_KEY, scheme_name="SystemKey")
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=WRONG_ADMIN_KEY, scheme_name="AdminKey")
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.WRONG_BASE_KEY, scheme_name="BaseKey")
+verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=Code.WRONG_SYSTEM_KEY, scheme_name="SystemKey")
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.WRONG_ADMIN_KEY, scheme_name="AdminKey")
 
 
 def get_actor_email() -> str:
@@ -108,62 +88,81 @@ def get_actor_email() -> str:
     return actor.email
 
 
-ACTOR_HEADER = "X-FL-Actor"
+# The session a request acts for, as the frontend's guard read it. Believed because only the
+# frontend's server holds the admin key every route reading them takes, and only the private network
+# reaches this service; a base or system route never reads them.
+ACTOR_HEADER: Final = "X-FL-Actor"
+AUTH_TIME_HEADER: Final = "X-FL-Auth-Time"
+AUTH_FACTOR_HEADER: Final = "X-FL-Auth-Factor"
 
-MISSING_ACTOR = Code.MISSING_ACTOR
-ACTOR_NOT_ADMIN = Code.ACTOR_NOT_ADMIN
-ACTOR_TOKEN_REFUSED = Code.ACTOR_TOKEN_REFUSED
-PERSON_BARRED = Code.PERSON_BARRED
-CONFIRMATION_REQUIRED = Code.CONFIRMATION_REQUIRED
-
-
-def get_actor_token_key(request: Request) -> ActorTokenKey:
-    """The key the application was built with (`app/main.py :: create_app`), its `kid` computed there once."""
-
-    return request.app.state.actor_token_key
+# The two factors the frontend's sessions are made by (`fl_frontend/src/core/auth.ts :: SESSION_FACTOR_BY_PATH`).
+Factor = Literal["passkey", "code"]
+FACTORS: Final[tuple[Factor, ...]] = get_args(Factor)
+PASSKEY_FACTOR: Final = "passkey"
 
 
-def get_actor_token(request: Request) -> str:
-    """The header's value where it is shaped like a signed token at all; a missing or unshaped one names nobody, and answers 400."""
-
-    token = request.headers.get(ACTOR_HEADER)
-    if token is None or len(token) > ACTOR_TOKEN_MAX_LENGTH or COMPACT_JWS_PATTERN.fullmatch(token) is None:
-        raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"the request carries no {ACTOR_HEADER} shaped like a signed token")
-    return token
+# The actor's own scheme on every 401 the session's facts earn, beside the tier key's `Bearer`.
+ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE}
 
 
-def verify_admin_actor(
-    token: Annotated[str, Depends(get_actor_token)], key: Annotated[ActorTokenKey, Depends(get_actor_token_key)]
-) -> ActorClaims:
-    """The administrator an admin-tier request is attributed to, as the frontend's admin guard signed it.
+@dataclass(frozen=True, kw_only=True)
+class SessionActor:
+    # The sign-in identifier as the header spells it; every reader folds it before keying on it.
+    email: str
+    # When the session was made, in whole seconds since the epoch.
+    auth_time: int
+    factor: Factor
 
-    One dependency `verify_actor_is_admin` and `bind_actor` share, so FastAPI verifies once a request.
+
+def get_session_actor(request: Request) -> SessionActor:
+    """The three headers as one session, 400 where any is missing or unreadable: such a request names nobody."""
+
+    email = request.headers.get(ACTOR_HEADER, "")
+    auth_time = request.headers.get(AUTH_TIME_HEADER, "")
+    factor = request.headers.get(AUTH_FACTOR_HEADER, "")
+    # ASCII digits alone: `int` also takes a sign, spaces, underscores and other scripts' digits.
+    if email == "" or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
+        raise APIError(HTTPStatus.BAD_REQUEST, Code.MISSING_ACTOR)
+    return SessionActor(email=email, auth_time=int(auth_time), factor=factor)
+
+
+def session_age_s(actor: SessionActor) -> int:
+    """How long ago the session was made, to the second `auth_time` is floored to."""
+
+    return int(clock.now().timestamp()) - actor.auth_time
+
+
+def refused_session() -> APIError:
+    return APIError(HTTPStatus.UNAUTHORIZED, Code.ACTOR_TOKEN_REFUSED, headers=ACTOR_REFUSAL_HEADERS)
+
+
+def verify_admin_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
+    """The administrator an admin-tier request is attributed to: a passkey session inside the administrator's window.
+
+    The frontend's admin guard asks both (`fl_frontend/src/core/auth.ts :: isAdminSession`); asked here
+    too because person and admin routes take the same key, so a person's session sent to an admin route
+    by mistake meets this rather than acting on the grant alone. One dependency `verify_actor_is_admin`
+    and `bind_actor` share, so FastAPI reads it once a request.
     """
 
-    try:
-        return verify_actor_token(token, key, lane="admin")
-    except ActorTokenRefusal as refusal:
-        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason, jti=refusal.jti) from None
+    if actor.factor != PASSKEY_FACTOR or session_age_s(actor) > ADMIN_WINDOW_HOURS * 3600:
+        raise refused_session()
+    return actor
 
 
-def verify_person_actor(
-    token: Annotated[str, Depends(get_actor_token)], key: Annotated[ActorTokenKey, Depends(get_actor_token_key)]
-) -> ActorClaims:
-    """The signed-in person a person's route is attributed to: any factor, and the person's own window rather than the admin tier's."""
+def verify_person_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
+    """The signed-in person a person's route is attributed to: either factor, inside the person's own window."""
 
-    try:
-        return verify_actor_token(token, key, lane="person")
-    except ActorTokenRefusal as refusal:
-        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason, jti=refusal.jti) from None
+    if session_age_s(actor) > PERSON_WINDOW_DAYS * 86400:
+        raise refused_session()
+    return actor
 
 
 # When the live grant a folded identifier holds took effect, `None` for none: the one question the actor check asks.
 GrantLookup = Callable[[str], Awaitable[datetime | None]]
 
 
-def get_grant_lookup(
-    berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)], sperrliste: SperrlisteLookup
-) -> GrantLookup:
+def get_grant_lookup(berechtigungen_collection: BerechtigungenCollection, sperrliste: SperrlisteLookup) -> GrantLookup:
     """The actor check's read: a live grant, and no ban on its address."""
 
     async def grant_since(identifier: str) -> datetime | None:
@@ -173,23 +172,20 @@ def get_grant_lookup(
 
 
 async def verify_actor_is_admin(
-    # First, so an unverified actor is refused before the grant read opens the database.
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    # First, so a request naming nobody is refused before the grant read opens the database.
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
 ) -> None:
-    """Refuse a verified actor who holds no live grant, read per request, or signed in before it."""
+    """Refuse an actor who holds no live grant, read per request, or signed in before it."""
 
     # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
     seit = await grant_since(sign_in_identifier(actor.email))
     if seit is None:
-        # The address stays out of the message, which reaches the log line.
-        raise ActorForbiddenException(
-            error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator", jti=actor.jti
-        )
+        raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
     if not signed_in_since(actor.auth_time, seit):
-        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason="session older than its grant", jti=actor.jti)
+        raise refused_session()
 
 
 def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[AsyncCollection, BanList]:
@@ -204,7 +200,7 @@ def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[Async
     return database[Collection.BERECHTIGUNGEN], get_ban_list(database[Collection.SPERRLISTE], database[Collection.SAISONS], config)
 
 
-def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
+def admin_judge(actor: SessionActor, config: BackendConfig) -> ActorJudge:
     """The actor check asked again in each attempt of every transaction the request opens."""
 
     @asynccontextmanager
@@ -242,7 +238,7 @@ def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
     return judging_the_administrator
 
 
-def get_actor_auth_time(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> int:
+def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:
     """When the acting administrator signed in, which an owner's power is judged against inside the write."""
 
     return actor.auth_time
@@ -252,45 +248,45 @@ ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60
 STEP_UP_WINDOW_S: Final = STEP_UP_WINDOW_HOURS * 3600
 
 
-def confirmed_before(actor: ActorClaims, window_s: int) -> bool:
+def confirmed_before(actor: SessionActor, window_s: int) -> bool:
     """Whether the actor's sign-in or confirmation is older than `window_s`, which `REQ-AUTH-009` refuses a write for."""
 
-    # Against `iat`, the instant the frontend's guard read the session ahead of its own check, so the two
-    # sides never disagree about a write the page admitted; the token's verified lifetime bounds the rest.
-    return actor.iat - actor.auth_time > window_s
+    return session_age_s(actor) > window_s
 
 
-def confirmation_required(actor: ActorClaims, window_s: int) -> ActorConfirmationRequiredException:
-    """`REQ-AUTH-009`'s refusal of the actor for a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
+def confirmation_required(window_s: int) -> APIError:
+    """`REQ-AUTH-009`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
 
-    return ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=window_s, jti=actor.jti)
+    # RFC 9470 §3's error and parameter, under the actor's own scheme.
+    challenge = f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
+    return APIError(HTTPStatus.UNAUTHORIZED, Code.CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
 
 
-def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
+def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
     """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation."""
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+        raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
-def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
+def get_recent_confirmation_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> Callable[[], None]:
     """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant."""
 
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+            raise confirmation_required(ENROLMENT_WINDOW_S)
 
     return refuse_unconfirmed
 
 
-def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
+def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window.
 
     One stepped up on some calls takes `get_step_up_check` instead, and its handler judges the call.
     """
 
     if confirmed_before(actor, STEP_UP_WINDOW_S):
-        raise confirmation_required(actor, STEP_UP_WINDOW_S)
+        raise confirmation_required(STEP_UP_WINDOW_S)
 
 
 # Called by a handler on exactly the calls it judges a step-up write, it refuses one from a sign-in or
@@ -298,40 +294,37 @@ def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -
 StepUpCheck = Callable[[], None]
 
 
-def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> StepUpCheck:
+def get_step_up_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> StepUpCheck:
     """The step-up of a write stepped up on some calls alone."""
 
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, STEP_UP_WINDOW_S):
-            raise confirmation_required(actor, STEP_UP_WINDOW_S)
+            raise confirmation_required(STEP_UP_WINDOW_S)
 
     return refuse_unconfirmed
 
 
-def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> StepUpCheck:
-    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code.
-
-    The window is `ENROLMENT_WINDOW_S`, judged at `iat`.
-    """
+def get_person_confirmation_check(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> StepUpCheck:
+    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code."""
 
     def refuse_unconfirmed() -> None:
-        if actor.amr != (PASSKEY_FACTOR,) or confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+        if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(ENROLMENT_WINDOW_S)
 
     return refuse_unconfirmed
 
 
-def verify_recent_person_confirmation(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> None:
+def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> None:
     """Refuse a person's address change from a sign-in or confirmation older than the enrolment window.
 
     Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
     """
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+        raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
-# Whether a folded identifier is on the ban list: what a person's route asks beside the token.
+# Whether a folded identifier is on the ban list: what a person's route asks beside the session.
 BanLookup = Callable[[str], Awaitable[bool]]
 
 
@@ -345,20 +338,19 @@ def get_ban_lookup(sperrliste: SperrlisteLookup) -> BanLookup:
 
 
 async def verify_person_is_unbarred(
-    # First, so an unverified token is refused before the ban read opens the database.
-    actor: Annotated[ActorClaims, Depends(verify_person_actor)],
+    # First, so a request naming nobody is refused before the ban read opens the database.
+    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     is_gesperrt: Annotated[BanLookup, Depends(get_ban_lookup)],
-) -> ActorClaims:
-    """Refuse a verified person the ban list holds, read per request: the frontend's mint-time check misses a ban entered since."""
+) -> SessionActor:
+    """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
     if await is_gesperrt(sign_in_identifier(actor.email)):
-        # The address stays out of the message, which reaches the log line.
-        raise ActorForbiddenException(error_code=PERSON_BARRED, message=f"the person the {ACTOR_HEADER} names is barred", jti=actor.jti)
+        raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor
 
 
-def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
+def person_judge(actor: SessionActor, config: BackendConfig) -> ActorJudge:
     """The ban check asked again in each attempt of every transaction a person's request opens."""
 
     @asynccontextmanager
@@ -389,35 +381,67 @@ def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
     return judging_the_person
 
 
-async def bind_actor(
-    request: Request,
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
-    config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> AsyncIterator[None]:
-    """Attribute this request's writes to the administrator its verified actor token names.
+@dataclass(frozen=True)
+class Attribution[T]:
+    """Who a request's writes are recorded under, the judge its transactions ask, and what its binder hands a handler."""
 
-    Every method, a read included: the grant check judges who asks off this token. At router level,
-    so a later operation cannot miss it.
+    actor: Actor | PersonActor
+    judge: ActorJudge | None
+    value: T
+
+
+def actor_binder[T](attribute: Callable[..., Attribution[T] | Awaitable[Attribution[T]]]) -> Callable[..., AsyncIterator[T]]:
+    """The one binder: `attribute`'s actor and judge set for the length of the request, beside the route it came through.
+
+    Every method, a read included, at router level, so a later operation cannot miss it.
     """
 
+    async def bind(request: Request, attribution: Annotated[Attribution[Any], Depends(attribute)]) -> AsyncIterator[T]:
+        actor_token = actor_var.set(attribution.actor)
+        # Beside the actor, so no transaction this request opens runs unjudged.
+        judge_token = actor_judge_var.set(attribution.judge)
+        # The route's template, not `request.url.path`: an id baked into the stored path would make one
+        # row per document where the page wants one row per kind of action.
+        route = request.scope.get("route")
+        request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
+
+        try:
+            # Yielded rather than set on a variable: a handler declaring this same binder is answered
+            # from this run, and a handler asking for the value cannot run unbound.
+            yield attribution.value
+        finally:
+            # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
+            # `TraceContextMiddleware` resets its own ids for.
+            actor_var.reset(actor_token)
+            actor_judge_var.reset(judge_token)
+            request_var.reset(request_token)
+
+    return bind
+
+
+def attribute_the_administrator(
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)], config: Annotated[BackendConfig, Depends(get_app_config)]
+) -> Attribution[None]:
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
-    actor_token = actor_var.set(Actor(kind="admin_session", email=sign_in_identifier(actor.email)))
-    # Beside the actor, so no transaction this request opens runs unjudged.
-    judge_token = actor_judge_var.set(admin_judge(actor, config))
-    # The route's template, not `request.url.path`: an id baked into the stored path would make one
-    # row per document where the page wants one row per kind of action.
-    route = request.scope.get("route")
-    request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
+    return Attribution(Actor(kind="admin_session", email=sign_in_identifier(actor.email)), admin_judge(actor, config), None)
 
-    try:
-        yield
-    finally:
-        # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
-        # `TraceContextMiddleware` resets its own ids for.
-        actor_var.reset(actor_token)
-        actor_judge_var.reset(judge_token)
-        request_var.reset(request_token)
+
+def _the_public() -> Attribution[None]:
+    # No session at all: the headers are never read, so a forged one names nobody.
+    return Attribution(PUBLIC_ACTOR, None, None)
+
+
+def _the_application() -> Attribution[None]:
+    # The sweep holds no session, and an invented address for a machine is what `SYSTEM_ACTOR` exists to avoid.
+    return Attribution(SYSTEM_ACTOR, None, None)
+
+
+# Module-level objects, as the three key guards are, so a router declares the same callable every
+# time and a test compares binders by identity.
+bind_actor = actor_binder(attribute_the_administrator)
+bind_public_actor = actor_binder(_the_public)
+bind_system_actor = actor_binder(_the_application)
 
 
 # The action log's label under the `sperrliste_schluessel` secret file's key, beside the ban list's
@@ -453,48 +477,26 @@ def loeschung_journal_hash(identifier: str, *, schluessel: SecretStr) -> str:
 
 
 def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:
-    """Build the binder a person's router declares, fixing the Funktion its writes are recorded under.
+    """The binder a person's router declares, fixing the Funktion its writes are recorded under and yielding the folded identifier.
 
-    Never read off the request: the handler re-derives that the person holds it before writing, so
-    the record names what was checked.
+    The Funktion is never read off the request: the handler re-derives that the person holds it before
+    writing, so the record names what was checked.
     """
 
-    async def bind_person(
-        request: Request,
-        config: Annotated[BackendConfig, Depends(get_app_config)],
+    def the_person(
         # The ban check rides the binder, so a router declaring it cannot serve a barred person.
-        actor: Annotated[ActorClaims, Depends(verify_person_is_unbarred)],
-    ) -> AsyncIterator[str]:
-        """Attribute this request's writes to the signed-in person its verified actor token names, and yield their folded identifier.
-
-        Refuses on EVERY method, as `bind_actor` does: a person's route serves nothing anonymous.
-        """
-
+        actor: Annotated[SessionActor, Depends(verify_person_is_unbarred)],
+        config: Annotated[BackendConfig, Depends(get_app_config)],
+    ) -> Attribution[str]:
         # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
         identifier = sign_in_identifier(actor.email)
-
         pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
-        actor_token = actor_var.set(PersonActor(pseudonym=pseudonym, funktion=funktion))
-        judge_token = actor_judge_var.set(person_judge(actor, config))
-        # The route's template, as `bind_actor` binds it and for the same reason.
-        route = request.scope.get("route")
-        request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
 
-        try:
-            # Yielded rather than set on a variable: a handler declaring this same binder is answered
-            # from this run, and a handler asking for the identifier cannot run unbound.
-            yield identifier
-        finally:
-            # Reset for `bind_actor`'s reason: the next request on this loop is somebody else's.
-            actor_var.reset(actor_token)
-            actor_judge_var.reset(judge_token)
-            request_var.reset(request_token)
+        return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), person_judge(actor, config), identifier)
 
-    return bind_person
+    return actor_binder(the_person)
 
 
-# Module-level objects, as the three key guards are, so a router declares the same callable every
-# time and a test compares binders by identity.
 PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
     funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
 }
@@ -504,44 +506,3 @@ PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[s
 KontaktIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
 SpielerIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
 SchiedsrichterIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
-
-
-async def bind_public_actor(request: Request) -> AsyncIterator[None]:
-    """Attribute a write nobody signed in for to the public, and name the route it came through.
-
-    Never `bind_actor`: no browser sends `X-FL-Actor`, so it answers `REQ-AUTH-005` for every
-    public write. An insert logs no `before`.
-    """
-
-    actor_token = actor_var.set(PUBLIC_ACTOR)
-    # The route's template, as `bind_actor` binds it and for the same reason.
-    route = request.scope.get("route")
-    request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
-
-    try:
-        yield
-    finally:
-        # Reset for `bind_actor`'s reason: the actor would otherwise bleed onto whichever request
-        # the loop runs next -- and this one names no administrator at all.
-        actor_var.reset(actor_token)
-        request_var.reset(request_token)
-
-
-async def bind_system_actor(request: Request) -> AsyncIterator[None]:
-    """Attribute a write the application made to itself, and name the route it came through.
-
-    The sweep holds no session, so `bind_actor` would answer `REQ-AUTH-005`, and an invented
-    address for a machine is what `SYSTEM_ACTOR` exists to avoid.
-    """
-
-    actor_token = actor_var.set(SYSTEM_ACTOR)
-    # The route's template, as `bind_actor` binds it and for the same reason.
-    route = request.scope.get("route")
-    request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
-
-    try:
-        yield
-    finally:
-        # Reset for `bind_actor`'s reason: the next request on this loop is somebody's own.
-        actor_var.reset(actor_token)
-        request_var.reset(request_token)

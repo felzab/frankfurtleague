@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
@@ -178,6 +179,27 @@ class FLAktionMitStand(FLAktion):
         """
 
         return _stringify_oids(value)
+
+
+class FLAktionRecord(BaseModel):
+    """One row as `aktionen` stores it: its actor before any address is withheld, and no derived `stand_gesichert`."""
+
+    id: CustomObjectId = Field(validation_alias="_id")
+    at: str
+    # The TTL index's key: the same instant as `at`, as a date.
+    at_date: datetime
+    actor: FLAktor
+    trace_id: str
+    request: FLAktionRequest | None
+    collection: str
+    operation: FLAktionOperation
+    # A list is `delete_many`'s, and a season's id is its string.
+    document_id: CustomObjectId | str | list[CustomObjectId | str] | None
+    db_filter: dict[str, str] | None
+    before: dict[str, Any] | list[dict[str, Any]] | None
+    modified_count: int | None
+    redacted_at: str | None
+    anlass: str | None
 
 
 FLAktionenListAdapter = TypeAdapter(list[FLAktion])

@@ -43,10 +43,16 @@ ESLint 9 it underlines an old page's counted violations as errors that `pnpm run
 
 ## Data flow
 
-**Reads are cached with `"use cache"`, and a write is a server action.** Every cached scope carries
-one tag, `fl_frontend/src/core/siteCache.ts :: SITE_CACHE_TAG`, and the save spines clear it after
-every write that may stand (`fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`,
-and `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
+**Reads are cached with `"use cache"`, and a write is a server action.** Every server action is built
+by `fl_frontend/src/core/action.ts :: action`, which runs its lane's guard (the administrator's, a
+person's seat or record, or the bot check), strips and parses the input against the generated schema,
+and answers the kit's `ActionAnswer`, the backend's refusal code with it; the lint rule
+`fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
+way, and the forms not yet moved onto it are counted in the suppressions list until their area
+moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
+SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder, the old
+`fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
 write names the reads it moves. The league's reads keep Next's `minutes` lifetime; the read of a
 `Fassung` (`fl_frontend/src/core/einwilligung.ts :: getEinwilligungFassung`) keeps the longest,
 since a label's words never change. **The administration's reads are not cached**: each runs through
@@ -97,9 +103,9 @@ and sits on every authorization check. Application data goes through FastAPI wit
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
 `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
-nothing from the next request on. Every admin server action runs through
-`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which opens on
-`fl_frontend/src/core/auth.ts :: judgeAdminRequest`.
+nothing from the next request on. Every admin server action opens on
+`fl_frontend/src/core/auth.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
+not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/bereich` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a

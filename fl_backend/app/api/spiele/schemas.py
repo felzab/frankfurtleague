@@ -388,7 +388,7 @@ class FLBracketFaultOccupant(_BracketFault):
     """One fixture fielding a team that left the season.
 
     The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
-    (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    (`docs/domain.md`'s what the model permits on purpose).
     """
 
     reason: Literal["departed_occupant"]

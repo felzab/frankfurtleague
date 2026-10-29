@@ -20,8 +20,7 @@ from app.api.teams.services import build_gruppen, build_team_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -32,7 +31,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLTeamsResponse, summary="List teams, flat or grouped", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get("", response_model=FLTeamsResponse, summary="List teams, flat or grouped")
 async def get_teams(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -83,7 +82,7 @@ async def get_teams(
     )
 
 
-@router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")
 async def get_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
@@ -116,6 +115,6 @@ async def get_team(
         collation=GERMAN_COLLATION,
     )
     if not teams_raw:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return FLTeamsSingleResponse(team=FLTeam.model_validate(teams_raw[0]))

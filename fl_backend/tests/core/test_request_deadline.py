@@ -28,6 +28,7 @@ from pymongo.errors import (
 
 from app.api.bewerbungen.services import hash_token
 from app.core import middlewares
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -40,11 +41,8 @@ from app.core.crud import (
     post_many_to_db,
     post_one_to_db,
 )
-from app.core.db import get_einladungen_collection
+from app.core.db import collection_dependency
 from app.core.exception_handlers import (
-    DATABASE_FAILED,
-    UNHANDLED_CRASH,
-    UNKNOWN_OUTCOME,
     db_exception_handler,
 )
 from app.core.logging import fl_logger
@@ -59,7 +57,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
-FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
+FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
 # Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
@@ -70,7 +68,7 @@ SHORT_DEADLINE_S = 0.5
 # the stall's 60 s -- so an answer in time can only be the deadline's doing.
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
-FAILED = DATABASE_FAILED
+FAILED = Code.DATABASE_FAILED
 
 CRUD_MODULE = "app/core/crud.py"
 
@@ -105,7 +103,7 @@ class TestTheDeadlinesTheApplicationSets:
         """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
 
         ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
-        assert ceiling is not None, f"{FRONTEND_API} no longer declares `BASE_FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
+        assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
 
         # Positive, because pymongo reads a zero deadline as none at all.
         assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
@@ -254,7 +252,7 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
     """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets."""
 
     async def body() -> _Transacted:
-        fresh = a_clean_database(url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,))
+        fresh = a_clean_database(url, DATABASE_NAME, constraints=False)
         async with fresh as (client, database):
             written = database[Collection.AKTIONEN]
 
@@ -297,7 +295,7 @@ class TestATransactionPastTheRequestDeadlineCommitsNothing:
 
         transacted = _transacted(mongo_replica_set_url, cut)
 
-        assert (transacted.status, transacted.error_code, transacted.standing) == (500, UNKNOWN_OUTCOME, 0)
+        assert (transacted.status, transacted.error_code, transacted.standing) == (500, Code.UNKNOWN_OUTCOME, 0)
         # Nothing standing is not nothing held: an open transaction keeps its write from every reader
         # and from every rival writer, until MongoDB's lifetime limit aborts it a minute on.
         assert transacted.transactions_held == []
@@ -430,7 +428,7 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
             served = create_app(config)
             # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
             served.state.db_client = client
-            served.dependency_overrides[get_einladungen_collection] = lambda: stand_in(database[Collection.EINLADUNGEN])
+            served.dependency_overrides[collection_dependency(Collection.EINLADUNGEN)] = lambda: stand_in(database[Collection.EINLADUNGEN])
 
             transport = ASGITransport(app=served, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
@@ -575,7 +573,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNHANDLED_CRASH)
 
     @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
@@ -589,9 +587,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
     def test_the_line_names_the_deadline_rather_than_a_crash(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, NetworkTimeout("timed out"))
 
-        assert [record.getMessage().split(" (")[0] for record in caplog.records if getattr(record, "error_code", None)] == [
-            "Database deadline passed"
-        ]
+        assert [record.getMessage() for record in caplog.records if getattr(record, "error_code", None)] == ["http.database_timeout"]
 
 
 # The shape `with_transaction` hands on when a commit went out and no answer came back within the deadline.
@@ -602,12 +598,14 @@ class TestACommitOfUnknownOutcomeIsNotCalledFailed:
     def test_it_answers_its_own_code(self):
         response = _raised_through_the_app(UNKNOWN_COMMIT_OUTCOME)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_its_line_carries_the_same_code(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, UNKNOWN_COMMIT_OUTCOME)
 
-        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [UNKNOWN_OUTCOME]
+        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [
+            Code.UNKNOWN_OUTCOME
+        ]
 
 
 class _NoDocuments:
@@ -682,7 +680,7 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
 
         response = _written_through_the_app(helper, error)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_every_helper_reaching_the_driver_s_writes_is_driven(self):
         assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
@@ -711,7 +709,7 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
 
         response = _written_through_the_app("patch_many_in_db", NetworkTimeout("timed out"), "GET")
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_a_write_failing_without_the_deadline_stays_failed(self):
         """The control: without it, a handler answering every sent write's database error unknown would pass the cases above."""

@@ -74,8 +74,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing_when
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
@@ -94,7 +93,6 @@ router = APIRouter(
     "/list/admin",
     response_model=FLSpieleAdminListResponse,
     summary="Spiele for the admin surfaces",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spiele_for_admin(
     spiele_collection: SpieleCollection,
@@ -133,7 +131,6 @@ async def get_spiele_for_admin(
     "/action_required",
     response_model=FLSpieleActionRequiredResponse,
     summary="Spiele needing attention",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spiele_action_required(
     spiele_collection: SpieleCollection,
@@ -249,7 +246,6 @@ async def get_spiele_action_required(
     f"{by_id('spiel_id')}/admin",
     response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel for the admin editor",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
     """
@@ -265,12 +261,11 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
         limit=1,
     )
     if not spiele_raw:
-        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
-@stores_nothing_when("dry_run")
 async def previewing(
     dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> bool:
@@ -281,7 +276,6 @@ async def previewing(
     by_id("spiel_id"),
     response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spiel_data(
     spiel_id: CustomRouteObjectId,

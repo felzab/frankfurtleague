@@ -155,7 +155,6 @@ class TestFLGruppen:
 
         assert sorted(body["gruppen"]) == ["A", "B", "C", "D"]
         assert body["gruppen"]["B"] == []
-        assert body["acknowledged"] == 1
         assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
         assert body["qualifiers_per_group"] == 2

@@ -11,9 +11,6 @@ from pymongo.errors import DuplicateKeyError, OperationFailure
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.schemas import FLEinladungVersandPayload
 from app.api.einladungen.services import (
-    EINLADUNG_SAISON_VORBEI,
-    EINLADUNG_TEAM_NICHT_EINGETRAGEN,
-    EINLADUNG_UNBEKANNT,
     WITHOUT_TOKEN_HASH,
     find_live_einladung_filter,
     find_unknown_einladung_refusal,
@@ -21,11 +18,12 @@ from app.api.einladungen.services import (
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.worker import worker_database
@@ -336,7 +334,7 @@ class TestReissuingALink:
         guessed = find_unknown_einladung_refusal(einladung_raw=unknown)
 
         assert replaced is not None
-        assert replaced.error_code == EINLADUNG_UNBEKANNT
+        assert replaced.error_code == Code.EINLADUNG_UNBEKANNT
         assert replaced == guessed
 
     def test_the_live_link_opens(self, mongo_replica_set_url: str):
@@ -462,26 +460,6 @@ class TestTheRuleOfOneLiveInvitation:
 
         assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
-    def test_a_row_carrying_no_revocation_key_at_all_is_refused_before_the_index_sees_it(self, mongo_replica_set_url: str):
-        """Why the validator requires the key: `$type: "null"` indexes no row that lacks it, so two such rows would both be live.
-
-        The refusal is the VALIDATOR's, which is what puts that question beyond any stored row.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            row = einladung_row(TWO_SEATS, versand={})
-            del row["widerrufen_am"]
-
-            with pytest.raises(OperationFailure) as refused:
-                await database[Collection.EINLADUNGEN].insert_one(row)
-
-            return refused.value.code, await database[Collection.EINLADUNGEN].count_documents({"team_id": TWO_SEATS})
-
-        code, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert code == DOCUMENT_VALIDATION_FAILED
-        assert stored == 0
-
     def test_two_teams_hold_a_live_invitation_each(self, mongo_replica_set_url: str):
         """The control: a rule keyed on the season alone would refuse the second team of every season."""
 
@@ -497,19 +475,19 @@ class TestTheRuleOfOneLiveInvitation:
 class TestWhatAMintRefuses:
     def test_a_team_the_season_does_not_hold_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"team_id": NOT_ENTERED})
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == EINLADUNG_TEAM_NICHT_EINGETRAGEN
+        assert code == Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN
         assert stored == 0
 
     def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, TWO_SEATS)
 
             # The team the refused mint named: the seeded league holds an invitation of its own,
@@ -518,23 +496,23 @@ class TestWhatAMintRefuses:
 
         code, stored = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == EINLADUNG_SAISON_VORBEI
+        assert code == Code.EINLADUNG_SAISON_VORBEI
         assert stored == 0
 
     def test_the_ended_season_is_reported_before_the_junction(self, mongo_replica_set_url: str):
         """A team the season never held would refuse too, and entering it into a season that has ended repairs nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == EINLADUNG_SAISON_VORBEI
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == Code.EINLADUNG_SAISON_VORBEI
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await mint(database, TWO_SEATS, saison_id=OTHER_SAISON_ID)
 
             # The season the refused mint named, never the whole collection, which the seed fills.
@@ -572,7 +550,7 @@ class TestRevokingALink:
         """A revoke answering 200 over nothing tells an administrator a link is dead that still opens."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await revoke(database, TWO_SEATS)
 
             return None
@@ -586,7 +564,7 @@ class TestRevokingALink:
             await mint(database, TWO_SEATS)
             await revoke(database, TWO_SEATS)
 
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await revoke(database, TWO_SEATS)
 
             return await live_count(database, TWO_SEATS)
@@ -965,14 +943,14 @@ class TestTheSeasonWidePress:
 
     def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await press(database)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"widerrufen_am": None})
 
         code, live = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == EINLADUNG_SAISON_VORBEI
+        assert code == Code.EINLADUNG_SAISON_VORBEI
         # The seeded invitation is untouched, so the refusal stopped the whole press rather than part of it.
         assert live == 1
 

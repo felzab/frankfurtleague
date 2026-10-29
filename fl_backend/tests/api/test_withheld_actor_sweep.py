@@ -26,7 +26,6 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
-from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
 from app.core.recording import log_stamp
 from app.core.security import verify_access_admin
 from app.main import create_app
@@ -39,6 +38,7 @@ from tests.documents import ban_document, saison_document
 from tests.worker import worker_database
 
 from .conftest import config_for
+from .test_admin_guard import ADMIN_TIER_READS_OVER_POST, strip_convertors
 from .test_bewerbungen_read import bewerbung_document
 from .test_registrierung_read import registrierung_document
 
@@ -59,12 +59,14 @@ REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
 BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
 
 
+# The fixture save, whose `dry_run` reads: named with the POST reads, nothing a route declares telling a read from a write.
+READS_OVER_ANOTHER_METHOD = ADMIN_TIER_READS_OVER_POST | {("/api/v0/spiele/{spiel_id}", "patch")}
+
+
 def _serves_a_read(route: APIRoute) -> bool:
-    """By what it serves rather than its method: a read over POST declares it stores nothing."""
-
-    calls = {dependency.call for dependency in route.dependant.dependencies}
-
-    return "GET" in (route.methods or ()) or stores_nothing in calls or bool(calls & STORES_NOTHING_WHEN.keys())
+    return "GET" in (route.methods or ()) or any(
+        (strip_convertors(route.path), method.lower()) in READS_OVER_ANOTHER_METHOD for method in route.methods or ()
+    )
 
 
 # The mounted spelling, convertors included, and never a list: a read added later is swept without an edit here.

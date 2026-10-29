@@ -2,7 +2,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.services import WITHHELD_FROM_BASE_TIER
 from app.core.crud import pull_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -28,7 +28,7 @@ async def refuse_withheld_saison(*, saisons_collection: AsyncCollection, saison_
     """
 
     if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=saison_id):
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
 
 async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[str]:

@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";

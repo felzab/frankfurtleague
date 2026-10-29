@@ -588,7 +588,7 @@ export const bewerbungenPostBewerbungBodySchuleOneFullNameMax = 120;
 
 
 export const bewerbungenPostBewerbungBodySchuleOneFullNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const bewerbungenPostBewerbungBodySchuleOneShorthandRegExp = new RegExp('^[A-Z]{3}$');
+export const bewerbungenPostBewerbungBodySchuleOneShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const bewerbungenPostBewerbungBodySchuleOneTeamNameMax = 60;
 
 
@@ -697,6 +697,7 @@ export const BewerbungenPostBewerbungBody = zod.object({
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp = new RegExp('^\\s*$');
 export const bewerbungenPostEinwilligungBodyTextVersionMax = 64;
 
 export const bewerbungenPostEinwilligungBodyTokenMax = 128;
@@ -705,7 +706,7 @@ export const bewerbungenPostEinwilligungBodyTokenMax = 128;
 
 export const BewerbungenPostEinwilligungBody = zod.object({
   "antwort": zod.enum(['erteilt', 'abgelehnt']),
-  "geburtsdatum": zod.union([zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp),zod.null()]),
+  "geburtsdatum": zod.union([zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp),zod.null(),zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp)]),
   "medien": zod.boolean(),
   "text_version": zod.string().min(1).max(bewerbungenPostEinwilligungBodyTextVersionMax),
   "token": zod.string().min(1).max(bewerbungenPostEinwilligungBodyTokenMax),
@@ -1604,6 +1605,7 @@ export const RegistrierungenPostRegistrierungBody = zod.object({
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp = new RegExp('^\\s*$');
 export const registrierungenPostBestaetigungBodyTextVersionMax = 64;
 
 export const registrierungenPostBestaetigungBodyTokenMax = 128;
@@ -1611,7 +1613,7 @@ export const registrierungenPostBestaetigungBodyTokenMax = 128;
 
 
 export const RegistrierungenPostBestaetigungBody = zod.object({
-  "geburtsdatum": zod.union([zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp),zod.null()]),
+  "geburtsdatum": zod.union([zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp),zod.null(),zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp)]),
   "medien": zod.union([zod.boolean(),zod.null()]),
   "text_version": zod.string().min(1).max(registrierungenPostBestaetigungBodyTextVersionMax),
   "token": zod.string().min(1).max(registrierungenPostBestaetigungBodyTokenMax),
@@ -2235,6 +2237,7 @@ export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
 export const schiedsrichterPostSchiedsrichterBodyKontaktEmailMax = 254;
 
 export const schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp = new RegExp('^([+]?[ 0-9\\-().]{2,19}[0-9])$');
+export const schiedsrichterPostSchiedsrichterBodyKontaktTelefonThreeRegExp = new RegExp('^\\s*$');
 export const schiedsrichterPostSchiedsrichterBodyNameMax = 80;
 
 
@@ -2245,7 +2248,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
   "default_payment": zod.int().min(schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin),
   "kontakt": zod.object({
   "email": zod.string().max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
-  "telefon": zod.union([zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null()])
+  "telefon": zod.union([zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null(),zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonThreeRegExp)])
 }),
   "name": zod.string().min(1).max(schiedsrichterPostSchiedsrichterBodyNameMax).regex(schiedsrichterPostSchiedsrichterBodyNameRegExp),
   "schule": zod.union([zod.string(),zod.null()])
@@ -2418,6 +2421,7 @@ export const schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin = 0;
 export const schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax = 254;
 
 export const schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp = new RegExp('^([+]?[ 0-9\\-().]{2,19}[0-9])$');
+export const schiedsrichterPatchSchiedsrichterBodyKontaktTelefonThreeRegExp = new RegExp('^\\s*$');
 export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 
 
@@ -2428,7 +2432,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   "default_payment": zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   "kontakt": zod.object({
   "email": zod.string().max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
-  "telefon": zod.union([zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null()])
+  "telefon": zod.union([zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null(),zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonThreeRegExp)])
 }),
   "name": zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   "schule": zod.union([zod.string(),zod.null()])
@@ -3162,6 +3166,7 @@ export const SpielePatchSpielDataQueryParams = zod.object({
 })
 
 export const spielePatchSpielDataBodyDatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const spielePatchSpielDataBodyDatumThreeRegExp = new RegExp('^\\s*$');
 export const spielePatchSpielDataBodyElfmeterschiessenOneTeam1Min = 0;
 
 export const spielePatchSpielDataBodyElfmeterschiessenOneTeam2Min = 0;
@@ -3190,10 +3195,11 @@ export const spielePatchSpielDataBodyTeam2QuelleOneOnePlatzExclusiveMin = 0;
 export const spielePatchSpielDataBodyTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
 
 export const spielePatchSpielDataBodyUhrzeitOneRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$');
+export const spielePatchSpielDataBodyUhrzeitThreeRegExp = new RegExp('^\\s*$');
 
 
 export const SpielePatchSpielDataBody = zod.object({
-  "datum": zod.union([zod.string().regex(spielePatchSpielDataBodyDatumOneRegExp),zod.null()]),
+  "datum": zod.union([zod.string().regex(spielePatchSpielDataBodyDatumOneRegExp),zod.null(),zod.string().regex(spielePatchSpielDataBodyDatumThreeRegExp)]),
   "elfmeterschiessen": zod.union([zod.object({
   "team1": zod.int().min(spielePatchSpielDataBodyElfmeterschiessenOneTeam1Min),
   "team2": zod.int().min(spielePatchSpielDataBodyElfmeterschiessenOneTeam2Min)
@@ -3235,7 +3241,7 @@ export const SpielePatchSpielDataBody = zod.object({
   "spiel_nr": zod.int().gt(spielePatchSpielDataBodyTeam2QuelleOneTwoSpielNrExclusiveMin),
   "type": zod.literal("spiel").meta({ title: 'Type' })
 }).describe('A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.')]),zod.null()]),
-  "uhrzeit": zod.union([zod.string().regex(spielePatchSpielDataBodyUhrzeitOneRegExp),zod.null()])
+  "uhrzeit": zod.union([zod.string().regex(spielePatchSpielDataBodyUhrzeitOneRegExp),zod.null(),zod.string().regex(spielePatchSpielDataBodyUhrzeitThreeRegExp)])
 })
 
 
@@ -3525,7 +3531,7 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
  * Update a player's squad entry for that season.
  *
  * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+ * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
  * (`REQ-SQUAD-004`).
  * @summary Update a squad entry
  */
@@ -3856,7 +3862,7 @@ export const teamsPostTeamBodyNameMax = 60;
 
 
 export const teamsPostTeamBodyNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const teamsPostTeamBodyShorthandRegExp = new RegExp('^[A-Z]{3}$');
+export const teamsPostTeamBodyShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const teamsPostTeamBodyWebsiteUrlOneMax = 300;
 
 
@@ -3979,7 +3985,7 @@ export const teamsPatchTeamBodyNameMax = 60;
 
 
 export const teamsPatchTeamBodyNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const teamsPatchTeamBodyShorthandRegExp = new RegExp('^[A-Z]{3}$');
+export const teamsPatchTeamBodyShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const teamsPatchTeamBodyWebsiteUrlOneMax = 300;
 
 

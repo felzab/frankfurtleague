@@ -46,8 +46,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
@@ -100,8 +99,6 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     "/einladung/ansicht",
     response_model=FLEinladungAnsichtResponse,
     summary="What a registration link opens",
-    dependencies=[Depends(stores_nothing)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_einladung_ansicht(
     ansicht_data: Annotated[FLEinladungAnsichtPayload, Body()],
@@ -194,7 +191,7 @@ async def _answer_as_the_first(
                 return_document=ReturnDocument.BEFORE,
             )
             raw = fresh
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # The filter is the judgement: a row whose state holds its link back matches nothing, and
             # this answer hands none.
             raw = None
@@ -222,7 +219,6 @@ async def _answer_as_the_first(
     response_model=FLPostRegistrierungResponse,
     status_code=201,
     summary="Register through a team's link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_registrierung(
     registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],

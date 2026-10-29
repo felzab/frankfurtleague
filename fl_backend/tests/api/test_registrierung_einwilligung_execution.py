@@ -11,25 +11,17 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_ALREADY_CONFIRMED,
-    REGISTRIERUNG_ALTER,
-    REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
-    REGISTRIERUNG_MEDIEN_ALTER,
-    REGISTRIERUNG_OHNE_GEBURTSDATUM,
-    REGISTRIERUNG_TOKEN_EXPIRED,
-    REGISTRIERUNG_TOKEN_UNKNOWN,
-    REGISTRIERUNG_WAHLEN_UNPASSEND,
     SEITE_NEU,
     SEITE_WIEDERKEHREND,
     compose_bestaetigung,
 )
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
@@ -276,12 +268,12 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_TOKEN_UNKNOWN
 
     def test_a_link_past_its_deadline_is_shown_as_expired_rather_than_refused(self, mongo_replica_set_url: str):
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
@@ -453,7 +445,7 @@ class TestWhatAConfirmationWrites:
         """The stored date is judged as a typed one is: taken as given, it is never taken unchecked."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
 
             return refused.value.error_code, await stored(database)
@@ -461,21 +453,21 @@ class TestWhatAConfirmationWrites:
         too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(medien=False))
         code, document = on_a_league(mongo_replica_set_url, body, spieler=[too_young])
 
-        assert code == REGISTRIERUNG_ALTER
+        assert code == Code.REGISTRIERUNG_ALTER
         assert document == registrierung_document()
 
     def test_a_returning_pupil_whose_person_holds_no_date_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         """Only a hand edit leaves a person undated, and the page has no field to fill: a refusal reopening the link would loop."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
 
             return (refused.value.error_code, refused.value.status_code), await stored(database)
 
         code, document = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID, geburtsdatum=None)])
 
-        assert code == (REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
+        assert code == (Code.REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
         assert document == registrierung_document()
 
     def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
@@ -508,14 +500,14 @@ class TestTheLabelAPressNames:
         """The stored record's own label among them: the press is a new acceptance, never one the person already holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, umfang=None, medien=None, text_version=genannt)
 
             return conflict.value, await ansicht(database, RAW), await stored(database), await log_rows(database)
 
         refusal, view, document, rows = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
 
-        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert (refusal.error_code, refusal.status_code) == (Code.FASSUNG_UNZULAESSIG, 409)
         assert view.zustand == "gueltig"
         assert document == registrierung_document()
         assert rows == []
@@ -539,14 +531,14 @@ class TestTheLabelAPressNames:
         """The press resolves the page in its own transaction, so a body for the other page is refused rather than stored under it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, text_version=gezeigt, **wahlen)
 
             return conflict.value.error_code, await stored(database)
 
         code, document = on_a_league(mongo_replica_set_url, body, spieler=held)
 
-        assert code == FASSUNG_UNZULAESSIG
+        assert code == Code.FASSUNG_UNZULAESSIG
         assert document == registrierung_document()
 
 
@@ -577,14 +569,14 @@ class TestTheChoicesThePageAsks:
         self, mongo_replica_set_url: str, held: list[dict[str, Any]], label: str, wahlen: dict[str, Any]
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, text_version=label, **wahlen)
 
             return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
 
         code, status, document, rows = on_a_league(mongo_replica_set_url, body, spieler=held)
 
-        assert (code, status) == (REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
+        assert (code, status) == (Code.REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
         assert document == registrierung_document()
         assert rows == []
 
@@ -596,14 +588,14 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
 
             return conflict.value.error_code, await stored(database), await ansicht(database, RAW)
 
         code, document, view = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_ALREADY_CONFIRMED
+        assert code == Code.REGISTRIERUNG_ALREADY_CONFIRMED
         assert (document["einwilligung"]["umfang"], document["einwilligung"]["medien"]) == ("kader_oeffentlich", True)
         assert view.zustand == "bestaetigt"
 
@@ -611,14 +603,14 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field, and a link voided by one has no remedy but registering again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code, await ansicht(database, RAW), await stored(database), await log_rows(database)
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_ALTER
+        assert code == Code.REGISTRIERUNG_ALTER
         assert view.zustand == "gueltig"
         assert document == registrierung_document()
         assert rows == []
@@ -634,14 +626,14 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code, await stored(database)
 
         code, document = on_a_league(mongo_replica_set_url, body, registrierungen=[expired])
 
-        assert code == REGISTRIERUNG_TOKEN_EXPIRED
+        assert code == Code.REGISTRIERUNG_TOKEN_EXPIRED
         assert document["einwilligung"] is None
 
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
@@ -651,12 +643,12 @@ class TestTheLinkIsSpentByTheStamp:
         declined = registrierung_document(status="abgelehnt", entscheidung=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == REGISTRIERUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.REGISTRIERUNG_TOKEN_EXPIRED
 
     def test_an_expired_link_carrying_a_refused_date_answers_the_link_rather_than_the_age(self, mongo_replica_set_url: str):
         """The order, which no other case pins: judged age-first, a dead link would tell a pupil to correct a date that buys them nothing."""
@@ -664,12 +656,12 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, registrierungen=[expired]) == REGISTRIERUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, registrierungen=[expired]) == Code.REGISTRIERUNG_TOKEN_EXPIRED
 
     def test_a_confirmed_registration_carrying_a_refused_date_answers_the_stamp_rather_than_the_age(self, mongo_replica_set_url: str):
         """The other half of the order: a pupil who has already answered is told so rather than asked to retype a date nothing will store."""
@@ -677,23 +669,23 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW)
 
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_ALREADY_CONFIRMED
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_ALREADY_CONFIRMED
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, "a-stranger's-guess")
 
             return conflict.value.error_code, await stored(database)
 
         code, document = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_TOKEN_UNKNOWN
+        assert code == Code.REGISTRIERUNG_TOKEN_UNKNOWN
         assert document == registrierung_document()
 
 
@@ -710,14 +702,14 @@ class TestTheMediaAge:
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
 
         code, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_MEDIEN_ALTER
+        assert code == Code.REGISTRIERUNG_MEDIEN_ALTER
         assert document == registrierung_document()
         assert rows == []
 
@@ -740,14 +732,14 @@ class TestALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW)
 
             return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
 
         code, status, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (code, status) == (REGISTRIERUNG_BESTAETIGUNG_GESPERRT, 403)
+        assert (code, status) == (Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT, 403)
         assert document == registrierung_document()
         assert rows == []
 
@@ -766,7 +758,7 @@ class TestALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, FOLDED_EMAIL)
-            with pytest.raises(WriteRefusalException):
+            with pytest.raises(APIError):
                 await answer(database, client, RAW)
             await database[Collection.SPERRLISTE].delete_many({})
 
@@ -792,12 +784,12 @@ class TestALinkToABarredAddress:
             await answer(database, client, RAW)
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW)
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_ALREADY_CONFIRMED
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_ALREADY_CONFIRMED
 
     def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
         """The other half of the order: a corrected date buys a barred address nothing, so it is not what the pupil is asked for."""
@@ -805,12 +797,12 @@ class TestALinkToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await ban(database, FOLDED_EMAIL)
 
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_BESTAETIGUNG_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT
 
 
 class TestTheViewOfALinkToABarredAddress:

@@ -565,21 +565,6 @@ def test_the_block_survives_with_all_four_of_its_keys(mongo_replica_set_url: str
 
 
 @pytest.mark.db
-def test_nulling_an_applications_whole_block_is_what_the_validator_refuses(mongo_replica_set_url: str):
-    """Without this the dotted keys read as style. `bewerbungen.kontakte` is required and non-nullable as a BLOCK."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-        try:
-            await database[Collection.BEWERBUNGEN].update_one({"_id": BEWERBUNG_OID}, {"$set": {"kontakte": None}})
-        except OperationFailure as failure:
-            assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}: {failure}"
-            return "rejected"
-        return "accepted"
-
-    assert on_a_league(mongo_replica_set_url, body) == "rejected"
-
-
-@pytest.mark.db
 def test_the_echo_reports_counts_and_names_nobody(mongo_replica_set_url: str):
     """Kills echoing the person: a response repeating the address hands back exactly what was destroyed."""
 

@@ -27,11 +27,6 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
-    EIGENE_ADRESSE,
-    FREMDER_ADRESSWECHSEL,
-    NAME_IM_ANLASS,
-    NAME_IM_GRUND,
-    VERWALTUNG_ADRESSE,
     eigene_namen,
     find_name_im_anlass_refusal,
     find_name_im_grund_refusal,
@@ -39,14 +34,14 @@ from app.api.identitaet.services import (
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, ANCHOR_WRITTEN_AT, patch_one_in_db
-from app.core.db import DEAD_GRANT, get_aktionen_collection, get_spieler_collection
-from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
+from app.core.db import DEAD_GRANT, collection_dependency
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
-from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check
+from app.core.security import get_recent_confirmation_check
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
@@ -304,7 +299,6 @@ async def their_requests_open(database: AsyncDatabase) -> None:
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.
 # The seed's requests opened by `their_requests_open`.
 EXPECTED_ANSICHT = {
-    "acknowledged": 1,
     "spieler": [
         {
             "spieler_id": str(PUPIL_OID),
@@ -374,7 +368,7 @@ class TestTheRegistryRunsWhole:
         assert pupil is not None and pupil["inactive_since"] is None
         assert all(held[value] for value in THEIR_VALUES), held
         assert response.status_code == 200, response.json()
-        assert {key: value for key, value in response.json().items() if key != "acknowledged"} == {
+        assert response.json() == {
             "spieler": 1,
             "saison_spieler": 1,
             "schiedsrichter": 1,
@@ -429,7 +423,7 @@ class TestTheirOwnAddress:
 
         response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, EIGENE_ADRESSE, True)
+        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.EIGENE_ADRESSE, True)
 
     @pytest.mark.parametrize(
         ("path", "body"),
@@ -478,7 +472,7 @@ class TestAGrantHoldersAddress:
         with caplog.at_level(logging.INFO):
             response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, VERWALTUNG_ADRESSE, True)
+        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.VERWALTUNG_ADRESSE, True)
         assert journal_lines(caplog) == []
 
     def test_an_administrator_holding_no_owners_power_ends_another_administrators_sessions(self, mongo_replica_set_url: str):
@@ -538,7 +532,7 @@ class TestAGrantHoldersAddress:
                     racing.append(PupilsReadMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], grant))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return (
@@ -550,7 +544,7 @@ class TestAGrantHoldersAddress:
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json().get("error_code"), granted) == (403, VERWALTUNG_ADRESSE, [200])
+        assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.VERWALTUNG_ADRESSE, [200])
         assert row is not None and row["verwaltung"] == "administration"
         # The rows the grant wrote aside, every value stands where it stood.
         assert {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in left.items()} == held
@@ -698,7 +692,7 @@ class TestAGrantHoldersPendingChange:
 
         by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
 
-        assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, FREMDER_ADRESSWECHSEL, True)
+        assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, Code.FREMDER_ADRESSWECHSEL, True)
         assert owners_status == 200
         assert ended is not None and ended["beendet"]["art"] == "verworfen"
 
@@ -811,11 +805,11 @@ class TestANameInTheAnlass:
         with caplog.at_level(logging.INFO):
             response, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert refused_at(response) == (422, NAME_IM_ANLASS, [["anlass"]])
+        assert refused_at(response) == (422, Code.NAME_IM_ANLASS, [["anlass"]])
         assert untouched
         assert journal_lines(caplog) == []
         # The premise of the line below: the refusal's own log line is among those read.
-        assert [getattr(record, "error_code", None) for record in caplog.records].count(NAME_IM_ANLASS) == 1
+        assert [getattr(record, "error_code", None) for record in caplog.records].count(Code.NAME_IM_ANLASS) == 1
         said = [response.text, *(record.getMessage() for record in caplog.records)]
         naming = [line for line in said if VORNAME.lower() in line.lower() or NACHNAME.lower() in line.lower()]
         assert naming == []
@@ -832,7 +826,7 @@ class TestANameInTheAnlass:
 
             return await posted(mongo_replica_set_url, PATH, erasure_of(anlass=f"Mail {ANOTHER_SURNAME} vom 30.03.2026"))
 
-        assert refused_at(on_a_league(mongo_replica_set_url, run)) == (422, NAME_IM_ANLASS, [["anlass"]])
+        assert refused_at(on_a_league(mongo_replica_set_url, run)) == (422, Code.NAME_IM_ANLASS, [["anlass"]])
 
     def test_a_name_only_other_peoples_records_hold_is_erased_under(self, mongo_replica_set_url: str):
         """Each stands in a record the subject read reaches: a seat beside the person's, and a referee and a pupil moving to the address."""
@@ -913,7 +907,7 @@ class TestAnAdministratorRevokedMidRequest:
                     racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, held, await where_held(database, *THEIR_VALUES)
@@ -921,7 +915,7 @@ class TestAnAdministratorRevokedMidRequest:
         response, held, left = on_a_league(mongo_replica_set_url, body)
 
         if revoked:
-            assert (response.status_code, response.json()["error_code"], revokes) == (403, ACTOR_NOT_ADMIN, [200])
+            assert (response.status_code, response.json()["error_code"], revokes) == (403, Code.ACTOR_NOT_ADMIN, [200])
             assert left == held
             assert sum(collection.passes for collection in racing) == 1, (
                 "the retry reached the erasure again, so its judge admitted a revoked actor"
@@ -955,7 +949,7 @@ class TestANameARivalWritesMidRequest:
                     racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], rename))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(
                     PATH, json=erasure_of(anlass=f"Mail {ANOTHER_SURNAME} vom 30.03.2026"), headers=SignedActor(OPERATOR, ADMIN_KEY)
                 )
@@ -966,7 +960,7 @@ class TestANameARivalWritesMidRequest:
 
         # The status first: an erasure that committed answers no code to compare.
         assert response.status_code == 422, response.json()
-        assert refused_at(response) == (422, NAME_IM_ANLASS, [["anlass"]])
+        assert refused_at(response) == (422, Code.NAME_IM_ANLASS, [["anlass"]])
         assert left == held
         # The rename stands on the pupil row, and no log row took the request naming it.
         assert renamed == {ANOTHER_SURNAME: [str(Collection.SPIELER)]}
@@ -1051,7 +1045,7 @@ class TestTheSignOut:
         response, before, after, served = on_a_league(mongo_replica_set_url, body)
         filed = [row for row in after[Collection.AKTIONEN] if row not in before[Collection.AKTIONEN]]
 
-        assert (response.status_code, response.json()) == (200, {"acknowledged": 1})
+        assert (response.status_code, response.json()) == (200, {})
         # The actor's grant takes its anchor's count, which any judged write adds and nobody reads.
         assert unanchored(after, besides=Collection.AKTIONEN) == unanchored(before, besides=Collection.AKTIONEN)
         assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [
@@ -1100,14 +1094,14 @@ class TestTheSignOut:
                     racing.append(TheSignOutsRowMeetingARival(served.state.db_client[DATABASE_NAME][Collection.AKTIONEN], promote))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_aktionen_collection] = log
+                served.dependency_overrides[collection_dependency(Collection.AKTIONEN)] = log
                 response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, await filed_by(database, ABMELDUNG_PATH)
 
         response, filed = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json().get("error_code"), promotions, filed) == (403, VERWALTUNG_ADRESSE, [200], [])
+        assert (response.status_code, response.json().get("error_code"), promotions, filed) == (403, Code.VERWALTUNG_ADRESSE, [200], [])
         # The premise last: the first attempt passed its judgement and reached the row, and the retry was refused before it.
         assert sum(collection.passes for collection in racing) == 1
 
@@ -1129,7 +1123,7 @@ ROW_KEYS = ("actor", "request", "collection", "operation", "document_id", "db_fi
 # --- Refused at the box, before any read: the default tier's, the server answering nothing.
 
 # The control's answer: a body past validation, whose first database call meets the unanswered server.
-UNREACHED_DATABASE = {DATABASE_FAILED, UNKNOWN_OUTCOME}
+UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
 
 
 def answered_unanswered(path: str, body: Mapping[str, Any]) -> Response:
@@ -1164,7 +1158,7 @@ class TestTheAnlassIsRefusedAtTheBox:
         ],
     )
     def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
-        assert refused_at(answered_unanswered(PATH, body)) == (422, PAYLOAD_REFUSED, [["anlass"]])
+        assert refused_at(answered_unanswered(PATH, body)) == (422, Code.PAYLOAD_REFUSED, [["anlass"]])
 
     def test_the_bound_itself_reaches_the_database(self):
         """The control: a route refusing every body would pass the cases above."""
@@ -1207,8 +1201,8 @@ NAMES = eigene_namen(
 
 # Each refusal the one matcher answers, with the box it names.
 REFUSALS = {
-    "the erasure's request": (lambda text: find_name_im_anlass_refusal(anlass=text, names=NAMES), NAME_IM_ANLASS, "anlass"),
-    "the ban's reason": (lambda text: find_name_im_grund_refusal(grund=text, names=NAMES), NAME_IM_GRUND, "grund"),
+    "the erasure's request": (lambda text: find_name_im_anlass_refusal(anlass=text, names=NAMES), Code.NAME_IM_ANLASS, "anlass"),
+    "the ban's reason": (lambda text: find_name_im_grund_refusal(grund=text, names=NAMES), Code.NAME_IM_GRUND, "grund"),
 }
 
 

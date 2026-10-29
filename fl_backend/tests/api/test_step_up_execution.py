@@ -22,12 +22,13 @@ from app.api.adresswechsel.services import compose_record
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import ACTOR_HEADER, CONFIRMATION_REQUIRED, ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
+from app.core.security import ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -87,7 +88,7 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
 
 
 def refused(response: Any) -> bool:
-    return (response.status_code, response.json().get("error_code")) == (401, CONFIRMATION_REQUIRED)
+    return (response.status_code, response.json().get("error_code")) == (401, Code.CONFIRMATION_REQUIRED)
 
 
 async def a_live_link(database: AsyncDatabase) -> None:
@@ -322,12 +323,10 @@ class TestTheRefereesReturn:
 GRANT_HOLDER = "gisela.zugang@example.com"
 
 
-def by_passkey(email: str, *, signed_in_before_s: int) -> dict[str, str]:
-    """A person's token after the page's passkey prompt, signed when called, so its `iat` is the request's."""
+def by_passkey(email: str, *, signed_in_before_s: int) -> SignedActor:
+    """A person's session after the page's passkey prompt."""
 
-    claims = {**actor_claims(email, lane="person", signed_in_before_s=signed_in_before_s), "amr": [ACTOR_TOKEN_CONTRACT["admin_factor"]]}
-
-    return {**ADMIN_KEY, ACTOR_HEADER: sign(claims)}
+    return SignedActor(email, ADMIN_KEY, lane="person", signed_in_before_s=signed_in_before_s, factor=PASSKEY_FACTOR)
 
 
 async def a_grant_holder(database: AsyncDatabase) -> None:
@@ -343,7 +342,7 @@ class TestAGrantHoldersOwnErasure:
 
     def test_an_erasure_from_a_passkey_past_the_window_is_refused_and_erases_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
-            # The person's own token, past the revoke's window by a minute: this suite's `OLDER` is an administrator's.
+            # The person's own session, past the revoke's window by a minute: this suite's `OLDER` is an administrator's.
             OLDER = by_passkey(GRANT_HOLDER, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
             response = await http.post(self.URL, headers=OLDER)
             return refused(response), await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": GRANT_HOLDER})
@@ -358,8 +357,7 @@ class TestAGrantHoldersOwnErasure:
 
         assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 1)
 
-    def test_a_passkey_confirmed_a_second_before_its_token_erases_the_grant(self, mongo_replica_set_url: str):
-        """The page's prompt reads the session before its insert, so `auth_time` precedes `iat`: the window is judged at `iat`."""
+    def test_a_passkey_confirmed_a_second_before_erases_the_grant(self, mongo_replica_set_url: str):
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
             response = await http.post(self.URL, headers=by_passkey(GRANT_HOLDER, signed_in_before_s=1))

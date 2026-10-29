@@ -26,12 +26,13 @@ from app.api.spieler.schemas import (
     FLSpielerSortOptions,
 )
 from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
+from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
-from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -170,7 +171,7 @@ class TestTheSinglePlayerShape:
 
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
-        assert set(FLSpielerSingleResponse.model_fields) == {"acknowledged", "spieler_id", "vorname", "nachname"}
+        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "vorname", "nachname"}
 
     def test_the_leaving_date_is_not_on_it(self):
         """Nothing public renders a pupil's leaving date, and a field no surface needs is a field no surface is given."""
@@ -392,7 +393,7 @@ class TestTheSeasonASquadIsReadFor:
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
 
-        with pytest.raises(DocumentNotFoundException) as refused:
+        with pytest.raises(DocumentNotFoundError) as refused:
             asyncio.run(
                 get_spieler(
                     spieler_collection=cast(AsyncCollection, object()),
@@ -401,7 +402,7 @@ class TestTheSeasonASquadIsReadFor:
                 )
             )
 
-        assert refused.value.error_code == DOCUMENT_NOT_FOUND
+        assert refused.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
 class TestTheInitial:
@@ -546,7 +547,6 @@ class TestTheBaseTierReadExecuted:
     def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
         """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
         assert self._read_one(seeded_url, "Weber") == {
-            "acknowledged": 1,
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "vorname": "Jonas",
             "nachname": "W.",
@@ -821,7 +821,6 @@ class TestThePublicationGate:
         row = MASKED_SQUAD[case]
 
         assert self._read_one(masked_url, case) == {
-            "acknowledged": 1,
             "spieler_id": str(row.oid),
             "vorname": row.served_vorname,
             "nachname": row.served_nachname,

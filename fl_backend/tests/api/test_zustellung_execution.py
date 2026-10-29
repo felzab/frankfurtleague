@@ -5,7 +5,6 @@ import pytest
 from bson import ObjectId, decode, encode
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import WriteError
 
 from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
@@ -21,9 +20,9 @@ from app.api.zustellung.schemas import (
     FLZustellungEreignisPayload,
     FLZustellungZiel,
 )
-from app.api.zustellung.services import ZIEL_PFADE, traeger_halter, traeger_pfade, zustellung_pfad
+from app.api.zustellung.services import ZIEL_PFADE, traeger_halter, traeger_pfade
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -266,39 +265,6 @@ def test_every_kind_the_register_carries_has_a_stored_row_here():
 
 
 @pytest.mark.db
-class TestTheCarrierIsValidated:
-    """`_object` emits no `additionalProperties`, so an undeclared carrier would store any shape at all.
-
-    The ordering the whole idempotency rests on is a string comparison over `am`, which is worth
-    nothing where a record can be stored without one.
-    """
-
-    @pytest.mark.parametrize("ziel", ZIELE, ids=lambda ziel: ziel)
-    def test_a_record_missing_a_required_key_is_refused(self, ziel: FLZustellungZiel, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteError):
-                await database[ZIEL_PFADE[ziel].collection].update_one(
-                    {"_id": ZIEL_OID}, {"$set": {zustellung_pfad(TRAEGER[ziel]): {"nachricht_id": FIRST_MESSAGE}}}
-                )
-
-            return None
-
-        on_a_league(mongo_replica_set_url, ziel, body)
-
-    @pytest.mark.parametrize("ziel", ZIELE, ids=lambda ziel: ziel)
-    def test_a_state_outside_the_six_is_refused(self, ziel: FLZustellungZiel, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            record = {"nachricht_id": FIRST_MESSAGE, "stand": "erfunden", "grund": None, "am": ACCEPTED_AT}
-
-            with pytest.raises(WriteError):
-                await database[ZIEL_PFADE[ziel].collection].update_one({"_id": ZIEL_OID}, {"$set": {zustellung_pfad(TRAEGER[ziel]): record}})
-
-            return None
-
-        on_a_league(mongo_replica_set_url, ziel, body)
-
-
-@pytest.mark.db
 class TestTheAcceptedSend:
     @pytest.mark.parametrize("ziel", ZIELE, ids=lambda ziel: ziel)
     def test_it_records_the_id_the_provider_answered_with(self, ziel: FLZustellungZiel, mongo_replica_set_url: str):
@@ -508,7 +474,7 @@ class TestADeliveryEvent:
         """An erasure between the send and the event: the webhook maps this rather than retrying, which would spend the endpoint's standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await report(database, client, ziel=ziel, stand="zugestellt", ziel_id=ABSENT_OID)
 
             return None

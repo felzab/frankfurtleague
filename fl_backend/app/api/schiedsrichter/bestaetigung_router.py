@@ -33,7 +33,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperr
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
-from app.core.exception_handlers import stores_nothing
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -52,7 +51,6 @@ router = APIRouter(
     "/ansicht",
     response_model=FLSchiedsrichterBestaetigungAnsichtResponse,
     summary="What one Schiedsrichter confirmation link opens",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLSchiedsrichterBestaetigungAnsichtPayload, Body()],

@@ -56,10 +56,10 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.custom import fold_shorthand
 
 # Base-tier at a prefix whose other two routers are admin: a member of the public applies here, and
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).
@@ -129,7 +129,6 @@ def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) 
     "/fenster",
     response_model=FLBewerbungFensterResponse,
     summary="The Saison currently accepting applications",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """
@@ -154,7 +153,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     bewerbung = recorded_window(bewerbung=open_seasons[0]["bewerbung"]) if open_seasons else None
 
     if bewerbung is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return _fenster(saison_id=str(open_seasons[0]["_id"]), saison_status=open_seasons[0]["status"], bewerbung=bewerbung, today=today)
 
@@ -163,7 +162,6 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     "/fenster/{saison_id}",
     response_model=FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse,
     summary="One Saison's application window",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_fenster(
     saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
@@ -213,18 +211,18 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
     naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
     """
 
-    # No length constraint on the parameter: the width is the submission payload's rule, and a 422
-    # here would be the malformed-path answer this application does not give.
-    taken = await teams_collection.count_documents({"shorthand": shorthand}, limit=1)
+    # Folded as the submission folds it, so the answer is the one the submission will meet; no pattern
+    # on the parameter, a 422 here being the malformed-path answer this application does not give.
+    folded: str = fold_shorthand(shorthand)
+    taken = await teams_collection.count_documents({"shorthand": folded}, limit=1)
 
-    return FLBewerbungKuerzelResponse(shorthand=shorthand, vergeben=taken > 0)
+    return FLBewerbungKuerzelResponse(shorthand=folded, vergeben=taken > 0)
 
 
 @router.get(
     "/trikotfarben/{saison_id}",
     response_model=FLBewerbungTrikotFarbenResponse,
     summary="The kit colours a Saison has already assigned",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_trikotfarben(
     saison_id: str,
@@ -247,7 +245,7 @@ async def get_trikotfarben(
     # `saison_nimmt_bewerbungen_an`, the judgement `/fenster` and the submission already take: one
     # spelling of "this season is taking applications", so a second cannot drift from it.
     if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     # `distinct`, never a document read: what leaves the database is the field's values, so no
     # projection or response model stands between a club's row and this body.
@@ -304,7 +302,7 @@ async def _answer_as_the_first(
                 return_document=ReturnDocument.BEFORE,
             )
             tokens = FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in minted.items()})
-        except DocumentNotFoundException:
+        except DocumentNotFoundError:
             # The filter is the judgement: an application whose state holds its links back matches
             # nothing, and this answer hands none.
             tokens = None
@@ -323,7 +321,6 @@ async def _answer_as_the_first(
     response_model=FLPostBewerbungResponse,
     status_code=201,
     summary="Submit a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],

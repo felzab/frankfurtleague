@@ -19,11 +19,10 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET
 from app.api.spielbestaetigungen.services import halter_of, seite_of
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.journal import JOURNAL_TOKEN
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
@@ -299,7 +298,7 @@ class TestAPersonsOwnPress:
 
         # The premise first: the commit landed, its answer lost.
         assert (before != withdrawn, after) == (True, withdrawn)
-        assert (status, body["error_code"], len(journalled(caplog))) == (500, UNKNOWN_OUTCOME, 1)
+        assert (status, body["error_code"], len(journalled(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
 
     def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
@@ -319,7 +318,7 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, EINWILLIGUNG_STAND_VERALTET, 0, True)
+        assert refusal == (409, Code.EINWILLIGUNG_STAND_VERALTET, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (200, 1)
 
@@ -341,11 +340,19 @@ async def _first_commit_unanswered(
     return commits.answered
 
 
-def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str]]:
+# The fields the three sweeps' stopping lines carry beside their code.
+STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "adresswechsel_id", "unanswered", "clock", "may_stand")
+
+
+def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str, dict[str, Any]]]:
     return [
-        (getattr(record, "error_code", None), record.getMessage())
+        (
+            getattr(record, "error_code", None),
+            record.getMessage(),
+            {field: getattr(record, field) for field in STOPPING_FIELDS if hasattr(record, field)},
+        )
         for record in caplog.records
-        if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+        if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
     ]
 
 
@@ -366,10 +373,7 @@ class TestTheSweepsNameACommitTheyCannotRead:
 
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
-            (
-                UNKNOWN_OUTCOME,
-                f"Database deadline passed at pupil {pupil_numbered(1)}, its erasure unanswered: the call stops, and the rest stay due",
-            )
+            (Code.UNKNOWN_OUTCOME, "identitaet.loeschung_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
         ]
 
     def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
@@ -386,9 +390,9 @@ class TestTheSweepsNameACommitTheyCannotRead:
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
             (
-                UNKNOWN_OUTCOME,
-                f"Database deadline passed at the lapsed address change {change_numbered(1)}, its end unanswered: "
-                "the call stops, and the rest stay due",
+                Code.UNKNOWN_OUTCOME,
+                "adresswechsel.sweep_cut",
+                {"art": "lapsed", "adresswechsel_id": str(change_numbered(1)), "unanswered": "end"},
             )
         ]
 
@@ -449,10 +453,9 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
         ]
         assert _stopping_lines(caplog) == [
             (
-                UNKNOWN_OUTCOME,
-                "The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for "
-                f"fixture(s) {confirmations.SPIEL} may have been written with nobody told, the call answers what else committed, "
-                "and the rest stay due",
+                Code.UNKNOWN_OUTCOME,
+                "spielbestaetigungen.clock_commit_unanswered",
+                {"clock": "mint", "may_stand": f"the rows minted for fixture(s) {confirmations.SPIEL}"},
             )
         ]
         assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(

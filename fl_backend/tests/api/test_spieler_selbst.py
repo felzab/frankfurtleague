@@ -10,11 +10,10 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, ERTEILUNG_NICHT_ZUGELASSEN, KONTO_SEITE_SPIELER
+from app.api.konto.services import KONTO_SEITE_SPIELER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerSelbstEinwilligungPayload
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
@@ -301,7 +300,7 @@ class TestTheOwnRecord:
     def test_an_address_holding_no_confirmed_record_is_refused(self, mongo_replica_set_url: str, email: str):
         response = served(mongo_replica_set_url, _read(email))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
 
 
 @pytest.mark.db
@@ -351,7 +350,7 @@ class TestARecordNotHeld:
     def test_an_address_holding_no_confirmed_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, email: str):
         response, before, after, _ = served(mongo_replica_set_url, _press(email, _payload(umfang="intern")))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
 
 
@@ -373,7 +372,7 @@ class TestARetiredRecord:
 
         response, before, after, _ = served(mongo_replica_set_url, _press(RETIRED, _payload(medien=True), before=withdrawn_earlier))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
 
@@ -382,7 +381,7 @@ class TestTheMediaAge:
     def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         response, before, after, _ = served(mongo_replica_set_url, _press(YOUNG, _payload(medien=True)))
 
-        assert (response.status_code, response.json()["error_code"]) == (422, SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
         assert after == before
 
     def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
@@ -414,7 +413,7 @@ class TestTheLabelTheControlStamps:
     def test_a_label_naming_no_version_of_the_control_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, payload: dict[str, Any]):
         response, before, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, payload))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -492,7 +491,7 @@ class TestAStalePage:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["medien"] is False
 
@@ -530,7 +529,7 @@ class TestAStalePage:
         withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
 

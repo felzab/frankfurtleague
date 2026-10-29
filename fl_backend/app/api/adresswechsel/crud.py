@@ -245,7 +245,7 @@ async def end_the_change_in_session(
     *,
     adresswechsel_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    # The judgement: a change it matches not is a miss, `DocumentNotFoundException`, before any write.
+    # The judgement: a change it matches not is a miss, `DocumentNotFoundError`, before any write.
     db_filter: Mapping[str, Any],
     art: FLAdresswechselEndeArt,
     now: datetime,

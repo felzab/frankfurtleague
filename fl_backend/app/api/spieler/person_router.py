@@ -21,8 +21,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.drosselung import gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -88,9 +87,7 @@ async def _the_row_as_written(
     # A row whose person is gone, a hand edit the squad read drops, is answered as the live-row
     # filter answers a row it misses; raised inside the transaction, the write it follows is undone.
     if zeile is None:
-        raise DocumentNotFoundException(
-            filter={"spieler_id": spieler_id, "saison_id": saison_id, "team_id": team_id}, error_code=DOCUMENT_NOT_FOUND
-        )
+        raise DocumentNotFoundError()
 
     return FLKaderZeileResponse.model_validate(zeile.model_dump())
 
@@ -134,7 +131,6 @@ async def get_kader(
     ROW_PATH,
     response_model=FLKaderZeileResponse,
     summary="Update a squad entry as its team's seat holder",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def patch_kader_zeile(
@@ -211,7 +207,6 @@ async def patch_kader_zeile(
     ROW_PATH,
     response_model=FLKaderZeileResponse,
     summary="Take a Spieler out of the squad as its team's seat holder (austragen)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def delete_kader_zeile(

@@ -1,4 +1,7 @@
+import functools
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from typing import NamedTuple
 
 from fastapi import Depends, FastAPI, Request
@@ -7,10 +10,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.shared.folding import is_stored_identifier
 
@@ -84,8 +88,8 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
     """
 
     grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
-    # The one reading every reader of a grant takes: the validator
-    # refuses no spelling, so a hand-typed row may be stored that no request matches.
+    # The one reading every reader of a grant takes: the store refuses no spelling, so a hand-typed
+    # row may be stored that no request matches.
     live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
 
     if len(live) < len(grants):
@@ -131,16 +135,18 @@ async def lifespan(app: FastAPI):
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
             fl_logger.critical(
-                "Database constraints could not be applied, so the application will not start. Run "
-                "`python -m app.core.constraints --check` for the offending documents and the collMod privilege.",
+                "Database indexes could not be applied, so the application will not start.",
                 exc_info=True,
                 extra={"error_code": "SRV-BOOT-004"},
             )
             raise
         fl_logger.info(
-            f"Database constraints applied: {constraints.validators} validators, "
-            f"{constraints.unique_indexes} unique, {constraints.support_indexes} support "
-            f"and {constraints.ttl_indexes} TTL indexes."
+            "db.indexes_applied",
+            extra={
+                "unique_indexes": constraints.unique_indexes,
+                "support_indexes": constraints.support_indexes,
+                "ttl_indexes": constraints.ttl_indexes,
+            },
         )
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
@@ -156,7 +162,7 @@ async def lifespan(app: FastAPI):
 
 async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client
 
 
@@ -167,151 +173,15 @@ async def get_database(
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
-        raise DatabaseUnavailableException(error_code=NO_DATABASE_CLIENT)
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
     return request.app.state.db_client[config.db_base_name]
 
 
-async def get_spiele_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELE]
+@functools.cache
+def collection_dependency(collection: Collection) -> Callable[..., Awaitable[AsyncCollection]]:
+    """The one dependency per collection, the same object on every call, so an override and FastAPI's per-request cache both key on it."""
 
+    async def get_collection(db: AsyncDatabase = Depends(get_database)) -> AsyncCollection:
+        return db[collection]
 
-async def get_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELER]
-
-
-async def get_spieltage_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELTAGE]
-
-
-async def get_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.TEAMS]
-
-
-async def get_saisons_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISONS]
-
-
-async def get_spielorte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELORTE]
-
-
-async def get_schiedsrichter_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SCHIEDSRICHTER]
-
-
-# The two junctions. A READ reaches them by name inside a `$lookup`; a write opens them directly,
-# there being nothing to join.
-async def get_saison_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_TEAMS]
-
-
-async def get_aktionen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.AKTIONEN]
-
-
-async def get_saison_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_SPIELER]
-
-
-async def get_bewerbungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BEWERBUNGEN]
-
-
-async def get_sperrliste_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPERRLISTE]
-
-
-async def get_einladungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.EINLADUNGEN]
-
-
-async def get_registrierungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.REGISTRIERUNGEN]
-
-
-async def get_berechtigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN]
-
-
-async def get_berechtigungen_angekuendigt_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]
-
-
-async def get_berechtigungen_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-
-
-async def get_drosselung_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.DROSSELUNG]
-
-
-async def get_adressanker_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSANKER]
-
-
-async def get_spielbestaetigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBESTAETIGUNGEN]
-
-
-async def get_spielberichte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBERICHTE]
-
-
-async def get_adresswechsel_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL]
-
-
-async def get_adresswechsel_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL_POSTAUSGANG]
-
-
-async def get_berechtigungen_antraege_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANTRAEGE]
+    return get_collection

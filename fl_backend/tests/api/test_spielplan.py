@@ -23,23 +23,7 @@ from app.api.saisons.services import (
     DRAW_TWINS,
     DRAWN_HOLDING_ITS_SIDES,
     RECORDED_FACT_FIELDS,
-    RULES_BRACKET_IMPOSSIBLE,
-    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
-    RULES_DRAW_OUTVALUES_WIN,
-    RULES_DRAW_OUTVALUES_WIN_AS_STORED,
-    RULES_FIXTURES_OVER_ONE_READ,
-    RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-    RULES_QUALIFIERS_ABOVE_GROUP,
-    RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
-    SAISON_SPAN_BELOW_SCHEDULE,
-    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SHAPE_ONLY_CODES,
-    SPIELPLAN_ALREADY_DRAWN,
-    SPIELPLAN_GRUPPEN_OFF_RULES,
-    SPIELPLAN_MATCHDAYS_HELD,
-    SPIELPLAN_SAISON_FINISHED,
     as_the_draw_answers,
     find_rules_refusal,
     find_spielplan_refusal,
@@ -50,8 +34,6 @@ from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK, SONDEREREIGNIS_WITHO
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLGruppenNames
 from app.core.codes import Code
-from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.exceptions import WriteRefusal
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
@@ -113,12 +95,6 @@ def draw(groups: int, teams: int, qualifiers: int, entered: Sequence[EnteredTeam
     return draw_spielplan(saison_id=SAISON_ID, rules=season, entered=entered_for(groups, teams) if entered is None else entered)
 
 
-def validator(collection: Collection) -> dict[str, Any]:
-    """One collection's `$jsonSchema`, read off the shipped constraint rather than restated here."""
-
-    return dict(COLLECTION_VALIDATORS[collection]["$jsonSchema"])
-
-
 def matchday_phases(plan: Spielplan) -> dict[ObjectId, FLSaisonPhase]:
     return {spieltag["_id"]: spieltag["saison_phase"] for spieltag in plan.spieltage}
 
@@ -175,7 +151,7 @@ class TestTheCircleMethodPairsAGroup:
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_nobody_is_paired_twice_in_one_round(self, teams: int):
-        """A club fielded twice on one matchday is what `app/core/constraints.py :: report_relations` counts as a violation."""
+        """A club fielded twice on one matchday is a state no Spieltag may hold."""
 
         for pairs in circle_rounds(teams):
             sides = [side for pair in pairs for side in pair]
@@ -689,36 +665,13 @@ class TestSpielNrRunsOnceThroughTheSeason:
                     assert quelle["spiel_nr"] < spiel["spiel_nr"]
 
 
-class TestTheEmittedDocumentsSatisfyTheShippedValidators:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_fixture_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELE)
-
-        for spiel in draw(*shape).spiele:
-            assert set(declared["required"]) <= set(spiel) <= set(declared["properties"])
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_matchday_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELTAGE)
-
-        for spieltag in draw(*shape).spieltage:
-            assert set(declared["required"]) <= set(spieltag) <= set(declared["properties"])
-
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_side_carries_the_required_keys_and_invents_none(self, shape: tuple[int, int, int]):
-        declared = validator(Collection.SPIELE)["properties"]["team1"]
-
-        for spiel in draw(*shape).spiele:
-            for side in (spiel["team1"], spiel["team2"]):
-                if side is not None:
-                    assert set(declared["required"]) <= set(side) <= set(declared["properties"])
-
+class TestTheEmittedDocumentsReadBack:
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_fixture_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """A document only the writer can read is one the first `GET /spiele` answers 500 on."""
+        """A document only the writer can read is one the first `GET /spiele` answers 500 on; one key no model declares, one nothing reads."""
 
         for spiel in draw(*shape).spiele:
-            FLSpiel.model_validate(spiel)
+            FLSpiel.model_validate(spiel, extra="forbid")
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
@@ -728,7 +681,7 @@ class TestTheEmittedDocumentsSatisfyTheShippedValidators:
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
 
         for spieltag in draw(*shape).spieltage:
-            FLSpieltag.model_validate({**spieltag, "anzahl_spiele": expected_matches(season, spieltag["saison_phase"])})
+            FLSpieltag.model_validate({**spieltag, "anzahl_spiele": expected_matches(season, spieltag["saison_phase"])}, extra="forbid")
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_nothing_is_scheduled_and_nothing_has_happened(self, shape: tuple[int, int, int]):
@@ -935,7 +888,6 @@ def refusal_for(
     saison_status: str = "future",
     fixtures_drawn: int = 0,
     spieltage_held: int = 0,
-    watermark: Mapping[str, Any] | None = None,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
     replace: bool = False,
@@ -945,7 +897,6 @@ def refusal_for(
         saison_status=saison_status,
         fixtures_drawn=fixtures_drawn,
         spieltage_held=spieltage_held,
-        watermark=watermark,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
@@ -974,7 +925,7 @@ class TestASeasonHoldingMatchdays:
         refusal = refusal_for(spieltage_held=1)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_MATCHDAYS_HELD
+        assert refusal.error_code == Code.SPIELPLAN_MATCHDAYS_HELD
 
 
 class TestAFinishedSeason:
@@ -984,8 +935,7 @@ class TestAFinishedSeason:
         refusal = refusal_for(saison_status="past")
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_SAISON_FINISHED
-        assert "past" in refusal.message
+        assert refusal.error_code == Code.SPIELPLAN_SAISON_FINISHED
 
     def test_a_running_season_is_permitted(self):
         """The pair to `REQ-ACTIVATE-003`, and the whole reason this refuses `past` alone.
@@ -1008,7 +958,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={**FULL, "B": 4})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_holding_more_than_the_rules_ask_refuses_the_draw(self):
         """The other direction: a group past `teams_per_group` draws more fixtures than its matchdays account for."""
@@ -1016,7 +966,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={**FULL, "A": 7})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_beyond_the_offered_ones_refuses_the_draw(self):
         """A club in a group the season does not run draws into no round robin at all.
@@ -1029,7 +979,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1}, rules=two_groups)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_an_offered_group_nobody_is_entered_into_is_named_as_holding_none(self):
         """A group nobody is entered into is absent from the map rather than present at 0.
@@ -1041,73 +991,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={"A": 6, "B": 6})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
-        assert "gruppe C holds 0 of 6" in refusal.message
-        assert "gruppe D holds 0 of 6" in refusal.message
-
-    def test_every_short_group_is_named_at_once(self):
-        """One press, one list: an admin filling them one at a time would meet this refusal per group."""
-
-        refusal = refusal_for(occupancy={"A": 6, "B": 4, "C": 6, "D": 2})
-
-        assert refusal is not None
-        assert refusal.message.split(";")[0] == "gruppe B holds 4 of 6, gruppe D holds 2 of 6"
-
-    def test_the_message_names_the_group_and_what_it_holds(self):
-        """The same sentence the short direction gets, because an admin repairing either reads the same page."""
-
-        refusal = refusal_for(occupancy={"A": 7, "B": 6, "C": 6, "D": 9})
-
-        assert refusal is not None
-        assert "gruppe A holds 7 of 6" in refusal.message
-        assert "gruppe D holds 9 of 6" in refusal.message
-
-    def test_both_directions_are_reported_by_one_press(self):
-        """Repairing a season one refusal at a time is what naming every offending group at once avoids."""
-
-        refusal = refusal_for(occupancy={"A": 7, "B": 4, "C": 6, "D": 6})
-
-        assert refusal is not None
-        assert "gruppe A holds 7 of 6" in refusal.message
-        assert "gruppe B holds 4 of 6" in refusal.message
-
-    def test_the_message_names_the_group_what_it_holds_and_what_the_season_offers(self):
-        """A 500 out of `_squads` names the club and reaches no admin; this is the same fact as an answer to the press."""
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1, "D": 3}, rules=two_groups)
-
-        assert refusal is not None
-        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
-        assert "gruppe D holds 3 and a season of 2 group(s) does not offer it" in refusal.message
-
-    def test_a_stranded_club_is_reported_beside_a_group_off_its_size(self):
-        """One question, so one answer: every group the season cannot draw truthfully, in one message."""
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        refusal = refusal_for(occupancy={"A": 5, "B": 6, "C": 1}, rules=two_groups)
-
-        assert refusal is not None
-        assert "gruppe A holds 5 of 6" in refusal.message
-        assert "gruppe C holds 1 and a season of 2 group(s) does not offer it" in refusal.message
-
-    def test_the_message_names_every_group_in_one_fixed_order(self):
-        """The refusal is the admin's answer and the log line alike, and an order that moves between runs is neither.
-
-        Offered groups in the season's own order, then the stranded ones by name, whatever order the
-        occupancy map arrived in.
-        """
-
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
-        # Out of name order on purpose: `generate_spielplan` counts rows off a cursor no index sorts.
-        refusal = refusal_for(occupancy={"D": 3, "C": 4, "B": 4, "A": 5}, rules=two_groups)
-
-        assert refusal is not None
-        assert refusal.message.split(";")[0] == (
-            "gruppe A holds 5 of 6, gruppe B holds 4 of 6, "
-            "gruppe C holds 4 and a season of 2 group(s) does not offer it, "
-            "gruppe D holds 3 and a season of 2 group(s) does not offer it"
-        )
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_the_season_does_not_offer_is_not_counted(self):
         """`offered_gruppen` bounds it: a two-group season is not short because C and D are absent from the map."""
@@ -1117,7 +1001,6 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
             saison_status="future",
             fixtures_drawn=0,
             spieltage_held=0,
-            watermark=None,
             rules=two_groups,
             occupancy_by_gruppe={"A": 6, "B": 6},
             replace=False,
@@ -1146,7 +1029,7 @@ class TestAConfirmedReplaceStepsPastWhatItDeletes:
         refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
 
 ADLER = "68f0a1b2c3d4e5f607600011"
@@ -1420,7 +1303,7 @@ class TestASideMovedOffTheDrawClosesTheWindow:
 def shared(code: Code) -> WriteRefusal:
     """A refusal as the season's own write answers it, which the draw then re-codes."""
 
-    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT, message="the shared check's detail")
+    return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
 
 def on_the_draw(code: Code, *, shape_stated: bool) -> tuple[Code, HTTPStatus] | None:
@@ -1435,15 +1318,24 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
     def test_a_draw_stating_no_shape_answers_every_shared_code_under_its_twin(self):
         """No shape overlays anything, so every rule the draw asks judges the season's stored rules or dates."""
 
-        assert on_the_draw(RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
-            RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+        assert on_the_draw(Code.RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (
+            Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
             HTTPStatus.CONFLICT,
         )
-        assert on_the_draw(RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (RULES_FIXTURES_OVER_ONE_READ_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
+            Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(Code.RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (
+            Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (
+            Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
 
     @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
     def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: Code):
@@ -1458,11 +1350,10 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
         assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)
 
     def test_a_code_the_draw_shares_with_nothing_is_left_alone(self):
-        assert on_the_draw(SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
+        assert on_the_draw(Code.SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (Code.SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
         assert as_the_draw_answers(None, shape_stated=False) is None
 
     def test_the_twin_keeps_the_shared_checks_detail(self):
-        answered = as_the_draw_answers(shared(RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
+        answered = as_the_draw_answers(shared(Code.RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
 
         assert answered is not None
-        assert answered.message == "the shared check's detail"

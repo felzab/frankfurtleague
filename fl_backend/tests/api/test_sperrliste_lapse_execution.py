@@ -13,19 +13,19 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
+from app.api.sperrliste.services import adresse_hash
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -188,26 +188,6 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
 
-    def test_only_a_caller_without_a_session_is_answered_from_the_season_cache(self, mongo_replica_set_url: str):
-        """BOTH sides: a helper never consulting the cache fails the first answer, and one consulting it under a session fails the second."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
-            saisons = database[Collection.SAISONS]
-            await pull_massgebliche_saison_id(saisons_collection=saisons)
-            # Moved by hand, so nothing drops the season the read above cached.
-            await saisons.update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
-            await saisons.update_one({"_id": "2027"}, {"$set": {"status": "active"}})
-
-            async with client.start_session() as session:
-                cached = await pull_massgebliche_saison_id(saisons_collection=saisons)
-                sessioned = await pull_massgebliche_saison_id(saisons_collection=saisons, session=session)
-
-            return cached, sessioned
-
-        seasons = [saison_document(ENTERED_UNDER, "active"), saison_document("2027", "future")]
-
-        assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
-
     def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
@@ -242,10 +222,10 @@ class TestALeagueWithNoSeasonRunning:
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(WriteRefusalException) as raised:
+            with pytest.raises(APIError) as raised:
                 await ban(database, client)
 
-            assert raised.value.error_code == SPERRLISTE_KEINE_SAISON
+            assert raised.value.error_code == Code.SPERRLISTE_KEINE_SAISON
 
             return await database[Collection.SPERRLISTE].count_documents({})
 
@@ -280,29 +260,6 @@ class TestTheBoundaryTheCheckReads:
             return await is_gesperrt(database, against=FIRST_CLEAR), await database[Collection.SPERRLISTE].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
-
-    def test_a_row_carrying_no_lapse_season_at_all_is_refused_before_the_check_reads_it(self, mongo_replica_set_url: str):
-        """The conforming twin below stores, so the refusal is the missing key's rather than anything else in the row.
-
-        Why the key is required at all stands at it in `fl_backend/app/core/constraints.py`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, int]:
-            await ban(database, client)
-            keyless = documents.ban_document(OTHER, bis=LAST_COVERED)
-            del keyless["gesperrt_bis_saison_id"]
-
-            with pytest.raises(OperationFailure) as refused:
-                await database[Collection.SPERRLISTE].insert_one(keyless)
-
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(OTHER, bis=LAST_COVERED))
-
-            return refused.value.code, await database[Collection.SPERRLISTE].count_documents({})
-
-        code, stored = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
-
-        assert code == DOCUMENT_VALIDATION_FAILED
-        assert stored == 2
 
 
 class TestTheSweepAtAnActivation:

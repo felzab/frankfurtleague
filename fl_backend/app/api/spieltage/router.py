@@ -13,7 +13,6 @@ from app.api.spieltage.services import build_spieltage_filter, build_spieltage_s
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieltageCollection
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -24,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpieltageListResponse, summary="List Spieltage", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get("", response_model=FLSpieltageListResponse, summary="List Spieltage")
 async def get_spieltage(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
@@ -66,9 +65,7 @@ async def get_spieltage(
     return FLSpieltageListResponse(spieltage=spieltage)
 
 
-@router.get(
-    by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
-)
+@router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
 async def get_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,

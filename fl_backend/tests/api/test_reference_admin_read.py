@@ -10,10 +10,9 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DATABASE_FAILED
-from app.core.security import WRONG_ADMIN_KEY
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -36,10 +35,10 @@ from .conftest import config_for, unwritten
 ACTOR = "admin@example.com"
 
 # Which guard refused, and so which tier the route belongs to: no key satisfies both.
-ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
+ADMIN_GUARD_REFUSED = Code.WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure.
-UNREACHED_DATABASE = DATABASE_FAILED
+UNREACHED_DATABASE = Code.DATABASE_FAILED
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every reading case here shares.

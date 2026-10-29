@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { postSpielbestaetigung } from "@/features/spielbestaetigungen/mutations";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
 import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
