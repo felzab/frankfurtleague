@@ -4,28 +4,18 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "./api";
-import { APIMalformedDataError, ContractBreakError, isRecordMissing } from "./errors";
+import { ContractBreakError, isRecordMissing } from "./errors";
 import { FLEinwilligungFassungResponseSchema, FLEinwilligungSeitenResponseSchema } from "./schemas";
 import { SITE_CACHE_TAG } from "./siteCache";
 
 import type { EinwilligungSeite } from "./einwilligungSeiten";
 import type { FLEinwilligungFassung } from "./schemas";
 
-/** What the cached words read keeps: the words, `null` for a label the registry does not hold, or how the answer broke its schema. */
-type GeleseneFassung = { fassung: FLEinwilligungFassung | null } | { vertragsbruch: string };
-
 /**
  * The words a stored label names, `null` for one the registry does not hold. Never a fallback: the
  * running words under an old label are a record claiming a text its person never read.
  */
 export async function getEinwilligungFassung(textVersion: string): Promise<FLEinwilligungFassung | null> {
-  const gelesen = await leseEinwilligungFassung(textVersion);
-  if ("vertragsbruch" in gelesen) throw new ContractBreakError(gelesen.vertragsbruch);
-
-  return gelesen.fassung;
-}
-
-async function leseEinwilligungFassung(textVersion: string): Promise<GeleseneFassung> {
   "use cache";
 
   cacheTag(SITE_CACHE_TAG);
@@ -36,18 +26,13 @@ async function leseEinwilligungFassung(textVersion: string): Promise<GeleseneFas
     });
     // The longest life: a label's words never change, so no change outside a save can reach them.
     cacheLife("max");
-    return { fassung: antwort.fassung };
+    return antwort.fassung;
   } catch (error) {
-    // Each answered inside the cached scope rather than thrown: what a `"use cache"` function throws
-    // loses its class in every build, so no caller can tell them apart.
+    // Answered inside the cached scope rather than thrown: what a `"use cache"` function throws loses its class in
+    // every build, so no caller could tell it apart.
     if (isRecordMissing(error)) {
       cacheLife("max");
-      return { fassung: null };
-    }
-    // Kept briefly, as Next's own conditional lifetimes keep a miss: a backend deploy may repair it.
-    if (error instanceof APIMalformedDataError) {
-      cacheLife("seconds");
-      return { vertragsbruch: `the backend's words for ${textVersion} break their schema (trace ${error.traceId})` };
+      return null;
     }
     throw error;
   }

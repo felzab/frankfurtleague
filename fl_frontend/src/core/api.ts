@@ -1,52 +1,29 @@
 import "server-only";
 
-import z from "zod";
-
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
-import {
-  APIBadStatusError,
-  APIMalformedDataError,
-  APINetworkError,
-  ApiUnsentError,
-  mayHaveWritten,
-  UnattributedAdminCallError,
-} from "./errors";
-import { boundCall, getRequestActor, getRequestTraceId, requestTimeLeft } from "./requestScope";
-import { FLRefusedPayloadBodySchema } from "./schemas";
+import { APIBadStatusError, APINetworkError, UnattributedAdminCallError } from "./errors";
+import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
 import { ACTOR_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
+import type { ZodType } from "zod";
 import type { SentRequest } from "./errors";
+import type { FLRefusedField } from "./schemas";
 
 const BASE_FETCH_AUTH_TYPE = "base";
-const BASE_FETCH_TIMEOUT_MS = 15000;
-/** The path every endpoint is spelled under; `fl_backend/openapi.json` writes it into each of its paths. */
-export const BASE_FETCH_PATH = `/api/v${frontend_config.API_VERSION}`;
-const BASE_FETCH_URL = `${frontend_config.API_URL}${BASE_FETCH_PATH}`;
 
 /**
- * The backend's own deadline on a request, retyped from `fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`:
- * every database write a call makes ends inside it.
+ * Past the backend's own deadline on a request (`fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`), which
+ * bounds every database call it makes: an answer the backend gives at its deadline still arrives.
  */
-const BACKEND_REQUEST_DEADLINE_MS = 10000;
+const FETCH_TIMEOUT_MS = 15000;
 
-/**
- * What a write's answer takes past that deadline: the backend's aborts after a cut
- * (`fl_backend/app/core/transactions.py :: ABORT_GRACE_S`), then the hop each way, whose round trip measured 0.3 to
- * 3.3 ms on loopback (2026-10-16).
- */
-const WRITE_ANSWER_MARGIN_MS = 2000;
-
-/**
- * What a call that may write needs left of its request's deadline: sent with less, the request could stop waiting while
- * the backend still commits, and drop its caches before that write lands.
- */
-export const WRITE_NEEDS_MS = BACKEND_REQUEST_DEADLINE_MS + WRITE_ANSWER_MARGIN_MS;
+/** The path every endpoint is spelled under, as `fl_backend/openapi.json` writes it into each of its paths. */
+export const BASE_FETCH_PATH = "/api/v0";
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
-  timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>;
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
@@ -78,54 +55,34 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
-const handleFetchResponse = async ({
-  res,
-  traceId,
-  endpoint,
-  sent,
-}: {
-  res: Response;
-  traceId: string;
-  endpoint: string;
-  sent: SentRequest;
-}): Promise<unknown> => {
-  if (res.ok) {
-    if (res.status === 204 || res.headers.get("content-length") === "0") return null;
-    return res.json();
-  }
-
-  const isJson = res.headers.get("content-type")?.includes("application/json");
-
-  if (!isJson) {
-    throw new APIBadStatusError({
+/** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
+const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; traceId: string; endpoint: string; sent: SentRequest }) => {
+  // An edge's own page, never the backend's body: nginx's and Cloudflare's answers are HTML.
+  if (!res.headers.get("content-type")?.includes("application/json")) {
+    return new APIBadStatusError({
       message: "Infrastructure routing failure.",
       url: res.url,
       statusCode: res.status,
-      endpoint: endpoint,
+      endpoint,
       ...sent,
-      traceId: traceId,
+      traceId,
     });
   }
 
-  // Read defensively: an unparseable failure body must not compound a bad status.
-  const body: unknown = await res
-    .clone()
-    .json()
-    .catch(() => undefined);
-  const serverErrorCode = body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined;
-  // All or nothing: a list that fails its shape marks no field, rather than one this parse invented.
-  const refusedFields =
-    body && typeof body === "object" && "fields" in body ? FLRefusedPayloadBodySchema.shape.fields.safeParse(body.fields) : undefined;
+  // Read defensively: an unreadable failure body must not compound a bad status.
+  const body: unknown = await res.json().catch(() => undefined);
+  const failure = body !== null && typeof body === "object" ? (body as { error_code?: unknown; fields?: unknown }) : {};
 
-  throw new APIBadStatusError({
+  return new APIBadStatusError({
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
-    serverErrorCode: serverErrorCode,
-    refusedFields: refusedFields?.success ? refusedFields.data : [],
-    endpoint: endpoint,
+    serverErrorCode: failure.error_code === undefined ? undefined : String(failure.error_code),
+    // The backend's `FLRefusedPayloadBody` lists them; any other body marks no field.
+    refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
+    endpoint,
     ...sent,
-    traceId: traceId,
+    traceId,
   });
 };
 
@@ -138,12 +95,17 @@ export function queryOf(params: FetchOptions["params"]): URLSearchParams {
   return query;
 }
 
-export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
+/**
+ * One call to the backend, answering its success body as the type the caller names: typed, never parsed, as the
+ * generated types describe the backend's own answer. `fl_frontend/src/core/transport.ts` sends every generated call
+ * through here.
+ */
+export async function sendToBackend<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
   // Unseeded means a `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
   // the ids reach the header and the errors, never the returned value.
   const traceId = getRequestTraceId() ?? mintTraceId();
 
-  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, readOnly, ...customOptions } = options;
+  const { authType = BASE_FETCH_AUTH_TYPE, params, readOnly, ...customOptions } = options;
 
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
@@ -167,28 +129,22 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   if (actor) headers.set(ACTOR_HEADER, actor.token);
   else headers.delete(ACTOR_HEADER);
 
-  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
-
   // Parsed per REQUEST, never at module scope: the image build imports this with no `API_URL`, and a
   // top-level parse throws while `next build` collects page data.
-  const basePath = new URL(BASE_FETCH_URL).pathname;
+  const baseUrl = `${frontend_config.API_URL}${BASE_FETCH_PATH}`;
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const urlObj = new URL(`${baseUrl}${cleanEndpoint}`);
 
-  // `new URL` resolves `..` before any check sees it, so an interpolated id could aim an authenticated
-  // call at another resource. A caller's bug, so it throws rather than answering.
-  if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, basePath)) {
+  // `new URL` resolves `..` before any check sees it, and a generated URL interpolates its path ids as given, so an id
+  // could aim an authenticated call at another resource. A caller's bug, so it throws rather than answering.
+  if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, new URL(baseUrl).pathname)) {
     throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
   }
 
   queryOf(params).forEach((value, key) => urlObj.searchParams.append(key, value));
 
   const sent = sentRequestOf(customOptions.method, readOnly);
-
-  // Ahead of the bound, so nothing marks the request: a write refused unsent changed nothing, and its caller says
-  // what the writes before it did.
-  if (mayHaveWritten(sent) && requestTimeLeft() < WRITE_NEEDS_MS) throw new ApiUnsentError(sent.method);
-
-  const bound = boundCall(timeoutMs);
+  const bound = boundCall(FETCH_TIMEOUT_MS);
 
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
@@ -202,11 +158,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   // Cleared in `finally` so it bounds the body read too: `fetch` resolves on headers, so clearing
   // it there leaves `res.json()` unbounded and a stalled backend hangs the render.
-  let res: Response;
-  let rawData: unknown;
   try {
     // Thrown here rather than left to `fetch`, which refuses an aborted signal unsent too but names no
-    // deadline in what it throws. A read alone reaches it: a write is refused above.
+    // deadline in what it throws.
     if (bound.signal.aborted) {
       throw new APINetworkError({
         message: "The request's deadline had passed before this call was sent.",
@@ -217,48 +171,29 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       });
     }
 
-    // Past the refusal above, which sends nothing and so records no write.
+    let res: Response;
     try {
       res = await dispatchRequest(sent, () => fetch(urlObj, { ...customOptions, headers, signal: bound.signal }));
     } catch (error) {
       throw asNetworkError(error);
     }
 
-    try {
-      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint, sent: sent });
-    } catch (error) {
-      // Already the right error, and re-wrapping it would lose the status code.
-      if (error instanceof APIBadStatusError) throw error;
-      // A stalled body aborts here rather than inside `fetch`.
-      if (error instanceof Error && error.name === "AbortError") throw asNetworkError(error);
+    if (!res.ok) throw await refusalOf({ res, traceId, endpoint, sent });
+    if (res.status === 204 || res.headers.get("content-length") === "0") return null as T;
 
-      throw new APIMalformedDataError({
-        message: "API returned a body that could not be parsed as JSON.",
-        url: res.url,
-        statusCode: res.status,
-        endpoint: endpoint,
-        ...sent,
-        traceId: traceId,
-      });
+    try {
+      return (await res.json()) as T;
+    } catch (error) {
+      // A body cut or stalled on its way: the call may have landed, as any answer lost in transit.
+      throw asNetworkError(error);
     }
   } finally {
     bound.clear();
   }
+}
 
-  const validated = schema.safeParse(rawData);
-  if (!validated.success) {
-    // No console.log of the tree: it would break `logging.ts`'s one-JSON-document-per-line stream,
-    // and the tree already travels on the error below.
-    throw new APIMalformedDataError({
-      message: "API returned malformed data.",
-      url: res.url,
-      statusCode: res.status,
-      endpoint: endpoint,
-      ...sent,
-      traceId: traceId,
-      zodIssues: z.treeifyError(validated.error),
-    });
-  }
-
-  return validated.data;
-};
+/**
+ * Redesign: goes with its last importer. A slice's hand-written call, which names its answer by a schema of its own;
+ * the schema types the answer and parses nothing.
+ */
+export const apiClient = <T>(endpoint: string, _answer: ZodType<T>, options?: FetchOptions): Promise<T> => sendToBackend<T>(endpoint, options);
