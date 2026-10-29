@@ -16,6 +16,13 @@ const GESPEICHERT_SAETZE = [
   "Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.",
 ] as const;
 
+// Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
+// application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
+const EINLEITUNG = [
+  `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt.`,
+  "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
+] as const;
+
 export function buildSperreEmail({ grund, gesperrtBisSaisonId, origin }: { grund: string; gesperrtBisSaisonId: string; origin: string }): Mail {
   return {
     art: "mitteilung",
@@ -24,10 +31,7 @@ export function buildSperreEmail({ grund, gesperrtBisSaisonId, origin }: { grund
     vorname: "",
     absaetze: [
       [
-        // Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
-        // application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
-        `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt.`,
-        "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
+        ...EINLEITUNG,
         // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.
         "Bestehende Anmeldungen mit dieser Adresse werden beendet.",
         // INCLUSIVE, where a bare „bis“ is not: a reader told the ban ends „bis 2031“ reads the whole of that season as free.
