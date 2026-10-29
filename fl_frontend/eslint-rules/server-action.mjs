@@ -29,7 +29,7 @@ function property(object, key) {
 const literal = (node) => (node?.type === "Literal" ? node.value : undefined);
 
 /** @type {import("eslint").Rule.RuleModule} */
-export default {
+const serverAction = {
   meta: {
     type: "problem",
     schema: [
@@ -122,3 +122,5 @@ export default {
     };
   },
 };
+
+export default serverAction;
