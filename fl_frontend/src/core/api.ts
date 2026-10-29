@@ -128,7 +128,9 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions =
   // the actor. The backend believes these behind the admin key alone
   // (`fl_backend/app/core/security.py :: get_session_actor`).
   if (actor) {
-    headers.set(ACTOR_HEADER, actor.email);
+    // Percent-encoded: a field value is a ByteString, which `Headers` refuses above U+00FF and sends as Latin-1 below it.
+    // The backend refuses any other spelling (`fl_backend/app/core/security.py :: actor_header_value`).
+    headers.set(ACTOR_HEADER, encodeURIComponent(actor.email));
     headers.set(AUTH_TIME_HEADER, String(actor.authTime));
     headers.set(AUTH_FACTOR_HEADER, actor.factor);
   } else {

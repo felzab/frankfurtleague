@@ -43,7 +43,9 @@ an operation's `security` in `openapi.json` names the tier it takes.
 
 The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Auth-Time` and
 `X-FL-Auth-Factor`: the address, when its session was made, and by which factor
-(`fl_backend/app/core/security.py :: get_session_actor`). The admin key and the private network are
+(`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
+percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
+is refused as naming nobody. The admin key and the private network are
 what make them believed. **`system/router.py` holds the two routes with no guard**:
 `/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
 needs a secret fails for the wrong reasons, and the service's root `/`.

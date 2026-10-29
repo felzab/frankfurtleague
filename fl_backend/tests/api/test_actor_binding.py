@@ -121,9 +121,16 @@ def test_a_request_without_the_admin_key_sets_no_actor():
         pytest.param({AUTH_TIME_HEADER: "-60"}, id="a signed sign-in time"),
         pytest.param({"X-FL-Auth-Factor": "sms"}, id="a factor no session is made by"),
         pytest.param({"X-FL-Actor": ""}, id="no address"),
+        # Decoded leniently, `%41` would read as `A` and name another mailbox.
+        pytest.param({"X-FL-Actor": ACTOR}, id="an address sent unencoded"),
+        pytest.param({"X-FL-Actor": "admin%4example.com"}, id="a truncated escape"),
+        pytest.param({"X-FL-Actor": "k%c3%a4the%40example.com"}, id="a lower-case escape"),
+        pytest.param({"X-FL-Actor": "k%E4the%40example.com"}, id="an escape decoding to no UTF-8"),
+        # Bytes, as a client sending the address raw puts them on the wire; Starlette reads them as Latin-1.
+        pytest.param({"X-FL-Actor": "käthe%40example.com".encode("latin-1")}, id="a byte past ASCII"),
     ],
 )
-def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str]):
+def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
     """The real lookup and no database: a 503 here would mean the grants were asked before the session was read."""
 
     sent = {**ADMIN_KEY} if not headers else {**ADMIN_KEY, **actor_headers(ACTOR), **headers}
@@ -465,6 +472,13 @@ class TestThePersonsSession:
 
         assert answer(response) == (403, Code.PERSON_BARRED)
         assert BARRED_PERSON not in response.text.lower()
+
+    def test_an_address_beyond_ascii_reaches_the_ban_read_decoded_and_folded(self):
+        """Percent-encoded as the frontend sends it, and asked in the punycode spelling every record stores."""
+
+        response = person_client(barred=frozenset({"käthe@xn--mller-kva.de"})).get(PERSON_PROBE, headers=as_person("käthe@müller.de"))
+
+        assert answer(response) == (403, Code.PERSON_BARRED)
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
