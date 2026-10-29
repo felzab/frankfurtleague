@@ -1,4 +1,4 @@
-import { cacheCalls, doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -85,16 +85,5 @@ describe("what the season's contacts save sends", () => {
     const result = await patchSaisonTeamKontakteAction(CLEARED);
 
     expect("saison_team" in result ? result.saison_team?.kontakte_stand : undefined).toBe("a1b2");
-  });
-});
-
-describe("what the contacts save clears", () => {
-  /* No cached read holds a contact person: the memberships read is admin-tier and memoised per render
-     pass, the public team reads carry no `kontakte`, and the log is uncached. */
-  it("moves no tag, and re-reads the page the save stands on", async () => {
-    await patchSaisonTeamKontakteAction(CLEARED);
-
-    expect(sent.length, "the save never reached the client, so what it clears is judged over nothing").toBe(1);
-    expect(cacheCalls).toStrictEqual([{ name: "refresh", args: [] }]);
   });
 });

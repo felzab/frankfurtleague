@@ -1,6 +1,6 @@
 "use server";
 
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -24,8 +24,6 @@ export async function eintragenSpielbestaetigungAction(
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
-
-    invalidatesOnWrite("spiele");
 
     let operation;
     try {
@@ -57,8 +55,6 @@ export async function verwerfenSpielbestaetigungAction(
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
-
-    invalidatesOnWrite("spiele");
 
     let operation;
     try {

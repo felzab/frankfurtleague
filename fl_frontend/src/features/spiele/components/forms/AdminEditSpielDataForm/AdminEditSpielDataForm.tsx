@@ -445,7 +445,7 @@ export function AdminEditSpielDataForm({
 
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id, uebernimmtBericht).catch(unansweredAction);
+      const res = await patchAdminSpielDataAction(narrowed, uebernimmtBericht).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
@@ -478,7 +478,6 @@ export function AdminEditSpielDataForm({
             undoAdminSpielEditAction({
               paarungen: res.priorPaarungen ?? [],
               bericht: res.priorBericht ?? null,
-              saison_id: spielData.saison_id,
             }),
           message: nichtUebernommen ? `${gespeichert} ${BERICHT_NICHT_UEBERNOMMEN}` : res.message,
           fallback: SPIELDATEN_AKTUALISIERT,

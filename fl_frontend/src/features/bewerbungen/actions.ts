@@ -14,7 +14,7 @@ import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
 import { logActionFailure } from "@/shared/utils/actionFailure";
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { explainsItself } from "@/shared/utils/degradedRead";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -155,10 +155,6 @@ export async function annehmenBewerbungAction(
       };
     }
 
-    // A club is created or entered. The base tag ahead of the write, every team read carrying it, so a
-    // lost answer leaves none stale; the season's tag once the answer names it.
-    invalidatesOnWrite("teams");
-
     // The refusal belongs in the panel that asked, not on the error page.
     let annahmeOperation;
     try {
@@ -172,8 +168,6 @@ export async function annehmenBewerbungAction(
     if (!annahmeOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidatesOnWrite(`teams:saison_id:${annahmeOperation.saison_id}`);
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",

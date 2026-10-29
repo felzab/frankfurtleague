@@ -25,7 +25,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 ## The frontend
 
-- **cache** — Make base tags conditional
+- **cache** — Split the one site-wide cache tag by resource or season; give a league read a lifetime
+  past `minutes`
 - **spiele** — Move the Spiel write path to `admin`; let its form read `useAdmin()`
 - **spiele** — Merge the three `SpielCard` variants
 - **pages** — Remove an `await connection()` before a page fetch
