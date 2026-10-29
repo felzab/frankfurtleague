@@ -5,9 +5,13 @@ import sys
 
 import pytest
 import uvicorn.config
+from starlette.applications import Starlette
+from starlette.responses import Response
+from starlette.routing import Route
+from starlette.testclient import TestClient
 
 from app.core.logging import JSONFormatter, fl_logger, setup_logging
-from app.core.middlewares import resolve_trace_id
+from app.core.middlewares import TraceContextMiddleware, record_error_code, resolve_trace_id
 
 TRACE = "a" * 32
 PARENT = "b" * 16
@@ -74,6 +78,23 @@ class TestResolveTraceId:
         assert resolved != TRACE
         assert resolved != hostile
         assert re.fullmatch(r"[a-f0-9]{32}", resolved)
+
+
+async def refused(request):
+    record_error_code("REQ-PROBE-001")
+    return Response(status_code=409)
+
+
+def test_the_access_line_carries_the_code_the_request_was_refused_with(caplog):
+    """The refusal's one line: no handler writes another, so a code missing here is a refusal no log records."""
+    app = TraceContextMiddleware(Starlette(routes=[Route("/refused", refused)]))
+
+    with caplog.at_level(logging.INFO, logger=fl_logger.name):
+        TestClient(app).get("/refused", headers={"traceparent": WELL_FORMED})
+
+    assert [
+        (record.getMessage(), record.status, record.error_code, record.trace_id) for record in caplog.records if record.name == fl_logger.name
+    ] == [("http.answered", 409, "REQ-PROBE-001", TRACE)]
 
 
 def test_uvicorn_s_own_handlers_are_taken_off_so_its_lines_reach_the_service_s():
