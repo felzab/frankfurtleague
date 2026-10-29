@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 import {
-  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   Barrier,
   configDouble,
@@ -19,7 +18,6 @@ import {
 import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { isAPIError } from "better-auth/api";
-import { jwtVerify } from "jose";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
@@ -3356,9 +3354,9 @@ describe("which spelling of an administrator a write is attributed to", () => {
     expect(actor?.email).toBe(ADMIN_EMAIL);
   });
 
-  /* Verified as the backend verifies it, with the public half of the pair the run made: the admin
-     tier admits only this lane, and only a passkey's session inside the administrator's window. */
-  it("signs the session's user, row, factor and age under the administrator's lane", async () => {
+  /* What the backend reads beside the admin key: the admin tier admits only a passkey's session
+     inside the administrator's window, judged off these two values. */
+  it("states the session's address, age and factor under the administrator's lane", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -3369,21 +3367,12 @@ describe("which spelling of an administrator a write is attributed to", () => {
 
       return getRequestActor();
     });
-    assert.ok(actor, "the guard recorded no actor");
-    const { payload, protectedHeader } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
-      algorithms: ["EdDSA"],
-      typ: "fl-actor+jwt",
-      issuer: "fl-frontend",
-      audience: "fl-backend",
+    expect(actor).toStrictEqual({
+      email: ADMIN_EMAIL,
+      lane: "admin",
+      authTime: Math.floor(new Date(row.createdAt).getTime() / 1000),
+      factor: "passkey",
     });
-
-    expect(actor.lane).toBe("admin");
-    expect(protectedHeader.alg).toBe("EdDSA");
-    expect(payload.lane).toBe("admin");
-    expect(payload.email).toBe(ADMIN_EMAIL);
-    expect(payload.sub).toBe(row.userId);
-    expect(payload.amr).toStrictEqual(["passkey"]);
-    expect(payload.auth_time).toBe(Math.floor(new Date(row.createdAt).getTime() / 1000));
   });
 });
 
@@ -3455,7 +3444,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
     {
       traceId: `${"0".repeat(31)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
-      actor: { email: email, lane: "person", token: "doubled-person-token-not-a-credential" },
+      actor: { email: email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
   );

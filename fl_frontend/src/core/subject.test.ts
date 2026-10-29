@@ -1,5 +1,4 @@
 import {
-  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   configDouble,
   HOLDS_NOTHING,
@@ -12,7 +11,6 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
 import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
-import { jwtVerify } from "jose";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { SessionRow } from "@/test-support/authDoubles.ts";
@@ -518,31 +516,21 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
   });
 });
 
-describe("the actor a person's lane signs", () => {
-  /* Verified as the backend verifies it, with the public half of the pair the run made: a claim the
-     backend reads that this lane got wrong would refuse every write a person makes. */
-  it("signs the session's user, row, factor and age under the person lane", async () => {
+describe("the actor a person's lane states", () => {
+  /* What the backend reads beside the admin key: a value this lane got wrong would refuse every
+     write a person makes. */
+  it("states the session's folded address, age and factor under the person lane", async () => {
     const { cookie, row } = await signIn(UNFOLDED_EMAIL);
     arriveAs(cookie);
-    const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
-    assert.ok(held, "the sign-in minted no session to compare the claims with");
 
     const { actor } = await guardInScope();
-    assert.ok(actor, "the guard recorded no actor");
-    const { payload } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
-      algorithms: ["EdDSA"],
-      typ: "fl-actor+jwt",
-      issuer: "fl-frontend",
-      audience: "fl-backend",
-    });
 
-    expect(actor.lane).toBe("person");
-    expect(payload.lane).toBe("person");
-    expect(payload.email).toBe(FOLDED_EMAIL);
-    expect(payload.sub).toBe(held.user.id);
-    expect(payload.sid).toBe(held.session.id);
-    expect(payload.amr).toStrictEqual([row.authFactor]);
-    expect(payload.auth_time).toBe(Math.floor(row.createdAt.getTime() / 1000));
+    expect(actor).toStrictEqual({
+      email: FOLDED_EMAIL,
+      lane: "person",
+      authTime: Math.floor(row.createdAt.getTime() / 1000),
+      factor: row.authFactor,
+    });
   });
 
   /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one

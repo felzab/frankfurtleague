@@ -324,10 +324,7 @@ jobs:
           for name in auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done
-          openssl genpkey -algorithm ed25519 -out .tmp-e2e/secrets/fl_actor_signing_key
           chmod 644 .tmp-e2e/secrets/*
-          public="$(openssl pkey -in .tmp-e2e/secrets/fl_actor_signing_key -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\n')"
-          printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > .tmp-e2e/backend.env
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: images

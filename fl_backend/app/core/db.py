@@ -103,6 +103,12 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
         fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
 
 
+# Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first request
+# waits on: here a request's shorter deadline governs, so only the boot waits this long. Bounded by the
+# window `scripts/ops/deploy.sh` waits for health in, so a failed ping's reason reaches its log excerpt.
+SERVER_SELECTION_TIMEOUT_MS = 15_000
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
@@ -116,9 +122,7 @@ async def lifespan(app: FastAPI):
             # leave as the driver's own traceback, quoting what it read.
             client = AsyncMongoClient(
                 host=config.mongodb_uri.get_secret_value(),
-                serverSelectionTimeoutMS=config.db_server_selection_timeout,
-                minPoolSize=config.db_min_connections,
-                maxPoolSize=config.db_max_connections,
+                serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
                 uuidRepresentation="standard",
             )
             app.state.db_client = client

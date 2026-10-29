@@ -149,8 +149,6 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
     # The execute bit is what puts this ahead of a real daemon on PATH.
     os.chmod(write_shell(stubs / "docker", STUB), 0o755)
     environment = base_env()
-    # The key check reads it over the mount path, so a caller's own would decide every key case.
-    environment.pop("ACTOR_SIGNING_KEY_FILE", None)
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
     environment["FL_DEPLOY_ARGV"] = str(fixture.argv)
     environment["FL_DEPLOY_PS_ARGV"] = str(fixture.ps_argv)
@@ -544,7 +542,7 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     # The application is installed wherever this scope runs, CI's job included, so an import failure
     # here is the case failing, never the advisory arm the case below pins.
     assert "snippet=3" in output, output
-    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "Undeclared environment variables: 1" in output, output
     assert "A_NAME_NOTHING_DECLARES" not in output, output
     assert "a value no case reads" not in output, output
     # The fixture's file declares nothing the backend requires either, so a missing required variable
@@ -552,21 +550,19 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     assert "DB_BASE_NAME" in output, output
 
 
-def test_the_snippet_numbers_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
+def test_the_snippet_counts_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
     """The backend's own refusal, read in its image as the deploy reads it: a name the settings do not declare is the file's text."""
     code, output, _ = _run(f"{_written('fl_backend/.env', 'KEYDATAvxq==\n')}{SNIPPET}", PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
     assert "snippet=3" in output, output
-    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "Undeclared environment variables: 1" in output, output
     assert "vxq" not in output.lower(), output
 
 
-# A backend environment the settings accept, its public key a pair's of the case's own, and the five
-# secret files, two keys of the class and one carrying a space. Fabricated, of `k` alone.
-KEY_OUTSIDE_THE_CLASS: Final = """node -e "$PAIR_JS" ed25519 fl_backend/key.pem fl_backend/public.env
-printf 'API_TRUSTED_HOSTS=localhost\\nAPI_CORS_ALLOWED_ORIGINS=http://localhost:3000\\n' > fl_backend/.env
-{ printf 'DB_BASE_NAME=league\\n'; cat fl_backend/public.env; } >> fl_backend/.env
+# A backend environment the settings accept, and the five secret files, two keys of the class and one
+# carrying a space. Fabricated, of `k` alone.
+KEY_OUTSIDE_THE_CLASS: Final = """printf 'DB_BASE_NAME=league\\n' > fl_backend/.env
 mkdir -p fl_backend/run-secrets
 printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_schluessel
@@ -577,20 +573,20 @@ export SECRETS_DIR=run-secrets
 """
 
 
-def test_the_snippet_refuses_a_line_a_secret_file_replaced_naming_it_alone() -> None:
-    """The file is otherwise one the settings accept, so the line alone is what refuses, and its name alone what is printed."""
+def test_the_snippet_refuses_a_line_a_secret_file_replaced_printing_no_value() -> None:
+    """The file is otherwise one the settings accept, so the line alone is what refuses, by count; `refuse_credential_lines` names it first."""
     left_behind = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
-    code, output, _ = _run(left_behind + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
+    code, output, _ = _run(left_behind + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
     assert "snippet=3" in output, output
-    assert re.search(r"^Invalid environment variables: MONGODB_URI\r?$", output, re.MULTILINE), output
+    assert re.search(r"^Undeclared environment variables: 1\r?$", output, re.MULTILINE), output
     assert "a value no case reads" not in output, output
 
 
 def test_the_boot_build_refuses_a_key_file_outside_the_class_naming_that_file_alone() -> None:
     """The preflight judges a key with the pulled image's own validator, in its container, so the class reaches the deploy first."""
-    code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + BOOT_SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
+    code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + BOOT_SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
     assert "boot=3" in output, output
@@ -639,12 +635,9 @@ SCHEMA_SHAPES: Final = [
     pytest.param("API_URL=http://backend:8000/api?x=1&y=[2]", id="url-query"),
     pytest.param("AUTH_URL=https://a@frankfurtleague.de:443/~b/c;d=(e)!f*g+h,i%20-_.", id="url-every-character"),
     pytest.param("API_VERSION=0", id="integer"),
-    pytest.param("LOG_LEVEL_APP=WARNING", id="enum"),
-    pytest.param("ACTOR_SIGNING_KEY_FILE=/run/secrets/fl_actor_signing_key", id="path"),
+    pytest.param("APP_ENV=production", id="enum"),
+    pytest.param("SECRETS_DIR=/run/secrets", id="path"),
     pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
-    pytest.param("ACTOR_TOKEN_PUBLIC_KEY=0123456789-_abcdefghijklmnopqrstuvwxyzABCDE", id="base64url-key"),
-    pytest.param("API_TRUSTED_HOSTS=*.frankfurtleague.de,backend,*", id="host-list"),
-    pytest.param("API_CORS_ALLOWED_ORIGINS=https://frankfurtleague.de,http://localhost:3000", id="origin-list"),
     pytest.param("DB_BASE_NAME=fl_db-1", id="database-name"),
     pytest.param("BEWERBUNG_SWEEP=", id="empty"),
 ]
@@ -785,278 +778,6 @@ def test_every_file_named_is_judged_before_the_refusal() -> None:
     assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
     assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
     assert "2 line(s)" in output, output
-
-
-# --- the actor token's key pair ---------------------------------------------------------------------------
-
-# A pair of the case's own, generated with the node the check itself runs on and never committed:
-# `$1` the key type, `$2` where the private half goes, `$3` a file naming the public half as
-# `fl_backend/.env` does.
-PAIR: Final = """
-const { generateKeyPairSync } = require("node:crypto");
-const { writeFileSync } = require("node:fs");
-const [type, pem, env] = process.argv.slice(1);
-const { privateKey, publicKey } = generateKeyPairSync(type);
-writeFileSync(pem, privateKey.export({ type: "pkcs8", format: "pem" }));
-writeFileSync(env, `ACTOR_TOKEN_PUBLIC_KEY=${publicKey.export({ format: "jwk" }).x}\\n`);
-"""
-
-# The check as the frontend image runs it, its key at `$1` and the environment file on stdin.
-CHECK: Final = """check_rc=0
-node -e "$ACTOR_KEY_CHECK" "$1" < "$2" || check_rc=$?
-printf 'check=%s\\n' "$check_rc"
-"""
-
-
-def _judged(setup: str, key: str, env: str) -> str:
-    """The check's printed answer over files `setup` wrote, with the exit code on its last line."""
-    code, output, _ = _run(f"{setup}\nset -- {key} {env}\n{CHECK}", PAIR_JS=PAIR)
-
-    assert code == 0, output
-    # Neither half of any pair is ever printed: the PEM's armour, the public half's name with its value.
-    assert "PRIVATE KEY" not in output, output
-    assert re.search(r"[A-Za-z0-9_-]{43}", output) is None, output
-    return output
-
-
-PLACING_STEPS: Final[dict[str, str]] = {
-    "server": r"`(sudo install -o 1001 -g 1001 -m 400 \"\$t/key\" secrets/fl_actor_signing_key && rm -rf \"\$t\")`",
-    "development": r"`(\(umask 077 && mkdir -p secrets && mv \"\$t/key\" secrets/fl_actor_signing_key\) && rm -rf \"\$t\")`",
-}
-
-
-def _placing_step(text: str, machine: str) -> str:
-    """One machine's placing step as the runbook prints it, found exactly once."""
-    placed = re.findall(PLACING_STEPS[machine], text)
-    assert len(placed) == 1, (machine, placed)
-    return placed[0]
-
-
-# What makes each step fail where it stands: a `sudo` refusing on PATH for the server's, which this host
-# could not run as written anyway, and a file where the development step's directory goes.
-FAILING_UNDER: Final[dict[str, str]] = {
-    "server": (
-        "mkdir refusing && printf '#!/usr/bin/env bash\\nexit 1\\n' > refusing/sudo && chmod +x refusing/sudo"
-        ' && export PATH="$PWD/refusing:$PATH"'
-    ),
-    "development": ": > secrets",
-}
-
-
-@pytest.mark.parametrize("machine", sorted(PLACING_STEPS))
-def test_a_placing_step_that_fails_keeps_the_only_key(machine: str) -> None:
-    """The temporary directory holds the one copy of the private half, so a failed placing must leave it there."""
-    text = RUNBOOKS.read_text(encoding="utf-8")
-    generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
-    # In a shell of its own, as a person pastes it: the harness's `errexit` would stop at the failure.
-    step = f"t=\"$t\" bash -c '{_placing_step(text, machine)}' || true"
-    kept = 'printf "kept=%s\\n" "$(test -f "$t/key" && echo 1 || echo 0)"; rm -rf "$t"'
-    code, output, _ = _run(f"{generate}\n{FAILING_UNDER[machine]}\n{step}\n{kept}")
-
-    assert code == 0, output
-    assert "kept=1" in output, output
-
-
-def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
-    """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
-    text = RUNBOOKS.read_text(encoding="utf-8")
-    generate = next(line for line in text.splitlines() if line.startswith('t="$(mktemp -d)" && (umask 077 && openssl genpkey'))
-    # The development machine's placing step, the server's being `sudo install` to a uid this host may not have.
-    placed = _placing_step(text, "development")
-    # The server's `secrets/` is root's, so the generating line writes nothing there: counted between the two steps.
-    inside = 'printf "inside=%s\\n" "$(ls -A secrets 2>/dev/null | wc -l | tr -d \' \')"'
-    command = f"{generate}\n{inside}\n{placed}"
-    # Counted, never printed: each file's carriage returns, which the runbook promises it writes none of.
-    counted = "printf \"cr=%s\\n\" \"$(cat secrets/fl_actor_signing_key fl_backend/.env | tr -cd '\\r' | wc -c | tr -d ' ')\""
-    output = _judged(f"{command}\n{counted}", "secrets/fl_actor_signing_key", "fl_backend/.env")
-
-    assert "check=0" in output, output
-    assert "cr=0" in output, output
-    assert "inside=0" in output, output
-
-
-def test_a_matching_pair_passes() -> None:
-    output = _judged('node -e "$PAIR_JS" ed25519 key.pem env.txt', "key.pem", "env.txt")
-
-    assert "check=0" in output, output
-
-
-def test_the_key_is_read_where_the_environment_names_it_rather_than_at_the_mount() -> None:
-    """The frontend's config reads `ACTOR_SIGNING_KEY_FILE` over its default, so the check does too."""
-    output = _judged('node -e "$PAIR_JS" ed25519 named.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=named.pem', "absent.pem", "env.txt")
-
-    assert "check=0" in output, output
-
-
-@pytest.mark.parametrize(
-    ("setup", "key", "said"),
-    [
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem mine.txt\nnode -e "$PAIR_JS" ed25519 other.pem env.txt',
-            "key.pem",
-            "ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key",
-            id="another-pairs-public-half",
-        ),
-        pytest.param(
-            "node -e \"$PAIR_JS\" ed25519 key.pem mine.txt\nprintf 'ACTOR_TOKEN_PUBLIC_KEY=short\\n' > env.txt",
-            "key.pem",
-            "ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes",
-            id="malformed-public-half",
-        ),
-        pytest.param(
-            "node -e \"$PAIR_JS\" ed25519 key.pem mine.txt\nprintf 'OTHER=1\\n' > env.txt",
-            "key.pem",
-            "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env",
-            id="no-public-half",
-        ),
-    ],
-)
-def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
-    """3 is every reader's refusal; each line says which half to fix and prints neither."""
-    output = _judged(setup, key, "env.txt")
-
-    assert "check=3" in output, output
-    assert said in output, output
-
-
-@pytest.mark.parametrize(
-    ("setup", "key"),
-    [
-        pytest.param('node -e "$PAIR_JS" ed25519 other.pem env.txt', "absent.pem", id="absent"),
-        pytest.param("node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem", "key.pem", id="no-key-in-the-file"),
-        pytest.param('node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=', "key.pem", id="an-empty-path"),
-    ],
-)
-def test_a_key_the_check_cannot_read_is_no_verdict_on_the_pair(setup: str, key: str) -> None:
-    """The frontend's boot refuses such a key before this check runs, so here it is the advisory."""
-    output = _judged(setup, key, "env.txt")
-
-    assert "check=4" in output, output
-
-
-KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker compose -f docker-compose.yml run --rm --no-deps -T frontend'
-
-
-def test_a_refused_pair_stops_the_run_with_its_remedy() -> None:
-    code, output, _ = _run(KEY_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env")
-
-    assert code == 2, output
-    assert "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env" in output, output
-    assert "docs/ops/runbooks.md §16" in output, output
-    assert "NOTHING has been recreated." in output, output
-
-
-def test_a_pair_check_that_could_not_be_made_is_an_advisory() -> None:
-    code, output, _ = _run(KEY_CHECK, FL_DEPLOY_RUN_RC="125", FL_DEPLOY_RUN_SAYS="Error")
-
-    assert code == 0, output
-    assert "(exit 125)" in output, output
-
-
-# A call at any indentation, `local.sh` asking it of the local stack alone, through its continued lines.
-KEY_CHECK_CALL_RE: Final = re.compile(r"\n *(check_actor_key (?:\\\n|[^\n])*)")
-
-
-def _key_check_call(script: Path) -> str:
-    found = KEY_CHECK_CALL_RE.search(script.read_text(encoding="utf-8"))
-    assert found is not None, f"{script.name} calls no check_actor_key"
-    return found.group(1)
-
-
-def _line_starting(text: str, call: str) -> int:
-    """Where the first line opening with `call` starts, at any indentation."""
-    found = re.search(rf"\n *{re.escape(call)}", text)
-    assert found is not None, f"no line opens with {call}"
-    return found.start()
-
-
-@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
-def test_each_script_runs_the_check_in_the_frontend_service_as_the_stack_starts_it(script: Path) -> None:
-    """A bare image run holds none of the service's environment, and passes a key the frontend never finds.
-
-    No `--user`: the key is its image user's, whom the caller's uid is not.
-    """
-    code, output, fixture = _run(_key_check_call(script))
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 0, output
-    assert argv[0] == "compose", argv
-    run = argv.index("run")
-    assert argv[run : run + 5] == ["run", "--rm", "--no-deps", "-T", "frontend"], argv
-    assert "--user" not in argv, argv
-    assert argv[argv.index("-e") - 1 : argv.index("-e") + 1] == ["node", "-e"], argv
-    assert argv[-1] == "/run/secrets/fl_actor_signing_key", argv
-
-
-def test_git_bash_is_told_to_leave_the_mount_path_as_written() -> None:
-    """Git Bash rewrites a `/run/...` argument to a native program into a Windows path.
-
-    The container then reads the key as missing on every development machine; Linux ignores the variable.
-    """
-    code, output, fixture = _run(KEY_CHECK)
-
-    assert code == 0, output
-    assert Path(f"{fixture.argv}.pathconv").read_text(encoding="utf-8") == "1"
-
-
-def test_the_container_is_handed_the_public_half_s_line_and_nothing_else() -> None:
-    """The rest of `fl_backend/.env` is the backend's database login and keys, which the frontend never holds."""
-    lines = "MONGODB_URI=mongodb://user:secret@db/x\\nACTOR_TOKEN_PUBLIC_KEY=the-public-half\\nSPERRLISTE_SCHLUESSEL=other\\n"
-    code, output, fixture = _run(f"printf '{lines}' > fl_backend/.env\n{KEY_CHECK}")
-
-    assert code == 0, output
-    assert Path(f"{fixture.argv}.stdin").read_text(encoding="utf-8") == "ACTOR_TOKEN_PUBLIC_KEY=the-public-half\n"
-
-
-def test_a_backend_file_without_the_public_half_hands_the_check_an_empty_line() -> None:
-    """grep's "no such line" is the check's own finding to make, never a refusal of the read."""
-    code, output, fixture = _run(KEY_CHECK)
-
-    assert code == 0, output
-    assert Path(f"{fixture.argv}.stdin").read_text(encoding="utf-8") == "\n"
-
-
-# `stat` answered by a function of the case's own, since a Windows filesystem keeps no mode to set.
-MODE: Final = "stat() { STAT_ANSWER; }\n" + _lifted("signing_key_mode_advisory") + "\nsigning_key_mode_advisory\necho judged"
-
-
-@pytest.mark.parametrize(
-    ("answer", "warned"),
-    [
-        pytest.param("printf '400\\n'", "", id="the-frontend-user-s-alone"),
-        pytest.param("printf '440\\n'", "has mode 440", id="its-group-reads-it"),
-        pytest.param("printf '604\\n'", "has mode 604", id="everyone-reads-it"),
-        pytest.param("printf '420\\n'", "has mode 420", id="its-group-writes-it"),
-        pytest.param("return 1", "could not be read", id="stat-fails"),
-    ],
-)
-def test_a_key_another_account_can_reach_draws_a_warning_and_never_a_refusal(answer: str, warned: str) -> None:
-    code, output, _ = _run(MODE.replace("STAT_ANSWER", answer))
-
-    assert code == 0, output
-    assert "judged" in output, output
-    if warned:
-        assert warned in output, output
-    else:
-        assert "!!" not in output, output
-
-
-def test_the_deploy_reads_the_key_s_mode_once_it_knows_the_key_is_there() -> None:
-    text = DEPLOY.read_text(encoding="utf-8")
-
-    assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\nsigning_key_mode_advisory\n"), DEPLOY.name
-
-
-@pytest.mark.parametrize(
-    ("script", "before"),
-    [(DEPLOY, 'step "Recreating the application containers"'), (LOCAL, 'section "start"')],
-)
-def test_the_pair_is_judged_after_the_frontend_s_boot_and_before_anything_starts(script: Path, before: str) -> None:
-    """The boot has refused a key it cannot read where its environment points it, which the pair check takes as read."""
-    text = script.read_text(encoding="utf-8")
-
-    assert text.index("\ncheck_frontend_boot_config ") < _line_starting(text, "check_actor_key ") < text.index(before), script.name
-    assert _line_starting(text, 'require_file "$SIGNING_KEY_FILE"') < _line_starting(text, "check_actor_key "), script.name
 
 
 # --- the configuration compose reads, before anything is pulled ---------------------------------------
@@ -1619,7 +1340,6 @@ SAID: Final = "MONGODB_URI mongodb://user:pw@cluster.example.net/x"
         pytest.param("", NAMES, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="names"),
         pytest.param("", FRONTEND_BOOT, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="frontend-boot"),
         pytest.param("", BOOT_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="backend-boot"),
-        pytest.param("", KEY_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="actor-key"),
         # Compose's rendered model carries every value of both `.env` files; this one mounts no sink.
         pytest.param(
             SINK,

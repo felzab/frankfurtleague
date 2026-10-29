@@ -840,7 +840,7 @@ describe("an account deleted, against a real database", () => {
     const answer = await runWithRequestScope(
       {
         traceId: `${"0".repeat(31)}4`,
-        actor: { email: "loeschende-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+        actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
       },
       () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
@@ -865,7 +865,7 @@ describe("an account deleted, against a real database", () => {
       runWithRequestScope(
         {
           traceId: `${"0".repeat(31)}5`,
-          actor: { email: "nutzerzeile-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+          actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
         },
         () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
       ),

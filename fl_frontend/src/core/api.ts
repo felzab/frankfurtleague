@@ -5,7 +5,7 @@ import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import { APIBadStatusError, APINetworkError, UnattributedAdminCallError } from "./errors";
 import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
-import { ACTOR_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { ZodType } from "zod";
 import type { SentRequest } from "./errors";
@@ -124,10 +124,18 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions =
   // Refused before it leaves: an admin-tier call opens under `runAdminRead` or an admin action's guard,
   // which record the actor first.
   if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
-  // The signed token alone, never the address: the backend believes no actor it cannot verify
-  // (`fl_frontend/src/core/actorToken.ts :: mintActorToken`).
-  if (actor) headers.set(ACTOR_HEADER, actor.token);
-  else headers.delete(ACTOR_HEADER);
+  // The session as the guard read it, set after the caller's own headers so none of them names
+  // the actor. The backend believes these behind the admin key alone
+  // (`fl_backend/app/core/security.py :: get_session_actor`).
+  if (actor) {
+    headers.set(ACTOR_HEADER, actor.email);
+    headers.set(AUTH_TIME_HEADER, String(actor.authTime));
+    headers.set(AUTH_FACTOR_HEADER, actor.factor);
+  } else {
+    headers.delete(ACTOR_HEADER);
+    headers.delete(AUTH_TIME_HEADER);
+    headers.delete(AUTH_FACTOR_HEADER);
+  }
 
   // Parsed per REQUEST, never at module scope: the image build imports this with no `API_URL`, and a
   // top-level parse throws while `next build` collects page data.

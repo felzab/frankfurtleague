@@ -1761,16 +1761,15 @@ Which service reads which, and each file's owner and mode on the server, is that
 **A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
 trailing newline and surrounding blanks, and everything else in the file is part of the value.
 
-**Each machine has its own.** The internal keys, the ban list's key, the sign-in secret and the
-actor token's key pair authenticate one machine's processes to each other, so a development machine
+**Each machine has its own.** The internal keys, the ban list's key and the sign-in secret
+authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
 stack publishes on loopback, the local stack itself hands its services an inline config naming its
 own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
 
 On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
-`fastapi dev` and the local stack read but the actor token's key pair, which its own command below
-writes, each readable by its writer alone, and prints nothing:
+`fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
 (umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
@@ -1816,52 +1815,11 @@ one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
 and update the password-manager entry. Both containers are recreated by the same deploy, so the new
-keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
+keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
+the same way: its holder, reaching the backend on the private network, can act as any administrator,
+so rotating is not finished until `aktionen` has been read for every `berechtigungen` write since the
+leak, and every grant nobody can account for is revoked in the Playground. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
-
-**Each machine also has its own actor token key pair**: an Ed25519
-private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
-development machine, or in a shell on the server, at the checkout root, this writes the private half
-to a directory of its own that `mktemp -d` makes readable by its writer alone, and appends the public
-half to `fl_backend/.env`, printing nothing:
-
-```bash
-t="$(mktemp -d)" && (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "$t/key") && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in "$t/key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
-```
-
-The `tr` calls are there because Git Bash's `openssl` ends each line with a carriage return. The
-public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key that
-`ACTOR_TOKEN_PUBLIC_KEY` holds. The newline before it keeps it off a last line that has none. The
-`umask` is what keeps the private half from ever existing under the shell's default mode, which
-lets every account on the host read a new file. **The key is written outside `secrets/`** because
-the deploying user cannot write there on the server, where the directory is root's.
-
-Then put the private half in place, from the same shell, which still holds `$t`:
-
-- **On the server**, owned by the frontend's user and readable by it alone:
-  `sudo install -o 1001 -g 1001 -m 400 "$t/key" secrets/fl_actor_signing_key && rm -rf "$t"`.
-  `install` replaces a key the deploying user cannot write, which is what an earlier pair left
-  behind. `deploy.sh` warns where the key's mode lets any other account reach it.
-- **On a development machine**:
-  `(umask 077 && mkdir -p secrets && mv "$t/key" secrets/fl_actor_signing_key) && rm -rf "$t"`.
-- **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
-  ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
-  reads too: it would look for the key at that path rather than at its mount, and refuse to start.
-- **Rotating** is the same two steps and a deploy, after deleting the old `ACTOR_TOKEN_PUBLIC_KEY`
-  line from `fl_backend/.env`. A token lives sixty seconds, and the deploy recreates both containers
-  together. The pair is kept nowhere else: a lost key is replaced by generating a new pair.
-- **After a suspected leak of the signing key together with `internal_api_key_admin`**, the two can
-  have minted a grant credited to any administrator, which neither can alone. Rotating both is not
-  finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
-  grant nobody can account for is revoked in the Playground.
-
-`deploy.sh` and `local.sh` refuse a missing key file before anything starts. The frontend's boot,
-run as §1 says, then refuses a key it cannot read where its environment points it or one that is not
-Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_key`, delete the
-`ACTOR_SIGNING_KEY_FILE` line from `fl_frontend/.env`. Last, the frontend service's own container,
-handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
-missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
-the remedy is to run the command above again.
 
 ## 17. Clearing an address's code lock
 

@@ -3,6 +3,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
+import type { AuthFactor } from "./auth";
+
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
 // times each gap between reads, not the response.
@@ -18,10 +20,11 @@ export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 export type ActorLane = "admin" | "person";
 
 /**
- * Who the request acts for, and the signed token `fl_frontend/src/core/api.ts :: apiClient` sends in
- * their name (`fl_frontend/src/core/actorToken.ts :: mintRequestActor`).
+ * Who the request acts for, as `fl_frontend/src/core/api.ts :: apiClient` states them beside the admin
+ * key: the folded address, when its session was made in whole seconds, and by which factor
+ * (`fl_frontend/src/core/auth.ts :: requestActorOf`).
  */
-export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly token: string };
+export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly authTime: number; readonly factor: AuthFactor };
 
 interface RequestScope {
   traceId: string;
@@ -219,11 +222,11 @@ export function setRequestActor(actor: RequestActor): void {
 
   // A second guard on one request is a programming error: whichever landed last would name every
   // write's actor. Compared by who and which lane, never by the
-  // token each mint makes afresh.
+  // sign-in time or factor, which each guard reads off the one session.
   if (store.actor !== undefined && (store.actor.email !== actor.email || store.actor.lane !== actor.lane)) {
     throw new Error("A second actor was set on one request scope.");
   }
 
-  // The first token stands: a guard answering from its memo hands back the one it already minted.
+  // The first actor stands: a guard answering from its memo hands back the one it already built.
   store.actor ??= actor;
 }

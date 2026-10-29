@@ -268,7 +268,6 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
-# The actor key pair is generated apart, below.
 E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
@@ -277,20 +276,12 @@ E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_k
 write_e2e_keys() {
   local -
   set +x
-  local name="" public=""
+  local name=""
   (umask 077 && mkdir -p "${E2E_DIR}/secrets") || die "${E2E_DIR}/secrets could not be made; mkdir's own account is above."
   for name in "${E2E_KEYS[@]}"; do
     (umask 077 && openssl rand -hex 32 | tr -d '\r\n' > "${E2E_DIR}/secrets/${name}") \
       || die "the end-to-end stack's ${name} could not be generated; openssl's own account is above."
   done
-  # Git Bash's openssl ends each line with a carriage return, which the frontend's key reader refuses.
-  (umask 077 && openssl genpkey -algorithm ed25519 | tr -d '\r' > "${E2E_DIR}/secrets/fl_actor_signing_key") \
-    || die "the end-to-end stack's actor signing key could not be generated; openssl's own account is above."
-  # The raw 32-byte public key is the DER form's tail, unpadded base64url being what the backend reads.
-  public="$(openssl pkey -in "${E2E_DIR}/secrets/fl_actor_signing_key" -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" \
-    || die "the actor signing key's public half could not be read; openssl's own account is above."
-  printf 'ACTOR_TOKEN_PUBLIC_KEY=%s\n' "$public" > "${E2E_DIR}/backend.env" \
-    || die "${E2E_DIR}/backend.env could not be written."
 }
 
 # Both stacks publish nginx on 3000 and the database on 27017, so a container of another stack
@@ -418,11 +409,10 @@ if (( ! E2E )); then
   # The only reader of these files here before the containers hold their lines: neither image's name
   # check runs on this stack.
   judge_env_files "fl_frontend/.env" "fl_backend/.env"
-  require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
   for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
     require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
   done
-  ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
+  ok "both packages' .env files and this machine's secret files are in place"
 fi
 
 if (( E2E )); then
@@ -485,13 +475,6 @@ step "Each service's settings and secret files, as its own boot builds them"
 check_frontend_boot_config "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
-# Not for the end-to-end stack, whose pair this run generated from one key a step ago, and whose
-# public half lives in .tmp-e2e/backend.env where `check_actor_key` reads fl_backend/.env.
-if (( ! E2E )); then
-  step "The actor token's key pair"
-  # After the frontend's boot, which has refused a key it cannot read where its environment points it.
-  check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
-fi
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.

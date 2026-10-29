@@ -11,7 +11,7 @@ import functools
 import re
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, cast, get_args
+from typing import Annotated, Any, cast, get_args
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -412,19 +412,21 @@ class TestThePersonsSession:
         """Folded before it is hashed or handed on, so one mailbox's two spellings cannot hold two answers."""
 
         app = create_app(CONFIG)
-        seen: list[Bound] = []
+        seen: list[tuple[str, Bound]] = []
+        binder = PERSON_ACTOR_BINDERS[funktion]
 
-        def probe() -> dict[str, bool]:
-            seen.append((actor_var.get(), request_var.get()))
+        # The handler's identifier from its router's own binder, which FastAPI runs once a request.
+        def probe(identifier: Annotated[str, Depends(binder)]) -> dict[str, bool]:
+            seen.append((identifier, (actor_var.get(), request_var.get())))
             return {"erreicht": True}
 
-        app.add_api_route(PERSON_PROBE, probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS[funktion])])
+        app.add_api_route(PERSON_PROBE, probe, methods=["GET"], dependencies=[Depends(binder)])
         app.dependency_overrides[get_ban_lookup] = lambda: _unbarred
         response = TestClient(app, raise_server_exceptions=False).get(PERSON_PROBE, headers=as_person(MIXED_CASE))
 
         pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
         assert response.status_code == 200
-        assert seen == [(PersonActor(pseudonym=pseudonym, funktion=funktion), ("GET", PERSON_PROBE))]
+        assert seen == [(KNOWN_IDENTIFIER, (PersonActor(pseudonym=pseudonym, funktion=funktion), ("GET", PERSON_PROBE)))]
 
     def test_the_log_row_carries_the_pseudonym_and_no_address(self):
         """A person's route records a pseudonym, never an address, and hands no administrator to a field storing one."""
@@ -441,14 +443,14 @@ class TestThePersonsSession:
 
         app.add_api_route(PERSON_PROBE, probe, methods=["PATCH"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
         app.dependency_overrides[get_ban_lookup] = lambda: _unbarred
-        TestClient(app, raise_server_exceptions=False).patch(PERSON_PROBE, headers=as_person(MIXED_CASE))
+        response = TestClient(app, raise_server_exceptions=False).patch(PERSON_PROBE, headers=as_person(MIXED_CASE))
 
         [row] = log.rows
         pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
         # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
-        assert asked == []
+        assert (response.status_code, asked) == (200, [])
 
     def test_a_person_the_list_does_not_hold_is_served(self):
         """The control: every refusal below would pass on a check refusing everybody."""

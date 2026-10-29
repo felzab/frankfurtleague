@@ -591,7 +591,7 @@ def test_main_judges_the_privileges_of_both_models():
 # --- which service holds which secret ---------------------------------------------------------------
 
 RENDER: Final = Path("/render")
-KEY: Final = "fl_actor_signing_key"
+KEY: Final = "auth_secret"
 
 
 def stack_of(stack: str, **services: dict[str, Any]) -> dict[str, Any]:
@@ -625,7 +625,7 @@ SECOND_HOLDERS: Final = [
 
 @pytest.mark.parametrize(("stack", "secret", "holder"), SECOND_HOLDERS)
 def test_a_second_holder_of_any_secret_fails(stack: str, secret: str, holder: str):
-    """The signing key is the load-bearing row: whoever holds it mints an actor the backend takes as the frontend's."""
+    """A second holder of a key holds a credential its table never gave it, the edge's own included."""
     rendered = stack_of(stack)
     rendered["services"][holder] = {"secrets": [*(rendered["services"].get(holder) or {}).get("secrets", []), {"source": secret}]}
 
@@ -665,11 +665,11 @@ def test_a_secret_mounted_elsewhere_fails():
 
 def test_a_secret_read_from_another_file_fails():
     """The preflight judges `secrets/<name>`, so another source is a file nothing checked."""
-    rendered = stack_of("production") | declared_secrets(RENDER, "production", **{KEY: "keys/signing.pem"})
+    rendered = stack_of("production") | declared_secrets(RENDER, "production", **{KEY: "keys/auth.txt"})
 
     found = checker.secret_holders(rendered, "p", RENDER, "production")
 
-    assert len(found) == 1 and "keys/signing.pem" in found[0].detail, found
+    assert len(found) == 1 and "keys/auth.txt" in found[0].detail, found
 
 
 def test_the_local_stack_reading_a_database_login_from_secrets_fails():
@@ -829,7 +829,7 @@ def test_the_preflights_lists_are_the_tables():
         return set(lift_assignment(lib, name).split("=", 1)[1].strip("()").split())
 
     def read_by(stack: str, service: str) -> set[str]:
-        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders} - {KEY}
+        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders}
 
     assert listed("FRONTEND_SECRETS") == read_by("production", "frontend")
     assert listed("BACKEND_SECRETS") == read_by("production", "backend")
@@ -844,13 +844,12 @@ SCHEMA: Final = checker.frontend_schema_files(checker.FRONTEND_CONFIG)
 
 
 def schema_file(secret_files: str, production_only: str = '"AUTH_RESEND_KEY"') -> Path:
-    """A `config.ts` of the case's own, holding the three declarations the reader takes and nothing else."""
+    """A `config.ts` of the case's own, holding the two declarations the reader takes and nothing else."""
     path = new_root("fl-compose-schema-") / "config.ts"
     path.write_bytes(
         (
             f"const SECRET_FILES = {{\n{secret_files}}} as const;\n"
             f"const PRODUCTION_ONLY_REQUIRED = [{production_only}] as const satisfies readonly SecretKey[];\n"
-            '  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),\n'
         ).encode()
     )
     return path
@@ -865,7 +864,7 @@ def test_the_schema_s_files_are_read_off_config_ts():
     """The real declaration, so a reader matching nothing in it is caught here rather than passing every stack."""
     reads, production_only = SCHEMA
 
-    assert {"fl_actor_signing_key", "frontend_mongodb_uri"} <= reads, reads
+    assert {"auth_secret", "frontend_mongodb_uri"} <= reads, reads
     assert production_only and production_only < reads, (production_only, reads)
 
 

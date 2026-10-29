@@ -15,7 +15,6 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
-import { mintRequestActor } from "./actorToken";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
@@ -52,7 +51,7 @@ import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
 import type { Mail } from "./emailShell";
-import type { RequestActor } from "./requestScope";
+import type { ActorLane, RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
 import type { SubjectSession } from "./subject";
@@ -143,7 +142,7 @@ export const PASSKEY_FACTOR = "passkey";
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
 export const CODE_FACTOR = "code";
 
-type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
+export type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 
 /** The session field naming, by `lineageOf`, the session a sign-in replaced. */
 const REPLACED_SESSION_FIELD = "replacedSession";
@@ -1667,6 +1666,25 @@ export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_s
  */
 export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
+/**
+ * The actor a guard records for this request, as the backend reads it beside the admin key. `null`
+ * where the session cannot be stated truthfully: no address to fold, an unreadable creation stamp, or
+ * a factor this league does not mint; the guard then answers no session.
+ */
+export function requestActorOf(
+  served: { readonly user: { readonly email: string }; readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
+  lane: ActorLane,
+): RequestActor | null {
+  const email = asSignInIdentifier(served.user.email);
+  const authTime = Math.floor(new Date(served.session.createdAt).getTime() / 1000);
+  const factor = served.session.authFactor;
+
+  if (email === "" || !Number.isFinite(authTime)) return null;
+  if (factor !== PASSKEY_FACTOR && factor !== CODE_FACTOR) return null;
+
+  return { email: email, lane: lane, authTime: authTime, factor: factor };
+}
+
 // React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
 // would hand one request's session to another: the backend still judges every call's actor.
 const readAdminRequest = cache(
@@ -1681,8 +1699,8 @@ const readAdminRequest = cache(
     // A session made before its grant among them, which a sign-in after the grant repairs.
     if (!isAdminSession(served, verwaltung)) return { refused: "signIn" };
 
-    // A session no token can state truthfully is repaired by signing in afresh.
-    const actor = await mintRequestActor(served, "admin");
+    // A session no actor can state truthfully is repaired by signing in afresh.
+    const actor = requestActorOf(served, "admin");
     if (actor === null) return { refused: "signIn" };
 
     return { session: { ...served, verwaltung: true }, actor: actor };

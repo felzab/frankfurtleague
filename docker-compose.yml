@@ -36,9 +36,7 @@ services:
     # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
     # stop: killed sooner, a write or a mail already sent answers as a dropped connection.
     stop_grace_period: 61s
-    # The signing key is this service's alone: a holder of it mints any actor the backend trusts.
     secrets:
-      - fl_actor_signing_key
       - frontend_mongodb_uri
       - auth_secret
       - auth_resend_key
@@ -236,8 +234,6 @@ services:
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
-  fl_actor_signing_key:
-    file: ./secrets/fl_actor_signing_key
   frontend_mongodb_uri:
     file: ./secrets/frontend_mongodb_uri
   backend_mongodb_uri:

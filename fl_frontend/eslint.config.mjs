@@ -146,17 +146,6 @@ const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})$`
 const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?$`;
 
 /**
- * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
- * from anywhere else could mint an actor no guard judged, and a client module would put the key
- * reader in a bundle.
- */
-const ACTOR_SIGNING = {
-  regex: moduleNamed("actorToken"),
-  message:
-    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
-};
-
-/**
  * Next's `after`, scheduled through the one helper giving its callback the deadline a stopping container waits
  * out: a callback scheduled bare keeps what is left of the request's deadline, or none, and a stop waits on it.
  */
@@ -273,7 +262,6 @@ const IMPORT_BANS = [
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
   // The two session guards import the actor's signing module statically; the boot loads it by `import()`.
-  importBan(ACTOR_SIGNING, PRODUCTION, { allow: ["src/core/subject.ts", "src/core/auth.ts"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.entries(SECRET_READERS).map(([owner, entry]) => importBan(entry, PRODUCTION, { allow: [owner] })),
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
