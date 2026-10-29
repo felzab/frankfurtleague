@@ -9,7 +9,6 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { readErasureAnsicht } from "@/features/funktionen/mutations";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
@@ -25,7 +24,7 @@ import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas"
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
  * address holding either with the ban's own refusal (`REQ-SPERRLISTE-003`, `REQ-SPERRLISTE-001`).
  */
-export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "verwaltung" | "gesperrt">;
+export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "verwaltung" | "gesperrt">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
@@ -120,7 +119,7 @@ export async function readSperreAnsichtAction(
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
     // so its list would be work for nothing.
-    const { acknowledged: _umschlag, verwaltung, gesperrt, ...ansicht } = gelesen;
+    const { verwaltung, gesperrt, ...ansicht } = gelesen;
     if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
     if (gesperrt) return refusalResult(schonGesperrtAmFeld());
 
@@ -148,10 +147,6 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
       const refusal = mapSperreRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht gesperrt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // AFTER the write is acknowledged, so nobody is signed out or told they are barred by a request
@@ -197,11 +192,7 @@ export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Pr
       };
     }
 
-    const deleteOperation = await deleteSperre(validated.data);
-
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Sperre wurde nicht aufgehoben", repair: VERSUCHE_ES_ERNEUT }) };
-    }
+    await deleteSperre(validated.data);
 
     return { success: true, message: "Diese Adresse wird nicht mehr abgewiesen." };
   });

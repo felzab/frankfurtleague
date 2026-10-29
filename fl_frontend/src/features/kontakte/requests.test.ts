@@ -64,8 +64,8 @@ describe("what the season's contacts save sends", () => {
   });
 
   /* The session first, because `runAdminMutation` seeds the scope the actor header is read from, then
-     the parse, then the write, then the acknowledgement. */
-  it("sends nothing without a session or over a body its parse refuses, and reports an unacknowledged save", async () => {
+     the parse, then the write. */
+  it("sends nothing without a session or over a body its parse refuses", async () => {
     setSession(null);
     expect(await patchSaisonTeamKontakteAction(CLEARED)).toStrictEqual({ success: false, error: ANMELDUNG_ABGELAUFEN });
     expect(sent, "the save reached the client for a request with no session").toStrictEqual([]);
@@ -74,11 +74,6 @@ describe("what the season's contacts save sends", () => {
     const malformed = await patchSaisonTeamKontakteAction({ ...CLEARED, team_id: "kein-team" });
     expect(malformed.success, "a malformed club id was saved").toBe(false);
     expect(sent, "a body the parse refuses reached the client").toStrictEqual([]);
-
-    blockAnswer = { ...blockAnswer, acknowledged: 0 };
-    const unacknowledged = await patchSaisonTeamKontakteAction(CLEARED);
-    expect(sent.length, "the acknowledged control sent nothing, so the answer below is judged over no write").toBe(1);
-    expect(unacknowledged.success, "an unacknowledged save reports success").toBe(false);
   });
 
   it("hands the editor the token of the block the save left", async () => {

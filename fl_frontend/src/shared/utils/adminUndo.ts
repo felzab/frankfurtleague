@@ -52,11 +52,6 @@ export function restored(cost?: string): UndoOutcome {
   return { success: true, message: cost === undefined ? UNDO_RESTORED : `${UNDO_RESTORED} ${cost}`, warn: cost !== undefined };
 }
 
-/** A replay's write went unacknowledged and may still have landed, so its slice's sentence is titled unclear. */
-export function unclearReplay(sentence: string): ActionFailure {
-  return { success: false, error: sentence, outcome: "unknown" };
-}
-
 /**
  * The sentence a slice's own table words for the refusal its replay met, at whatever status its rule
  * answers with, or `undefined` for any other failure, which the action rethrows.

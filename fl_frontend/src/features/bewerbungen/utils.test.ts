@@ -1,5 +1,5 @@
 import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
-import { answerSettled, answerShown, publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { answerSettled, answerShown, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { parseDate } from "@internationalized/date";
 import { assert, describe, expect, it } from "vitest";
@@ -166,7 +166,6 @@ describe("which season a row belongs to", () => {
 
 describe("which state the window puts the page in", () => {
   const fenster = (overrides: Partial<FLBewerbungFensterResponse> = {}): FLBewerbungFensterResponse => ({
-    acknowledged: 1,
     saison_id: "2627",
     offen: true,
     von: "2026-05-01",
@@ -377,23 +376,8 @@ describe("which paths one judgement covers in the public form", () => {
   });
 });
 
-/** The public write, spelled as the backend's own routes spell it. */
-const SUBMIT_OPERATION = "POST /bewerbungen";
-const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
-const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
-
-/**
- * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
- * backend stopped publishing fails here rather than passing on a refusal nothing sends.
- */
-function publishedOn(operation: string, code: string) {
-  assert.ok(publishedRefusals(operation).includes(code), `${code} is no longer published on ${operation}`);
-
-  return refusedOn(operation, code);
-}
-
 describe("what a submission's refusal is shown as", () => {
-  const refusal = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code));
+  const refusal = (code: string) => mapBewerbungSubmitRefusal(refused(code));
 
   /* Asserted before the arms below: a mapper that stopped recognising a 409 at all would return
      `null` everywhere, and every "names no field" assertion would pass over nothing. */
@@ -435,16 +419,16 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    expect(mapBewerbungSubmitRefusal(unpublishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409))).toBe(null);
+    expect(mapBewerbungSubmitRefusal(refused("REQ-BEWERBUNG-999", 409))).toBe(null);
     expect(mapBewerbungSubmitRefusal(new Error("boom"))).toBe(null);
     // A write answered with a 5xx may have landed, which no refusal's words may deny.
-    expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-005", 500))).toBe(null);
+    expect(mapBewerbungSubmitRefusal(refused("REQ-BEWERBUNG-005", 500))).toBe(null);
   });
 
   /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
   it("answers a code alike at whatever status its rule answers with", () => {
     for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
-      expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), code).toStrictEqual(refusal(code));
+      expect(mapBewerbungSubmitRefusal(refused(code)), code).toStrictEqual(refusal(code));
     }
   });
 });
@@ -453,17 +437,35 @@ describe("the submission's refusals against the codes its endpoint publishes", (
   /* The one class a unit test here CAN hold: a published code this maps nowhere reaches the applicant
      as the generic sentence, which names no field and no way out. */
   it("maps every code the submission publishes", () => {
-    for (const code of publishedRefusals(SUBMIT_OPERATION)) {
-      expect(answerShown(SUBMIT_OPERATION, code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
+    for (const code of refusalCodes(
+      "DB-COMMON-002",
+      "REQ-BEWERBUNG-004",
+      "REQ-BEWERBUNG-005",
+      "REQ-BEWERBUNG-006",
+      "REQ-BEWERBUNG-007",
+      "REQ-BEWERBUNG-008",
+      "REQ-BEWERBUNG-015",
+      "REQ-BEWERBUNG-018",
+      "REQ-EINWILLIGUNG-001",
+    )) {
+      expect(answerShown(code, mapBewerbungSubmitRefusal), `${code} reaches the applicant unmapped`).not.toBe(null);
     }
   });
 
   /* One code, one answer. Sharing one sentence between two of them is the failure this catches:
      each names a different thing to change, and a reader given the wrong one changes the wrong box. */
   it("gives each code its own answer", () => {
-    const answers = publishedRefusals(SUBMIT_OPERATION).map((code) =>
-      JSON.stringify(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code))),
-    );
+    const answers = refusalCodes(
+      "DB-COMMON-002",
+      "REQ-BEWERBUNG-004",
+      "REQ-BEWERBUNG-005",
+      "REQ-BEWERBUNG-006",
+      "REQ-BEWERBUNG-007",
+      "REQ-BEWERBUNG-008",
+      "REQ-BEWERBUNG-015",
+      "REQ-BEWERBUNG-018",
+      "REQ-EINWILLIGUNG-001",
+    ).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refused(code))));
 
     expect(new Set(answers).size, "two codes are answered with the same sentence").toBe(answers.length);
   });
@@ -472,9 +474,8 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      „spielt schon mit“ are two readings a German sentence separates and no structural check does —
      and only one is what the backend refuses. */
   it("says of each code what the backend constant it answers refuses", () => {
-    const fieldOf = (code: string) =>
-      Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
-    const banner = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.error ?? "";
+    const fieldOf = (code: string) => Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
+    const banner = (code: string) => mapBewerbungSubmitRefusal(refused(code))?.error ?? "";
 
     // The season stopped taking applications; nothing about the school is at fault.
     expect(banner("REQ-BEWERBUNG-004")).toMatch(/keine Bewerbungen/);
@@ -497,13 +498,13 @@ describe("the submission's refusals against the codes its endpoint publishes", (
 
     // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
     // sentence the form's own parse gives such a page, and no box, none of them being at fault.
-    expect(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-EINWILLIGUNG-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
+    expect(mapBewerbungSubmitRefusal(refused("REQ-EINWILLIGUNG-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
   });
 
   /* The record missing is a season the running API does not hold, which only a page from before a
      data reset names: the older page's sentence and reload, never the admin's „nicht gefunden“. */
   it("answers a missing season as the page gone stale", () => {
-    expect(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "DB-COMMON-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
+    expect(mapBewerbungSubmitRefusal(refused("DB-COMMON-001"))).toStrictEqual({ error: BEWERBUNG_VERALTET });
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
@@ -518,7 +519,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
 
     for (const code of ["REQ-BEWERBUNG-006", "REQ-BEWERBUNG-008"]) {
-      const refusalText = Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
+      const refusalText = Object.values(mapBewerbungSubmitRefusal(refused(code))?.fieldErrors ?? {}).join(" ");
 
       for (const numberWord of telltale) {
         assert.ok(!refusalText.toLowerCase().includes(numberWord.toLowerCase()), `${code} discloses roster state with „${numberWord}“`);
@@ -531,7 +532,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
      erneut“. */
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read as a body refusal naming no field", () => {
-    const unreadable = mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-VAL-002"));
+    const unreadable = mapBewerbungSubmitRefusal(refused("REQ-VAL-002"));
 
     expect(unreadable, "the unreadable body falls through to the shared handler's retry").not.toBe(null);
     expect(unreadable).toStrictEqual(mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen")));
@@ -599,7 +600,6 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
 const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht> => ({
   zustand: "gueltig",
   ansicht: {
-    acknowledged: 1,
     zustand: "gueltig",
     quelle: "bewerbung",
     zeile: null,
@@ -617,8 +617,19 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* A published code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation publishes", async () => {
-    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      const answered = await answerSettled(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, offenBei(VERTRETUNG_MIN_ALTER)));
+    for (const code of refusalCodes(
+      "REQ-BEWERBUNG-009",
+      "REQ-BEWERBUNG-010",
+      "REQ-BEWERBUNG-011",
+      "REQ-BEWERBUNG-012",
+      "REQ-BEWERBUNG-017",
+      "REQ-BEWERBUNG-020",
+      "REQ-EINWILLIGUNG-001",
+      "REQ-EINWILLIGUNG-002",
+      "REQ-KONTAKT-004",
+      "REQ-KONTAKT-006",
+    )) {
+      const answered = await answerSettled(code, (error) => mapEinwilligungRefusal(error, offenBei(VERTRETUNG_MIN_ALTER)));
       expect(answered, `${code} reaches the contact person unmapped`).not.toBe(null);
     }
   });
@@ -626,8 +637,8 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
-    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
-      expect(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("REQ-BEWERBUNG-009")) {
+      expect(mapEinwilligungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
     }
   });
 
@@ -636,8 +647,19 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      wording the view takes from the link's source. */
   it("gives each code its own answer, the spent links one panel", async () => {
     const answers = new Map<string, string>();
-    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), offenBei(VERTRETUNG_MIN_ALTER))));
+    for (const code of refusalCodes(
+      "REQ-BEWERBUNG-009",
+      "REQ-BEWERBUNG-010",
+      "REQ-BEWERBUNG-011",
+      "REQ-BEWERBUNG-012",
+      "REQ-BEWERBUNG-017",
+      "REQ-BEWERBUNG-020",
+      "REQ-EINWILLIGUNG-001",
+      "REQ-EINWILLIGUNG-002",
+      "REQ-KONTAKT-004",
+      "REQ-KONTAKT-006",
+    )) {
+      answers.set(code, JSON.stringify(await mapEinwilligungRefusal(refused(code), offenBei(VERTRETUNG_MIN_ALTER))));
     }
 
     for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004"]) {
@@ -655,7 +677,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   it("answers the already-answered link with the state its view reads, never a state of its own", async () => {
     const abgelehnt = async (): Promise<EinwilligungAnsicht> => ({ zustand: "abgelehnt", quelle: "bewerbung" });
 
-    expect(await mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), abgelehnt)).toStrictEqual({
+    expect(await mapEinwilligungRefusal(refused("REQ-BEWERBUNG-011"), abgelehnt)).toStrictEqual({
       zustand: "abgelehnt",
     });
   });
@@ -664,7 +686,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field, naming the floor it was given and never a state", async () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = await mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), offenBei(floor));
+      const mappedRefusal = await mapEinwilligungRefusal(refused("REQ-BEWERBUNG-012"), offenBei(floor));
       const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
       expect(mappedRefusal?.zustand, "a refusal the token survives closed the form anyway").toBe(undefined);
@@ -694,7 +716,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", async () => {
-    expect(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
+    expect(await mapEinwilligungRefusal(refused("REQ-VAL-002"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
@@ -713,7 +735,7 @@ describe("which wording an answer may be stored under", () => {
   /* The backend judges the label: a page opened before a deploy moved
      it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the mail's link, saying the words moved", async () => {
-    expect(await mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
+    expect(await mapEinwilligungRefusal(refused("REQ-EINWILLIGUNG-001"), offenBei(VERTRETUNG_MIN_ALTER))).toStrictEqual({
       error: FASSUNG_NEU_OEFFNEN,
     });
   });
@@ -723,9 +745,9 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
-    expect(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009"))).toBe("ungueltig");
+    expect(mapEinwilligungAnsichtRefusal(refused("REQ-BEWERBUNG-009"))).toBe("ungueltig");
     for (const status of [409, 404, 410]) {
-      expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), String(status)).toBe("ungueltig");
+      expect(mapEinwilligungAnsichtRefusal(refused("REQ-SOMETHING-NEW", status)), String(status)).toBe("ungueltig");
     }
   });
 
@@ -738,7 +760,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {
-    expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500))).toBe(null);
+    expect(mapEinwilligungAnsichtRefusal(refused("", 500))).toBe(null);
     expect(mapEinwilligungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
@@ -749,8 +771,8 @@ describe("mapEinwilligungAnsichtRefusal", () => {
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
     ] as const) {
-      expect(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), code).toBe(null);
+      expect(mapEinwilligungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
-    expect(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002"))).toBe(null);
+    expect(mapEinwilligungAnsichtRefusal(refused("REQ-VAL-002"))).toBe(null);
   });
 });

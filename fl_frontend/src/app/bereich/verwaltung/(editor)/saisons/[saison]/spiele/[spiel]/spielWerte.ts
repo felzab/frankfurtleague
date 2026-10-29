@@ -17,8 +17,6 @@ export type SpielWerte = {
   notiz: string;
 };
 
-export type SpielFeld = keyof SpielWerte;
-
 /** The editor's values as a stored fixture gives them. */
 export function werteOf(spiel: FLSpielAdmin): SpielWerte {
   return {

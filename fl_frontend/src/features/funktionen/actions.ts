@@ -6,7 +6,6 @@ import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eraseAufAnfrage, readErasureAnsicht, recordAbmeldung } from "./mutations";
@@ -21,8 +20,7 @@ import type { FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasureAnsichtRespo
 export type KontoNachLoeschung = "geloescht" | "keines" | "nichtGeloescht" | "unklar";
 
 /** Whether the erasure removed or emptied anything, read off every count it answers, one added later included. */
-const loeschteEtwas = ({ acknowledged: _umschlag, ...anzahlen }: FLErasureResponse): boolean =>
-  Object.values(anzahlen).some((anzahl) => anzahl > 0);
+const loeschteEtwas = (anzahlen: FLErasureResponse): boolean => Object.values(anzahlen).some((anzahl) => anzahl > 0);
 
 /**
  * The account's deletion, once the backend has answered. A failure leaves the records gone and the account standing,
@@ -129,10 +127,6 @@ export async function eraseAufAnfrageAction(
       const refusal = mapErasureRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!erasure.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Person wurde nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     const konto = await kontoLoeschen(validated.data.email);

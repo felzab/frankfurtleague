@@ -1,4 +1,3 @@
-import { readPublishedDocument, REGENERATE_CITATION } from "@/test-support/openapiDocument.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
@@ -14,6 +13,7 @@ import {
 } from "./facets.ts";
 import { FLAktorSchema } from "./schemas.ts";
 
+import type { AktionenGetAktionenParams } from "@/core/generated/client/types.ts";
 import type { Facet, FacetSelection } from "@/shared/utils/facets.ts";
 // A type import, and it has to be: `./queries.ts` reaches `next/headers`, which the runner resolves
 // to no file, so importing the read as a value would fail this file before a case ran.
@@ -106,16 +106,6 @@ describe("the origin facet on the change log", () => {
 const AREA_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_COLLECTION_PARAM);
 const KIND_FACET = AKTIONEN_FACETS.find((facet) => facet.param === AKTIONEN_OPERATION_PARAM);
 
-/** Every query parameter `GET /aktionen` publishes, read off the document rather than retyped here. */
-function publishedQueryNames(): string[] {
-  const document = readPublishedDocument() as {
-    paths: Record<string, { get?: { parameters?: { in?: string; name?: string }[] } }>;
-  };
-  const listed = Object.entries(document.paths).find(([published]) => /^\/api\/v\d+\/aktionen$/.test(published));
-
-  return (listed?.[1].get?.parameters ?? []).filter((parameter) => parameter.in === "query").map((parameter) => String(parameter.name));
-}
-
 describe("the dimensions the read itself narrows on", () => {
   /* First: a facet the cut fails to find would leave every assertion below reading `undefined`. */
   it("offers the area and the operation as facets at all", () => {
@@ -123,22 +113,16 @@ describe("the dimensions the read itself narrows on", () => {
     assert.ok(KIND_FACET, "no facet reads the operation parameter");
   });
 
-  /* Read off the published document, so a backend rename fails here rather than leaving every term the
-     bar sends naming a parameter the endpoint does not read. */
+  /* Held by `tsc` against the generated query type, so a backend rename fails the type check rather than leaving
+     every term the bar sends naming a parameter the endpoint does not read. */
   it("writes the endpoint's own parameter names", () => {
-    const published = publishedQueryNames();
-    // The keys and not one selection's: the reader writes every parameter it can, `undefined` included.
-    const sent = Object.keys(aktionenLogFacetTerms({}));
+    type Unpublished = Exclude<keyof ReturnType<typeof aktionenLogFacetTerms>, keyof AktionenGetAktionenParams>;
+    /** Instantiable while nothing is unpublished, and by no other argument. */
+    type EveryTermPublished<T extends never> = T[];
 
-    // First: a path this reader cannot place answers an empty list, on which the comparison below passes.
-    assert.ok(
-      published.length > 0,
-      `no GET /aktionen query parameters in openapi.json — refresh it with the command ${REGENERATE_CITATION} declares`,
-    );
-    expect(
-      sent.filter((name) => !published.includes(name)),
-      `the endpoint publishes ${published.join(", ")} — refresh the document with the command ${REGENERATE_CITATION} declares if a term was just added`,
-    ).toStrictEqual([]);
+    const unpublished: EveryTermPublished<Unpublished> = [];
+
+    expect(unpublished).toStrictEqual([]);
   });
 
   /* Held by `tsc` rather than by an assertion, a declaration reaching no runtime: a term the read does

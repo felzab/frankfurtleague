@@ -1,5 +1,4 @@
-import { publishedOperations } from "@/test-support/openapiDocument.ts";
-import { refusedOn } from "@/test-support/publishedRefusals.ts";
+import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -54,9 +53,26 @@ const GETEILT = [
   ["REQ-DROSSELUNG-001", "a grant past the day's ceiling", ZUSTIMMEN_MORGEN],
 ] as const;
 
-/** Every code each operation publishes, the ceiling's protocol family included, which `publishedRefusals` leaves out. */
-const CODES = new Map(publishedOperations().map(({ operation, answers }) => [operation, new Set(answers.map(({ code }) => code))]));
-const codesOf = (operation: string): ReadonlySet<string> => CODES.get(operation) ?? assert.fail(`the document publishes no ${operation}`);
+/**
+ * The consent codes each write's service raises, the ceiling's protocol family included: a withdraw-only write
+ * counts no grant against the day's ceiling and takes no media choice.
+ */
+const GRANT_CODES = refusalCodes(
+  "REQ-EINWILLIGUNG-001",
+  "REQ-EINWILLIGUNG-002",
+  "REQ-EINWILLIGUNG-003",
+  "REQ-EINWILLIGUNG-004",
+  "REQ-DROSSELUNG-001",
+);
+const WITHDRAW_CODES = refusalCodes("REQ-EINWILLIGUNG-001", "REQ-EINWILLIGUNG-003", "REQ-EINWILLIGUNG-004");
+const CODES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ["PATCH /spieler/selbst/einwilligung", new Set(GRANT_CODES)],
+  ["PATCH /bewerbungen/{bewerbung_id}/person/einwilligung", new Set(WITHDRAW_CODES)],
+  ["PATCH /registrierungen/selbst/{registrierung_id}/einwilligung", new Set(WITHDRAW_CODES)],
+  ["PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", new Set(GRANT_CODES)],
+  ["PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung", new Set(GRANT_CODES)],
+]);
+const codesOf = (operation: string): ReadonlySet<string> => CODES.get(operation) ?? assert.fail(`no codes stated for ${operation}`);
 
 /** The consent PATCHes the eigene mapper serves beside the pupil's. */
 const EIGENE_WEITERE = [
@@ -65,9 +81,9 @@ const EIGENE_WEITERE = [
 ];
 
 describe("the consent writes' mappers", () => {
-  /* A code the mappers word that no consent write publishes is a sentence nobody can be shown: read off
+  /* A code the mappers word that no consent write raises is a sentence nobody can be shown: read off
      the mappers' own set, never this suite's table. */
-  it("words no shared code that no consent write publishes", () => {
+  it("words no shared code that no consent write raises", () => {
     const veroeffentlicht = new Set(
       [...MAPPERS.map(([, operation]) => operation), ...EIGENE_WEITERE].flatMap((operation) => [...codesOf(operation)]),
     );
@@ -84,19 +100,19 @@ describe("the consent writes' mappers", () => {
     for (const [code, ursache, worte] of GETEILT.filter(([code]) => veroeffentlicht.has(code))) {
       /* Read by its code at any status: a rule the backend moves to another status keeps its words. */
       it(`words ${ursache} on ${art}, at any status`, () => {
-        for (const status of [403, 409, 422, 429]) expect(mapper(refusedOn(operation, code, status))).toStrictEqual({ error: worte });
+        for (const status of [403, 409, 422, 429]) expect(mapper(refused(code, status))).toStrictEqual({ error: worte });
       });
     }
 
     /* The shared answer to a lost Funktion names a team, which these records have none of. */
     it(`words ${art} no longer the person's by that record`, () => {
-      expect(mapper(refusedOn(operation, "REQ-FUNKTION-001", 403))).toStrictEqual({ error: eintragWeg });
+      expect(mapper(refused("REQ-FUNKTION-001", 403))).toStrictEqual({ error: eintragWeg });
     });
 
     /* A barred address is the person spine's, which words it once for every person write; answering
        it here would word it twice. */
     it(`leaves every other refusal on ${art}, and a failure that is no refusal, to the spine`, () => {
-      expect(mapper(refusedOn(operation, "REQ-AUTH-008", 403))).toBe(null);
+      expect(mapper(refused("REQ-AUTH-008", 403))).toBe(null);
       expect(mapper(new Error("network"))).toBe(null);
     });
   }
@@ -106,7 +122,7 @@ describe("the consent writes' mappers", () => {
   for (const operation of ["PATCH /spieler/selbst/einwilligung", ...EIGENE_WEITERE]) {
     it(`names the media floor its record was served on ${operation}, and asks for a reload, at any status`, () => {
       for (const status of [403, 409, 422, 429]) {
-        expect(mapEigeneEinwilligungRefusal(refusedOn(operation, "REQ-EINWILLIGUNG-002", status), MEDIEN_ALTER)).toStrictEqual({
+        expect(mapEigeneEinwilligungRefusal(refused("REQ-EINWILLIGUNG-002", status), MEDIEN_ALTER)).toStrictEqual({
           error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Lade die Seite neu.",
         });
       }
@@ -115,7 +131,7 @@ describe("the consent writes' mappers", () => {
 
   /* The words themselves, through the mapper: the table above takes the sentence from the module it tests. */
   it("tells a pupil whose registration closed to reload, in sentences of their own", () => {
-    expect(mapRegistrierungEinwilligungRefusal(refusedOn(MAPPERS[2][1], "REQ-FUNKTION-001", 403))).toStrictEqual({
+    expect(mapRegistrierungEinwilligungRefusal(refused("REQ-FUNKTION-001", 403))).toStrictEqual({
       error: "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.",
     });
   });

@@ -1,6 +1,6 @@
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,13 +35,6 @@ beforeEach(() => {
   loeschungSwitch = "off";
 });
 
-const CREATE_OPERATION = "POST /saisons";
-const EDIT_OPERATION = "PATCH /saisons/{saison_id}";
-const ACTIVATE_OPERATION = "POST /saisons/{saison_id}/activate";
-const DRAW_OPERATION = "POST /saisons/{saison_id}/spielplan";
-const UNDRAW_OPERATION = "DELETE /saisons/{saison_id}/spielplan";
-const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
-
 const SAISON_ID = "2026";
 
 const RULES: FLSaisonRules = saisonRules();
@@ -50,10 +43,10 @@ const RULES: FLSaisonRules = saisonRules();
 const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
 
 /** The draw's answer on a first draw (`false`) or a replace carrying its own numbers (`true`). */
-const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplanRefusal(refusedOn(DRAW_OPERATION, code), carriedShape) ?? "";
+const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplanRefusal(refused(code), carriedShape) ?? "";
 
 /** The editor's banner for one code, where it words one rather than seating it under a field. */
-const editBanner = (code: string): string => mapRulesRefusal(refusedOn(EDIT_OPERATION, code))?.error ?? "";
+const editBanner = (code: string): string => mapRulesRefusal(refused(code))?.error ?? "";
 
 /* One German noun phrase per frozen field. The refusal states the freeze in one sentence, so a
    further shape field the write path adds and this table leaves out goes unnamed and fails nothing here. */
@@ -124,16 +117,8 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* The create answers its own set alone, though `POST /saisons` prefixes two other operations. The
      rules come first: a rule reported as a taken id names a field that cannot repair it. */
   it("answers every refusal the create publishes, the rules before the taken id", async () => {
-    expect(publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY)).toStrictEqual([
-      "REQ-DATE-005",
-      "REQ-RULES-001",
-      "REQ-RULES-007",
-      "REQ-RULES-008",
-      "REQ-RULES-010",
-      "REQ-RULES-013",
-    ]);
     await assertEachAnswered({
-      operation: CREATE_OPERATION,
+      codes: refusalCodes("DB-COMMON-002", "REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"),
       refuseWith: answerWith,
       act: () => postSaisonAction(SAISON),
       mapped: (refusal) => mapRulesRefusal(refusal) ?? mapSaisonIdRefusal(refusal),
@@ -143,11 +128,9 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* `DB-COMMON-002` is the unique index refusing a duplicate `_id`, which names no rule: the rules
      mapper leaves it to the create's own fallback on the id box, and an arm added there would swallow it. */
   it("leaves a duplicate season id to the create's own fallback", () => {
-    expect(mapRulesRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)), "the mapper claims the duplicate id and the fallback never runs").toBe(
-      null,
-    );
+    expect(mapRulesRefusal(refused(DUPLICATE_KEY)), "the mapper claims the duplicate id and the fallback never runs").toBe(null);
 
-    const taken = mapSaisonIdRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY));
+    const taken = mapSaisonIdRefusal(refused(DUPLICATE_KEY));
     expect(taken?.error ?? "").toMatch(/Diese Saison-ID ist schon vergeben/);
     expect(taken?.fieldErrors, "the taken-id message no longer reaches the id field the admin has to change").toStrictEqual({
       id: taken?.error,
@@ -157,7 +140,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* The same mapper serves the edit, so a code missing from it is rethrown as the generic conflict
      message rather than reaching the panel that still holds the wrong value. */
   it("answers every refusal the edit publishes", async () => {
-    expect(publishedRefusals(EDIT_OPERATION)).toStrictEqual([
+    for (const code of refusalCodes(
       "REQ-DATE-004",
       "REQ-DATE-005",
       "REQ-RULES-001",
@@ -173,12 +156,27 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "REQ-RULES-011",
       "REQ-RULES-012",
       "REQ-RULES-013",
-    ]);
-    for (const code of publishedRefusals(EDIT_OPERATION)) {
-      expect(answerShown(EDIT_OPERATION, code, mapRulesRefusal), `${code} reaches the admin as a generic conflict`).not.toBe(null);
+    )) {
+      expect(answerShown(code, mapRulesRefusal), `${code} reaches the admin as a generic conflict`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: EDIT_OPERATION,
+      codes: refusalCodes(
+        "REQ-DATE-004",
+        "REQ-DATE-005",
+        "REQ-RULES-001",
+        "REQ-RULES-002",
+        "REQ-RULES-003",
+        "REQ-RULES-004",
+        "REQ-RULES-005",
+        "REQ-RULES-006",
+        "REQ-RULES-007",
+        "REQ-RULES-008",
+        "REQ-RULES-009",
+        "REQ-RULES-010",
+        "REQ-RULES-011",
+        "REQ-RULES-012",
+        "REQ-RULES-013",
+      ),
       refuseWith: answerWith,
       act: () => patchSaisonAction(SAISON),
       mapped: mapRulesRefusal,
@@ -186,17 +184,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   });
 
   it("answers every refusal the rollover publishes", async () => {
-    expect(publishedRefusals(ACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY)).toStrictEqual([
-      "REQ-ACTIVATE-001",
-      "REQ-ACTIVATE-002",
-      "REQ-ACTIVATE-003",
-      "REQ-ACTIVATE-004",
-    ]);
-    for (const code of publishedRefusals(ACTIVATE_OPERATION)) {
-      expect(answerShown(ACTIVATE_OPERATION, code, mapActivateRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
+    for (const code of refusalCodes("DB-COMMON-002", "REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004")) {
+      expect(answerShown(code, mapActivateRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: ACTIVATE_OPERATION,
+      codes: refusalCodes("DB-COMMON-002", "REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"),
       refuseWith: answerWith,
       act: () => activateSaisonAction({ id: SAISON_ID }),
       mapped: mapActivateRefusal,
@@ -204,11 +196,19 @@ describe("the saison actions against the codes their endpoints publish", () => {
   });
 
   it("answers every refusal the group swap publishes", async () => {
-    for (const code of publishedRefusals(SWAP_OPERATION)) {
-      expect(answerShown(SWAP_OPERATION, code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
+    for (const code of refusalCodes(
+      "REQ-SWAP-001",
+      "REQ-SWAP-002",
+      "REQ-SWAP-003",
+      "REQ-SWAP-004",
+      "REQ-SWAP-005",
+      "REQ-SWAP-006",
+      "REQ-SWAP-007",
+    )) {
+      expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: SWAP_OPERATION,
+      codes: refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-004", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007"),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
@@ -218,17 +218,14 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* One club named on both sides has a code of its own, which only a stale picker sends: it is worded
      as a pair standing in one group is, with the same reload. */
   it("words one club named on both sides as the pair gone stale", () => {
-    expect(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007"))).toBe(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-001")));
-    expect(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007"))).not.toBe(null);
+    expect(mapSwapRefusal(refused("REQ-SWAP-007"))).toBe(mapSwapRefusal(refused("REQ-SWAP-001")));
+    expect(mapSwapRefusal(refused("REQ-SWAP-007"))).not.toBe(null);
   });
 
   it("answers every refusal the draw publishes, the shared rules faults included", async () => {
-    expect(publishedRefusals(DRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY)).toStrictEqual([
-      // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
-      // the season has days. It measures the span for that, as the create and the edit do.
+    for (const code of refusalCodes(
+      "DB-COMMON-002",
       "REQ-DATE-009",
-      // A shape this request carried; the three below from `-014` are the same rules over the
-      // stored numbers, and each code's answer names its own panel.
       "REQ-RULES-001",
       "REQ-RULES-007",
       "REQ-RULES-013",
@@ -243,10 +240,9 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "REQ-SPIELPLAN-004",
       "REQ-SPIELPLAN-005",
       "REQ-SPIELPLAN-007",
-    ]);
-    for (const code of publishedRefusals(DRAW_OPERATION)) {
+    )) {
       for (const carriedShape of [false, true]) {
-        const answered = answerShown(DRAW_OPERATION, code, (error) => mapSpielplanRefusal(error, carriedShape));
+        const answered = answerShown(code, (error) => mapSpielplanRefusal(error, carriedShape));
         expect(answered, `${code} reaches the admin as a generic failure`).not.toBe(null);
       }
     }
@@ -262,7 +258,24 @@ describe("the saison actions against the codes their endpoints publish", () => {
       [{ id: SAISON_ID, replace: true, shape: { number_of_groups, teams_per_group, qualifiers_per_group } }, true],
     ] as const) {
       await assertEachAnswered({
-        operation: DRAW_OPERATION,
+        codes: refusalCodes(
+          "DB-COMMON-002",
+          "REQ-DATE-009",
+          "REQ-RULES-001",
+          "REQ-RULES-007",
+          "REQ-RULES-013",
+          "REQ-RULES-014",
+          "REQ-RULES-015",
+          "REQ-RULES-016",
+          "REQ-RULES-017",
+          "REQ-RULES-018",
+          "REQ-SPIELPLAN-001",
+          "REQ-SPIELPLAN-002",
+          "REQ-SPIELPLAN-003",
+          "REQ-SPIELPLAN-004",
+          "REQ-SPIELPLAN-005",
+          "REQ-SPIELPLAN-007",
+        ),
         refuseWith: answerWith,
         act: () => generateSpielplanAction(payload),
         mapped: (refusal) => mapSpielplanRefusal(refusal, carriedShape),
@@ -273,12 +286,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* Its own two codes, none of the draw's: the two share a path and a summary word, so a document read leaking either
      way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
-    expect(publishedRefusals(UNDRAW_OPERATION)).toStrictEqual(["REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007"]);
-    for (const code of publishedRefusals(UNDRAW_OPERATION)) {
-      expect(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
+    for (const code of refusalCodes("REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007")) {
+      expect(answerShown(code, mapUndrawRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      operation: UNDRAW_OPERATION,
+      codes: refusalCodes("REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007"),
       refuseWith: answerWith,
       act: () => undrawSpielplanAction({ id: SAISON_ID }),
       mapped: mapUndrawRefusal,
@@ -320,7 +332,7 @@ describe("the undraw action", () => {
      on a page that went stale. The reloaded panel names any way out, so a repair spelled here too
      could describe a state the season has already left. */
   it("tells a stale page to reload rather than naming a repair", () => {
-    const message = mapUndrawRefusal(refusedOn(UNDRAW_OPERATION, "REQ-SPIELPLAN-006")) ?? "";
+    const message = mapUndrawRefusal(refused("REQ-SPIELPLAN-006")) ?? "";
 
     expect(message).toMatch(/geplante Saison/);
     expect(message).toMatch(/Lade die Seite neu/);
@@ -378,7 +390,7 @@ describe("the German each widened refusal renders", () => {
   /* A bare `error`, like the two freezes: several fields could repair it and none of them is at
      fault, so a `fieldErrors` key would seat the sentence under a value that is not the problem. */
   it("seats the schedule refusal under no field", () => {
-    expect(mapRulesRefusal(refusedOn(EDIT_OPERATION, "REQ-DATE-005"))?.fieldErrors).toBe(undefined);
+    expect(mapRulesRefusal(refused("REQ-DATE-005"))?.fieldErrors).toBe(undefined);
   });
 
   /* Neither rules field repairs this in every state: `REQ-RULES-005` freezes `qualifiers_per_group`
@@ -423,7 +435,7 @@ describe("the German each widened refusal renders", () => {
       ["REQ-RULES-008", "REQ-RULES-016", "rules.draw_points"],
       ["REQ-RULES-010", "REQ-RULES-017", "rules.forfeit_ergebnis.sieger_tore"],
     ] as const) {
-      const rule = mapRulesRefusal(refusedOn(EDIT_OPERATION, edit))?.fieldErrors?.[field] ?? "";
+      const rule = mapRulesRefusal(refused(edit))?.fieldErrors?.[field] ?? "";
 
       expect(rule, `the editor seats no rule for ${edit}, so ${draw} is compared with nothing`).not.toBe("");
       for (const carriedShape of [false, true]) {
@@ -457,12 +469,12 @@ describe("the German each widened refusal renders", () => {
 
   /* `REQ-ACTIVATE-003` is the one activation refusal with a remedy the admin can act on here. */
   it("names the draw as the remedy for a rollover onto an undrawn season", () => {
-    expect(mapActivateRefusal(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-003")) ?? "").toMatch(/Spielplan/);
+    expect(mapActivateRefusal(refused("REQ-ACTIVATE-003")) ?? "").toMatch(/Spielplan/);
   });
 
   /* The pre-flight's own case compares the same declaration by calling. */
   it("answers the undated-matchday refusal with the declaration the closed press reads", () => {
-    expect(mapActivateRefusal(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-004"))).toBe(SPIELTAGE_UNDATED);
+    expect(mapActivateRefusal(refused("REQ-ACTIVATE-004"))).toBe(SPIELTAGE_UNDATED);
   });
 });
 
@@ -563,13 +575,8 @@ describe("the deletion the activation runs", () => {
     });
   }
 
-  it("deletes nobody where the activation was refused or not acknowledged", async () => {
-    answerWith((call) =>
-      call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-001")),
-    );
-    expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
-
-    answerWith((call) => Promise.resolve(call.endpoint === LAUF ? gelaufen(1, 0) : { ...landed(call), acknowledged: 0 }));
+  it("deletes nobody where the activation was refused", async () => {
+    answerWith((call) => (call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("REQ-ACTIVATE-001"))));
     expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
 
     expect(laeufe(), "a season that did not turn active had its pupils deleted").toBe(0);

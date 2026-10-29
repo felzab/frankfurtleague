@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { buildRegistrierungBestaetigungEmail } from "@/core/registrierungEmail";

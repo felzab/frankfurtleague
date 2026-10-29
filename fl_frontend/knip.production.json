@@ -38,9 +38,7 @@
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
     // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
     // one is named here.
-    "src/**/schemas.ts": ["types", "duplicates"],
-    // `docs/decisions.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/**/schemas.ts": ["types", "duplicates"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.

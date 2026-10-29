@@ -70,8 +70,8 @@ const {
   ZUSTELLUNG_QUEUE_TINT,
   zustellungTags,
 } = await import("./zustellung.ts");
-const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
-const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
+const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { refused } = await import("@/test-support/refusals.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
@@ -709,7 +709,7 @@ describe("POST /api/mail/zustellung", () => {
      Retrying those spends the endpoint's standing with the provider on a record that is gone. */
   it("answers 200 where the application no longer exists", async () => {
     zustellungAnswer = () => {
-      throw refusedOn("POST /bewerbungen/zustellung", "DB-COMMON-001");
+      throw refused("DB-COMMON-001");
     };
 
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
@@ -720,7 +720,7 @@ describe("POST /api/mail/zustellung", () => {
 
   it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
     zielZustellungAnswer = () => {
-      throw refusedOn("POST /zustellung", "DB-COMMON-001");
+      throw refused("DB-COMMON-001");
     };
 
     const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
@@ -775,18 +775,6 @@ describe("POST /api/mail/zustellung", () => {
         traceId: "t".repeat(32),
         isTimeout: false,
       });
-    };
-
-    const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
-
-    expect(status).toBe(503);
-    expect(body).toStrictEqual({ error: "backend" });
-  });
-
-  /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
-  it("answers 503 where the deadline refused the write before it was sent", async () => {
-    zustellungAnswer = () => {
-      throw new ApiUnsentError("POST");
     };
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
