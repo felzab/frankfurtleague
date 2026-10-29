@@ -25,7 +25,7 @@ ZERO_PARENT_ID = "0" * 16
 # edge still logs the external monitor's checks of it.
 IS_LIVE_PATH: Final = f"/api/v{API_VERSION}/system/is_live"
 
-# Under `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` by what the page's clock counts and
+# Under `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` by what the page's clock counts and
 # this one cannot: the hop in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
