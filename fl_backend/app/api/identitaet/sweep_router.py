@@ -39,7 +39,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -129,7 +128,6 @@ async def _erase_one(
     "/lauf",
     response_model=FLLoeschungLaufResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_loeschung_lauf(
     params: Annotated[FLLoeschungLaufParams, Query()],

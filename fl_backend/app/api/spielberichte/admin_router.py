@@ -44,7 +44,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -70,7 +69,6 @@ def _admin_ansicht(
     "",
     response_model=FLSpielberichteSaisonResponse,
     summary="Every report of a season and the state it reads in",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielberichte(
     spielberichte_collection: SpielberichteCollection,
@@ -98,7 +96,6 @@ async def get_spielberichte(
     f"{by_id('spiel_id')}/admin",
     response_model=FLSpielberichtAdminResponse,
     summary="One fixture's report, whole, for an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielbericht_admin(
     spiel_id: CustomRouteObjectId,
@@ -145,7 +142,6 @@ async def get_spielbericht_admin(
     by_id("spiel_id"),
     response_model=FLSpielberichtAdminResponse,
     summary="Write one fixture's report as an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # It overwrites the referee's account of the match, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )

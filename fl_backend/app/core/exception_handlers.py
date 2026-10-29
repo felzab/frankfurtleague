@@ -180,11 +180,6 @@ FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
 }
 
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DUPLICATE_KEY_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.CONFLICT]
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DOCUMENT_NOT_FOUND_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.NOT_FOUND]
-
 
 # Session 2: the sweep removes every declaration of these three and deletes them.
 def stores_nothing() -> None:

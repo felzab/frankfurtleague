@@ -29,7 +29,6 @@ from app.api.spielbestaetigungen.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
@@ -82,7 +81,6 @@ async def get_spielbestaetigungen(
     f"{by_id('spielbestaetigung_id')}/eintragen",
     response_model=FLSpielbestaetigungEintragenResponse,
     summary="Record a party's Zusage on its behalf",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def eintragen_spielbestaetigung(
@@ -135,7 +133,6 @@ async def eintragen_spielbestaetigung(
     f"{by_id('spielbestaetigung_id')}/verwerfen",
     response_model=FLSpielbestaetigungVerwerfenResponse,
     summary="Discard a club's proposed date",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def verwerfen_spielbestaetigung(

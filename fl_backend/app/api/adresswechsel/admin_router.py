@@ -87,7 +87,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
@@ -185,7 +185,6 @@ def _bestand(bestand: Bestand) -> FLAdresswechselVerwaltungBestand:
     "/ansicht",
     response_model=FLAdresswechselVerwaltungAnsichtResponse,
     summary="Show what an address holds that a change moves, and its live change",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_verwaltung_ansicht(
@@ -269,7 +268,6 @@ async def _genehmiger(
     "",
     response_model=FLAdresswechselVerwaltungMintResponse,
     summary="Start an address change for a person who says they cannot sign in",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def post_adresswechsel_verwaltung(
@@ -420,7 +418,6 @@ async def post_adresswechsel_verwaltung(
     f"{by_id('adresswechsel_id')}/einladen",
     response_model=FLAdresswechselVerwaltungMintResponse,
     summary="Send a pending address a fresh link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def einladen_adresswechsel(
@@ -533,7 +530,6 @@ async def einladen_adresswechsel(
     by_id("adresswechsel_id"),
     response_model=FLAdresswechselIdResponse,
     summary="Discard a pending address change",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_adresswechsel(
@@ -606,7 +602,6 @@ async def delete_adresswechsel(
     f"{by_id('adresswechsel_id')}/genehmigung",
     response_model=FLAdresswechselGenehmigungResponse,
     summary="Approve the move of an administrator's access with their address change",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # The enrolment window a grant takes, not the step-up's: the approval hands access to the administration over.
     dependencies=[Depends(verify_recent_confirmation)],
 )

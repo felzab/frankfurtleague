@@ -40,7 +40,6 @@ from app.core.dependencies import (
     SperrlisteCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -113,7 +112,6 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
     response_model=FLPostSperrlisteResponse,
     status_code=201,
     summary="Ban an email address",
-    responses={409: DUPLICATE_KEY_RESPONSE},
     # The frontend signs the address out and mails it once this answers, and nothing undoes either.
     dependencies=[Depends(verify_step_up)],
 )
@@ -229,7 +227,6 @@ async def post_sperrliste_eintrag(
     by_id("sperrliste_id"),
     response_model=FLSperrlisteWriteResponse,
     summary="Lift a ban",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_sperrliste_eintrag(

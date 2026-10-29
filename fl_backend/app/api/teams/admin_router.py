@@ -122,7 +122,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
@@ -237,7 +236,6 @@ async def get_team_memberships(
     "/list/admin",
     response_model=FLTeamsResponse,
     summary="Teams for a Saison, for the admin surfaces",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_teams_for_admin(
     teams_collection: TeamsCollection,
@@ -279,7 +277,7 @@ async def get_teams_for_admin(
     )
 
 
-@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
     teams_collection: TeamsCollection,
@@ -302,7 +300,6 @@ async def post_team(
     by_id("team_id"),
     response_model=FLPatchTeamResponse,
     summary="Update a team and fan the rename out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_team(
     team_id: CustomRouteObjectId,
@@ -374,7 +371,6 @@ async def patch_team(
     by_id("team_id"),
     response_model=FLTeamWriteResponse,
     summary="Retire a team (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_team(
     team_id: CustomRouteObjectId,
@@ -425,7 +421,6 @@ async def delete_team(
     f"{by_id('team_id')}/reactivate",
     response_model=FLTeamWriteResponse,
     summary="Bring a retired team back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_team(
     team_id: CustomRouteObjectId,
@@ -448,7 +443,6 @@ async def reactivate_team(
     response_model=FLSaisonTeamResponse,
     status_code=201,
     summary="Enter a team into a season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def post_saison_team(
@@ -531,7 +525,6 @@ async def post_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}",
     response_model=FLSaisonTeamResponse,
     summary="Rewrite a team's season row: group, exit record and kit colour",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
@@ -621,7 +614,6 @@ async def patch_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
     summary="Rewrite a team's season contacts, and nothing else on the row",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison_team_kontakte(
     team_id: CustomRouteObjectId,
@@ -794,7 +786,6 @@ async def patch_saison_team_kontakte(
     f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def replace_saison_team(
@@ -977,7 +968,6 @@ async def replace_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/bestaetigung/einladen",
     response_model=FLKontaktEinladenResponse,
     summary="Send one contact seat a fresh confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def einladen_kontakt(
@@ -1077,7 +1067,6 @@ async def einladen_kontakt(
     response_model=FLEinladungMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladung(
     team_id: CustomRouteObjectId,
@@ -1169,7 +1158,6 @@ async def post_einladung(
     f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
     response_model=FLEinladungWriteResponse,
     summary="Revoke this team's live registration link for a season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_einladung(
@@ -1207,7 +1195,6 @@ async def delete_einladung(
     f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
     response_model=FLEinladungResponse,
     summary="This team's live registration link for a season, and whether it opens anything",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_einladung(
     team_id: CustomRouteObjectId,

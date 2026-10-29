@@ -85,7 +85,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import adresswechsel_gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
@@ -289,7 +288,6 @@ async def get_adresswechsel(
     response_model=FLKontoAdresswechselMintResponse,
     summary="Start a change of the signed-in person's address",
     dependencies=[Depends(verify_recent_person_confirmation), Depends(adresswechsel_gedrosselt)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_adresswechsel(
     identifier: KontaktIdentifier,
@@ -400,7 +398,6 @@ async def post_adresswechsel(
     "/adresswechsel/freigabe",
     response_model=FLKontoAdresswechselFreigabeResponse,
     summary="Approve the address change an administrator asked of the signed-in person",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_recent_person_confirmation), Depends(adresswechsel_gedrosselt)],
 )
 async def post_adresswechsel_freigabe(
@@ -464,7 +461,6 @@ async def post_adresswechsel_freigabe(
     "/adresswechsel",
     response_model=FLKontoAdresswechselResponse,
     summary="Stop the address change pending on the signed-in person",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_adresswechsel(
     identifier: KontaktIdentifier,

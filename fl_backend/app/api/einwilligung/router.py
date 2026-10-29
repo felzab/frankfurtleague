@@ -4,7 +4,6 @@ from app.api.einwilligung.schemas import FLEinwilligungFassungResponse, FLEinwil
 from app.api.einwilligung.services import served_fassung
 from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_base
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
@@ -19,7 +18,6 @@ router = APIRouter(
     "/fassungen/{text_version}",
     response_model=FLEinwilligungFassungResponse,
     summary="The words one consent label names",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_fassung(text_version: str) -> FLEinwilligungFassungResponse:
     """

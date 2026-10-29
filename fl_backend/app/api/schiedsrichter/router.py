@@ -24,7 +24,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_actor_is_admin
 from app.shared.folding import sign_in_identifier
@@ -74,7 +73,6 @@ async def get_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLSchiedsrichterSingleResponse,
     summary="One Schiedsrichter",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,

@@ -72,7 +72,6 @@ from app.core.dependencies import (
     DBClient,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
@@ -270,7 +269,6 @@ def _antrag_zeile(
     response_model=FLPostBerechtigungResponse,
     status_code=201,
     summary="Grant access to the administration",
-    responses={409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def post_berechtigung(
@@ -423,7 +421,6 @@ async def _genehmiger_exist(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungWriteResponse,
     summary="Revoke access to the administration",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def delete_berechtigung(
@@ -492,7 +489,6 @@ async def delete_berechtigung(
     by_id("berechtigung_id"),
     response_model=FLBerechtigungStufeResponse,
     summary="Change a grant between administrator and owner",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_recent_confirmation)],
 )
 async def patch_berechtigung(
@@ -685,7 +681,6 @@ async def _move_the_tier_in_session(
     f"/antraege{by_id('antrag_id')}/genehmigung",
     response_model=FLBerechtigungAntragGenehmigtResponse,
     summary="Approve a grant or a promotion another administrator asked for",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # The enrolment window a grant takes, not the step-up's: the approval hands access to the administration over.
     dependencies=[Depends(verify_recent_confirmation)],
 )
@@ -799,7 +794,6 @@ async def post_antrag_genehmigung(
     f"/antraege{by_id('antrag_id')}",
     response_model=FLBerechtigungAntragAbgelehntResponse,
     summary="Refuse a grant or a promotion another administrator asked for, or withdraw one's own",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_antrag(

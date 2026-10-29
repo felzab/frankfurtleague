@@ -77,7 +77,6 @@ from app.core.dependencies import (
     SpieleCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
@@ -349,7 +348,6 @@ async def get_spiel_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSp
     "/{saison_id}",
     response_model=FLSpielbestaetigungSweepResponse,
     summary="Run one season's fixture confirmation pass",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_spielbestaetigungen(
     saison_id: str,
@@ -1080,7 +1078,6 @@ async def sweep_spielbestaetigungen(
     "/{saison_id}/angefragt",
     response_model=FLSpielbestaetigungSweepAngefragtResponse,
     summary="Stamp the confirmations whose first message went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def angefragt_spielbestaetigungen(
     saison_id: str,
@@ -1143,7 +1140,6 @@ async def angefragt_spielbestaetigungen(
     "/{saison_id}/mitgeteilt",
     response_model=FLSpielbestaetigungSweepMitgeteiltResponse,
     summary="Stamp the confirmations whose notice went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def mitgeteilt_spielbestaetigungen(
     saison_id: str,

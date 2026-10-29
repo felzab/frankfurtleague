@@ -59,7 +59,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.logging import fl_logger
@@ -259,7 +259,6 @@ async def _make_the_due_change_take_effect(
     "",
     response_model=FLAdresswechselSweepResponse,
     summary="End the lapsed address changes, and make the due ones take effect",
-    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_adresswechsel(
     params: Annotated[FLAdresswechselSweepParams, Query()],

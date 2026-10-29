@@ -18,7 +18,6 @@ from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import AktionenCollection
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -187,9 +186,7 @@ async def get_aktionen(
     )
 
 
-@router.get(
-    by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
-)
+@router.get(by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action")
 async def get_aktion_by_id(
     aktion_id: CustomRouteObjectId,
     aktionen_collection: AktionenCollection,

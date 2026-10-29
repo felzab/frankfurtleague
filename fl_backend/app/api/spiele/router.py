@@ -14,7 +14,6 @@ from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, get_german_date_str
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -26,7 +25,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpieleListResponse, summary="List Spiele", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get("", response_model=FLSpieleListResponse, summary="List Spiele")
 async def get_spiele(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
@@ -65,7 +64,7 @@ async def get_spiele(
     return FLSpieleListResponse(spiele=spiele)
 
 
-@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
+@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
 async def get_spiel(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,

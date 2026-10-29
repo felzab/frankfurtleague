@@ -57,7 +57,6 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -131,7 +130,6 @@ def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) 
     "/fenster",
     response_model=FLBewerbungFensterResponse,
     summary="The Saison currently accepting applications",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """
@@ -165,7 +163,6 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     "/fenster/{saison_id}",
     response_model=FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse,
     summary="One Saison's application window",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_fenster(
     saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
@@ -227,7 +224,6 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
     "/trikotfarben/{saison_id}",
     response_model=FLBewerbungTrikotFarbenResponse,
     summary="The kit colours a Saison has already assigned",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_trikotfarben(
     saison_id: str,
@@ -326,7 +322,6 @@ async def _answer_as_the_first(
     response_model=FLPostBewerbungResponse,
     status_code=201,
     summary="Submit a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],

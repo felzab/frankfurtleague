@@ -103,7 +103,6 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import (
@@ -253,7 +252,6 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     response_model=FLPostSaisonResponse,
     status_code=201,
     summary="Create a Saison",
-    responses={409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def post_saison(
@@ -316,7 +314,6 @@ class MovableFigures(NamedTuple):
     "/{saison_id}",
     response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison(
     saison_id: str,
@@ -498,7 +495,6 @@ async def patch_saison(
     "/{saison_id}/activate",
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def activate_saison(
@@ -638,7 +634,6 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,
@@ -790,7 +785,6 @@ async def swap_gruppen(
     response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def generate_spielplan(
     saison_id: str,
@@ -1030,7 +1024,6 @@ async def generate_spielplan(
     "/{saison_id}/spielplan",
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def undraw_spielplan(
@@ -1299,7 +1292,6 @@ async def _mail_one_team(
     "/{saison_id}/einladungen/versand/vorschau",
     response_model=FLEinladungVersandVorschauResponse,
     summary="Who the send would reach",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def preview_einladungen_versand(
     saison_id: str,
@@ -1368,7 +1360,6 @@ async def preview_einladungen_versand(
     "/{saison_id}/loeschung/vorschau",
     response_model=FLLoeschungVorschauResponse,
     summary="How many pupils activating this season would delete",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def preview_loeschung(
     saison_id: str,
@@ -1402,7 +1393,6 @@ async def preview_loeschung(
     "/{saison_id}/einladungen/versand",
     response_model=FLEinladungVersandResponse,
     summary="Mint every admitted team a link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def post_einladungen_versand(

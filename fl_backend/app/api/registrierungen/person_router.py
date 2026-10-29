@@ -58,7 +58,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
@@ -164,7 +163,6 @@ async def get_offene_registrierungen(
     f"{by_id('registrierung_id')}/aufnehmen",
     response_model=FLRegistrierungAufnahmeResponse,
     summary="Admit a registration into the team's squad",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def aufnehmen(
@@ -339,7 +337,6 @@ async def aufnehmen(
     f"{by_id('registrierung_id')}/ablehnen",
     response_model=FLRegistrierungAblehnungResponse,
     summary="Decline a registration",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(gedrosselt)],
 )
 async def ablehnen(
