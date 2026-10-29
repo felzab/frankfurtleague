@@ -467,8 +467,8 @@ paths is that control at the origin.
 extending it** — the mechanism `add_header` follows, and what decides which of the two
 edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream
 (`nginx/shared/site.conf`). The liveness location restates the set in full
-so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
-place in `api_trusted_hosts`. It is the only location declaring one, and
+so that FastAPI is addressed as the upstream `proxy_pass` names, as the frontend's own calls address
+it. It is the only location declaring one, and
 `nginx/edge_test.sh` fails any location proxying to the frontend that hands Next either header as
 a visitor sent it.
 

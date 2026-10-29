@@ -562,8 +562,7 @@ def test_the_snippet_numbers_a_key_s_line_keeping_the_dotenv_shape_and_never_nam
 
 # A backend environment the settings accept, and the five secret files, two keys of the class and one
 # carrying a space. Fabricated, of `k` alone.
-KEY_OUTSIDE_THE_CLASS: Final = """printf 'API_TRUSTED_HOSTS=localhost\\nAPI_CORS_ALLOWED_ORIGINS=http://localhost:3000\\n' > fl_backend/.env
-printf 'DB_BASE_NAME=league\\n' >> fl_backend/.env
+KEY_OUTSIDE_THE_CLASS: Final = """printf 'DB_BASE_NAME=league\\n' > fl_backend/.env
 mkdir -p fl_backend/run-secrets
 printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_schluessel
@@ -639,8 +638,6 @@ SCHEMA_SHAPES: Final = [
     pytest.param("LOG_LEVEL_APP=WARNING", id="enum"),
     pytest.param("SECRETS_DIR=/run/secrets", id="path"),
     pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
-    pytest.param("API_TRUSTED_HOSTS=*.frankfurtleague.de,backend,*", id="host-list"),
-    pytest.param("API_CORS_ALLOWED_ORIGINS=https://frankfurtleague.de,http://localhost:3000", id="origin-list"),
     pytest.param("DB_BASE_NAME=fl_db-1", id="database-name"),
     pytest.param("BEWERBUNG_SWEEP=", id="empty"),
 ]

@@ -150,10 +150,8 @@ class TestFailureBodies:
         response = client().get("/api/v0/spiele")
 
         assert set(response.json()) == {"error_code", "trace_id"}
-        # The exact set, so a message copied into any header, under any name, moves this; `vary` is
-        # `CORSMiddleware`'s on every response granting no origin.
-        assert set(response.headers) == {"www-authenticate", "content-length", "content-type", "vary"}
-        assert response.headers["vary"] == "Origin"
+        # The exact set, so a message copied into any header, under any name, moves this.
+        assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
 
 
 def refused(body: object) -> dict[str, Any]:

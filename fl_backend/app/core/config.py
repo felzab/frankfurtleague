@@ -20,14 +20,6 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 # `/api/v2/` from code implementing v0.
 API_VERSION = 0
 
-# A bare `*` and a leading `*.` are the only wildcards `TrustedHostMiddleware` reads; every other
-# entry it compares literally, so a shape it cannot match takes the whole API to 400.
-HOSTNAME = re.compile(r"\*|(?:\*\.)?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*")
-
-# Scheme, host and optional port, and nothing after them: `CORSMiddleware` compares this against an
-# `Origin` header, which carries no path, so a trailing slash matches no browser's request.
-ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1,5})?")
-
 # The length `fl_frontend/src/core/config.ts` pins each internal key to (`length(64)`). An equality
 # rather than a floor: the pair only works when the two values are identical, so a key one side
 # alone would refuse is a deployment already broken.
@@ -73,11 +65,6 @@ class EnvironmentValidationError(Exception):
     """
 
 
-def _entries(value: str) -> list[str]:
-    """One splitter for every list variable, so the validators below and the accessors on the model agree on what an entry is."""
-    return [entry.strip() for entry in value.split(",")]
-
-
 # A model validator judges a PAIR, and pydantic gives its issue an empty `loc`, so the fields it
 # read are recovered from the error type it raised rather than from the issue's own location.
 POOL_BOUNDS_ERROR: Final = "db_pool_bounds"
@@ -104,17 +91,6 @@ def _failing_names(error: ValidationError) -> list[str]:
 
 class _EnvironmentFields(BaseModel):
     """What the environment configures, read by both the boot's environment half and `BackendConfig`."""
-
-    api_trusted_hosts: str = Field(description="The trusted hosts for this API")
-    api_cors_allowed_origins: str = Field(description="The allowed CORS origins for this API")
-
-    @property
-    def api_trusted_hosts_list(self) -> list[str]:
-        return _entries(self.api_trusted_hosts)
-
-    @property
-    def api_cors_allowed_origins_list(self) -> list[str]:
-        return _entries(self.api_cors_allowed_origins)
 
     # The characters MongoDB accepts in a database name: a value carrying a separator or a space
     # would otherwise open a namespace no other tool on this host can name.
@@ -154,22 +130,6 @@ class _EnvironmentFields(BaseModel):
         # the boot over casing.
         if isinstance(value, str):
             return value.lower() if value.lower() in ("console", "json") else value.upper()
-        return value
-
-    @field_validator("api_trusted_hosts")
-    def validate_api_trusted_hosts(cls, value: str) -> str:
-        # Per entry rather than over the whole string: a trailing comma yields an empty host, which
-        # matches no request and reads in the middleware as a list that simply trusts less.
-        for entry in _entries(value):
-            if HOSTNAME.fullmatch(entry) is None:
-                raise ValueError("every entry must be a hostname, a bare '*', or a '*.' wildcard")
-        return value
-
-    @field_validator("api_cors_allowed_origins")
-    def validate_api_cors_allowed_origins(cls, value: str) -> str:
-        for entry in _entries(value):
-            if ORIGIN.fullmatch(entry) is None:
-                raise ValueError("every entry must be an http:// or https:// origin carrying no path")
         return value
 
     @model_validator(mode="after")

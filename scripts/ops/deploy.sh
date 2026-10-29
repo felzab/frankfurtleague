@@ -1282,7 +1282,7 @@ two. Ask from somewhere else before acting."
     SITE_VERIFIED=0
     fail "the edge answered /api/v0/system/is_live with ${probe_code}, not 200, so what is running
 above is not what a visitor is being served. An uptime monitor watching it sees the same thing."
-    detail "Check nginx's liveness location, api_trusted_hosts, and whether anything in front is" \
+    detail "Check nginx's liveness location, and whether anything in front is" \
            "redirecting."
   fi
 

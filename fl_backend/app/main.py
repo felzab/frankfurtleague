@@ -3,8 +3,6 @@ from http import HTTPStatus
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
 from pydantic.json_schema import models_json_schema
@@ -207,17 +205,6 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.state.config = config
 
     register_exception_handlers(app)
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.api_cors_allowed_origins_list,
-        allow_credentials=True,
-        # Every method the routers serve: one omitted is a preflight rejection waiting to happen.
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["*"],
-    )
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
-
     mount_api(app)
 
     return app
