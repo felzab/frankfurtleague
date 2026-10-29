@@ -30,7 +30,7 @@ beforeEach(beginRenderPass);
 
 const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
   await import("./queries.ts");
-const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
+const { refused } = await import("@/test-support/refusals.ts");
 
 /**
  * Runs `read` against a client that throws, and leaves `calls` as it found it: the cases below
@@ -95,8 +95,8 @@ describe("the four base-tier public reads", () => {
   /* A season the visitor may not read is a state rather than a failure: the page renders „noch nicht
      offen“ or „abgelaufen“ off it, and a throw here would answer the error page instead. */
   it("reads a 404 on either window as no window rather than as a failure", async () => {
-    expect(await failing(refusedOn("GET /bewerbungen/fenster", "DB-COMMON-001"), () => getOffenesBewerbungFenster())).toBe(null);
-    expect(await failing(refusedOn("GET /bewerbungen/fenster/{saison_id}", "DB-COMMON-001"), () => getBewerbungFenster("2627"))).toBe(null);
+    expect(await failing(refused("DB-COMMON-001"), () => getOffenesBewerbungFenster())).toBe(null);
+    expect(await failing(refused("DB-COMMON-001"), () => getBewerbungFenster("2627"))).toBe(null);
   });
 });
 
