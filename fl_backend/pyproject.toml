@@ -113,9 +113,9 @@ select = [
     # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
     "RUF100",  # unused noqa directive
     "TID251",  # banned-api, the list below
-    # A root-logger call's record is no child of ours, so `app/core/logging.py ::
-    # ForwardedFailureFilter` codes it as a library's failure, hiding a missing code.
-    "LOG015",  # root-logger-call
+    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields
+    # (`app/core/logging.py`): G004 refuses a value formatted into the message.
+    "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
     # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
     "PLE2502",  # bidirectional-unicode
@@ -126,6 +126,9 @@ select = [
     "PLE2515",  # invalid-character-zero-width-space
 ]
 ignore = ["B008"]
+# The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
+# passes unread without these names.
+logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger"]
 
 [tool.ruff.lint.per-file-ignores]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
