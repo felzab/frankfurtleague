@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import { APINetworkError, ApiUnsentError, isContractBreak, loggedByBackend, requestOf, UnreadGrantError } from "@/core/errors";
+import { APINetworkError, ContractBreakError, loggedByBackend, requestOf, UnreadGrantError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { isRuleRefusal } from "./actionError";
@@ -13,7 +13,7 @@ import { isRuleRefusal } from "./actionError";
  */
 export function explainsItself(error: unknown): boolean {
   // An unread grant is the guard's own read failing, which the guard logged as it refused.
-  return error instanceof APINetworkError || error instanceof ApiUnsentError || error instanceof UnreadGrantError || isRuleRefusal(error);
+  return error instanceof APINetworkError || error instanceof UnreadGrantError || isRuleRefusal(error);
 }
 
 // A failure the backend answered is its own line's, so it is written once.
@@ -38,7 +38,7 @@ function logReadFailure(message: string, error: unknown): void {
 export function nullUnlessContractBreak(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
-  if (isContractBreak(error)) throw error;
+  if (error instanceof ContractBreakError) throw error;
   if (!explainsItself(error)) logReadFailure("read.page_failed", error);
 
   return null;
@@ -52,7 +52,7 @@ export function nullUnlessContractBreak(error: unknown): null {
 export function nullAfterLoggingUnexplained(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
-  if (isContractBreak(error)) logger.error("read.contract_break_absorbed", error);
+  if (error instanceof ContractBreakError) logger.error("read.contract_break_absorbed", error);
   else if (!explainsItself(error)) logReadFailure("read.readout_failed", error);
 
   return null;

@@ -71,19 +71,6 @@ export class PersonReadWithoutSubjectError extends Error {
   }
 }
 
-/**
- * A write the request's deadline refused before it was sent, too little being left to wait out its answer
- * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
- * MailUnsentError` says of a message.
- */
-export class ApiUnsentError extends Error {
-  override name = "ApiUnsentError";
-
-  constructor(method: string) {
-    super(`Too little of the request's deadline was left to wait out this ${method}, so it was never sent.`);
-  }
-}
-
 export class APIBadStatusError extends Error {
   traceId: string;
   statusCode: number;
@@ -158,59 +145,12 @@ export function isRecordMissing(error: unknown): boolean {
   return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
 }
 
-export class APIMalformedDataError extends Error {
-  traceId: string;
-  statusCode: number;
-  url: string;
-  endpoint: string;
-  method: string;
-  readOnly: boolean;
-
-  constructor({
-    message,
-    url,
-    statusCode,
-    endpoint,
-    method,
-    readOnly,
-    traceId,
-    zodIssues,
-  }: SentRequest & {
-    message: string;
-    url: string;
-    statusCode: number;
-    endpoint: string;
-    traceId: string;
-    zodIssues?: unknown;
-  }) {
-    const errorCause = zodIssues ? { zodIssues, traceId, url } : { traceId, url };
-    super(message, { cause: errorCause });
-
-    this.name = "APIMalformedDataError";
-    this.traceId = traceId;
-    this.statusCode = statusCode;
-    this.url = url;
-    this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
-  }
-}
-
 /**
  * The backend answering against what this frontend was built for, such as a registry running no label
  * on a page this frontend serves. Only a deploy repairs it, so no page renders it as a failed read.
  */
 export class ContractBreakError extends Error {
   override name = "ContractBreakError";
-}
-
-/**
- * Whether an error says the backend answered against what this frontend was built for, never that
- * a read failed. Told apart only outside a `"use cache"` scope, whose throws lose their class in every
- * build.
- */
-export function isContractBreak(error: unknown): boolean {
-  return error instanceof ContractBreakError || error instanceof APIMalformedDataError;
 }
 
 export class APINetworkError extends Error {
@@ -262,7 +202,6 @@ export function loggedByBackend(error: unknown): boolean {
 export function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
   if (error instanceof APIBadStatusError)
     return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
-  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
   if (error instanceof APINetworkError) return { trace_id: error.traceId };
   return {};
 }

@@ -9,7 +9,6 @@ const API_URL = "http://backend:8000";
 const CONFIG = {
   frontend_config: {
     API_URL: API_URL,
-    API_VERSION: 0,
     APP_ENV: "production",
     AUTH_URL: "https://liga.example.de",
   },

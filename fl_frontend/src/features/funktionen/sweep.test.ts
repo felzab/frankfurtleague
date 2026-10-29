@@ -1,7 +1,7 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
@@ -260,31 +260,6 @@ describe("a pass meeting a failure", () => {
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
       { event: "konto.referenzen_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
-    ]);
-  });
-
-  it("names a malformed answer's status and trace on its failure line", async () => {
-    accounts = ["a@schule.de"];
-    referenzen = () => {
-      throw new APIMalformedDataError({
-        message: "The backend's answer did not match its schema.",
-        url: "http://backend:8000/api/v0/identitaet/referenzen",
-        endpoint: "/identitaet/referenzen",
-        method: "POST",
-        readOnly: true,
-        statusCode: 200,
-        traceId: TRACE_ID,
-      });
-    };
-
-    await runKontoSweep();
-
-    expect(deleteCalls).toStrictEqual([]);
-    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      {
-        event: "konto.referenzen_failed",
-        fields: { name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
-      },
     ]);
   });
 
