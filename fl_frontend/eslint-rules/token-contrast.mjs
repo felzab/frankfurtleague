@@ -16,6 +16,8 @@ const PAIRS = [
   ...["fg", "fg-muted", "brand", "success", "info", "warn", "danger"].flatMap((ink) => GROUNDS.map((ground) => [ink, ground, TEXT, "text"])),
   ["on-brand", "brand-solid", TEXT, "text on the primary button"],
   ["on-brand", "brand-solid-hover", TEXT, "text on the primary button, hovered"],
+  ["on-brand", "danger-solid", TEXT, "text on the destructive button"],
+  ["on-brand", "danger-solid-hover", TEXT, "text on the destructive button, hovered"],
   ["brand-accent", "brand-solid", EDGE, "the mark on the band"],
   ["border-control", "bg", EDGE, "a control's edge"],
   ["border-control", "bg-surface", EDGE, "a control's edge"],
