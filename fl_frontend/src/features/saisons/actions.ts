@@ -6,8 +6,7 @@ import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { REGELN_ABSCHNITT } from "./constants";
@@ -73,10 +72,6 @@ export async function postSaisonAction(
       throw error;
     }
 
-    if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       created_id: postOperation.created_id,
@@ -108,10 +103,6 @@ export async function patchSaisonAction(
       throw error;
     }
 
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       saison: patchOperation,
@@ -125,14 +116,13 @@ export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    let operation;
     try {
-      operation = await patchSaison(validated.data);
+      await patchSaison(validated.data);
     } catch (error) {
       return refusedReplay(error, SAISON_REPLAY_REFUSALS);
     }
 
-    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten.");
+    return restored();
   });
 }
 
@@ -159,10 +149,6 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       const refusal = mapActivateRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!activateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Any count but 1 is worth naming: 0 is a no-op, and more than one means the database had drifted
@@ -258,10 +244,6 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       throw error;
     }
 
-    if (!swapOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const umgeschrieben =
       swapOperation.rewritten_spiele === 0
         ? "Angesetzte Spiele gab es für die beiden noch keine."
@@ -307,10 +289,6 @@ export async function generateSpielplanAction(
       throw error;
     }
 
-    if (!generateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
 
@@ -351,10 +329,6 @@ export async function undrawSpielplanAction(
       const refusal = mapUndrawRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!undrawOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // A season can carry the watermark with neither collection behind it, so a zero pair does not by

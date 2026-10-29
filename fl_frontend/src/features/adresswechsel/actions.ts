@@ -4,7 +4,6 @@ import { afterTheResponse } from "@/core/afterResponse";
 import { accountStandsAt } from "@/core/auth";
 import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
@@ -91,10 +90,6 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       throw error;
     }
 
-    if (!mint.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
     // The approvers are told through the grants' outbox the start queued, drained behind
     // the answer as an approval is: mailing them here too would tell each twice.
@@ -133,10 +128,6 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       throw error;
     }
 
-    if (!mint.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const versand = await mailAdresswechsel({ operation: "einladeAdresswechselAction", mint: mint, anlass: "erneut" });
 
     return {
@@ -157,17 +148,12 @@ export async function verwirfAdresswechselAction(rawPayload: FLAdresswechselVerw
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
-    let operation;
     try {
-      operation = await verwirfAdresswechsel(validated.data);
+      await verwirfAdresswechsel(validated.data);
     } catch (error) {
       const refusal = mapVerwaltungLinkRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // True of every step a change can be discarded in: before an approval no link existed, and once confirmed it is spent.
@@ -207,10 +193,6 @@ export async function genehmigeAdresswechselAction(
       const refusal = mapGenehmigungRefusal(error, verwehrt.data);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
-    }
-
-    if (!antwort.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     if (antwort.wirksam) {

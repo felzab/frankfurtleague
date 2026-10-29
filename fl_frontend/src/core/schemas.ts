@@ -2,117 +2,66 @@ import z from "zod";
 
 import { CustomObjectIdStringSchema } from "./objectId";
 
-/**
- * The envelope every FastAPI response carries, mirroring the backend's `BaseAPIResponse`.
- *
- * Not in `api.ts`: that module is `server-only`, and every feature `schemas.ts` value-imports this
- * envelope, which would taint them all.
- */
-export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]) });
-export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
+import type * as wire from "./generated/client/types";
 
-/** Every failure's body, mirroring the backend's `FLFailureBody`. */
-export const FLFailureBodySchema = z.object({ error_code: z.string(), trace_id: z.string() });
-
-/** One refusal a `REQ-VAL-001` names; `kind` is pydantic's error `type`. */
-export const FLRefusedFieldSchema = z.object({
-  in: z.enum(["body", "query", "path", "header", "cookie"]),
-  path: z.array(z.union([z.string(), z.number().int()])),
-  kind: z.string(),
-});
-export type FLRefusedField = z.infer<typeof FLRefusedFieldSchema>;
-
-export const FLRefusedPayloadBodySchema = FLFailureBodySchema.extend({ fields: z.array(FLRefusedFieldSchema) });
+// Each name below is the backend's own type, generated from `fl_backend/openapi.json`; a `*Schema` the hand-written
+// calls hand `fl_frontend/src/core/api.ts :: apiClient` types the answer and parses nothing. A type-only import, so a
+// client component may import a type from here without the generated modules' `server-only`.
 
 /**
- * Which mailbox `POST /identitaet/subjekt` is asked about, folded
- * (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). No length or alphabet is restated
- * here: `core` may not import `fl_frontend/src/shared/schemas.ts`
- * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`), and a second copy would drift unwatched.
+ * Redesign: goes with its last importer. The envelope every slice's hand-written answer extends; the backend's answers
+ * carry no field of it.
  */
-export const FLSubjektPayloadSchema = z.object({ email: z.string() });
-export type FLSubjektPayload = z.infer<typeof FLSubjektPayloadSchema>;
+export const BaseAPIResponseSchema = z.object({});
 
-/**
- * One contact seat the mailbox holds on a `saison_teams` row, per seat rather than per person: one
- * junction row seats one person twice where `trainer_ist_zugleich` says so.
- */
+export type FLRefusedField = wire.FLRefusedField;
+
+export type FLSubjektPayload = wire.FLSubjektPayload;
+export type FLSubjektSitz = wire.FLSubjektSitz;
+export type FLSubjektSpieler = wire.FLSubjektSpieler;
+export type FLSubjektSchiedsrichter = wire.FLSubjektSchiedsrichter;
+export type FLSubjektResponse = wire.FLSubjektResponse;
+
+export type FLAnmeldungResponse = wire.FLAnmeldungResponse;
+export const FLAnmeldungResponseSchema = z.custom<FLAnmeldungResponse>();
+
+export type FLGesperrtPayload = wire.FLGesperrtPayload;
+export const FLGesperrtResponseSchema = z.custom<wire.FLGesperrtResponse>();
+
+export type FLEinwilligungFassung = wire.FLEinwilligungFassung;
+export const FLEinwilligungFassungResponseSchema = z.custom<wire.FLEinwilligungFassungResponse>();
+export const FLEinwilligungSeitenResponseSchema = z.custom<wire.FLEinwilligungSeitenResponse>();
+
+export type FLErasureResponse = wire.FLErasureResponse;
+export const FLErasureResponseSchema = z.custom<FLErasureResponse>();
+
+export type FLSelbstErasureAnsichtResponse = wire.FLSelbstErasureAnsichtResponse;
+export const FLSelbstErasureAnsichtResponseSchema = z.custom<FLSelbstErasureAnsichtResponse>();
+
+// Redesign: the objects below go with their last importers, which compose them: `fl_frontend/src/features/funktionen/
+// schemas.ts` extends the erasure's rows and reads the grant's tier, `fl_frontend/src/core/funktionen.test.ts` reads a
+// seat's season states, and `fl_frontend/src/test-support/einwilligungDocument.ts` holds the registry's words. Each
+// `satisfies` the generated type, so a backend change that moves one fails the type check here.
+
 export const FLSubjektSitzSchema = z.object({
   saison_id: z.string(),
   team_id: CustomObjectIdStringSchema,
-  // The contact-seat sense of the word, never the captaincy's
-  // (`fl_backend/app/api/bewerbungen/schemas.py :: FLKontaktRolle`).
   rolle: z.enum(["trainer", "ansprechperson", "stellvertretung"]),
-  // The name the club was PLAYED under, never the one it carries now.
   team_name: z.string(),
   saison_status: z.enum(["past", "active", "future"]),
-});
-export type FLSubjektSitz = z.infer<typeof FLSubjektSitzSchema>;
+}) satisfies z.ZodType<FLSubjektSitz>;
 
-/** One pupil record the mailbox names, the id alone: the caller composed the address it asked about. */
-export const FLSubjektSpielerSchema = z.object({ spieler_id: CustomObjectIdStringSchema });
-export type FLSubjektSpieler = z.infer<typeof FLSubjektSpielerSchema>;
-
-/** One referee record the mailbox names, carrying the id alone for `FLSubjektSpielerSchema`'s reason. */
-export const FLSubjektSchiedsrichterSchema = z.object({ schiedsrichter_id: CustomObjectIdStringSchema });
-export type FLSubjektSchiedsrichter = z.infer<typeof FLSubjektSchiedsrichterSchema>;
-
-/**
- * Which confirmed, live league records one mailbox matches. A list under each rather than an
- * optional record: one person holds seats at two clubs, and nothing enforces one pupil record per
- * address (`docs/datenschutz.md :: "One address is one person"`).
- */
-export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
+export const FLSubjektResponseSchema = z.object({
   sitze: z.array(FLSubjektSitzSchema),
-  spieler: z.array(FLSubjektSpielerSchema),
-  schiedsrichter: z.array(FLSubjektSchiedsrichterSchema),
-  // Read beside the lists and never from their being empty: empty lists with this set are records
-  // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for.
+  spieler: z.array(z.object({ spieler_id: CustomObjectIdStringSchema })),
+  schiedsrichter: z.array(z.object({ schiedsrichter_id: CustomObjectIdStringSchema })),
   unbestaetigt: z.boolean(),
-  // Whether the address is on the ban list; it narrows none of the lists above.
   gesperrt: z.boolean(),
-  // The tier of the grant the address holds, null for none: the administrator verdict's one source,
-  // read per request and never stamped on a session.
   verwaltung: z.enum(["owner", "administration"]).nullable(),
-  // When that grant took effect, null exactly where `verwaltung` is: a session made before it is no
-  // administrator's. An instant carrying its offset, as every served one does.
   berechtigt_seit: z.string().nullable(),
-  // When the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: a session made
-  // before it administers and holds no owner's power.
   inhaber_seit: z.string().nullable(),
-});
-export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
+}) satisfies z.ZodType<FLSubjektResponse>;
 
-/**
- * What `POST /identitaet/anmeldung` answers the sign-in gate, asked with `FLSubjektPayloadSchema`:
- * flags and the grant's tier, and no record.
- */
-export const FLAnmeldungResponseSchema = BaseAPIResponseSchema.extend({
-  // The subject read's own flag, from the same judgement.
-  unbestaetigt: z.boolean(),
-  // Set wherever the account page serves the address anything, a record granting no panel included:
-  // a retired row, a past or withdrawn season's seat, a pending application's or registration's.
-  konto: z.boolean(),
-  // Narrowing neither flag above.
-  gesperrt: z.boolean(),
-  verwaltung: z.enum(["owner", "administration"]).nullable(),
-});
-export type FLAnmeldungResponse = z.infer<typeof FLAnmeldungResponseSchema>;
-
-/**
- * The address `POST /identitaet/gesperrt` is asked about, as the mailer was handed it. No length or
- * alphabet restated, for `FLSubjektPayloadSchema`'s reason.
- */
-export const FLGesperrtPayloadSchema = z.object({ email: z.string() });
-export type FLGesperrtPayload = z.infer<typeof FLGesperrtPayloadSchema>;
-
-/** Whether a standing ban holds that address, and nothing of any record. */
-export const FLGesperrtResponseSchema = BaseAPIResponseSchema.extend({ gesperrt: z.boolean() });
-
-/**
- * The words one registry label names. `seite` stays an open string: a page the backend adds needs no
- * change here, and each reader names the page it renders itself.
- */
 export const FLEinwilligungFassungSchema = z.object({
   text_version: z.string(),
   seite: z.string(),
@@ -120,82 +69,37 @@ export const FLEinwilligungFassungSchema = z.object({
   absaetze: z.array(z.string()),
   schalter: z.string(),
   bedienelemente: z.record(z.string(), z.string()),
-  // Null on every label whose keys were never kept, which no page places by key.
   absaetze_nach_schluessel: z.record(z.string(), z.string()).nullable(),
   platzhalter: z.array(z.string()),
-});
-export type FLEinwilligungFassung = z.infer<typeof FLEinwilligungFassungSchema>;
+}) satisfies z.ZodType<FLEinwilligungFassung>;
 
-export const FLEinwilligungFassungResponseSchema = BaseAPIResponseSchema.extend({ fassung: FLEinwilligungFassungSchema });
+export const FLSelbstErasureSpielerSchema = z.object({
+  vorname: z.string(),
+  nachname: z.string().nullable(),
+}) satisfies z.ZodType<wire.FLSelbstErasureSpieler>;
 
-export const FLEinwilligungSeitenResponseSchema = BaseAPIResponseSchema.extend({ laufende_fassungen: z.record(z.string(), z.string()) });
+export const FLSelbstErasureSchiedsrichterSchema = z.object({
+  name: z.string().nullable(),
+}) satisfies z.ZodType<wire.FLSelbstErasureSchiedsrichter>;
 
-/**
- * What an erasure removed of one person, as record counts by store and never an echo of the person: anything
- * of theirs answered back is a fresh copy of what was destroyed. `POST /identitaet/selbst/erasure` answers it.
- */
-export const FLErasureResponseSchema = BaseAPIResponseSchema.extend({
-  spieler: z.int(),
-  saison_spieler: z.int(),
-  schiedsrichter: z.int(),
-  // Fixtures moved to the erased referee's sentinel rather than deleted.
-  spiele: z.int(),
-  kontakt_sitze: z.int(),
-  registrierungen: z.int(),
-  adresswechsel: z.int(),
-  berechtigungen: z.int(),
-  berechtigungen_antraege: z.int(),
-  drosselung: z.int(),
-});
-export type FLErasureResponse = z.infer<typeof FLErasureResponseSchema>;
-
-/** A pupil record the erasure would reach, by the name it carries. */
-export const FLSelbstErasureSpielerSchema = z.object({ vorname: z.string(), nachname: z.string().nullable() });
-
-/** A referee record the erasure would reach, by the name it carries where it carries one. */
-export const FLSelbstErasureSchiedsrichterSchema = z.object({ name: z.string().nullable() });
-
-/** One contact seat on a season's team row, per seat, as `FLSubjektSitzSchema` lists them. */
 export const FLSelbstErasureSitzSchema = z.object({
   saison_id: z.string(),
   team_name: z.string(),
   rolle: FLSubjektSitzSchema.shape.rolle,
   vorname: z.string(),
   nachname: z.string(),
-});
+}) satisfies z.ZodType<wire.FLSelbstErasureSitz>;
 
-/** One contact seat on an application, whatever its status. */
 export const FLSelbstErasureBewerbungSchema = z.object({
   saison_id: z.string(),
   rolle: FLSubjektSitzSchema.shape.rolle,
   vorname: z.string(),
   nachname: z.string(),
-});
+}) satisfies z.ZodType<wire.FLSelbstErasureBewerbung>;
 
-/** One registration, whatever its status. */
 export const FLSelbstErasureRegistrierungSchema = z.object({
   saison_id: z.string(),
-  // Null where no season row names the team.
   team_name: z.string().nullable(),
   vorname: z.string(),
   nachname: z.string(),
-});
-
-/**
- * What `GET /identitaet/selbst/erasure/ansicht` answers: every record the erasure would reach before it
- * runs, by kind and by name, and never the address or a birthdate.
- */
-export const FLSelbstErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  spieler: z.array(FLSelbstErasureSpielerSchema),
-  schiedsrichter: z.array(FLSelbstErasureSchiedsrichterSchema),
-  sitze: z.array(FLSelbstErasureSitzSchema),
-  bewerbungen: z.array(FLSelbstErasureBewerbungSchema),
-  registrierungen: z.array(FLSelbstErasureRegistrierungSchema),
-  // Another referee's or pupil's pending change to this mailbox, which names no person to show.
-  adresswechsel: z.int(),
-  verwaltung: FLSubjektResponseSchema.shape.verwaltung,
-  // Whether the erasure would be refused as the league's last live owner's, as the store stood at the read:
-  // a flag about the press, and no record the erasure reaches.
-  letzter_inhaber: z.boolean(),
-});
-export type FLSelbstErasureAnsichtResponse = z.infer<typeof FLSelbstErasureAnsichtResponseSchema>;
+}) satisfies z.ZodType<wire.FLSelbstErasureRegistrierung>;

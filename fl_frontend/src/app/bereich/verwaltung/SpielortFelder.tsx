@@ -72,9 +72,7 @@ export function SpielortFelder({
             width="C5"
             kind="digits"
             isRequired={pflicht.plz}
-            // The write's postcode is five digits (`fl_frontend/src/shared/schemas.ts :: FLAddressSchema`), a rule
-            // the field holds itself: `spielortAnlegen` answers the write schema's refusals as the unexpected
-            // failure, their words being the old pages'.
+            // The write's postcode is five digits, a rule the field holds itself before the send as well.
             maxLength={5}
             minLength={5}
           />

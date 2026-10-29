@@ -14,10 +14,16 @@ vi.mock("@/shared/hooks/useTurnstile", () => ({
   useTurnstile: () => ({ widget: null, takeToken: () => Promise.resolve({ token: "token" }) }),
 }));
 vi.mock("@/core/authClient", () => ({ authClient: {} }));
+// A thrown send reads the page again through Next's router, which no test mounts.
+vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => undefined }) }));
 
 describe("the sign-in's send", () => {
   it("moves the focus to the address field on each refusal of a malformed address, the same words twice included", async () => {
-    vi.mocked(handleSignIn).mockResolvedValue({ success: false, error: "", fieldErrors: { email: "malformed" } });
+    // A fresh answer each press, as each action's answer arrives deserialised afresh.
+    vi.mocked(handleSignIn).mockImplementation(async () => ({
+      ok: false,
+      fieldErrors: { email: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse) },
+    }));
     render(
       <SignInFlow
         next="/"
@@ -42,7 +48,7 @@ describe("the sign-in's send", () => {
   });
 
   it("empties its status line while a send is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal = { success: false, error: COPY.anmeldung.abgelehnt.ohneEintrag } as const;
+    const refusal = { ok: false, reason: COPY.shared.pruefung.bestaetigen } as const;
     const second = Promise.withResolvers<typeof refusal>();
     vi.mocked(handleSignIn).mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
     render(
@@ -56,12 +62,12 @@ describe("the sign-in's send", () => {
     await userEvent.type(screen.getByRole("textbox", { name: COPY.anmeldung.adresse }), "lena@example.com");
 
     await userEvent.click(send);
-    await waitFor(() => expect(line.textContent).toBe(refusal.error));
+    await waitFor(() => expect(line.textContent).toBe(refusal.reason));
 
     // A polite live region speaks only where its words change.
     await userEvent.click(send);
     await waitFor(() => expect(line.textContent).toBe(""));
     await act(async () => second.resolve(refusal));
-    expect(line.textContent).toBe(refusal.error);
+    expect(line.textContent).toBe(refusal.reason);
   });
 });

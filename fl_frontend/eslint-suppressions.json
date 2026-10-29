@@ -89,8 +89,56 @@
       "count": 1
     }
   },
+  "src/app/api/bestaetigung/adresse/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bestaetigung/kontakt/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bestaetigung/schiedsrichter/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bestaetigung/spiel/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bestaetigung/spieler/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bewerbung/kuerzel/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/bewerbung/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/app/api/registrierung/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
   "src/app/api/signin/code/route.ts": {
+    "fl/server-action": {
+      "count": 1
+    },
     "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/api/signout/route.ts": {
+    "fl/server-action": {
       "count": 1
     }
   },
@@ -402,11 +450,6 @@
       "count": 1
     }
   },
-  "src/core/api.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/core/auth.ts": {
     "no-restricted-syntax": {
       "count": 13
@@ -453,6 +496,11 @@
   },
   "src/core/sessionLifetimes.ts": {
     "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/admin/actions.ts": {
+    "fl/server-action": {
       "count": 1
     }
   },
@@ -508,6 +556,11 @@
   "src/features/admin/constants.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 17
+    }
+  },
+  "src/features/adresswechsel/actions.ts": {
+    "fl/server-action": {
+      "count": 5
     }
   },
   "src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
@@ -654,6 +707,11 @@
       "count": 6
     }
   },
+  "src/features/berechtigungen/actions.ts": {
+    "fl/server-action": {
+      "count": 5
+    }
+  },
   "src/features/berechtigungen/components/collections/AdminBerechtigungAntraegeList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
@@ -764,6 +822,11 @@
     },
     "no-restricted-syntax": {
       "count": 3
+    }
+  },
+  "src/features/bewerbungen/actions.ts": {
+    "fl/server-action": {
+      "count": 5
     }
   },
   "src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx": {
@@ -1133,6 +1196,16 @@
       "count": 7
     }
   },
+  "src/features/einladungen/actions.ts": {
+    "fl/server-action": {
+      "count": 5
+    }
+  },
+  "src/features/funktionen/actions.ts": {
+    "fl/server-action": {
+      "count": 3
+    }
+  },
   "src/features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -1260,6 +1333,11 @@
       "count": 1
     }
   },
+  "src/features/kontakte/actions.ts": {
+    "fl/server-action": {
+      "count": 3
+    }
+  },
   "src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
@@ -1318,6 +1396,16 @@
     },
     "no-restricted-syntax": {
       "count": 2
+    }
+  },
+  "src/features/kontakte/personActions.ts": {
+    "fl/server-action": {
+      "count": 2
+    }
+  },
+  "src/features/konto/actions.ts": {
+    "fl/server-action": {
+      "count": 5
     }
   },
   "src/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx": {
@@ -1458,6 +1546,11 @@
       "count": 1
     }
   },
+  "src/features/konto/personActions.ts": {
+    "fl/server-action": {
+      "count": 4
+    }
+  },
   "src/features/meta/components/ui/LegalSection.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1545,6 +1638,11 @@
     },
     "react/forbid-component-props": {
       "count": 1
+    }
+  },
+  "src/features/passkeys/actions.ts": {
+    "fl/server-action": {
+      "count": 3
     }
   },
   "src/features/passkeys/components/ui/PasskeyKarteView.tsx": {
@@ -1671,6 +1769,16 @@
     },
     "react/jsx-no-literals": {
       "count": 26
+    }
+  },
+  "src/features/registrierungen/personActions.ts": {
+    "fl/server-action": {
+      "count": 3
+    }
+  },
+  "src/features/saisons/actions.ts": {
+    "fl/server-action": {
+      "count": 7
     }
   },
   "src/features/saisons/components/collections/AdminSaisonsTable.tsx": {
@@ -1948,6 +2056,11 @@
       "count": 1
     }
   },
+  "src/features/schiedsrichter/actions.ts": {
+    "fl/server-action": {
+      "count": 6
+    }
+  },
   "src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -2109,6 +2222,16 @@
       "count": 3
     }
   },
+  "src/features/schiedsrichter/personActions.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
+  "src/features/sperrliste/actions.ts": {
+    "fl/server-action": {
+      "count": 3
+    }
+  },
   "src/features/sperrliste/components/collections/AdminSperreAnsichtList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 3
@@ -2179,6 +2302,11 @@
     },
     "react/jsx-no-literals": {
       "count": 3
+    }
+  },
+  "src/features/spielberichte/actions.ts": {
+    "fl/server-action": {
+      "count": 1
     }
   },
   "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx": {
@@ -2341,12 +2469,22 @@
       "count": 1
     }
   },
+  "src/features/spielberichte/personActions.ts": {
+    "fl/server-action": {
+      "count": 1
+    }
+  },
   "src/features/spielberichte/utils.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     },
     "no-restricted-syntax": {
       "count": 1
+    }
+  },
+  "src/features/spielbestaetigungen/actions.ts": {
+    "fl/server-action": {
+      "count": 2
     }
   },
   "src/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx": {
@@ -2405,6 +2543,16 @@
   "src/features/spielbestaetigungen/constants.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
+    }
+  },
+  "src/features/spielbestaetigungen/personActions.ts": {
+    "fl/server-action": {
+      "count": 2
+    }
+  },
+  "src/features/spiele/actions.ts": {
+    "fl/server-action": {
+      "count": 3
     }
   },
   "src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.tsx": {
@@ -2825,6 +2973,11 @@
       "count": 1
     }
   },
+  "src/features/spieler/actions.ts": {
+    "fl/server-action": {
+      "count": 8
+    }
+  },
   "src/features/spieler/components/collections/AdminSpielerTable.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 12
@@ -3121,6 +3274,16 @@
       "count": 1
     }
   },
+  "src/features/spieler/personActions.ts": {
+    "fl/server-action": {
+      "count": 3
+    }
+  },
+  "src/features/spielorte/actions.ts": {
+    "fl/server-action": {
+      "count": 5
+    }
+  },
   "src/features/spielorte/components/collections/AdminSpielorteTable.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 11
@@ -3226,6 +3389,11 @@
       "count": 1
     }
   },
+  "src/features/spieltage/actions.ts": {
+    "fl/server-action": {
+      "count": 2
+    }
+  },
   "src/features/spieltage/components/collections/AdminSpieltageList.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 9
@@ -3314,6 +3482,11 @@
     },
     "react/jsx-no-literals": {
       "count": 1
+    }
+  },
+  "src/features/teams/actions.ts": {
+    "fl/server-action": {
+      "count": 8
     }
   },
   "src/features/teams/components/collections/AdminKontakteList.tsx": {

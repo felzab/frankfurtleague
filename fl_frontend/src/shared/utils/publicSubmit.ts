@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import "client-only";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";

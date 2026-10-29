@@ -14,8 +14,6 @@
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.json`.
   "ignoreFiles": [
-    // Session 2: the action builder.
-    "src/core/zodGerman.ts",
     // Session 3.
     "src/kit/BracketCard.tsx",
     "src/kit/Skeleton.tsx",
@@ -40,9 +38,7 @@
     // An inferred type stays beside its schema, and an alias is a component of its own. The type's
     // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
     // one is named here.
-    "src/**/schemas.ts": ["types", "duplicates"],
-    // `docs/decisions.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
-    "src/features/system/queries.ts": ["exports"]
+    "src/**/schemas.ts": ["types", "duplicates"]
   },
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.
