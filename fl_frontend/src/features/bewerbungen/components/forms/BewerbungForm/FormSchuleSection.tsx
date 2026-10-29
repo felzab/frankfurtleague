@@ -316,8 +316,6 @@ export function FormSchuleSection({
             </div>
 
             <div className={FIELD_PAIR_CLASSES}>
-              {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
-                  club, retired ones included, so a case variant must not look like a different value. */}
               {/* The verdict's id while the check has something to say, beside the explanation the
                   description slot names: two different sentences, and naming one alone drops the
                   other for a reader who cannot see either. */}
@@ -325,7 +323,7 @@ export function FormSchuleSection({
                 name="schule.shorthand"
                 aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
                 value={schule.shorthand}
-                onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
+                onChange={(next) => setSchuleFeld({ shorthand: next })}
                 onBlur={() => {
                   onFieldLeft(["schule.shorthand"]);
                   onKuerzelLeft(schule.shorthand);

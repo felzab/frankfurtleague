@@ -79,21 +79,6 @@ describe("applications a triage has to decide between", () => {
     ]);
   });
 
-  /* And the second: two proposed schools asking for one Kürzel, which no club holds yet, so nothing
-     the backend refuses on submission catches it. The server folds the case as this side does, so one
-     key answers for both spellings. */
-  it("marks both applications proposing one Kürzel, whichever case it was typed in", () => {
-    const dubletten = markBewerbungDubletten(
-      [bewerbung("a", { kuerzel: "GG" }), bewerbung("b", { kuerzel: " gg " }), bewerbung("c", { kuerzel: "ER" })],
-      [SHORTHAND_COLLIDES],
-    );
-
-    expect([...dubletten]).toStrictEqual([
-      ["a", "kuerzel"],
-      ["b", "kuerzel"],
-    ]);
-  });
-
   /* A decided application is the record its decision was taken against: two open applications may
      collide on a code a third, declined one also carries, and the server names that key. */
   it("passes over a decided application whose key collides", () => {

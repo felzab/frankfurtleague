@@ -63,11 +63,11 @@ export const BEWERBUNG_HERKUNFT_LABELS: Record<BewerbungHerkunft, string> = {
 export const BEWERBUNG_GRUND_MAX_LENGTH = 1000;
 
 /**
- * A club's Kürzel is exactly this many characters, mirrored from
- * `fl_backend/app/shared/schemas/bounds.py`. Every site that counts a code reads it from here, the
- * application form and the club editor alike, so no two can disagree about a complete code.
+ * A club's Kürzel is exactly this many letters, as the backend's pattern `^[A-Z]{3}$` publishes it. A client control
+ * cannot import the generated module that holds the pattern, so `constants.test.ts` holds the two equal; a control's
+ * `maxLength` and the check of a complete code read the length from here.
  */
-export const KUERZEL_LAENGE = 2;
+export const KUERZEL_LAENGE = 3;
 
 /**
  * The submission's own ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because

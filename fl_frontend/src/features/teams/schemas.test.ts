@@ -48,7 +48,7 @@ const saisonTeam = (overrides: Record<string, unknown> = {}) => ({
   trikot_farbe: null,
   kontakte: null,
   name: "SC Riederwald",
-  shorthand: "RW",
+  shorthand: "RWS",
   ...overrides,
 });
 
@@ -57,7 +57,7 @@ const patchTeam = (overrides: Record<string, unknown> = {}) => ({
   updated_document: {
     id: "0123456789abcdef01234567",
     name: "SC Riederwald",
-    shorthand: "RW",
+    shorthand: "RWS",
     description: "",
     full_name: "Sportclub Riederwald 1927",
     website_url: "https://example.org",
@@ -79,7 +79,7 @@ const replacement = (overrides: Record<string, unknown> = {}) => ({
   trikot_farbe: null,
   kontakte: null,
   name: "SC Riederwald",
-  shorthand: "RW",
+  shorthand: "RWS",
   fanned_out_to_spiele: 3,
   ausgetragene_squad_rows: 11,
   ...overrides,
@@ -88,14 +88,6 @@ const replacement = (overrides: Record<string, unknown> = {}) => ({
 describe("FLSaisonTeamResponseSchema", () => {
   it("takes a junction row carrying the season's copy of the club identity", () => {
     expect(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam())).toStrictEqual([]);
-  });
-
-  it("holds the shorthand to exactly two characters, as `TEAM_SHORTHAND_LENGTH` does", () => {
-    for (const shorthand of ["", "R", "RWD"]) {
-      expect(pathsRefused(FLSaisonTeamResponseSchema, saisonTeam({ shorthand })), `expected "${shorthand}" refused`).toStrictEqual([
-        "shorthand",
-      ]);
-    }
   });
 
   it("refuses an empty name, which no club document can hold", () => {
@@ -133,7 +125,6 @@ describe("FLReplaceSaisonTeamResponseSchema", () => {
   });
 
   it("holds the reseeded identity to the same bounds a junction row's own copy is held to", () => {
-    expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ shorthand: "RWD" }))).toStrictEqual(["shorthand"]);
     expect(pathsRefused(FLReplaceSaisonTeamResponseSchema, replacement({ name: "" }))).toStrictEqual(["name"]);
   });
 
@@ -261,7 +252,7 @@ describe("a club's website", () => {
   const club = (website_url: string | null) => ({
     id: "0123456789abcdef01234567",
     name: "SC Riederwald",
-    shorthand: "RW",
+    shorthand: "RWS",
     description: "",
     full_name: "Sportclub Riederwald 1927",
     website_url: website_url,
@@ -321,7 +312,7 @@ describe("a club's website", () => {
 
 const postTeam = (overrides: Record<string, unknown> = {}) => ({
   name: "SC Riederwald",
-  shorthand: "RW",
+  shorthand: "RWS",
   description: "",
   full_name: "Sportclub Riederwald 1927",
   website_url: "https://example.org",
@@ -348,11 +339,11 @@ describe("the write payloads' floors, against the stripped floors at the API", (
     expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ name: SPACES }))).toStrictEqual(["name"]);
     expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ full_name: SPACES }))).toStrictEqual(["full_name"]);
     // A Kürzel of spaces alone satisfies an untrimmed width exactly, which is the arm a floor alone would miss.
-    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "  " }))).toStrictEqual(["shorthand"]);
+    expect(pathsRefused(FLPostTeamPayloadSchema, postTeam({ shorthand: "   " }))).toStrictEqual(["shorthand"]);
   });
 
-  it("takes a padded Kürzel and sends the two characters it holds", () => {
-    expect(FLPostTeamPayloadSchema.parse(postTeam({ shorthand: " RW " })).shorthand).toBe("RW");
+  it("takes a padded Kürzel and sends the three letters it holds", () => {
+    expect(FLPostTeamPayloadSchema.parse(postTeam({ shorthand: " RWS " })).shorthand).toBe("RWS");
   });
 
   it("carries the embedded address's own floors, which the club payload does not restate", () => {

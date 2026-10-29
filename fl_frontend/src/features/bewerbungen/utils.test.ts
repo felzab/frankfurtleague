@@ -572,27 +572,27 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
      a value the check was never asked about. */
   it("says nothing about an incomplete code", () => {
     expect(kuerzelHinweis("", null, false)).toBe(null);
-    expect(kuerzelHinweis("G", null, true)).toBe(null);
+    expect(kuerzelHinweis("GO", null, true)).toBe(null);
   });
 
   /* Its own line, not the unjudged one: both mention checking, and a reader told „beim Abschicken“
      while a request is out learns nothing about the request that is out. */
   it("says that it is checking while the request is out", () => {
-    expect(kuerzelHinweis("GG", null, true)).toBe(KUERZEL_PRUEFUNG);
+    expect(kuerzelHinweis("GOE", null, true)).toBe(KUERZEL_PRUEFUNG);
     expect(KUERZEL_PRUEFUNG).not.toBe(KUERZEL_UNGEPRUEFT);
   });
 
   /* The arm a rate limit, a dropped connection and a fresh keystroke all land in. Silent, a school
      reads „noch frei“ from the last code it typed and finds out at the submit. */
   it("says the code is unjudged where no verdict covers the value in the box", () => {
-    expect(kuerzelHinweis("GG", null, false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GG", verdictOf("GY", false), false)).toBe(KUERZEL_UNGEPRUEFT);
-    expect(kuerzelHinweis("GG", verdictOf("GY", true), false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", null, false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", verdictOf("GOY", false), false)).toBe(KUERZEL_UNGEPRUEFT);
+    expect(kuerzelHinweis("GOE", verdictOf("GOY", true), false)).toBe(KUERZEL_UNGEPRUEFT);
   });
 
   it("confirms a free code, and leaves a taken one to the field error", () => {
-    expect(kuerzelHinweis("GG", verdictOf("GG", false), false) ?? "").toMatch(/noch frei/);
-    expect(kuerzelHinweis("GG", verdictOf("GG", true), false)).toBe(null);
+    expect(kuerzelHinweis("GOE", verdictOf("GOE", false), false) ?? "").toMatch(/noch frei/);
+    expect(kuerzelHinweis("GOE", verdictOf("GOE", true), false)).toBe(null);
   });
 });
 
