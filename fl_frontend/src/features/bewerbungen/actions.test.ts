@@ -19,7 +19,6 @@ import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRef
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -103,7 +102,6 @@ const {
 /* After the doubles, as the actions are: a static import would load the real mail module first. */
 const { rollenText } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -376,14 +374,14 @@ const erneutGeschrieben = (overrides: object = {}) => ({
   ...overrides,
 });
 
-/** What the correction's write answers where it lands: by default over an address the fold calls the same mailbox. */
-const korrigiert = (abgangEmail: string | null = null) => ({
+/** What the correction's write answers where it lands. */
+const korrigiert = () => ({
   acknowledged: 1,
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
   token: "token-korrektur",
   bestaetigungsfrist: "2026-09-18",
-  abgang_email: abgangEmail,
+  abgang_email: null,
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
@@ -1136,59 +1134,6 @@ describe("the corrected contact address", () => {
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
-  });
-
-  /* The old link may have reached its mailbox and opened until the write, so that mailbox is told it now opens nothing, on
-     the leaving notice's lane; the browser gets nothing naming it. */
-  it("tells the mailbox the write took the link from, nameless, and hands the browser none of its address", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
-    expect(notice?.tags, "the mailbox the link left was not told on its lane").toStrictEqual({ kontakt_abgang: "hinweis" });
-    expect(notice?.text ?? "").toMatch(new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
-    // An application's seat was never asked about a fixture, so its notice names the confirmation's link alone.
-    expect(notice?.text ?? "", "the application's seat is told of fixture links it never held").not.toMatch(/Spielterminen/);
-    expect(`${notice?.subject ?? ""} ${notice?.text ?? ""}`, "the notice names the person").not.toMatch(new RegExp(PERSON.vorname));
-    expect(mailed.map(({ to }) => to).sort(), "the correction mailed someone beyond the two mailboxes it moved the link between").toStrictEqual(
-      ["anna.alt@example.de", KORREKTUR.email].sort(),
-    );
-    expect(JSON.stringify(result)).not.toMatch(/anna\.alt@/);
-  });
-
-  /* The correction is stored before either message, so the request's deadline cutting the leaving notice alone leaves
-     that notice in doubt and the correction answered by its own link. */
-  it("answers a correction whose leaving notice the request's deadline cut by its own link's outcome", async ({ onTestFinished }) => {
-    // The request's clock, which its deadline was set on as the press began.
-    let clock = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => clock);
-    onTestFinished(() => void now.mockRestore());
-    answerMailWith(async ({ to }): Promise<MailOutcome> => {
-      if (to !== "anna.alt@example.de") return "accepted";
-      // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
-      clock = REQUEST_DEADLINE_MS - 1;
-      const bound = boundCall(REQUEST_DEADLINE_MS);
-      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
-      bound.clear();
-      return "lost";
-    });
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(result).toStrictEqual({ success: true, message: `Der neue Link ging an ${KORREKTUR.email}.`, versand: "gesendet" });
-  });
-
-  it("tells nobody where the corrected address is the same mailbox", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert(null)));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email]);
   });
 
   it("moves no tag", async () => {

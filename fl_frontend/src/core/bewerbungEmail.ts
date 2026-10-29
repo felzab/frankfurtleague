@@ -835,57 +835,6 @@ export function buildBewerbungEingangOffenEmail({
   return { subject: `Bewerbung eingegangen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
 }
 
-/** What the submitter is told the moment the last open seat confirms. */
-export interface BewerbungVollstaendigData {
-  saisonId: string;
-  origin: string;
-  rollenText: string;
-}
-
-/** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungVollstaendigEmail({ saisonId: saisonIdRoh, origin, rollenText }: BewerbungVollstaendigData): BewerbungEmail {
-  const site = mailOrigin(origin);
-  // Folded before anything prints it, as on the acceptance.
-  const saisonId = einzeilig(saisonIdRoh);
-
-  const nachricht: Nachricht = {
-    headingVor: "Vollständig: Bewerbung für die",
-    saisonId: saisonId,
-    origin: site,
-    empfaenger: "einreichende",
-    fakten: [
-      { label: "Status", value: "Vollständig, in Prüfung" },
-      { label: "Saison", value: saisonId, akzent: true },
-      { label: "Eingetragen als", value: rollenText },
-    ],
-    // Nothing is asked of this reader, so the decisions' pair rather than a control of its own: a
-    // press here would answer nothing the workflow is waiting for.
-    aktionen: aktionenPaar(site),
-    textAktionen: textAktionenPaar(site),
-    ignorierSatz: IGNORIER_SATZ,
-  };
-
-  const html = renderHtml(nachricht, [
-    paragraph(
-      `${strong("Alle Kontaktpersonen haben ihren Eintrag bestätigt.")} Deine Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} ist damit vollständig, und wir schauen sie uns an.`,
-    ),
-    paragraph(`Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben. ${strong("Du musst nichts weiter tun.")}`),
-    paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
-  ]);
-
-  const text = renderText(nachricht, [
-    "Alle Kontaktpersonen haben ihren Eintrag bestätigt.",
-    `Deine Bewerbung für die Saison ${saisonId} der ${BRAND_NAME} ist damit vollständig, und wir schauen sie uns an.`,
-    "",
-    "Wir melden uns bei allen drei Kontaktpersonen, sobald wir entschieden haben.",
-    "Du musst nichts weiter tun.",
-    "",
-    `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
-  ]);
-
-  return { subject: `Bewerbung vollständig: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };
-}
-
 /**
  * What the submitter is told as the application is deleted. The message goes out BEFORE the erasure
  * and is worded in the present for that reason, `ausstehend` naming seats the document still holds.

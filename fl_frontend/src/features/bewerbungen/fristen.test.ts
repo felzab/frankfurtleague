@@ -14,7 +14,6 @@ const {
   buildBewerbungEingangOffenEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
-  buildBewerbungVollstaendigEmail,
   buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
 const { readEinwilligungDocument } = await import("@/test-support/einwilligungDocument.ts");
@@ -57,7 +56,6 @@ const MESSAGES = [
       link: LINK,
     }),
   ],
-  ["the completeness notice", buildBewerbungVollstaendigEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson" })],
   [
     "the deletion notice",
     buildBewerbungGeloeschtEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson", ausstehend: AUSSTEHEND }),

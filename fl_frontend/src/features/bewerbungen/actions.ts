@@ -9,7 +9,6 @@ import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
@@ -475,20 +474,6 @@ export async function kontaktEmailKorrigierenAction(
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    // The mailbox the write took a live link from, told as a contacts save tells one it takes off a seat: read off the
-    // write's own answer, and never returned, so the browser holds no address the correction replaced.
-    const { abgang_email: abgangEmail } = korrekturOperation;
-    const abgang =
-      abgangEmail === null
-        ? Promise.resolve()
-        : mailKontaktAbgang({
-            operation: "kontaktEmailKorrigierenAction",
-            saisonId: bewerbung.saison_id,
-            // Every seat the person held moves with the address, and no other person shares a mailbox with them.
-            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
-            quelle: "bewerbung",
-          });
-
     const zustellung = await sendeBestaetigungErneut({
       operation: "kontaktEmailKorrigierenAction",
       bewerbungId: validated.data.id,
@@ -497,13 +482,12 @@ export async function kontaktEmailKorrigierenAction(
       // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
       person: { vorname: person.vorname, email: korrekturOperation.email },
       benanntesTeam: benanntesTeam,
-      // The seats the WRITE answered, as the leaving notice above names them, never a pairing read before it.
+      // The seats the WRITE answered, never a pairing read before it.
       sitze: korrekturOperation.rollen,
       token: korrekturOperation.token,
       frist: korrekturOperation.bestaetigungsfrist,
       ohneLink: KORREKTUR_OHNE_LINK,
     });
-    await abgang;
 
     return { success: true, ...zustellung };
   });

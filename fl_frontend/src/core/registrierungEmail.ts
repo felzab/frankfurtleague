@@ -239,50 +239,6 @@ export function buildRegistrierungErinnerungEmail(eingang: RegistrierungLinkEmai
   };
 }
 
-const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEmailData): readonly string[] => [
-  `Hallo ${vorname}, die Saison ${saisonId} der ${BRAND_NAME} ist vorbei.`,
-  `Über Deine Registrierung für ${teamName} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams erneut registrieren.",
-];
-
-/**
- * The one note after a confirmed but undecided registration is erased.
- *
- * **After the fact and never before it**: a pre-notice would ask a reader to act on a deadline
- * they have no control over.
- */
-export function buildRegistrierungSaisonendeEmail(eingang: RegistrierungNotizEmailData): RegistrierungEmail {
-  const data = notizDaten(eingang);
-  const site = mailOrigin(data.origin);
-  const [anrede, geloescht, naechste] = saisonendeSaetze(data);
-
-  return {
-    subject: `Deine Registrierung für ${data.teamName} wurde gelöscht`,
-    html: renderKarte({
-      titel: `${BRAND_NAME}: Registrierung gelöscht`,
-      ueberschrift: escapeHtml("Registrierung gelöscht"),
-      bloecke: [
-        paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist vorbei.`,
-        ),
-        paragraph(
-          `Über Deine Registrierung für ${strong(escapeHtml(data.teamName))} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-        ),
-        paragraph(escapeHtml(naechste ?? ""), "0", ASIDE_TEXT),
-      ],
-      // The league's own landing, because this message names no record to press on: a control
-      // pointing at a deleted row would answer its reader with a dead link.
-      aktionen: [{ href: site, label: "Zur Frankfurt League", ton: "outline" }],
-      fuss: ANTWORT_SATZ_HTML,
-      origin: site,
-    }),
-    text: [
-      stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung gelöscht`, "", anrede ?? "", "", geloescht ?? "", "", naechste ?? ""].join("\n")),
-      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
-    ].join("\n"),
-  };
-}
-
 /**
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.

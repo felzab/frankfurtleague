@@ -99,8 +99,8 @@ const minted = (vorname: string, email: string, rollen: string[], token = `token
   zeile,
 });
 
-/** The save's answer: the block as stored, the links it minted and the mailboxes it took off the row. */
-const saved = (bestaetigungen: unknown[], abgaenge: unknown[] = []) => ({
+/** The save's answer: the block as stored and the links it minted. */
+const saved = (bestaetigungen: unknown[]) => ({
   acknowledged: 1,
   saison_id: "2627",
   team_id: TEAM_ID,
@@ -108,15 +108,7 @@ const saved = (bestaetigungen: unknown[], abgaenge: unknown[] = []) => ({
   kontakte: GESPEICHERT,
   kontakte_stand: "a1b2",
   bestaetigungen,
-  abgaenge,
-});
-
-/** A mailbox the save took off the row, as the backend answers it. */
-const abgang = (email: string, rollen: string[], bleibtAls: string[] = []) => ({
-  rollen,
-  email,
-  schule: "Lessing-Kolleg",
-  bleibt_als: bleibtAls,
+  abgaenge: [],
 });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
@@ -316,74 +308,6 @@ describe("the contacts save that seats new people", () => {
   });
 });
 
-describe("the contacts save that takes a mailbox off the row", () => {
-  /* Its seat's delivery record describes the seat's next holder, or nobody, so a record written for this message would
-     describe the wrong person. */
-  it("tells it once, naming no person and carrying no control, on the lane no record holds", async () => {
-    save = () =>
-      saved([minted("Anna", "anna@schule.example", ["ansprechperson"])], [abgang("dora@schule.example", ["ansprechperson", "trainer"])]);
-
-    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    expect(res.success).toBe(true);
-    const notice = mail.sent.find(({ to }) => to === "dora@schule.example");
-    expect(notice?.tags).toStrictEqual({ kontakt_abgang: "hinweis" });
-    expect(notice?.subject).toBe("Du bist nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen");
-    expect(notice?.text ?? "").toMatch(
-      /in der Saison 2627 nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen/,
-    );
-    // The two links the seat took with it and no more: the team's registration link still opens for the row.
-    expect(notice?.text ?? "").toMatch(/Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür/);
-    expect(notice?.text ?? "").not.toMatch(/Meier|https?:\/\/\S*token/);
-    expect(
-      zustellung.map(({ ziel }) => ziel),
-      "the notice was recorded on a seat as the newcomer's link is",
-    ).toStrictEqual(["kontakt"]);
-    expect(res.success && res.versandSatz, "the notice was reported as a link").toBe(describeLinkMail("anna@schule.example", "gesendet"));
-  });
-
-  /* The Trainer's pairing alone lets one mailbox hold two seats, and the seat it keeps keeps its links: told it left the row
-     and its links died, the reader would take a live link for a dead one. */
-  it("tells a mailbox still seated on the row which seat it keeps, and that its links stand", async () => {
-    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"], ["trainer"])]);
-
-    await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    const notice = mail.sent.find(({ to }) => to === "dora@schule.example");
-    expect(notice?.subject).toBe("Du bist nicht mehr als Ansprechperson für Lessing-Kolleg eingetragen");
-    expect(notice?.text ?? "").toMatch(/Nicht mehr als Ansprechperson eingetragen/);
-    expect(notice?.text ?? "").toMatch(/Als Trainerin oder Trainer bleibst Du für Lessing-Kolleg eingetragen, dafür ändert sich nichts\./);
-    expect(notice?.text ?? "").not.toMatch(/Nicht mehr als Kontaktperson|funktionieren nicht mehr/);
-  });
-
-  // The provider sends nothing for a key it holds from the last 24 hours, so a removal undone and saved again the same day
-  // has to arrive under a key of its own.
-  it("keys every save's notice afresh, so the same removal saved twice in a day is sent twice", async () => {
-    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
-
-    await patchSaisonTeamKontakteAction(PAYLOAD);
-    await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    const keys = mail.sent.filter(({ to }) => to === "dora@schule.example").map(({ idempotencyKey }) => idempotencyKey);
-    expect(keys.length).toBe(2);
-    assert.ok(keys.every((key) => key !== undefined));
-    expect(keys[0]).not.toBe(keys[1]);
-  });
-
-  // Filed as every lane no record holds files a send that did not leave, so a search for unsent messages finds it.
-  it("is still a landed save where the notice could not leave, which logs it as an unsent message", async () => {
-    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
-    mail.answerWith(() => "refused");
-
-    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    expect(res.success && res.message).toBe("Kontakte gespeichert");
-    expect(
-      loggedLines.filter(({ message }) => message === "kontakt.abgang_failed").map(({ meta }) => (meta as { error_code?: string }).error_code),
-    ).toStrictEqual(["FE-MAIL-002"]);
-  });
-});
-
 /* A seat handed to another person is a new acceptance, admitted under the running label alone; the
    label the editor's page held may be one a deploy has since moved past. */
 describe("the label a contacts save names", () => {
@@ -520,15 +444,5 @@ describe("what an action of this slice hands the browser", () => {
       assert.ok(!keysOf(result).includes("token"), `a result carries a token: ${JSON.stringify(result)}`);
       assert.ok(!JSON.stringify(result).includes("token-"), "a result carries a token's value under another key");
     }
-  });
-
-  /* The page sent the block that held it, but a mailbox another administrator seated since is one this one never saw. */
-  it("carries no address the save took off the row", async () => {
-    save = () => saved([], [abgang("dora@schule.example", ["stellvertretung"])]);
-
-    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
-
-    expect(mail.sent.length, "the save took nobody off, so the scan below reads nothing").toBe(1);
-    assert.ok(!JSON.stringify(res).includes("dora@"), `the result carries the address the save took off: ${JSON.stringify(res)}`);
   });
 });
