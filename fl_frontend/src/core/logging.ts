@@ -29,9 +29,12 @@ function log(level: Level, message: string, { trace_id, error, ...fields }: LogM
   };
 
   // The runtime's own flag: a production build, the image's or the local stack's, writes JSON; `next dev` a
-  // plain line, with the stack on the lines after it.
-  if (process.env.NODE_ENV === "production") process.stdout.write(`${JSON.stringify(entry, scrubbed)}\n`);
-  else console.log(`${level} ${message} ${JSON.stringify(fields, scrubbed)}`, error instanceof Error ? scrubbed("", error.stack) : "");
+  // plain line, with the stack on the lines after it. Straight to the stream, never through `console`, which
+  // Next patches to read its request storage.
+  const stack = error instanceof Error ? `\n${String(scrubbed("", error.stack))}` : "";
+  const line =
+    process.env.NODE_ENV === "production" ? JSON.stringify(entry, scrubbed) : `${level} ${message} ${JSON.stringify(fields, scrubbed)}${stack}`;
+  process.stdout.write(`${line}\n`);
 }
 
 export const logger = {
