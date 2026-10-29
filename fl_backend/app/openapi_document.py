@@ -1,6 +1,6 @@
 """Write `fl_backend/openapi.json`, the published contract, from the application's routes.
 
-`uv run --project fl_backend --frozen python -m app.openapi_document` from the repository root; CI
+`uv run --directory fl_backend --frozen python -m app.openapi_document` from the repository root; CI
 runs it and then diffs the file, so a change the committed document does not hold fails there.
 """
 

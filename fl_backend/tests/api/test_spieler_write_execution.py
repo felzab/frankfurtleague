@@ -38,7 +38,7 @@ INCOMING_TEAM_OID = ObjectId("6890a1b2c3d4e5f607400003")
 # Injected rather than read from the clock, which `get_german_date_str` makes substitutable.
 TODAY = "2026-04-01"
 
-# Any well-formed date: no rule judges a pupil's age (`fl_backend/app/core/domain.py :: UNENFORCED`),
+# Any well-formed date: no rule judges a pupil's age (`docs/domain.md`'s what the model permits on purpose),
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 GEBURTSDATUM = "2008-05-17"
 

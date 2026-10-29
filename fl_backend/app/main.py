@@ -158,12 +158,16 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
+# The document's name, which a client generated from it carries in each file's header.
+DOCUMENT_TITLE = "Frankfurt League API"
+
+
 def publish_document(app: FastAPI) -> None:
     """FastAPI's documented override, the shared failure responses added to what it generates and the result stored once."""
 
     def openapi() -> dict[str, Any]:
         if not app.openapi_schema:
-            document = get_openapi(title=app.title, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
+            document = get_openapi(title=DOCUMENT_TITLE, version=app.version, openapi_version=app.openapi_version, routes=app.routes)
             app.openapi_schema = with_failure_responses(document)
 
         return app.openapi_schema

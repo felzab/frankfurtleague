@@ -882,7 +882,7 @@ class TestEligibility:
         assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, team1=None) is None
 
     def test_a_disqualified_team_stored_on_a_knockout_fixture_stays_editable_too(self, season):
-        """The tolerance carries no phase: `UNENFORCED`'s departed club keeps what it stands on wherever that sits in the bracket.
+        """The tolerance carries no phase: the departed club `docs/domain.md` permits keeps what it stands on wherever that sits in the bracket.
 
         Spiel 29 is a semi-final holding Adler by hand, and the resubmit moves neither the date nor
         the event.

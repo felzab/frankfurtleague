@@ -1335,7 +1335,7 @@ class WritesRecorded:
 
 class TestEachStepWritesWhatItDeclares:
     def test_the_collections_each_step_writes_are_the_ones_it_declares(self, mongo_replica_set_url: str):
-        """`reaches` is what the completeness case in `tests/core/test_domain.py` trusts; here it is held to the writes themselves.
+        """`reaches` is what each step declares; here it is held to the writes themselves.
 
         The seed and a grant of the person's own give every step something to write in each collection it declares.
         """

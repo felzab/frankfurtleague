@@ -5147,7 +5147,7 @@
         "type": "object"
       },
       "FLBracketFaultOccupant": {
-        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`fl_backend/app/core/domain.py :: UNENFORCED`).",
+        "description": "One fixture fielding a team that left the season.\n\nThe date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied\n(`docs/domain.md`'s what the model permits on purpose).",
         "properties": {
           "ausgeschieden_seit": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -19253,7 +19253,7 @@
     }
   },
   "info": {
-    "title": "FastAPI",
+    "title": "Frankfurt League API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -30851,7 +30851,7 @@
         ]
       },
       "patch": {
-        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not\n(`REQ-SQUAD-004`).",
+        "description": "Update a player's squad entry for that season.\n\nChanging `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted\n(`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not\n(`REQ-SQUAD-004`).",
         "operationId": "spieler_patch_saison_spieler",
         "parameters": [
           {

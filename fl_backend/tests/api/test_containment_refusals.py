@@ -313,7 +313,7 @@ class TestRetiringAVenueOrAReferee:
 
 
 class TestASquadEntry:
-    """A duplicate shirt number is permitted everywhere (`fl_backend/app/core/domain.py :: UNENFORCED`): several goalkeepers wear 1."""
+    """A duplicate shirt number is permitted everywhere (`docs/domain.md`'s what the model permits on purpose): several goalkeepers wear 1."""
 
     def test_a_team_in_the_season_passes(self):
         assert find_squad_refusal(team_in_saison=True) is None

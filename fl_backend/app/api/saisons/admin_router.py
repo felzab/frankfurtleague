@@ -1082,7 +1082,7 @@ async def undraw_spielplan(
 
         # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
         # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
-        # go first for that reason (`app/core/domain.py :: REFERENCES`).
+        # go first for that reason, each naming the fixture it is about.
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)

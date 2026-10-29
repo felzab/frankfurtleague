@@ -288,7 +288,7 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 
     A shared shirt number is refused on no write path and is declared permitted in
-    `fl_backend/app/core/domain.py :: UNENFORCED`.
+    `docs/domain.md`'s what the model permits on purpose.
     """
 
     if not team_in_saison:
@@ -397,7 +397,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
 def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
     """Each `nummer` two or more LIVE rows of one squad wear, an ausgetragen row wearing none.
 
-    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`docs/domain.md`'s what the model permits on purpose).
     """
 
     worn = Counter(row["nummer"] for row in rows if row.get("inactive_since") is None and row.get("nummer") is not None)

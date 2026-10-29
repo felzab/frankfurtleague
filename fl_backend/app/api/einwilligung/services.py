@@ -90,7 +90,7 @@ def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: 
 
 
 def served_fassung(text_version: str, fassung: Fassung) -> FLEinwilligungFassung:
-    """One label as the words read serves it, and as `fl_backend/einwilligung.json` records it."""
+    """One label as the words read serves it."""
 
     texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
 
